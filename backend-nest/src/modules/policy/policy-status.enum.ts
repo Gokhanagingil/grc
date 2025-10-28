@@ -1,4 +1,4 @@
-﻿export enum PolicyStatus {
+export enum PolicyStatus {
   DRAFT = 'draft',
   ACTIVE = 'active',
   RETIRED = 'retired',
