@@ -268,7 +268,7 @@ export const Governance: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {(policy.owner_first_name or policy.owner_last_name)
+                      {(policy.owner_first_name || policy.owner_last_name)
                         ? `${policy.owner_first_name ?? ''} ${policy.owner_last_name ?? ''}`.trim()
                         : '-'}
                     </TableCell>
