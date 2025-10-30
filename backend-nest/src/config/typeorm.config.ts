@@ -22,9 +22,7 @@ export const AppDataSource = new DataSource({
   synchronize: false,
   logging: false,
   entities: ['dist/**/*.entity.js'],
-  migrations: ['dist/migrations/*.js'],
+  migrations: ['dist/src/migrations/*.js'],
 });
-
-export default AppDataSource;
 
 
