@@ -8,5 +8,6 @@ import { PolicyController } from './policy.controller';
   imports: [TypeOrmModule.forFeature([Policy])],
   providers: [PolicyService],
   controllers: [PolicyController],
+  exports: [PolicyService],
 })
 export class PolicyModule {}

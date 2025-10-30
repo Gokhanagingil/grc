@@ -1,17 +1,35 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository, FindOptionsWhere } from 'typeorm';
 import { Policy } from './policy.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
-import { PolicyStatus } from './policy-status.enum';
+import { QueryPolicyDto } from './dto/query-policy.dto';
 
 @Injectable()
 export class PolicyService {
-  constructor(@InjectRepository(Policy) private readonly repo: Repository<Policy>) {}
+  constructor(
+    @InjectRepository(Policy) private readonly repo: Repository<Policy>,
+  ) {}
 
-  findAll() {
-    return this.repo.find({ order: { createdAt: 'DESC' } });
+  async findAll(q: QueryPolicyDto) {
+    const page = Math.max(parseInt(q.page ?? '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(q.limit ?? '20', 10), 1), 200);
+    const where: FindOptionsWhere<Policy> = {};
+
+    if (q.status) where.status = q.status;
+    if (q.search) {
+      where.name = ILike(`%${q.search}%`);
+    }
+
+    const [items, total] = await this.repo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { items, total, page, limit };
   }
 
   async findOne(id: string) {
@@ -21,7 +39,7 @@ export class PolicyService {
   }
 
   async create(dto: CreatePolicyDto) {
-    const row = this.repo.create({ name: dto.name, status: dto.status ?? PolicyStatus.DRAFT });
+    const row = this.repo.create(dto);
     return this.repo.save(row);
   }
 
@@ -32,8 +50,8 @@ export class PolicyService {
   }
 
   async remove(id: string) {
-    const row = await this.findOne(id);
-    await this.repo.remove(row);
-    return { deleted: true, id };
+    await this.findOne(id);
+    await this.repo.softDelete(id);
+    return { success: true };
   }
 }

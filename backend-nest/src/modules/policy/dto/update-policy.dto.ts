@@ -1,13 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { PolicyStatus } from '../policy-status.enum';
+import { PartialType } from '@nestjs/swagger';
+import { CreatePolicyDto } from './create-policy.dto';
 
-export class UpdatePolicyDto {
-  @ApiPropertyOptional({ example: 'InfoSec Policy v2' })
-  @IsOptional() @IsString() @MaxLength(200)
-  name?: string;
-
-  @ApiPropertyOptional({ enum: PolicyStatus })
-  @IsOptional() @IsEnum(PolicyStatus)
-  status?: PolicyStatus;
-}
+export class UpdatePolicyDto extends PartialType(CreatePolicyDto) {}

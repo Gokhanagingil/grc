@@ -13,3 +13,5 @@ if (-not (Test-Path "node_modules")) {
 # Start frontend server
 Write-Host "Starting frontend server on port 3000..." -ForegroundColor Cyan
 npm start
+
+

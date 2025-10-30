@@ -11,6 +11,7 @@ import { RiskManagement } from './pages/RiskManagement';
 import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { PolicyPing } from './pages/PolicyPing';
 
 const theme = createTheme({
   palette: {
@@ -48,6 +49,7 @@ function App() {
               <Route path="risk" element={<RiskManagement />} />
               <Route path="compliance" element={<Compliance />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="ping" element={<PolicyPing />} />
             </Route>
           </Routes>
         </Router>

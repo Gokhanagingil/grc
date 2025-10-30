@@ -1,0 +1,71 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { FindOptionsWhere, ILike, IsNull, Repository } from 'typeorm';
+import { RiskEntity } from './risk.entity';
+import { CreateRiskDto, UpdateRiskDto, QueryRiskDto } from './risk.dto';
+
+@Injectable()
+export class RiskService {
+  constructor(@InjectRepository(RiskEntity) private readonly repo: Repository<RiskEntity>) {}
+
+  async list(q: QueryRiskDto) {
+    const page = Math.max(parseInt(q.page ?? '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(q.limit ?? '20', 10), 1), 200);
+    const where: FindOptionsWhere<RiskEntity> = { deleted_at: IsNull() } as any;
+    if (q.search) (where as any).title = ILike(`%${q.search}%`);
+    if (q.severity) (where as any).severity = q.severity;
+    if (q.status) (where as any).status = q.status;
+    if (q.category) (where as any).category = q.category;
+    const sortField = (q.sort && ['created_at','title','status','severity','updated_at'].includes(q.sort)) ? q.sort : 'created_at';
+    const order: 'ASC'|'DESC' = (q.order === 'ASC' || q.order === 'DESC') ? q.order : 'DESC';
+    const [items, total] = await this.repo.findAndCount({ where, order: { [sortField]: order }, skip: (page-1)*limit, take: limit });
+    return { items, total, page, limit };
+  }
+
+  async get(id: string) {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Risk not found');
+    return row;
+  }
+
+  create(dto: CreateRiskDto) {
+    const row = this.repo.create({
+      title: dto.title,
+      description: dto.description,
+      category: dto.category,
+      severity: dto.severity ?? 'Medium',
+      likelihood: dto.likelihood ?? 'Medium',
+      impact: dto.impact ?? 'Medium',
+      risk_score: dto.riskScore ?? 0,
+      status: dto.status ?? 'open',
+      mitigation_plan: dto.mitigationPlan,
+      due_date: dto.dueDate,
+    });
+    return this.repo.save(row);
+  }
+
+  async update(id: string, dto: UpdateRiskDto) {
+    const row = await this.get(id);
+    Object.assign(row, {
+      title: dto.title ?? row.title,
+      description: dto.description ?? row.description,
+      category: dto.category ?? row.category,
+      severity: dto.severity ?? row.severity,
+      likelihood: dto.likelihood ?? row.likelihood,
+      impact: dto.impact ?? row.impact,
+      risk_score: dto.riskScore ?? row.risk_score,
+      status: dto.status ?? row.status,
+      mitigation_plan: dto.mitigationPlan ?? row.mitigation_plan,
+      due_date: dto.dueDate ?? row.due_date,
+    });
+    return this.repo.save(row);
+  }
+
+  async remove(id: string) {
+    await this.get(id);
+    await this.repo.softDelete(id);
+    return { success: true };
+  }
+}
+
+

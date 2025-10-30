@@ -13,7 +13,7 @@
     "@types/react": "^18.2.42",
     "@types/react-dom": "^18.2.17",
     "axios": "^1.6.2",
-    "date-fns": "^2.30.0",
+    "date-fns": "^3.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
@@ -22,12 +22,19 @@
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/user-event": "^14.5.2"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "start:clean": "powershell -NoProfile -Command \"if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }; npm i; npm start\""
   },
+  "proxy": "http://localhost:5002",
   "eslintConfig": {
     "extends": [
       "react-app",

@@ -34,11 +34,11 @@ import {
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { fetchRequirements } from '../services/grc';
 
 interface ComplianceRequirement {
-  id: number;
+  id: string;           // number -> string
   title: string;
   description: string;
   regulation: string;
@@ -57,6 +57,9 @@ export const Compliance: React.FC = () => {
   const [requirements, setRequirements] = useState<ComplianceRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(20);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<ComplianceRequirement | null>(null);
   const [formData, setFormData] = useState({
@@ -71,18 +74,24 @@ export const Compliance: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchRequirements();
-  }, []);
+    const load = async () => {
+      try {
+        const res = await fetchRequirements({ page: String(page), limit: String(limit) });
+        setRequirements(res.items as any);
+        setTotal(res.total);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch compliance requirements');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [page, limit]);
 
-  const fetchRequirements = async () => {
-    try {
-      const response = await api.get('/compliance/requirements');
-      setRequirements(response.data.requirements);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch compliance requirements');
-    } finally {
-      setLoading(false);
-    }
+  const reload = async () => {
+    const res = await fetchRequirements({ page: String(page), limit: String(limit) });
+    setRequirements(res.items as any);
+    setTotal(res.total);
   };
 
   const handleCreateRequirement = () => {
@@ -123,23 +132,23 @@ export const Compliance: React.FC = () => {
       };
 
       if (editingRequirement) {
-        await api.put(`/compliance/requirements/${editingRequirement.id}`, requirementData);
+        // TODO: wire update endpoint
       } else {
-        await api.post('/compliance/requirements', requirementData);
+        // TODO: wire create endpoint
       }
 
       setOpenDialog(false);
-      fetchRequirements();
+      reload();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save compliance requirement');
     }
   };
 
-  const handleDeleteRequirement = async (id: number) => {
+  const handleDeleteRequirement = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this compliance requirement?')) {
       try {
-        await api.delete(`/compliance/requirements/${id}`);
-        fetchRequirements();
+        // TODO: wire delete endpoint
+        reload();
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to delete compliance requirement');
       }
@@ -243,6 +252,13 @@ export const Compliance: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2">Total: {total}</Typography>
+            <Box display="flex" gap={1}>
+              <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+              <Button disabled={requirements.length < limit} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -307,7 +323,7 @@ export const Compliance: React.FC = () => {
                   label="Due Date"
                   value={formData.dueDate}
                   onChange={(date) => setFormData({ ...formData, dueDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -334,3 +350,5 @@ export const Compliance: React.FC = () => {
     </Box>
   );
 };
+
+

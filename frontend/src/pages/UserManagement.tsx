@@ -113,16 +113,18 @@ export const UserManagement: React.FC = () => {
   const handleSaveUser = async () => {
     try {
       const userData = { ...formData };
-      
+
+      let payload = userData;
       // Don't send empty password for updates
       if (editingUser && !userData.password) {
-        delete userData.password;
+        const { password, ...rest } = userData;
+        payload = rest as typeof userData;
       }
 
       if (editingUser) {
-        await api.put(`/users/${editingUser.id}`, userData);
+        await api.put(`/users/${editingUser.id}`, payload);
       } else {
-        await api.post('/users', userData);
+        await api.post('/users', payload);
       }
 
       setOpenDialog(false);
@@ -352,3 +354,5 @@ export const UserManagement: React.FC = () => {
     </Box>
   );
 };
+
+

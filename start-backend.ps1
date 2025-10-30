@@ -13,3 +13,5 @@ if (-not (Test-Path "node_modules")) {
 # Start backend server
 Write-Host "Starting backend server on port 5000..." -ForegroundColor Cyan
 node server.js
+
+

@@ -29,6 +29,7 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import HealthBanner from './HealthBanner';
 
 const drawerWidth = 240;
 
@@ -185,6 +186,7 @@ export const Layout: React.FC = () => {
         }}
       >
         <Toolbar />
+        <HealthBanner />
         <Outlet />
       </Box>
       <Menu
@@ -210,3 +212,5 @@ export const Layout: React.FC = () => {
     </Box>
   );
 };
+
+

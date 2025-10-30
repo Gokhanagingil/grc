@@ -1,20 +1,53 @@
-﻿import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+﻿import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { PolicyStatus } from './policy-status.enum';
 
 @Entity({ name: 'policies' })
+@Index(['code'], { unique: true })
 export class Policy {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 200 })
+  @Column({ length: 160 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 32, default: PolicyStatus.DRAFT })
+  @Column({ length: 64 })
+  code!: string;
+
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
+  @Column({ type: 'enum', enum: PolicyStatus, default: PolicyStatus.DRAFT })
   status!: PolicyStatus;
 
-  @CreateDateColumn({ type: 'datetime' })
+  @Column({ length: 80, nullable: true })
+  owner?: string;
+
+  @Column({ length: 32, nullable: true })
+  version?: string;
+
+  @Column({ type: 'date', nullable: true })
+  effectiveDate?: string;
+
+  @Column({ type: 'date', nullable: true })
+  reviewDate?: string;
+
+  @Column({ type: 'simple-array', nullable: true })
+  tags?: string[];
+
+  @CreateDateColumn()
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: 'datetime', nullable: true })
-  updatedAt!: Date | null;
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }

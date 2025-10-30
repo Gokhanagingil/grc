@@ -35,11 +35,11 @@ import {
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { fetchRisks } from '../services/grc';
 
 interface Risk {
-  id: number;
+  id: string;            // number -> string
   title: string;
   description: string;
   category: string;
@@ -61,6 +61,9 @@ export const RiskManagement: React.FC = () => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(20);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [formData, setFormData] = useState({
@@ -77,18 +80,24 @@ export const RiskManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchRisks();
-  }, []);
+    const load = async () => {
+      try {
+        const res = await fetchRisks({ page: String(page), limit: String(limit) });
+        setRisks(res.items as any);
+        setTotal(res.total);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch risks');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [page, limit]);
 
-  const fetchRisks = async () => {
-    try {
-      const response = await api.get('/risk/risks');
-      setRisks(response.data.risks);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch risks');
-    } finally {
-      setLoading(false);
-    }
+  const reload = async () => {
+    const res = await fetchRisks({ page: String(page), limit: String(limit) });
+    setRisks(res.items as any);
+    setTotal(res.total);
   };
 
   const handleCreateRisk = () => {
@@ -133,23 +142,23 @@ export const RiskManagement: React.FC = () => {
       };
 
       if (editingRisk) {
-        await api.put(`/risk/risks/${editingRisk.id}`, riskData);
+        // TODO: wire update endpoint when backend supports it fully
       } else {
-        await api.post('/risk/risks', riskData);
+        // TODO: wire create endpoint when backend supports it fully
       }
 
       setOpenDialog(false);
-      fetchRisks();
+      reload();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save risk');
     }
   };
 
-  const handleDeleteRisk = async (id: number) => {
+  const handleDeleteRisk = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this risk?')) {
       try {
-        await api.delete(`/risk/risks/${id}`);
-        fetchRisks();
+        // TODO: wire delete endpoint when backend supports it fully
+        reload();
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to delete risk');
       }
@@ -266,6 +275,13 @@ export const RiskManagement: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2">Total: {total}</Typography>
+            <Box display="flex" gap={1}>
+              <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+              <Button disabled={risks.length < limit} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -364,7 +380,7 @@ export const RiskManagement: React.FC = () => {
                   label="Due Date"
                   value={formData.dueDate}
                   onChange={(date) => setFormData({ ...formData, dueDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -390,3 +406,5 @@ export const RiskManagement: React.FC = () => {
     </Box>
   );
 };
+
+
