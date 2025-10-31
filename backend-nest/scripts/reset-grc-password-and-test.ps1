@@ -36,6 +36,7 @@ if (-not (Test-Path $PsqlPath)) {
 # 2) Locate .env
 try {
   $envFile = Resolve-EnvPath
+  Write-Host ("DEBUG: Resolved .env path: " + $envFile) -ForegroundColor DarkCyan
 } catch {
   Write-Host "WARN: .env not found next to backend. Will proceed without reading it." -ForegroundColor Yellow
   $envFile = $null
