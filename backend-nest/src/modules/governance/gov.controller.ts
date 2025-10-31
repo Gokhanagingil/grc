@@ -4,7 +4,7 @@ import { GovService } from './gov.service';
 import { CreateGovPolicyDto, UpdateGovPolicyDto, QueryGovDto } from './gov.dto';
 
 @ApiTags('governance')
-@Controller({ path: 'governance/policies', version: '1' })
+@Controller({ path: 'governance/policies', version: '2' })
 export class GovController {
   constructor(private readonly service: GovService) {}
 

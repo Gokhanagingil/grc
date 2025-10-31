@@ -4,7 +4,7 @@ import { ComplianceService } from './comp.service';
 import { CreateRequirementDto, UpdateRequirementDto, QueryRequirementDto } from './comp.dto';
 
 @ApiTags('compliance')
-@Controller({ path: 'compliance/requirements', version: '1' })
+@Controller({ path: 'compliance/requirements', version: '2' })
 export class ComplianceController {
   constructor(private readonly service: ComplianceService) {}
 
