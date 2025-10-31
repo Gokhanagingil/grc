@@ -22,9 +22,9 @@ param(
 )
 
 function Resolve-EnvPath {
-  $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-  $envPath = Join-Path (Join-Path $scriptDir "..") ".env"
-  return (Resolve-Path $envPath).Path
+  $scriptDir = Split-Path -Parent $PSCommandPath
+  $envPath = Join-Path (Split-Path -Parent $scriptDir) ".env"
+  return $envPath
 }
 
 # 1) Verify psql path
@@ -37,6 +37,9 @@ if (-not (Test-Path $PsqlPath)) {
 try {
   $envFile = Resolve-EnvPath
   Write-Host ("DEBUG: Resolved .env path: " + $envFile) -ForegroundColor DarkCyan
+  if (-not (Test-Path $envFile)) {
+    Write-Host "WARN: .env not found at resolved path." -ForegroundColor Yellow
+  }
 } catch {
   Write-Host "WARN: .env not found next to backend. Will proceed without reading it." -ForegroundColor Yellow
   $envFile = $null
@@ -84,7 +87,7 @@ $alterSql = $tpl.Replace("{DBUSER}", $DbUser).Replace("{DBNAME}", $DbName).Repla
 
 # 5) Apply changes
 Write-Host "Connecting to PostgreSQL (${PgSuperUser}@${DbHost}:${Port}) ..." -ForegroundColor Cyan
-& "$PsqlPath" -U $PgSuperUser -h $DbHost -p $Port -W -v ON_ERROR_STOP=1 -c $alterSql
+& "$PsqlPath" -U $PgSuperUser -h $DbHost -p $Port -w -v ON_ERROR_STOP=1 -c $alterSql
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: psql returned non-zero exit code. Check postgres password or connectivity." -ForegroundColor Red
   exit $LASTEXITCODE
@@ -92,7 +95,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 6) Verify psql connectivity with new creds
 $verifySql = "select current_user, current_database();"
-& "$PsqlPath" -U $DbUser -h $DbHost -p $Port -W -d $DbName -c $verifySql
+& "$PsqlPath" -U $DbUser -h $DbHost -p $Port -w -d $DbName -c $verifySql
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: Verification failed when connecting as $DbUser to $DbName." -ForegroundColor Red
   exit $LASTEXITCODE
