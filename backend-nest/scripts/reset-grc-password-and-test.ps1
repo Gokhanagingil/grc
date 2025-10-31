@@ -14,7 +14,7 @@ param(
   [string]$DbName = "grc",
   [string]$DbUser = "grc",
   [string]$NewPassword = "",
-  [string]$Host = "localhost",
+  [string]$DbHost = "localhost",
   [int]$Port = 5432,
   [string]$PgSuperUser = "postgres",
   [string]$PsqlPath = "C:\Program Files\PostgreSQL\17\bin\psql.exe",
@@ -69,7 +69,7 @@ if ([string]::IsNullOrWhiteSpace($NewPassword)) {
   }
 }
 
-Write-Host "INFO: Target DB: Name=$DbName, User=$DbUser, Host=$Host, Port=$Port" -ForegroundColor Cyan
+Write-Host "INFO: Target DB: Name=$DbName, User=$DbUser, Host=$DbHost, Port=$Port" -ForegroundColor Cyan
 
 # 4) Build SQL using dollar-quoting to avoid quoting issues
 $tpl = @'
@@ -82,8 +82,8 @@ GRANT ALL PRIVILEGES ON DATABASE {DBNAME} TO {DBUSER};
 $alterSql = $tpl.Replace("{DBUSER}", $DbUser).Replace("{DBNAME}", $DbName).Replace("{NEWPASS}", $NewPassword)
 
 # 5) Apply changes
-Write-Host "Connecting to PostgreSQL ($PgSuperUser@$Host:$Port) ..." -ForegroundColor Cyan
-& "$PsqlPath" -U $PgSuperUser -h $Host -p $Port -W -v ON_ERROR_STOP=1 -c $alterSql
+Write-Host "Connecting to PostgreSQL (${PgSuperUser}@${DbHost}:${Port}) ..." -ForegroundColor Cyan
+& "$PsqlPath" -U $PgSuperUser -h $DbHost -p $Port -W -v ON_ERROR_STOP=1 -c $alterSql
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: psql returned non-zero exit code. Check postgres password or connectivity." -ForegroundColor Red
   exit $LASTEXITCODE
@@ -91,7 +91,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 6) Verify psql connectivity with new creds
 $verifySql = "select current_user, current_database();"
-& "$PsqlPath" -U $DbUser -h $Host -p $Port -W -d $DbName -c $verifySql
+& "$PsqlPath" -U $DbUser -h $DbHost -p $Port -W -d $DbName -c $verifySql
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: Verification failed when connecting as $DbUser to $DbName." -ForegroundColor Red
   exit $LASTEXITCODE
