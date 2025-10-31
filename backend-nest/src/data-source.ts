@@ -8,7 +8,8 @@ import { RequirementEntity } from './modules/compliance/comp.entity';
 import { AuditEntity } from './modules/audit/audit.entity';
 import { IssueEntity } from './modules/issue/issue.entity';
 
-config();
+const envFile = process.env.ENV_FILE || '.env';
+config({ path: envFile });
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
