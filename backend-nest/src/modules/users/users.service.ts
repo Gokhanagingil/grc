@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { UserEntity } from '../../entities/auth/user.entity';
 
 @Injectable()
@@ -22,6 +22,33 @@ export class UsersService {
 
   async findById(id: string): Promise<UserEntity | null> {
     return this.usersRepo.findOne({ where: { id } });
+  }
+
+  async list(options: { page: number; limit: number }) {
+    const { page = 1, limit = 20 } = options;
+    const skip = (page - 1) * limit;
+    
+    const [items, total] = await this.usersRepo.findAndCount({
+      where: { /* is_active: true */ },
+      skip,
+      take: limit,
+      order: { created_at: 'DESC' },
+      select: ['id', 'email', 'display_name', 'is_active', 'is_email_verified', 'created_at'],
+    });
+    
+    return {
+      items: items.map(u => ({
+        id: u.id,
+        email: u.email,
+        displayName: u.display_name,
+        isActive: u.is_active,
+        isEmailVerified: u.is_email_verified,
+        createdAt: u.created_at,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 }
 

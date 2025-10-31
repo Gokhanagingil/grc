@@ -39,12 +39,17 @@ api.interceptors.response.use(
   }
 );
 
-// Versioned path helpers - baseURL already includes /api/v2, so paths should be relative
-export const v1 = (p: string) => `/v1${p.startsWith('/') ? p : `/${p}`}`;
+// Versioned path helpers - baseURL already includes /api/v2
+// Do NOT add extra /v1 or /v2 - just return the path as-is
+export const v1 = (p: string) => {
+  // Remove any leading /v1 or /v2 to prevent double versioning
+  const clean = p.replace(/^\/v\d+\//, '/');
+  return clean.startsWith('/') ? clean : `/${clean}`;
+};
 export const v2 = (p: string) => {
-  // Remove leading /v2 if present to prevent double versioning
-  const cleanPath = p.startsWith('/v2/') ? p.substring(3) : p;
-  return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  // Remove any leading /v1 or /v2 to prevent double versioning
+  const clean = p.replace(/^\/v\d+\//, '/');
+  return clean.startsWith('/') ? clean : `/${clean}`;
 };
 
 // Health

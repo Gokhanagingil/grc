@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as express from 'express';
 
 async function bootstrap() {
   try {
@@ -18,17 +19,48 @@ async function bootstrap() {
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
-    // Normalize prefix: remove leading/trailing slashes (just /api, versioning adds /v2)
-    const normPrefix = rawPrefix.replace(/^\/+/, '').replace(/\/+$/, '') || 'api';
+    // Normalize prefix: remove leading/trailing slashes
+    const normPrefix = `/${rawPrefix.replace(/^\/?/, '').replace(/\/$/, '')}`.replace(/\/+/g, '/');
+    const ver = (apiVersion ?? 'v2').replace(/^\/?/, '').replace(/\/$/, '');
+    const finalPrefix = `${normPrefix}/${ver}`; // e.g., /api/v2
     
-    // Set global prefix as /api (without version)
-    app.setGlobalPrefix(normPrefix, { exclude: [] });
+    // Set global prefix as /api/v2
+    app.setGlobalPrefix(finalPrefix, { exclude: [] });
     
-    // Enable URI versioning - this adds /v2 to all routes
-    const ver = apiVersion.replace(/^\/?v?/, '').replace(/\/+$/, '') || '2';
+    // Enable URI versioning (already in prefix, but keep for compatibility)
     app.enableVersioning({ 
       type: VersioningType.URI, 
       defaultVersion: ver
+    });
+    
+    // Rewrite middleware: fix double /api, double /v2, /v1 -> /v2
+    app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      let p = req.url;
+      
+      // Collapse multiple slashes
+      p = p.replace(/\/{2,}/g, '/');
+      
+      // Remove duplicate '/api' occurrences after the first '/api'
+      p = p.replace(/\/api\/(api\/)+/g, '/api/');
+      
+      // Normalize duplicate versions: /api/v2/v2/ -> /api/v2/
+      p = p.replace(new RegExp(`${finalPrefix}/v\\d+/`, 'g'), `${finalPrefix}/`);
+      
+      // Rewrite /api/v1/ to /api/v2/
+      p = p.replace(/^\/api\/v1\//, `${finalPrefix}/`);
+      
+      // Ensure path starts with finalPrefix if it's an API route
+      if (p.startsWith('/api/')) {
+        const versionMatch = p.match(/^\/api\/v(\d+)\//);
+        if (versionMatch && versionMatch[1] !== ver.replace('v', '')) {
+          p = p.replace(/^\/api\/v\d+\//, `${finalPrefix}/`);
+        } else if (!p.startsWith(finalPrefix)) {
+          p = p.replace(/^\/api\//, `${finalPrefix}/`);
+        }
+      }
+      
+      req.url = p;
+      next();
     });
 
     // CORS - Allow frontend origin
