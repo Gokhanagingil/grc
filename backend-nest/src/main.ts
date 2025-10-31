@@ -11,23 +11,23 @@ async function bootstrap() {
     });
 
     const cfg = app.get(ConfigService);
-    const port = cfg.get<number>('PORT') ?? 5002;
-    const prefix = cfg.get<string>('API_PREFIX') ?? '/api';
+    const port = cfg.get<number>('APP_PORT') ?? cfg.get<number>('PORT') ?? 5002;
+    const prefix = cfg.get<string>('API_PREFIX') ?? 'api/v2';
     const healthPath = cfg.get<string>('HEALTH_PATH') ?? '/health';
-    const corsOrigin = cfg.get<string>('CORS_ORIGIN');
+    const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
     app.setGlobalPrefix(prefix, { exclude: [] });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' as any });
 
     // CORS - Allow frontend origin
-    const allowedOrigins = corsOrigin 
-      ? corsOrigin.split(',').map(o => o.trim())
+    const allowedOrigins = corsOrigins 
+      ? corsOrigins.split(',').map((s: string) => s.trim()).filter(Boolean)
       : ['http://localhost:3000', 'http://127.0.0.1:3000'];
     app.enableCors({ 
       origin: allowedOrigins,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id'],
     });
 

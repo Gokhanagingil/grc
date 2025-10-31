@@ -16,19 +16,29 @@ import { validateEnv } from './config/env.validation';
       expandVariables: true,
       validate: validateEnv,     // ← fail-fast burada
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST!,
-      port: Number(process.env.DB_PORT!),
-      database: process.env.DB_NAME!,
-      username: process.env.DB_USER!,
-      password: process.env.DB_PASS!,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      schema: 'public',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      autoLoadEntities: true,
-      synchronize: false,
-      logging: false,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => {
+        const dbType = process.env.DB_TYPE || 'postgres';
+        const config: any = {
+          type: dbType,
+          host: process.env.DB_HOST || 'localhost',
+          port: Number(process.env.DB_PORT || 5432),
+          username: process.env.DB_USER || 'grc',
+          password: process.env.DB_PASS || '123456',
+          database: process.env.DB_NAME || 'grc',
+          schema: 'public',
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          autoLoadEntities: true,
+          synchronize: process.env.DB_SYNCHRONIZE === 'true',
+          migrationsRun: false,
+          migrations: [__dirname + '/migrations/*{.ts,.js}'],
+          logging: process.env.DB_LOGGING === 'true',
+        };
+        if (dbType === 'postgres') {
+          config.ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false;
+        }
+        return config;
+      },
     }),
     HealthModule,
     PolicyModule,
