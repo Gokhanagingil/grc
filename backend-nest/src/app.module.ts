@@ -2,30 +2,39 @@
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PolicyModule } from './modules/policy/policy.module';
-import { HealthController } from './common/health.controller';
+import { HealthModule } from './health/health.module';
 import { GovModule } from './modules/governance/gov.module';
 import { RiskModule } from './modules/risk/risk.module';
 import { ComplianceModule } from './modules/compliance/comp.module';
+import { AuthModule } from './auth/auth.module';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      expandVariables: true,
+      validate: validateEnv,     // ← fail-fast burada
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: Number(process.env.DB_PORT || 5432),
-      database: process.env.DB_NAME || 'gokhan',
-      username: process.env.DB_USER || 'grc',
-      password: process.env.DB_PASS || '123456',
+      host: process.env.DB_HOST!,
+      port: Number(process.env.DB_PORT!),
+      database: process.env.DB_NAME!,
+      username: process.env.DB_USER!,
+      password: process.env.DB_PASS!,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      schema: 'public',
       autoLoadEntities: true,
       synchronize: false,
       logging: false,
     }),
+    HealthModule,
     PolicyModule,
     GovModule,
     RiskModule,
     ComplianceModule,
+    AuthModule,
   ],
-  controllers: [HealthController],
 })
 export class AppModule {}

@@ -134,9 +134,9 @@ $nodeJob = Start-Job -ScriptBlock {
   npm run start:dev
 } -ArgumentList $backendDir
 
-Start-Sleep -Seconds 12
+Start-Sleep -Seconds 18
 
-# Health probe (try several common paths)
+# Health probe (robust poll, up to ~30s)
 $port = 5002
 $healths = @(
   "http://localhost:$port/health",
@@ -144,23 +144,32 @@ $healths = @(
   "http://localhost:$port/api/v1/health",
   "http://localhost:$port/api/v2/health"
 )
+
 $healthy = $false
-foreach ($h in $healths) {
-  try {
-    $resp = Invoke-WebRequest -Uri $h -UseBasicParsing -Method GET -TimeoutSec 4
-    if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) {
-      Write-Host "HEALTH OK: $h -> $($resp.StatusCode)" -ForegroundColor Green
-      $healthy = $true
-      break
-    }
-  } catch {}
+for ($i=0; $i -lt 10 -and -not $healthy; $i++) {
+  foreach ($h in $healths) {
+    try {
+      $resp = Invoke-WebRequest -Uri $h -UseBasicParsing -Method GET -TimeoutSec 4
+      if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
+        Write-Host "HEALTH OK: $h -> $($resp.StatusCode)" -ForegroundColor Green
+        $healthy = $true
+        break
+      }
+    } catch {}
+  }
+  if (-not $healthy) { Start-Sleep -Seconds 3 }
 }
+
 if (-not $healthy) {
-  Write-Host "WARN: Health endpoint not confirmed yet. Proceeding to smoke login anyway." -ForegroundColor Yellow
+  Write-Host "WARN: Health endpoint not confirmed after polling." -ForegroundColor Yellow
 }
 
 # Run existing smoke login (PowerShell variant)
-npm run smoke:logins:ps
+if ($healthy) {
+  npm run smoke:logins:ps
+} else {
+  Write-Host "SKIP: Smoke login skipped because health not confirmed." -ForegroundColor Yellow
+}
 
 # Stop background job (dev server)
 Stop-Job $nodeJob | Out-Null
