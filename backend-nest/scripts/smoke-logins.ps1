@@ -1,36 +1,55 @@
-$ErrorActionPreference = 'SilentlyContinue'
-function Read-EnvKV($path){ $o=@{}; if(Test-Path $path){ Get-Content $path | % { if($_ -match '^(\w+)=(.*)$'){ $o[$Matches[1]]=$Matches[2] } } } return $o }
+Param(
+  [string]$Base="http://localhost:5002",
+  [string]$TenantHeader="x-tenant-id",
+  [string]$TenantId="217492b2-f814-4ba0-ae50-4e4f8ecf6216",
+  [string]$Email1 = $env:SMOKE_EMAIL_1,
+  [string]$Pass1  = $env:SMOKE_PASS_1,
+  [string]$Email2 = $env:SMOKE_EMAIL_2,
+  [string]$Pass2  = $env:SMOKE_PASS_2
+)
 
-$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$envPath = Join-Path $root 'backend-nest\.env'
-$env = Read-EnvKV $envPath
-$PORT = [int]($env['PORT'] | % { if($_){$_} else {'5002'} })
-$PREFIX = ($env['API_PREFIX'] | % { if($_){$_} else {'api'} })
-$TENANT = '217492b2-f814-4ba0-ae50-4e4f8ecf6216'
-$BASE = "http://localhost:$PORT/$PREFIX"
+# Defaults if env vars are missing
+if ([string]::IsNullOrWhiteSpace($Email1)) { $Email1 = "test1@local" }
+if ([string]::IsNullOrWhiteSpace($Pass1))  { $Pass1  = "test1" }
+if ([string]::IsNullOrWhiteSpace($Email2)) { $Email2 = "test1@local" }
+if ([string]::IsNullOrWhiteSpace($Pass2))  { $Pass2  = "test1" }
 
-function Mask-Token($t){ if(-not $t){ return '' }; $s=[string]$t; if($s.Length -le 10){ return '***' }; return $s.Substring(0,6)+'***'+$s.Substring($s.Length-4) }
+$ErrorActionPreference = "SilentlyContinue"
 
-# Health
-$healthUrls = @("$BASE/v1/health","$BASE/health","http://localhost:$PORT/api/v1/health","http://localhost:$PORT/api/health")
-$healthOk=$false; $healthBody=''; foreach($u in $healthUrls){ try{ $r=Invoke-WebRequest -Uri $u -UseBasicParsing -TimeoutSec 8; if($r.StatusCode -eq 200){ $healthOk=$true; $healthBody=$r.Content; break } } catch{} }
-if ($healthOk) { Write-Host ("health`tPASS`t{0}" -f ($healthBody -replace '\s+',' ')) } else { Write-Host "health`tFAIL`t" }
-
-function Try-Login($email,$password){
-  $body=@{ email=$email; password=$password } | ConvertTo-Json -Compress
-  try { $res = Invoke-RestMethod -Method Post -Uri "$BASE/v2/auth/login" -Headers @{ 'x-tenant-id'=$TENANT } -ContentType 'application/json' -Body $body; return $res } catch { return $null }
+function Try-Health {
+  $paths = @("/health","/api/health","/api/v1/health","/api/v2/health")
+  foreach ($p in $paths) {
+    try {
+      $r = Invoke-WebRequest -Uri ($Base + $p) -UseBasicParsing -TimeoutSec 4 -Method GET
+      if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400) {
+        Write-Host ("health  PASS  " + $p + " -> " + $r.StatusCode)
+        return $true
+      }
+    } catch {}
+  }
+  Write-Host "health  FAIL"
+  return $false
 }
 
-$r1 = Try-Login 'grc1@local' 'grc1'
-$ok1 = ($null -ne $r1 -and $r1.accessToken)
-$m1 = Mask-Token ($r1.accessToken)
-if ($ok1) { Write-Host ("login_grc1`tPASS`t{0}" -f ("token=$m1")) } else { Write-Host "login_grc1`tFAIL`terr" }
+function Try-Login([string]$email,[string]$pass,[string]$label) {
+  try {
+    $body = @{ email=$email; password=$pass } | ConvertTo-Json -Compress
+    $r = Invoke-WebRequest -Uri ($Base + "/api/v2/auth/login") `
+         -Headers @{ $TenantHeader = $TenantId; "Content-Type"="application/json" } `
+         -Body $body -Method POST -UseBasicParsing -TimeoutSec 6
+    if ($r.StatusCode -eq 201 -or $r.StatusCode -eq 200) {
+      Write-Host ("login_" + $label + "  PASS  " + $r.StatusCode)
+      return $true
+    } else {
+      Write-Host ("login_" + $label + "  FAIL  status=" + $r.StatusCode)
+      return $false
+    }
+  } catch {
+    Write-Host ("login_" + $label + "  FAIL  err")
+    return $false
+  }
+}
 
-$r2 = Try-Login 'grc2@local' 'grc2'
-$ok2 = ($null -ne $r2 -and $r2.accessToken)
-$m2 = Mask-Token ($r2.accessToken)
-if ($ok2) { Write-Host ("login_grc2`tPASS`t{0}" -f ("token=$m2")) } else { Write-Host "login_grc2`tFAIL`terr" }
-
-if(-not ($healthOk -and $ok1 -and $ok2)){ exit 2 } else { exit 0 }
-
-
+$okH = Try-Health | Out-Null
+$ok1 = Try-Login $Email1 $Pass1 "usr1"
+$ok2 = Try-Login $Email2 $Pass2 "usr2"

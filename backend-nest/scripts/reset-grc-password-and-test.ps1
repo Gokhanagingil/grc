@@ -130,7 +130,7 @@ $nodeJob = Start-Job -ScriptBlock {
   npm run start:dev
 } -ArgumentList $backendDir
 
-Start-Sleep -Seconds 6
+Start-Sleep -Seconds 12
 
 # Health probe (try several common paths)
 $port = 5002
@@ -159,8 +159,8 @@ if (-not $healthy) {
 npm run smoke:logins:ps
 
 # Stop background job (dev server)
-Stop-Job $nodeJob -Force | Out-Null
-Remove-Job $nodeJob -Force | Out-Null
+Stop-Job $nodeJob | Out-Null
+Remove-Job $nodeJob | Out-Null
 
 Pop-Location
 
