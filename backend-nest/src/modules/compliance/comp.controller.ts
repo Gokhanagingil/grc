@@ -4,11 +4,11 @@ import { ComplianceService } from './comp.service';
 import { CreateRequirementDto, UpdateRequirementDto, QueryRequirementDto } from './comp.dto';
 
 @ApiTags('compliance')
-@Controller({ path: 'compliance/requirements', version: '2' })
+@Controller({ path: 'compliance', version: '2' })
 export class ComplianceController {
   constructor(private readonly service: ComplianceService) {}
 
-  @Get()
+  @Get('requirements')
   @ApiOkResponse({ description: 'List of requirements with paging' })
   list(@Query() q: QueryRequirementDto) { return this.service.list(q); }
 

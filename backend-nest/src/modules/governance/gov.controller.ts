@@ -4,11 +4,11 @@ import { GovService } from './gov.service';
 import { CreateGovPolicyDto, UpdateGovPolicyDto, QueryGovDto } from './gov.dto';
 
 @ApiTags('governance')
-@Controller({ path: 'governance/policies', version: '2' })
+@Controller({ path: 'governance', version: '2' })
 export class GovController {
   constructor(private readonly service: GovService) {}
 
-  @Get()
+  @Get('policies')
   @ApiOkResponse({ description: 'List of governance policies with paging' })
   list(@Query() q: QueryGovDto) { return this.service.list(q); }
 

@@ -3,7 +3,6 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as express from 'express';
 
 async function bootstrap() {
   try {
@@ -13,54 +12,21 @@ async function bootstrap() {
 
     const cfg = app.get(ConfigService);
     const port = cfg.get<number>('APP_PORT') ?? cfg.get<number>('PORT') ?? 5002;
-    const rawPrefix = cfg.get<string>('API_PREFIX') ?? '/api';
-    const apiVersion = cfg.get<string>('API_VERSION') ?? 'v2';
-    const healthPath = cfg.get<string>('HEALTH_PATH') ?? '/health';
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
-    // Normalize prefix: remove leading/trailing slashes (just /api)
-    const normPrefix = rawPrefix.replace(/^\/+/, '').replace(/\/+$/, '') || 'api';
-    const ver = (apiVersion ?? 'v2').replace(/^\/?v?/, '').replace(/\/+$/, '') || '2';
-    
-    // Set global prefix as /api (versioning will add /v2)
-    app.setGlobalPrefix(normPrefix, { exclude: [] });
+    // Set global prefix as 'api' (no leading slash) - versioning will add /v2
+    app.setGlobalPrefix('api');
     
     // Enable URI versioning - this adds /v2 to all routes
     app.enableVersioning({ 
       type: VersioningType.URI, 
-      defaultVersion: ver
+      defaultVersion: '2'
     });
     
-    const finalPrefix = `/${normPrefix}/${ver}`; // e.g., /api/v2 (for logging/rewrite)
-    
-    // Rewrite middleware: fix double /api, double /v2, /v1 -> /v2
-    app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
-      let p = req.url;
-      
-      // Collapse multiple slashes
-      p = p.replace(/\/{2,}/g, '/');
-      
-      // Remove duplicate '/api' occurrences after the first '/api'
-      p = p.replace(/\/api\/(api\/)+/g, '/api/');
-      
-      // Normalize duplicate versions: /api/v2/v2/ -> /api/v2/
-      p = p.replace(new RegExp(`/${normPrefix}/${ver}/v\\d+/`, 'g'), `/${normPrefix}/${ver}/`);
-      
-      // Rewrite /api/v1/ to /api/v2/
-      p = p.replace(`/${normPrefix}/v1/`, `/${normPrefix}/${ver}/`);
-      
-      // Ensure path starts with /api/v2 if it's an API route
-      if (p.startsWith(`/${normPrefix}/`)) {
-        const versionMatch = p.match(new RegExp(`^/${normPrefix}/v(\\d+)/`));
-        if (versionMatch && versionMatch[1] !== ver) {
-          p = p.replace(new RegExp(`^/${normPrefix}/v\\d+/`), `/${normPrefix}/${ver}/`);
-        } else if (!p.match(new RegExp(`^/${normPrefix}/${ver}/`)) && p.startsWith(`/${normPrefix}/`)) {
-          p = p.replace(`/${normPrefix}/`, `/${normPrefix}/${ver}/`);
-        }
-      }
-      
-      req.url = p;
+    // Simple request logging for diagnostics
+    app.use((req, _res, next) => {
+      console.log('[REQ]', req.method, req.url);
       next();
     });
 
@@ -77,7 +43,7 @@ async function bootstrap() {
     });
     
     console.log(`🌐 CORS enabled for origins: ${allowedOrigins.join(', ')}`);
-    console.log(`📡 Global prefix: /${normPrefix}, Version: ${ver} → Final: /${normPrefix}/${ver}`);
+    console.log(`📡 Global prefix: api, Version: 2 → Final: /api/v2`);
 
     // Global validation
     app.useGlobalPipes(
@@ -99,8 +65,9 @@ async function bootstrap() {
 
     await app.listen(port, '0.0.0.0');
     const url = await app.getUrl();
-    console.log(`✅ Server: ${url}/${normPrefix}/${ver}`);
-    console.log(`✅ Health: ${url}/${normPrefix}/${ver}/health`);
+    console.log(`✅ Server listening on port ${port}`);
+    console.log(`✅ Base URL: ${url}/api/v2`);
+    console.log(`✅ Health: ${url}/api/v2/health`);
     if (swaggerEnabled) {
       console.log(`✅ Swagger: ${url}/api-docs`);
     }

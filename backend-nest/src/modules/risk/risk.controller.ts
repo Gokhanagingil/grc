@@ -4,11 +4,11 @@ import { RiskService } from './risk.service';
 import { CreateRiskDto, UpdateRiskDto, QueryRiskDto } from './risk.dto';
 
 @ApiTags('risk')
-@Controller({ path: 'risk/risks', version: '2' })
+@Controller({ path: 'risk', version: '2' })
 export class RiskController {
   constructor(private readonly service: RiskService) {}
 
-  @Get()
+  @Get('risks')
   @ApiOkResponse({ description: 'List of risks with paging' })
   list(@Query() q: QueryRiskDto) { return this.service.list(q); }
 

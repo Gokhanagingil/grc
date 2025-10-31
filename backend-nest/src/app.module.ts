@@ -10,9 +10,11 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { IssueModule } from './modules/issue/issue.module';
+import { PingController } from './ping.controller';
 import { validateEnv } from './config/env.validation';
 
 @Module({
+  controllers: [PingController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
