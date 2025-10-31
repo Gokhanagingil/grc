@@ -25,6 +25,7 @@ import { validateEnv } from './config/env.validation';
       password: process.env.DB_PASS!,
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       schema: 'public',
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
       autoLoadEntities: true,
       synchronize: false,
       logging: false,
