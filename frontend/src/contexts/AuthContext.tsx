@@ -69,11 +69,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      // Backend expects: POST /api/v2/auth/login with x-tenant-id header
-      const tenantId = process.env.REACT_APP_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216';
+      // Backend expects: POST /api/v2/auth/login (v2 helper already handles version)
       const response = await api.post(v2('/auth/login'), 
-        { email: username, password }, // username is used as email
-        { headers: { 'x-tenant-id': tenantId } }
+        { email: username, password } // username is used as email
       );
       const { accessToken, user: userData } = response.data;
       

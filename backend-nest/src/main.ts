@@ -17,7 +17,9 @@ async function bootstrap() {
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
-    app.setGlobalPrefix(prefix, { exclude: [] });
+    // API_PREFIX zaten /api/v2 içeriyorsa versioning ekleme (double v2 önlenir)
+    const cleanPrefix = prefix.replace(/\/+$/, ''); // trailing slash kaldır
+    app.setGlobalPrefix(cleanPrefix === 'api/v2' ? 'api' : cleanPrefix, { exclude: [] });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '2' });
 
     // CORS - Allow frontend origin
@@ -27,6 +29,7 @@ async function bootstrap() {
     app.enableCors({ 
       origin: allowedOrigins,
       credentials: true,
+      exposedHeaders: ['Authorization'],
       methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id'],
     });

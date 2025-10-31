@@ -1,8 +1,8 @@
 import axios from 'axios';
+import { apiClient } from './api-client';
 
-import { API_BASE } from '../config';
-
-const BASE_URL = API_BASE.replace(/\/+$/, '');
+// API_BASE already includes /api/v2, use as-is
+const BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5002/api/v2').replace(/\/+$/, '');
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -39,9 +39,13 @@ api.interceptors.response.use(
   }
 );
 
-// Versioned path helpers
+// Versioned path helpers - baseURL already includes /api/v2, so paths should be relative
 export const v1 = (p: string) => `/v1${p.startsWith('/') ? p : `/${p}`}`;
-export const v2 = (p: string) => `/v2${p.startsWith('/') ? p : `/${p}`}`;
+export const v2 = (p: string) => {
+  // Remove leading /v2 if present to prevent double versioning
+  const cleanPath = p.startsWith('/v2/') ? p.substring(3) : p;
+  return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+};
 
 // Health
 export type HealthDto = {

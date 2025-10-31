@@ -54,7 +54,8 @@ export class EnvVars {
   JWT_SECRET!: string;
 
   @IsString()
-  JWT_EXPIRES!: string; // "3600s" gibi
+  @IsOptional()
+  JWT_EXPIRES_IN?: string; // "7d" gibi (optional, defaults to 7d)
 
   @IsInt() @Min(4) @Type(() => Number)
   BCRYPT_SALT_ROUNDS!: number;
