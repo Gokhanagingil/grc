@@ -12,7 +12,7 @@ export function PolicyPing() {
     setResult('');
     setError('');
     try {
-      const res = await api.get('/v2/policies');
+      const res = await api.get('/policies');
       setResult(JSON.stringify(res.data));
     } catch (e: any) {
       setError(e?.message || 'Request failed');

@@ -12,15 +12,19 @@ async function bootstrap() {
 
     const cfg = app.get(ConfigService);
     const port = cfg.get<number>('APP_PORT') ?? cfg.get<number>('PORT') ?? 5002;
-    const prefix = cfg.get<string>('API_PREFIX') ?? 'api';
+    const rawPrefix = cfg.get<string>('API_PREFIX') ?? '/api';
+    const apiVersion = cfg.get<string>('API_VERSION') ?? 'v2';
     const healthPath = cfg.get<string>('HEALTH_PATH') ?? '/health';
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
-    // API_PREFIX zaten /api/v2 içeriyorsa versioning ekleme (double v2 önlenir)
-    const cleanPrefix = prefix.replace(/\/+$/, ''); // trailing slash kaldır
-    app.setGlobalPrefix(cleanPrefix === 'api/v2' ? 'api' : cleanPrefix, { exclude: [] });
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '2' });
+    // Normalize prefix: remove leading/trailing slashes, combine with version
+    const normPrefix = `/${rawPrefix.replace(/^\/?/, '').replace(/\/$/, '')}`;
+    const ver = apiVersion.replace(/^\/?/, '').replace(/\/$/, '');
+    const finalPrefix = `${normPrefix}/${ver}`;
+    
+    app.setGlobalPrefix(finalPrefix, { exclude: [] });
+    app.enableVersioning({ type: VersioningType.URI, defaultVersion: ver });
 
     // CORS - Allow frontend origin
     const allowedOrigins = corsOrigins 
@@ -33,6 +37,9 @@ async function bootstrap() {
       methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id'],
     });
+    
+    console.log(`🌐 CORS enabled for origins: ${allowedOrigins.join(', ')}`);
+    console.log(`📡 Global prefix: ${finalPrefix}`);
 
     // Global validation
     app.useGlobalPipes(
