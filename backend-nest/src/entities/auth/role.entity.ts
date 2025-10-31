@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { TenantEntity } from '../../entities/tenant/tenant.entity';
 
 @Entity({ schema: 'auth', name: 'roles' })
@@ -6,7 +6,9 @@ import { TenantEntity } from '../../entities/tenant/tenant.entity';
 export class RoleEntity {
   @PrimaryColumn('uuid') id!: string;
   @Column('uuid') tenant_id!: string;
-  @ManyToOne(() => TenantEntity) tenant?: TenantEntity;
+  @ManyToOne(() => TenantEntity)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant?: TenantEntity;
 
   @Column({ type: 'text' }) name!: string;
   @Column({ type: 'text', nullable: true }) description?: string;

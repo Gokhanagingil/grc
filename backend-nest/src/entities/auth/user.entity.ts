@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { TenantEntity } from '../../entities/tenant/tenant.entity';
 
 @Entity({ schema: 'auth', name: 'users' })
@@ -9,6 +9,7 @@ export class UserEntity {
   @Column('uuid') tenant_id!: string;
 
   @ManyToOne(() => TenantEntity)
+  @JoinColumn({ name: 'tenant_id' })
   tenant?: TenantEntity;
 
   @Column({ type: 'citext' }) email!: string;
