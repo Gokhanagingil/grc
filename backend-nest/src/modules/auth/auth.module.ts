@@ -10,12 +10,13 @@ import { MfaService } from './mfa.service';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { UserEntity } from '../../entities/auth/user.entity';
+import { RefreshTokenEntity } from '../../entities/auth/refresh-token.entity';
 
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, RefreshTokenEntity]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

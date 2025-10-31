@@ -2,7 +2,10 @@
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLogEntity } from './entities/audit/audit-log.entity';
 import { PolicyModule } from './modules/policy/policy.module';
 import { HealthModule } from './health/health.module';
 import { GovModule } from './modules/governance/gov.module';
@@ -27,6 +30,7 @@ import { validateEnv } from './config/env.validation';
       expandVariables: true,
       validate: validateEnv,     // ← fail-fast burada
     }),
+    TypeOrmModule.forFeature([AuditLogEntity]),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         const dbType = process.env.DB_TYPE || 'postgres';
@@ -64,6 +68,10 @@ import { validateEnv } from './config/env.validation';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
     },
   ],
 })

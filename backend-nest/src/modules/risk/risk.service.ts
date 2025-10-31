@@ -8,10 +8,13 @@ import { CreateRiskDto, UpdateRiskDto, QueryRiskDto } from './risk.dto';
 export class RiskService {
   constructor(@InjectRepository(RiskEntity) private readonly repo: Repository<RiskEntity>) {}
 
-  async list(q: QueryRiskDto) {
+  async list(q: QueryRiskDto & { tenantId?: string }) {
     const page = Math.max(parseInt(q.page ?? '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(q.limit ?? '20', 10), 1), 200);
     const where: FindOptionsWhere<RiskEntity> = { deleted_at: IsNull() } as any;
+    if (q.tenantId) {
+      (where as any).tenant_id = q.tenantId;
+    }
     if (q.search) (where as any).title = ILike(`%${q.search}%`);
     if (q.severity) (where as any).severity = q.severity;
     if (q.status) (where as any).status = q.status;

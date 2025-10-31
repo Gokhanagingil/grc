@@ -4,8 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
+import * as uuid from 'uuid';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../../entities/auth/user.entity';
+import { RefreshTokenEntity } from '../../entities/auth/refresh-token.entity';
 import { MfaService } from './mfa.service';
 
 @Injectable()
@@ -17,6 +19,8 @@ export class AuthService {
     private config: ConfigService,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
+    @InjectRepository(RefreshTokenEntity)
+    private readonly refreshTokensRepo: Repository<RefreshTokenEntity>,
   ) {}
 
   async validateUser(email: string, pass: string, mfaCode?: string) {
@@ -98,11 +102,25 @@ export class AuthService {
       role: 'admin', // TODO: Get from user roles
     };
     
+    const jti = uuid.v4();
+    const expiresAt = new Date();
+    expiresAt.setTime(expiresAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: accessExpiresIn as any });
     const refreshToken = await this.jwt.signAsync(
-      { ...payload, type: 'refresh' }, 
+      { ...payload, type: 'refresh', jti }, 
       { expiresIn: refreshExpiresIn as any },
     );
+
+    // Save refresh token
+    const refreshTokenEntity = this.refreshTokensRepo.create({
+      id: uuid.v4(),
+      user_id: u.id,
+      jti,
+      expires_at: expiresAt,
+      revoked: false,
+    });
+    await this.refreshTokensRepo.save(refreshTokenEntity);
     
     return { 
       accessToken, 
@@ -120,19 +138,69 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const payload = await this.jwt.verifyAsync(refreshToken);
-      if (payload.type !== 'refresh') {
+      if (payload.type !== 'refresh' || !payload.jti) {
         throw new UnauthorizedException('Invalid token type');
       }
 
+      // Check if refresh token exists and is valid
+      const tokenEntity = await this.refreshTokensRepo.findOne({
+        where: { jti: payload.jti, revoked: false },
+      });
+
+      if (!tokenEntity || tokenEntity.expires_at < new Date()) {
+        throw new UnauthorizedException('Refresh token expired or revoked');
+      }
+
+      // Rotation: revoke old token, create new one
+      tokenEntity.revoked = true;
+      await this.refreshTokensRepo.save(tokenEntity);
+
+      const newJti = uuid.v4();
+      const expiresAt = new Date();
+      expiresAt.setTime(expiresAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const newRefreshTokenEntity = this.refreshTokensRepo.create({
+        id: uuid.v4(),
+        user_id: payload.sub,
+        jti: newJti,
+        expires_at: expiresAt,
+        revoked: false,
+      });
+      await this.refreshTokensRepo.save(newRefreshTokenEntity);
+
+      const refreshExpiresIn = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
       const accessExpiresIn = this.config.get<string>('JWT_EXPIRES_IN') ?? '15m';
+      
       const newAccessToken = await this.jwt.signAsync(
         { sub: payload.sub, email: payload.email, role: payload.role },
         { expiresIn: accessExpiresIn as any },
       );
 
-      return { accessToken: newAccessToken };
+      const newRefreshToken = await this.jwt.signAsync(
+        { sub: payload.sub, email: payload.email, role: payload.role, type: 'refresh', jti: newJti },
+        { expiresIn: refreshExpiresIn as any },
+      );
+
+      return { accessToken: newAccessToken, refreshToken: newRefreshToken };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const payload = await this.jwt.verifyAsync(refreshToken);
+      if (payload.jti) {
+        const tokenEntity = await this.refreshTokensRepo.findOne({
+          where: { jti: payload.jti },
+        });
+        if (tokenEntity) {
+          tokenEntity.revoked = true;
+          await this.refreshTokensRepo.save(tokenEntity);
+        }
+      }
+    } catch (error) {
+      // Ignore invalid tokens on logout
     }
   }
 }
