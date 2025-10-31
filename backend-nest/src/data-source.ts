@@ -11,7 +11,7 @@ import { IssueEntity } from './modules/issue/issue.entity';
 const envFile = process.env.ENV_FILE || '.env';
 config({ path: envFile });
 
-export const AppDataSource = new DataSource({
+const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || 5432),
@@ -20,7 +20,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASS || '123456',
   entities: [__dirname + '/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
-  synchronize: process.env.DB_SYNCHRONIZE === 'true',
+  synchronize: false,
   logging: process.env.DB_LOGGING === 'true',
 });
 

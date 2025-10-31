@@ -7,6 +7,8 @@ import { GovModule } from './modules/governance/gov.module';
 import { RiskModule } from './modules/risk/risk.module';
 import { ComplianceModule } from './modules/compliance/comp.module';
 import { AuthModule } from './auth/auth.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { IssueModule } from './modules/issue/issue.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -46,6 +48,8 @@ import { validateEnv } from './config/env.validation';
     RiskModule,
     ComplianceModule,
     AuthModule,
+    AuditModule,
+    IssueModule,
   ],
 })
 export class AppModule {}

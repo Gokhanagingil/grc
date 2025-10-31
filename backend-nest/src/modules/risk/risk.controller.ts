@@ -4,7 +4,7 @@ import { RiskService } from './risk.service';
 import { CreateRiskDto, UpdateRiskDto, QueryRiskDto } from './risk.dto';
 
 @ApiTags('risk')
-@Controller({ path: 'risk/risks', version: '1' })
+@Controller('risks')
 export class RiskController {
   constructor(private readonly service: RiskService) {}
 

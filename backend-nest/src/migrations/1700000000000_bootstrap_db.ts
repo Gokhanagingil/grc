@@ -6,6 +6,7 @@ export class BootstrapDb1700000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS citext;`);
 
     await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS auth;`);
     await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS tenant;`);
