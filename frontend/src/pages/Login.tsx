@@ -118,9 +118,10 @@ export const Login: React.FC = () => {
                 required
                 fullWidth
                 id="username"
-                label="Username"
+                label="Email"
                 name="username"
-                autoComplete="username"
+                type="email"
+                autoComplete="email"
                 autoFocus
                 value={loginData.username}
                 onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}

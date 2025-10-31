@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api } from '../services/api';
+import { api, v2 } from '../lib/api';
 
 interface User {
   id: number;
@@ -69,15 +69,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { username, password });
-      const { token: newToken, user: userData } = response.data;
+      // Backend expects: POST /api/v2/auth/login with x-tenant-id header
+      const tenantId = process.env.REACT_APP_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216';
+      const response = await api.post(v2('/auth/login'), 
+        { email: username, password }, // username is used as email
+        { headers: { 'x-tenant-id': tenantId } }
+      );
+      const { accessToken, user: userData } = response.data;
       
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      setUser(userData);
-      api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      localStorage.setItem('token', accessToken);
+      setToken(accessToken);
+      // Map backend user to frontend User interface
+      setUser({
+        id: parseInt(userData.id?.substring(0, 8) || '0', 16) || 0,
+        username: userData.email,
+        email: userData.email,
+        firstName: userData.display_name?.split(' ')[0] || '',
+        lastName: userData.display_name?.split(' ').slice(1).join(' ') || '',
+        department: '',
+        role: 'user',
+      });
+      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+      throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
   };
 
