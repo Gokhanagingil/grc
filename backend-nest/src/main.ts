@@ -12,13 +12,13 @@ async function bootstrap() {
 
     const cfg = app.get(ConfigService);
     const port = cfg.get<number>('APP_PORT') ?? cfg.get<number>('PORT') ?? 5002;
-    const prefix = cfg.get<string>('API_PREFIX') ?? 'api/v2';
+    const prefix = cfg.get<string>('API_PREFIX') ?? 'api';
     const healthPath = cfg.get<string>('HEALTH_PATH') ?? '/health';
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
     app.setGlobalPrefix(prefix, { exclude: [] });
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' as any });
+    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '2' });
 
     // CORS - Allow frontend origin
     const allowedOrigins = corsOrigins 
