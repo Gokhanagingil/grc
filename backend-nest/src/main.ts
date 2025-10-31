@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 
 async function bootstrap() {
   try {
@@ -23,6 +24,9 @@ async function bootstrap() {
       type: VersioningType.URI, 
       defaultVersion: '2'
     });
+    
+    // Helmet security headers
+    app.use(helmet());
     
     // Simple request logging for diagnostics
     app.use((req, _res, next) => {

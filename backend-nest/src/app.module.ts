@@ -1,6 +1,8 @@
 ﻿import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { PolicyModule } from './modules/policy/policy.module';
 import { HealthModule } from './health/health.module';
 import { GovModule } from './modules/governance/gov.module';
@@ -16,6 +18,10 @@ import { validateEnv } from './config/env.validation';
 @Module({
   controllers: [PingController],
   imports: [
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // 60 seconds
+      limit: 10, // 10 requests per TTL
+    }]),
     ConfigModule.forRoot({
       isGlobal: true,
       expandVariables: true,
@@ -53,6 +59,12 @@ import { validateEnv } from './config/env.validation';
     AuthModule,
     AuditModule,
     IssueModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
