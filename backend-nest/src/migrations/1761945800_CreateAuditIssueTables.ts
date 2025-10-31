@@ -4,7 +4,7 @@ export class CreateAuditIssueTables1761945800 implements MigrationInterface {
   name = 'CreateAuditIssueTables1761945800';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(\
+    await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS audits (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(160) NOT NULL,
@@ -14,9 +14,9 @@ export class CreateAuditIssueTables1761945800 implements MigrationInterface {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         deleted_at TIMESTAMPTZ
       );
-    \);
+    `);
     
-    await queryRunner.query(\
+    await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS issues (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(160) NOT NULL,
@@ -26,11 +26,11 @@ export class CreateAuditIssueTables1761945800 implements MigrationInterface {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         deleted_at TIMESTAMPTZ
       );
-    \);
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(\DROP TABLE IF EXISTS audits;\);
-    await queryRunner.query(\DROP TABLE IF EXISTS issues;\);
+    await queryRunner.query(`DROP TABLE IF EXISTS audits;`);
+    await queryRunner.query(`DROP TABLE IF EXISTS issues;`);
   }
 }
