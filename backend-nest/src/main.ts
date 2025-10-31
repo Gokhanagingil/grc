@@ -18,13 +18,18 @@ async function bootstrap() {
     const corsOrigins = cfg.get<string>('CORS_ORIGINS') ?? '';
     const swaggerEnabled = cfg.get<string>('SWAGGER_ENABLED') !== 'false';
 
-    // Normalize prefix: remove leading/trailing slashes, combine with version
-    const normPrefix = `/${rawPrefix.replace(/^\/?/, '').replace(/\/$/, '')}`;
-    const ver = apiVersion.replace(/^\/?/, '').replace(/\/$/, '');
-    const finalPrefix = `${normPrefix}/${ver}`;
+    // Normalize prefix: remove leading/trailing slashes (just /api, versioning adds /v2)
+    const normPrefix = rawPrefix.replace(/^\/+/, '').replace(/\/+$/, '') || 'api';
     
-    app.setGlobalPrefix(finalPrefix, { exclude: [] });
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: ver });
+    // Set global prefix as /api (without version)
+    app.setGlobalPrefix(normPrefix, { exclude: [] });
+    
+    // Enable URI versioning - this adds /v2 to all routes
+    const ver = apiVersion.replace(/^\/?v?/, '').replace(/\/+$/, '') || '2';
+    app.enableVersioning({ 
+      type: VersioningType.URI, 
+      defaultVersion: ver
+    });
 
     // CORS - Allow frontend origin
     const allowedOrigins = corsOrigins 
@@ -39,7 +44,7 @@ async function bootstrap() {
     });
     
     console.log(`🌐 CORS enabled for origins: ${allowedOrigins.join(', ')}`);
-    console.log(`📡 Global prefix: ${finalPrefix}`);
+    console.log(`📡 Global prefix: ${normPrefix}, Version: ${ver}`);
 
     // Global validation
     app.useGlobalPipes(
@@ -61,8 +66,8 @@ async function bootstrap() {
 
     await app.listen(port, '0.0.0.0');
     const url = await app.getUrl();
-    console.log(`✅ Server: ${url}${prefix}`);
-    console.log(`✅ Health: ${url}${healthPath} (or ${url}${prefix}${healthPath})`);
+    console.log(`✅ Server: ${url}/${normPrefix}/${ver}`);
+    console.log(`✅ Health: ${url}/${normPrefix}/${ver}/health`);
     if (swaggerEnabled) {
       console.log(`✅ Swagger: ${url}/api-docs`);
     }
