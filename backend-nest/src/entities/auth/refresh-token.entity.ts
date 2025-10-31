@@ -20,6 +20,8 @@ export class RefreshTokenEntity {
 
   @Column({ type: 'boolean', default: false }) revoked!: boolean;
 
+  @Column({ type: 'timestamptz', nullable: true }) revoked_at?: Date;
+
   @CreateDateColumn() created_at!: Date;
 }
 
