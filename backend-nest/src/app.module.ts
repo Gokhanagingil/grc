@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditLogEntity } from './entities/audit/audit-log.entity';
 import { PolicyModule } from './modules/policy/policy.module';
 import { HealthModule } from './health/health.module';

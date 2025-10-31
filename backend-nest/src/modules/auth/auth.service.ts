@@ -113,14 +113,19 @@ export class AuthService {
     );
 
     // Save refresh token
-    const refreshTokenEntity = this.refreshTokensRepo.create({
-      id: uuid.v4(),
-      user_id: u.id,
-      jti,
-      expires_at: expiresAt,
-      revoked: false,
-    });
-    await this.refreshTokensRepo.save(refreshTokenEntity);
+    try {
+      const refreshTokenEntity = this.refreshTokensRepo.create({
+        id: uuid.v4(),
+        user_id: u.id,
+        jti,
+        expires_at: expiresAt,
+        revoked: false,
+      });
+      await this.refreshTokensRepo.save(refreshTokenEntity);
+    } catch (error) {
+      console.error('Failed to save refresh token:', error);
+      // Continue without refresh token if save fails
+    }
     
     return { 
       accessToken, 
@@ -153,6 +158,7 @@ export class AuthService {
 
       // Rotation: revoke old token, create new one
       tokenEntity.revoked = true;
+      tokenEntity.revoked_at = new Date();
       await this.refreshTokensRepo.save(tokenEntity);
 
       const newJti = uuid.v4();
@@ -196,6 +202,7 @@ export class AuthService {
         });
         if (tokenEntity) {
           tokenEntity.revoked = true;
+          tokenEntity.revoked_at = new Date();
           await this.refreshTokensRepo.save(tokenEntity);
         }
       }
