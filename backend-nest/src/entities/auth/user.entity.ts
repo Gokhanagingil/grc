@@ -3,6 +3,7 @@ import { TenantEntity } from '../../entities/tenant/tenant.entity';
 
 @Entity({ schema: 'auth', name: 'users' })
 @Index('idx_users_tenant_entity', ['tenant_id'])
+@Index('idx_users_locked_until', ['locked_until'])
 export class UserEntity {
   @PrimaryColumn('uuid') id!: string;
 
@@ -20,6 +21,14 @@ export class UserEntity {
 
   @Column({ type: 'boolean', default: false }) is_email_verified!: boolean;
   @Column({ type: 'boolean', default: true }) is_active!: boolean;
+  
+  // MFA fields
+  @Column({ type: 'boolean', default: false }) mfa_enabled!: boolean;
+  @Column({ type: 'text', nullable: true }) mfa_secret?: string;
+  @Column({ type: 'integer', default: 0 }) failed_attempts!: number;
+  @Column({ type: 'timestamptz', nullable: true }) locked_until?: Date;
+  
+  // Legacy field (deprecated, use mfa_secret)
   @Column({ type: 'text', nullable: true }) twofa_secret?: string;
 
   @CreateDateColumn() created_at!: Date;
