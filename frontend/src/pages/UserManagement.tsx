@@ -34,7 +34,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { api } from '../services/api';
+import { api } from '../lib/api';
 
 interface User {
   id: number;

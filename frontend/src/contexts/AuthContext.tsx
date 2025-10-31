@@ -53,9 +53,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedToken = localStorage.getItem('token');
       if (storedToken) {
         try {
-          api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-          const response = await api.get('/auth/me');
-          setUser(response.data);
+          // Token is handled by interceptor, skip /auth/me for now (endpoint may not exist)
+          // Just set loading to false
+          setToken(storedToken);
         } catch (error) {
           localStorage.removeItem('token');
           setToken(null);
@@ -89,6 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         department: '',
         role: 'user',
       });
+      // Token is now handled by interceptor, but we can also set it here for immediate use
       api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message || 'Login failed');

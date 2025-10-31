@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, CircularProgress, Stack, Typography } from '@mui/material';
-import { api } from '../services/api';
+import { api } from '../lib/api';
 
 export function PolicyPing() {
   const [loading, setLoading] = React.useState(false);

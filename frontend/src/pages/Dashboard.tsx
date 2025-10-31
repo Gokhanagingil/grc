@@ -30,7 +30,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { api } from '../services/api';
+import { api } from '../lib/api';
 
 interface DashboardStats {
   risks: {
