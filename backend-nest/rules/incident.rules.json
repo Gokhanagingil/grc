@@ -1,0 +1,29 @@
+[
+  {
+    "name": "INCIDENT_RESOURCE_PRESSURE",
+    "condition": {
+      "severity": ["major", "critical"],
+      "category": ["disk", "cpu", "memory"],
+      "count": 3,
+      "window": "5m"
+    },
+    "action": {
+      "type": "create_incident",
+      "correlationKey": "resource"
+    }
+  },
+  {
+    "name": "INCIDENT_SECURITY_ALERT",
+    "condition": {
+      "severity": ["critical"],
+      "category": ["security", "auth", "access"],
+      "count": 1,
+      "window": "1m"
+    },
+    "action": {
+      "type": "create_incident",
+      "correlationKey": "resource"
+    }
+  }
+]
+

@@ -1,18 +1,54 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards, Headers, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from './jwt.guard';
+import { ConfigService } from '@nestjs/config';
+import { LoginDto } from './dto/login.dto';
 
 @Controller({ path: 'auth', version: '2' })
 export class AuthController {
   constructor(
     private auth: AuthService,
     private mfa: MfaService,
+    private config: ConfigService,
   ) {}
 
+  // TODO: remove after fix
+  @Get('ping')
+  getPing() {
+    return { ok: true, mod: 'auth', ts: new Date().toISOString() };
+  }
+
   @Post('login')
-  async login(@Body() dto: { email: string; password: string; mfaCode?: string }) {
-    return this.auth.login(dto.email, dto.password, dto.mfaCode);
+  async login(
+    @Body() dto: LoginDto,
+    @Headers('x-tenant-id') tenantHeader?: string,
+  ) {
+    const defaultTenant = this.config
+      .get<string>('DEFAULT_TENANT_ID')
+      ?.trim();
+    const headerTenant = tenantHeader?.trim();
+
+    if (headerTenant && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerTenant)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'Invalid tenant identifier',
+        detail: 'x-tenant-id must be a valid UUID.',
+      });
+    }
+
+    const effectiveTenant = headerTenant || defaultTenant || null;
+
+    if (!effectiveTenant) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'Tenant context required',
+        detail:
+          'Provide an x-tenant-id header or set DEFAULT_TENANT_ID in the environment.',
+      });
+    }
+
+    return this.auth.login(dto.email, dto.password, effectiveTenant, dto.mfaCode);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -51,4 +87,3 @@ export class AuthController {
     return req.user;
   }
 }
-

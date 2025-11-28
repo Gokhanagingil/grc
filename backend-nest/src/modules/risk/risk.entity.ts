@@ -1,8 +1,20 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'risks' })
+@Index('idx_risks_tenant_id', ['tenant_id'])
 export class RiskEntity {
   @PrimaryGeneratedColumn('uuid') id!: string;
+
+  @Column('uuid') tenant_id!: string;
+
   @Column({ length: 160 }) title!: string;
   @Column({ type: 'text', nullable: true }) description?: string;
   @Column({ length: 80, nullable: true }) category?: string;
@@ -21,5 +33,3 @@ export class RiskEntity {
   @UpdateDateColumn() updated_at!: Date;
   @DeleteDateColumn() deleted_at?: Date;
 }
-
-

@@ -12,16 +12,14 @@ export class MfaService {
     private readonly usersRepo: Repository<UserEntity>,
   ) {}
 
-  async generateSecret(userId: string): Promise<{ secret: string; qrCode: string; otpauthUrl: string }> {
+  async generateSecret(
+    userId: string,
+  ): Promise<{ secret: string; qrCode: string; otpauthUrl: string }> {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new Error('User not found');
 
     const secret = authenticator.generateSecret();
-    const otpauthUrl = authenticator.keyuri(
-      user.email,
-      'GRC Platform',
-      secret,
-    );
+    const otpauthUrl = authenticator.keyuri(user.email, 'GRC Platform', secret);
 
     const qrCode = await QRCode.toDataURL(otpauthUrl);
 
@@ -43,4 +41,3 @@ export class MfaService {
     await this.usersRepo.update(userId, { mfa_enabled: true });
   }
 }
-

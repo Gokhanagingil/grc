@@ -73,8 +73,18 @@ async function run() {
   } catch {}
 
   const users = [
-    { email: 'grc1@local', username: 'grc1', password: 'grc1', role: 'ADMIN' as const },
-    { email: 'grc2@local', username: 'grc2', password: 'grc2', role: 'USER' as const },
+    {
+      email: 'grc1@local',
+      username: 'grc1',
+      password: 'grc1',
+      role: 'ADMIN' as const,
+    },
+    {
+      email: 'grc2@local',
+      username: 'grc2',
+      password: 'grc2',
+      role: 'USER' as const,
+    },
   ];
 
   for (const u of users) {
@@ -88,5 +98,3 @@ run().catch((e) => {
   console.error('seed_additional_users failed:', e?.message || e);
   process.exit(1);
 });
-
-

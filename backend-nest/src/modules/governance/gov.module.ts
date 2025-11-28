@@ -10,5 +10,3 @@ import { GovController } from './gov.controller';
   controllers: [GovController],
 })
 export class GovModule {}
-
-

@@ -1,0 +1,9 @@
+code,name,description
+OPERATIONS,Operations,Operational risks including business continuity, availability, and process failures
+TECHNICAL,Technical,Technology-related risks including infrastructure, security, and system failures
+FINANCIAL,Financial,Financial risks including fraud, budget overruns, and cost management
+COMPLIANCE,Compliance,Regulatory and compliance risks including legal and audit findings
+STRATEGIC,Strategic,Strategic risks including market changes, competitive pressures, and business model shifts
+SECURITY,Security,Information security risks including data breaches, unauthorized access, and vulnerabilities
+VENDOR,Vendor,Third-party and vendor-related risks including supplier failures and dependencies
+

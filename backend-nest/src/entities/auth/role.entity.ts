@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { TenantEntity } from '../../entities/tenant/tenant.entity';
 
 @Entity({ schema: 'auth', name: 'roles' })
@@ -16,5 +25,3 @@ export class RoleEntity {
   @CreateDateColumn() created_at!: Date;
   @UpdateDateColumn() updated_at!: Date;
 }
-
-

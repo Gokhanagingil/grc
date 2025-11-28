@@ -10,5 +10,3 @@ import { RiskController } from './risk.controller';
   controllers: [RiskController],
 })
 export class RiskModule {}
-
-

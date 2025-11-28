@@ -5,10 +5,15 @@ import { AuditEntity } from './audit.entity';
 
 @Injectable()
 export class AuditService {
-  constructor(@InjectRepository(AuditEntity) private readonly repo: Repository<AuditEntity>) {}
+  constructor(
+    @InjectRepository(AuditEntity)
+    private readonly repo: Repository<AuditEntity>,
+  ) {}
 
   async findAll() {
-    return this.repo.find({ where: { deleted_at: IsNull() }, order: { created_at: 'DESC' } });
+    return this.repo.find({
+      where: { deleted_at: IsNull() },
+      order: { created_at: 'DESC' },
+    });
   }
 }
-

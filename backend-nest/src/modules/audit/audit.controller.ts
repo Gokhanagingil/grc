@@ -13,4 +13,3 @@ export class AuditController {
     return this.service.findAll();
   }
 }
-

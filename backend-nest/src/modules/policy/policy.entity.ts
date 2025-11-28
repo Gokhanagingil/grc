@@ -8,6 +8,7 @@
   UpdateDateColumn,
 } from 'typeorm';
 import { PolicyStatus } from './policy-status.enum';
+import { enumColumnOptions } from '../../common/database/column-types';
 
 @Entity({ name: 'policies' })
 @Index(['code'], { unique: true })
@@ -15,8 +16,8 @@ export class Policy {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ length: 160 })
-  name!: string;
+  @Column({ type: 'text' })
+  title!: string;
 
   @Column({ length: 64 })
   code!: string;
@@ -24,7 +25,9 @@ export class Policy {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'enum', enum: PolicyStatus, default: PolicyStatus.DRAFT })
+  @Column({
+    ...enumColumnOptions(PolicyStatus, PolicyStatus.DRAFT),
+  })
   status!: PolicyStatus;
 
   @Column({ length: 80, nullable: true })

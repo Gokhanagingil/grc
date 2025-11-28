@@ -37,7 +37,8 @@ async function run() {
   let tenant = await tenantRepo.findOne({ where: { slug: 'default' } });
   if (!tenant) {
     tenant = tenantRepo.create({
-      id: process.env.DEFAULT_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216',
+      id:
+        process.env.DEFAULT_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216',
       name: 'Default Tenant',
       slug: 'default',
       is_active: true,
@@ -49,7 +50,9 @@ async function run() {
   // Seed auth users with bcrypt
   const adminEmail = 'admin@local';
   const adminPass = await bcrypt.hash('Admin!123', 10);
-  let admin = await userRepo.findOne({ where: { email: adminEmail, tenant_id: tenant.id } });
+  let admin = await userRepo.findOne({
+    where: { email: adminEmail, tenant_id: tenant.id },
+  });
   if (admin) {
     admin.password_hash = adminPass;
     admin.display_name = 'Admin User';
@@ -72,7 +75,9 @@ async function run() {
 
   const userEmail = 'user@local';
   const userPass = await bcrypt.hash('User!123', 10);
-  let user = await userRepo.findOne({ where: { email: userEmail, tenant_id: tenant.id } });
+  let user = await userRepo.findOne({
+    where: { email: userEmail, tenant_id: tenant.id },
+  });
   if (user) {
     user.password_hash = userPass;
     user.display_name = 'Regular User';
@@ -147,4 +152,3 @@ run().catch((err) => {
   console.error('❌ Seed failed:', err);
   process.exit(1);
 });
-

@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryColumn, UpdateDateColumn, BeforeInsert } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  PrimaryColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+} from 'typeorm';
 import * as uuid from 'uuid';
 
 @Entity({ name: 'issues' })
@@ -18,4 +26,3 @@ export class IssueEntity {
     }
   }
 }
-

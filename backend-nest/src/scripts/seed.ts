@@ -24,7 +24,7 @@ async function run() {
 
   const samples: Array<Partial<Policy>> = [
     {
-      name: 'Information Security Policy',
+      title: 'Information Security Policy',
       code: 'ISP-001',
       status: PolicyStatus.DRAFT,
       owner: 'GRC',
@@ -32,7 +32,7 @@ async function run() {
       tags: ['iso27001', 'infosec'],
     },
     {
-      name: 'Business Continuity Policy',
+      title: 'Business Continuity Policy',
       code: 'BCP-001',
       status: PolicyStatus.IN_REVIEW,
       owner: 'Operations',
@@ -40,7 +40,7 @@ async function run() {
       tags: ['bcp', 'drp'],
     },
     {
-      name: 'Acceptable Use Policy',
+      title: 'Acceptable Use Policy',
       code: 'AUP-001',
       status: PolicyStatus.APPROVED,
       owner: 'IT',
@@ -50,7 +50,9 @@ async function run() {
   ];
 
   for (const sample of samples) {
-    const exists = await repo.findOne({ where: { code: sample.code as string } });
+    const exists = await repo.findOne({
+      where: { code: sample.code as string },
+    });
     if (!exists) {
       const entity = repo.create(sample);
       const saved = await repo.save(entity);
@@ -78,12 +80,18 @@ async function run() {
   const riskRepo = ds.getRepository(RiskEntity);
   const riskSamples = [
     { title: 'Ransomware Attack', severity: 'High', status: 'open' },
-    { title: 'DB Performance Degradation', severity: 'Medium', status: 'in_progress' },
+    {
+      title: 'DB Performance Degradation',
+      severity: 'Medium',
+      status: 'in_progress',
+    },
   ];
   for (const r of riskSamples) {
     const ex = await riskRepo.findOne({ where: { title: r.title } });
     if (!ex) {
-      const saved = await riskRepo.save(riskRepo.create(r as Partial<RiskEntity>));
+      const saved = await riskRepo.save(
+        riskRepo.create(r as Partial<RiskEntity>),
+      );
       console.log('Seeded risk:', (saved as any).id, (saved as any).title);
     }
   }
@@ -91,14 +99,28 @@ async function run() {
   // Requirement seeds (by title)
   const reqRepo = ds.getRepository(RequirementEntity);
   const reqSamples = [
-    { title: 'ISO 27001 A.12.4 Logging and Monitoring', regulation: 'ISO27001', status: 'pending' },
-    { title: 'GDPR Article 32 Security of Processing', regulation: 'GDPR', status: 'in_progress' },
+    {
+      title: 'ISO 27001 A.12.4 Logging and Monitoring',
+      regulation: 'ISO27001',
+      status: 'pending',
+    },
+    {
+      title: 'GDPR Article 32 Security of Processing',
+      regulation: 'GDPR',
+      status: 'in_progress',
+    },
   ];
   for (const rq of reqSamples) {
     const ex = await reqRepo.findOne({ where: { title: rq.title } });
     if (!ex) {
-      const saved = await reqRepo.save(reqRepo.create(rq as Partial<RequirementEntity>));
-      console.log('Seeded requirement:', (saved as any).id, (saved as any).title);
+      const saved = await reqRepo.save(
+        reqRepo.create(rq as Partial<RequirementEntity>),
+      );
+      console.log(
+        'Seeded requirement:',
+        (saved as any).id,
+        (saved as any).title,
+      );
     }
   }
 
@@ -109,5 +131,3 @@ run().catch((err) => {
   console.error('Seed failed:', err);
   process.exit(1);
 });
-
-

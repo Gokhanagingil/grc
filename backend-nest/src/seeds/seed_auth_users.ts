@@ -31,7 +31,8 @@ async function run() {
   let tenant = await tenantRepo.findOne({ where: { slug: 'default' } });
   if (!tenant) {
     tenant = tenantRepo.create({
-      id: process.env.DEFAULT_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216',
+      id:
+        process.env.DEFAULT_TENANT_ID || '217492b2-f814-4ba0-ae50-4e4f8ecf6216',
       name: 'Default Tenant',
       slug: 'default',
       is_active: true,
@@ -44,7 +45,9 @@ async function run() {
   // Admin user
   const adminEmail = 'admin@local';
   const adminPassword = 'Admin!123';
-  let admin = await userRepo.findOne({ where: { email: adminEmail, tenant_id: tenant.id } });
+  let admin = await userRepo.findOne({
+    where: { email: adminEmail, tenant_id: tenant.id },
+  });
   if (admin) {
     const hash = await bcrypt.hash(adminPassword, saltRounds);
     admin.password_hash = hash;
@@ -64,13 +67,17 @@ async function run() {
       is_email_verified: true,
     });
     admin = await userRepo.save(admin);
-    console.log(`✅ Created admin user: ${adminEmail} (${admin.id.substring(0, 8)}...)`);
+    console.log(
+      `✅ Created admin user: ${adminEmail} (${admin.id.substring(0, 8)}...)`,
+    );
   }
 
   // Regular user
   const userEmail = 'user@local';
   const userPassword = 'User!123';
-  let user = await userRepo.findOne({ where: { email: userEmail, tenant_id: tenant.id } });
+  let user = await userRepo.findOne({
+    where: { email: userEmail, tenant_id: tenant.id },
+  });
   if (user) {
     const hash = await bcrypt.hash(userPassword, saltRounds);
     user.password_hash = hash;
@@ -90,7 +97,9 @@ async function run() {
       is_email_verified: true,
     });
     user = await userRepo.save(user);
-    console.log(`✅ Created regular user: ${userEmail} (${user.id.substring(0, 8)}...)`);
+    console.log(
+      `✅ Created regular user: ${userEmail} (${user.id.substring(0, 8)}...)`,
+    );
   }
 
   console.log('✅ Auth seed completed');
@@ -101,4 +110,3 @@ run().catch((err) => {
   console.error('❌ Auth seed failed:', err);
   process.exit(1);
 });
-

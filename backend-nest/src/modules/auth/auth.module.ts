@@ -21,12 +21,19 @@ import { RefreshTokenEntity } from '../../entities/auth/refresh-token.entity';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService): JwtModuleOptions => {
-        const secret = cfg.get<string>('JWT_SECRET') ?? 'dev-change-me';
-        const expiresIn = cfg.get<string>('JWT_EXPIRES_IN') ?? '15m';
-        const refreshExpiresIn = cfg.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
-        return { 
-          secret, 
-          signOptions: { expiresIn: expiresIn as any },
+        const secret =
+          cfg.get<string>('JWT_ACCESS_SECRET') ??
+          cfg.get<string>('JWT_SECRET') ??
+          'dev-change-me';
+        
+        // Artık expiresIn kullanmıyoruz; iat/exp değerlerini manuel hesaplıyoruz
+        // Sadece secret'ı set ediyoruz
+        return {
+          secret,
+          signOptions: {
+            // noTimestamp: true değerini signAsync çağrılarında veriyoruz
+            // Burada default signOptions yok; her sign işleminde iat/exp manuel olarak payload'a ekleniyor
+          },
         };
       },
     }),
@@ -36,4 +43,3 @@ import { RefreshTokenEntity } from '../../entities/auth/refresh-token.entity';
   exports: [AuthService, MfaService, JwtModule],
 })
 export class AuthModule {}
-

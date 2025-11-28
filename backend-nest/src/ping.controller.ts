@@ -7,4 +7,3 @@ export class PingController {
     return { ok: true, ts: new Date().toISOString() };
   }
 }
-

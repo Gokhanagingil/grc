@@ -6,7 +6,9 @@ import { CreateGovPolicyDto, UpdateGovPolicyDto, QueryGovDto } from './gov.dto';
 
 @Injectable()
 export class GovService {
-  constructor(@InjectRepository(GovPolicy) private readonly repo: Repository<GovPolicy>) {}
+  constructor(
+    @InjectRepository(GovPolicy) private readonly repo: Repository<GovPolicy>,
+  ) {}
 
   async list(q: QueryGovDto) {
     const page = Math.max(parseInt(q.page ?? '1', 10), 1);
@@ -15,9 +17,21 @@ export class GovService {
     if (q.search) (where as any).title = ILike(`%${q.search}%`);
     if (q.status) (where as any).status = q.status;
     if (q.category) (where as any).category = q.category;
-    const sortField = (q.sort && ['created_at','title','status','category','updated_at'].includes(q.sort)) ? q.sort : 'created_at';
-    const order: 'ASC'|'DESC' = (q.order === 'ASC' || q.order === 'DESC') ? q.order : 'DESC';
-    const [items, total] = await this.repo.findAndCount({ where, order: { [sortField]: order }, skip: (page-1)*limit, take: limit });
+    const sortField =
+      q.sort &&
+      ['created_at', 'title', 'status', 'category', 'updated_at'].includes(
+        q.sort,
+      )
+        ? q.sort
+        : 'created_at';
+    const order: 'ASC' | 'DESC' =
+      q.order === 'ASC' || q.order === 'DESC' ? q.order : 'DESC';
+    const [items, total] = await this.repo.findAndCount({
+      where,
+      order: { [sortField]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
     return { items, total, page, limit };
   }
 
@@ -60,5 +74,3 @@ export class GovService {
     return { success: true };
   }
 }
-
-

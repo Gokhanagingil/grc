@@ -12,8 +12,8 @@ import { PolicyStatus } from '../policy-status.enum';
 export class CreatePolicyDto {
   @ApiProperty({ example: 'Information Security Policy' })
   @IsString()
-  @Length(3, 160)
-  name!: string;
+  @Length(3, 500)
+  title!: string;
 
   @ApiProperty({ example: 'ISP-001' })
   @IsString()

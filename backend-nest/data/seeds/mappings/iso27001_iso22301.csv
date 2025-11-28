@@ -1,0 +1,11 @@
+from_standard_code,from_clause_code,to_standard_code,to_clause_code,relation
+ISO27001,4.1,ISO22301,4.1,similar
+ISO27001,5.1,ISO22301,5.1,similar
+ISO27001,6.1,ISO22301,6.1,similar
+ISO27001,8.2,ISO22301,8.3,similar
+ISO27001,8.3,ISO22301,8.4,overlap
+ISO27001,9.1,ISO22301,9.1,similar
+ISO27001,9.2,ISO22301,9.2,similar
+ISO27001,10.1,ISO22301,10.1,similar
+ISO27001,10.2,ISO22301,10.2,similar
+

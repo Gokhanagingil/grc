@@ -1,4 +1,10 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ schema: 'tenant', name: 'tenants' })
 export class TenantEntity {
@@ -13,5 +19,3 @@ export class TenantEntity {
   @CreateDateColumn() created_at!: Date;
   @UpdateDateColumn() updated_at!: Date;
 }
-
-

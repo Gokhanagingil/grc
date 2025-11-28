@@ -12,7 +12,10 @@ export class TenantContextMiddleware implements NestMiddleware {
     const tenantId = (req.headers['x-tenant-id'] as string) || null;
     if (tenantId) {
       try {
-        await this.dataSource.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantId]);
+        await this.dataSource.query(
+          `SELECT set_config('app.tenant_id', $1, true)`,
+          [tenantId],
+        );
       } catch {
         // ignore if connection not ready
       }
@@ -20,5 +23,3 @@ export class TenantContextMiddleware implements NestMiddleware {
     next();
   }
 }
-
-

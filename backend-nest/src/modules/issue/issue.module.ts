@@ -10,4 +10,3 @@ import { IssueController } from './issue.controller';
   providers: [IssueService],
 })
 export class IssueModule {}
-

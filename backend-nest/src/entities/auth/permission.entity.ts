@@ -1,4 +1,10 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ schema: 'auth', name: 'permissions' })
 export class PermissionEntity {
@@ -8,5 +14,3 @@ export class PermissionEntity {
   @CreateDateColumn() created_at!: Date;
   @UpdateDateColumn() updated_at!: Date;
 }
-
-

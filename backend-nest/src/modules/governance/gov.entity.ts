@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'gov_policies' })
 export class GovPolicy {
@@ -16,5 +23,3 @@ export class GovPolicy {
   @UpdateDateColumn() updated_at!: Date;
   @DeleteDateColumn() deleted_at?: Date;
 }
-
-
