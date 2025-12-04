@@ -9,18 +9,19 @@ import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { GrcModule } from './grc/grc.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 /**
  * App Module
- * 
+ *
  * Root module that wires together all application modules.
- * 
+ *
  * This NestJS backend runs alongside the existing Express backend:
  * - Express backend: port 3001
  * - NestJS backend: port 3002 (default)
- * 
+ *
  * Both backends can share the same PostgreSQL database (grc_platform),
  * but use separate tables to avoid conflicts during migration:
  * - Express: uses 'users' table with integer IDs
@@ -63,6 +64,9 @@ import { AppService } from './app.service';
     AuthModule,
     TenantsModule,
     SettingsModule,
+
+    // GRC Domain Model (Risk, Control, Policy, Requirement, Issue, CAPA, Evidence)
+    GrcModule,
 
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,

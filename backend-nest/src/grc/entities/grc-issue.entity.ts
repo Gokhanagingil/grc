@@ -1,0 +1,125 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
+import { Tenant } from '../../tenants/tenant.entity';
+import { User } from '../../users/user.entity';
+import { IssueType, IssueStatus, IssueSeverity } from '../enums';
+import { GrcRisk } from './grc-risk.entity';
+import { GrcControl } from './grc-control.entity';
+import { GrcCapa } from './grc-capa.entity';
+import { GrcIssueEvidence } from './grc-issue-evidence.entity';
+
+/**
+ * GRC Issue Entity
+ *
+ * Represents an issue or finding discovered during audits, assessments,
+ * or incidents. Issues can be linked to risks and controls, and may
+ * have associated CAPAs (Corrective/Preventive Actions).
+ */
+@Entity('grc_issues')
+@Index(['tenantId', 'status'])
+@Index(['tenantId', 'severity'])
+@Index(['tenantId', 'riskId'])
+@Index(['tenantId', 'controlId'])
+export class GrcIssue {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'tenant_id', type: 'uuid' })
+  @Index()
+  tenantId: string;
+
+  @ManyToOne(() => Tenant, { nullable: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 255 })
+  title: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: IssueType,
+    default: IssueType.OTHER,
+  })
+  type: IssueType;
+
+  @Column({
+    type: 'enum',
+    enum: IssueStatus,
+    default: IssueStatus.OPEN,
+  })
+  status: IssueStatus;
+
+  @Column({
+    type: 'enum',
+    enum: IssueSeverity,
+    default: IssueSeverity.MEDIUM,
+  })
+  severity: IssueSeverity;
+
+  @Column({ name: 'risk_id', type: 'uuid', nullable: true })
+  riskId: string | null;
+
+  @ManyToOne(() => GrcRisk, (risk) => risk.issues, { nullable: true })
+  @JoinColumn({ name: 'risk_id' })
+  risk: GrcRisk | null;
+
+  @Column({ name: 'control_id', type: 'uuid', nullable: true })
+  controlId: string | null;
+
+  @ManyToOne(() => GrcControl, (control) => control.issues, { nullable: true })
+  @JoinColumn({ name: 'control_id' })
+  control: GrcControl | null;
+
+  @Column({ name: 'raised_by_user_id', type: 'uuid', nullable: true })
+  raisedByUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'raised_by_user_id' })
+  raisedBy: User | null;
+
+  @Column({ name: 'owner_user_id', type: 'uuid', nullable: true })
+  ownerUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'owner_user_id' })
+  owner: User | null;
+
+  @Column({ name: 'discovered_date', type: 'date', nullable: true })
+  discoveredDate: Date | null;
+
+  @Column({ name: 'due_date', type: 'date', nullable: true })
+  dueDate: Date | null;
+
+  @Column({ name: 'resolved_date', type: 'date', nullable: true })
+  resolvedDate: Date | null;
+
+  @Column({ name: 'root_cause', type: 'text', nullable: true })
+  rootCause: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
+
+  @OneToMany(() => GrcCapa, (capa) => capa.issue)
+  capas: GrcCapa[];
+
+  @OneToMany(() => GrcIssueEvidence, (ie) => ie.issue)
+  issueEvidence: GrcIssueEvidence[];
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}
