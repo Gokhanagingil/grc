@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 // Load and validate configuration (will exit if invalid)
 const config = require('./config');
 
-const db = require('./database/connection');
+const db = require('./db');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const governanceRoutes = require('./routes/governance');
@@ -123,16 +123,12 @@ app.get('/api/health', (req, res) => {
 app.get('/api/health/detailed', async (req, res) => {
   const startTime = Date.now();
   
-  // Check database connectivity
+  // Check database connectivity using unified interface
   let dbStatus = 'OK';
+  let dbType = 'unknown';
   try {
-    const dbInstance = db.getDb();
-    await new Promise((resolve, reject) => {
-      dbInstance.get('SELECT 1', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    dbType = db.getDbType();
+    await db.get('SELECT 1 as check');
   } catch (error) {
     dbStatus = 'ERROR';
   }
@@ -145,7 +141,10 @@ app.get('/api/health/detailed', async (req, res) => {
     uptime: process.uptime(),
     responseTime: Date.now() - startTime,
     checks: {
-      database: dbStatus,
+      database: {
+        status: dbStatus,
+        type: dbType
+      },
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
@@ -235,21 +234,29 @@ const gracefulShutdown = (signal) => {
 
 let server;
 
-// Initialize database and start server
-db.init().then(() => {
-  server = app.listen(config.port, () => {
-    console.log(`\nGRC Platform API server running on port ${config.port}`);
-    console.log(`Environment: ${config.nodeEnv}`);
-    console.log(`Health check: http://localhost:${config.port}/api/health`);
-  });
-  
-  // Register shutdown handlers
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-  
-}).catch(err => {
-  console.error('Failed to initialize database:', err);
-  process.exit(1);
-});
+// Only auto-start server if not in test mode or if run directly
+const isTestEnv = process.env.NODE_ENV === 'test';
+const isMainModule = require.main === module;
 
+if (!isTestEnv || isMainModule) {
+  // Initialize database and start server
+  db.init().then(() => {
+    server = app.listen(config.port, () => {
+      console.log(`\nGRC Platform API server running on port ${config.port}`);
+      console.log(`Environment: ${config.nodeEnv}`);
+      console.log(`Health check: http://localhost:${config.port}/api/health`);
+    });
+    
+    // Register shutdown handlers
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    
+  }).catch(err => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  });
+}
+
+// Export app and db for testing
 module.exports = app;
+module.exports.db = db;
