@@ -2,19 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { MultiTenantServiceBase } from '../common/multi-tenant-service.base';
 
 /**
  * Users Service
- * 
+ *
  * Provides business logic for user operations.
- * This is a skeleton implementation for the initial NestJS setup.
+ * Extends MultiTenantServiceBase to provide tenant-aware CRUD operations.
+ *
+ * This service demonstrates how to use the multi-tenant abstraction:
+ * - Inherits findAllForTenant, findOneForTenant, createForTenant, etc.
+ * - Adds domain-specific methods like findByEmail, findById
+ * - All tenant-aware queries automatically filter by tenantId
+ *
+ * @example
+ * ```typescript
+ * // Get all users for a tenant
+ * const users = await usersService.findAllForTenant(tenantId);
+ *
+ * // Get a specific user ensuring they belong to the tenant
+ * const user = await usersService.findOneForTenant(tenantId, userId);
+ *
+ * // Create a user for a tenant
+ * const newUser = await usersService.createForTenant(tenantId, { email, passwordHash });
+ * ```
  */
 @Injectable()
-export class UsersService {
+export class UsersService extends MultiTenantServiceBase<User> {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-  ) {}
+  ) {
+    super(usersRepository);
+  }
 
   /**
    * Find a user by email

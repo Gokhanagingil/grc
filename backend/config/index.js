@@ -152,7 +152,10 @@ const config = {
   },
   
   // Database
-  dbPath: process.env.DB_PATH || './database/grc.db'
+  dbPath: process.env.DB_PATH || './database/grc.db',
+  
+  // NestJS Backend Proxy
+  nestApiBaseUrl: process.env.NEST_API_BASE_URL || 'http://localhost:3002'
 };
 
 // Log configuration on startup (without sensitive values)
