@@ -297,26 +297,34 @@ export const Governance: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               />
             </Grid>
-            <Grid item xs={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  label="Effective Date"
-                  value={formData.effectiveDate}
-                  onChange={(date) => setFormData({ ...formData, effectiveDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </LocalizationProvider>
-            </Grid>
-            <Grid item xs={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  label="Review Date"
-                  value={formData.reviewDate}
-                  onChange={(date) => setFormData({ ...formData, reviewDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </LocalizationProvider>
-            </Grid>
+                        <Grid item xs={6}>
+                          <LocalizationProvider dateAdapter={AdapterDateFns}>
+                            <DatePicker
+                              label="Effective Date"
+                              value={formData.effectiveDate}
+                              onChange={(newValue: Date | null) =>
+                                setFormData({ ...formData, effectiveDate: newValue })
+                              }
+                              slotProps={{
+                                textField: { fullWidth: true },
+                              }}
+                            />
+                          </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <LocalizationProvider dateAdapter={AdapterDateFns}>
+                            <DatePicker
+                              label="Review Date"
+                              value={formData.reviewDate}
+                              onChange={(newValue: Date | null) =>
+                                setFormData({ ...formData, reviewDate: newValue })
+                              }
+                              slotProps={{
+                                textField: { fullWidth: true },
+                              }}
+                            />
+                          </LocalizationProvider>
+                        </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>

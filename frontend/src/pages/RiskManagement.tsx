@@ -359,14 +359,18 @@ export const RiskManagement: React.FC = () => {
               </FormControl>
             </Grid>
             <Grid item xs={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  label="Due Date"
-                  value={formData.dueDate}
-                  onChange={(date) => setFormData({ ...formData, dueDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </LocalizationProvider>
+                            <LocalizationProvider dateAdapter={AdapterDateFns}>
+                              <DatePicker
+                                label="Due Date"
+                                value={formData.dueDate}
+                                onChange={(newValue: Date | null) =>
+                                  setFormData({ ...formData, dueDate: newValue })
+                                }
+                                slotProps={{
+                                  textField: { fullWidth: true },
+                                }}
+                              />
+                            </LocalizationProvider>
             </Grid>
             <Grid item xs={12}>
               <TextField
