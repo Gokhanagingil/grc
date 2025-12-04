@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../database/connection');
 const { authenticateToken } = require('../middleware/auth');
+const config = require('../config');
 
 const router = express.Router();
 
@@ -43,8 +44,8 @@ router.post('/register', async (req, res) => {
 
           const token = jwt.sign(
             { id: this.lastID, username, email, role: 'user' },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+            config.jwtSecret,
+            { expiresIn: config.jwtExpiresIn }
           );
 
           res.status(201).json({
@@ -103,8 +104,8 @@ router.post('/login', (req, res) => {
             email: user.email, 
             role: user.role 
           },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
+          config.jwtSecret,
+          { expiresIn: config.jwtExpiresIn }
         );
 
         res.json({
