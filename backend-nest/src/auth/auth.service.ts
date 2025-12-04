@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { User, UserRole } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { TenantsService } from '../tenants/tenants.service';
 
 /**
  * Auth Service
@@ -18,16 +19,24 @@ import { JwtPayload } from './strategies/jwt.strategy';
  */
 @Injectable()
 export class AuthService {
-  // Hardcoded demo admin credentials for initial setup
-  // WARNING: Remove or change these in production!
-  private readonly DEMO_ADMIN_EMAIL = 'admin@grc-platform.local';
-  private readonly DEMO_ADMIN_PASSWORD = 'Admin123!';
-
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => TenantsService))
+    private readonly tenantsService: TenantsService,
   ) {}
+
+  /**
+   * Get demo admin credentials from environment variables
+   * These are only used for initial setup/demo purposes
+   */
+  private getDemoAdminCredentials(): { email: string; password: string } {
+    return {
+      email: this.configService.get<string>('DEMO_ADMIN_EMAIL') || 'admin@grc-platform.local',
+      password: this.configService.get<string>('DEMO_ADMIN_PASSWORD') || 'changeme',
+    };
+  }
 
   /**
    * Validate user credentials
@@ -83,33 +92,43 @@ export class AuthService {
   }
 
   /**
-   * Ensure demo admin user exists (for initial setup/demo purposes)
+   * Ensure demo admin user and tenant exist (for initial setup/demo purposes)
    * 
    * WARNING: This is for development/demo only. In production, use proper
    * user seeding or remove this method entirely.
    */
   private async ensureDemoAdminExists(): Promise<void> {
-    const existingAdmin = await this.usersService.findByEmail(this.DEMO_ADMIN_EMAIL);
+    const { email, password } = this.getDemoAdminCredentials();
+    const existingAdmin = await this.usersService.findByEmail(email);
     
     if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash(this.DEMO_ADMIN_PASSWORD, 10);
+      // First, create or get the demo tenant
+      const demoTenant = await this.tenantsService.getOrCreateDemoTenant();
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
       
       await this.usersService.create({
-        email: this.DEMO_ADMIN_EMAIL,
+        email,
         passwordHash: hashedPassword,
         role: UserRole.ADMIN,
         firstName: 'Demo',
         lastName: 'Admin',
         isActive: true,
+        tenantId: demoTenant.id,
       });
 
       console.log('='.repeat(60));
       console.log('DEMO ADMIN USER CREATED');
       console.log('='.repeat(60));
-      console.log(`Email: ${this.DEMO_ADMIN_EMAIL}`);
-      console.log(`Password: ${this.DEMO_ADMIN_PASSWORD}`);
+      console.log(`Email: ${email}`);
+      console.log(`Tenant: ${demoTenant.name} (${demoTenant.id})`);
       console.log('WARNING: Change these credentials in production!');
       console.log('='.repeat(60));
+    } else if (!existingAdmin.tenantId) {
+      // If admin exists but has no tenant, assign to demo tenant
+      const demoTenant = await this.tenantsService.getOrCreateDemoTenant();
+      await this.tenantsService.assignUserToTenant(existingAdmin.id, demoTenant.id);
+      console.log(`Assigned existing admin to tenant: ${demoTenant.name}`);
     }
   }
 }

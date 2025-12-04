@@ -5,6 +5,7 @@ import { configuration, validate } from './config';
 import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { TenantsModule } from './tenants/tenants.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -54,6 +55,7 @@ import { AppService } from './app.service';
     HealthModule,
     UsersModule,
     AuthModule,
+    TenantsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
