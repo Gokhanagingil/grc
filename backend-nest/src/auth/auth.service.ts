@@ -1,12 +1,14 @@
 import { Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { User, UserRole } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TenantsService } from '../tenants/tenants.service';
+import { UserLoggedInEvent, DomainEventNames } from '../events/domain-events';
 
 /**
  * Auth Service
@@ -23,6 +25,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => TenantsService))
     private readonly tenantsService: TenantsService,
   ) {}
@@ -81,6 +84,12 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+
+    // Emit login event for audit logging
+    this.eventEmitter.emit(
+      DomainEventNames.USER_LOGGED_IN,
+      new UserLoggedInEvent(user.id, user.email, user.tenantId || null),
+    );
 
     // Return user without password hash
     const { passwordHash, ...userWithoutPassword } = user;

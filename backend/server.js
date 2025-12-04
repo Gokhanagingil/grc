@@ -14,6 +14,7 @@ const governanceRoutes = require('./routes/governance');
 const riskRoutes = require('./routes/risk');
 const complianceRoutes = require('./routes/compliance');
 const dashboardRoutes = require('./routes/dashboard');
+const nestProxyRoutes = require('./routes/nest-proxy');
 
 const app = express();
 
@@ -101,6 +102,10 @@ app.use('/api/governance', governanceRoutes);
 app.use('/api/risk', riskRoutes);
 app.use('/api/compliance', complianceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// NestJS backend proxy routes
+// Forwards requests to NestJS backend for gradual migration
+app.use('/api/nest', nestProxyRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT

@@ -5,7 +5,9 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantsService } from '../tenants.service';
+import { TenantAccessedEvent, DomainEventNames } from '../../events/domain-events';
 
 /**
  * Tenant Guard
@@ -21,7 +23,10 @@ import { TenantsService } from '../tenants.service';
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -59,6 +64,17 @@ export class TenantGuard implements CanActivate {
 
     // Attach tenant ID to request for use in controllers
     request.tenantId = tenantId;
+
+    // Emit tenant access event for audit logging
+    this.eventEmitter.emit(
+      DomainEventNames.TENANT_ACCESSED,
+      new TenantAccessedEvent(
+        tenantId,
+        user.sub,
+        request.path,
+        request.method,
+      ),
+    );
 
     return true;
   }

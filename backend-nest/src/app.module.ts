@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { configuration, validate } from './config';
+import { EventsModule } from './events/events.module';
+import { AuditModule } from './audit/audit.module';
+import { SettingsModule } from './settings/settings.module';
 import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -51,11 +54,18 @@ import { AppService } from './app.service';
       }),
     }),
 
+    // Event bus (must be before modules that emit events)
+    EventsModule,
+
     // Feature modules
     HealthModule,
     UsersModule,
     AuthModule,
     TenantsModule,
+    SettingsModule,
+
+    // Audit logging (must be after feature modules to intercept their requests)
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

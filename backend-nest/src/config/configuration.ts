@@ -26,4 +26,8 @@ export default () => ({
   cors: {
     origins: process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3001,http://localhost:3002',
   },
+  audit: {
+    // Enable/disable audit logging (default: enabled)
+    enabled: process.env.NEST_AUDIT_LOG_ENABLED ?? 'true',
+  },
 });
