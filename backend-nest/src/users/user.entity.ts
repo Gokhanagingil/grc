@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Tenant } from '../tenants/tenant.entity';
 
 /**
  * User Entity
@@ -49,6 +52,20 @@ export class User {
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
+
+  /**
+   * Tenant relationship
+   * 
+   * Each user belongs to exactly one tenant.
+   * The tenantId is nullable to support the demo admin user
+   * which may be created before any tenant exists.
+   */
+  @Column({ name: 'tenant_id', nullable: true })
+  tenantId?: string;
+
+  @ManyToOne(() => Tenant, (tenant) => tenant.users, { nullable: true })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant?: Tenant;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
