@@ -74,6 +74,9 @@ export class GrcRequirement {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  @Column({ name: 'is_deleted', type: 'boolean', default: false })
+  isDeleted: boolean;
+
   @OneToMany(() => GrcRequirementControl, (rc) => rc.requirement)
   requirementControls: GrcRequirementControl[];
 

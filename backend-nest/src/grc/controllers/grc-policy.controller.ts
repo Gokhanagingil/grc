@@ -1,12 +1,19 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
+  Delete,
   Param,
   Query,
+  Body,
   UseGuards,
   Headers,
+  Request,
   NotFoundException,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -15,12 +22,14 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../users/user.entity';
 import { GrcPolicyService } from '../services/grc-policy.service';
 import { PolicyStatus } from '../enums';
+import { CreatePolicyDto, UpdatePolicyDto } from '../dto';
 
 /**
  * GRC Policy Controller
  *
- * Read-only API endpoints for exploring policies.
+ * Full CRUD API endpoints for managing policies.
  * All endpoints require JWT authentication and tenant context.
+ * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
  */
 @Controller('grc/policies')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -55,10 +64,89 @@ export class GrcPolicyController {
       return this.policyService.findByCategory(tenantId, category);
     }
 
-    // Return all policies
-    return this.policyService.findAllForTenant(tenantId, {
+    // Return all active (non-deleted) policies
+    return this.policyService.findAllActiveForTenant(tenantId, {
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * POST /grc/policies
+   * Create a new policy for the current tenant
+   * Requires MANAGER or ADMIN role
+   */
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Body() createPolicyDto: CreatePolicyDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.policyService.createPolicy(tenantId, req.user.id, createPolicyDto);
+  }
+
+  /**
+   * PATCH /grc/policies/:id
+   * Update an existing policy
+   * Requires MANAGER or ADMIN role
+   */
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  async update(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() updatePolicyDto: UpdatePolicyDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const policy = await this.policyService.updatePolicy(
+      tenantId,
+      req.user.id,
+      id,
+      updatePolicyDto,
+    );
+
+    if (!policy) {
+      throw new NotFoundException(`Policy with ID ${id} not found`);
+    }
+
+    return policy;
+  }
+
+  /**
+   * DELETE /grc/policies/:id
+   * Soft delete a policy (marks as deleted, does not remove from database)
+   * Requires MANAGER or ADMIN role
+   */
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const deleted = await this.policyService.softDeletePolicy(
+      tenantId,
+      req.user.id,
+      id,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException(`Policy with ID ${id} not found`);
+    }
   }
 
   /**
@@ -117,7 +205,7 @@ export class GrcPolicyController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const policy = await this.policyService.findOneForTenant(tenantId, id);
+    const policy = await this.policyService.findOneActiveForTenant(tenantId, id);
     if (!policy) {
       throw new NotFoundException(`Policy with ID ${id} not found`);
     }

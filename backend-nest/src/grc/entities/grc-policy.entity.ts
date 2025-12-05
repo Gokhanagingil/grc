@@ -87,6 +87,9 @@ export class GrcPolicy {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  @Column({ name: 'is_deleted', type: 'boolean', default: false })
+  isDeleted: boolean;
+
   @OneToMany(() => GrcPolicyControl, (pc) => pc.policy)
   policyControls: GrcPolicyControl[];
 
