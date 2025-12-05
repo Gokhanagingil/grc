@@ -264,7 +264,7 @@ export interface RequirementFactoryData {
  */
 export function requirementFactory(overrides: Partial<RequirementFactoryData> = {}): RequirementFactoryData {
   return {
-    framework: ComplianceFramework.ISO_27001,
+    framework: ComplianceFramework.ISO27001,
     referenceCode: 'A.5.1.1',
     title: 'Information Security Policies',
     description: 'A set of policies for information security shall be defined, approved by management, published and communicated to employees and relevant external parties.',
