@@ -60,6 +60,8 @@ export class AuditService {
       statusCode: event.statusCode,
       metadata: event.metadata,
       ipAddress: event.ipAddress,
+      correlationId: event.correlationId,
+      latencyMs: event.latencyMs,
     });
   }
 

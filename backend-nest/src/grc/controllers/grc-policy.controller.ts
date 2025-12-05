@@ -23,6 +23,7 @@ import { UserRole } from '../../users/user.entity';
 import { GrcPolicyService } from '../services/grc-policy.service';
 import { PolicyStatus } from '../enums';
 import { CreatePolicyDto, UpdatePolicyDto } from '../dto';
+import { Perf } from '../../common/decorators';
 
 /**
  * GRC Policy Controller
@@ -42,6 +43,7 @@ export class GrcPolicyController {
    */
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
     @Query('status') status?: string,
@@ -78,6 +80,7 @@ export class GrcPolicyController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
+  @Perf()
   async create(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -97,6 +100,7 @@ export class GrcPolicyController {
    */
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -129,6 +133,7 @@ export class GrcPolicyController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
   async remove(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -155,6 +160,7 @@ export class GrcPolicyController {
    */
   @Get('statistics')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -169,6 +175,7 @@ export class GrcPolicyController {
    */
   @Get('active')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findActive(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -183,6 +190,7 @@ export class GrcPolicyController {
    */
   @Get('due-for-review')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async findDueForReview(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -197,6 +205,7 @@ export class GrcPolicyController {
    */
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
@@ -219,6 +228,7 @@ export class GrcPolicyController {
    */
   @Get(':id/controls')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,

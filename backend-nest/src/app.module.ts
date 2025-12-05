@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { configuration, validate } from './config';
 import { EventsModule } from './events/events.module';
 import { AuditModule } from './audit/audit.module';
@@ -10,8 +11,12 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CorrelationIdMiddleware } from './common/middleware';
+import { RequestTimingInterceptor, PerformanceInterceptor } from './common/interceptors';
+import { StructuredLoggerService } from './common/logger';
 
 /**
  * App Module
@@ -70,8 +75,32 @@ import { AppService } from './app.service';
 
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,
+
+    // Metrics collection and /metrics endpoint
+    MetricsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    StructuredLoggerService,
+    // Global interceptors for request timing and performance profiling
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestTimingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: PerformanceInterceptor,
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * Configure middleware for all routes
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(CorrelationIdMiddleware)
+      .forRoutes('*');
+  }
+}

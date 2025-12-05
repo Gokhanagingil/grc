@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { StructuredLoggerService } from './common/logger';
 
 /**
  * Bootstrap the NestJS application
@@ -11,7 +12,14 @@ import { AppModule } from './app.module';
  * - NestJS backend: port 3002 (default)
  */
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Create the application with structured logger
+  const logger = new StructuredLoggerService();
+  logger.setContext('Bootstrap');
+
+  const app = await NestFactory.create(AppModule, {
+    logger, // Use structured logger for NestJS internal logs
+  });
+  
   const configService = app.get(ConfigService);
 
   // Global validation pipe for DTO validation
@@ -38,14 +46,14 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  console.log('='.repeat(60));
-  console.log('GRC Platform - NestJS Backend');
-  console.log('='.repeat(60));
-  console.log(`Environment: ${configService.get<string>('app.nodeEnv')}`);
-  console.log(`Port: ${port}`);
-  console.log(`Health check: http://localhost:${port}/health/live`);
-  console.log(`API docs: http://localhost:${port}/`);
-  console.log('='.repeat(60));
+  // Log startup information using structured logger
+  logger.log('Application started', {
+    environment: configService.get<string>('app.nodeEnv'),
+    port,
+    healthCheck: `http://localhost:${port}/health/live`,
+    metrics: `http://localhost:${port}/metrics`,
+    apiDocs: `http://localhost:${port}/`,
+  });
 }
 
 bootstrap();

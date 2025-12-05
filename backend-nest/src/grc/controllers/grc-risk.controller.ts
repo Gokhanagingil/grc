@@ -23,6 +23,7 @@ import { UserRole } from '../../users/user.entity';
 import { GrcRiskService } from '../services/grc-risk.service';
 import { RiskStatus, RiskSeverity } from '../enums';
 import { CreateRiskDto, UpdateRiskDto } from '../dto';
+import { Perf } from '../../common/decorators';
 
 /**
  * GRC Risk Controller
@@ -42,6 +43,7 @@ export class GrcRiskController {
    */
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
     @Query('status') status?: string,
@@ -84,6 +86,7 @@ export class GrcRiskController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
+  @Perf()
   async create(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -103,6 +106,7 @@ export class GrcRiskController {
    */
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -135,6 +139,7 @@ export class GrcRiskController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
   async remove(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -161,6 +166,7 @@ export class GrcRiskController {
    */
   @Get('statistics')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -175,6 +181,7 @@ export class GrcRiskController {
    */
   @Get('high-severity')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findHighSeverity(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -189,6 +196,7 @@ export class GrcRiskController {
    */
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
@@ -211,6 +219,7 @@ export class GrcRiskController {
    */
   @Get(':id/controls')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
