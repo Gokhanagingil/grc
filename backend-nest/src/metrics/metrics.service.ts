@@ -93,9 +93,12 @@ export class MetricsService {
    * Get active handles count
    */
   getActiveHandlesCount(): number {
-    // @ts-expect-error - _getActiveHandles is a private Node.js API not in type definitions
-    const handles = process._getActiveHandles?.() as unknown[] | undefined;
-    return handles?.length || 0;
+    // Access private Node.js API for active handles count
+    const processWithHandles = process as typeof process & {
+      _getActiveHandles?: () => unknown[];
+    };
+    const handles = processWithHandles._getActiveHandles?.();
+    return handles?.length ?? 0;
   }
 
   /**

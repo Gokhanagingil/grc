@@ -33,9 +33,12 @@ export class RequestTimingInterceptor implements NestInterceptor {
     >();
     const response = ctx.getResponse<Response>();
 
-    const startTime = request.requestStartTime || Date.now();
-    const method = request.method;
-    const routePath: string = request.route?.path || request.path;
+        const startTime = request.requestStartTime || Date.now();
+        const method = request.method;
+        // Extract route path safely - Express route.path can be any type
+        const route = request.route as { path?: unknown } | undefined;
+        const routePath: string =
+          typeof route?.path === 'string' ? route.path : request.url ?? '/';
 
     return next.handle().pipe(
       tap({

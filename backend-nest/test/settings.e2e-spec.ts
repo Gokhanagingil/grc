@@ -3,7 +3,6 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { SystemSetting } from '../src/settings/system-setting.entity';
 import { TenantSetting } from '../src/settings/tenant-setting.entity';
 
 /**
