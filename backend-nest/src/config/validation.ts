@@ -1,8 +1,13 @@
 /**
  * Environment Variables Validation
- * 
+ *
  * Uses class-validator to validate environment variables at startup.
  * If validation fails, the application will not start (fail-fast).
+ *
+ * Production Readiness:
+ * - All required vars must be present
+ * - JWT_SECRET must be at least 32 characters
+ * - DB connection params are validated
  */
 import { plainToInstance, Type } from 'class-transformer';
 import {
@@ -12,6 +17,8 @@ import {
   IsOptional,
   IsString,
   Min,
+  MinLength,
+  Max,
   validateSync,
 } from 'class-validator';
 
@@ -28,12 +35,14 @@ class EnvironmentVariables {
 
   @IsNumber()
   @Min(1)
+  @Max(65535)
   @Type(() => Number)
   @IsOptional()
   PORT: number = 3002;
 
   @IsString()
   @IsNotEmpty({ message: 'JWT_SECRET is required and must not be empty' })
+  @MinLength(32, { message: 'JWT_SECRET must be at least 32 characters for security' })
   JWT_SECRET: string;
 
   @IsString()
@@ -41,24 +50,26 @@ class EnvironmentVariables {
   JWT_EXPIRES_IN: string = '24h';
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'DB_HOST is required' })
   DB_HOST: string = 'localhost';
 
   @IsNumber()
   @Type(() => Number)
+  @Min(1)
+  @Max(65535)
   @IsOptional()
   DB_PORT: number = 5432;
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'DB_USER is required' })
   DB_USER: string = 'postgres';
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'DB_PASSWORD is required' })
   DB_PASSWORD: string = 'postgres';
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'DB_NAME is required' })
   DB_NAME: string = 'grc_platform';
 
   @IsString()
@@ -68,6 +79,21 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGINS: string = 'http://localhost:3000,http://localhost:3001,http://localhost:3002';
+
+  // DB Retry Configuration
+  @IsNumber()
+  @Type(() => Number)
+  @Min(1)
+  @Max(20)
+  @IsOptional()
+  DB_RETRY_ATTEMPTS: number = 10;
+
+  @IsNumber()
+  @Type(() => Number)
+  @Min(100)
+  @Max(10000)
+  @IsOptional()
+  DB_RETRY_DELAY: number = 500;
 }
 
 /**

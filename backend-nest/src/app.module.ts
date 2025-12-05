@@ -36,7 +36,7 @@ import { AppService } from './app.service';
       validate,
     }),
 
-    // TypeORM PostgreSQL connection
+    // TypeORM PostgreSQL connection with retry policy
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -52,6 +52,9 @@ import { AppService } from './app.service';
         // It auto-creates/updates tables based on entities.
         synchronize: configService.get<boolean>('db.synchronize'),
         logging: configService.get<string>('app.nodeEnv') === 'development',
+        // Retry policy for resilient DB connections
+        retryAttempts: configService.get<number>('db.retryAttempts', 10),
+        retryDelay: configService.get<number>('db.retryDelay', 500),
       }),
     }),
 
