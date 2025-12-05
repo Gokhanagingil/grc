@@ -1,7 +1,8 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { configuration, validate } from './config';
 import { EventsModule } from './events/events.module';
 import { AuditModule } from './audit/audit.module';
@@ -14,7 +15,7 @@ import { GrcModule } from './grc/grc.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CorrelationIdMiddleware } from './common/middleware';
+import { CorrelationIdMiddleware, SecurityHeadersMiddleware } from './common/middleware';
 import { RequestTimingInterceptor, PerformanceInterceptor } from './common/interceptors';
 import { StructuredLoggerService } from './common/logger';
 
@@ -78,11 +79,30 @@ import { StructuredLoggerService } from './common/logger';
 
     // Metrics collection and /metrics endpoint
     MetricsModule,
+
+    // Rate limiting - default: 100 requests per 60 seconds
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // 60 seconds
+        limit: 100, // 100 requests per minute
+      },
+      {
+        name: 'strict',
+        ttl: 60000, // 60 seconds
+        limit: 10, // 10 requests per minute (for auth endpoints)
+      },
+    ]),
   ],
   controllers: [AppController],
   providers: [
     AppService,
     StructuredLoggerService,
+    // Global rate limiting guard
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     // Global interceptors for request timing and performance profiling
     {
       provide: APP_INTERCEPTOR,
@@ -100,7 +120,7 @@ export class AppModule implements NestModule {
    */
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(CorrelationIdMiddleware)
+      .apply(SecurityHeadersMiddleware, CorrelationIdMiddleware)
       .forRoutes('*');
   }
 }
