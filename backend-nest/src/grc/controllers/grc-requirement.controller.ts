@@ -21,8 +21,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRequirementService } from '../services/grc-requirement.service';
-import { ComplianceFramework } from '../enums';
-import { CreateRequirementDto, UpdateRequirementDto } from '../dto';
+import { CreateRequirementDto, UpdateRequirementDto, RequirementFilterDto } from '../dto';
 import { Perf } from '../../common/decorators';
 
 /**
@@ -31,6 +30,21 @@ import { Perf } from '../../common/decorators';
  * Full CRUD API endpoints for managing compliance requirements.
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require GRC_REQUIREMENT_WRITE permission.
+ *
+ * Query Parameters for GET /grc/requirements:
+ * - page: Page number (default: 1)
+ * - pageSize: Items per page (default: 20, max: 100)
+ * - sortBy: Field to sort by (e.g., createdAt, title, framework, referenceCode)
+ * - sortOrder: Sort order (ASC or DESC, default: DESC)
+ * - framework: Filter by compliance framework (iso27001, soc2, gdpr, hipaa, pci_dss, nist, other)
+ * - status: Filter by status
+ * - category: Filter by category
+ * - priority: Filter by priority
+ * - referenceCode: Filter by reference code
+ * - ownerUserId: Filter by owner user ID
+ * - createdFrom/createdTo: Filter by creation date range
+ * - dueDateFrom/dueDateTo: Filter by due date range
+ * - search: Search in title, description, and reference code
  */
 @Controller('grc/requirements')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -39,44 +53,36 @@ export class GrcRequirementController {
 
   /**
    * GET /grc/requirements
-   * List all requirements for the current tenant
+   * List all requirements for the current tenant with pagination, sorting, and filtering
    */
   @Get()
   @Permissions(Permission.GRC_REQUIREMENT_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
-    @Query('framework') framework?: string,
-    @Query('status') status?: string,
+    @Query() filterDto: RequirementFilterDto,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by framework if provided
-    if (framework) {
-      if (
-        !Object.values(ComplianceFramework).includes(
-          framework as ComplianceFramework,
-        )
-      ) {
-        throw new BadRequestException(`Invalid framework: ${framework}`);
-      }
-      return this.requirementService.findByFramework(
-        tenantId,
-        framework as ComplianceFramework,
-      );
+    return this.requirementService.findWithFilters(tenantId, filterDto);
+  }
+
+  /**
+   * GET /grc/requirements/summary
+   * Get summary/reporting data for requirements
+   * Returns counts by framework, status, category, priority, plus compliant/non-compliant/in-progress counts
+   */
+  @Get('summary')
+  @Permissions(Permission.GRC_STATISTICS_READ)
+  @Perf()
+  async getSummary(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by status if provided
-    if (status) {
-      return this.requirementService.findByStatus(tenantId, status);
-    }
-
-    // Return all active (non-deleted) requirements
-    return this.requirementService.findAllActiveForTenant(tenantId, {
-      order: { framework: 'ASC', referenceCode: 'ASC' },
-    });
+    return this.requirementService.getSummary(tenantId);
   }
 
   /**

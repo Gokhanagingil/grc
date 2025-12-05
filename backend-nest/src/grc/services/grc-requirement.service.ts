@@ -10,6 +10,12 @@ import {
   RequirementDeletedEvent,
 } from '../events';
 import { ComplianceFramework } from '../enums';
+import {
+  RequirementFilterDto,
+  REQUIREMENT_SORTABLE_FIELDS,
+  PaginatedResponse,
+  createPaginatedResponse,
+} from '../dto';
 
 /**
  * GRC Requirement Service
@@ -232,5 +238,171 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     }
 
     return Array.from(frameworks);
+  }
+
+  /**
+   * Find requirements with pagination, sorting, and filtering
+   */
+  async findWithFilters(
+    tenantId: string,
+    filterDto: RequirementFilterDto,
+  ): Promise<PaginatedResponse<GrcRequirement>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      framework,
+      status,
+      category,
+      priority,
+      referenceCode,
+      ownerUserId,
+      createdFrom,
+      createdTo,
+      dueDateFrom,
+      dueDateTo,
+      search,
+    } = filterDto;
+
+    const qb = this.repository.createQueryBuilder('requirement');
+
+    // Base filters: tenant and not deleted
+    qb.where('requirement.tenantId = :tenantId', { tenantId });
+    qb.andWhere('requirement.isDeleted = :isDeleted', { isDeleted: false });
+
+    // Apply optional filters
+    if (framework) {
+      qb.andWhere('requirement.framework = :framework', { framework });
+    }
+
+    if (status) {
+      qb.andWhere('requirement.status = :status', { status });
+    }
+
+    if (category) {
+      qb.andWhere('requirement.category = :category', { category });
+    }
+
+    if (priority) {
+      qb.andWhere('requirement.priority = :priority', { priority });
+    }
+
+    if (referenceCode) {
+      qb.andWhere('requirement.referenceCode = :referenceCode', {
+        referenceCode,
+      });
+    }
+
+    if (ownerUserId) {
+      qb.andWhere('requirement.ownerUserId = :ownerUserId', { ownerUserId });
+    }
+
+    if (createdFrom) {
+      qb.andWhere('requirement.createdAt >= :createdFrom', { createdFrom });
+    }
+
+    if (createdTo) {
+      qb.andWhere('requirement.createdAt <= :createdTo', { createdTo });
+    }
+
+    if (dueDateFrom) {
+      qb.andWhere('requirement.dueDate >= :dueDateFrom', { dueDateFrom });
+    }
+
+    if (dueDateTo) {
+      qb.andWhere('requirement.dueDate <= :dueDateTo', { dueDateTo });
+    }
+
+    if (search) {
+      qb.andWhere(
+        '(requirement.title ILIKE :search OR requirement.description ILIKE :search OR requirement.referenceCode ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Get total count before pagination
+    const total = await qb.getCount();
+
+    // Apply sorting (validate sortBy field)
+    const validSortBy = REQUIREMENT_SORTABLE_FIELDS.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(`requirement.${validSortBy}`, validSortOrder);
+
+    // Apply pagination
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  /**
+   * Get summary/reporting data for requirements
+   */
+  async getSummary(tenantId: string): Promise<{
+    total: number;
+    byFramework: Record<string, number>;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+    byPriority: Record<string, number>;
+    compliantCount: number;
+    nonCompliantCount: number;
+    inProgressCount: number;
+  }> {
+    const qb = this.repository.createQueryBuilder('requirement');
+    qb.where('requirement.tenantId = :tenantId', { tenantId });
+    qb.andWhere('requirement.isDeleted = :isDeleted', { isDeleted: false });
+
+    const requirements = await qb.getMany();
+
+    const byFramework: Record<string, number> = {};
+    const byStatus: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    let compliantCount = 0;
+    let nonCompliantCount = 0;
+    let inProgressCount = 0;
+
+    for (const req of requirements) {
+      // Count by framework
+      byFramework[req.framework] = (byFramework[req.framework] || 0) + 1;
+
+      // Count by status
+      byStatus[req.status] = (byStatus[req.status] || 0) + 1;
+
+      // Count by category
+      if (req.category) {
+        byCategory[req.category] = (byCategory[req.category] || 0) + 1;
+      }
+
+      // Count by priority
+      if (req.priority) {
+        byPriority[req.priority] = (byPriority[req.priority] || 0) + 1;
+      }
+
+      // Count compliance status
+      if (req.status === 'compliant') {
+        compliantCount++;
+      } else if (req.status === 'non_compliant') {
+        nonCompliantCount++;
+      } else if (req.status === 'in_progress') {
+        inProgressCount++;
+      }
+    }
+
+    return {
+      total: requirements.length,
+      byFramework,
+      byStatus,
+      byCategory,
+      byPriority,
+      compliantCount,
+      nonCompliantCount,
+      inProgressCount,
+    };
   }
 }

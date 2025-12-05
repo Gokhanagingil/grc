@@ -21,8 +21,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRiskService } from '../services/grc-risk.service';
-import { RiskStatus, RiskSeverity } from '../enums';
-import { CreateRiskDto, UpdateRiskDto } from '../dto';
+import { CreateRiskDto, UpdateRiskDto, RiskFilterDto } from '../dto';
 import { Perf } from '../../common/decorators';
 
 /**
@@ -31,6 +30,21 @@ import { Perf } from '../../common/decorators';
  * Full CRUD API endpoints for managing risks.
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require GRC_RISK_WRITE permission.
+ *
+ * Query Parameters for GET /grc/risks:
+ * - page: Page number (default: 1)
+ * - pageSize: Items per page (default: 20, max: 100)
+ * - sortBy: Field to sort by (e.g., createdAt, title, status, severity)
+ * - sortOrder: Sort order (ASC or DESC, default: DESC)
+ * - status: Filter by risk status
+ * - severity: Filter by risk severity
+ * - likelihood: Filter by risk likelihood
+ * - impact: Filter by risk impact
+ * - category: Filter by category
+ * - ownerUserId: Filter by owner user ID
+ * - createdFrom/createdTo: Filter by creation date range
+ * - dueDateFrom/dueDateTo: Filter by due date range
+ * - search: Search in title and description
  */
 @Controller('grc/risks')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -39,43 +53,36 @@ export class GrcRiskController {
 
   /**
    * GET /grc/risks
-   * List all risks for the current tenant
+   * List all risks for the current tenant with pagination, sorting, and filtering
    */
   @Get()
   @Permissions(Permission.GRC_RISK_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
-    @Query('status') status?: string,
-    @Query('severity') severity?: string,
+    @Query() filterDto: RiskFilterDto,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by status if provided
-    if (status) {
-      if (!Object.values(RiskStatus).includes(status as RiskStatus)) {
-        throw new BadRequestException(`Invalid status: ${status}`);
-      }
-      return this.riskService.findByStatus(tenantId, status as RiskStatus);
+    return this.riskService.findWithFilters(tenantId, filterDto);
+  }
+
+  /**
+   * GET /grc/risks/summary
+   * Get summary/reporting data for risks
+   * Returns counts by status, severity, likelihood, category, plus high priority and overdue counts
+   */
+  @Get('summary')
+  @Permissions(Permission.GRC_STATISTICS_READ)
+  @Perf()
+  async getSummary(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by severity if provided
-    if (severity) {
-      if (!Object.values(RiskSeverity).includes(severity as RiskSeverity)) {
-        throw new BadRequestException(`Invalid severity: ${severity}`);
-      }
-      return this.riskService.findBySeverity(
-        tenantId,
-        severity as RiskSeverity,
-      );
-    }
-
-    // Return all active (non-deleted) risks
-    return this.riskService.findAllActiveForTenant(tenantId, {
-      order: { createdAt: 'DESC' },
-    });
+    return this.riskService.getSummary(tenantId);
   }
 
   /**
