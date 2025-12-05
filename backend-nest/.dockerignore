@@ -1,0 +1,55 @@
+# =============================================================================
+# Docker Ignore File for NestJS Backend
+# =============================================================================
+# Excludes files and directories that should not be copied into the Docker image
+
+# Dependencies (will be installed fresh in container)
+node_modules
+
+# Build output (will be built fresh in container)
+dist
+
+# Development files
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Test files and coverage
+test
+coverage
+*.spec.ts
+*.e2e-spec.ts
+jest.config.js
+jest-e2e.json
+
+# Documentation
+*.md
+docs
+
+# Docker files (no need to copy into image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
