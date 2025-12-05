@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters';
 
 /**
  * Bootstrap the NestJS application
@@ -84,6 +85,12 @@ All GRC endpoints require the \`x-tenant-id\` header to identify the tenant cont
       },
     }),
   );
+
+  // Global exception filter for standardized error responses
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Enable graceful shutdown hooks
+  app.enableShutdownHooks();
 
   // CORS configuration
   const corsOrigins = configService.get<string>('cors.origins') || '';
