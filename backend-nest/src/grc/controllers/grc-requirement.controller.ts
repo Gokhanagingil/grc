@@ -23,6 +23,7 @@ import { UserRole } from '../../users/user.entity';
 import { GrcRequirementService } from '../services/grc-requirement.service';
 import { ComplianceFramework } from '../enums';
 import { CreateRequirementDto, UpdateRequirementDto } from '../dto';
+import { Perf } from '../../common/decorators';
 
 /**
  * GRC Requirement Controller
@@ -42,6 +43,7 @@ export class GrcRequirementController {
    */
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
     @Query('framework') framework?: string,
@@ -85,6 +87,7 @@ export class GrcRequirementController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
+  @Perf()
   async create(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -108,6 +111,7 @@ export class GrcRequirementController {
    */
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -140,6 +144,7 @@ export class GrcRequirementController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
   async remove(
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
@@ -166,6 +171,7 @@ export class GrcRequirementController {
    */
   @Get('statistics')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -180,6 +186,7 @@ export class GrcRequirementController {
    */
   @Get('frameworks')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async getFrameworks(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -194,6 +201,7 @@ export class GrcRequirementController {
    */
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
@@ -219,6 +227,7 @@ export class GrcRequirementController {
    */
   @Get(':id/controls')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
