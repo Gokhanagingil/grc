@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, forwardRef, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TenantsService } from '../tenants/tenants.service';
 import { UserLoggedInEvent, DomainEventNames } from '../events/domain-events';
+import { BruteForceService } from './security/brute-force.service';
 
 /**
  * Auth Service
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => TenantsService))
     private readonly tenantsService: TenantsService,
+    private readonly bruteForceService: BruteForceService,
   ) {}
 
   /**
@@ -62,20 +64,51 @@ export class AuthService {
 
   /**
    * Login and return JWT token
+   * 
+   * @param loginDto - Login credentials
+   * @param ip - Client IP address for brute force tracking
+   * @param correlationId - Request correlation ID for logging
    */
-  async login(loginDto: LoginDto): Promise<{ accessToken: string; user: Partial<User> }> {
+  async login(
+    loginDto: LoginDto,
+    ip?: string,
+    correlationId?: string,
+  ): Promise<{ accessToken: string; user: Partial<User> }> {
+    const clientIp = ip || 'unknown';
+
+    // Check brute force protection
+    const bruteForceCheck = this.bruteForceService.isAllowed(clientIp, loginDto.email);
+    if (!bruteForceCheck.allowed) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          error: 'Too Many Requests',
+          message: bruteForceCheck.reason || 'Too many login attempts. Please try again later.',
+          retryAfterMs: bruteForceCheck.delayMs,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     // First, ensure demo admin exists (for initial setup)
     await this.ensureDemoAdminExists();
 
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
     if (!user) {
+      // Record failed attempt
+      this.bruteForceService.recordFailure(clientIp, loginDto.email, undefined, correlationId);
       throw new UnauthorizedException('Invalid email or password');
     }
 
     if (!user.isActive) {
+      // Record failed attempt for inactive accounts too
+      this.bruteForceService.recordFailure(clientIp, loginDto.email, user.tenantId || undefined, correlationId);
       throw new UnauthorizedException('Account is deactivated');
     }
+
+    // Record successful login (resets brute force counter)
+    this.bruteForceService.recordSuccess(clientIp, loginDto.email);
 
     const payload: JwtPayload = {
       sub: user.id,
