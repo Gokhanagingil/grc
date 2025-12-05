@@ -1,12 +1,19 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
+  Delete,
   Param,
   Query,
+  Body,
   UseGuards,
   Headers,
+  Request,
   NotFoundException,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -15,12 +22,14 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../users/user.entity';
 import { GrcRiskService } from '../services/grc-risk.service';
 import { RiskStatus, RiskSeverity } from '../enums';
+import { CreateRiskDto, UpdateRiskDto } from '../dto';
 
 /**
  * GRC Risk Controller
  *
- * Read-only API endpoints for exploring risks.
+ * Full CRUD API endpoints for managing risks.
  * All endpoints require JWT authentication and tenant context.
+ * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
  */
 @Controller('grc/risks')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -61,10 +70,89 @@ export class GrcRiskController {
       );
     }
 
-    // Return all risks
-    return this.riskService.findAllForTenant(tenantId, {
+    // Return all active (non-deleted) risks
+    return this.riskService.findAllActiveForTenant(tenantId, {
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * POST /grc/risks
+   * Create a new risk for the current tenant
+   * Requires MANAGER or ADMIN role
+   */
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Body() createRiskDto: CreateRiskDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.riskService.createRisk(tenantId, req.user.id, createRiskDto);
+  }
+
+  /**
+   * PATCH /grc/risks/:id
+   * Update an existing risk
+   * Requires MANAGER or ADMIN role
+   */
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  async update(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() updateRiskDto: UpdateRiskDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const risk = await this.riskService.updateRisk(
+      tenantId,
+      req.user.id,
+      id,
+      updateRiskDto,
+    );
+
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
+
+    return risk;
+  }
+
+  /**
+   * DELETE /grc/risks/:id
+   * Soft delete a risk (marks as deleted, does not remove from database)
+   * Requires MANAGER or ADMIN role
+   */
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const deleted = await this.riskService.softDeleteRisk(
+      tenantId,
+      req.user.id,
+      id,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
   }
 
   /**
@@ -109,7 +197,7 @@ export class GrcRiskController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const risk = await this.riskService.findOneForTenant(tenantId, id);
+    const risk = await this.riskService.findOneActiveForTenant(tenantId, id);
     if (!risk) {
       throw new NotFoundException(`Risk with ID ${id} not found`);
     }

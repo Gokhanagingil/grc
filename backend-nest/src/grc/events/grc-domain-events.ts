@@ -25,6 +25,16 @@ export class RiskUpdatedEvent {
   ) {}
 }
 
+export class RiskDeletedEvent {
+  constructor(
+    public readonly riskId: string,
+    public readonly tenantId: string,
+    public readonly userId: string,
+    public readonly title: string,
+    public readonly timestamp: Date = new Date(),
+  ) {}
+}
+
 export class PolicyCreatedEvent {
   constructor(
     public readonly policyId: string,
@@ -45,6 +55,16 @@ export class PolicyUpdatedEvent {
   ) {}
 }
 
+export class PolicyDeletedEvent {
+  constructor(
+    public readonly policyId: string,
+    public readonly tenantId: string,
+    public readonly userId: string,
+    public readonly name: string,
+    public readonly timestamp: Date = new Date(),
+  ) {}
+}
+
 export class ControlCreatedEvent {
   constructor(
     public readonly controlId: string,
@@ -56,6 +76,27 @@ export class ControlCreatedEvent {
 }
 
 export class RequirementCreatedEvent {
+  constructor(
+    public readonly requirementId: string,
+    public readonly tenantId: string,
+    public readonly userId: string,
+    public readonly title: string,
+    public readonly framework: string,
+    public readonly timestamp: Date = new Date(),
+  ) {}
+}
+
+export class RequirementUpdatedEvent {
+  constructor(
+    public readonly requirementId: string,
+    public readonly tenantId: string,
+    public readonly userId: string,
+    public readonly changes: Record<string, unknown>,
+    public readonly timestamp: Date = new Date(),
+  ) {}
+}
+
+export class RequirementDeletedEvent {
   constructor(
     public readonly requirementId: string,
     public readonly tenantId: string,
