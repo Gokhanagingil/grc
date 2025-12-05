@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../users/user.entity';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { RequestWithUser } from '../../common/types';
 
 /**
  * Roles Guard
@@ -32,7 +33,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     // If no user is present (JwtAuthGuard should have set this), deny access

@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
+import { RequestWithUser } from '../types';
 
 /**
  * Header name for correlation ID
@@ -9,17 +10,15 @@ import { StructuredLoggerService } from '../logger/structured-logger.service';
 export const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 /**
- * Extend Express Request to include correlation context
+ * Extended request interface for correlation context
+ * Note: Express.Request augmentation is done via RequestWithUser interface
  */
-declare global {
-  namespace Express {
-    interface Request {
-      correlationId?: string;
-      tenantId?: string;
-      userId?: string;
-      requestStartTime?: number;
-    }
-  }
+interface CorrelationRequest extends Request {
+  correlationId?: string;
+  tenantId?: string;
+  userId?: string;
+  requestStartTime?: number;
+  user?: RequestWithUser['user'];
 }
 
 /**
@@ -34,10 +33,11 @@ declare global {
  */
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction): void {
+  use(req: CorrelationRequest, res: Response, next: NextFunction): void {
     // Get correlation ID from header or generate a new one
-    const correlationId = (req.headers[CORRELATION_ID_HEADER] as string) || uuidv4();
-    
+    const correlationId =
+      (req.headers[CORRELATION_ID_HEADER] as string) || uuidv4();
+
     // Record request start time
     const requestStartTime = Date.now();
 
@@ -56,9 +56,9 @@ export class CorrelationIdMiddleware implements NestMiddleware {
 
     // Extract user ID from JWT (if authenticated)
     // This will be populated by the auth guard later
-    const user = (req as any).user;
-    if (user?.id) {
-      req.userId = user.id;
+    const user = req.user;
+    if (user?.sub) {
+      req.userId = user.sub;
     }
 
     // Set global logger context for this request

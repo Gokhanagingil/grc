@@ -58,17 +58,13 @@ describe('Settings (e2e)', () => {
       expect(Array.isArray(response.body.settings)).toBe(true);
 
       // Check that default settings were seeded
-      const keys = response.body.settings.map(
-        (s: { key: string }) => s.key,
-      );
+      const keys = response.body.settings.map((s: { key: string }) => s.key);
       expect(keys).toContain('maxLoginAttempts');
       expect(keys).toContain('defaultLocale');
     });
 
     it('should reject unauthenticated requests', async () => {
-      await request(app.getHttpServer())
-        .get('/settings/system')
-        .expect(401);
+      await request(app.getHttpServer()).get('/settings/system').expect(401);
     });
   });
 

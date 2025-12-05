@@ -57,9 +57,16 @@ export class PerformanceInterceptor implements NestInterceptor {
             responseSize: data ? JSON.stringify(data).length : 0,
           });
         },
-        error: (error) => {
+        error: (error: unknown) => {
           const endTime = process.hrtime.bigint();
           const durationMs = Number(endTime - startTime) / 1_000_000;
+
+          let errorName = 'UnknownError';
+          let errorMessage = 'Unknown error occurred';
+          if (error instanceof Error) {
+            errorName = error.name;
+            errorMessage = error.message;
+          }
 
           this.logger.warn('perf.handler.failed', {
             handler: handlerName,
@@ -68,8 +75,8 @@ export class PerformanceInterceptor implements NestInterceptor {
             path: request.path,
             method: request.method,
             outcome: 'error',
-            errorName: error.name,
-            errorMessage: error.message,
+            errorName,
+            errorMessage,
           });
         },
       }),

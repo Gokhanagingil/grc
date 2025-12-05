@@ -8,15 +8,15 @@ import { TenantGuard } from './guards/tenant.guard';
 
 /**
  * Tenants Module
- * 
+ *
  * Provides multi-tenancy support for the NestJS backend.
- * 
+ *
  * Features:
  * - Tenant entity and repository
  * - TenantGuard for protecting tenant-aware routes
  * - TenantsService for tenant operations
  * - Demo endpoints for testing multi-tenancy
- * 
+ *
  * Usage:
  * 1. Import TenantsModule in AppModule
  * 2. Use @UseGuards(JwtAuthGuard, TenantGuard) on routes

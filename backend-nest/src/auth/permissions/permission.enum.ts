@@ -34,7 +34,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_RISK_WRITE]: 'Create, update, and delete risks',
   [Permission.GRC_POLICY_READ]: 'View policies and policy details',
   [Permission.GRC_POLICY_WRITE]: 'Create, update, and delete policies',
-  [Permission.GRC_REQUIREMENT_READ]: 'View requirements and requirement details',
+  [Permission.GRC_REQUIREMENT_READ]:
+    'View requirements and requirement details',
   [Permission.GRC_REQUIREMENT_WRITE]: 'Create, update, and delete requirements',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',

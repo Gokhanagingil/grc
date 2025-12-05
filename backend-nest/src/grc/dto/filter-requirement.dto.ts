@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsUUID,
+  IsDateString,
+} from 'class-validator';
 import { ComplianceFramework } from '../enums';
 import { PaginationQueryDto } from './pagination.dto';
 

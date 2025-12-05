@@ -3,7 +3,7 @@ import { HealthController } from './health.controller';
 
 /**
  * Health Module
- * 
+ *
  * Provides health check endpoints for monitoring and orchestration.
  */
 @Module({
