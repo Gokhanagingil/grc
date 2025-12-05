@@ -17,9 +17,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../users/user.entity';
+import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
+import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRequirementService } from '../services/grc-requirement.service';
 import { ComplianceFramework } from '../enums';
 import { CreateRequirementDto, UpdateRequirementDto } from '../dto';
@@ -30,10 +30,10 @@ import { Perf } from '../../common/decorators';
  *
  * Full CRUD API endpoints for managing compliance requirements.
  * All endpoints require JWT authentication and tenant context.
- * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
+ * Write operations (POST, PATCH, DELETE) require GRC_REQUIREMENT_WRITE permission.
  */
 @Controller('grc/requirements')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcRequirementController {
   constructor(private readonly requirementService: GrcRequirementService) {}
 
@@ -42,7 +42,7 @@ export class GrcRequirementController {
    * List all requirements for the current tenant
    */
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -85,7 +85,7 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_REQUIREMENT_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @Perf()
   async create(
@@ -110,7 +110,7 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_REQUIREMENT_WRITE)
   @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -142,7 +142,7 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_REQUIREMENT_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Perf()
   async remove(
@@ -168,9 +168,10 @@ export class GrcRequirementController {
   /**
    * GET /grc/requirements/statistics
    * Get requirement statistics for the current tenant
+   * Requires GRC_STATISTICS_READ permission
    */
   @Get('statistics')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_STATISTICS_READ)
   @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -185,7 +186,7 @@ export class GrcRequirementController {
    * Get all unique frameworks used by the current tenant
    */
   @Get('frameworks')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
   @Perf()
   async getFrameworks(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -200,7 +201,7 @@ export class GrcRequirementController {
    * Get a specific requirement by ID
    */
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
   @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -226,7 +227,7 @@ export class GrcRequirementController {
    * Get a requirement with its associated controls
    */
   @Get(':id/controls')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
   @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,

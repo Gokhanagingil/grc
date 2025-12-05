@@ -7,6 +7,9 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { PermissionService } from './permissions/permission.service';
+import { PermissionsGuard } from './permissions/permissions.guard';
+import { BruteForceService } from './security/brute-force.service';
 
 /**
  * Parse expiresIn string (e.g., '24h', '7d', '30m') to seconds
@@ -64,8 +67,8 @@ function parseExpiresIn(value: string): number {
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, PermissionService, PermissionsGuard, BruteForceService],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, PermissionService, PermissionsGuard, BruteForceService],
 })
 export class AuthModule {}

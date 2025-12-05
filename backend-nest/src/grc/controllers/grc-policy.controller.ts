@@ -17,9 +17,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../users/user.entity';
+import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
+import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcPolicyService } from '../services/grc-policy.service';
 import { PolicyStatus } from '../enums';
 import { CreatePolicyDto, UpdatePolicyDto } from '../dto';
@@ -30,10 +30,10 @@ import { Perf } from '../../common/decorators';
  *
  * Full CRUD API endpoints for managing policies.
  * All endpoints require JWT authentication and tenant context.
- * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
+ * Write operations (POST, PATCH, DELETE) require GRC_POLICY_WRITE permission.
  */
 @Controller('grc/policies')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcPolicyController {
   constructor(private readonly policyService: GrcPolicyService) {}
 
@@ -42,7 +42,7 @@ export class GrcPolicyController {
    * List all policies for the current tenant
    */
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_POLICY_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -78,7 +78,7 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_POLICY_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @Perf()
   async create(
@@ -99,7 +99,7 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_POLICY_WRITE)
   @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -131,7 +131,7 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_POLICY_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Perf()
   async remove(
@@ -157,9 +157,10 @@ export class GrcPolicyController {
   /**
    * GET /grc/policies/statistics
    * Get policy statistics for the current tenant
+   * Requires GRC_STATISTICS_READ permission
    */
   @Get('statistics')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_STATISTICS_READ)
   @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -174,7 +175,7 @@ export class GrcPolicyController {
    * Get active policies for the current tenant
    */
   @Get('active')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_POLICY_READ)
   @Perf()
   async findActive(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -187,9 +188,10 @@ export class GrcPolicyController {
   /**
    * GET /grc/policies/due-for-review
    * Get policies due for review
+   * Requires GRC_STATISTICS_READ permission
    */
   @Get('due-for-review')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_STATISTICS_READ)
   @Perf()
   async findDueForReview(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -204,7 +206,7 @@ export class GrcPolicyController {
    * Get a specific policy by ID
    */
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_POLICY_READ)
   @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -227,7 +229,7 @@ export class GrcPolicyController {
    * Get a policy with its associated controls
    */
   @Get(':id/controls')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_POLICY_READ)
   @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,

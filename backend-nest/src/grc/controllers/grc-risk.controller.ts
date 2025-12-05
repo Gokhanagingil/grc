@@ -17,9 +17,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../users/user.entity';
+import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
+import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRiskService } from '../services/grc-risk.service';
 import { RiskStatus, RiskSeverity } from '../enums';
 import { CreateRiskDto, UpdateRiskDto } from '../dto';
@@ -30,10 +30,10 @@ import { Perf } from '../../common/decorators';
  *
  * Full CRUD API endpoints for managing risks.
  * All endpoints require JWT authentication and tenant context.
- * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
+ * Write operations (POST, PATCH, DELETE) require GRC_RISK_WRITE permission.
  */
 @Controller('grc/risks')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcRiskController {
   constructor(private readonly riskService: GrcRiskService) {}
 
@@ -42,7 +42,7 @@ export class GrcRiskController {
    * List all risks for the current tenant
    */
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_RISK_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -81,10 +81,10 @@ export class GrcRiskController {
   /**
    * POST /grc/risks
    * Create a new risk for the current tenant
-   * Requires MANAGER or ADMIN role
+   * Requires GRC_RISK_WRITE permission
    */
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_RISK_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @Perf()
   async create(
@@ -102,10 +102,10 @@ export class GrcRiskController {
   /**
    * PATCH /grc/risks/:id
    * Update an existing risk
-   * Requires MANAGER or ADMIN role
+   * Requires GRC_RISK_WRITE permission
    */
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_RISK_WRITE)
   @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -134,10 +134,10 @@ export class GrcRiskController {
   /**
    * DELETE /grc/risks/:id
    * Soft delete a risk (marks as deleted, does not remove from database)
-   * Requires MANAGER or ADMIN role
+   * Requires GRC_RISK_WRITE permission
    */
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_RISK_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Perf()
   async remove(
@@ -163,9 +163,10 @@ export class GrcRiskController {
   /**
    * GET /grc/risks/statistics
    * Get risk statistics for the current tenant
+   * Requires GRC_STATISTICS_READ permission
    */
   @Get('statistics')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Permissions(Permission.GRC_STATISTICS_READ)
   @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -180,7 +181,7 @@ export class GrcRiskController {
    * Get high-severity risks (HIGH or CRITICAL)
    */
   @Get('high-severity')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_RISK_READ)
   @Perf()
   async findHighSeverity(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -195,7 +196,7 @@ export class GrcRiskController {
    * Get a specific risk by ID
    */
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_RISK_READ)
   @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -218,7 +219,7 @@ export class GrcRiskController {
    * Get a risk with its associated controls
    */
   @Get(':id/controls')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
+  @Permissions(Permission.GRC_RISK_READ)
   @Perf()
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,
