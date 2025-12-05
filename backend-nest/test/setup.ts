@@ -1,6 +1,6 @@
 /**
  * Test Setup
- * 
+ *
  * This file is run before all e2e tests to set up the test environment.
  */
 import * as crypto from 'crypto';
@@ -15,8 +15,10 @@ if (!process.env.JWT_SECRET) {
 
 // Set demo admin credentials for tests
 // These should match what the AuthService uses
-process.env.DEMO_ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
-process.env.DEMO_ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
+process.env.DEMO_ADMIN_EMAIL =
+  process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
+process.env.DEMO_ADMIN_PASSWORD =
+  process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
 
 // Database configuration for tests
 process.env.DB_HOST = process.env.DB_HOST || 'localhost';

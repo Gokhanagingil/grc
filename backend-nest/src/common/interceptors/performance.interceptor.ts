@@ -7,9 +7,9 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Request } from 'express';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
 import { PERF_METADATA_KEY } from '../decorators/perf.decorator';
+import { RequestWithUser } from '../types';
 
 /**
  * Performance Interceptor
@@ -37,7 +37,7 @@ export class PerformanceInterceptor implements NestInterceptor {
     }
 
     const ctx = context.switchToHttp();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<RequestWithUser>();
     const handlerName = `${context.getClass().name}.${context.getHandler().name}`;
     const startTime = process.hrtime.bigint();
 
@@ -57,9 +57,16 @@ export class PerformanceInterceptor implements NestInterceptor {
             responseSize: data ? JSON.stringify(data).length : 0,
           });
         },
-        error: (error) => {
+        error: (error: unknown) => {
           const endTime = process.hrtime.bigint();
           const durationMs = Number(endTime - startTime) / 1_000_000;
+
+          let errorName = 'UnknownError';
+          let errorMessage = 'Unknown error occurred';
+          if (error instanceof Error) {
+            errorName = error.name;
+            errorMessage = error.message;
+          }
 
           this.logger.warn('perf.handler.failed', {
             handler: handlerName,
@@ -68,8 +75,8 @@ export class PerformanceInterceptor implements NestInterceptor {
             path: request.path,
             method: request.method,
             outcome: 'error',
-            errorName: error.name,
-            errorMessage: error.message,
+            errorName,
+            errorMessage,
           });
         },
       }),

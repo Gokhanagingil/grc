@@ -15,8 +15,14 @@ import { GrcModule } from './grc/grc.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CorrelationIdMiddleware, SecurityHeadersMiddleware } from './common/middleware';
-import { RequestTimingInterceptor, PerformanceInterceptor } from './common/interceptors';
+import {
+  CorrelationIdMiddleware,
+  SecurityHeadersMiddleware,
+} from './common/middleware';
+import {
+  RequestTimingInterceptor,
+  PerformanceInterceptor,
+} from './common/interceptors';
 import { StructuredLoggerService } from './common/logger';
 
 /**

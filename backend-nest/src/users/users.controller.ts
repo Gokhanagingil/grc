@@ -1,10 +1,11 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequestWithUser } from '../common/types';
 
 /**
  * Users Controller
- * 
+ *
  * Provides endpoints for user operations.
  * This is a skeleton implementation for the initial NestJS setup.
  */
@@ -31,14 +32,15 @@ export class UsersController {
    */
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@Request() req: any) {
-    const user = await this.usersService.findById(req.user.sub);
+  async getProfile(@Request() req: RequestWithUser) {
+    const user = await this.usersService.findById(req.user?.sub || '');
     if (!user) {
       return { error: 'User not found' };
     }
-    
+
     // Return user without password hash
-    const { passwordHash, ...userWithoutPassword } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Destructuring to exclude passwordHash from response
+    const { passwordHash: _passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 

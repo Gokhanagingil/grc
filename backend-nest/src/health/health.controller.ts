@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 
 /**
  * Health Controller
- * 
+ *
  * Provides health check endpoints for monitoring and orchestration.
  * - /health/live: Simple liveness check (app is running)
  * - /health/ready: Readiness check (app can serve traffic, DB connected)
@@ -52,7 +52,11 @@ export class HealthController {
   /**
    * Check database connectivity
    */
-  private async checkDatabase(): Promise<{ connected: boolean; latencyMs?: number; error?: string }> {
+  private async checkDatabase(): Promise<{
+    connected: boolean;
+    latencyMs?: number;
+    error?: string;
+  }> {
     const startTime = Date.now();
     try {
       await this.dataSource.query('SELECT 1');

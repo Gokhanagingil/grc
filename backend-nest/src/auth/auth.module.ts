@@ -38,7 +38,7 @@ function parseExpiresIn(value: string): number {
 
 /**
  * Auth Module
- * 
+ *
  * Provides authentication functionality including JWT-based auth.
  */
 @Module({
@@ -55,7 +55,8 @@ function parseExpiresIn(value: string): number {
           throw new Error('JWT_SECRET is not configured');
         }
         // Parse expiresIn from config (e.g., '24h', '7d') or default to 24 hours in seconds
-        const expiresInConfig = configService.get<string>('jwt.expiresIn') || '24h';
+        const expiresInConfig =
+          configService.get<string>('jwt.expiresIn') || '24h';
         // Convert string like '24h' to seconds for type safety
         const expiresInSeconds = parseExpiresIn(expiresInConfig);
         return {
@@ -67,8 +68,19 @@ function parseExpiresIn(value: string): number {
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, PermissionService, PermissionsGuard, BruteForceService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    PermissionService,
+    PermissionsGuard,
+    BruteForceService,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, PermissionService, PermissionsGuard, BruteForceService],
+  exports: [
+    AuthService,
+    PermissionService,
+    PermissionsGuard,
+    BruteForceService,
+  ],
 })
 export class AuthModule {}

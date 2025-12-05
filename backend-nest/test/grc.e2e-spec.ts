@@ -156,7 +156,9 @@ describe('GRC CRUD Operations (e2e)', () => {
     describe('GET /grc/risks/:id', () => {
       it('should return a specific risk by ID', async () => {
         if (!dbConnected || !tenantId || !createdRiskId) {
-          console.log('Skipping test: database not connected or no risk created');
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
           return;
         }
 
@@ -187,7 +189,9 @@ describe('GRC CRUD Operations (e2e)', () => {
     describe('PATCH /grc/risks/:id', () => {
       it('should update an existing risk', async () => {
         if (!dbConnected || !tenantId || !createdRiskId) {
-          console.log('Skipping test: database not connected or no risk created');
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
           return;
         }
 
@@ -226,7 +230,9 @@ describe('GRC CRUD Operations (e2e)', () => {
     describe('DELETE /grc/risks/:id', () => {
       it('should soft delete a risk', async () => {
         if (!dbConnected || !tenantId || !createdRiskId) {
-          console.log('Skipping test: database not connected or no risk created');
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
           return;
         }
 
@@ -239,7 +245,9 @@ describe('GRC CRUD Operations (e2e)', () => {
 
       it('should not return deleted risk in list', async () => {
         if (!dbConnected || !tenantId || !createdRiskId) {
-          console.log('Skipping test: database not connected or no risk created');
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
           return;
         }
 
@@ -257,7 +265,9 @@ describe('GRC CRUD Operations (e2e)', () => {
 
       it('should return 404 when trying to get deleted risk', async () => {
         if (!dbConnected || !tenantId || !createdRiskId) {
-          console.log('Skipping test: database not connected or no risk created');
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
           return;
         }
 

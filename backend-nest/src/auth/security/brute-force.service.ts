@@ -52,7 +52,10 @@ export class BruteForceService {
    * Check if a login attempt is allowed
    * Returns delay in milliseconds if rate limited, 0 if allowed
    */
-  isAllowed(ip: string, username: string): { allowed: boolean; delayMs: number; reason?: string } {
+  isAllowed(
+    ip: string,
+    username: string,
+  ): { allowed: boolean; delayMs: number; reason?: string } {
     const key = this.getKey(ip, username);
     const attempt = this.attempts.get(key);
 

@@ -6,7 +6,7 @@ import { User } from '../users/user.entity';
 
 /**
  * Tenants Service
- * 
+ *
  * Provides tenant-related business logic and database operations.
  */
 @Injectable()
@@ -49,14 +49,25 @@ export class TenantsService {
   async getUsersForTenant(tenantId: string): Promise<User[]> {
     return this.userRepository.find({
       where: { tenantId },
-      select: ['id', 'email', 'role', 'firstName', 'lastName', 'isActive', 'createdAt'],
+      select: [
+        'id',
+        'email',
+        'role',
+        'firstName',
+        'lastName',
+        'isActive',
+        'createdAt',
+      ],
     });
   }
 
   /**
    * Check if a user belongs to a tenant
    */
-  async userBelongsToTenant(userId: string, tenantId: string): Promise<boolean> {
+  async userBelongsToTenant(
+    userId: string,
+    tenantId: string,
+  ): Promise<boolean> {
     const user = await this.userRepository.findOne({
       where: { id: userId, tenantId },
     });
@@ -66,7 +77,10 @@ export class TenantsService {
   /**
    * Assign a user to a tenant
    */
-  async assignUserToTenant(userId: string, tenantId: string): Promise<User | null> {
+  async assignUserToTenant(
+    userId: string,
+    tenantId: string,
+  ): Promise<User | null> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       return null;
@@ -82,14 +96,14 @@ export class TenantsService {
   async getOrCreateDemoTenant(): Promise<Tenant> {
     const demoTenantName = 'Demo Organization';
     let tenant = await this.findByName(demoTenantName);
-    
+
     if (!tenant) {
       tenant = await this.create(
         demoTenantName,
         'Default demo tenant for testing and development',
       );
     }
-    
+
     return tenant;
   }
 

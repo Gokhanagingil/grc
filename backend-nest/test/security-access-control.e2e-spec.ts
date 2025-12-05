@@ -434,7 +434,10 @@ describe('Security & Access Control (e2e)', () => {
           .expect(401);
 
         expect(response.body).toHaveProperty('statusCode', 401);
-        expect(response.body).toHaveProperty('message', 'Invalid email or password');
+        expect(response.body).toHaveProperty(
+          'message',
+          'Invalid email or password',
+        );
       });
 
       it('should return 401 for non-existent user', async () => {

@@ -21,7 +21,11 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRequirementService } from '../services/grc-requirement.service';
-import { CreateRequirementDto, UpdateRequirementDto, RequirementFilterDto } from '../dto';
+import {
+  CreateRequirementDto,
+  UpdateRequirementDto,
+  RequirementFilterDto,
+} from '../dto';
 import { Perf } from '../../common/decorators';
 
 /**

@@ -53,7 +53,7 @@ function makeRequest(
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
-          const parsed = data ? JSON.parse(data) : {};
+          const parsed: unknown = data ? JSON.parse(data) : {};
           resolve({
             statusCode: res.statusCode || 0,
             data: parsed,
@@ -144,16 +144,23 @@ async function runSmokeTest() {
   } else {
     failed++;
     console.log('\n[ERROR] NestJS backend is not running!');
-    console.log('Please start the backend: cd backend-nest && npm run start:dev');
+    console.log(
+      'Please start the backend: cd backend-nest && npm run start:dev',
+    );
     process.exit(1);
   }
 
   // 2. Login
   printSection('2. Authentication');
-  const loginResponse = await makeRequest('POST', '/auth/login', {}, {
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-  });
+  const loginResponse = await makeRequest(
+    'POST',
+    '/auth/login',
+    {},
+    {
+      email: DEMO_EMAIL,
+      password: DEMO_PASSWORD,
+    },
+  );
 
   if (loginResponse.statusCode === 200 || loginResponse.statusCode === 201) {
     const loginData = loginResponse.data as { access_token?: string };
@@ -166,7 +173,9 @@ async function runSmokeTest() {
       failed++;
     }
   } else {
-    console.log(`[FAIL] POST /auth/login - Status: ${loginResponse.statusCode}`);
+    console.log(
+      `[FAIL] POST /auth/login - Status: ${loginResponse.statusCode}`,
+    );
     console.log('    Note: Demo user may not exist. Run: npm run seed:grc');
     failed++;
   }
@@ -190,7 +199,10 @@ async function runSmokeTest() {
     const risksResponse = await makeRequest('GET', '/grc/risks', authHeaders);
     if (printResult('GET /grc/risks', risksResponse)) {
       passed++;
-      const risks = risksResponse.data as Array<{ title: string; severity: string }>;
+      const risks = risksResponse.data as Array<{
+        title: string;
+        severity: string;
+      }>;
       if (Array.isArray(risks)) {
         console.log(`    Found ${risks.length} risks`);
         if (risks.length > 0) {
@@ -230,11 +242,16 @@ async function runSmokeTest() {
     );
     if (printResult('GET /grc/policies', policiesResponse)) {
       passed++;
-      const policies = policiesResponse.data as Array<{ name: string; status: string }>;
+      const policies = policiesResponse.data as Array<{
+        name: string;
+        status: string;
+      }>;
       if (Array.isArray(policies)) {
         console.log(`    Found ${policies.length} policies`);
         if (policies.length > 0) {
-          console.log(`    Sample: "${policies[0].name}" (${policies[0].status})`);
+          console.log(
+            `    Sample: "${policies[0].name}" (${policies[0].status})`,
+          );
         }
       }
     } else {

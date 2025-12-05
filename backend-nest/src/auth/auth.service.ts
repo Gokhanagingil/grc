@@ -1,4 +1,11 @@
-import { Injectable, UnauthorizedException, Inject, forwardRef, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Inject,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -13,9 +20,9 @@ import { BruteForceService } from './security/brute-force.service';
 
 /**
  * Auth Service
- * 
+ *
  * Provides authentication functionality including login and JWT generation.
- * 
+ *
  * NOTE: For initial setup/demo purposes, this service includes a hardcoded
  * admin user that is created if no users exist in the database. This should
  * be removed or replaced with proper user seeding in production.
@@ -38,8 +45,11 @@ export class AuthService {
    */
   private getDemoAdminCredentials(): { email: string; password: string } {
     return {
-      email: this.configService.get<string>('DEMO_ADMIN_EMAIL') || 'admin@grc-platform.local',
-      password: this.configService.get<string>('DEMO_ADMIN_PASSWORD') || 'changeme',
+      email:
+        this.configService.get<string>('DEMO_ADMIN_EMAIL') ||
+        'admin@grc-platform.local',
+      password:
+        this.configService.get<string>('DEMO_ADMIN_PASSWORD') || 'changeme',
     };
   }
 
@@ -48,13 +58,13 @@ export class AuthService {
    */
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByEmail(email);
-    
+
     if (!user) {
       return null;
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    
+
     if (!isPasswordValid) {
       return null;
     }
@@ -64,7 +74,7 @@ export class AuthService {
 
   /**
    * Login and return JWT token
-   * 
+   *
    * @param loginDto - Login credentials
    * @param ip - Client IP address for brute force tracking
    * @param correlationId - Request correlation ID for logging
@@ -77,13 +87,18 @@ export class AuthService {
     const clientIp = ip || 'unknown';
 
     // Check brute force protection
-    const bruteForceCheck = this.bruteForceService.isAllowed(clientIp, loginDto.email);
+    const bruteForceCheck = this.bruteForceService.isAllowed(
+      clientIp,
+      loginDto.email,
+    );
     if (!bruteForceCheck.allowed) {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           error: 'Too Many Requests',
-          message: bruteForceCheck.reason || 'Too many login attempts. Please try again later.',
+          message:
+            bruteForceCheck.reason ||
+            'Too many login attempts. Please try again later.',
           retryAfterMs: bruteForceCheck.delayMs,
         },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -97,13 +112,23 @@ export class AuthService {
 
     if (!user) {
       // Record failed attempt
-      this.bruteForceService.recordFailure(clientIp, loginDto.email, undefined, correlationId);
+      this.bruteForceService.recordFailure(
+        clientIp,
+        loginDto.email,
+        undefined,
+        correlationId,
+      );
       throw new UnauthorizedException('Invalid email or password');
     }
 
     if (!user.isActive) {
       // Record failed attempt for inactive accounts too
-      this.bruteForceService.recordFailure(clientIp, loginDto.email, user.tenantId || undefined, correlationId);
+      this.bruteForceService.recordFailure(
+        clientIp,
+        loginDto.email,
+        user.tenantId || undefined,
+        correlationId,
+      );
       throw new UnauthorizedException('Account is deactivated');
     }
 
@@ -125,7 +150,8 @@ export class AuthService {
     );
 
     // Return user without password hash
-    const { passwordHash, ...userWithoutPassword } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Destructuring to exclude passwordHash from response
+    const { passwordHash: _passwordHash, ...userWithoutPassword } = user;
 
     return {
       accessToken,
@@ -135,20 +161,20 @@ export class AuthService {
 
   /**
    * Ensure demo admin user and tenant exist (for initial setup/demo purposes)
-   * 
+   *
    * WARNING: This is for development/demo only. In production, use proper
    * user seeding or remove this method entirely.
    */
   private async ensureDemoAdminExists(): Promise<void> {
     const { email, password } = this.getDemoAdminCredentials();
     const existingAdmin = await this.usersService.findByEmail(email);
-    
+
     if (!existingAdmin) {
       // First, create or get the demo tenant
       const demoTenant = await this.tenantsService.getOrCreateDemoTenant();
-      
+
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       await this.usersService.create({
         email,
         passwordHash: hashedPassword,
@@ -169,7 +195,10 @@ export class AuthService {
     } else if (!existingAdmin.tenantId) {
       // If admin exists but has no tenant, assign to demo tenant
       const demoTenant = await this.tenantsService.getOrCreateDemoTenant();
-      await this.tenantsService.assignUserToTenant(existingAdmin.id, demoTenant.id);
+      await this.tenantsService.assignUserToTenant(
+        existingAdmin.id,
+        demoTenant.id,
+      );
       console.log(`Assigned existing admin to tenant: ${demoTenant.name}`);
     }
   }

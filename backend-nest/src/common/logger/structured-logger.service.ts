@@ -1,6 +1,4 @@
-import { Injectable, LoggerService as NestLoggerService, Scope, Inject, Optional } from '@nestjs/common';
-import { REQUEST } from '@nestjs/core';
-import { Request } from 'express';
+import { Injectable, LoggerService as NestLoggerService } from '@nestjs/common';
 
 /**
  * Log levels for structured logging
@@ -106,9 +104,13 @@ export class StructuredLoggerService implements NestLoggerService {
    */
   error(message: string, trace?: string, context?: string): void;
   error(message: string, metadata?: Record<string, unknown>): void;
-  error(message: string, traceOrMetadata?: string | Record<string, unknown>, context?: string): void {
+  error(
+    message: string,
+    traceOrMetadata?: string | Record<string, unknown>,
+    context?: string,
+  ): void {
     const entry = this.createLogEntry(LogLevel.ERROR, message, context);
-    
+
     if (typeof traceOrMetadata === 'string') {
       entry.error = {
         name: 'Error',
@@ -134,13 +136,16 @@ export class StructuredLoggerService implements NestLoggerService {
    */
   warn(message: string, context?: string): void;
   warn(message: string, metadata?: Record<string, unknown>): void;
-  warn(message: string, contextOrMetadata?: string | Record<string, unknown>): void {
+  warn(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+  ): void {
     const entry = this.createLogEntry(
       LogLevel.WARN,
       message,
       typeof contextOrMetadata === 'string' ? contextOrMetadata : undefined,
     );
-    
+
     if (typeof contextOrMetadata === 'object') {
       entry.metadata = contextOrMetadata;
     }
@@ -153,13 +158,16 @@ export class StructuredLoggerService implements NestLoggerService {
    */
   log(message: string, context?: string): void;
   log(message: string, metadata?: Record<string, unknown>): void;
-  log(message: string, contextOrMetadata?: string | Record<string, unknown>): void {
+  log(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+  ): void {
     const entry = this.createLogEntry(
       LogLevel.INFO,
       message,
       typeof contextOrMetadata === 'string' ? contextOrMetadata : undefined,
     );
-    
+
     if (typeof contextOrMetadata === 'object') {
       entry.metadata = contextOrMetadata;
     }
@@ -172,13 +180,16 @@ export class StructuredLoggerService implements NestLoggerService {
    */
   debug(message: string, context?: string): void;
   debug(message: string, metadata?: Record<string, unknown>): void;
-  debug(message: string, contextOrMetadata?: string | Record<string, unknown>): void {
+  debug(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+  ): void {
     const entry = this.createLogEntry(
       LogLevel.DEBUG,
       message,
       typeof contextOrMetadata === 'string' ? contextOrMetadata : undefined,
     );
-    
+
     if (typeof contextOrMetadata === 'object') {
       entry.metadata = contextOrMetadata;
     }
@@ -191,13 +202,16 @@ export class StructuredLoggerService implements NestLoggerService {
    */
   verbose(message: string, context?: string): void;
   verbose(message: string, metadata?: Record<string, unknown>): void;
-  verbose(message: string, contextOrMetadata?: string | Record<string, unknown>): void {
+  verbose(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+  ): void {
     const entry = this.createLogEntry(
       LogLevel.VERBOSE,
       message,
       typeof contextOrMetadata === 'string' ? contextOrMetadata : undefined,
     );
-    
+
     if (typeof contextOrMetadata === 'object') {
       entry.metadata = contextOrMetadata;
     }
@@ -216,7 +230,7 @@ export class StructuredLoggerService implements NestLoggerService {
     const entry = this.createLogEntry(LogLevel.INFO, 'request.completed');
     entry.statusCode = statusCode;
     entry.latencyMs = latencyMs;
-    
+
     if (metadata) {
       entry.metadata = metadata;
     }
@@ -227,7 +241,11 @@ export class StructuredLoggerService implements NestLoggerService {
   /**
    * Create a structured log entry with context
    */
-  private createLogEntry(level: LogLevel, message: string, context?: string): StructuredLogEntry {
+  private createLogEntry(
+    level: LogLevel,
+    message: string,
+    context?: string,
+  ): StructuredLogEntry {
     return {
       timestamp: new Date().toISOString(),
       level,
@@ -247,7 +265,7 @@ export class StructuredLoggerService implements NestLoggerService {
   private writeLog(entry: StructuredLogEntry): void {
     // Remove undefined values for cleaner output
     const cleanEntry = Object.fromEntries(
-      Object.entries(entry).filter(([_, v]) => v !== undefined),
+      Object.entries(entry).filter(([, v]) => v !== undefined),
     );
 
     // Use appropriate console method based on level
