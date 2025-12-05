@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -21,16 +21,51 @@ import {
   RequirementDeletedEvent,
 } from '../grc/events';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Sensitive keys to redact from audit payloads
+ */
+const SENSITIVE_KEYS = [
+  'password',
+  'token',
+  'secret',
+  'authorization',
+  'cookie',
+  'jwt',
+  'apikey',
+  'api_key',
+  'access_token',
+  'refresh_token',
+  'private_key',
+];
+
+/**
+ * Maximum size for metadata objects (in characters when stringified)
+ */
+const MAX_METADATA_SIZE = 10000;
 
 /**
  * Audit Service
  *
  * Handles persistence of audit log entries.
  * Listens to domain events and creates audit records.
+ *
+ * Production Hardening:
+ * - Retry logic with exponential backoff
+ * - Fallback to local file on persistent failures
+ * - Payload sanitization (redact secrets, limit size)
+ * - In-flight tracking for graceful shutdown
  */
 @Injectable()
-export class AuditService {
+export class AuditService implements OnModuleInit {
+  private readonly logger = new Logger(AuditService.name);
   private readonly isEnabled: boolean;
+  private readonly retryAttempts: number;
+  private readonly retryDelayMs: number;
+  private readonly fallbackFile: string;
+  private readonly inFlightWrites = new Set<Promise<unknown>>();
 
   constructor(
     @InjectRepository(AuditLog)
@@ -39,18 +74,168 @@ export class AuditService {
   ) {
     this.isEnabled =
       this.configService.get<string>('audit.enabled', 'true') === 'true';
+    this.retryAttempts = this.configService.get<number>(
+      'audit.retryAttempts',
+      3,
+    );
+    this.retryDelayMs = this.configService.get<number>(
+      'audit.retryDelayMs',
+      100,
+    );
+    this.fallbackFile = this.configService.get<string>(
+      'audit.fallbackFile',
+      'audit-failures.log',
+    );
+  }
+
+  onModuleInit() {
+    const fallbackDir = path.dirname(this.fallbackFile);
+    if (fallbackDir && fallbackDir !== '.') {
+      try {
+        fs.mkdirSync(fallbackDir, { recursive: true });
+      } catch {
+        // Directory may already exist
+      }
+    }
+  }
+
+  getInFlightCount(): number {
+    return this.inFlightWrites.size;
+  }
+
+  async flushPendingWrites(): Promise<void> {
+    if (this.inFlightWrites.size > 0) {
+      this.logger.log(
+        `Flushing ${this.inFlightWrites.size} pending audit writes...`,
+      );
+      await Promise.allSettled([...this.inFlightWrites]);
+      this.logger.log('All pending audit writes flushed');
+    }
+  }
+
+  private sanitizePayload(data: unknown): unknown {
+    if (data === null || data === undefined) {
+      return data;
+    }
+    if (typeof data === 'string') {
+      if (data.length > 1000) {
+        return data.substring(0, 1000) + '...[truncated]';
+      }
+      return data;
+    }
+    if (Array.isArray(data)) {
+      const limited = data.slice(0, 100);
+      return limited.map((item) => this.sanitizePayload(item));
+    }
+    if (typeof data === 'object') {
+      const sanitized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(
+        data as Record<string, unknown>,
+      )) {
+        const lowerKey = key.toLowerCase();
+        if (SENSITIVE_KEYS.some((sensitive) => lowerKey.includes(sensitive))) {
+          sanitized[key] = '[REDACTED]';
+        } else {
+          sanitized[key] = this.sanitizePayload(value);
+        }
+      }
+      return sanitized;
+    }
+    return data;
+  }
+
+  private sanitizeMetadata(
+    metadata: Record<string, unknown> | undefined,
+  ): Record<string, unknown> | undefined {
+    if (!metadata) {
+      return metadata;
+    }
+    const sanitized = this.sanitizePayload(metadata) as Record<string, unknown>;
+    const stringified = JSON.stringify(sanitized);
+    if (stringified.length > MAX_METADATA_SIZE) {
+      return {
+        _truncated: true,
+        _originalSize: stringified.length,
+        summary: 'Metadata truncated due to size limits',
+      };
+    }
+    return sanitized;
+  }
+
+  private async writeToFallback(
+    data: Partial<AuditLog>,
+    error: Error,
+  ): Promise<void> {
+    try {
+      const fallbackEntry = {
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        data: this.sanitizePayload(data),
+      };
+      const line = JSON.stringify(fallbackEntry) + '\n';
+      await fs.promises.appendFile(this.fallbackFile, line);
+      this.logger.warn(
+        `Audit log written to fallback file: ${this.fallbackFile}`,
+      );
+    } catch (fallbackError) {
+      this.logger.error(
+        'Failed to write to audit fallback file',
+        fallbackError instanceof Error
+          ? fallbackError.stack
+          : String(fallbackError),
+      );
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async writeWithRetry(
+    data: Partial<AuditLog>,
+  ): Promise<AuditLog | null> {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        const auditLog = this.auditLogRepository.create(data);
+        return await this.auditLogRepository.save(auditLog);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < this.retryAttempts) {
+          const delay = this.retryDelayMs * Math.pow(2, attempt - 1);
+          this.logger.warn(
+            `Audit write failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms: ${lastError.message}`,
+          );
+          await this.sleep(delay);
+        }
+      }
+    }
+    this.logger.error(
+      `Audit write failed after ${this.retryAttempts} attempts, writing to fallback`,
+    );
+    await this.writeToFallback(data, lastError!);
+    return null;
   }
 
   /**
-   * Create an audit log entry directly
+   * Create an audit log entry with retry and fallback
    */
   async createAuditLog(data: Partial<AuditLog>): Promise<AuditLog | null> {
     if (!this.isEnabled) {
       return null;
     }
-
-    const auditLog = this.auditLogRepository.create(data);
-    return this.auditLogRepository.save(auditLog);
+    const sanitizedData = {
+      ...data,
+      metadata: this.sanitizeMetadata(
+        data.metadata as Record<string, unknown> | undefined,
+      ),
+    };
+    const writePromise = this.writeWithRetry(sanitizedData);
+    this.inFlightWrites.add(writePromise);
+    writePromise.finally(() => {
+      this.inFlightWrites.delete(writePromise);
+    });
+    return writePromise;
   }
 
   /**
