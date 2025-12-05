@@ -23,7 +23,10 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
     // Prevent caching of sensitive data
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate',
+    );
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 

@@ -11,7 +11,8 @@ describe('Multi-Tenancy (e2e)', () => {
   let tenantId: string;
 
   // Demo admin credentials from environment variables (set in test/setup.ts)
-  const DEMO_ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
+  const DEMO_ADMIN_EMAIL =
+    process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
   const DEMO_ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || 'changeme';
 
   beforeAll(async () => {
@@ -42,7 +43,9 @@ describe('Multi-Tenancy (e2e)', () => {
       adminToken = loginResponse.body.accessToken;
       tenantId = loginResponse.body.user.tenantId;
     } catch (error) {
-      console.warn('Could not connect to database, skipping DB-dependent tests');
+      console.warn(
+        'Could not connect to database, skipping DB-dependent tests',
+      );
       console.warn('Error:', (error as Error).message);
       dbConnected = false;
     }
@@ -75,7 +78,9 @@ describe('Multi-Tenancy (e2e)', () => {
   describe('GET /tenants/current', () => {
     it('should return current tenant when valid token and tenant header provided', async () => {
       if (!dbConnected || !tenantId) {
-        console.log('Skipping test: database not connected or tenant not available');
+        console.log(
+          'Skipping test: database not connected or tenant not available',
+        );
         return;
       }
 
@@ -89,13 +94,18 @@ describe('Multi-Tenancy (e2e)', () => {
       expect(response.body.tenant).toHaveProperty('id', tenantId);
       expect(response.body.tenant).toHaveProperty('name');
       expect(response.body).toHaveProperty('requestedBy');
-      expect(response.body.requestedBy).toHaveProperty('email', DEMO_ADMIN_EMAIL);
+      expect(response.body.requestedBy).toHaveProperty(
+        'email',
+        DEMO_ADMIN_EMAIL,
+      );
       expect(response.body).toHaveProperty('timestamp');
     });
 
     it('should return 401 without token', async () => {
       if (!dbConnected || !tenantId) {
-        console.log('Skipping test: database not connected or tenant not available');
+        console.log(
+          'Skipping test: database not connected or tenant not available',
+        );
         return;
       }
 
@@ -159,7 +169,9 @@ describe('Multi-Tenancy (e2e)', () => {
   describe('GET /tenants/users', () => {
     it('should return users for the current tenant', async () => {
       if (!dbConnected || !tenantId) {
-        console.log('Skipping test: database not connected or tenant not available');
+        console.log(
+          'Skipping test: database not connected or tenant not available',
+        );
         return;
       }
 
@@ -186,7 +198,9 @@ describe('Multi-Tenancy (e2e)', () => {
 
     it('should return 401 without token', async () => {
       if (!dbConnected || !tenantId) {
-        console.log('Skipping test: database not connected or tenant not available');
+        console.log(
+          'Skipping test: database not connected or tenant not available',
+        );
         return;
       }
 

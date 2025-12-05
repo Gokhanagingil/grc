@@ -10,10 +10,10 @@ import { User } from '../users/user.entity';
 
 /**
  * Tenant Entity
- * 
+ *
  * Represents an organization/tenant in the multi-tenant system.
  * Each tenant can have multiple users.
- * 
+ *
  * Relationship: One Tenant -> Many Users (one-to-many)
  * This is the simplest model for multi-tenancy.
  */

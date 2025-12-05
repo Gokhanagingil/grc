@@ -1,6 +1,6 @@
 /**
  * Environment Variables Validation
- * 
+ *
  * Uses class-validator to validate environment variables at startup.
  * If validation fails, the application will not start (fail-fast).
  */
@@ -67,7 +67,8 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  CORS_ORIGINS: string = 'http://localhost:3000,http://localhost:3001,http://localhost:3002';
+  CORS_ORIGINS: string =
+    'http://localhost:3000,http://localhost:3001,http://localhost:3002';
 }
 
 /**

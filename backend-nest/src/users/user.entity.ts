@@ -11,12 +11,12 @@ import { Tenant } from '../tenants/tenant.entity';
 
 /**
  * User Entity
- * 
+ *
  * NOTE: This entity uses a separate table name 'nest_users' to avoid
  * conflicts with the existing Express backend's 'users' table during
  * the migration period. The Express backend uses integer primary keys,
  * while this entity uses UUIDs.
- * 
+ *
  * Once the migration is complete, this can be unified with the existing
  * users table or the Express backend can be updated to use this table.
  */
@@ -55,7 +55,7 @@ export class User {
 
   /**
    * Tenant relationship
-   * 
+   *
    * Each user belongs to exactly one tenant.
    * The tenantId is nullable to support the demo admin user
    * which may be created before any tenant exists.

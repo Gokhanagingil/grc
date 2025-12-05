@@ -153,7 +153,7 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
   ): Promise<GrcRequirement[]> {
     return this.repository.find({
       where: {
-        ...((options?.where || {}) as FindOptionsWhere<GrcRequirement>),
+        ...(options?.where || {}),
         tenantId,
         isDeleted: false,
       },

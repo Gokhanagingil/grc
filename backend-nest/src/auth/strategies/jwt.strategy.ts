@@ -17,7 +17,7 @@ export interface JwtPayload {
 
 /**
  * JWT Strategy
- * 
+ *
  * Validates JWT tokens and extracts user information.
  */
 @Injectable()
@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!jwtSecret) {
       throw new Error('JWT_SECRET is not configured');
     }
-    
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -44,7 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    */
   async validate(payload: JwtPayload) {
     const user = await this.usersService.findById(payload.sub);
-    
+
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }

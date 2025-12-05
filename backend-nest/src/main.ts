@@ -6,7 +6,7 @@ import { StructuredLoggerService } from './common/logger';
 
 /**
  * Bootstrap the NestJS application
- * 
+ *
  * This NestJS backend runs alongside the existing Express backend:
  * - Express backend: port 3001
  * - NestJS backend: port 3002 (default)
@@ -19,7 +19,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger, // Use structured logger for NestJS internal logs
   });
-  
+
   const configService = app.get(ConfigService);
 
   // Global validation pipe for DTO validation
@@ -56,4 +56,7 @@ async function bootstrap() {
   });
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  console.error('Failed to start application:', error);
+  process.exit(1);
+});

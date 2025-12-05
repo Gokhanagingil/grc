@@ -3,12 +3,14 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  HttpException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
 import { MetricsService } from '../../metrics/metrics.service';
+import { RequestWithUser } from '../types';
 
 /**
  * Request Timing Interceptor
@@ -24,14 +26,16 @@ export class RequestTimingInterceptor implements NestInterceptor {
     this.logger.setContext('RequestTimingInterceptor');
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctx = context.switchToHttp();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<
+      RequestWithUser & { requestStartTime?: number; route?: { path?: string } }
+    >();
     const response = ctx.getResponse<Response>();
 
     const startTime = request.requestStartTime || Date.now();
     const method = request.method;
-    const path = request.route?.path || request.path;
+    const routePath: string = request.route?.path || request.path;
 
     return next.handle().pipe(
       tap({
@@ -41,28 +45,44 @@ export class RequestTimingInterceptor implements NestInterceptor {
 
           // Log structured request completion
           this.logger.logRequest(statusCode, latencyMs, {
-            route: path,
+            route: routePath,
             contentLength: response.get('content-length'),
           });
 
           // Record metrics
-          this.metricsService.recordRequest(method, path, statusCode, latencyMs);
+          this.metricsService.recordRequest(
+            method,
+            routePath,
+            statusCode,
+            latencyMs,
+          );
         },
-        error: (error) => {
+        error: (error: unknown) => {
           const latencyMs = Date.now() - startTime;
-          const statusCode = error.status || error.statusCode || 500;
+          let statusCode = 500;
+          if (error instanceof HttpException) {
+            statusCode = error.getStatus();
+          } else if (typeof error === 'object' && error !== null) {
+            const errorObj = error as { status?: number; statusCode?: number };
+            statusCode = errorObj.status || errorObj.statusCode || 500;
+          }
 
           // Log structured error
           this.logger.error('request.failed', {
             error,
             latencyMs,
             statusCode,
-            route: path,
+            route: routePath,
           });
 
           // Record error metrics
-          this.metricsService.recordRequest(method, path, statusCode, latencyMs);
-          this.metricsService.recordError(method, path, statusCode);
+          this.metricsService.recordRequest(
+            method,
+            routePath,
+            statusCode,
+            latencyMs,
+          );
+          this.metricsService.recordError(method, routePath, statusCode);
         },
       }),
     );

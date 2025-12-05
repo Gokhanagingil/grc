@@ -1,6 +1,6 @@
 /**
  * Application Configuration
- * 
+ *
  * Maps environment variables to a typed configuration object.
  * Aligns with the existing Express backend's .env.example where possible.
  */
@@ -24,7 +24,9 @@ export default () => ({
     synchronize: process.env.DB_SYNC === 'true',
   },
   cors: {
-    origins: process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3001,http://localhost:3002',
+    origins:
+      process.env.CORS_ORIGINS ??
+      'http://localhost:3000,http://localhost:3001,http://localhost:3002',
   },
   audit: {
     // Enable/disable audit logging (default: enabled)

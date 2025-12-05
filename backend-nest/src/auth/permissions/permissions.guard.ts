@@ -9,6 +9,8 @@ import { Permission } from './permission.enum';
 import { PERMISSIONS_KEY } from './permissions.decorator';
 import { PermissionService } from './permission.service';
 import { StructuredLoggerService } from '../../common/logger';
+import { RequestWithUser } from '../../common/types';
+import { UserRole } from '../../users/user.entity';
 
 /**
  * Permissions Guard
@@ -50,12 +52,17 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     // If no user is present (JwtAuthGuard should have set this), deny access
     if (!user) {
-      this.logAccessDenied(request, requiredPermissions, [], 'No user in request');
+      this.logAccessDenied(
+        request,
+        requiredPermissions,
+        [],
+        'No user in request',
+      );
       throw new ForbiddenException({
         statusCode: 403,
         error: 'Forbidden',
@@ -65,7 +72,9 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Get user's permissions based on their role
-    const userPermissions = this.permissionService.getPermissionsForRole(user.role);
+    const userPermissions = this.permissionService.getPermissionsForRole(
+      user.role as UserRole,
+    );
 
     // Check if user has ALL required permissions
     const hasAllPermissions = requiredPermissions.every((permission) =>
@@ -115,7 +124,8 @@ export class PermissionsGuard implements CanActivate {
     const tenantId = request.headers?.['x-tenant-id'] || null;
     const userId = request.user?.sub || null;
     const userRole = request.user?.role || null;
-    const correlationId = request.correlationId || request.headers?.['x-correlation-id'] || null;
+    const correlationId =
+      request.correlationId || request.headers?.['x-correlation-id'] || null;
 
     this.logger.warn('access.denied', {
       correlationId,

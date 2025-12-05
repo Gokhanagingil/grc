@@ -1,4 +1,12 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Req, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  Headers,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
@@ -6,7 +14,7 @@ import { LoginDto } from './dto/login.dto';
 
 /**
  * Auth Controller
- * 
+ *
  * Provides authentication endpoints with rate limiting and brute force protection.
  */
 @Controller('auth')
@@ -15,11 +23,11 @@ export class AuthController {
 
   /**
    * Login endpoint
-   * 
+   *
    * Accepts email and password, returns JWT token if valid.
    * Rate limited to 10 requests per minute per IP.
    * Brute force protection: exponential backoff after failed attempts.
-   * 
+   *
    * For demo purposes, you can use:
    * - Email: admin@grc-platform.local
    * - Password: TestPassword123!

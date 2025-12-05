@@ -6,7 +6,7 @@ import { UsersController } from './users.controller';
 
 /**
  * Users Module
- * 
+ *
  * Provides user management functionality.
  * This is a skeleton implementation for the initial NestJS setup.
  */

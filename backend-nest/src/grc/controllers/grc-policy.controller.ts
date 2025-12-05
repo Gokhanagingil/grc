@@ -103,7 +103,11 @@ export class GrcPolicyController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.policyService.createPolicy(tenantId, req.user.id, createPolicyDto);
+    return this.policyService.createPolicy(
+      tenantId,
+      req.user.id,
+      createPolicyDto,
+    );
   }
 
   /**
@@ -229,7 +233,10 @@ export class GrcPolicyController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const policy = await this.policyService.findOneActiveForTenant(tenantId, id);
+    const policy = await this.policyService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
     if (!policy) {
       throw new NotFoundException(`Policy with ID ${id} not found`);
     }

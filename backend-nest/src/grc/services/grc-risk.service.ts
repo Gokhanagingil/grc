@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, SelectQueryBuilder } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRisk } from '../entities/grc-risk.entity';
@@ -141,7 +141,7 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   ): Promise<GrcRisk[]> {
     return this.repository.find({
       where: {
-        ...((options?.where || {}) as FindOptionsWhere<GrcRisk>),
+        ...(options?.where || {}),
         tenantId,
         isDeleted: false,
       },

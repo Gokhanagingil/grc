@@ -2,7 +2,7 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 /**
  * Login DTO
- * 
+ *
  * Validates login request payload.
  */
 export class LoginDto {

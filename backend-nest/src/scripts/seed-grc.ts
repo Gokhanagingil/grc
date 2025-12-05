@@ -123,8 +123,7 @@ async function seedGrcData() {
       {
         name: 'Incident Response Plan',
         code: 'CTL-005',
-        description:
-          'Maintain and test incident response procedures quarterly',
+        description: 'Maintain and test incident response procedures quarterly',
         category: 'Incident Management',
         status: ControlStatus.IN_DESIGN,
       },
@@ -139,8 +138,7 @@ async function seedGrcData() {
       {
         name: 'Backup and Recovery',
         code: 'CTL-007',
-        description:
-          'Perform daily backups with weekly recovery testing',
+        description: 'Perform daily backups with weekly recovery testing',
         category: 'Business Continuity',
         status: ControlStatus.IMPLEMENTED,
       },
@@ -345,8 +343,7 @@ async function seedGrcData() {
         version: '1.5',
         status: PolicyStatus.ACTIVE,
         category: 'Human Resources',
-        summary:
-          'Defines acceptable use of company IT resources and systems',
+        summary: 'Defines acceptable use of company IT resources and systems',
         content:
           'All employees must use company IT resources responsibly and in accordance with this policy...',
         ownerUserId: DEMO_ADMIN_ID,
@@ -359,8 +356,7 @@ async function seedGrcData() {
         version: '1.0',
         status: PolicyStatus.ACTIVE,
         category: 'Data Governance',
-        summary:
-          'Defines data classification levels and handling requirements',
+        summary: 'Defines data classification levels and handling requirements',
         content:
           'Data shall be classified as Public, Internal, Confidential, or Restricted based on sensitivity...',
         effectiveDate: new Date('2024-06-01'),
@@ -386,8 +382,7 @@ async function seedGrcData() {
         version: '1.2',
         status: PolicyStatus.UNDER_REVIEW,
         category: 'Security',
-        summary:
-          'Defines requirements for managing access to systems and data',
+        summary: 'Defines requirements for managing access to systems and data',
         content:
           'Access to systems shall be granted based on the principle of least privilege...',
         effectiveDate: new Date('2024-04-01'),
@@ -424,8 +419,7 @@ async function seedGrcData() {
         version: '3.0',
         status: PolicyStatus.ACTIVE,
         category: 'Security',
-        summary:
-          'Defines password requirements and authentication standards',
+        summary: 'Defines password requirements and authentication standards',
         content:
           'Passwords must be at least 12 characters with complexity requirements...',
         effectiveDate: new Date('2024-01-15'),
@@ -592,13 +586,31 @@ async function seedGrcData() {
     const riskControlRepo = dataSource.getRepository(GrcRiskControl);
 
     const riskControlMappings = [
-      { riskTitle: 'Ransomware Attack', controlCodes: ['CTL-002', 'CTL-005', 'CTL-006', 'CTL-007'] },
-      { riskTitle: 'Data Breach via Third Party', controlCodes: ['CTL-001', 'CTL-002', 'CTL-003'] },
-      { riskTitle: 'Insider Threat', controlCodes: ['CTL-001', 'CTL-004', 'CTL-008'] },
-      { riskTitle: 'Cloud Misconfiguration', controlCodes: ['CTL-001', 'CTL-002', 'CTL-008'] },
+      {
+        riskTitle: 'Ransomware Attack',
+        controlCodes: ['CTL-002', 'CTL-005', 'CTL-006', 'CTL-007'],
+      },
+      {
+        riskTitle: 'Data Breach via Third Party',
+        controlCodes: ['CTL-001', 'CTL-002', 'CTL-003'],
+      },
+      {
+        riskTitle: 'Insider Threat',
+        controlCodes: ['CTL-001', 'CTL-004', 'CTL-008'],
+      },
+      {
+        riskTitle: 'Cloud Misconfiguration',
+        controlCodes: ['CTL-001', 'CTL-002', 'CTL-008'],
+      },
       { riskTitle: 'Business Email Compromise', controlCodes: ['CTL-004'] },
-      { riskTitle: 'Regulatory Non-Compliance', controlCodes: ['CTL-001', 'CTL-002', 'CTL-004', 'CTL-008'] },
-      { riskTitle: 'System Availability Failure', controlCodes: ['CTL-005', 'CTL-007'] },
+      {
+        riskTitle: 'Regulatory Non-Compliance',
+        controlCodes: ['CTL-001', 'CTL-002', 'CTL-004', 'CTL-008'],
+      },
+      {
+        riskTitle: 'System Availability Failure',
+        controlCodes: ['CTL-005', 'CTL-007'],
+      },
     ];
 
     for (const mapping of riskControlMappings) {
@@ -630,7 +642,10 @@ async function seedGrcData() {
     const policyControlRepo = dataSource.getRepository(GrcPolicyControl);
 
     const policyControlMappings = [
-      { policyCode: 'POL-001', controlCodes: ['CTL-001', 'CTL-002', 'CTL-003', 'CTL-006'] },
+      {
+        policyCode: 'POL-001',
+        controlCodes: ['CTL-001', 'CTL-002', 'CTL-003', 'CTL-006'],
+      },
       { policyCode: 'POL-002', controlCodes: ['CTL-001', 'CTL-004'] },
       { policyCode: 'POL-003', controlCodes: ['CTL-002'] },
       { policyCode: 'POL-004', controlCodes: ['CTL-005'] },
@@ -671,14 +686,46 @@ async function seedGrcData() {
     );
 
     const requirementControlMappings = [
-      { framework: ComplianceFramework.ISO27001, refCode: 'A.5.1.1', controlCodes: ['CTL-001', 'CTL-004'] },
-      { framework: ComplianceFramework.ISO27001, refCode: 'A.6.1.2', controlCodes: ['CTL-001', 'CTL-008'] },
-      { framework: ComplianceFramework.ISO27001, refCode: 'A.9.2.3', controlCodes: ['CTL-001'] },
-      { framework: ComplianceFramework.ISO27001, refCode: 'A.12.3.1', controlCodes: ['CTL-007'] },
-      { framework: ComplianceFramework.SOC2, refCode: 'CC6.1', controlCodes: ['CTL-001', 'CTL-002', 'CTL-003'] },
-      { framework: ComplianceFramework.SOC2, refCode: 'CC7.2', controlCodes: ['CTL-005', 'CTL-006'] },
-      { framework: ComplianceFramework.GDPR, refCode: 'Art.32', controlCodes: ['CTL-002', 'CTL-003', 'CTL-006'] },
-      { framework: ComplianceFramework.GDPR, refCode: 'Art.33', controlCodes: ['CTL-005'] },
+      {
+        framework: ComplianceFramework.ISO27001,
+        refCode: 'A.5.1.1',
+        controlCodes: ['CTL-001', 'CTL-004'],
+      },
+      {
+        framework: ComplianceFramework.ISO27001,
+        refCode: 'A.6.1.2',
+        controlCodes: ['CTL-001', 'CTL-008'],
+      },
+      {
+        framework: ComplianceFramework.ISO27001,
+        refCode: 'A.9.2.3',
+        controlCodes: ['CTL-001'],
+      },
+      {
+        framework: ComplianceFramework.ISO27001,
+        refCode: 'A.12.3.1',
+        controlCodes: ['CTL-007'],
+      },
+      {
+        framework: ComplianceFramework.SOC2,
+        refCode: 'CC6.1',
+        controlCodes: ['CTL-001', 'CTL-002', 'CTL-003'],
+      },
+      {
+        framework: ComplianceFramework.SOC2,
+        refCode: 'CC7.2',
+        controlCodes: ['CTL-005', 'CTL-006'],
+      },
+      {
+        framework: ComplianceFramework.GDPR,
+        refCode: 'Art.32',
+        controlCodes: ['CTL-002', 'CTL-003', 'CTL-006'],
+      },
+      {
+        framework: ComplianceFramework.GDPR,
+        refCode: 'Art.33',
+        controlCodes: ['CTL-005'],
+      },
     ];
 
     for (const mapping of requirementControlMappings) {

@@ -141,7 +141,7 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
   ): Promise<GrcPolicy[]> {
     return this.repository.find({
       where: {
-        ...((options?.where || {}) as FindOptionsWhere<GrcPolicy>),
+        ...(options?.where || {}),
         tenantId,
         isDeleted: false,
       },
