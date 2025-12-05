@@ -25,6 +25,7 @@ import { GrcIssue } from './grc-issue.entity';
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'severity'])
 @Index(['tenantId', 'ownerUserId'])
+@Index(['tenantId', 'updatedAt'])
 export class GrcRisk {
   @PrimaryGeneratedColumn('uuid')
   id: string;

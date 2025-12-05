@@ -24,6 +24,7 @@ import { GrcRequirementControl } from './grc-requirement-control.entity';
 @Entity('grc_requirements')
 @Index(['tenantId', 'framework'])
 @Index(['tenantId', 'status'])
+@Index(['tenantId', 'category'])
 @Index(['tenantId', 'framework', 'referenceCode'], { unique: true })
 export class GrcRequirement {
   @PrimaryGeneratedColumn('uuid')
