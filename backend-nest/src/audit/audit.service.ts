@@ -9,6 +9,17 @@ import {
   TenantAccessedEvent,
   DomainEventNames,
 } from '../events/domain-events';
+import {
+  RiskCreatedEvent,
+  RiskUpdatedEvent,
+  RiskDeletedEvent,
+  PolicyCreatedEvent,
+  PolicyUpdatedEvent,
+  PolicyDeletedEvent,
+  RequirementCreatedEvent,
+  RequirementUpdatedEvent,
+  RequirementDeletedEvent,
+} from '../grc/events';
 import { ConfigService } from '@nestjs/config';
 
 /**
@@ -160,5 +171,209 @@ export class AuditService {
    */
   async countForTenant(tenantId: string): Promise<number> {
     return this.auditLogRepository.count({ where: { tenantId } });
+  }
+
+  // ============================================
+  // GRC Domain Event Handlers
+  // ============================================
+
+  /**
+   * Handle RiskCreatedEvent
+   */
+  @OnEvent('risk.created')
+  async handleRiskCreated(event: RiskCreatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'RISK_CREATED',
+      resource: 'grc_risks',
+      resourceId: event.riskId,
+      metadata: {
+        title: event.title,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RiskUpdatedEvent
+   */
+  @OnEvent('risk.updated')
+  async handleRiskUpdated(event: RiskUpdatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'RISK_UPDATED',
+      resource: 'grc_risks',
+      resourceId: event.riskId,
+      metadata: {
+        changes: event.changes,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RiskDeletedEvent
+   */
+  @OnEvent('risk.deleted')
+  async handleRiskDeleted(event: RiskDeletedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'RISK_DELETED',
+      resource: 'grc_risks',
+      resourceId: event.riskId,
+      metadata: {
+        title: event.title,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle PolicyCreatedEvent
+   */
+  @OnEvent('policy.created')
+  async handlePolicyCreated(event: PolicyCreatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'POLICY_CREATED',
+      resource: 'grc_policies',
+      resourceId: event.policyId,
+      metadata: {
+        name: event.name,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle PolicyUpdatedEvent
+   */
+  @OnEvent('policy.updated')
+  async handlePolicyUpdated(event: PolicyUpdatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'POLICY_UPDATED',
+      resource: 'grc_policies',
+      resourceId: event.policyId,
+      metadata: {
+        changes: event.changes,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle PolicyDeletedEvent
+   */
+  @OnEvent('policy.deleted')
+  async handlePolicyDeleted(event: PolicyDeletedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'POLICY_DELETED',
+      resource: 'grc_policies',
+      resourceId: event.policyId,
+      metadata: {
+        name: event.name,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RequirementCreatedEvent
+   */
+  @OnEvent('requirement.created')
+  async handleRequirementCreated(event: RequirementCreatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'REQUIREMENT_CREATED',
+      resource: 'grc_requirements',
+      resourceId: event.requirementId,
+      metadata: {
+        title: event.title,
+        framework: event.framework,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RequirementUpdatedEvent
+   */
+  @OnEvent('requirement.updated')
+  async handleRequirementUpdated(event: RequirementUpdatedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'REQUIREMENT_UPDATED',
+      resource: 'grc_requirements',
+      resourceId: event.requirementId,
+      metadata: {
+        changes: event.changes,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RequirementDeletedEvent
+   */
+  @OnEvent('requirement.deleted')
+  async handleRequirementDeleted(event: RequirementDeletedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'REQUIREMENT_DELETED',
+      resource: 'grc_requirements',
+      resourceId: event.requirementId,
+      metadata: {
+        title: event.title,
+        framework: event.framework,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
   }
 }

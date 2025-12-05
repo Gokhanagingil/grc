@@ -15,6 +15,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -31,6 +40,14 @@ import { CreateRequirementDto, UpdateRequirementDto } from '../dto';
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
  */
+@ApiTags('GRC Requirements')
+@ApiBearerAuth('JWT-auth')
+@ApiHeader({
+  name: 'x-tenant-id',
+  description: 'Tenant ID (UUID) for multi-tenant isolation',
+  required: true,
+  example: '00000000-0000-0000-0000-000000000001',
+})
 @Controller('grc/requirements')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class GrcRequirementController {
@@ -41,6 +58,15 @@ export class GrcRequirementController {
    * List all requirements for the current tenant
    */
   @Get()
+  @ApiOperation({
+    summary: 'List all requirements',
+    description: 'Retrieve all compliance requirements for the current tenant. Supports filtering by framework or status.',
+  })
+  @ApiQuery({ name: 'framework', required: false, enum: ComplianceFramework, description: 'Filter by compliance framework' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by requirement status' })
+  @ApiResponse({ status: 200, description: 'List of requirements returned successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid framework value' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -83,6 +109,14 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Post()
+  @ApiOperation({
+    summary: 'Create a new requirement',
+    description: 'Create a new compliance requirement for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 201, description: 'Requirement created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -107,6 +141,16 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a requirement',
+    description: 'Update an existing compliance requirement. Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Requirement UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Requirement updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Requirement not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -138,6 +182,16 @@ export class GrcRequirementController {
    * Requires MANAGER or ADMIN role
    */
   @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a requirement',
+    description: 'Soft delete a requirement (marks as deleted, does not remove from database). Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Requirement UUID', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Requirement deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Requirement not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
@@ -165,6 +219,14 @@ export class GrcRequirementController {
    * Get requirement statistics for the current tenant
    */
   @Get('statistics')
+  @ApiOperation({
+    summary: 'Get requirement statistics',
+    description: 'Get aggregated compliance requirement statistics for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 200, description: 'Requirement statistics returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -179,6 +241,13 @@ export class GrcRequirementController {
    * Get all unique frameworks used by the current tenant
    */
   @Get('frameworks')
+  @ApiOperation({
+    summary: 'Get available frameworks',
+    description: 'Get all unique compliance frameworks used by the current tenant.',
+  })
+  @ApiResponse({ status: 200, description: 'Frameworks list returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async getFrameworks(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -193,6 +262,15 @@ export class GrcRequirementController {
    * Get a specific requirement by ID
    */
   @Get(':id')
+  @ApiOperation({
+    summary: 'Get a requirement by ID',
+    description: 'Retrieve a specific compliance requirement by its UUID.',
+  })
+  @ApiParam({ name: 'id', description: 'Requirement UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Requirement returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Requirement not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -218,6 +296,15 @@ export class GrcRequirementController {
    * Get a requirement with its associated controls
    */
   @Get(':id/controls')
+  @ApiOperation({
+    summary: 'Get a requirement with its controls',
+    description: 'Retrieve a specific compliance requirement along with its associated controls.',
+  })
+  @ApiParam({ name: 'id', description: 'Requirement UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Requirement with controls returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Requirement not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,

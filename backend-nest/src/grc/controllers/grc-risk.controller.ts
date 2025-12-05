@@ -15,6 +15,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -31,6 +40,14 @@ import { CreateRiskDto, UpdateRiskDto } from '../dto';
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
  */
+@ApiTags('GRC Risks')
+@ApiBearerAuth('JWT-auth')
+@ApiHeader({
+  name: 'x-tenant-id',
+  description: 'Tenant ID (UUID) for multi-tenant isolation',
+  required: true,
+  example: '00000000-0000-0000-0000-000000000001',
+})
 @Controller('grc/risks')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class GrcRiskController {
@@ -41,6 +58,15 @@ export class GrcRiskController {
    * List all risks for the current tenant
    */
   @Get()
+  @ApiOperation({
+    summary: 'List all risks',
+    description: 'Retrieve all risks for the current tenant. Supports filtering by status or severity.',
+  })
+  @ApiQuery({ name: 'status', required: false, enum: RiskStatus, description: 'Filter by risk status' })
+  @ApiQuery({ name: 'severity', required: false, enum: RiskSeverity, description: 'Filter by risk severity' })
+  @ApiResponse({ status: 200, description: 'List of risks returned successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid status or severity value' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -82,6 +108,14 @@ export class GrcRiskController {
    * Requires MANAGER or ADMIN role
    */
   @Post()
+  @ApiOperation({
+    summary: 'Create a new risk',
+    description: 'Create a new risk for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 201, description: 'Risk created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -102,6 +136,16 @@ export class GrcRiskController {
    * Requires MANAGER or ADMIN role
    */
   @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a risk',
+    description: 'Update an existing risk. Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Risk UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Risk updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -133,6 +177,16 @@ export class GrcRiskController {
    * Requires MANAGER or ADMIN role
    */
   @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a risk',
+    description: 'Soft delete a risk (marks as deleted, does not remove from database). Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Risk UUID', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Risk deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
@@ -160,6 +214,14 @@ export class GrcRiskController {
    * Get risk statistics for the current tenant
    */
   @Get('statistics')
+  @ApiOperation({
+    summary: 'Get risk statistics',
+    description: 'Get aggregated risk statistics for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 200, description: 'Risk statistics returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -174,6 +236,13 @@ export class GrcRiskController {
    * Get high-severity risks (HIGH or CRITICAL)
    */
   @Get('high-severity')
+  @ApiOperation({
+    summary: 'Get high-severity risks',
+    description: 'Get all risks with HIGH or CRITICAL severity for the current tenant.',
+  })
+  @ApiResponse({ status: 200, description: 'High-severity risks returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findHighSeverity(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -188,6 +257,15 @@ export class GrcRiskController {
    * Get a specific risk by ID
    */
   @Get(':id')
+  @ApiOperation({
+    summary: 'Get a risk by ID',
+    description: 'Retrieve a specific risk by its UUID.',
+  })
+  @ApiParam({ name: 'id', description: 'Risk UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Risk returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -210,6 +288,15 @@ export class GrcRiskController {
    * Get a risk with its associated controls
    */
   @Get(':id/controls')
+  @ApiOperation({
+    summary: 'Get a risk with its controls',
+    description: 'Retrieve a specific risk along with its associated controls.',
+  })
+  @ApiParam({ name: 'id', description: 'Risk UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Risk with controls returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,

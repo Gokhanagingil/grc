@@ -15,6 +15,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -31,6 +40,14 @@ import { CreatePolicyDto, UpdatePolicyDto } from '../dto';
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require MANAGER or ADMIN role.
  */
+@ApiTags('GRC Policies')
+@ApiBearerAuth('JWT-auth')
+@ApiHeader({
+  name: 'x-tenant-id',
+  description: 'Tenant ID (UUID) for multi-tenant isolation',
+  required: true,
+  example: '00000000-0000-0000-0000-000000000001',
+})
 @Controller('grc/policies')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class GrcPolicyController {
@@ -41,6 +58,15 @@ export class GrcPolicyController {
    * List all policies for the current tenant
    */
   @Get()
+  @ApiOperation({
+    summary: 'List all policies',
+    description: 'Retrieve all policies for the current tenant. Supports filtering by status or category.',
+  })
+  @ApiQuery({ name: 'status', required: false, enum: PolicyStatus, description: 'Filter by policy status' })
+  @ApiQuery({ name: 'category', required: false, description: 'Filter by policy category' })
+  @ApiResponse({ status: 200, description: 'List of policies returned successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid status value' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
@@ -76,6 +102,14 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Post()
+  @ApiOperation({
+    summary: 'Create a new policy',
+    description: 'Create a new policy for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 201, description: 'Policy created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -96,6 +130,16 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a policy',
+    description: 'Update an existing policy. Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Policy UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Policy updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request body or missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Policy not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async update(
     @Headers('x-tenant-id') tenantId: string,
@@ -127,6 +171,16 @@ export class GrcPolicyController {
    * Requires MANAGER or ADMIN role
    */
   @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a policy',
+    description: 'Soft delete a policy (marks as deleted, does not remove from database). Requires MANAGER or ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'Policy UUID', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Policy deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
+  @ApiResponse({ status: 404, description: 'Policy not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
@@ -154,6 +208,14 @@ export class GrcPolicyController {
    * Get policy statistics for the current tenant
    */
   @Get('statistics')
+  @ApiOperation({
+    summary: 'Get policy statistics',
+    description: 'Get aggregated policy statistics for the current tenant. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 200, description: 'Policy statistics returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -168,6 +230,13 @@ export class GrcPolicyController {
    * Get active policies for the current tenant
    */
   @Get('active')
+  @ApiOperation({
+    summary: 'Get active policies',
+    description: 'Get all policies with ACTIVE status for the current tenant.',
+  })
+  @ApiResponse({ status: 200, description: 'Active policies returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findActive(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -182,6 +251,14 @@ export class GrcPolicyController {
    * Get policies due for review
    */
   @Get('due-for-review')
+  @ApiOperation({
+    summary: 'Get policies due for review',
+    description: 'Get all policies that are due for review based on their review date. Requires MANAGER or ADMIN role.',
+  })
+  @ApiResponse({ status: 200, description: 'Policies due for review returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient role permissions' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async findDueForReview(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
@@ -196,6 +273,15 @@ export class GrcPolicyController {
    * Get a specific policy by ID
    */
   @Get(':id')
+  @ApiOperation({
+    summary: 'Get a policy by ID',
+    description: 'Retrieve a specific policy by its UUID.',
+  })
+  @ApiParam({ name: 'id', description: 'Policy UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Policy returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Policy not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
@@ -218,6 +304,15 @@ export class GrcPolicyController {
    * Get a policy with its associated controls
    */
   @Get(':id/controls')
+  @ApiOperation({
+    summary: 'Get a policy with its controls',
+    description: 'Retrieve a specific policy along with its associated controls.',
+  })
+  @ApiParam({ name: 'id', description: 'Policy UUID', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Policy with controls returned successfully' })
+  @ApiResponse({ status: 400, description: 'Missing tenant header' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing JWT token' })
+  @ApiResponse({ status: 404, description: 'Policy not found' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER)
   async findWithControls(
     @Headers('x-tenant-id') tenantId: string,
