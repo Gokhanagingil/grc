@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, SelectQueryBuilder } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRisk } from '../entities/grc-risk.entity';
@@ -10,6 +10,12 @@ import {
   RiskDeletedEvent,
 } from '../events';
 import { RiskStatus, RiskSeverity } from '../enums';
+import {
+  RiskFilterDto,
+  RISK_SORTABLE_FIELDS,
+  PaginatedResponse,
+  createPaginatedResponse,
+} from '../dto';
 
 /**
  * GRC Risk Service
@@ -215,6 +221,174 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       total: risks.length,
       byStatus,
       bySeverity,
+    };
+  }
+
+  /**
+   * Find risks with pagination, sorting, and filtering
+   */
+  async findWithFilters(
+    tenantId: string,
+    filterDto: RiskFilterDto,
+  ): Promise<PaginatedResponse<GrcRisk>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      status,
+      severity,
+      likelihood,
+      impact,
+      category,
+      ownerUserId,
+      createdFrom,
+      createdTo,
+      dueDateFrom,
+      dueDateTo,
+      search,
+    } = filterDto;
+
+    const qb = this.repository.createQueryBuilder('risk');
+
+    // Base filters: tenant and not deleted
+    qb.where('risk.tenantId = :tenantId', { tenantId });
+    qb.andWhere('risk.isDeleted = :isDeleted', { isDeleted: false });
+
+    // Apply optional filters
+    if (status) {
+      qb.andWhere('risk.status = :status', { status });
+    }
+
+    if (severity) {
+      qb.andWhere('risk.severity = :severity', { severity });
+    }
+
+    if (likelihood) {
+      qb.andWhere('risk.likelihood = :likelihood', { likelihood });
+    }
+
+    if (impact) {
+      qb.andWhere('risk.impact = :impact', { impact });
+    }
+
+    if (category) {
+      qb.andWhere('risk.category = :category', { category });
+    }
+
+    if (ownerUserId) {
+      qb.andWhere('risk.ownerUserId = :ownerUserId', { ownerUserId });
+    }
+
+    if (createdFrom) {
+      qb.andWhere('risk.createdAt >= :createdFrom', { createdFrom });
+    }
+
+    if (createdTo) {
+      qb.andWhere('risk.createdAt <= :createdTo', { createdTo });
+    }
+
+    if (dueDateFrom) {
+      qb.andWhere('risk.dueDate >= :dueDateFrom', { dueDateFrom });
+    }
+
+    if (dueDateTo) {
+      qb.andWhere('risk.dueDate <= :dueDateTo', { dueDateTo });
+    }
+
+    if (search) {
+      qb.andWhere(
+        '(risk.title ILIKE :search OR risk.description ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Get total count before pagination
+    const total = await qb.getCount();
+
+    // Apply sorting (validate sortBy field)
+    const validSortBy = RISK_SORTABLE_FIELDS.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(`risk.${validSortBy}`, validSortOrder);
+
+    // Apply pagination
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  /**
+   * Get summary/reporting data for risks
+   */
+  async getSummary(tenantId: string): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    bySeverity: Record<string, number>;
+    byLikelihood: Record<string, number>;
+    byCategory: Record<string, number>;
+    highPriorityCount: number;
+    overdueCount: number;
+  }> {
+    const qb = this.repository.createQueryBuilder('risk');
+    qb.where('risk.tenantId = :tenantId', { tenantId });
+    qb.andWhere('risk.isDeleted = :isDeleted', { isDeleted: false });
+
+    const risks = await qb.getMany();
+
+    const byStatus: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
+    const byLikelihood: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    let highPriorityCount = 0;
+    let overdueCount = 0;
+    const now = new Date();
+
+    for (const risk of risks) {
+      // Count by status
+      byStatus[risk.status] = (byStatus[risk.status] || 0) + 1;
+
+      // Count by severity
+      bySeverity[risk.severity] = (bySeverity[risk.severity] || 0) + 1;
+
+      // Count by likelihood
+      byLikelihood[risk.likelihood] = (byLikelihood[risk.likelihood] || 0) + 1;
+
+      // Count by category
+      if (risk.category) {
+        byCategory[risk.category] = (byCategory[risk.category] || 0) + 1;
+      }
+
+      // Count high priority (HIGH or CRITICAL severity)
+      if (
+        risk.severity === RiskSeverity.HIGH ||
+        risk.severity === RiskSeverity.CRITICAL
+      ) {
+        highPriorityCount++;
+      }
+
+      // Count overdue (dueDate in the past and not closed)
+      if (
+        risk.dueDate &&
+        new Date(risk.dueDate) < now &&
+        risk.status !== RiskStatus.CLOSED
+      ) {
+        overdueCount++;
+      }
+    }
+
+    return {
+      total: risks.length,
+      byStatus,
+      bySeverity,
+      byLikelihood,
+      byCategory,
+      highPriorityCount,
+      overdueCount,
     };
   }
 }

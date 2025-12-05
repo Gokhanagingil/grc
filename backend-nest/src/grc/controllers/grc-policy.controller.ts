@@ -21,8 +21,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcPolicyService } from '../services/grc-policy.service';
-import { PolicyStatus } from '../enums';
-import { CreatePolicyDto, UpdatePolicyDto } from '../dto';
+import { CreatePolicyDto, UpdatePolicyDto, PolicyFilterDto } from '../dto';
 import { Perf } from '../../common/decorators';
 
 /**
@@ -31,6 +30,21 @@ import { Perf } from '../../common/decorators';
  * Full CRUD API endpoints for managing policies.
  * All endpoints require JWT authentication and tenant context.
  * Write operations (POST, PATCH, DELETE) require GRC_POLICY_WRITE permission.
+ *
+ * Query Parameters for GET /grc/policies:
+ * - page: Page number (default: 1)
+ * - pageSize: Items per page (default: 20, max: 100)
+ * - sortBy: Field to sort by (e.g., createdAt, name, status)
+ * - sortOrder: Sort order (ASC or DESC, default: DESC)
+ * - status: Filter by policy status
+ * - category: Filter by category
+ * - code: Filter by policy code
+ * - ownerUserId: Filter by owner user ID
+ * - approvedByUserId: Filter by approver user ID
+ * - createdFrom/createdTo: Filter by creation date range
+ * - effectiveDateFrom/effectiveDateTo: Filter by effective date range
+ * - reviewDateFrom/reviewDateTo: Filter by review date range
+ * - search: Search in name, summary, and code
  */
 @Controller('grc/policies')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -39,37 +53,36 @@ export class GrcPolicyController {
 
   /**
    * GET /grc/policies
-   * List all policies for the current tenant
+   * List all policies for the current tenant with pagination, sorting, and filtering
    */
   @Get()
   @Permissions(Permission.GRC_POLICY_READ)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
-    @Query('status') status?: string,
-    @Query('category') category?: string,
+    @Query() filterDto: PolicyFilterDto,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by status if provided
-    if (status) {
-      if (!Object.values(PolicyStatus).includes(status as PolicyStatus)) {
-        throw new BadRequestException(`Invalid status: ${status}`);
-      }
-      return this.policyService.findByStatus(tenantId, status as PolicyStatus);
+    return this.policyService.findWithFilters(tenantId, filterDto);
+  }
+
+  /**
+   * GET /grc/policies/summary
+   * Get summary/reporting data for policies
+   * Returns counts by status, category, plus due for review, active, and draft counts
+   */
+  @Get('summary')
+  @Permissions(Permission.GRC_STATISTICS_READ)
+  @Perf()
+  async getSummary(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Filter by category if provided
-    if (category) {
-      return this.policyService.findByCategory(tenantId, category);
-    }
-
-    // Return all active (non-deleted) policies
-    return this.policyService.findAllActiveForTenant(tenantId, {
-      order: { createdAt: 'DESC' },
-    });
+    return this.policyService.getSummary(tenantId);
   }
 
   /**

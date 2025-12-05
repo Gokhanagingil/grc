@@ -10,6 +10,12 @@ import {
   PolicyDeletedEvent,
 } from '../events';
 import { PolicyStatus } from '../enums';
+import {
+  PolicyFilterDto,
+  POLICY_SORTABLE_FIELDS,
+  PaginatedResponse,
+  createPaginatedResponse,
+} from '../dto';
 
 /**
  * GRC Policy Service
@@ -228,6 +234,178 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
       total: policies.length,
       byStatus,
       byCategory,
+    };
+  }
+
+  /**
+   * Find policies with pagination, sorting, and filtering
+   */
+  async findWithFilters(
+    tenantId: string,
+    filterDto: PolicyFilterDto,
+  ): Promise<PaginatedResponse<GrcPolicy>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      status,
+      category,
+      code,
+      ownerUserId,
+      approvedByUserId,
+      createdFrom,
+      createdTo,
+      effectiveDateFrom,
+      effectiveDateTo,
+      reviewDateFrom,
+      reviewDateTo,
+      search,
+    } = filterDto;
+
+    const qb = this.repository.createQueryBuilder('policy');
+
+    // Base filters: tenant and not deleted
+    qb.where('policy.tenantId = :tenantId', { tenantId });
+    qb.andWhere('policy.isDeleted = :isDeleted', { isDeleted: false });
+
+    // Apply optional filters
+    if (status) {
+      qb.andWhere('policy.status = :status', { status });
+    }
+
+    if (category) {
+      qb.andWhere('policy.category = :category', { category });
+    }
+
+    if (code) {
+      qb.andWhere('policy.code = :code', { code });
+    }
+
+    if (ownerUserId) {
+      qb.andWhere('policy.ownerUserId = :ownerUserId', { ownerUserId });
+    }
+
+    if (approvedByUserId) {
+      qb.andWhere('policy.approvedByUserId = :approvedByUserId', {
+        approvedByUserId,
+      });
+    }
+
+    if (createdFrom) {
+      qb.andWhere('policy.createdAt >= :createdFrom', { createdFrom });
+    }
+
+    if (createdTo) {
+      qb.andWhere('policy.createdAt <= :createdTo', { createdTo });
+    }
+
+    if (effectiveDateFrom) {
+      qb.andWhere('policy.effectiveDate >= :effectiveDateFrom', {
+        effectiveDateFrom,
+      });
+    }
+
+    if (effectiveDateTo) {
+      qb.andWhere('policy.effectiveDate <= :effectiveDateTo', {
+        effectiveDateTo,
+      });
+    }
+
+    if (reviewDateFrom) {
+      qb.andWhere('policy.reviewDate >= :reviewDateFrom', { reviewDateFrom });
+    }
+
+    if (reviewDateTo) {
+      qb.andWhere('policy.reviewDate <= :reviewDateTo', { reviewDateTo });
+    }
+
+    if (search) {
+      qb.andWhere(
+        '(policy.name ILIKE :search OR policy.summary ILIKE :search OR policy.code ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Get total count before pagination
+    const total = await qb.getCount();
+
+    // Apply sorting (validate sortBy field)
+    const validSortBy = POLICY_SORTABLE_FIELDS.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(`policy.${validSortBy}`, validSortOrder);
+
+    // Apply pagination
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  /**
+   * Get summary/reporting data for policies
+   */
+  async getSummary(tenantId: string): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+    dueForReviewCount: number;
+    activeCount: number;
+    draftCount: number;
+  }> {
+    const qb = this.repository.createQueryBuilder('policy');
+    qb.where('policy.tenantId = :tenantId', { tenantId });
+    qb.andWhere('policy.isDeleted = :isDeleted', { isDeleted: false });
+
+    const policies = await qb.getMany();
+
+    const byStatus: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    let dueForReviewCount = 0;
+    let activeCount = 0;
+    let draftCount = 0;
+    const now = new Date();
+
+    for (const policy of policies) {
+      // Count by status
+      byStatus[policy.status] = (byStatus[policy.status] || 0) + 1;
+
+      // Count by category
+      if (policy.category) {
+        byCategory[policy.category] = (byCategory[policy.category] || 0) + 1;
+      }
+
+      // Count active policies
+      if (policy.status === PolicyStatus.ACTIVE) {
+        activeCount++;
+      }
+
+      // Count draft policies
+      if (policy.status === PolicyStatus.DRAFT) {
+        draftCount++;
+      }
+
+      // Count due for review (reviewDate in the past and status is ACTIVE)
+      if (
+        policy.reviewDate &&
+        new Date(policy.reviewDate) <= now &&
+        policy.status === PolicyStatus.ACTIVE
+      ) {
+        dueForReviewCount++;
+      }
+    }
+
+    return {
+      total: policies.length,
+      byStatus,
+      byCategory,
+      dueForReviewCount,
+      activeCount,
+      draftCount,
     };
   }
 }
