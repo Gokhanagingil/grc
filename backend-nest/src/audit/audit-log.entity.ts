@@ -71,6 +71,19 @@ export class AuditLog {
   ipAddress: string | null;
 
   /**
+   * Correlation ID for request tracing across services
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  correlationId: string | null;
+
+  /**
+   * Request latency in milliseconds
+   */
+  @Column({ type: 'int', nullable: true })
+  latencyMs: number | null;
+
+  /**
    * Timestamp when the audit log was created
    */
   @CreateDateColumn()

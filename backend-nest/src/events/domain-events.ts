@@ -58,6 +58,8 @@ export class AuditLogEvent extends BaseDomainEvent {
     public readonly metadata: Record<string, unknown>,
     public readonly statusCode: number,
     public readonly ipAddress?: string,
+    public readonly correlationId?: string,
+    public readonly latencyMs?: number,
   ) {
     super();
   }
