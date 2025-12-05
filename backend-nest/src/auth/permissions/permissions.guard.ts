@@ -110,22 +110,24 @@ export class PermissionsGuard implements CanActivate {
    * Log access denied event with structured JSON
    */
   private logAccessDenied(
-    request: {
-      user?: { sub?: string; role?: string };
-      headers?: Record<string, string>;
-      path?: string;
-      method?: string;
-      correlationId?: string;
-    },
+    request: RequestWithUser,
     requiredPermissions: Permission[],
     userPermissions: Permission[],
     reason: string,
   ): void {
-    const tenantId = request.headers?.['x-tenant-id'] || null;
-    const userId = request.user?.sub || null;
-    const userRole = request.user?.role || null;
+    const tenantIdHeader = request.headers?.['x-tenant-id'];
+    const tenantId = Array.isArray(tenantIdHeader)
+      ? tenantIdHeader[0]
+      : (tenantIdHeader ?? null);
+    const userId = request.user?.sub ?? null;
+    const userRole = request.user?.role ?? null;
+    const correlationIdHeader = request.headers?.['x-correlation-id'];
     const correlationId =
-      request.correlationId || request.headers?.['x-correlation-id'] || null;
+      request.correlationId ??
+      (Array.isArray(correlationIdHeader)
+        ? correlationIdHeader[0]
+        : correlationIdHeader) ??
+      null;
 
     this.logger.warn('access.denied', {
       correlationId,
