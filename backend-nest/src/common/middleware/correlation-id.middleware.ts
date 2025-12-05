@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
 import { RequestWithUser } from '../types';
 
@@ -34,9 +34,9 @@ interface CorrelationRequest extends Request {
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: CorrelationRequest, res: Response, next: NextFunction): void {
-    // Get correlation ID from header or generate a new one
-    const correlationId =
-      (req.headers[CORRELATION_ID_HEADER] as string) || uuidv4();
+        // Get correlation ID from header or generate a new one
+        const correlationId =
+          (req.headers[CORRELATION_ID_HEADER] as string) || randomUUID();
 
     // Record request start time
     const requestStartTime = Date.now();
