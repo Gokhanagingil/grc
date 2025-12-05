@@ -42,6 +42,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // Check if user has one of the required roles
-    return requiredRoles.some((role) => user.role === role);
+    // Cast user.role to string for comparison since it may be UserRole enum or string
+    return requiredRoles.some((role) => String(user.role) === String(role));
   }
 }
