@@ -1,5 +1,5 @@
 import { Injectable, Scope } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 /**
  * Request Context Service
@@ -20,10 +20,10 @@ export class RequestContextService {
   private _userAgent: string = '';
   private _ip: string = '';
 
-  constructor() {
-    this._correlationId = uuidv4();
-    this._startTime = Date.now();
-  }
+    constructor() {
+      this._correlationId = randomUUID();
+      this._startTime = Date.now();
+    }
 
   // Correlation ID
   get correlationId(): string {
