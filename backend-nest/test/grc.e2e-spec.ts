@@ -197,7 +197,7 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         const updateData = {
           title: 'Test Risk - E2E Updated',
-          severity: 'CRITICAL',
+          severity: 'critical',
         };
 
         const response = await request(app.getHttpServer())
