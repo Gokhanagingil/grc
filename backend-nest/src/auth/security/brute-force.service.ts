@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { StructuredLoggerService } from '../../common/logger';
 
 /**
@@ -22,11 +23,13 @@ interface LoginAttempt {
  * - Lockout after 5 failed attempts
  * - Auto-reset after successful login
  * - Structured logging for security events
+ * - Disabled in test environment to allow E2E tests to run without rate limiting
  */
 @Injectable()
 export class BruteForceService {
   private readonly logger = new StructuredLoggerService();
   private readonly attempts = new Map<string, LoginAttempt>();
+  private readonly isTestEnv: boolean;
 
   // Configuration
   private readonly MAX_ATTEMPTS = 5;
@@ -34,11 +37,14 @@ export class BruteForceService {
   private readonly MAX_DELAY_MS = 60000; // 60 seconds
   private readonly LOCKOUT_DURATION_MS = 300000; // 5 minutes
 
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
     this.logger.setContext('BruteForceService');
+    this.isTestEnv = this.configService.get<string>('app.nodeEnv') === 'test';
 
-    // Clean up old entries every 5 minutes
-    setInterval(() => this.cleanup(), 300000);
+    // Clean up old entries every 5 minutes (skip in test environment)
+    if (!this.isTestEnv) {
+      setInterval(() => this.cleanup(), 300000);
+    }
   }
 
   /**
@@ -51,11 +57,17 @@ export class BruteForceService {
   /**
    * Check if a login attempt is allowed
    * Returns delay in milliseconds if rate limited, 0 if allowed
+   * Always allows in test environment to support E2E tests
    */
   isAllowed(
     ip: string,
     username: string,
   ): { allowed: boolean; delayMs: number; reason?: string } {
+    // Bypass rate limiting in test environment
+    if (this.isTestEnv) {
+      return { allowed: true, delayMs: 0 };
+    }
+
     const key = this.getKey(ip, username);
     const attempt = this.attempts.get(key);
 

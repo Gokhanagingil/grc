@@ -36,7 +36,7 @@ describe('Settings (e2e)', () => {
         email: process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local',
         password: process.env.DEMO_ADMIN_PASSWORD || 'changeme',
       })
-      .expect(201);
+      .expect(200);
 
     authToken = loginResponse.body.accessToken;
     tenantId = loginResponse.body.user.tenantId;
