@@ -50,7 +50,7 @@ describe('Audit Logging (e2e)', () => {
     it('should create audit log entry for authenticated request', async () => {
       // Clear existing audit logs for clean test
       const auditLogRepo = dataSource.getRepository(AuditLog);
-      await auditLogRepo.delete({});
+      await auditLogRepo.clear();
 
       // Make an authenticated request
       await request(app.getHttpServer())
@@ -77,7 +77,7 @@ describe('Audit Logging (e2e)', () => {
 
     it('should create audit log entry for login event', async () => {
       const auditLogRepo = dataSource.getRepository(AuditLog);
-      await auditLogRepo.delete({});
+      await auditLogRepo.clear();
 
       // Perform login
       await request(app.getHttpServer())
@@ -107,7 +107,7 @@ describe('Audit Logging (e2e)', () => {
       }
 
       const auditLogRepo = dataSource.getRepository(AuditLog);
-      await auditLogRepo.delete({});
+      await auditLogRepo.clear();
 
       // Make a tenant-protected request
       await request(app.getHttpServer())
@@ -130,7 +130,7 @@ describe('Audit Logging (e2e)', () => {
 
     it('should NOT create audit log for health endpoints', async () => {
       const auditLogRepo = dataSource.getRepository(AuditLog);
-      await auditLogRepo.delete({});
+      await auditLogRepo.clear();
 
       // Make health check requests
       await request(app.getHttpServer()).get('/health/live').expect(200);
@@ -151,7 +151,7 @@ describe('Audit Logging (e2e)', () => {
   describe('Audit Log Metadata', () => {
     it('should include request metadata in audit log', async () => {
       const auditLogRepo = dataSource.getRepository(AuditLog);
-      await auditLogRepo.delete({});
+      await auditLogRepo.clear();
 
       // Make an authenticated request
       await request(app.getHttpServer())
