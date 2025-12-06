@@ -200,7 +200,7 @@ export const DotWalkingBuilder: React.FC = () => {
                   <Button
                     variant="contained"
                     onClick={handleTest}
-                    disabled={!path || loading || (parseResult && !parseResult.valid)}
+                    disabled={!path || loading || (parseResult !== null && !parseResult.valid)}
                     startIcon={loading ? <CircularProgress size={20} /> : <TestIcon />}
                   >
                     Test

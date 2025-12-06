@@ -112,12 +112,11 @@ export const UserManagement: React.FC = () => {
 
   const handleSaveUser = async () => {
     try {
-      const userData = { ...formData };
-      
-      // Don't send empty password for updates
-      if (editingUser && !userData.password) {
-        delete userData.password;
-      }
+      // Build userData without password if it's empty during edit
+      const { password, ...userDataWithoutPassword } = formData;
+      const userData = editingUser && !password 
+        ? userDataWithoutPassword 
+        : formData;
 
       if (editingUser) {
         await api.put(`/users/${editingUser.id}`, userData);
