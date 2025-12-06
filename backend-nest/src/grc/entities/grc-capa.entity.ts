@@ -1,13 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { CapaType, CapaStatus } from '../enums';
@@ -18,18 +10,13 @@ import { GrcIssue } from './grc-issue.entity';
  *
  * Represents a Corrective and/or Preventive Action associated with an issue.
  * CAPAs track the remediation activities taken to address findings.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_capas')
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'issueId'])
-export class GrcCapa {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcCapa extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -86,10 +73,4 @@ export class GrcCapa {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { EvidenceType } from '../enums';
@@ -19,18 +17,13 @@ import { GrcIssueEvidence } from './grc-issue-evidence.entity';
  *
  * Represents evidence artifacts (documents, screenshots, logs, etc.)
  * that support compliance, risk assessments, or issue resolution.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_evidence')
 @Index(['tenantId', 'type'])
 @Index(['tenantId', 'collectedAt'])
-export class GrcEvidence {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'createdAt'])
+export class GrcEvidence extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -78,10 +71,4 @@ export class GrcEvidence {
 
   @OneToMany(() => GrcIssueEvidence, (ie) => ie.evidence)
   issueEvidence: GrcIssueEvidence[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

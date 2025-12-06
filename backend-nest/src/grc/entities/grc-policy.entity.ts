@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { PolicyStatus } from '../enums';
@@ -19,19 +17,14 @@ import { GrcPolicyControl } from './grc-policy-control.entity';
  *
  * Represents an organizational policy document with lifecycle management.
  * Policies can be linked to controls via GrcPolicyControl mapping.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_policies')
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'category'])
 @Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
-export class GrcPolicy {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcPolicy extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -87,15 +80,6 @@ export class GrcPolicy {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @Column({ name: 'is_deleted', type: 'boolean', default: false })
-  isDeleted: boolean;
-
   @OneToMany(() => GrcPolicyControl, (pc) => pc.policy)
   policyControls: GrcPolicyControl[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

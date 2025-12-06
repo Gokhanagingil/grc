@@ -1,12 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { MappingEntityBase } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { GrcRequirement } from './grc-requirement.entity';
 import { GrcControl } from './grc-control.entity';
@@ -18,17 +11,11 @@ import { CoverageLevel } from '../enums';
  * Many-to-many relationship between Compliance Requirements and Controls.
  * A requirement can be satisfied by multiple controls.
  * A control can satisfy multiple requirements.
+ * Extends MappingEntityBase for standard mapping fields.
  */
 @Entity('grc_requirement_controls')
 @Index(['tenantId', 'requirementId', 'controlId'], { unique: true })
-export class GrcRequirementControl {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+export class GrcRequirementControl extends MappingEntityBase {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -63,7 +50,4 @@ export class GrcRequirementControl {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
 }

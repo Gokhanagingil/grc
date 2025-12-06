@@ -1,12 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { MappingEntityBase } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { GrcIssue } from './grc-issue.entity';
 import { GrcEvidence } from './grc-evidence.entity';
@@ -17,17 +10,11 @@ import { GrcEvidence } from './grc-evidence.entity';
  * Many-to-many relationship between Issues and Evidence.
  * An issue can have multiple evidence artifacts.
  * An evidence artifact can be linked to multiple issues.
+ * Extends MappingEntityBase for standard mapping fields.
  */
 @Entity('grc_issue_evidence')
 @Index(['tenantId', 'issueId', 'evidenceId'], { unique: true })
-export class GrcIssueEvidence {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+export class GrcIssueEvidence extends MappingEntityBase {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -54,7 +41,4 @@ export class GrcIssueEvidence {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
 }

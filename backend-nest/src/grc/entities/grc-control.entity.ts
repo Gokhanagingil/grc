@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import {
@@ -27,19 +25,14 @@ import { GrcIssue } from './grc-issue.entity';
  *
  * Represents a control activity that mitigates risks and implements policies.
  * Controls are the central hub linking Risks, Policies, and Requirements.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_controls')
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'type'])
 @Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
-export class GrcControl {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcControl extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -109,10 +102,4 @@ export class GrcControl {
 
   @OneToMany(() => GrcIssue, (issue) => issue.control)
   issues: GrcIssue[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

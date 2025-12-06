@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { IssueType, IssueStatus, IssueSeverity } from '../enums';
@@ -23,20 +21,15 @@ import { GrcIssueEvidence } from './grc-issue-evidence.entity';
  * Represents an issue or finding discovered during audits, assessments,
  * or incidents. Issues can be linked to risks and controls, and may
  * have associated CAPAs (Corrective/Preventive Actions).
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_issues')
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'severity'])
 @Index(['tenantId', 'riskId'])
 @Index(['tenantId', 'controlId'])
-export class GrcIssue {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcIssue extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -116,10 +109,4 @@ export class GrcIssue {
 
   @OneToMany(() => GrcIssueEvidence, (ie) => ie.issue)
   issueEvidence: GrcIssueEvidence[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }
