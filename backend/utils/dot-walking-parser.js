@@ -50,7 +50,7 @@ class DotWalkingParser {
   }
 
   parse(path) {
-    if (!path || typeof path !== 'string') {
+    if (path === null || path === undefined || typeof path !== 'string') {
       return {
         valid: false,
         error: 'Path must be a non-empty string',
