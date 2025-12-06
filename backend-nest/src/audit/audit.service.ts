@@ -51,9 +51,9 @@ export class AuditService {
    * @param actorId - ID of the user who performed the action
    * @param tenantId - Optional tenant ID
    */
-  async recordCreate(
+  async recordCreate<T extends { id: string }>(
     entityName: string,
-    entity: { id: string; [key: string]: unknown },
+    entity: T,
     actorId: string | null,
     tenantId?: string | null,
   ): Promise<AuditLog | null> {
@@ -67,7 +67,7 @@ export class AuditService {
       entityId: entity.id,
       resource: this.entityNameToResource(entityName),
       resourceId: entity.id,
-      afterState: this.sanitizeEntity(entity),
+      afterState: this.sanitizeEntity(entity as unknown as Record<string, unknown>),
       beforeState: null,
       userId: actorId,
       tenantId: tenantId ?? null,
@@ -115,9 +115,9 @@ export class AuditService {
    * @param actorId - ID of the user who performed the action
    * @param tenantId - Optional tenant ID
    */
-  async recordDelete(
+  async recordDelete<T extends { id: string }>(
     entityName: string,
-    entity: { id: string; [key: string]: unknown },
+    entity: T,
     actorId: string | null,
     tenantId?: string | null,
   ): Promise<AuditLog | null> {
@@ -131,7 +131,7 @@ export class AuditService {
       entityId: entity.id,
       resource: this.entityNameToResource(entityName),
       resourceId: entity.id,
-      beforeState: this.sanitizeEntity(entity),
+      beforeState: this.sanitizeEntity(entity as unknown as Record<string, unknown>),
       afterState: null,
       userId: actorId,
       tenantId: tenantId ?? null,
