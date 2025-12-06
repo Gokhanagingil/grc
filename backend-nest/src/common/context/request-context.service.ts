@@ -20,10 +20,10 @@ export class RequestContextService {
   private _userAgent: string = '';
   private _ip: string = '';
 
-    constructor() {
-      this._correlationId = randomUUID();
-      this._startTime = Date.now();
-    }
+  constructor() {
+    this._correlationId = randomUUID();
+    this._startTime = Date.now();
+  }
 
   // Correlation ID
   get correlationId(): string {
