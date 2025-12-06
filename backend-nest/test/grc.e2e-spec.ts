@@ -75,7 +75,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -257,7 +259,8 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const deletedRisk = response.body.find(
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        const deletedRisk = response.body.items.find(
           (r: { id: string }) => r.id === createdRiskId,
         );
         expect(deletedRisk).toBeUndefined();
@@ -316,7 +319,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
     });
 
@@ -427,7 +432,8 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const deletedPolicy = response.body.find(
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        const deletedPolicy = response.body.items.find(
           (p: { id: string }) => p.id === createdPolicyId,
         );
         expect(deletedPolicy).toBeUndefined();
@@ -452,7 +458,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
     });
 
@@ -564,7 +572,8 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const deletedRequirement = response.body.find(
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        const deletedRequirement = response.body.items.find(
           (r: { id: string }) => r.id === createdRequirementId,
         );
         expect(deletedRequirement).toBeUndefined();
