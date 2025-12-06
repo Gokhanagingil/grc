@@ -1,12 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { MappingEntityBase } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { GrcRisk } from './grc-risk.entity';
 import { GrcControl } from './grc-control.entity';
@@ -18,17 +11,11 @@ import { RelationshipType } from '../enums';
  * Many-to-many relationship between Risks and Controls.
  * A risk can be mitigated by multiple controls.
  * A control can mitigate multiple risks.
+ * Extends MappingEntityBase for standard mapping fields.
  */
 @Entity('grc_risk_controls')
 @Index(['tenantId', 'riskId', 'controlId'], { unique: true })
-export class GrcRiskControl {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+export class GrcRiskControl extends MappingEntityBase {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -64,7 +51,4 @@ export class GrcRiskControl {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
 }

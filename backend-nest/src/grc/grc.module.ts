@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
 
 // Entities
 import {
@@ -14,6 +15,10 @@ import {
   GrcPolicyControl,
   GrcRequirementControl,
   GrcIssueEvidence,
+  GrcRiskHistory,
+  GrcPolicyHistory,
+  GrcRequirementHistory,
+  UserHistory,
 } from './entities';
 
 // Services
@@ -62,7 +67,13 @@ import {
       GrcPolicyControl,
       GrcRequirementControl,
       GrcIssueEvidence,
+      // History entities
+      GrcRiskHistory,
+      GrcPolicyHistory,
+      GrcRequirementHistory,
+      UserHistory,
     ]),
+    AuditModule,
   ],
   providers: [GrcRiskService, GrcPolicyService, GrcRequirementService],
   controllers: [

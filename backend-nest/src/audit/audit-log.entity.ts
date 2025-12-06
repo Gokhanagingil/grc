@@ -16,6 +16,7 @@ import {
 @Index(['tenantId', 'createdAt'])
 @Index(['userId', 'createdAt'])
 @Index(['action', 'createdAt'])
+@Index(['entityName', 'entityId'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -23,19 +24,20 @@ export class AuditLog {
   /**
    * Tenant ID - nullable for system-level actions or unauthenticated requests
    */
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
   @Index()
   tenantId: string | null;
 
   /**
-   * User ID - nullable for unauthenticated requests
+   * User ID (actor) - nullable for unauthenticated requests
    */
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
   @Index()
   userId: string | null;
 
   /**
    * Action performed (e.g., "USER_LOGIN", "GET /users", "UPDATE_POLICY")
+   * For entity changes, use AuditAction enum values (create, update, delete)
    */
   @Column({ type: 'varchar', length: 255 })
   action: string;
@@ -49,13 +51,39 @@ export class AuditLog {
   /**
    * Resource ID if applicable (e.g., user ID, policy ID)
    */
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'resource_id', type: 'varchar', length: 255, nullable: true })
   resourceId: string | null;
+
+  /**
+   * Entity name for entity-level audit (e.g., "GrcRisk", "GrcPolicy")
+   */
+  @Column({ name: 'entity_name', type: 'varchar', length: 100, nullable: true })
+  @Index()
+  entityName: string | null;
+
+  /**
+   * Entity ID for entity-level audit
+   */
+  @Column({ name: 'entity_id', type: 'uuid', nullable: true })
+  @Index()
+  entityId: string | null;
+
+  /**
+   * State of the entity before the change (for UPDATE and DELETE actions)
+   */
+  @Column({ name: 'before_state', type: 'jsonb', nullable: true })
+  beforeState: Record<string, unknown> | null;
+
+  /**
+   * State of the entity after the change (for CREATE and UPDATE actions)
+   */
+  @Column({ name: 'after_state', type: 'jsonb', nullable: true })
+  afterState: Record<string, unknown> | null;
 
   /**
    * HTTP status code of the response
    */
-  @Column({ type: 'int', nullable: true })
+  @Column({ name: 'status_code', type: 'int', nullable: true })
   statusCode: number | null;
 
   /**
@@ -67,25 +95,25 @@ export class AuditLog {
   /**
    * IP address of the request
    */
-  @Column({ type: 'varchar', length: 45, nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress: string | null;
 
   /**
    * Correlation ID for request tracing across services
    */
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'correlation_id', type: 'uuid', nullable: true })
   @Index()
   correlationId: string | null;
 
   /**
    * Request latency in milliseconds
    */
-  @Column({ type: 'int', nullable: true })
+  @Column({ name: 'latency_ms', type: 'int', nullable: true })
   latencyMs: number | null;
 
   /**
    * Timestamp when the audit log was created
    */
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

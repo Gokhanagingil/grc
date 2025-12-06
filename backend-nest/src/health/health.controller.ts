@@ -1,19 +1,29 @@
-import { Controller, Get, Inject } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Controller, Get } from '@nestjs/common';
+import { HealthService } from './health.service';
 
 /**
  * Health Controller
  *
  * Provides health check endpoints for monitoring and orchestration.
+ * - /health: Overall health status
  * - /health/live: Simple liveness check (app is running)
  * - /health/ready: Readiness check (app can serve traffic, DB connected)
+ * - /health/db: Database health check with migration status
+ * - /health/auth: Authentication configuration check
+ * - /health/dotwalking: Dot-walking resolver check
  */
 @Controller('health')
 export class HealthController {
-  constructor(
-    @Inject(DataSource)
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly healthService: HealthService) {}
+
+  /**
+   * Overall health check
+   * Returns combined status of all health checks.
+   */
+  @Get()
+  async getOverallHealth() {
+    return this.healthService.getOverallHealth();
+  }
 
   /**
    * Liveness probe
@@ -35,40 +45,42 @@ export class HealthController {
    */
   @Get('ready')
   async ready() {
-    const dbStatus = await this.checkDatabase();
-
-    const isReady = dbStatus.connected;
+    const dbHealth = await this.healthService.checkDatabase();
 
     return {
-      status: isReady ? 'ok' : 'degraded',
+      status: dbHealth.details.connected ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       service: 'grc-platform-nest',
       checks: {
-        database: dbStatus,
+        database: dbHealth,
       },
     };
   }
 
   /**
-   * Check database connectivity
+   * Database health check
+   * Verifies database connection, migration status, and last backup timestamp.
    */
-  private async checkDatabase(): Promise<{
-    connected: boolean;
-    latencyMs?: number;
-    error?: string;
-  }> {
-    const startTime = Date.now();
-    try {
-      await this.dataSource.query('SELECT 1');
-      return {
-        connected: true,
-        latencyMs: Date.now() - startTime,
-      };
-    } catch (error) {
-      return {
-        connected: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+  @Get('db')
+  async checkDatabase() {
+    return this.healthService.checkDatabase();
+  }
+
+  /**
+   * Authentication health check
+   * Verifies JWT config, refresh token settings, and required env variables.
+   */
+  @Get('auth')
+  checkAuth() {
+    return this.healthService.checkAuth();
+  }
+
+  /**
+   * Dot-walking health check
+   * Runs a tiny resolver test to verify dot-walking functionality.
+   */
+  @Get('dotwalking')
+  checkDotWalking() {
+    return this.healthService.checkDotWalking();
   }
 }

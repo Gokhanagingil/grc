@@ -1,21 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRisk } from '../entities/grc-risk.entity';
+import { GrcRiskHistory } from '../entities/history';
 import {
   RiskCreatedEvent,
   RiskUpdatedEvent,
   RiskDeletedEvent,
 } from '../events';
-import { RiskStatus, RiskSeverity } from '../enums';
+import { RiskStatus, RiskSeverity, RiskLikelihood } from '../enums';
 import {
   RiskFilterDto,
   RISK_SORTABLE_FIELDS,
   PaginatedResponse,
   createPaginatedResponse,
 } from '../dto';
+import { AuditService } from '../../audit/audit.service';
 
 /**
  * GRC Risk Service
@@ -23,19 +25,24 @@ import {
  * Multi-tenant service for managing risks.
  * Extends MultiTenantServiceBase for tenant-aware CRUD operations.
  * Implements soft delete - deleted records are marked with isDeleted=true.
+ * Integrates with AuditService for entity-level audit logging.
  */
 @Injectable()
 export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   constructor(
     @InjectRepository(GrcRisk)
     repository: Repository<GrcRisk>,
+    @InjectRepository(GrcRiskHistory)
+    private readonly historyRepository: Repository<GrcRiskHistory>,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly auditService?: AuditService,
   ) {
     super(repository);
   }
 
   /**
    * Create a new risk and emit RiskCreatedEvent
+   * Records audit log and creates initial history entry
    */
   async createRisk(
     tenantId: string,
@@ -47,8 +54,15 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   ): Promise<GrcRisk> {
     const risk = await this.createForTenant(tenantId, {
       ...data,
+      createdBy: userId,
       isDeleted: false,
     });
+
+    // Record audit log
+    await this.auditService?.recordCreate('GrcRisk', risk, userId, tenantId);
+
+    // Create history entry
+    await this.createHistoryEntry(risk, userId);
 
     // Emit domain event
     this.eventEmitter.emit(
@@ -61,6 +75,7 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
 
   /**
    * Update a risk and emit RiskUpdatedEvent
+   * Records audit log with before/after state and creates history entry
    */
   async updateRisk(
     tenantId: string,
@@ -74,9 +89,28 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       return null;
     }
 
-    const risk = await this.updateForTenant(tenantId, id, data);
+    // Capture before state for audit
+    const beforeState = { ...existing };
+
+    const risk = await this.updateForTenant(tenantId, id, {
+      ...data,
+      updatedBy: userId,
+    });
 
     if (risk) {
+      // Record audit log with before/after state
+      await this.auditService?.recordUpdate(
+        'GrcRisk',
+        id,
+        beforeState as unknown as Record<string, unknown>,
+        risk as unknown as Record<string, unknown>,
+        userId,
+        tenantId,
+      );
+
+      // Create history entry
+      await this.createHistoryEntry(risk, userId);
+
       // Emit domain event
       this.eventEmitter.emit(
         'risk.updated',
@@ -90,6 +124,7 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   /**
    * Soft delete a risk and emit RiskDeletedEvent
    * Sets isDeleted=true instead of removing the record
+   * Records audit log for the delete action
    */
   async softDeleteRisk(
     tenantId: string,
@@ -103,9 +138,25 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     }
 
     // Mark as deleted
-    await this.updateForTenant(tenantId, id, { isDeleted: true } as Partial<
-      Omit<GrcRisk, 'id' | 'tenantId'>
-    >);
+    await this.updateForTenant(tenantId, id, {
+      isDeleted: true,
+      updatedBy: userId,
+    } as Partial<Omit<GrcRisk, 'id' | 'tenantId'>>);
+
+    // Record audit log for delete action
+    await this.auditService?.recordDelete(
+      'GrcRisk',
+      existing,
+      userId,
+      tenantId,
+    );
+
+    // Create final history entry marking deletion
+    await this.createHistoryEntry(
+      { ...existing, isDeleted: true },
+      userId,
+      'Soft deleted',
+    );
 
     // Emit domain event
     this.eventEmitter.emit(
@@ -114,6 +165,61 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     );
 
     return true;
+  }
+
+  /**
+   * Create a history entry for a risk
+   * @param risk - The risk entity to create history for
+   * @param changedBy - ID of the user who made the change
+   * @param changeReason - Optional reason for the change
+   */
+  private async createHistoryEntry(
+    risk: GrcRisk,
+    changedBy: string,
+    changeReason?: string,
+  ): Promise<GrcRiskHistory> {
+    const likelihoodValue = this.likelihoodToNumber(risk.likelihood);
+    const impactValue = this.severityToNumber(risk.impact);
+
+    const historyEntry = this.historyRepository.create({
+      riskId: risk.id,
+      tenantId: risk.tenantId,
+      title: risk.title,
+      description: risk.description,
+      severity: risk.severity,
+      status: risk.status,
+      ownerUserId: risk.ownerUserId,
+      likelihood: likelihoodValue,
+      impact: impactValue,
+      riskScore: risk.score,
+      mitigation: risk.mitigationPlan,
+      metadata: risk.metadata,
+      changedBy,
+      changeReason: changeReason ?? null,
+    });
+
+    return this.historyRepository.save(historyEntry);
+  }
+
+  private likelihoodToNumber(likelihood: RiskLikelihood): number {
+    const mapping: Record<RiskLikelihood, number> = {
+      [RiskLikelihood.RARE]: 1,
+      [RiskLikelihood.UNLIKELY]: 2,
+      [RiskLikelihood.POSSIBLE]: 3,
+      [RiskLikelihood.LIKELY]: 4,
+      [RiskLikelihood.ALMOST_CERTAIN]: 5,
+    };
+    return mapping[likelihood] ?? 3;
+  }
+
+  private severityToNumber(severity: RiskSeverity): number {
+    const mapping: Record<RiskSeverity, number> = {
+      [RiskSeverity.LOW]: 1,
+      [RiskSeverity.MEDIUM]: 2,
+      [RiskSeverity.HIGH]: 3,
+      [RiskSeverity.CRITICAL]: 4,
+    };
+    return mapping[severity] ?? 2;
   }
 
   /**

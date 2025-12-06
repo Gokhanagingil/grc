@@ -2,9 +2,36 @@
  * GRC Domain Enumerations
  *
  * All enums used across GRC entities for consistent typing and validation.
+ * All enums are compatible with PostgreSQL enum types.
  */
 
+// ============================================================================
+// Common Enums (shared across multiple entity types)
+// ============================================================================
+
+/**
+ * CommonStatus - Generic status enum for entities that follow a simple lifecycle
+ */
+export enum CommonStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  ARCHIVED = 'archived',
+}
+
+/**
+ * AuditAction - Actions tracked in audit logs
+ */
+export enum AuditAction {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+}
+
+// ============================================================================
 // Risk Enums
+// ============================================================================
+
 export enum RiskSeverity {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -29,7 +56,10 @@ export enum RiskStatus {
   CLOSED = 'closed',
 }
 
+// ============================================================================
 // Control Enums
+// ============================================================================
+
 export enum ControlType {
   PREVENTIVE = 'preventive',
   DETECTIVE = 'detective',
@@ -59,7 +89,10 @@ export enum ControlFrequency {
   ANNUAL = 'annual',
 }
 
+// ============================================================================
 // Policy Enums
+// ============================================================================
+
 export enum PolicyStatus {
   DRAFT = 'draft',
   UNDER_REVIEW = 'under_review',
@@ -68,7 +101,42 @@ export enum PolicyStatus {
   RETIRED = 'retired',
 }
 
+/**
+ * PolicyState - Alias for PolicyStatus for backward compatibility
+ */
+export const PolicyState = PolicyStatus;
+export type PolicyState = PolicyStatus;
+
+// ============================================================================
+// Requirement Enums
+// ============================================================================
+
+/**
+ * RequirementType - Types of compliance requirements
+ */
+export enum RequirementType {
+  REGULATORY = 'regulatory',
+  CONTRACTUAL = 'contractual',
+  INTERNAL = 'internal',
+  INDUSTRY_STANDARD = 'industry_standard',
+  BEST_PRACTICE = 'best_practice',
+}
+
+/**
+ * RequirementStatus - Status of compliance requirements
+ */
+export enum RequirementStatus {
+  NOT_STARTED = 'not_started',
+  IN_PROGRESS = 'in_progress',
+  IMPLEMENTED = 'implemented',
+  VERIFIED = 'verified',
+  NON_COMPLIANT = 'non_compliant',
+}
+
+// ============================================================================
 // Issue Enums
+// ============================================================================
+
 export enum IssueType {
   INTERNAL_AUDIT = 'internal_audit',
   EXTERNAL_AUDIT = 'external_audit',
@@ -92,7 +160,10 @@ export enum IssueSeverity {
   CRITICAL = 'critical',
 }
 
+// ============================================================================
 // CAPA Enums
+// ============================================================================
+
 export enum CapaType {
   CORRECTIVE = 'corrective',
   PREVENTIVE = 'preventive',
@@ -108,7 +179,10 @@ export enum CapaStatus {
   CLOSED = 'closed',
 }
 
+// ============================================================================
 // Evidence Enums
+// ============================================================================
+
 export enum EvidenceType {
   DOCUMENT = 'document',
   SCREENSHOT = 'screenshot',
@@ -118,7 +192,10 @@ export enum EvidenceType {
   OTHER = 'other',
 }
 
+// ============================================================================
 // Compliance Framework Enum
+// ============================================================================
+
 export enum ComplianceFramework {
   ISO27001 = 'iso27001',
   SOC2 = 'soc2',
@@ -129,7 +206,10 @@ export enum ComplianceFramework {
   OTHER = 'other',
 }
 
-// Mapping relationship types
+// ============================================================================
+// Mapping Relationship Types
+// ============================================================================
+
 export enum RelationshipType {
   PRIMARY = 'primary',
   SECONDARY = 'secondary',

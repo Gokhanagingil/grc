@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { RiskSeverity, RiskLikelihood, RiskStatus } from '../enums';
@@ -20,19 +18,14 @@ import { GrcIssue } from './grc-issue.entity';
  *
  * Represents an identified risk in the organization's risk register.
  * Risks can be linked to controls via GrcRiskControl mapping.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_risks')
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'severity'])
 @Index(['tenantId', 'ownerUserId'])
-export class GrcRisk {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcRisk extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -97,18 +90,9 @@ export class GrcRisk {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @Column({ name: 'is_deleted', type: 'boolean', default: false })
-  isDeleted: boolean;
-
   @OneToMany(() => GrcRiskControl, (rc) => rc.risk)
   riskControls: GrcRiskControl[];
 
   @OneToMany(() => GrcIssue, (issue) => issue.risk)
   issues: GrcIssue[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

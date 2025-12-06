@@ -1,14 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
+import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { ComplianceFramework } from '../enums';
@@ -20,19 +18,14 @@ import { GrcRequirementControl } from './grc-requirement-control.entity';
  * Represents a regulatory or compliance requirement from a framework
  * (e.g., ISO 27001, SOC 2, GDPR, HIPAA).
  * Requirements can be linked to controls via GrcRequirementControl mapping.
+ * Extends BaseEntity for standard audit fields.
  */
 @Entity('grc_requirements')
 @Index(['tenantId', 'framework'])
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'framework', 'referenceCode'], { unique: true })
-export class GrcRequirement {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  @Index()
-  tenantId: string;
-
+@Index(['tenantId', 'status', 'createdAt'])
+export class GrcRequirement extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
@@ -74,15 +67,6 @@ export class GrcRequirement {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @Column({ name: 'is_deleted', type: 'boolean', default: false })
-  isDeleted: boolean;
-
   @OneToMany(() => GrcRequirementControl, (rc) => rc.requirement)
   requirementControls: GrcRequirementControl[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }
