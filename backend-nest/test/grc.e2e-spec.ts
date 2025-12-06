@@ -114,9 +114,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           title: 'Test Risk - E2E',
           description: 'A test risk created by e2e tests',
           category: 'Testing',
-          severity: 'HIGH',
-          likelihood: 'POSSIBLE',
-          status: 'OPEN',
+          severity: 'high',
+          likelihood: 'possible',
+          status: 'identified',
         };
 
         const response = await request(app.getHttpServer())
@@ -331,7 +331,7 @@ describe('GRC CRUD Operations (e2e)', () => {
           name: 'Test Policy - E2E',
           code: 'POL-E2E-001',
           version: '1.0',
-          status: 'DRAFT',
+          status: 'draft',
           category: 'Testing',
           summary: 'A test policy created by e2e tests',
         };
@@ -381,7 +381,7 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         const updateData = {
           name: 'Test Policy - E2E Updated',
-          status: 'ACTIVE',
+          status: 'active',
         };
 
         const response = await request(app.getHttpServer())
@@ -464,7 +464,7 @@ describe('GRC CRUD Operations (e2e)', () => {
         }
 
         const newRequirement = {
-          framework: 'ISO_27001',
+          framework: 'iso27001',
           referenceCode: 'A.E2E.1',
           title: 'Test Requirement - E2E',
           description: 'A test requirement created by e2e tests',
