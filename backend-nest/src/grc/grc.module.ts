@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
+import { AuthModule } from '../auth/auth.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 // Entities
 import {
@@ -74,6 +76,8 @@ import {
       UserHistory,
     ]),
     AuditModule,
+    AuthModule,
+    TenantsModule,
   ],
   providers: [GrcRiskService, GrcPolicyService, GrcRequirementService],
   controllers: [

@@ -164,7 +164,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
 
       it('should return 200 for /grc/policies with valid admin token', async () => {
@@ -179,7 +181,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
 
       it('should return 200 for /grc/requirements with valid admin token', async () => {
@@ -194,7 +198,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
+        expect(response.body).toHaveProperty('items');
+        expect(Array.isArray(response.body.items)).toBe(true);
       });
     });
   });

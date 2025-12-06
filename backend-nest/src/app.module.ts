@@ -87,18 +87,26 @@ import { StructuredLoggerService } from './common/logger';
     MetricsModule,
 
     // Rate limiting - default: 100 requests per 60 seconds
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60000, // 60 seconds
-        limit: 100, // 100 requests per minute
+    // In test environment, use very high limits to avoid blocking E2E tests
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const isTest = configService.get<string>('app.nodeEnv') === 'test';
+        return [
+          {
+            name: 'default',
+            ttl: 60000, // 60 seconds
+            limit: isTest ? 10000 : 100, // High limit in test, 100 in production
+          },
+          {
+            name: 'strict',
+            ttl: 60000, // 60 seconds
+            limit: isTest ? 10000 : 10, // High limit in test, 10 in production
+          },
+        ];
       },
-      {
-        name: 'strict',
-        ttl: 60000, // 60 seconds
-        limit: 10, // 10 requests per minute (for auth endpoints)
-      },
-    ]),
+    }),
   ],
   controllers: [AppController],
   providers: [

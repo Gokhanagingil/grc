@@ -239,7 +239,7 @@ describe('Multi-Tenancy (e2e)', () => {
           email: DEMO_ADMIN_EMAIL,
           password: DEMO_ADMIN_PASSWORD,
         })
-        .expect(201);
+        .expect(200);
 
       expect(loginResponse.body).toHaveProperty('user');
       expect(loginResponse.body.user).toHaveProperty('tenantId');

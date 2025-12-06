@@ -34,9 +34,9 @@ interface CorrelationRequest extends Request {
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: CorrelationRequest, res: Response, next: NextFunction): void {
-        // Get correlation ID from header or generate a new one
-        const correlationId =
-          (req.headers[CORRELATION_ID_HEADER] as string) || randomUUID();
+    // Get correlation ID from header or generate a new one
+    const correlationId =
+      (req.headers[CORRELATION_ID_HEADER] as string) || randomUUID();
 
     // Record request start time
     const requestStartTime = Date.now();

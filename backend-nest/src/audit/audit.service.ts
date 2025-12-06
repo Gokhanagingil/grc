@@ -67,7 +67,9 @@ export class AuditService {
       entityId: entity.id,
       resource: this.entityNameToResource(entityName),
       resourceId: entity.id,
-      afterState: this.sanitizeEntity(entity as unknown as Record<string, unknown>),
+      afterState: this.sanitizeEntity(
+        entity as unknown as Record<string, unknown>,
+      ),
       beforeState: null,
       userId: actorId,
       tenantId: tenantId ?? null,
@@ -131,7 +133,9 @@ export class AuditService {
       entityId: entity.id,
       resource: this.entityNameToResource(entityName),
       resourceId: entity.id,
-      beforeState: this.sanitizeEntity(entity as unknown as Record<string, unknown>),
+      beforeState: this.sanitizeEntity(
+        entity as unknown as Record<string, unknown>,
+      ),
       afterState: null,
       userId: actorId,
       tenantId: tenantId ?? null,
