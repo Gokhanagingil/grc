@@ -119,6 +119,24 @@ const sqliteSchema = `
     FOREIGN KEY (risk_id) REFERENCES risks (id),
     FOREIGN KEY (assessor_id) REFERENCES users (id)
   );
+
+  CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    priority TEXT DEFAULT 'medium',
+    status TEXT DEFAULT 'pending',
+    category TEXT,
+    tags TEXT,
+    due_date DATE,
+    completed_at DATETIME,
+    owner_id INTEGER NOT NULL,
+    assigned_to INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users (id),
+    FOREIGN KEY (assigned_to) REFERENCES users (id)
+  );
 `;
 
 /**

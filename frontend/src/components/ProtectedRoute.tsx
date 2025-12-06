@@ -1,14 +1,15 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: ('admin' | 'manager' | 'user')[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { user, loading, hasRole } = useAuth();
 
   if (loading) {
     return (
@@ -25,6 +26,29 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !hasRole(allowedRoles)) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error" gutterBottom>
+            Access Denied
+          </Typography>
+          <Typography color="text.secondary">
+            You do not have permission to access this page.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Required role: {allowedRoles.join(' or ')}
+          </Typography>
+        </Paper>
+      </Box>
+    );
   }
 
   return <>{children}</>;
