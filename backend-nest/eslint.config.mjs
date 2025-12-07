@@ -33,7 +33,8 @@ export default tseslint.config(
   },
   // Relax strict type-checking rules for test files
   // Test files use supertest which returns response.body as `any`
-  // This is a standard practice for e2e tests
+  // Jest mock methods trigger unbound-method warnings
+  // This is a standard practice for e2e and unit tests
   {
         files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/test/**/*.ts'],
         rules: {
@@ -43,6 +44,7 @@ export default tseslint.config(
           '@typescript-eslint/no-unsafe-argument': 'off',
           '@typescript-eslint/no-unsafe-return': 'off',
           '@typescript-eslint/no-unused-vars': 'warn',
+          '@typescript-eslint/unbound-method': 'off',
         },
   },
 );
