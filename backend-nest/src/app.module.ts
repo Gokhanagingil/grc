@@ -1,7 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { configuration, validate } from './config';
 import { EventsModule } from './events/events.module';
@@ -22,7 +22,9 @@ import {
 import {
   RequestTimingInterceptor,
   PerformanceInterceptor,
+  ResponseTransformInterceptor,
 } from './common/interceptors';
+import { GlobalExceptionFilter } from './common/filters';
 import { StructuredLoggerService } from './common/logger';
 
 /**
@@ -112,6 +114,11 @@ import { StructuredLoggerService } from './common/logger';
   providers: [
     AppService,
     StructuredLoggerService,
+    // Global exception filter for standard error responses
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
     // Global rate limiting guard
     {
       provide: APP_GUARD,
@@ -125,6 +132,11 @@ import { StructuredLoggerService } from './common/logger';
     {
       provide: APP_INTERCEPTOR,
       useClass: PerformanceInterceptor,
+    },
+    // Global response transform interceptor for standard success responses
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseTransformInterceptor,
     },
   ],
 })
