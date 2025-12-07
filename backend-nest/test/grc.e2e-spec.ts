@@ -616,4 +616,300 @@ describe('GRC CRUD Operations (e2e)', () => {
       });
     });
   });
+
+  // ==================== TENANT ISOLATION ====================
+  describe('Tenant Isolation', () => {
+    let isolationTestRiskId: string;
+    const fakeTenantId = '00000000-0000-0000-0000-000000000099';
+
+    describe('Cross-tenant access prevention for Risks', () => {
+      it('should create a risk for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newRisk = {
+          title: 'Isolation Test Risk',
+          description: 'A risk created for tenant isolation testing',
+          category: 'Security',
+          severity: 'high',
+          likelihood: 'possible',
+          status: 'identified',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newRisk)
+          .expect(201);
+
+        expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('tenantId', tenantId);
+        isolationTestRiskId = response.body.id;
+      });
+
+      it('should return 403 when accessing risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // Attempt to access the risk with a different tenant ID
+        // TenantGuard should reject this request with 403 (user doesn't belong to fake tenant)
+        await request(app.getHttpServer())
+          .get(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ title: 'Hacked Risk Title' })
+          .expect(403);
+      });
+
+      it('should return 403 when deleting risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should not include risk in list when using fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // This should return 403 because user doesn't belong to fake tenant
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should clean up isolation test risk', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // Clean up by deleting the test risk with correct tenant
+        await request(app.getHttpServer())
+          .delete(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Cross-tenant access prevention for Policies', () => {
+      let isolationTestPolicyId: string;
+
+      it('should create a policy for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newPolicy = {
+          name: 'Isolation Test Policy',
+          code: 'POL-ISO-001',
+          version: '1.0',
+          status: 'draft',
+          category: 'Security',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/policies')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newPolicy)
+          .expect(201);
+
+        expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('tenantId', tenantId);
+        isolationTestPolicyId = response.body.id;
+      });
+
+      it('should return 403 when accessing policy with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating policy with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ name: 'Hacked Policy Name' })
+          .expect(403);
+      });
+
+      it('should clean up isolation test policy', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Cross-tenant access prevention for Requirements', () => {
+      let isolationTestRequirementId: string;
+
+      it('should create a requirement for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newRequirement = {
+          framework: 'iso27001',
+          referenceCode: 'A.ISO.TEST',
+          title: 'Isolation Test Requirement',
+          description: 'A requirement created for tenant isolation testing',
+          category: 'Security',
+          priority: 'High',
+          status: 'Pending',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/requirements')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newRequirement)
+          .expect(201);
+
+        expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('tenantId', tenantId);
+        isolationTestRequirementId = response.body.id;
+      });
+
+      it('should return 403 when accessing requirement with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating requirement with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ title: 'Hacked Requirement Title' })
+          .expect(403);
+      });
+
+      it('should clean up isolation test requirement', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Invalid tenant ID handling', () => {
+      it('should return 400 for invalid UUID format in x-tenant-id', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', 'invalid-uuid-format')
+          .expect(400);
+      });
+
+      it('should return 400 when x-tenant-id header is missing', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+    });
+  });
 });
