@@ -24,6 +24,13 @@ export enum Permission {
 
   // Administrative permissions
   GRC_ADMIN = 'grc:admin',
+
+  // ITSM Incident permissions
+  ITSM_INCIDENT_READ = 'itsm:incident:read',
+  ITSM_INCIDENT_WRITE = 'itsm:incident:write',
+
+  // ITSM Statistics permissions
+  ITSM_STATISTICS_READ = 'itsm:statistics:read',
 }
 
 /**
@@ -39,4 +46,7 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_REQUIREMENT_WRITE]: 'Create, update, and delete requirements',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
+  [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',
+  [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
+  [Permission.ITSM_STATISTICS_READ]: 'View ITSM statistics and analytics dashboards',
 };
