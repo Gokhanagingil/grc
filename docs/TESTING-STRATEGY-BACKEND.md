@@ -382,6 +382,96 @@ The following tests verify that tenant isolation is properly enforced:
 | Returns 400 for invalid UUID format in x-tenant-id |
 | Returns 400 when x-tenant-id header is missing |
 
+## ITSM Incident E2E Coverage
+
+This section documents the end-to-end tests for the ITSM Incident Management module.
+
+### Test File
+
+**File:** `test/itsm-incidents.e2e-spec.ts`
+
+### Test Summary
+
+| Metric | Value |
+|--------|-------|
+| Total E2E Tests | 23 |
+| Test Categories | 10 |
+| Endpoints Covered | 8 |
+
+### Endpoints Covered
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/itsm/incidents` | GET | List all incidents with pagination, filtering, and sorting |
+| `/itsm/incidents` | POST | Create a new incident |
+| `/itsm/incidents/:id` | GET | Get a specific incident by ID |
+| `/itsm/incidents/:id` | PATCH | Update an existing incident |
+| `/itsm/incidents/:id` | DELETE | Soft delete an incident |
+| `/itsm/incidents/:id/resolve` | POST | Resolve an incident |
+| `/itsm/incidents/:id/close` | POST | Close a resolved incident |
+| `/itsm/incidents/statistics` | GET | Get incident statistics |
+
+### Test Scenarios
+
+| Category | Test Scenario |
+|----------|---------------|
+| GET (list) | Returns list with valid auth and tenant ID |
+| GET (list) | Returns 401 without token |
+| GET (list) | Returns 400 without x-tenant-id header |
+| POST | Creates new incident with valid data |
+| POST | Returns 400 without required shortDescription field |
+| POST | Calculates priority based on impact and urgency |
+| GET (by ID) | Returns specific incident by ID |
+| GET (by ID) | Returns 404 for non-existent incident |
+| PATCH | Updates existing incident |
+| PATCH | Recalculates priority when impact/urgency changes |
+| PATCH | Returns 404 for non-existent incident |
+| POST (resolve) | Resolves an incident |
+| POST (close) | Closes a resolved incident |
+| POST (close) | Returns 404 when trying to close non-resolved incident |
+| DELETE | Soft deletes incident |
+| DELETE | Deleted incident not returned in list |
+| DELETE | Returns 404 when trying to get deleted incident |
+| GET (statistics) | Returns statistics for tenant |
+| Filtering | Filters incidents by status |
+| Filtering | Filters incidents by priority |
+| Pagination | Supports pagination with page and pageSize |
+| Search | Supports search in shortDescription and description |
+| Tenant Isolation | Rejects access for different tenant (403) |
+
+### Test Data Setup
+
+The test suite uses a self-contained data setup strategy:
+
+1. **Seed Incident**: A seed incident is created in `beforeAll` after login
+2. **Test Isolation**: Each test creates its own incident data when needed
+3. **Helper Function**: `createIncident()` helper ensures consistent incident creation
+4. **No Shared State**: Tests don't depend on shared `createdIncidentId` variable
+
+### Response Format Validation
+
+Tests validate the standard API response format:
+
+```typescript
+// List response
+{
+  success: true,
+  data: [...],  // Array of incidents
+  meta: {
+    page: 1,
+    pageSize: 20,
+    total: 100,
+    totalPages: 5
+  }
+}
+
+// Single entity response
+{
+  success: true,
+  data: { ... }  // Incident object
+}
+```
+
 ## Future Improvements
 
 1. **Increase Unit Test Coverage**

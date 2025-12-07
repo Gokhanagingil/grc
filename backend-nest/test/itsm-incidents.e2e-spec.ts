@@ -9,11 +9,30 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
   let dbConnected = false;
   let adminToken: string;
   let tenantId: string;
+  let seedIncidentId: string;
 
   const DEMO_ADMIN_EMAIL =
     process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
   const DEMO_ADMIN_PASSWORD =
     process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
+
+  // Helper function to create an incident
+  const createIncident = async (data: {
+    shortDescription: string;
+    description?: string;
+    category?: string;
+    impact?: string;
+    urgency?: string;
+    source?: string;
+    assignmentGroup?: string;
+  }) => {
+    const response = await request(app.getHttpServer())
+      .post('/itsm/incidents')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('x-tenant-id', tenantId)
+      .send(data);
+    return response;
+  };
 
   beforeAll(async () => {
     try {
@@ -32,6 +51,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       await app.init();
       dbConnected = true;
 
+      // Login to get token and tenant ID
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -42,6 +62,24 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       const responseData = loginResponse.body.data ?? loginResponse.body;
       adminToken = responseData.accessToken;
       tenantId = responseData.user?.tenantId;
+
+      // Create a seed incident for tests that need existing data
+      if (adminToken && tenantId) {
+        const seedResponse = await createIncident({
+          shortDescription: 'Seed Incident for E2E Tests',
+          description: 'This incident is created as seed data for E2E tests',
+          category: 'software',
+          impact: 'medium',
+          urgency: 'medium',
+          source: 'user',
+          assignmentGroup: 'IT Support',
+        });
+
+        if (seedResponse.status === 201) {
+          const seedData = seedResponse.body.data ?? seedResponse.body;
+          seedIncidentId = seedData.id;
+        }
+      }
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -58,8 +96,6 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
   });
 
   describe('ITSM Incidents', () => {
-    let createdIncidentId: string;
-
     describe('GET /itsm/incidents', () => {
       it('should return list of incidents with valid auth', async () => {
         if (!dbConnected || !tenantId) {
@@ -75,8 +111,8 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(response.body.data).toHaveProperty('items');
-        expect(Array.isArray(response.body.data.items)).toBe(true);
+        // Response format: { success: true, data: [...], meta: { page, pageSize, total, totalPages } }
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -112,7 +148,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const newIncident = {
-          shortDescription: 'Test Incident - E2E',
+          shortDescription: 'Test Incident - E2E Create',
           description: 'A test incident created by e2e tests',
           category: 'software',
           impact: 'medium',
@@ -140,8 +176,6 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         expect(data).toHaveProperty('isDeleted', false);
         expect(data).toHaveProperty('status', 'open');
         expect(data).toHaveProperty('priority', 'p3');
-
-        createdIncidentId = data.id;
       });
 
       it('should return 400 without required shortDescription field', async () => {
@@ -188,22 +222,25 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
     describe('GET /itsm/incidents/:id', () => {
       it('should return a specific incident by ID', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
+        if (!dbConnected || !tenantId || !seedIncidentId) {
           console.log(
-            'Skipping test: database not connected or no incident created',
+            'Skipping test: database not connected or no seed incident',
           );
           return;
         }
 
         const response = await request(app.getHttpServer())
-          .get(`/itsm/incidents/${createdIncidentId}`)
+          .get(`/itsm/incidents/${seedIncidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
 
         const data = response.body.data ?? response.body;
-        expect(data).toHaveProperty('id', createdIncidentId);
-        expect(data).toHaveProperty('shortDescription', 'Test Incident - E2E');
+        expect(data).toHaveProperty('id', seedIncidentId);
+        expect(data).toHaveProperty(
+          'shortDescription',
+          'Seed Incident for E2E Tests',
+        );
       });
 
       it('should return 404 for non-existent incident', async () => {
@@ -222,27 +259,33 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
     describe('PATCH /itsm/incidents/:id', () => {
       it('should update an existing incident', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
 
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to Update - E2E',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
+
         const updateData = {
-          shortDescription: 'Test Incident - E2E Updated',
+          shortDescription: 'Incident Updated - E2E',
           status: 'in_progress',
         };
 
         const response = await request(app.getHttpServer())
-          .patch(`/itsm/incidents/${createdIncidentId}`)
+          .patch(`/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(updateData)
           .expect(200);
 
         const data = response.body.data ?? response.body;
-        expect(data).toHaveProperty('id', createdIncidentId);
+        expect(data).toHaveProperty('id', incidentId);
         expect(data).toHaveProperty(
           'shortDescription',
           updateData.shortDescription,
@@ -251,12 +294,20 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       });
 
       it('should recalculate priority when impact/urgency changes', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
+
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident for Priority Recalc - E2E',
+          impact: 'low',
+          urgency: 'low',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
 
         const updateData = {
           impact: 'high',
@@ -264,7 +315,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .patch(`/itsm/incidents/${createdIncidentId}`)
+          .patch(`/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(updateData)
@@ -291,19 +342,26 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
     describe('POST /itsm/incidents/:id/resolve', () => {
       it('should resolve an incident', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
 
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to Resolve - E2E',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
+
+        // POST endpoints return 201 by default in NestJS
         const response = await request(app.getHttpServer())
-          .post(`/itsm/incidents/${createdIncidentId}/resolve`)
+          .post(`/itsm/incidents/${incidentId}/resolve`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({ resolutionNotes: 'Issue resolved by E2E test' })
-          .expect(200);
+          .expect(201);
 
         const data = response.body.data ?? response.body;
         expect(data).toHaveProperty('status', 'resolved');
@@ -317,18 +375,33 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
     describe('POST /itsm/incidents/:id/close', () => {
       it('should close a resolved incident', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
 
-        const response = await request(app.getHttpServer())
-          .post(`/itsm/incidents/${createdIncidentId}/close`)
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to Close - E2E',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
+
+        // First resolve the incident (POST returns 201 by default)
+        await request(app.getHttpServer())
+          .post(`/itsm/incidents/${incidentId}/resolve`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .expect(200);
+          .send({ resolutionNotes: 'Resolved for close test' })
+          .expect(201);
+
+        // Then close it (POST returns 201 by default)
+        const response = await request(app.getHttpServer())
+          .post(`/itsm/incidents/${incidentId}/close`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(201);
 
         const data = response.body.data ?? response.body;
         expect(data).toHaveProperty('status', 'closed');
@@ -340,17 +413,11 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
           return;
         }
 
-        const newIncident = {
-          shortDescription: 'Incident to test close validation',
-        };
-
-        const createResponse = await request(app.getHttpServer())
-          .post('/itsm/incidents')
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('x-tenant-id', tenantId)
-          .send(newIncident)
-          .expect(201);
-
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to test close validation - E2E',
+        });
+        expect(createResponse.status).toBe(201);
         const createData = createResponse.body.data ?? createResponse.body;
 
         await request(app.getHttpServer())
@@ -368,17 +435,11 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
           return;
         }
 
-        const newIncident = {
+        // Create a new incident for this test
+        const createResponse = await createIncident({
           shortDescription: 'Incident to delete - E2E',
-        };
-
-        const createResponse = await request(app.getHttpServer())
-          .post('/itsm/incidents')
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('x-tenant-id', tenantId)
-          .send(newIncident)
-          .expect(201);
-
+        });
+        expect(createResponse.status).toBe(201);
         const createData = createResponse.body.data ?? createResponse.body;
 
         await request(app.getHttpServer())
@@ -389,19 +450,27 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       });
 
       it('should not return deleted incident in list', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
 
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to delete and verify - E2E',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
+
+        // Delete the incident
         await request(app.getHttpServer())
-          .delete(`/itsm/incidents/${createdIncidentId}`)
+          .delete(`/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(204);
 
+        // Verify it's not in the list
         const response = await request(app.getHttpServer())
           .get('/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
@@ -411,21 +480,35 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         const data = response.body.data ?? response.body;
         const items = data.items ?? data;
         const deletedIncident = items.find(
-          (i: { id: string }) => i.id === createdIncidentId,
+          (i: { id: string }) => i.id === incidentId,
         );
         expect(deletedIncident).toBeUndefined();
       });
 
       it('should return 404 when trying to get deleted incident', async () => {
-        if (!dbConnected || !tenantId || !createdIncidentId) {
-          console.log(
-            'Skipping test: database not connected or no incident created',
-          );
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
           return;
         }
 
+        // Create a new incident for this test
+        const createResponse = await createIncident({
+          shortDescription: 'Incident to delete and get - E2E',
+        });
+        expect(createResponse.status).toBe(201);
+        const createData = createResponse.body.data ?? createResponse.body;
+        const incidentId = createData.id;
+
+        // Delete the incident
         await request(app.getHttpServer())
-          .get(`/itsm/incidents/${createdIncidentId}`)
+          .delete(`/itsm/incidents/${incidentId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+
+        // Try to get the deleted incident
+        await request(app.getHttpServer())
+          .get(`/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(404);
@@ -504,11 +587,14 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const data = response.body.data ?? response.body;
-        expect(data).toHaveProperty('page', 1);
-        expect(data).toHaveProperty('pageSize', 5);
-        expect(data).toHaveProperty('total');
-        expect(data).toHaveProperty('totalPages');
+        // Pagination info is in response.body.meta, not data
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body).toHaveProperty('meta');
+        expect(response.body.meta).toHaveProperty('page', 1);
+        expect(response.body.meta).toHaveProperty('pageSize', 5);
+        expect(response.body.meta).toHaveProperty('total');
+        expect(response.body.meta).toHaveProperty('totalPages');
       });
 
       it('should support search', async () => {
@@ -526,25 +612,21 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
     });
 
     describe('Tenant Isolation', () => {
-      it('should not return incidents from different tenant', async () => {
+      it('should reject access for different tenant', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
           return;
         }
 
+        // Use a different tenant ID that the user doesn't have access to
         const differentTenantId = '00000000-0000-0000-0000-000000000099';
 
-        const response = await request(app.getHttpServer())
+        // TenantGuard should reject requests for tenants the user doesn't belong to
+        await request(app.getHttpServer())
           .get('/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', differentTenantId)
-          .expect(200);
-
-        const data = response.body.data ?? response.body;
-        const items = data.items ?? data;
-        items.forEach((incident: { tenantId: string }) => {
-          expect(incident.tenantId).toBe(differentTenantId);
-        });
+          .expect(403);
       });
     });
   });

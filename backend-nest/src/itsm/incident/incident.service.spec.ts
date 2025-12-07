@@ -52,7 +52,9 @@ describe('IncidentService', () => {
       save: jest.fn(),
       create: jest.fn(),
       createQueryBuilder: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
     };
 
     const mockEventEmitter = {
