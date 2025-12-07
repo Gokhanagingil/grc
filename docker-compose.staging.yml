@@ -66,7 +66,8 @@ services:
       DB_USER: ${DB_USER:-grc_staging}
       DB_PASSWORD: ${DB_PASSWORD:-changeme_staging_password}
       DB_NAME: ${DB_NAME:-grc_staging}
-      DB_SYNC: ${DB_SYNC:-false}
+      # NOTE: Set DB_SYNC=true for initial setup to create tables, then set to false
+      DB_SYNC: ${DB_SYNC:-true}
       
       # Security
       JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}
