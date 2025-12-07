@@ -7,10 +7,12 @@
 #   - Pull requests to main affecting backend-nest/**
 #
 # Jobs:
-#   1. lint       - ESLint code quality checks
-#   2. build      - TypeScript compilation
-#   3. unit-tests - Jest unit tests
-#   4. e2e-tests  - End-to-end tests with PostgreSQL
+#   1. lint           - ESLint code quality checks
+#   2. security-audit - npm audit for vulnerability scanning
+#   3. build          - TypeScript compilation
+#   4. unit-tests     - Jest unit tests
+#   5. e2e-tests      - End-to-end tests with PostgreSQL
+#   6. docker-build   - Docker image build verification
 #
 # Environment:
 #   - Node.js 20.x
@@ -65,6 +67,36 @@ jobs:
       
       - name: Run ESLint
         run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Security Audit - Vulnerability Scanning
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run npm audit
+        run: npm audit --audit-level=high || true
+        # Note: Using || true to not fail the build on vulnerabilities
+        # This allows visibility into security issues without blocking PRs
+        # TODO: Remove || true once all high/critical vulnerabilities are resolved
 
   # ---------------------------------------------------------------------------
   # Build - TypeScript Compilation
