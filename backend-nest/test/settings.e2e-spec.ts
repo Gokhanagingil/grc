@@ -38,8 +38,10 @@ describe('Settings (e2e)', () => {
       })
       .expect(200);
 
-    authToken = loginResponse.body.accessToken;
-    tenantId = loginResponse.body.user.tenantId;
+    // Handle both wrapped (new) and unwrapped (legacy) response formats
+    const responseData = loginResponse.body.data ?? loginResponse.body;
+    authToken = responseData.accessToken;
+    tenantId = responseData.user?.tenantId;
   });
 
   afterAll(async () => {
@@ -53,11 +55,13 @@ describe('Settings (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('settings');
-      expect(Array.isArray(response.body.settings)).toBe(true);
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('settings');
+      expect(Array.isArray(data.settings)).toBe(true);
 
       // Check that default settings were seeded
-      const keys = response.body.settings.map((s: { key: string }) => s.key);
+      const keys = data.settings.map((s: { key: string }) => s.key);
       expect(keys).toContain('maxLoginAttempts');
       expect(keys).toContain('defaultLocale');
     });
@@ -74,9 +78,11 @@ describe('Settings (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('key', 'maxLoginAttempts');
-      expect(response.body).toHaveProperty('value', '5');
-      expect(response.body).toHaveProperty('source', 'system');
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('key', 'maxLoginAttempts');
+      expect(data).toHaveProperty('value', '5');
+      expect(data).toHaveProperty('source', 'system');
     });
 
     it('should return tenant setting when override exists', async () => {
@@ -99,9 +105,11 @@ describe('Settings (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      expect(response.body).toHaveProperty('key', 'maxLoginAttempts');
-      expect(response.body).toHaveProperty('value', '10');
-      expect(response.body).toHaveProperty('source', 'tenant');
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('key', 'maxLoginAttempts');
+      expect(data).toHaveProperty('value', '10');
+      expect(data).toHaveProperty('source', 'tenant');
 
       // Clean up
       await tenantSettingRepo.delete({ tenantId, key: 'maxLoginAttempts' });
@@ -113,9 +121,11 @@ describe('Settings (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('key', 'nonExistentSetting');
-      expect(response.body).toHaveProperty('value', null);
-      expect(response.body).toHaveProperty('source', 'none');
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('key', 'nonExistentSetting');
+      expect(data).toHaveProperty('value', null);
+      expect(data).toHaveProperty('source', 'none');
     });
 
     it('should require key parameter', async () => {
@@ -146,8 +156,10 @@ describe('Settings (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      expect(response.body).toHaveProperty('settings');
-      expect(Array.isArray(response.body.settings)).toBe(true);
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('settings');
+      expect(Array.isArray(data.settings)).toBe(true);
     });
   });
 });

@@ -28,12 +28,14 @@ export class HealthController {
   /**
    * Liveness probe
    * Returns 200 if the application is running.
+   * Includes uptime in seconds for monitoring.
    */
   @Get('live')
   live() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
       service: 'grc-platform-nest',
     };
   }

@@ -40,8 +40,10 @@ describe('Multi-Tenancy (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -68,10 +70,12 @@ describe('Multi-Tenancy (e2e)', () => {
         .get('/tenants/health')
         .expect(200);
 
-      expect(response.body).toHaveProperty('status', 'ok');
-      expect(response.body).toHaveProperty('module', 'tenants');
-      expect(response.body).toHaveProperty('tenantCount');
-      expect(response.body).toHaveProperty('timestamp');
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('status', 'ok');
+      expect(data).toHaveProperty('module', 'tenants');
+      expect(data).toHaveProperty('tenantCount');
+      expect(data).toHaveProperty('timestamp');
     });
   });
 
@@ -90,15 +94,17 @@ describe('Multi-Tenancy (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      expect(response.body).toHaveProperty('tenant');
-      expect(response.body.tenant).toHaveProperty('id', tenantId);
-      expect(response.body.tenant).toHaveProperty('name');
-      expect(response.body).toHaveProperty('requestedBy');
-      expect(response.body.requestedBy).toHaveProperty(
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('tenant');
+      expect(data.tenant).toHaveProperty('id', tenantId);
+      expect(data.tenant).toHaveProperty('name');
+      expect(data).toHaveProperty('requestedBy');
+      expect(data.requestedBy).toHaveProperty(
         'email',
         DEMO_ADMIN_EMAIL,
       );
-      expect(response.body).toHaveProperty('timestamp');
+      expect(data).toHaveProperty('timestamp');
     });
 
     it('should return 401 without token', async () => {
@@ -126,8 +132,10 @@ describe('Multi-Tenancy (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(400);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('x-tenant-id');
+      // Error response is wrapped in standard envelope
+      const error = response.body.error ?? response.body;
+      expect(error).toHaveProperty('message');
+      expect(error.message).toContain('x-tenant-id');
     });
 
     it('should return 400 with invalid x-tenant-id format', async () => {
@@ -142,8 +150,10 @@ describe('Multi-Tenancy (e2e)', () => {
         .set('x-tenant-id', 'invalid-uuid')
         .expect(400);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('UUID');
+      // Error response is wrapped in standard envelope
+      const error = response.body.error ?? response.body;
+      expect(error).toHaveProperty('message');
+      expect(error.message).toContain('UUID');
     });
 
     it('should return 403 when user does not belong to tenant', async () => {
@@ -161,8 +171,10 @@ describe('Multi-Tenancy (e2e)', () => {
         .set('x-tenant-id', fakeTenantId)
         .expect(403);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('does not belong to tenant');
+      // Error response is wrapped in standard envelope
+      const error = response.body.error ?? response.body;
+      expect(error).toHaveProperty('message');
+      expect(error.message).toContain('does not belong to tenant');
     });
   });
 
@@ -181,15 +193,17 @@ describe('Multi-Tenancy (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      expect(response.body).toHaveProperty('tenantId', tenantId);
-      expect(response.body).toHaveProperty('users');
-      expect(Array.isArray(response.body.users)).toBe(true);
-      expect(response.body).toHaveProperty('count');
-      expect(response.body.count).toBeGreaterThanOrEqual(1);
-      expect(response.body).toHaveProperty('timestamp');
+      // Response is wrapped in standard envelope
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('tenantId', tenantId);
+      expect(data).toHaveProperty('users');
+      expect(Array.isArray(data.users)).toBe(true);
+      expect(data).toHaveProperty('count');
+      expect(data.count).toBeGreaterThanOrEqual(1);
+      expect(data).toHaveProperty('timestamp');
 
       // Verify the admin user is in the list
-      const adminUser = response.body.users.find(
+      const adminUser = data.users.find(
         (u: any) => u.email === DEMO_ADMIN_EMAIL,
       );
       expect(adminUser).toBeDefined();
@@ -241,9 +255,11 @@ describe('Multi-Tenancy (e2e)', () => {
         })
         .expect(200);
 
-      expect(loginResponse.body).toHaveProperty('user');
-      expect(loginResponse.body.user).toHaveProperty('tenantId');
-      expect(loginResponse.body.user.tenantId).toBeTruthy();
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      expect(responseData).toHaveProperty('user');
+      expect(responseData.user).toHaveProperty('tenantId');
+      expect(responseData.user.tenantId).toBeTruthy();
     });
   });
 });

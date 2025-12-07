@@ -41,8 +41,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user?.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -75,9 +77,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -128,12 +131,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRisk)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('title', newRisk.title);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newRisk.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdRiskId = response.body.id;
+        createdRiskId = data.id;
       });
 
       it('should return 400 without required title field', async () => {
@@ -170,8 +175,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRiskId);
-        expect(response.body).toHaveProperty('title', 'Test Risk - E2E');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRiskId);
+        expect(data).toHaveProperty('title', 'Test Risk - E2E');
       });
 
       it('should return 404 for non-existent risk', async () => {
@@ -209,9 +216,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRiskId);
-        expect(response.body).toHaveProperty('title', updateData.title);
-        expect(response.body).toHaveProperty('severity', updateData.severity);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRiskId);
+        expect(data).toHaveProperty('title', updateData.title);
+        expect(data).toHaveProperty('severity', updateData.severity);
       });
 
       it('should return 404 for non-existent risk', async () => {
@@ -259,8 +268,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedRisk = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedRisk = data.find(
           (r: { id: string }) => r.id === createdRiskId,
         );
         expect(deletedRisk).toBeUndefined();
@@ -295,9 +305,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('bySeverity');
-        expect(response.body).toHaveProperty('byStatus');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('bySeverity');
+        expect(data).toHaveProperty('byStatus');
       });
     });
   });
@@ -319,9 +331,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
     });
 
@@ -348,12 +361,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newPolicy)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('name', newPolicy.name);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newPolicy.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdPolicyId = response.body.id;
+        createdPolicyId = data.id;
       });
 
       it('should return 400 without required name field', async () => {
@@ -396,9 +411,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdPolicyId);
-        expect(response.body).toHaveProperty('name', updateData.name);
-        expect(response.body).toHaveProperty('status', updateData.status);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdPolicyId);
+        expect(data).toHaveProperty('name', updateData.name);
+        expect(data).toHaveProperty('status', updateData.status);
       });
     });
 
@@ -432,8 +449,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedPolicy = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedPolicy = data.find(
           (p: { id: string }) => p.id === createdPolicyId,
         );
         expect(deletedPolicy).toBeUndefined();
@@ -458,9 +476,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
     });
 
@@ -488,12 +507,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRequirement)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('title', newRequirement.title);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newRequirement.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdRequirementId = response.body.id;
+        createdRequirementId = data.id;
       });
 
       it('should return 400 without required fields', async () => {
@@ -536,9 +557,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRequirementId);
-        expect(response.body).toHaveProperty('title', updateData.title);
-        expect(response.body).toHaveProperty('status', updateData.status);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRequirementId);
+        expect(data).toHaveProperty('title', updateData.title);
+        expect(data).toHaveProperty('status', updateData.status);
       });
     });
 
@@ -572,8 +595,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedRequirement = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedRequirement = data.find(
           (r: { id: string }) => r.id === createdRequirementId,
         );
         expect(deletedRequirement).toBeUndefined();
@@ -593,9 +617,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('byFramework');
-        expect(response.body).toHaveProperty('byStatus');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byFramework');
+        expect(data).toHaveProperty('byStatus');
       });
     });
 
@@ -612,7 +638,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
     });
   });
@@ -645,9 +673,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRisk)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        isolationTestRiskId = response.body.id;
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestRiskId = data.id;
       });
 
       it('should return 403 when accessing risk with fake tenant ID', async () => {
@@ -755,9 +785,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newPolicy)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        isolationTestPolicyId = response.body.id;
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestPolicyId = data.id;
       });
 
       it('should return 403 when accessing policy with fake tenant ID', async () => {
@@ -833,9 +865,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRequirement)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        isolationTestRequirementId = response.body.id;
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestRequirementId = data.id;
       });
 
       it('should return 403 when accessing requirement with fake tenant ID', async () => {

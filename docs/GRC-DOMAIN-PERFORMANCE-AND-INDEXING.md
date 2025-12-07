@@ -123,12 +123,46 @@ All queries MUST include `isDeleted = false` filter. This is handled by:
 
 ### Pagination
 
-All list endpoints support pagination with:
+All list endpoints support pagination with two styles:
 
-- `page` - Page number (1-indexed)
+**Page-based pagination (recommended for UI):**
+- `page` - Page number (1-indexed, default: 1)
 - `pageSize` - Items per page (default: 20, max: 100)
-- `sortBy` - Field to sort by
-- `sortOrder` - ASC or DESC
+
+**Offset-based pagination (for API integrations):**
+- `limit` - Number of items to return (default: 20, max: 100)
+- `offset` - Number of items to skip (default: 0, must be >= 0)
+
+**Common parameters:**
+- `sortBy` - Field to sort by (validated against allowed fields)
+- `sortOrder` - ASC or DESC (default: DESC)
+
+**Response format:**
+All paginated responses include both styles in the `meta` object for compatibility:
+```json
+{
+  "success": true,
+  "data": [...],
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 5,
+    "limit": 20,
+    "offset": 0
+  }
+}
+```
+
+**Validation rules:**
+- `limit` and `pageSize` must be between 1 and 100
+- `offset` must be >= 0
+- Invalid values return 400 Bad Request with standard error envelope
+
+**Performance considerations:**
+- OFFSET-based pagination can be slow for large offsets (O(n) scan)
+- For very large datasets, consider cursor-based pagination (future improvement)
+- Indexes on `tenantId + status + createdAt` optimize common paginated queries
 
 ## Future Improvements
 
