@@ -40,8 +40,10 @@ describe('Multi-Tenancy (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -241,9 +243,11 @@ describe('Multi-Tenancy (e2e)', () => {
         })
         .expect(200);
 
-      expect(loginResponse.body).toHaveProperty('user');
-      expect(loginResponse.body.user).toHaveProperty('tenantId');
-      expect(loginResponse.body.user.tenantId).toBeTruthy();
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      expect(responseData).toHaveProperty('user');
+      expect(responseData.user).toHaveProperty('tenantId');
+      expect(responseData.user.tenantId).toBeTruthy();
     });
   });
 });

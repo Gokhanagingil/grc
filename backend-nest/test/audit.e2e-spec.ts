@@ -38,8 +38,10 @@ describe('Audit Logging (e2e)', () => {
       })
       .expect(200);
 
-    authToken = loginResponse.body.accessToken;
-    tenantId = loginResponse.body.user.tenantId;
+    // Handle both wrapped (new) and unwrapped (legacy) response formats
+    const responseData = loginResponse.body.data ?? loginResponse.body;
+    authToken = responseData.accessToken;
+    tenantId = responseData.user?.tenantId;
   });
 
   afterAll(async () => {

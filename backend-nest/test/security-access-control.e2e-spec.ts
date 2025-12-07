@@ -51,8 +51,10 @@ describe('Security & Access Control (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user?.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -479,11 +481,13 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(200);
 
-        expect(response.body).toHaveProperty('accessToken');
-        expect(typeof response.body.accessToken).toBe('string');
-        expect(response.body).toHaveProperty('user');
-        expect(response.body.user).toHaveProperty('email', DEMO_ADMIN_EMAIL);
-        expect(response.body.user).not.toHaveProperty('passwordHash');
+        // Handle both wrapped (new) and unwrapped (legacy) response formats
+        const responseData = response.body.data ?? response.body;
+        expect(responseData).toHaveProperty('accessToken');
+        expect(typeof responseData.accessToken).toBe('string');
+        expect(responseData).toHaveProperty('user');
+        expect(responseData.user).toHaveProperty('email', DEMO_ADMIN_EMAIL);
+        expect(responseData.user).not.toHaveProperty('passwordHash');
       });
     });
 
