@@ -116,7 +116,7 @@ export const UserManagement: React.FC = () => {
       
       // Don't send empty password for updates
       if (editingUser && !userData.password) {
-        delete userData.password;
+        delete (userData as any).password;
       }
 
       if (editingUser) {
