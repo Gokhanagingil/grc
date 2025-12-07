@@ -114,10 +114,30 @@ export const Dashboard: React.FC = () => {
         ]);
 
         setStats(overviewRes.data);
-        setRiskTrends(trendsRes.data);
-        setComplianceData(complianceRes.data);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load dashboard data');
+        setRiskTrends(trendsRes.data || []);
+        setComplianceData(complianceRes.data || []);
+      } catch (err: unknown) {
+        const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+        const status = error.response?.status;
+        const message = error.response?.data?.error?.message || error.response?.data?.message;
+        
+        if (status === 401) {
+          setError('Session expired. Please login again.');
+        } else if (status === 403) {
+          setError('You do not have permission to view the dashboard.');
+        } else if (status === 404 || status === 502) {
+          setStats({
+            risks: { total: 0, open: 0, high: 0, overdue: 0 },
+            compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
+            policies: { total: 0, active: 0, draft: 0 },
+            users: { total: 0, admins: 0, managers: 0 },
+          });
+          setRiskTrends([]);
+          setComplianceData([]);
+          console.warn('Dashboard backend not available');
+        } else {
+          setError(message || 'Failed to load dashboard data. Please try again.');
+        }
       } finally {
         setLoading(false);
       }

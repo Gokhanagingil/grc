@@ -174,7 +174,7 @@ export const IncidentManagement: React.FC = () => {
         params.append('search', searchFilter);
       }
 
-      const response = await api.get(`/itsm/incidents?${params}`, {
+      const response = await api.get(`/nest/itsm/incidents?${params}`, {
         headers: { 'x-tenant-id': tenantId },
       });
 
@@ -260,12 +260,12 @@ export const IncidentManagement: React.FC = () => {
       };
 
       if (editingIncident) {
-        await api.patch(`/itsm/incidents/${editingIncident.id}`, incidentData, {
+        await api.patch(`/nest/itsm/incidents/${editingIncident.id}`, incidentData, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Incident updated successfully');
       } else {
-        await api.post('/itsm/incidents', incidentData, {
+        await api.post('/nest/itsm/incidents', incidentData, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Incident created successfully');
@@ -290,7 +290,7 @@ export const IncidentManagement: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this incident?')) {
       try {
-        await api.delete(`/itsm/incidents/${id}`, {
+        await api.delete(`/nest/itsm/incidents/${id}`, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Incident deleted successfully');
@@ -316,7 +316,7 @@ export const IncidentManagement: React.FC = () => {
     }
 
     try {
-      await api.post(`/itsm/incidents/${resolvingIncident.id}/resolve`, {
+      await api.post(`/nest/itsm/incidents/${resolvingIncident.id}/resolve`, {
         resolutionNotes,
       }, {
         headers: { 'x-tenant-id': tenantId },
@@ -344,7 +344,7 @@ export const IncidentManagement: React.FC = () => {
     }
 
     try {
-      await api.post(`/itsm/incidents/${incident.id}/close`, {}, {
+      await api.post(`/nest/itsm/incidents/${incident.id}/close`, {}, {
         headers: { 'x-tenant-id': tenantId },
       });
       setSuccess('Incident closed successfully');

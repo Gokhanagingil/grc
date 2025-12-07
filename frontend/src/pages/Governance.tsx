@@ -74,10 +74,24 @@ export const Governance: React.FC = () => {
 
   const fetchPolicies = async () => {
     try {
+      setError('');
       const response = await api.get('/governance/policies');
-      setPolicies(response.data.policies);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch policies');
+      setPolicies(response.data.policies || []);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view policies.');
+      } else if (status === 404 || status === 502) {
+        setPolicies([]);
+        console.warn('Governance backend not available');
+      } else {
+        setError(message || 'Failed to fetch policies. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -193,39 +207,49 @@ export const Governance: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {policies.map((policy) => (
-                  <TableRow key={policy.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2">{policy.title}</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {policy.description}
+                {policies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography color="textSecondary" sx={{ py: 4 }}>
+                        No policies found. Click "New Policy" to create one.
                       </Typography>
                     </TableCell>
-                    <TableCell>{policy.category}</TableCell>
-                    <TableCell>{policy.version}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={policy.status}
-                        color={getStatusColor(policy.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {policy.owner_first_name} {policy.owner_last_name}
-                    </TableCell>
-                    <TableCell>
-                      {policy.effective_date ? new Date(policy.effective_date).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditPolicy(policy)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeletePolicy(policy.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  policies.map((policy) => (
+                    <TableRow key={policy.id}>
+                      <TableCell>
+                        <Typography variant="subtitle2">{policy.title}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {policy.description}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{policy.category}</TableCell>
+                      <TableCell>{policy.version}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={policy.status}
+                          color={getStatusColor(policy.status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {policy.owner_first_name} {policy.owner_last_name}
+                      </TableCell>
+                      <TableCell>
+                        {policy.effective_date ? new Date(policy.effective_date).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleEditPolicy(policy)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeletePolicy(policy.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
