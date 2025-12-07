@@ -100,10 +100,7 @@ describe('Multi-Tenancy (e2e)', () => {
       expect(data.tenant).toHaveProperty('id', tenantId);
       expect(data.tenant).toHaveProperty('name');
       expect(data).toHaveProperty('requestedBy');
-      expect(data.requestedBy).toHaveProperty(
-        'email',
-        DEMO_ADMIN_EMAIL,
-      );
+      expect(data.requestedBy).toHaveProperty('email', DEMO_ADMIN_EMAIL);
       expect(data).toHaveProperty('timestamp');
     });
 

@@ -312,7 +312,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         if (items.length >= 2) {
           // Verify descending order by createdAt
           const dates = items.map((r: { createdAt: string }) =>
@@ -337,7 +338,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         if (items.length >= 2) {
           // Verify ascending order by title
           const titles = items.map((r: { title: string }) => r.title);
@@ -404,7 +406,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should have status=identified
         for (const item of items) {
           expect(item.status).toBe('identified');
@@ -424,7 +427,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should have severity=high
         for (const item of items) {
           expect(item.severity).toBe('high');
@@ -444,7 +448,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should contain the search term
         for (const item of items) {
           const matchesTitle = item.title
@@ -469,7 +474,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should match both filters
         for (const item of items) {
           expect(item.severity).toBe('high');
@@ -490,7 +496,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope with pagination in meta
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         const meta = response.body.meta ?? response.body;
         expect(meta.page).toBe(1);
         expect(meta.pageSize).toBe(5);
@@ -530,7 +537,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         for (const item of items) {
           expect(item.status).toBe('draft');
         }
@@ -549,7 +557,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         for (const item of items) {
           expect(item.category).toBe('Security');
         }
@@ -568,7 +577,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         for (const item of items) {
           const matchesName = item.name
             .toLowerCase()
@@ -596,7 +606,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         for (const item of items) {
           expect(item.framework).toBe('iso27001');
         }
@@ -615,7 +626,8 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .expect(200);
 
         // Response is wrapped in standard envelope
-        const items = response.body.data ?? response.body.items ?? response.body;
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         for (const item of items) {
           expect(item.status).toBe('compliant');
         }

@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
+import { ItsmModule } from './itsm/itsm.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -81,6 +82,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // GRC Domain Model (Risk, Control, Policy, Requirement, Issue, CAPA, Evidence)
     GrcModule,
+
+    // ITSM Domain Model (Incident, Problem, Change - future)
+    ItsmModule,
 
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,
