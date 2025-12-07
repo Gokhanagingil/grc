@@ -76,10 +76,24 @@ export const Compliance: React.FC = () => {
 
   const fetchRequirements = async () => {
     try {
+      setError('');
       const response = await api.get('/compliance/requirements');
-      setRequirements(response.data.requirements);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch compliance requirements');
+      setRequirements(response.data.requirements || []);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view compliance requirements.');
+      } else if (status === 404 || status === 502) {
+        setRequirements([]);
+        console.warn('Compliance backend not available');
+      } else {
+        setError(message || 'Failed to fetch compliance requirements. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -199,47 +213,57 @@ export const Compliance: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {requirements.map((requirement) => (
-                  <TableRow key={requirement.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2">{requirement.title}</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {requirement.description}
+                {requirements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography color="textSecondary" sx={{ py: 4 }}>
+                        No compliance requirements found. Click "New Requirement" to create one.
                       </Typography>
                     </TableCell>
-                    <TableCell>{requirement.regulation}</TableCell>
-                    <TableCell>{requirement.category}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={requirement.status}
-                        color={getStatusColor(requirement.status) as any}
-                        size="small"
-                      />
-                      {isOverdue(requirement.due_date) && requirement.status !== 'completed' && (
-                        <Chip
-                          label="Overdue"
-                          color="error"
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {requirement.owner_first_name} {requirement.owner_last_name}
-                    </TableCell>
-                    <TableCell>
-                      {requirement.due_date ? new Date(requirement.due_date).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditRequirement(requirement)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteRequirement(requirement.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  requirements.map((requirement) => (
+                    <TableRow key={requirement.id}>
+                      <TableCell>
+                        <Typography variant="subtitle2">{requirement.title}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {requirement.description}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{requirement.regulation}</TableCell>
+                      <TableCell>{requirement.category}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={requirement.status}
+                          color={getStatusColor(requirement.status) as any}
+                          size="small"
+                        />
+                        {isOverdue(requirement.due_date) && requirement.status !== 'completed' && (
+                          <Chip
+                            label="Overdue"
+                            color="error"
+                            size="small"
+                            sx={{ ml: 1 }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {requirement.owner_first_name} {requirement.owner_last_name}
+                      </TableCell>
+                      <TableCell>
+                        {requirement.due_date ? new Date(requirement.due_date).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleEditRequirement(requirement)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteRequirement(requirement.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

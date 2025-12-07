@@ -92,13 +92,6 @@ interface Risk {
   isDeleted: boolean;
 }
 
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
 
 export const RiskManagement: React.FC = () => {
   const { user } = useAuth();
@@ -131,13 +124,10 @@ export const RiskManagement: React.FC = () => {
   const tenantId = user?.tenantId || '';
 
   const fetchRisks = useCallback(async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-    
+    // Allow fetching even without tenantId - backend will handle authorization
     try {
       setLoading(true);
+      setError('');
       const params = new URLSearchParams({
         page: String(page + 1), // API uses 1-based pagination
         pageSize: String(rowsPerPage),
@@ -150,15 +140,52 @@ export const RiskManagement: React.FC = () => {
         params.append('severity', severityFilter);
       }
       
-      const response = await api.get<PaginatedResponse<Risk>>(`/grc/risks?${params}`, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      // Route through NestJS proxy for GRC risks
+      const headers: Record<string, string> = {};
+      if (tenantId) {
+        headers['x-tenant-id'] = tenantId;
+      }
       
-      setRisks(response.data.items);
-      setTotal(response.data.total);
+      const response = await api.get(`/nest/grc/risks?${params}`, { headers });
+      
+      // Handle NestJS response format: { success: true, data: [...], meta: {...} }
+      const responseData = response.data as { 
+        success?: boolean; 
+        data?: Risk[]; 
+        items?: Risk[];
+        meta?: { total: number; page: number; pageSize: number; totalPages: number };
+        total?: number;
+      };
+      
+      if (responseData.success && Array.isArray(responseData.data)) {
+        setRisks(responseData.data);
+        setTotal(responseData.meta?.total || responseData.data.length);
+      } else if (Array.isArray(responseData.items)) {
+        // Fallback for old format
+        setRisks(responseData.items);
+        setTotal(responseData.total || responseData.items.length);
+      } else {
+        // Empty or unexpected format - show empty state
+        setRisks([]);
+        setTotal(0);
+      }
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch risks');
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view risks.');
+      } else if (status === 404 || status === 502) {
+        // Backend not available - show empty state instead of error
+        setRisks([]);
+        setTotal(0);
+        console.warn('Risk management backend not available');
+      } else {
+        setError(message || 'Failed to fetch risks. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -224,15 +251,16 @@ export const RiskManagement: React.FC = () => {
         dueDate: formData.dueDate?.toISOString().split('T')[0] || undefined,
       };
 
+      const headers: Record<string, string> = {};
+      if (tenantId) {
+        headers['x-tenant-id'] = tenantId;
+      }
+
       if (editingRisk) {
-        await api.patch(`/grc/risks/${editingRisk.id}`, riskData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await api.patch(`/nest/grc/risks/${editingRisk.id}`, riskData, { headers });
         setSuccess('Risk updated successfully');
       } else {
-        await api.post('/grc/risks', riskData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await api.post('/nest/grc/risks', riskData, { headers });
         setSuccess('Risk created successfully');
       }
 
@@ -249,16 +277,14 @@ export const RiskManagement: React.FC = () => {
   };
 
   const handleDeleteRisk = async (id: string) => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
-
     if (window.confirm('Are you sure you want to delete this risk?')) {
       try {
-        await api.delete(`/grc/risks/${id}`, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        const headers: Record<string, string> = {};
+        if (tenantId) {
+          headers['x-tenant-id'] = tenantId;
+        }
+        
+        await api.delete(`/nest/grc/risks/${id}`, { headers });
         setSuccess('Risk deleted successfully');
         fetchRisks();
         
