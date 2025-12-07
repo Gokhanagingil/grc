@@ -13,6 +13,7 @@ import {
   IncidentStatus,
   IncidentSource,
 } from '../enums';
+import { IncidentFilterDto } from './dto/incident-filter.dto';
 
 describe('IncidentService', () => {
   let service: IncidentService;
@@ -470,7 +471,7 @@ describe('IncidentService', () => {
         pageSize: 20,
         status: IncidentStatus.OPEN,
         priority: IncidentPriority.P3,
-      });
+      } as IncidentFilterDto);
 
       expect(result).toHaveProperty('items');
       expect(result).toHaveProperty('total', 1);
@@ -494,7 +495,7 @@ describe('IncidentService', () => {
 
       await service.findWithFilters(mockTenantId, {
         search: 'test search',
-      });
+      } as IncidentFilterDto);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('ILIKE'),
