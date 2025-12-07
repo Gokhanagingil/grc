@@ -174,12 +174,26 @@ export const IncidentManagement: React.FC = () => {
         params.append('search', searchFilter);
       }
 
-      const response = await api.get<PaginatedResponse<Incident>>(`/itsm/incidents?${params}`, {
+      const response = await api.get(`/itsm/incidents?${params}`, {
         headers: { 'x-tenant-id': tenantId },
       });
 
-      setIncidents(response.data.items);
-      setTotal(response.data.total);
+      // API response format: { success: true, data: [...], meta: { page, pageSize, total, totalPages } }
+      const responseData = response.data as { success: boolean; data: Incident[]; meta?: { total: number; page: number; pageSize: number; totalPages: number } };
+      
+      // Handle both old format (items array) and new format (data array with meta)
+      if (Array.isArray(responseData.data)) {
+        setIncidents(responseData.data);
+        setTotal(responseData.meta?.total || responseData.data.length);
+      } else if (responseData.data && 'items' in responseData.data) {
+        // Fallback for old format
+        const oldFormat = responseData.data as unknown as PaginatedResponse<Incident>;
+        setIncidents(oldFormat.items);
+        setTotal(oldFormat.total);
+      } else {
+        setIncidents([]);
+        setTotal(0);
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to fetch incidents');
