@@ -6,7 +6,6 @@ import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ItsmIncident } from './incident.entity';
 import {
   IncidentStatus,
-  IncidentPriority,
   IncidentImpact,
   IncidentUrgency,
   calculatePriority,
@@ -69,7 +68,13 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     userId: string,
     data: Omit<
       Partial<ItsmIncident>,
-      'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'isDeleted' | 'number' | 'priority'
+      | 'id'
+      | 'tenantId'
+      | 'createdAt'
+      | 'updatedAt'
+      | 'isDeleted'
+      | 'number'
+      | 'priority'
     >,
   ): Promise<ItsmIncident> {
     const number = await this.generateIncidentNumber(tenantId);
@@ -85,7 +90,12 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
       isDeleted: false,
     });
 
-    await this.auditService?.recordCreate('ItsmIncident', incident, userId, tenantId);
+    await this.auditService?.recordCreate(
+      'ItsmIncident',
+      incident,
+      userId,
+      tenantId,
+    );
 
     this.eventEmitter.emit('incident.created', {
       incidentId: incident.id,
@@ -105,7 +115,9 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     tenantId: string,
     userId: string,
     id: string,
-    data: Partial<Omit<ItsmIncident, 'id' | 'tenantId' | 'isDeleted' | 'number'>>,
+    data: Partial<
+      Omit<ItsmIncident, 'id' | 'tenantId' | 'isDeleted' | 'number'>
+    >,
   ): Promise<ItsmIncident | null> {
     const existing = await this.findOneActiveForTenant(tenantId, id);
     if (!existing) {
