@@ -1,0 +1,126 @@
+# =============================================================================
+# GRC Platform - Staging Deployment Workflow
+# =============================================================================
+# Deploys the GRC platform to the staging server on Hetzner.
+#
+# Triggers:
+#   - Manual: workflow_dispatch (recommended for controlled deployments)
+#   - Automatic: Push to main branch (optional, can be enabled)
+#
+# Prerequisites:
+#   - GitHub Secrets configured:
+#     - STAGING_SSH_HOST: Staging server IP (46.224.99.150)
+#     - STAGING_SSH_USER: SSH username (grcdeploy)
+#     - STAGING_SSH_KEY: SSH private key content
+#
+# Server Requirements:
+#   - Docker and docker-compose-plugin installed
+#   - Repository cloned at /opt/grc-platform
+#   - Environment files configured
+# =============================================================================
+
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all containers (--force-recreate)'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend-nest/**'
+      - 'frontend/**'
+      - 'docker-compose.staging.yml'
+      - '.github/workflows/deploy-staging.yml'
+
+env:
+  DEPLOY_PATH: /opt/grc-platform
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Deploy to Staging Server
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script_stop: true
+          script: |
+            echo "=== Starting deployment ==="
+            cd ${{ env.DEPLOY_PATH }}
+            
+            echo "=== Fetching latest changes ==="
+            git fetch --all
+            git checkout main
+            git pull origin main
+            
+            echo "=== Building and starting containers ==="
+            if [ "${{ github.event.inputs.force_rebuild }}" = "true" ]; then
+              echo "Force rebuild requested"
+              docker compose -f docker-compose.staging.yml up -d --build --force-recreate
+            else
+              docker compose -f docker-compose.staging.yml up -d --build
+            fi
+            
+            echo "=== Waiting for services to be healthy ==="
+            sleep 30
+            
+            echo "=== Checking service status ==="
+            docker compose -f docker-compose.staging.yml ps
+            
+            echo "=== Health check ==="
+            curl -sf http://localhost:3002/health/live || echo "Backend health check failed"
+            curl -sf http://localhost:80/health || echo "Frontend health check failed"
+            
+            echo "=== Deployment complete ==="
+
+  # ---------------------------------------------------------------------------
+  # Verify Deployment
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    steps:
+      - name: Wait for services to stabilize
+        run: sleep 60
+      
+      - name: Check backend health
+        run: |
+          response=$(curl -sf http://${{ secrets.STAGING_SSH_HOST }}:3002/health/live || echo "failed")
+          if [ "$response" = "failed" ]; then
+            echo "Backend health check failed!"
+            exit 1
+          fi
+          echo "Backend is healthy: $response"
+      
+      - name: Check frontend
+        run: |
+          response=$(curl -sf -o /dev/null -w "%{http_code}" http://${{ secrets.STAGING_SSH_HOST }}/ || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "Frontend check failed! HTTP status: $response"
+            exit 1
+          fi
+          echo "Frontend is accessible (HTTP 200)"
+      
+      - name: Deployment verification complete
+        run: |
+          echo "Staging deployment verified successfully!"
+          echo "Frontend: http://${{ secrets.STAGING_SSH_HOST }}/"
+          echo "Backend:  http://${{ secrets.STAGING_SSH_HOST }}:3002/"

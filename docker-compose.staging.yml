@@ -1,0 +1,133 @@
+# =============================================================================
+# GRC Platform - Staging Docker Compose
+# =============================================================================
+# Complete staging environment with PostgreSQL, NestJS backend, and React frontend.
+#
+# Usage:
+#   Start:    docker compose -f docker-compose.staging.yml up -d --build
+#   Stop:     docker compose -f docker-compose.staging.yml down
+#   Logs:     docker compose -f docker-compose.staging.yml logs -f
+#   Rebuild:  docker compose -f docker-compose.staging.yml up -d --build --force-recreate
+#
+# Prerequisites:
+#   - Copy backend-nest/.env.staging.example to backend-nest/.env.staging
+#   - Copy frontend/.env.staging.example to frontend/.env.staging
+#   - Update all secrets and passwords in the .env.staging files
+#
+# After starting, access:
+#   - Frontend: http://46.224.99.150 (port 80)
+#   - Backend:  http://46.224.99.150:3002
+#   - Health:   http://46.224.99.150:3002/health/live
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: grc-staging-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-grc_staging}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_staging_password}
+      POSTGRES_DB: ${DB_NAME:-grc_staging}
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-grc_staging} -d ${DB_NAME:-grc_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - grc-staging-network
+
+  # ---------------------------------------------------------------------------
+  # NestJS Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    container_name: grc-staging-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: production
+      PORT: 3002
+      
+      # Database (internal network)
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-grc_staging}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme_staging_password}
+      DB_NAME: ${DB_NAME:-grc_staging}
+      # NOTE: Set DB_SYNC=true for initial setup to create tables, then set to false
+      DB_SYNC: ${DB_SYNC:-true}
+      
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      
+      # CORS - Allow staging frontend
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://46.224.99.150,http://46.224.99.150:80,http://46.224.99.150:3002}
+      
+      # Demo credentials
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@grc-staging.local}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-StagingPassword123!}
+      
+      # Audit logging
+      NEST_AUDIT_LOG_ENABLED: ${NEST_AUDIT_LOG_ENABLED:-true}
+    ports:
+      - "3002:3002"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - grc-staging-network
+
+  # ---------------------------------------------------------------------------
+  # React Frontend (Nginx)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://46.224.99.150:3002}
+    container_name: grc-staging-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - grc-staging-network
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  grc-staging-network:
+    driver: bridge
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data_staging:
+    driver: local
