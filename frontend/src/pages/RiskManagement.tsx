@@ -146,7 +146,7 @@ export const RiskManagement: React.FC = () => {
         headers['x-tenant-id'] = tenantId;
       }
       
-      const response = await api.get(`/nest/grc/risks?${params}`, { headers });
+      const response = await api.get(`/grc/risks?${params}`, { headers });
       
       // Handle NestJS response format: { success: true, data: [...], meta: {...} }
       const responseData = response.data as { 
@@ -257,10 +257,10 @@ export const RiskManagement: React.FC = () => {
       }
 
       if (editingRisk) {
-        await api.patch(`/nest/grc/risks/${editingRisk.id}`, riskData, { headers });
+        await api.patch(`/grc/risks/${editingRisk.id}`, riskData, { headers });
         setSuccess('Risk updated successfully');
       } else {
-        await api.post('/nest/grc/risks', riskData, { headers });
+        await api.post('/grc/risks', riskData, { headers });
         setSuccess('Risk created successfully');
       }
 
@@ -284,7 +284,7 @@ export const RiskManagement: React.FC = () => {
           headers['x-tenant-id'] = tenantId;
         }
         
-        await api.delete(`/nest/grc/risks/${id}`, { headers });
+        await api.delete(`/grc/risks/${id}`, { headers });
         setSuccess('Risk deleted successfully');
         fetchRisks();
         
