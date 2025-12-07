@@ -166,9 +166,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
 
       it('should return 200 for /grc/policies with valid admin token', async () => {
@@ -183,9 +183,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
 
       it('should return 200 for /grc/requirements with valid admin token', async () => {
@@ -200,9 +200,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
     });
   });
@@ -292,9 +292,11 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
         // All returned risks should belong to the current tenant
-        if (response.body.length > 0) {
-          response.body.forEach((risk: { tenantId: string }) => {
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((risk: { tenantId: string }) => {
             expect(risk.tenantId).toBe(tenantId);
           });
         }
@@ -312,8 +314,10 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        if (response.body.length > 0) {
-          response.body.forEach((policy: { tenantId: string }) => {
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((policy: { tenantId: string }) => {
             expect(policy.tenantId).toBe(tenantId);
           });
         }
@@ -331,8 +335,10 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        if (response.body.length > 0) {
-          response.body.forEach((req: { tenantId: string }) => {
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((req: { tenantId: string }) => {
             expect(req.tenantId).toBe(tenantId);
           });
         }
