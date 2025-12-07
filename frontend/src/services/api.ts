@@ -168,9 +168,26 @@ api.interceptors.response.use(
           refreshToken,
         });
 
-        const { token: newToken, refreshToken: newRefreshToken } = response.data;
+        // Handle both envelope format { success, data: { accessToken } } and legacy { token }
+        let newToken: string | undefined;
+        let newRefreshToken: string | undefined;
+        
+        if (response.data && response.data.success === true && response.data.data) {
+          // NestJS envelope format
+          newToken = response.data.data.accessToken || response.data.data.token;
+          newRefreshToken = response.data.data.refreshToken;
+        } else {
+          // Legacy Express format
+          newToken = response.data.token;
+          newRefreshToken = response.data.refreshToken;
+        }
+
+        if (!newToken) {
+          throw new Error('Refresh response did not contain a valid token');
+        }
 
         localStorage.setItem('token', newToken);
+        localStorage.setItem('accessToken', newToken);
         if (newRefreshToken) {
           localStorage.setItem('refreshToken', newRefreshToken);
         }
@@ -184,7 +201,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError as Error, null);
         localStorage.removeItem('token');
+        localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tenantId');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
