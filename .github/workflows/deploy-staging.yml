@@ -53,13 +53,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Verify SSH secrets are configured
+        run: |
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
+            echo "::error::STAGING_SSH_HOST secret is not configured"
+            exit 1
+          fi
+          if [ -z "${{ secrets.STAGING_SSH_USER }}" ]; then
+            echo "::error::STAGING_SSH_USER secret is not configured"
+            exit 1
+          fi
+          if [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            echo "::error::STAGING_SSH_KEY secret is not configured or empty"
+            exit 1
+          fi
+          echo "All SSH secrets are configured"
+
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 30m
           script_stop: true
+          debug: false
           script: |
             echo "=== Starting deployment ==="
             cd ${{ env.DEPLOY_PATH }}
