@@ -403,6 +403,62 @@ frontend/src/
 2. Add new enum types to PostgreSQL if not using string enums
 3. No data migration required (new module)
 
+## E2E Current State (Pre-Fix Analysis)
+
+**Date:** 2025-12-07
+**Branch:** fix/itsm-incident-e2e
+**PR Reference:** #27 (merged with failing E2E tests)
+
+### Test Summary
+
+| Metric | Value |
+|--------|-------|
+| Test Suites | 1 failed, 8 passed, 9 total |
+| Tests | 5 failed, 158 passed, 163 total |
+| Failed File | `test/itsm-incidents.e2e-spec.ts` |
+
+### Failed Tests
+
+| Line | Test Name | Error Type | Root Cause |
+|------|-----------|------------|------------|
+| 78 | `GET /itsm/incidents` - should return list of incidents with valid auth | Data/Assertion | Test expects items but none exist in DB |
+| 306 | `POST /itsm/incidents/:id/resolve` - should resolve an incident | Data Setup | `createdIncidentId` is undefined because previous create test failed |
+| 331 | `POST /itsm/incidents/:id/close` - should close a resolved incident | Data Setup | Depends on resolve test which failed |
+| 508 | `GET /itsm/incidents?page=1&pageSize=5` - should support pagination | Data Setup | Pagination expects data but none exists |
+| 541 | Tenant Isolation - should not return incidents from different tenant | Data Setup | No incidents to test isolation with |
+
+### Error Categories
+
+**1. Validation Errors (shortDescription)**
+- Error: `["Short description must not exceed 255 characters","Short description is required","Short description must be a string"]`
+- Cause: Test payloads not reaching the API correctly or validation pipe rejecting requests
+- Affected: POST /itsm/incidents create operations
+
+**2. Data Setup Issues (Incident Not Found)**
+- Error: `Incident with ID 00000000-0000-0000-0000-000000000000 not found`
+- Cause: Tests using placeholder UUIDs instead of actual created incident IDs
+- Affected: GET/:id, PATCH/:id, DELETE/:id, resolve, close operations
+
+**3. Test Dependency Issues**
+- Cause: Tests depend on `createdIncidentId` variable set by earlier tests
+- Problem: If create test fails, all subsequent tests using that ID also fail
+- Affected: resolve, close, update, delete tests
+
+### Initial Observations
+
+1. **Test Isolation Problem**: Tests are not isolated - they depend on shared state (`createdIncidentId`)
+2. **No Seed Data**: No incidents are pre-created in `beforeAll` or `beforeEach`
+3. **Cascade Failures**: One failing test causes multiple subsequent tests to fail
+4. **Validation Pipe**: The validation pipe is correctly rejecting invalid payloads, but tests are sending invalid data
+
+### Recommended Fixes
+
+1. Create seed incidents in `beforeAll` block
+2. Use API to create test data before each test group
+3. Store created incident IDs properly for use in subsequent tests
+4. Ensure all test payloads include valid `shortDescription` field
+5. Make tests independent - each test should create its own data if needed
+
 ## Future Enhancements
 
 1. **Problem Management** - Link multiple incidents to a problem record
