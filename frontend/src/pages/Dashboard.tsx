@@ -99,8 +99,8 @@ const StatCard: React.FC<{
 
 export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [riskTrends, setRiskTrends] = useState([]);
-  const [complianceData, setComplianceData] = useState([]);
+  const [riskTrends, setRiskTrends] = useState<any[]>([]);
+  const [complianceData, setComplianceData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -113,9 +113,34 @@ export const Dashboard: React.FC = () => {
           api.get('/dashboard/compliance-by-regulation'),
         ]);
 
-        setStats(overviewRes.data);
-        setRiskTrends(trendsRes.data);
-        setComplianceData(complianceRes.data);
+        // Defensive null-checks for dashboard stats
+        const overviewData = overviewRes?.data || {};
+        setStats({
+          risks: {
+            total: typeof overviewData?.risks?.total === 'number' ? overviewData.risks.total : 0,
+            open: typeof overviewData?.risks?.open === 'number' ? overviewData.risks.open : 0,
+            high: typeof overviewData?.risks?.high === 'number' ? overviewData.risks.high : 0,
+            overdue: typeof overviewData?.risks?.overdue === 'number' ? overviewData.risks.overdue : 0,
+          },
+          compliance: {
+            total: typeof overviewData?.compliance?.total === 'number' ? overviewData.compliance.total : 0,
+            pending: typeof overviewData?.compliance?.pending === 'number' ? overviewData.compliance.pending : 0,
+            completed: typeof overviewData?.compliance?.completed === 'number' ? overviewData.compliance.completed : 0,
+            overdue: typeof overviewData?.compliance?.overdue === 'number' ? overviewData.compliance.overdue : 0,
+          },
+          policies: {
+            total: typeof overviewData?.policies?.total === 'number' ? overviewData.policies.total : 0,
+            active: typeof overviewData?.policies?.active === 'number' ? overviewData.policies.active : 0,
+            draft: typeof overviewData?.policies?.draft === 'number' ? overviewData.policies.draft : 0,
+          },
+          users: {
+            total: typeof overviewData?.users?.total === 'number' ? overviewData.users.total : 0,
+            admins: typeof overviewData?.users?.admins === 'number' ? overviewData.users.admins : 0,
+            managers: typeof overviewData?.users?.managers === 'number' ? overviewData.users.managers : 0,
+          },
+        });
+        setRiskTrends(Array.isArray(trendsRes?.data) ? trendsRes.data : []);
+        setComplianceData(Array.isArray(complianceRes?.data) ? complianceRes.data : []);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load dashboard data');
       } finally {
@@ -138,9 +163,13 @@ export const Dashboard: React.FC = () => {
     return <Alert severity="error">{error}</Alert>;
   }
 
-  if (!stats) {
-    return <Alert severity="warning">No data available</Alert>;
-  }
+  // Ensure stats is always defined with safe defaults
+  const safeStats = stats || {
+    risks: { total: 0, open: 0, high: 0, overdue: 0 },
+    compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
+    policies: { total: 0, active: 0, draft: 0 },
+    users: { total: 0, admins: 0, managers: 0 },
+  };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -155,37 +184,37 @@ export const Dashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Risks"
-            value={stats.risks.total}
+            value={safeStats.risks.total}
             icon={<SecurityIcon sx={{ color: 'white' }} />}
             color="#f44336"
-            subtitle={`${stats.risks.open} open, ${stats.risks.high} high severity`}
+            subtitle={`${safeStats.risks.open} open, ${safeStats.risks.high} high severity`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Compliance Items"
-            value={stats.compliance.total}
+            value={safeStats.compliance.total}
             icon={<ComplianceIcon sx={{ color: 'white' }} />}
             color="#2196f3"
-            subtitle={`${stats.compliance.pending} pending, ${stats.compliance.overdue} overdue`}
+            subtitle={`${safeStats.compliance.pending} pending, ${safeStats.compliance.overdue} overdue`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Policies"
-            value={stats.policies.total}
+            value={safeStats.policies.total}
             icon={<GovernanceIcon sx={{ color: 'white' }} />}
             color="#4caf50"
-            subtitle={`${stats.policies.active} active, ${stats.policies.draft} draft`}
+            subtitle={`${safeStats.policies.active} active, ${safeStats.policies.draft} draft`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Users"
-            value={stats.users.total}
+            value={safeStats.users.total}
             icon={<PeopleIcon sx={{ color: 'white' }} />}
             color="#ff9800"
-            subtitle={`${stats.users.admins} admins, ${stats.users.managers} managers`}
+            subtitle={`${safeStats.users.admins} admins, ${safeStats.users.managers} managers`}
           />
         </Grid>
 
@@ -222,9 +251,9 @@ export const Dashboard: React.FC = () => {
               <PieChart>
                 <Pie
                   data={[
-                    { name: 'Completed', value: stats.compliance.completed },
-                    { name: 'Pending', value: stats.compliance.pending },
-                    { name: 'Overdue', value: stats.compliance.overdue },
+                    { name: 'Completed', value: safeStats.compliance.completed },
+                    { name: 'Pending', value: safeStats.compliance.pending },
+                    { name: 'Overdue', value: safeStats.compliance.overdue },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -235,9 +264,9 @@ export const Dashboard: React.FC = () => {
                   dataKey="value"
                 >
                   {[
-                    { name: 'Completed', value: stats.compliance.completed },
-                    { name: 'Pending', value: stats.compliance.pending },
-                    { name: 'Overdue', value: stats.compliance.overdue },
+                    { name: 'Completed', value: safeStats.compliance.completed },
+                    { name: 'Pending', value: safeStats.compliance.pending },
+                    { name: 'Overdue', value: safeStats.compliance.overdue },
                   ].map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}

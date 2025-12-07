@@ -77,7 +77,8 @@ export const Compliance: React.FC = () => {
   const fetchRequirements = async () => {
     try {
       const response = await api.get('/compliance/requirements');
-      setRequirements(response.data.requirements);
+      const requirements = Array.isArray(response?.data?.requirements) ? response.data.requirements : [];
+      setRequirements(requirements);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch compliance requirements');
     } finally {
@@ -199,8 +200,15 @@ export const Compliance: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {requirements.map((requirement) => (
-                  <TableRow key={requirement.id}>
+                {requirements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography color="textSecondary">No compliance requirements found</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  requirements.map((requirement) => (
+                    <TableRow key={requirement.id}>
                     <TableCell>
                       <Typography variant="subtitle2">{requirement.title}</Typography>
                       <Typography variant="body2" color="textSecondary">
@@ -239,7 +247,8 @@ export const Compliance: React.FC = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

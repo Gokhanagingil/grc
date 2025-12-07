@@ -75,7 +75,8 @@ export const Governance: React.FC = () => {
   const fetchPolicies = async () => {
     try {
       const response = await api.get('/governance/policies');
-      setPolicies(response.data.policies);
+      const policies = Array.isArray(response?.data?.policies) ? response.data.policies : [];
+      setPolicies(policies);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch policies');
     } finally {
@@ -193,8 +194,15 @@ export const Governance: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {policies.map((policy) => (
-                  <TableRow key={policy.id}>
+                {policies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography color="textSecondary">No policies found</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  policies.map((policy) => (
+                    <TableRow key={policy.id}>
                     <TableCell>
                       <Typography variant="subtitle2">{policy.title}</Typography>
                       <Typography variant="body2" color="textSecondary">
@@ -225,7 +233,8 @@ export const Governance: React.FC = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

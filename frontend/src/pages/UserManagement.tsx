@@ -72,7 +72,8 @@ export const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users');
-      setUsers(response.data.users);
+      const users = Array.isArray(response?.data?.users) ? response.data.users : [];
+      setUsers(users);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch users');
     } finally {
@@ -112,7 +113,7 @@ export const UserManagement: React.FC = () => {
 
   const handleSaveUser = async () => {
     try {
-      const userData = { ...formData };
+      const userData: any = { ...formData };
       
       // Don't send empty password for updates
       if (editingUser && !userData.password) {
@@ -204,8 +205,15 @@ export const UserManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      <Typography color="textSecondary">No users found</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
                     <TableCell>
                       <Typography variant="subtitle2">
                         {user.first_name} {user.last_name}
@@ -246,7 +254,8 @@ export const UserManagement: React.FC = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
