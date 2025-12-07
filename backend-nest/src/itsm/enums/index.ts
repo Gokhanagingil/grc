@@ -83,7 +83,10 @@ export function calculatePriority(
   impact: IncidentImpact,
   urgency: IncidentUrgency,
 ): IncidentPriority {
-  const matrix: Record<IncidentImpact, Record<IncidentUrgency, IncidentPriority>> = {
+  const matrix: Record<
+    IncidentImpact,
+    Record<IncidentUrgency, IncidentPriority>
+  > = {
     [IncidentImpact.HIGH]: {
       [IncidentUrgency.HIGH]: IncidentPriority.P1,
       [IncidentUrgency.MEDIUM]: IncidentPriority.P2,

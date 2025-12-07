@@ -80,11 +80,11 @@ import { StructuredLoggerService } from './common/logger';
     TenantsModule,
     SettingsModule,
 
-        // GRC Domain Model (Risk, Control, Policy, Requirement, Issue, CAPA, Evidence)
-        GrcModule,
+    // GRC Domain Model (Risk, Control, Policy, Requirement, Issue, CAPA, Evidence)
+    GrcModule,
 
-        // ITSM Domain Model (Incident, Problem, Change - future)
-        ItsmModule,
+    // ITSM Domain Model (Incident, Problem, Change - future)
+    ItsmModule,
 
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,

@@ -24,7 +24,9 @@ import {
 export class CreateIncidentDto {
   @IsString({ message: 'Short description must be a string' })
   @IsNotEmpty({ message: 'Short description is required' })
-  @MaxLength(255, { message: 'Short description must not exceed 255 characters' })
+  @MaxLength(255, {
+    message: 'Short description must not exceed 255 characters',
+  })
   shortDescription: string;
 
   @IsString({ message: 'Description must be a string' })
@@ -49,7 +51,9 @@ export class CreateIncidentDto {
 
   @IsString({ message: 'Assignment group must be a string' })
   @IsOptional()
-  @MaxLength(100, { message: 'Assignment group must not exceed 100 characters' })
+  @MaxLength(100, {
+    message: 'Assignment group must not exceed 100 characters',
+  })
   assignmentGroup?: string;
 
   @IsUUID('4', { message: 'Assigned to must be a valid UUID' })

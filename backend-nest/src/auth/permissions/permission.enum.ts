@@ -48,5 +48,6 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
   [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',
   [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
-  [Permission.ITSM_STATISTICS_READ]: 'View ITSM statistics and analytics dashboards',
+  [Permission.ITSM_STATISTICS_READ]:
+    'View ITSM statistics and analytics dashboards',
 };

@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
@@ -89,7 +83,12 @@ export class ItsmIncident extends BaseEntity {
   })
   source: IncidentSource;
 
-  @Column({ name: 'assignment_group', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'assignment_group',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   assignmentGroup: string | null;
 
   @Column({ name: 'assigned_to', type: 'uuid', nullable: true })
@@ -99,7 +98,12 @@ export class ItsmIncident extends BaseEntity {
   @JoinColumn({ name: 'assigned_to' })
   assignee: User | null;
 
-  @Column({ name: 'related_service', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'related_service',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   relatedService: string | null;
 
   @Column({ name: 'related_risk_id', type: 'uuid', nullable: true })

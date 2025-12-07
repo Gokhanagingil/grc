@@ -125,13 +125,20 @@ describe('IncidentService', () => {
         isDeleted: false,
       } as ItsmIncident);
 
-      const result = await service.createIncident(mockTenantId, mockUserId, createData);
+      const result = await service.createIncident(
+        mockTenantId,
+        mockUserId,
+        createData,
+      );
 
       expect(result).toBeDefined();
       expect(result.number).toBe('INC000001');
       expect(result.priority).toBe(IncidentPriority.P1);
       expect(auditService.recordCreate).toHaveBeenCalled();
-      expect(eventEmitter.emit).toHaveBeenCalledWith('incident.created', expect.any(Object));
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'incident.created',
+        expect.any(Object),
+      );
     });
 
     it('should generate sequential incident numbers', async () => {
@@ -167,17 +174,37 @@ describe('IncidentService', () => {
         isDeleted: false,
       } as ItsmIncident);
 
-      const result = await service.createIncident(mockTenantId, mockUserId, createData);
+      const result = await service.createIncident(
+        mockTenantId,
+        mockUserId,
+        createData,
+      );
 
       expect(result.number).toBe('INC000006');
     });
 
     it('should calculate priority based on impact and urgency matrix', async () => {
       const testCases = [
-        { impact: IncidentImpact.HIGH, urgency: IncidentUrgency.HIGH, expected: IncidentPriority.P1 },
-        { impact: IncidentImpact.HIGH, urgency: IncidentUrgency.MEDIUM, expected: IncidentPriority.P2 },
-        { impact: IncidentImpact.MEDIUM, urgency: IncidentUrgency.HIGH, expected: IncidentPriority.P2 },
-        { impact: IncidentImpact.LOW, urgency: IncidentUrgency.LOW, expected: IncidentPriority.P4 },
+        {
+          impact: IncidentImpact.HIGH,
+          urgency: IncidentUrgency.HIGH,
+          expected: IncidentPriority.P1,
+        },
+        {
+          impact: IncidentImpact.HIGH,
+          urgency: IncidentUrgency.MEDIUM,
+          expected: IncidentPriority.P2,
+        },
+        {
+          impact: IncidentImpact.MEDIUM,
+          urgency: IncidentUrgency.HIGH,
+          expected: IncidentPriority.P2,
+        },
+        {
+          impact: IncidentImpact.LOW,
+          urgency: IncidentUrgency.LOW,
+          expected: IncidentPriority.P4,
+        },
       ];
 
       for (const testCase of testCases) {
@@ -228,18 +255,28 @@ describe('IncidentService', () => {
     it('should return incident when found and not deleted', async () => {
       repository.findOne.mockResolvedValue(mockIncident as ItsmIncident);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, mockIncident.id!);
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        mockIncident.id!,
+      );
 
       expect(result).toEqual(mockIncident);
       expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: mockIncident.id, tenantId: mockTenantId, isDeleted: false },
+        where: {
+          id: mockIncident.id,
+          tenantId: mockTenantId,
+          isDeleted: false,
+        },
       });
     });
 
     it('should return null when incident not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, 'non-existent-id');
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        'non-existent-id',
+      );
 
       expect(result).toBeNull();
     });
@@ -248,11 +285,18 @@ describe('IncidentService', () => {
       const differentTenantId = '00000000-0000-0000-0000-000000000099';
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.findOneActiveForTenant(differentTenantId, mockIncident.id!);
+      const result = await service.findOneActiveForTenant(
+        differentTenantId,
+        mockIncident.id!,
+      );
 
       expect(result).toBeNull();
       expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: mockIncident.id, tenantId: differentTenantId, isDeleted: false },
+        where: {
+          id: mockIncident.id,
+          tenantId: differentTenantId,
+          isDeleted: false,
+        },
       });
     });
   });
@@ -267,23 +311,36 @@ describe('IncidentService', () => {
         priority: IncidentPriority.P1,
       } as ItsmIncident);
 
-      const result = await service.updateIncident(mockTenantId, mockUserId, mockIncident.id!, {
-        impact: IncidentImpact.HIGH,
-        urgency: IncidentUrgency.HIGH,
-      });
+      const result = await service.updateIncident(
+        mockTenantId,
+        mockUserId,
+        mockIncident.id!,
+        {
+          impact: IncidentImpact.HIGH,
+          urgency: IncidentUrgency.HIGH,
+        },
+      );
 
       expect(result).toBeDefined();
       expect(result?.priority).toBe(IncidentPriority.P1);
       expect(auditService.recordUpdate).toHaveBeenCalled();
-      expect(eventEmitter.emit).toHaveBeenCalledWith('incident.updated', expect.any(Object));
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'incident.updated',
+        expect.any(Object),
+      );
     });
 
     it('should return null when incident not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.updateIncident(mockTenantId, mockUserId, 'non-existent-id', {
-        shortDescription: 'Updated',
-      });
+      const result = await service.updateIncident(
+        mockTenantId,
+        mockUserId,
+        'non-existent-id',
+        {
+          shortDescription: 'Updated',
+        },
+      );
 
       expect(result).toBeNull();
     });
@@ -297,17 +354,28 @@ describe('IncidentService', () => {
         isDeleted: true,
       } as ItsmIncident);
 
-      const result = await service.softDeleteIncident(mockTenantId, mockUserId, mockIncident.id!);
+      const result = await service.softDeleteIncident(
+        mockTenantId,
+        mockUserId,
+        mockIncident.id!,
+      );
 
       expect(result).toBe(true);
       expect(auditService.recordDelete).toHaveBeenCalled();
-      expect(eventEmitter.emit).toHaveBeenCalledWith('incident.deleted', expect.any(Object));
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'incident.deleted',
+        expect.any(Object),
+      );
     });
 
     it('should return false when incident not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.softDeleteIncident(mockTenantId, mockUserId, 'non-existent-id');
+      const result = await service.softDeleteIncident(
+        mockTenantId,
+        mockUserId,
+        'non-existent-id',
+      );
 
       expect(result).toBe(false);
     });
@@ -338,7 +406,11 @@ describe('IncidentService', () => {
       const closedIncident = { ...mockIncident, status: IncidentStatus.CLOSED };
       repository.findOne.mockResolvedValue(closedIncident as ItsmIncident);
 
-      const result = await service.resolveIncident(mockTenantId, mockUserId, mockIncident.id!);
+      const result = await service.resolveIncident(
+        mockTenantId,
+        mockUserId,
+        mockIncident.id!,
+      );
 
       expect(result).toBeNull();
     });
@@ -346,14 +418,21 @@ describe('IncidentService', () => {
 
   describe('closeIncident', () => {
     it('should close a resolved incident', async () => {
-      const resolvedIncident = { ...mockIncident, status: IncidentStatus.RESOLVED };
+      const resolvedIncident = {
+        ...mockIncident,
+        status: IncidentStatus.RESOLVED,
+      };
       repository.findOne.mockResolvedValue(resolvedIncident as ItsmIncident);
       repository.save.mockResolvedValue({
         ...resolvedIncident,
         status: IncidentStatus.CLOSED,
       } as ItsmIncident);
 
-      const result = await service.closeIncident(mockTenantId, mockUserId, mockIncident.id!);
+      const result = await service.closeIncident(
+        mockTenantId,
+        mockUserId,
+        mockIncident.id!,
+      );
 
       expect(result).toBeDefined();
       expect(result?.status).toBe(IncidentStatus.CLOSED);
@@ -362,7 +441,11 @@ describe('IncidentService', () => {
     it('should return null when trying to close a non-resolved incident', async () => {
       repository.findOne.mockResolvedValue(mockIncident as ItsmIncident);
 
-      const result = await service.closeIncident(mockTenantId, mockUserId, mockIncident.id!);
+      const result = await service.closeIncident(
+        mockTenantId,
+        mockUserId,
+        mockIncident.id!,
+      );
 
       expect(result).toBeNull();
     });
@@ -423,9 +506,24 @@ describe('IncidentService', () => {
   describe('getStatistics', () => {
     it('should return incident statistics', async () => {
       repository.find.mockResolvedValue([
-        { ...mockIncident, status: IncidentStatus.OPEN, priority: IncidentPriority.P1, category: IncidentCategory.SOFTWARE },
-        { ...mockIncident, status: IncidentStatus.OPEN, priority: IncidentPriority.P2, category: IncidentCategory.HARDWARE },
-        { ...mockIncident, status: IncidentStatus.RESOLVED, priority: IncidentPriority.P3, category: IncidentCategory.SOFTWARE },
+        {
+          ...mockIncident,
+          status: IncidentStatus.OPEN,
+          priority: IncidentPriority.P1,
+          category: IncidentCategory.SOFTWARE,
+        },
+        {
+          ...mockIncident,
+          status: IncidentStatus.OPEN,
+          priority: IncidentPriority.P2,
+          category: IncidentCategory.HARDWARE,
+        },
+        {
+          ...mockIncident,
+          status: IncidentStatus.RESOLVED,
+          priority: IncidentPriority.P3,
+          category: IncidentCategory.SOFTWARE,
+        },
       ] as ItsmIncident[]);
 
       const result = await service.getStatistics(mockTenantId);

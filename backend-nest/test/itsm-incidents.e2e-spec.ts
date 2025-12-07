@@ -132,7 +132,10 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         expect(data).toHaveProperty('id');
         expect(data).toHaveProperty('number');
         expect(data.number).toMatch(/^INC\d{6}$/);
-        expect(data).toHaveProperty('shortDescription', newIncident.shortDescription);
+        expect(data).toHaveProperty(
+          'shortDescription',
+          newIncident.shortDescription,
+        );
         expect(data).toHaveProperty('tenantId', tenantId);
         expect(data).toHaveProperty('isDeleted', false);
         expect(data).toHaveProperty('status', 'open');
@@ -240,7 +243,10 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         const data = response.body.data ?? response.body;
         expect(data).toHaveProperty('id', createdIncidentId);
-        expect(data).toHaveProperty('shortDescription', updateData.shortDescription);
+        expect(data).toHaveProperty(
+          'shortDescription',
+          updateData.shortDescription,
+        );
         expect(data).toHaveProperty('status', updateData.status);
       });
 
@@ -301,7 +307,10 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         const data = response.body.data ?? response.body;
         expect(data).toHaveProperty('status', 'resolved');
-        expect(data).toHaveProperty('resolutionNotes', 'Issue resolved by E2E test');
+        expect(data).toHaveProperty(
+          'resolutionNotes',
+          'Issue resolved by E2E test',
+        );
         expect(data).toHaveProperty('resolvedAt');
       });
     });
