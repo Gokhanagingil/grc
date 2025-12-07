@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 export interface User {
   id: number | string;
@@ -158,11 +158,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('refreshToken', newRefreshToken);
         setRefreshToken(newRefreshToken);
       }
+      
+      // Store tenant ID for automatic header injection
+      if (userData?.tenantId) {
+        localStorage.setItem('tenantId', userData.tenantId);
+      }
+      
       setToken(newToken);
       setUser(userData);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+    } catch (error: unknown) {
+      // Handle standardized ApiError from the API client
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      // Handle legacy error format
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      throw new Error(axiosError.response?.data?.message || 'Login failed');
     }
   };
 
@@ -176,17 +188,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('refreshToken', newRefreshToken);
         setRefreshToken(newRefreshToken);
       }
+      
+      // Store tenant ID for automatic header injection
+      if (newUser?.tenantId) {
+        localStorage.setItem('tenantId', newUser.tenantId);
+      }
+      
       setToken(newToken);
       setUser(newUser);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Registration failed');
+    } catch (error: unknown) {
+      // Handle standardized ApiError from the API client
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      // Handle legacy error format
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      throw new Error(axiosError.response?.data?.message || 'Registration failed');
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('tenantId');
     setToken(null);
     setRefreshToken(null);
     setUser(null);
