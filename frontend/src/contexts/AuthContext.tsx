@@ -16,7 +16,7 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<boolean>;
@@ -146,10 +146,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => clearInterval(refreshInterval);
   }, [token, refreshAccessToken]);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { username, password });
-      const { token: newToken, refreshToken: newRefreshToken, user: userData } = response.data;
+      const response = await api.post('/auth/login', { email, password });
+      // NestJS backend returns accessToken, Express backend returns token
+      const { accessToken, token: legacyToken, refreshToken: newRefreshToken, user: userData } = response.data;
+      const newToken = accessToken || legacyToken;
       
       localStorage.setItem('token', newToken);
       if (newRefreshToken) {
