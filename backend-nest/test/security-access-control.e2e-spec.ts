@@ -84,7 +84,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
       });
 
       it('should return 401 for /grc/policies without token', async () => {
@@ -447,8 +449,10 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
-        expect(response.body).toHaveProperty(
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
+        expect(response.body.error).toHaveProperty(
           'message',
           'Invalid email or password',
         );
@@ -468,7 +472,9 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
       });
     });
 
