@@ -31,6 +31,7 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   Gavel as ComplianceIcon,
+  Description as ReportIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -38,6 +39,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { requirementApi, unwrapPaginatedRequirementResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { AuditReportDialog } from '../components/AuditReportDialog';
 
 // Risk interface for associated risks display
 interface Risk {
@@ -74,6 +76,7 @@ export const Compliance: React.FC = () => {
   const [viewingRequirement, setViewingRequirement] = useState<ComplianceRequirement | null>(null);
   const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
   const [risksLoading, setRisksLoading] = useState(false);
+  const [openReportDialog, setOpenReportDialog] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -240,13 +243,22 @@ export const Compliance: React.FC = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Compliance Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateRequirement}
-        >
-          New Requirement
-        </Button>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ReportIcon />}
+            onClick={() => setOpenReportDialog(true)}
+          >
+            Generate Report
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRequirement}
+          >
+            New Requirement
+          </Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -517,6 +529,26 @@ export const Compliance: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Audit Report Dialog */}
+      <AuditReportDialog
+        open={openReportDialog}
+        onClose={() => setOpenReportDialog(false)}
+        auditContext={{
+          requirements: requirements.map((r) => ({
+            id: r.id,
+            title: r.title,
+            regulation: r.regulation,
+            status: r.status,
+            dueDate: r.due_date,
+          })),
+          totalRequirements: requirements.length,
+          completedRequirements: requirements.filter((r) => r.status === 'completed').length,
+          pendingRequirements: requirements.filter((r) => r.status === 'pending').length,
+          generatedAt: new Date().toISOString(),
+        }}
+        title="Generate Compliance Report"
+      />
     </Box>
   );
 };

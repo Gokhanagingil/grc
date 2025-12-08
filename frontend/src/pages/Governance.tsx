@@ -31,6 +31,7 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   AccountBalance as PolicyIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -38,6 +39,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { policyApi, unwrapPaginatedPolicyResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { PolicyVersionsTab } from '../components/PolicyVersionsTab';
 
 // Risk interface for associated risks display
 interface Risk {
@@ -72,6 +74,8 @@ export const Governance: React.FC = () => {
   const [viewingPolicy, setViewingPolicy] = useState<Policy | null>(null);
   const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
   const [risksLoading, setRisksLoading] = useState(false);
+  const [openVersionsDialog, setOpenVersionsDialog] = useState(false);
+  const [selectedPolicyForVersions, setSelectedPolicyForVersions] = useState<Policy | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -207,6 +211,11 @@ export const Governance: React.FC = () => {
     }
   };
 
+  const handleViewVersions = (policy: Policy) => {
+    setSelectedPolicyForVersions(policy);
+    setOpenVersionsDialog(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'success';
@@ -299,13 +308,16 @@ export const Governance: React.FC = () => {
                         {policy.effective_date ? new Date(policy.effective_date).toLocaleDateString() : '-'}
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" onClick={() => handleViewPolicy(policy)}>
+                        <IconButton size="small" onClick={() => handleViewPolicy(policy)} title="View Details">
                           <ViewIcon />
                         </IconButton>
-                        <IconButton size="small" onClick={() => handleEditPolicy(policy)}>
+                        <IconButton size="small" onClick={() => handleViewVersions(policy)} title="Version History">
+                          <HistoryIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleEditPolicy(policy)} title="Edit">
                           <EditIcon />
                         </IconButton>
-                        <IconButton size="small" onClick={() => handleDeletePolicy(policy.id)}>
+                        <IconButton size="small" onClick={() => handleDeletePolicy(policy.id)} title="Delete">
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -510,6 +522,27 @@ export const Governance: React.FC = () => {
           >
             Edit
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Version History Dialog */}
+      <Dialog
+        open={openVersionsDialog}
+        onClose={() => setOpenVersionsDialog(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Policy Version History</DialogTitle>
+        <DialogContent>
+          {selectedPolicyForVersions && (
+            <PolicyVersionsTab
+              policyId={String(selectedPolicyForVersions.id)}
+              policyTitle={selectedPolicyForVersions.title}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenVersionsDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

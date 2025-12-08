@@ -56,6 +56,64 @@ export const API_PATHS = {
     DUE_FOR_REVIEW: '/grc/policies/due-for-review',
     CONTROLS: (id: string) => `/grc/policies/${id}/controls`,
     RISKS: (id: string) => `/grc/policies/${id}/risks`,
+    // Policy Version endpoints
+    VERSIONS: {
+      LIST: (policyId: string) => `/grc/policies/${policyId}/versions`,
+      GET: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}`,
+      CREATE: (policyId: string) => `/grc/policies/${policyId}/versions`,
+      UPDATE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}`,
+      LATEST: (policyId: string) => `/grc/policies/${policyId}/versions/latest`,
+      PUBLISHED: (policyId: string) => `/grc/policies/${policyId}/versions/published`,
+      SUBMIT_FOR_REVIEW: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/submit-for-review`,
+      APPROVE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/approve`,
+      PUBLISH: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/publish`,
+      RETIRE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/retire`,
+    },
+  },
+
+  // Audit Report Template endpoints
+  AUDIT_REPORT_TEMPLATES: {
+    LIST: '/audit-report-templates',
+    GET: (id: string) => `/audit-report-templates/${id}`,
+    CREATE: '/audit-report-templates',
+    UPDATE: (id: string) => `/audit-report-templates/${id}`,
+    DELETE: (id: string) => `/audit-report-templates/${id}`,
+    RENDER: (id: string) => `/audit-report-templates/${id}/render`,
+    PREVIEW: '/audit-report-templates/preview',
+    VALIDATE: '/audit-report-templates/validate',
+    PLACEHOLDERS: (id: string) => `/audit-report-templates/${id}/placeholders`,
+  },
+
+  // Search endpoints
+  SEARCH: {
+    GENERIC: '/grc/search',
+    RISKS: '/grc/search/risks',
+    POLICIES: '/grc/search/policies',
+    REQUIREMENTS: '/grc/search/requirements',
+  },
+
+  // Metadata endpoints
+  METADATA: {
+    FIELDS: {
+      LIST: '/metadata/fields',
+      GET: (id: string) => `/metadata/fields/${id}`,
+      CREATE: '/metadata/fields',
+      UPDATE: (id: string) => `/metadata/fields/${id}`,
+      DELETE: (id: string) => `/metadata/fields/${id}`,
+      TABLES: '/metadata/fields/tables',
+      TAGS: (id: string) => `/metadata/fields/${id}/tags`,
+      ASSIGN_TAG: (id: string) => `/metadata/fields/${id}/tags`,
+      REMOVE_TAG: (id: string, tagId: string) => `/metadata/fields/${id}/tags/${tagId}`,
+    },
+    TAGS: {
+      LIST: '/metadata/tags',
+      GET: (id: string) => `/metadata/tags/${id}`,
+      CREATE: '/metadata/tags',
+      UPDATE: (id: string) => `/metadata/tags/${id}`,
+      DELETE: (id: string) => `/metadata/tags/${id}`,
+      FIELDS: (id: string) => `/metadata/tags/${id}/fields`,
+    },
+    SEED: '/metadata/seed',
   },
 
   // GRC Requirement endpoints (Compliance)
@@ -441,6 +499,151 @@ export const policyApi = {
   // Relationship management
   getLinkedRisks: (tenantId: string, policyId: string) =>
     api.get(API_PATHS.GRC_POLICIES.RISKS(policyId), withTenantId(tenantId)),
+
+  // Policy Version management
+  versions: {
+    list: (tenantId: string, policyId: string) =>
+      api.get(API_PATHS.GRC_POLICIES.VERSIONS.LIST(policyId), withTenantId(tenantId)),
+    
+    get: (tenantId: string, policyId: string, versionId: string) =>
+      api.get(API_PATHS.GRC_POLICIES.VERSIONS.GET(policyId, versionId), withTenantId(tenantId)),
+    
+    create: (tenantId: string, policyId: string, data: Record<string, unknown>) =>
+      api.post(API_PATHS.GRC_POLICIES.VERSIONS.CREATE(policyId), data, withTenantId(tenantId)),
+    
+    update: (tenantId: string, policyId: string, versionId: string, data: Record<string, unknown>) =>
+      api.patch(API_PATHS.GRC_POLICIES.VERSIONS.UPDATE(policyId, versionId), data, withTenantId(tenantId)),
+    
+    latest: (tenantId: string, policyId: string) =>
+      api.get(API_PATHS.GRC_POLICIES.VERSIONS.LATEST(policyId), withTenantId(tenantId)),
+    
+    published: (tenantId: string, policyId: string) =>
+      api.get(API_PATHS.GRC_POLICIES.VERSIONS.PUBLISHED(policyId), withTenantId(tenantId)),
+    
+    submitForReview: (tenantId: string, policyId: string, versionId: string) =>
+      api.post(API_PATHS.GRC_POLICIES.VERSIONS.SUBMIT_FOR_REVIEW(policyId, versionId), {}, withTenantId(tenantId)),
+    
+    approve: (tenantId: string, policyId: string, versionId: string) =>
+      api.post(API_PATHS.GRC_POLICIES.VERSIONS.APPROVE(policyId, versionId), {}, withTenantId(tenantId)),
+    
+    publish: (tenantId: string, policyId: string, versionId: string) =>
+      api.post(API_PATHS.GRC_POLICIES.VERSIONS.PUBLISH(policyId, versionId), {}, withTenantId(tenantId)),
+    
+    retire: (tenantId: string, policyId: string, versionId: string) =>
+      api.post(API_PATHS.GRC_POLICIES.VERSIONS.RETIRE(policyId, versionId), {}, withTenantId(tenantId)),
+  },
+};
+
+// ============================================================================
+// Audit Report Template API
+// ============================================================================
+
+export const auditReportTemplateApi = {
+  list: (tenantId: string, params?: URLSearchParams) =>
+    api.get(`${API_PATHS.AUDIT_REPORT_TEMPLATES.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
+  
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.AUDIT_REPORT_TEMPLATES.GET(id), withTenantId(tenantId)),
+  
+  create: (tenantId: string, data: Record<string, unknown>) =>
+    api.post(API_PATHS.AUDIT_REPORT_TEMPLATES.CREATE, data, withTenantId(tenantId)),
+  
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.AUDIT_REPORT_TEMPLATES.UPDATE(id), data, withTenantId(tenantId)),
+  
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.AUDIT_REPORT_TEMPLATES.DELETE(id), withTenantId(tenantId)),
+  
+  render: (tenantId: string, id: string, context: Record<string, unknown>) =>
+    api.post(API_PATHS.AUDIT_REPORT_TEMPLATES.RENDER(id), { context }, withTenantId(tenantId)),
+  
+  preview: (tenantId: string, templateBody: string, context: Record<string, unknown>) =>
+    api.post(API_PATHS.AUDIT_REPORT_TEMPLATES.PREVIEW, { templateBody, context }, withTenantId(tenantId)),
+  
+  validate: (tenantId: string, templateBody: string) =>
+    api.post(API_PATHS.AUDIT_REPORT_TEMPLATES.VALIDATE, { templateBody }, withTenantId(tenantId)),
+  
+  getPlaceholders: (tenantId: string, id: string) =>
+    api.get(API_PATHS.AUDIT_REPORT_TEMPLATES.PLACEHOLDERS(id), withTenantId(tenantId)),
+};
+
+// ============================================================================
+// Search API
+// ============================================================================
+
+export const searchApi = {
+  search: (tenantId: string, entity: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.GENERIC, { entity, ...query }, withTenantId(tenantId)),
+  
+  searchRisks: (tenantId: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.RISKS, query, withTenantId(tenantId)),
+  
+  searchPolicies: (tenantId: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.POLICIES, query, withTenantId(tenantId)),
+  
+  searchRequirements: (tenantId: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.REQUIREMENTS, query, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// Metadata API
+// ============================================================================
+
+export const metadataApi = {
+  // Field Metadata
+  fields: {
+    list: (tenantId: string, params?: URLSearchParams) =>
+      api.get(`${API_PATHS.METADATA.FIELDS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
+    
+    get: (tenantId: string, id: string) =>
+      api.get(API_PATHS.METADATA.FIELDS.GET(id), withTenantId(tenantId)),
+    
+    create: (tenantId: string, data: Record<string, unknown>) =>
+      api.post(API_PATHS.METADATA.FIELDS.CREATE, data, withTenantId(tenantId)),
+    
+    update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+      api.patch(API_PATHS.METADATA.FIELDS.UPDATE(id), data, withTenantId(tenantId)),
+    
+    delete: (tenantId: string, id: string) =>
+      api.delete(API_PATHS.METADATA.FIELDS.DELETE(id), withTenantId(tenantId)),
+    
+    getTables: (tenantId: string) =>
+      api.get(API_PATHS.METADATA.FIELDS.TABLES, withTenantId(tenantId)),
+    
+    getTags: (tenantId: string, fieldId: string) =>
+      api.get(API_PATHS.METADATA.FIELDS.TAGS(fieldId), withTenantId(tenantId)),
+    
+    assignTag: (tenantId: string, fieldId: string, tagId: string) =>
+      api.post(API_PATHS.METADATA.FIELDS.ASSIGN_TAG(fieldId), { tagId }, withTenantId(tenantId)),
+    
+    removeTag: (tenantId: string, fieldId: string, tagId: string) =>
+      api.delete(API_PATHS.METADATA.FIELDS.REMOVE_TAG(fieldId, tagId), withTenantId(tenantId)),
+  },
+  
+  // Classification Tags
+  tags: {
+    list: (tenantId: string, params?: URLSearchParams) =>
+      api.get(`${API_PATHS.METADATA.TAGS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
+    
+    get: (tenantId: string, id: string) =>
+      api.get(API_PATHS.METADATA.TAGS.GET(id), withTenantId(tenantId)),
+    
+    create: (tenantId: string, data: Record<string, unknown>) =>
+      api.post(API_PATHS.METADATA.TAGS.CREATE, data, withTenantId(tenantId)),
+    
+    update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+      api.patch(API_PATHS.METADATA.TAGS.UPDATE(id), data, withTenantId(tenantId)),
+    
+    delete: (tenantId: string, id: string) =>
+      api.delete(API_PATHS.METADATA.TAGS.DELETE(id), withTenantId(tenantId)),
+    
+    getFields: (tenantId: string, tagId: string) =>
+      api.get(API_PATHS.METADATA.TAGS.FIELDS(tagId), withTenantId(tenantId)),
+  },
+  
+  // Seed default tags
+  seed: (tenantId: string) =>
+    api.post(API_PATHS.METADATA.SEED, {}, withTenantId(tenantId)),
 };
 
 // ============================================================================
