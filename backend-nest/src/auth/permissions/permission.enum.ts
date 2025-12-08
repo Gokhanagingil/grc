@@ -31,6 +31,16 @@ export enum Permission {
 
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
+
+  // Admin Panel permissions
+  ADMIN_USERS_READ = 'admin:users:read',
+  ADMIN_USERS_WRITE = 'admin:users:write',
+  ADMIN_ROLES_READ = 'admin:roles:read',
+  ADMIN_ROLES_WRITE = 'admin:roles:write',
+  ADMIN_SETTINGS_READ = 'admin:settings:read',
+  ADMIN_SETTINGS_WRITE = 'admin:settings:write',
+  ADMIN_TENANTS_READ = 'admin:tenants:read',
+  ADMIN_TENANTS_WRITE = 'admin:tenants:write',
 }
 
 /**
@@ -50,4 +60,12 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
+  [Permission.ADMIN_USERS_READ]: 'View users and user details',
+  [Permission.ADMIN_USERS_WRITE]: 'Create, update, and delete users',
+  [Permission.ADMIN_ROLES_READ]: 'View roles and role permissions',
+  [Permission.ADMIN_ROLES_WRITE]: 'Create, update, and delete roles',
+  [Permission.ADMIN_SETTINGS_READ]: 'View system settings',
+  [Permission.ADMIN_SETTINGS_WRITE]: 'Modify system settings',
+  [Permission.ADMIN_TENANTS_READ]: 'View tenants and tenant details',
+  [Permission.ADMIN_TENANTS_WRITE]: 'Create, update, and delete tenants',
 };
