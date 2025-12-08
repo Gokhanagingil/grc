@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GrcPolicyService } from './grc-policy.service';
 import { GrcPolicy } from '../entities/grc-policy.entity';
+import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { PolicyStatus } from '../enums';
 
 describe('GrcPolicyService', () => {
@@ -39,6 +40,20 @@ describe('GrcPolicyService', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    const mockRiskPolicyRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
     const mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -49,6 +64,10 @@ describe('GrcPolicyService', () => {
         {
           provide: getRepositoryToken(GrcPolicy),
           useValue: mockPolicyRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRiskPolicy),
+          useValue: mockRiskPolicyRepository,
         },
         {
           provide: EventEmitter2,
