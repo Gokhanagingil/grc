@@ -130,6 +130,8 @@ cp .env.production.template .env.production
 | `PORT` | No | `3002` | Application port |
 | `JWT_SECRET` | **Yes** | - | Secret for JWT signing (min 32 chars) |
 | `JWT_EXPIRES_IN` | No | `24h` | JWT token expiration |
+| `REFRESH_TOKEN_SECRET` | No | `JWT_SECRET` | Secret for refresh token signing |
+| `REFRESH_TOKEN_EXPIRES_IN` | No | `7d` | Refresh token expiration |
 | `DB_HOST` | No | `localhost` | PostgreSQL host |
 | `DB_PORT` | No | `5432` | PostgreSQL port |
 | `DB_USER` | No | `postgres` | PostgreSQL username |
@@ -193,27 +195,96 @@ npm run test:e2e
 
 ## Health Checks
 
-The application exposes two health endpoints:
+### Canonical Health Endpoint (Recommended)
+
+The canonical health endpoint provides comprehensive health status:
+
+```bash
+# Canonical health endpoint (recommended for monitoring)
+curl -s http://localhost:3002/api/v2/health | jq
+```
+
+Response format:
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "timestamp": "2025-01-15T10:30:00.000Z",
+    "checks": {
+      "db": {
+        "status": "healthy",
+        "details": {
+          "connected": true,
+          "responseTimeMs": 5
+        }
+      },
+      "auth": {
+        "status": "healthy",
+        "details": {
+          "jwtConfigured": true,
+          "refreshTokenConfigured": true,
+          "requiredEnvVars": [
+            { "name": "JWT_SECRET", "configured": true },
+            { "name": "JWT_EXPIRES_IN", "configured": true },
+            { "name": "REFRESH_TOKEN_SECRET", "configured": true },
+            { "name": "REFRESH_TOKEN_EXPIRES_IN", "configured": true }
+          ]
+        }
+      },
+      "dotWalking": {
+        "status": "healthy",
+        "details": { "resolverWorking": true }
+      }
+    }
+  }
+}
+```
+
+Status values:
+- `healthy`: All checks passed
+- `degraded`: Some non-critical checks failed (e.g., missing optional config)
+- `unhealthy`: Critical checks failed (e.g., database unreachable)
+
+### Legacy Health Endpoints
+
+These endpoints are kept for backward compatibility:
 
 | Endpoint | Purpose | Checks |
 |----------|---------|--------|
+| `/health` | Overall health | All checks combined |
 | `/health/live` | Liveness probe | Application is running |
 | `/health/ready` | Readiness probe | Application + database ready |
+| `/health/db` | Database health | Connection and migration status |
+| `/health/auth` | Auth health | JWT and refresh token config |
+| `/health/dotwalking` | Dot-walking health | Resolver functionality |
 
-Use these for container orchestration (Kubernetes, ECS, etc.):
+### Container Orchestration
+
+Use the canonical endpoint for Docker Compose and Kubernetes:
+
+```yaml
+# Docker Compose example (docker-compose.staging.yml)
+healthcheck:
+  test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/api/v2/health"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+```
 
 ```yaml
 # Kubernetes example
 livenessProbe:
   httpGet:
-    path: /health/live
+    path: /api/v2/health
     port: 3002
   initialDelaySeconds: 5
   periodSeconds: 10
 
 readinessProbe:
   httpGet:
-    path: /health/ready
+    path: /api/v2/health
     port: 3002
   initialDelaySeconds: 10
   periodSeconds: 5
