@@ -10,7 +10,7 @@ import { UserRole } from '../../users/user.entity';
  */
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   /**
-   * ADMIN - Full access to all GRC and ITSM features
+   * ADMIN - Full access to all GRC, ITSM, and Admin features
    */
   [UserRole.ADMIN]: [
     Permission.GRC_RISK_READ,
@@ -24,6 +24,14 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_INCIDENT_READ,
     Permission.ITSM_INCIDENT_WRITE,
     Permission.ITSM_STATISTICS_READ,
+    Permission.ADMIN_USERS_READ,
+    Permission.ADMIN_USERS_WRITE,
+    Permission.ADMIN_ROLES_READ,
+    Permission.ADMIN_ROLES_WRITE,
+    Permission.ADMIN_SETTINGS_READ,
+    Permission.ADMIN_SETTINGS_WRITE,
+    Permission.ADMIN_TENANTS_READ,
+    Permission.ADMIN_TENANTS_WRITE,
   ],
 
   /**

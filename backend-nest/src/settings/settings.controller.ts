@@ -117,4 +117,39 @@ export class SettingsController {
       })),
     };
   }
+
+  /**
+   * Get system information for admin panel
+   *
+   * Returns backend version, environment info, and configuration details.
+   *
+   * @returns System information object
+   */
+  @Get('system-info')
+  @Roles(UserRole.ADMIN)
+  async getSystemInfo(@Req() request: Request): Promise<{
+    backendVersion: string;
+    frontendVersion: string;
+    apiGatewayStatus: string;
+    jwtExpiry: string;
+    activeTenant: string | null;
+    logLevel: string;
+    storageProvider: string;
+    nodeEnv: string;
+    uptime: number;
+  }> {
+    const tenantId = request.headers['x-tenant-id'] as string | undefined;
+
+    return {
+      backendVersion: process.env.npm_package_version || '1.0.0',
+      frontendVersion: '1.0.0',
+      apiGatewayStatus: 'healthy',
+      jwtExpiry: process.env.JWT_EXPIRY || '24h',
+      activeTenant: tenantId || null,
+      logLevel: process.env.LOG_LEVEL || 'info',
+      storageProvider: process.env.STORAGE_PROVIDER || 'local',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      uptime: process.uptime(),
+    };
+  }
 }

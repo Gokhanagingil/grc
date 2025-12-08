@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { Layout } from './components/Layout';
+import { AdminLayout } from './components/admin';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Governance } from './pages/Governance';
@@ -13,6 +14,7 @@ import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
+import { AdminUsers, AdminRoles, AdminSettings } from './pages/admin';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
 import { IncidentManagement } from './pages/IncidentManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -61,11 +63,23 @@ function App() {
                     <UserManagement />
                   </ProtectedRoute>
                 } />
-                <Route path="admin" element={
+                <Route path="admin-legacy" element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminPanel />
                   </ProtectedRoute>
                 } />
+              </Route>
+              <Route path="/admin" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Navigate to="/admin/users" replace />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="roles" element={<AdminRoles />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="permissions" element={<AdminRoles />} />
+                <Route path="tenants" element={<AdminSettings />} />
               </Route>
             </Routes>
           </Router>
