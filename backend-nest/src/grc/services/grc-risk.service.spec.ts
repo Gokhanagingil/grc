@@ -5,6 +5,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GrcRiskService } from './grc-risk.service';
 import { GrcRisk } from '../entities/grc-risk.entity';
 import { GrcRiskHistory } from '../entities/history';
+import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
+import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
+import { GrcPolicy } from '../entities/grc-policy.entity';
+import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { AuditService } from '../../audit/audit.service';
 import { RiskSeverity, RiskLikelihood, RiskStatus } from '../enums';
 
@@ -50,6 +54,44 @@ describe('GrcRiskService', () => {
       save: jest.fn(),
     };
 
+    const mockRiskPolicyRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
+    const mockRiskRequirementRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
+    const mockPolicyRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+    };
+
+    const mockRequirementRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+    };
+
     const mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -70,6 +112,22 @@ describe('GrcRiskService', () => {
         {
           provide: getRepositoryToken(GrcRiskHistory),
           useValue: mockHistoryRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRiskPolicy),
+          useValue: mockRiskPolicyRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRiskRequirement),
+          useValue: mockRiskRequirementRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcPolicy),
+          useValue: mockPolicyRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRequirement),
+          useValue: mockRequirementRepository,
         },
         {
           provide: EventEmitter2,
