@@ -223,6 +223,83 @@ export function unwrapResponse<T>(response: { data: unknown }): T {
 }
 
 /**
+ * Transform policy response from backend format (name) to frontend format (title)
+ * Also maps summary to description and snake_case date fields
+ */
+function transformPolicyResponse<T extends Record<string, unknown>>(policy: T): T {
+  const transformed = { ...policy } as Record<string, unknown>;
+  
+  // Map 'name' to 'title' for frontend display
+  if ('name' in transformed && !('title' in transformed)) {
+    transformed.title = transformed.name;
+  }
+  
+  // Map 'summary' to 'description' for frontend display
+  if ('summary' in transformed && !('description' in transformed)) {
+    transformed.description = transformed.summary;
+  }
+  
+  // Map camelCase date fields to snake_case for frontend
+  if ('effectiveDate' in transformed && !('effective_date' in transformed)) {
+    transformed.effective_date = transformed.effectiveDate;
+  }
+  if ('reviewDate' in transformed && !('review_date' in transformed)) {
+    transformed.review_date = transformed.reviewDate;
+  }
+  if ('createdAt' in transformed && !('created_at' in transformed)) {
+    transformed.created_at = transformed.createdAt;
+  }
+  
+  // Map owner fields if present
+  if ('owner' in transformed && transformed.owner && typeof transformed.owner === 'object') {
+    const owner = transformed.owner as Record<string, unknown>;
+    if ('firstName' in owner) {
+      transformed.owner_first_name = owner.firstName;
+    }
+    if ('lastName' in owner) {
+      transformed.owner_last_name = owner.lastName;
+    }
+  }
+  
+  return transformed as T;
+}
+
+/**
+ * Transform requirement response from backend format to frontend format
+ * Maps snake_case date fields and owner information
+ */
+function transformRequirementResponse<T extends Record<string, unknown>>(requirement: T): T {
+  const transformed = { ...requirement } as Record<string, unknown>;
+  
+  // Map 'description' field (already correct name)
+  // Map 'framework' to 'regulation' for frontend display
+  if ('framework' in transformed && !('regulation' in transformed)) {
+    transformed.regulation = transformed.framework;
+  }
+  
+  // Map camelCase date fields to snake_case for frontend
+  if ('dueDate' in transformed && !('due_date' in transformed)) {
+    transformed.due_date = transformed.dueDate;
+  }
+  if ('createdAt' in transformed && !('created_at' in transformed)) {
+    transformed.created_at = transformed.createdAt;
+  }
+  
+  // Map owner fields if present
+  if ('owner' in transformed && transformed.owner && typeof transformed.owner === 'object') {
+    const owner = transformed.owner as Record<string, unknown>;
+    if ('firstName' in owner) {
+      transformed.owner_first_name = owner.firstName;
+    }
+    if ('lastName' in owner) {
+      transformed.owner_last_name = owner.lastName;
+    }
+  }
+  
+  return transformed as T;
+}
+
+/**
  * Unwrap paginated NestJS response
  */
 export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items: T[]; total: number; page: number; pageSize: number } {
@@ -258,6 +335,32 @@ export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items
   }
   
   return { items: [], total: 0, page: 1, pageSize: 0 };
+}
+
+/**
+ * Unwrap paginated policy response with field transformation
+ */
+export function unwrapPaginatedPolicyResponse<T extends Record<string, unknown>>(
+  response: { data: unknown }
+): { items: T[]; total: number; page: number; pageSize: number } {
+  const result = unwrapPaginatedResponse<T>(response);
+  return {
+    ...result,
+    items: result.items.map(item => transformPolicyResponse(item)),
+  };
+}
+
+/**
+ * Unwrap paginated requirement response with field transformation
+ */
+export function unwrapPaginatedRequirementResponse<T extends Record<string, unknown>>(
+  response: { data: unknown }
+): { items: T[]; total: number; page: number; pageSize: number } {
+  const result = unwrapPaginatedResponse<T>(response);
+  return {
+    ...result,
+    items: result.items.map(item => transformRequirementResponse(item)),
+  };
 }
 
 // ============================================================================

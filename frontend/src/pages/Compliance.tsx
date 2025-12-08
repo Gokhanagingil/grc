@@ -35,7 +35,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
+import { requirementApi, unwrapPaginatedRequirementResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
@@ -96,8 +96,8 @@ export const Compliance: React.FC = () => {
     try {
       setError('');
       const response = await requirementApi.list(tenantId);
-      // Handle NestJS response format
-      const result = unwrapPaginatedResponse<ComplianceRequirement>(response);
+      // Handle NestJS response format with field transformation (framework -> regulation)
+      const result = unwrapPaginatedRequirementResponse<ComplianceRequirement>(response);
       setRequirements(result.items || []);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
@@ -173,14 +173,13 @@ export const Compliance: React.FC = () => {
   const handleSaveRequirement = async () => {
     try {
       const requirementData = {
-        name: formData.title, // NestJS uses 'name' instead of 'title'
-        summary: formData.description,
+        title: formData.title, // NestJS requirement uses 'title'
+        description: formData.description,
         framework: formData.regulation, // NestJS uses 'framework' instead of 'regulation'
+        referenceCode: `REQ-${Date.now()}`, // Generate a unique reference code (required by backend)
         category: formData.category,
         status: formData.status,
         dueDate: formData.dueDate?.toISOString().split('T')[0],
-        evidence: formData.evidence,
-        assignedTo: formData.assignedTo,
       };
 
       if (editingRequirement) {

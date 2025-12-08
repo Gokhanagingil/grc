@@ -35,7 +35,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { policyApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
+import { policyApi, unwrapPaginatedPolicyResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
@@ -94,8 +94,8 @@ export const Governance: React.FC = () => {
     try {
       setError('');
       const response = await policyApi.list(tenantId);
-      // Handle NestJS response format
-      const result = unwrapPaginatedResponse<Policy>(response);
+      // Handle NestJS response format with field transformation (name -> title)
+      const result = unwrapPaginatedPolicyResponse<Policy>(response);
       setPolicies(result.items || []);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
