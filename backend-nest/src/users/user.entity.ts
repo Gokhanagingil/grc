@@ -50,6 +50,9 @@ export class User {
   @Column({ name: 'last_name', nullable: true })
   lastName?: string;
 
+  @Column({ nullable: true })
+  department?: string;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

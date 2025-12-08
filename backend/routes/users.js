@@ -5,6 +5,27 @@ const { authenticateToken, requireRole, logActivity } = require('../middleware/a
 
 const router = express.Router();
 
+/**
+ * DEPRECATION NOTICE
+ * 
+ * These Express user management routes are deprecated and will be removed in a future release.
+ * Please migrate to the NestJS backend endpoints at port 3002.
+ * 
+ * See docs/NEST-USER-MANAGEMENT-MIGRATION.md for migration details.
+ * 
+ * Sunset date: 2025-06-01
+ */
+const deprecationMiddleware = (req, res, next) => {
+  res.set('Deprecation', 'true');
+  res.set('Sunset', 'Sat, 01 Jun 2025 00:00:00 GMT');
+  res.set('Link', '</api/v2/users>; rel="successor-version"');
+  console.warn(`[DEPRECATED] Express user route accessed: ${req.method} ${req.originalUrl}`);
+  next();
+};
+
+// Apply deprecation middleware to all user routes
+router.use(deprecationMiddleware);
+
 // Get all users
 router.get('/', authenticateToken, requireRole(['admin', 'manager']), (req, res) => {
   const db = getDb();

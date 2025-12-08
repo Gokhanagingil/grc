@@ -397,13 +397,24 @@ async function runSmokeTest() {
         total?: number;
         totalCount?: number;
         byStatus?: Record<string, number>;
-        top5OpenRisks?: Array<{ id: string; title: string; severity: string; score: number | null }>;
+        top5OpenRisks?: Array<{
+          id: string;
+          title: string;
+          severity: string;
+          score: number | null;
+        }>;
       };
       console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
-      console.log(`    Status breakdown: ${JSON.stringify(summary.byStatus || {})}`);
+      console.log(
+        `    Status breakdown: ${JSON.stringify(summary.byStatus || {})}`,
+      );
       if (summary.top5OpenRisks && summary.top5OpenRisks.length > 0) {
-        console.log(`    Top 5 Open Risks: ${summary.top5OpenRisks.length} risks`);
-        console.log(`      #1: "${summary.top5OpenRisks[0].title}" (${summary.top5OpenRisks[0].severity}, score: ${summary.top5OpenRisks[0].score})`);
+        console.log(
+          `    Top 5 Open Risks: ${summary.top5OpenRisks.length} risks`,
+        );
+        console.log(
+          `      #1: "${summary.top5OpenRisks[0].title}" (${summary.top5OpenRisks[0].severity}, score: ${summary.top5OpenRisks[0].score})`,
+        );
       }
     } else {
       failed++;
@@ -425,7 +436,9 @@ async function runSmokeTest() {
       };
       console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
       console.log(`    Active: ${summary.activeCount ?? 0}`);
-      console.log(`    Coverage: ${summary.policyCoveragePercentage?.toFixed(1) ?? 0}%`);
+      console.log(
+        `    Coverage: ${summary.policyCoveragePercentage?.toFixed(1) ?? 0}%`,
+      );
     } else {
       failed++;
     }
@@ -446,7 +459,9 @@ async function runSmokeTest() {
       };
       console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
       console.log(`    Compliant: ${summary.compliantCount ?? 0}`);
-      console.log(`    Coverage: ${summary.requirementCoveragePercentage?.toFixed(1) ?? 0}%`);
+      console.log(
+        `    Coverage: ${summary.requirementCoveragePercentage?.toFixed(1) ?? 0}%`,
+      );
     } else {
       failed++;
     }
@@ -469,9 +484,13 @@ async function runSmokeTest() {
         avgResolutionTimeHours?: number | null;
       };
       console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
-      console.log(`    Open: ${summary.openCount ?? 0}, Closed: ${summary.closedCount ?? 0}, Resolved: ${summary.resolvedCount ?? 0}`);
+      console.log(
+        `    Open: ${summary.openCount ?? 0}, Closed: ${summary.closedCount ?? 0}, Resolved: ${summary.resolvedCount ?? 0}`,
+      );
       console.log(`    Resolved Today: ${summary.resolvedToday ?? 0}`);
-      console.log(`    Avg Resolution Time: ${summary.avgResolutionTimeHours?.toFixed(1) ?? 'N/A'} hours`);
+      console.log(
+        `    Avg Resolution Time: ${summary.avgResolutionTimeHours?.toFixed(1) ?? 'N/A'} hours`,
+      );
     } else {
       failed++;
     }
