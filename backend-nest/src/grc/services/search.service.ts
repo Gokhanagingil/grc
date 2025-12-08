@@ -71,13 +71,21 @@ export class SearchService {
 
     switch (entity) {
       case 'risk':
-        return this.searchRisksInternal(tenantId, query) as Promise<SearchResultDto<T>>;
+        return this.searchRisksInternal(tenantId, query) as Promise<
+          SearchResultDto<T>
+        >;
       case 'policy':
-        return this.searchPoliciesInternal(tenantId, query) as Promise<SearchResultDto<T>>;
+        return this.searchPoliciesInternal(tenantId, query) as Promise<
+          SearchResultDto<T>
+        >;
       case 'requirement':
-        return this.searchRequirementsInternal(tenantId, query) as Promise<SearchResultDto<T>>;
-      default:
-        throw new BadRequestException(`Unknown entity type: ${entity}`);
+        return this.searchRequirementsInternal(tenantId, query) as Promise<
+          SearchResultDto<T>
+        >;
+      default: {
+        const unknownEntity: string = entity;
+        throw new BadRequestException(`Unknown entity type: ${unknownEntity}`);
+      }
     }
   }
 
@@ -225,13 +233,19 @@ export class SearchService {
   /**
    * Elasticsearch search implementation (stub for future)
    */
-  private async searchElasticsearch<T>(
+  private searchElasticsearch<T>(
     tenantId: string,
     entity: SearchableEntity,
     query: SearchQueryDto,
   ): Promise<SearchResultDto<T>> {
-    throw new BadRequestException(
-      'Elasticsearch search is not yet implemented. Please use PostgreSQL search.',
+    // Mark parameters as intentionally unused for future implementation
+    void tenantId;
+    void entity;
+    void query;
+    return Promise.reject(
+      new BadRequestException(
+        'Elasticsearch search is not yet implemented. Please use PostgreSQL search.',
+      ),
     );
   }
 

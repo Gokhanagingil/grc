@@ -108,7 +108,12 @@ export class MetadataController {
 
     return this.metadataService.getFieldMetadata(tenantId, {
       tableName,
-      isSensitive: isSensitive === 'true' ? true : isSensitive === 'false' ? false : undefined,
+      isSensitive:
+        isSensitive === 'true'
+          ? true
+          : isSensitive === 'false'
+            ? false
+            : undefined,
       isPii: isPii === 'true' ? true : isPii === 'false' ? false : undefined,
     });
   }
@@ -295,7 +300,8 @@ export class MetadataController {
 
     return this.metadataService.getTags(tenantId, {
       tagType,
-      isSystem: isSystem === 'true' ? true : isSystem === 'false' ? false : undefined,
+      isSystem:
+        isSystem === 'true' ? true : isSystem === 'false' ? false : undefined,
     });
   }
 

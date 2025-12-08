@@ -18,9 +18,17 @@ export type { AuditContext } from './grc-audit-report-template.service';
 
 // Search and Query DSL Services
 export { SearchService } from './search.service';
-export type { SearchQueryDto, SearchResultDto, SearchableEntity } from './search.service';
+export type {
+  SearchQueryDto,
+  SearchResultDto,
+  SearchableEntity,
+} from './search.service';
 export { QueryDSLService } from './query-dsl.service';
-export type { QueryCondition, QueryDSL, QueryDSLGroup } from './query-dsl.service';
+export type {
+  QueryCondition,
+  QueryDSL,
+  QueryDSLGroup,
+} from './query-dsl.service';
 
 // Metadata Services
 export { MetadataService } from './metadata.service';

@@ -47,7 +47,10 @@ export class QueryDSLService {
   ): SelectQueryBuilder<T> {
     const logical = dsl.logical || LogicalOperator.AND;
 
-    if (dsl.conditions.length === 0 && (!dsl.groups || dsl.groups.length === 0)) {
+    if (
+      dsl.conditions.length === 0 &&
+      (!dsl.groups || dsl.groups.length === 0)
+    ) {
       return queryBuilder;
     }
 
@@ -61,10 +64,20 @@ export class QueryDSLService {
           let first = true;
           for (const condition of dsl.conditions) {
             if (first) {
-              this.applyCondition(qb as SelectQueryBuilder<T>, condition, alias, 'where');
+              this.applyCondition(
+                qb as SelectQueryBuilder<T>,
+                condition,
+                alias,
+                'where',
+              );
               first = false;
             } else {
-              this.applyCondition(qb as SelectQueryBuilder<T>, condition, alias, 'orWhere');
+              this.applyCondition(
+                qb as SelectQueryBuilder<T>,
+                condition,
+                alias,
+                'orWhere',
+              );
             }
           }
         }),
@@ -89,19 +102,30 @@ export class QueryDSLService {
     alias: string,
     parentLogical: LogicalOperator,
   ): void {
-    const method = parentLogical === LogicalOperator.AND ? 'andWhere' : 'orWhere';
+    const method =
+      parentLogical === LogicalOperator.AND ? 'andWhere' : 'orWhere';
 
     queryBuilder[method](
       new Brackets((qb) => {
         let first = true;
         for (const condition of group.conditions) {
           if (first) {
-            this.applyCondition(qb as SelectQueryBuilder<T>, condition, alias, 'where');
+            this.applyCondition(
+              qb as SelectQueryBuilder<T>,
+              condition,
+              alias,
+              'where',
+            );
             first = false;
           } else {
             const condMethod =
               group.logical === LogicalOperator.AND ? 'andWhere' : 'orWhere';
-            this.applyCondition(qb as SelectQueryBuilder<T>, condition, alias, condMethod);
+            this.applyCondition(
+              qb as SelectQueryBuilder<T>,
+              condition,
+              alias,
+              condMethod,
+            );
           }
         }
       }),
@@ -138,50 +162,54 @@ export class QueryDSLService {
 
       case QueryOperator.CONTAINS:
         queryBuilder[method](`${columnPath} ILIKE :${paramName}`, {
-          [paramName]: `%${value}%`,
+          [paramName]: `%${String(value)}%`,
         });
         break;
 
       case QueryOperator.STARTS_WITH:
         queryBuilder[method](`${columnPath} ILIKE :${paramName}`, {
-          [paramName]: `${value}%`,
+          [paramName]: `${String(value)}%`,
         });
         break;
 
       case QueryOperator.ENDS_WITH:
         queryBuilder[method](`${columnPath} ILIKE :${paramName}`, {
-          [paramName]: `%${value}`,
+          [paramName]: `%${String(value)}`,
         });
         break;
 
-      case QueryOperator.IN:
+      case QueryOperator.IN: {
         const inValues = values || (Array.isArray(value) ? value : [value]);
         queryBuilder[method](`${columnPath} IN (:...${paramName})`, {
           [paramName]: inValues,
         });
         break;
+      }
 
-      case QueryOperator.NOT_IN:
+      case QueryOperator.NOT_IN: {
         const notInValues = values || (Array.isArray(value) ? value : [value]);
         queryBuilder[method](`${columnPath} NOT IN (:...${paramName})`, {
           [paramName]: notInValues,
         });
         break;
+      }
 
-      case QueryOperator.BETWEEN:
+      case QueryOperator.BETWEEN: {
         if (!Array.isArray(value) || value.length !== 2) {
           throw new BadRequestException(
             'BETWEEN operator requires an array of two values',
           );
         }
+        const betweenValues = value as [unknown, unknown];
         queryBuilder[method](
           `${columnPath} BETWEEN :${paramName}_start AND :${paramName}_end`,
           {
-            [`${paramName}_start`]: value[0],
-            [`${paramName}_end`]: value[1],
+            [`${paramName}_start`]: betweenValues[0],
+            [`${paramName}_end`]: betweenValues[1],
           },
         );
         break;
+      }
 
       case QueryOperator.GREATER_THAN:
         queryBuilder[method](`${columnPath} > :${paramName}`, {

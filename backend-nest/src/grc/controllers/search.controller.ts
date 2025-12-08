@@ -11,7 +11,11 @@ import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
-import { SearchService, SearchQueryDto, SearchableEntity } from '../services/search.service';
+import {
+  SearchService,
+  SearchQueryDto,
+  SearchableEntity,
+} from '../services/search.service';
 import { QueryDSL } from '../services/query-dsl.service';
 import { Perf } from '../../common/decorators';
 import { LogicalOperator } from '../enums';
@@ -79,8 +83,12 @@ export class SearchController {
     if (searchRequest.dsl) {
       dsl = {
         conditions: searchRequest.dsl.conditions,
-        logical: searchRequest.dsl.logical === 'AND' ? LogicalOperator.AND : 
-                 searchRequest.dsl.logical === 'OR' ? LogicalOperator.OR : undefined,
+        logical:
+          searchRequest.dsl.logical === 'AND'
+            ? LogicalOperator.AND
+            : searchRequest.dsl.logical === 'OR'
+              ? LogicalOperator.OR
+              : undefined,
       };
     }
 
@@ -94,7 +102,11 @@ export class SearchController {
       searchFields: searchRequest.searchFields,
     };
 
-    return this.searchService.search(tenantId, searchRequest.entity, searchQuery);
+    return this.searchService.search(
+      tenantId,
+      searchRequest.entity,
+      searchQuery,
+    );
   }
 
   /**

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
@@ -42,7 +46,9 @@ export class MetadataService extends MultiTenantServiceBase<GrcFieldMetadata> {
     qb.andWhere('fm.isDeleted = :isDeleted', { isDeleted: false });
 
     if (filters?.tableName) {
-      qb.andWhere('fm.tableName = :tableName', { tableName: filters.tableName });
+      qb.andWhere('fm.tableName = :tableName', {
+        tableName: filters.tableName,
+      });
     }
 
     if (filters?.isSensitive !== undefined) {
@@ -137,10 +143,8 @@ export class MetadataService extends MultiTenantServiceBase<GrcFieldMetadata> {
       isPii: boolean;
     }>,
   ): Promise<GrcFieldMetadata> {
-    const fieldMetadata = await this.getFieldMetadataById(
-      tenantId,
-      fieldMetadataId,
-    );
+    // Validate field exists before updating
+    await this.getFieldMetadataById(tenantId, fieldMetadataId);
 
     const updated = await this.updateForTenant(tenantId, fieldMetadataId, {
       ...data,
@@ -164,10 +168,8 @@ export class MetadataService extends MultiTenantServiceBase<GrcFieldMetadata> {
     userId: string,
     fieldMetadataId: string,
   ): Promise<boolean> {
-    const fieldMetadata = await this.getFieldMetadataById(
-      tenantId,
-      fieldMetadataId,
-    );
+    // Validate field exists before deleting
+    await this.getFieldMetadataById(tenantId, fieldMetadataId);
 
     await this.updateForTenant(tenantId, fieldMetadataId, {
       isDeleted: true,
@@ -400,7 +402,7 @@ export class MetadataService extends MultiTenantServiceBase<GrcFieldMetadata> {
       .where('fm.tenantId = :tenantId', { tenantId })
       .andWhere('fm.isDeleted = :isDeleted', { isDeleted: false })
       .orderBy('fm.tableName', 'ASC')
-      .getRawMany();
+      .getRawMany<{ tableName: string }>();
 
     return result.map((r) => r.tableName);
   }

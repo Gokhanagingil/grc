@@ -51,9 +51,7 @@ class UpdatePolicyVersionDto {
 @Controller('grc/policies/:policyId/versions')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcPolicyVersionController {
-  constructor(
-    private readonly policyVersionService: GrcPolicyVersionService,
-  ) {}
+  constructor(private readonly policyVersionService: GrcPolicyVersionService) {}
 
   /**
    * GET /grc/policies/:policyId/versions

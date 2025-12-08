@@ -92,7 +92,8 @@ export class AuditReportTemplateController {
     return this.templateService.getTemplates(tenantId, {
       standard,
       language,
-      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      isActive:
+        isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     });
   }
 
@@ -217,10 +218,10 @@ export class AuditReportTemplateController {
   @Permissions(Permission.GRC_POLICY_READ)
   @HttpCode(HttpStatus.OK)
   @Perf()
-  async previewTemplate(
+  previewTemplate(
     @Headers('x-tenant-id') tenantId: string,
     @Body() body: { templateBody: string; context: AuditContext },
-  ) {
+  ): { html: string } {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
@@ -241,10 +242,10 @@ export class AuditReportTemplateController {
   @Permissions(Permission.GRC_POLICY_READ)
   @HttpCode(HttpStatus.OK)
   @Perf()
-  async validateTemplate(
+  validateTemplate(
     @Headers('x-tenant-id') tenantId: string,
     @Body() body: { templateBody: string },
-  ) {
+  ): { valid: boolean; errors: string[] } {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }

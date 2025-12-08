@@ -167,7 +167,8 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
       isActive: boolean;
     }>,
   ): Promise<GrcAuditReportTemplate> {
-    const template = await this.getTemplate(tenantId, templateId);
+    // Validate template exists before updating
+    await this.getTemplate(tenantId, templateId);
 
     const updated = await this.updateForTenant(tenantId, templateId, {
       ...data,
@@ -189,7 +190,8 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
     userId: string,
     templateId: string,
   ): Promise<boolean> {
-    const template = await this.getTemplate(tenantId, templateId);
+    // Validate template exists before deleting
+    await this.getTemplate(tenantId, templateId);
 
     await this.updateForTenant(tenantId, templateId, {
       isDeleted: true,
@@ -230,10 +232,7 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
    * Supports nested paths like {{audit.name}}, {{organization.address}}
    * Also supports array iteration with {{#each findings}}...{{/each}}
    */
-  private replacePlaceholders(
-    template: string,
-    context: AuditContext,
-  ): string {
+  private replacePlaceholders(template: string, context: AuditContext): string {
     let result = template;
 
     result = this.processEachBlocks(result, context);
@@ -241,13 +240,19 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
     result = this.processIfBlocks(result, context);
 
     const placeholderRegex = /\{\{([^#/}]+)\}\}/g;
-    result = result.replace(placeholderRegex, (match, path) => {
-      const value = this.getNestedValue(context, path.trim());
-      if (value === undefined || value === null) {
-        return '';
-      }
-      return String(value);
-    });
+    result = result.replace(
+      placeholderRegex,
+      (_match: string, path: string): string => {
+        const value = this.getNestedValue(context, path.trim());
+        if (value === undefined || value === null) {
+          return '';
+        }
+        if (typeof value === 'object') {
+          return JSON.stringify(value);
+        }
+        return String(value as string | number | boolean);
+      },
+    );
 
     return result;
   }
@@ -258,35 +263,44 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
   private processEachBlocks(template: string, context: AuditContext): string {
     const eachRegex = /\{\{#each\s+(\w+)\}\}([\s\S]*?)\{\{\/each\}\}/g;
 
-    return template.replace(eachRegex, (match, arrayName, content) => {
-      const array = context[arrayName];
-      if (!Array.isArray(array)) {
-        return '';
-      }
+    return template.replace(
+      eachRegex,
+      (_match: string, arrayName: string, content: string): string => {
+        const array = context[arrayName];
+        if (!Array.isArray(array)) {
+          return '';
+        }
 
-      return array
-        .map((item, index) => {
-          let itemContent = content;
+        return array
+          .map((item: Record<string, unknown>, index: number): string => {
+            let itemContent = content;
 
-          const itemPlaceholderRegex = /\{\{this\.([^}]+)\}\}/g;
-          itemContent = itemContent.replace(
-            itemPlaceholderRegex,
-            (m: string, prop: string) => {
-              const value = item[prop.trim()];
-              return value !== undefined && value !== null ? String(value) : '';
-            },
-          );
+            const itemPlaceholderRegex = /\{\{this\.([^}]+)\}\}/g;
+            itemContent = itemContent.replace(
+              itemPlaceholderRegex,
+              (_m: string, prop: string): string => {
+                const value = item[prop.trim()];
+                if (value === undefined || value === null) {
+                  return '';
+                }
+                if (typeof value === 'object') {
+                  return JSON.stringify(value);
+                }
+                return String(value as string | number | boolean);
+              },
+            );
 
-          itemContent = itemContent.replace(/\{\{@index\}\}/g, String(index));
-          itemContent = itemContent.replace(
-            /\{\{@number\}\}/g,
-            String(index + 1),
-          );
+            itemContent = itemContent.replace(/\{\{@index\}\}/g, String(index));
+            itemContent = itemContent.replace(
+              /\{\{@number\}\}/g,
+              String(index + 1),
+            );
 
-          return itemContent;
-        })
-        .join('');
-    });
+            return itemContent;
+          })
+          .join('');
+      },
+    );
   }
 
   /**
@@ -296,21 +310,29 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
     const ifRegex =
       /\{\{#if\s+([^}]+)\}\}([\s\S]*?)(?:\{\{else\}\}([\s\S]*?))?\{\{\/if\}\}/g;
 
-    return template.replace(ifRegex, (match, condition, ifContent, elseContent) => {
-      const value = this.getNestedValue(context, condition.trim());
-      const isTruthy =
-        value !== undefined &&
-        value !== null &&
-        value !== false &&
-        value !== '' &&
-        value !== 0;
+    return template.replace(
+      ifRegex,
+      (
+        _match: string,
+        condition: string,
+        ifContent: string,
+        elseContent: string | undefined,
+      ): string => {
+        const value = this.getNestedValue(context, condition.trim());
+        const isTruthy =
+          value !== undefined &&
+          value !== null &&
+          value !== false &&
+          value !== '' &&
+          value !== 0;
 
-      if (isTruthy) {
-        return ifContent;
-      } else {
-        return elseContent || '';
-      }
-    });
+        if (isTruthy) {
+          return ifContent;
+        } else {
+          return elseContent || '';
+        }
+      },
+    );
   }
 
   /**
@@ -341,19 +363,28 @@ export class GrcAuditReportTemplateService extends MultiTenantServiceBase<GrcAud
     const placeholders = new Set<string>();
 
     const simpleRegex = /\{\{([^#/}]+)\}\}/g;
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = simpleRegex.exec(templateBody)) !== null) {
-      placeholders.add(match[1].trim());
+      const captured = match[1];
+      if (captured) {
+        placeholders.add(captured.trim());
+      }
     }
 
     const eachRegex = /\{\{#each\s+(\w+)\}\}/g;
     while ((match = eachRegex.exec(templateBody)) !== null) {
-      placeholders.add(`#each ${match[1]}`);
+      const captured = match[1];
+      if (captured) {
+        placeholders.add(`#each ${captured}`);
+      }
     }
 
     const ifRegex = /\{\{#if\s+([^}]+)\}\}/g;
     while ((match = ifRegex.exec(templateBody)) !== null) {
-      placeholders.add(`#if ${match[1].trim()}`);
+      const captured = match[1];
+      if (captured) {
+        placeholders.add(`#if ${captured.trim()}`);
+      }
     }
 
     return Array.from(placeholders);

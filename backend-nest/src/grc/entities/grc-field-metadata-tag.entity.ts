@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { MappingEntityBase } from '../../common/entities';
 import { GrcFieldMetadata } from './grc-field-metadata.entity';
 import { GrcClassificationTag } from './grc-classification-tag.entity';

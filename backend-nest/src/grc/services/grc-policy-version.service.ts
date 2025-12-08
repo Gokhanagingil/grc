@@ -218,9 +218,7 @@ export class GrcPolicyVersionService extends MultiTenantServiceBase<GrcPolicyVer
     const version = await this.getVersion(tenantId, policyId, versionId);
 
     if (version.status !== PolicyVersionStatus.IN_REVIEW) {
-      throw new BadRequestException(
-        'Only versions in review can be approved.',
-      );
+      throw new BadRequestException('Only versions in review can be approved.');
     }
 
     const updated = await this.updateForTenant(tenantId, versionId, {
