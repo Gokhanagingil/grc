@@ -381,8 +381,106 @@ async function runSmokeTest() {
     console.log('[SKIP] Skipping incident endpoints (no auth)');
   }
 
-  // 7. User Profile (GET /users/me)
-  printSection('7. User Profile');
+  // 7. Summary Endpoints (KPI-ready data)
+  printSection('7. Summary Endpoints (KPI Data)');
+
+  if (token) {
+    // Risk Summary
+    const riskSummaryResponse = await makeRequest(
+      'GET',
+      '/grc/risks/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/risks/summary', riskSummaryResponse)) {
+      passed++;
+      const summary = riskSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        byStatus?: Record<string, number>;
+        top5OpenRisks?: Array<{ id: string; title: string; severity: string; score: number | null }>;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Status breakdown: ${JSON.stringify(summary.byStatus || {})}`);
+      if (summary.top5OpenRisks && summary.top5OpenRisks.length > 0) {
+        console.log(`    Top 5 Open Risks: ${summary.top5OpenRisks.length} risks`);
+        console.log(`      #1: "${summary.top5OpenRisks[0].title}" (${summary.top5OpenRisks[0].severity}, score: ${summary.top5OpenRisks[0].score})`);
+      }
+    } else {
+      failed++;
+    }
+
+    // Policy Summary
+    const policySummaryResponse = await makeRequest(
+      'GET',
+      '/grc/policies/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/policies/summary', policySummaryResponse)) {
+      passed++;
+      const summary = policySummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        activeCount?: number;
+        policyCoveragePercentage?: number;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Active: ${summary.activeCount ?? 0}`);
+      console.log(`    Coverage: ${summary.policyCoveragePercentage?.toFixed(1) ?? 0}%`);
+    } else {
+      failed++;
+    }
+
+    // Requirement Summary
+    const reqSummaryResponse = await makeRequest(
+      'GET',
+      '/grc/requirements/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/requirements/summary', reqSummaryResponse)) {
+      passed++;
+      const summary = reqSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        compliantCount?: number;
+        requirementCoveragePercentage?: number;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Compliant: ${summary.compliantCount ?? 0}`);
+      console.log(`    Coverage: ${summary.requirementCoveragePercentage?.toFixed(1) ?? 0}%`);
+    } else {
+      failed++;
+    }
+
+    // Incident Summary
+    const incidentSummaryResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents/summary',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents/summary', incidentSummaryResponse)) {
+      passed++;
+      const summary = incidentSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        openCount?: number;
+        closedCount?: number;
+        resolvedCount?: number;
+        resolvedToday?: number;
+        avgResolutionTimeHours?: number | null;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Open: ${summary.openCount ?? 0}, Closed: ${summary.closedCount ?? 0}, Resolved: ${summary.resolvedCount ?? 0}`);
+      console.log(`    Resolved Today: ${summary.resolvedToday ?? 0}`);
+      console.log(`    Avg Resolution Time: ${summary.avgResolutionTimeHours?.toFixed(1) ?? 'N/A'} hours`);
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping summary endpoints (no auth)');
+  }
+
+  // 8. User Profile (GET /users/me)
+  printSection('8. User Profile');
 
   if (token) {
     const userMeResponse = await makeRequest('GET', '/users/me', authHeaders);

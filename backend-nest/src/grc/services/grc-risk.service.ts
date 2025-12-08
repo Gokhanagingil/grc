@@ -430,15 +430,23 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
 
   /**
    * Get summary/reporting data for risks
+   * Enhanced with KPI-ready fields for Dashboard
    */
   async getSummary(tenantId: string): Promise<{
     total: number;
+    totalCount: number;
     byStatus: Record<string, number>;
     bySeverity: Record<string, number>;
     byLikelihood: Record<string, number>;
     byCategory: Record<string, number>;
     highPriorityCount: number;
     overdueCount: number;
+    top5OpenRisks: Array<{
+      id: string;
+      title: string;
+      severity: string;
+      score: number | null;
+    }>;
   }> {
     const qb = this.repository.createQueryBuilder('risk');
     qb.where('risk.tenantId = :tenantId', { tenantId });
@@ -453,6 +461,9 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     let highPriorityCount = 0;
     let overdueCount = 0;
     const now = new Date();
+
+    // Collect open risks for top 5 calculation
+    const openRisks: GrcRisk[] = [];
 
     for (const risk of risks) {
       // Count by status
@@ -485,16 +496,37 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       ) {
         overdueCount++;
       }
+
+      // Collect open risks (not closed or accepted)
+      if (
+        risk.status !== RiskStatus.CLOSED &&
+        risk.status !== RiskStatus.ACCEPTED
+      ) {
+        openRisks.push(risk);
+      }
     }
+
+    // Sort open risks by score (descending) and take top 5
+    const top5OpenRisks = openRisks
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 5)
+      .map((risk) => ({
+        id: risk.id,
+        title: risk.title,
+        severity: risk.severity,
+        score: risk.score,
+      }));
 
     return {
       total: risks.length,
+      totalCount: risks.length,
       byStatus,
       bySeverity,
       byLikelihood,
       byCategory,
       highPriorityCount,
       overdueCount,
+      top5OpenRisks,
     };
   }
 }

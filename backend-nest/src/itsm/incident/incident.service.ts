@@ -392,14 +392,18 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
 
   /**
    * Get summary/reporting data for incidents
+   * Enhanced with KPI-ready fields for Dashboard
    */
   async getSummary(tenantId: string): Promise<{
     total: number;
+    totalCount: number;
     byStatus: Record<string, number>;
     byPriority: Record<string, number>;
     byCategory: Record<string, number>;
     bySource: Record<string, number>;
     openCount: number;
+    closedCount: number;
+    resolvedCount: number;
     resolvedToday: number;
     avgResolutionTimeHours: number | null;
   }> {
@@ -414,6 +418,8 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     const byCategory: Record<string, number> = {};
     const bySource: Record<string, number> = {};
     let openCount = 0;
+    let closedCount = 0;
+    let resolvedCount = 0;
     let resolvedToday = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -431,6 +437,14 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
         incident.status === IncidentStatus.IN_PROGRESS
       ) {
         openCount++;
+      }
+
+      if (incident.status === IncidentStatus.CLOSED) {
+        closedCount++;
+      }
+
+      if (incident.status === IncidentStatus.RESOLVED) {
+        resolvedCount++;
       }
 
       if (incident.resolvedAt && new Date(incident.resolvedAt) >= today) {
@@ -452,11 +466,14 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
 
     return {
       total: incidents.length,
+      totalCount: incidents.length,
       byStatus,
       byPriority,
       byCategory,
       bySource,
       openCount,
+      closedCount,
+      resolvedCount,
       resolvedToday,
       avgResolutionTimeHours,
     };

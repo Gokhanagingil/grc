@@ -139,6 +139,7 @@ export interface SingleResponse<T> {
 
 /**
  * Dashboard overview data aggregated from multiple summary endpoints
+ * Enhanced with KPI-ready fields
  */
 export interface DashboardOverview {
   risks: {
@@ -146,17 +147,33 @@ export interface DashboardOverview {
     open: number;
     high: number;
     overdue: number;
+    top5OpenRisks?: Array<{
+      id: string;
+      title: string;
+      severity: string;
+      score: number | null;
+    }>;
   };
   compliance: {
     total: number;
     pending: number;
     completed: number;
     overdue: number;
+    coveragePercentage?: number;
   };
   policies: {
     total: number;
     active: number;
     draft: number;
+    coveragePercentage?: number;
+  };
+  incidents: {
+    total: number;
+    open: number;
+    closed: number;
+    resolved: number;
+    resolvedToday?: number;
+    avgResolutionTimeHours?: number | null;
   };
   users: {
     total: number;
@@ -365,6 +382,7 @@ export const incidentApi = {
 export const dashboardApi = {
   /**
    * Get dashboard overview by aggregating data from multiple summary endpoints
+   * Enhanced with KPI-ready fields for Dashboard
    */
   getOverview: async (tenantId: string): Promise<DashboardOverview> => {
     try {
@@ -378,51 +396,77 @@ export const dashboardApi = {
       // Extract data from responses, handling both envelope and flat formats
       const riskData = unwrapResponse<{
         totalCount?: number;
+        total?: number;
         byStatus?: Record<string, number>;
         bySeverity?: Record<string, number>;
         highPriorityCount?: number;
         overdueCount?: number;
+        top5OpenRisks?: Array<{
+          id: string;
+          title: string;
+          severity: string;
+          score: number | null;
+        }>;
       }>(riskSummary) || {};
       
       const policyData = unwrapResponse<{
         totalCount?: number;
+        total?: number;
         byStatus?: Record<string, number>;
         activeCount?: number;
         draftCount?: number;
+        policyCoveragePercentage?: number;
       }>(policySummary) || {};
       
       const requirementData = unwrapResponse<{
         totalCount?: number;
+        total?: number;
         byStatus?: Record<string, number>;
         compliantCount?: number;
         nonCompliantCount?: number;
         inProgressCount?: number;
+        requirementCoveragePercentage?: number;
       }>(requirementSummary) || {};
       
       const incidentData = unwrapResponse<{
         totalCount?: number;
+        total?: number;
         byStatus?: Record<string, number>;
         openCount?: number;
+        closedCount?: number;
         resolvedCount?: number;
+        resolvedToday?: number;
+        avgResolutionTimeHours?: number | null;
       }>(incidentSummary) || {};
 
       return {
         risks: {
-          total: riskData.totalCount || 0,
+          total: riskData.totalCount || riskData.total || 0,
           open: riskData.byStatus?.['identified'] || riskData.byStatus?.['open'] || 0,
           high: (riskData.bySeverity?.['high'] || 0) + (riskData.bySeverity?.['critical'] || 0),
           overdue: riskData.overdueCount || 0,
+          top5OpenRisks: riskData.top5OpenRisks || [],
         },
         compliance: {
-          total: requirementData.totalCount || 0,
+          total: requirementData.totalCount || requirementData.total || 0,
           pending: requirementData.byStatus?.['pending'] || requirementData.inProgressCount || 0,
           completed: requirementData.byStatus?.['compliant'] || requirementData.compliantCount || 0,
           overdue: requirementData.byStatus?.['non_compliant'] || requirementData.nonCompliantCount || 0,
+          coveragePercentage: requirementData.requirementCoveragePercentage,
         },
         policies: {
-          total: policyData.totalCount || 0,
+          total: policyData.totalCount || policyData.total || 0,
           active: policyData.byStatus?.['active'] || policyData.activeCount || 0,
           draft: policyData.byStatus?.['draft'] || policyData.draftCount || 0,
+          coveragePercentage: policyData.policyCoveragePercentage,
+        },
+        incidents: {
+          total: incidentData.totalCount || incidentData.total || 0,
+          open: incidentData.openCount || 0,
+          closed: incidentData.closedCount || 0,
+          resolved: incidentData.resolvedCount || 0,
+          resolvedToday: incidentData.resolvedToday,
+          avgResolutionTimeHours: incidentData.avgResolutionTimeHours,
         },
         users: {
           total: 0, // User count not available from NestJS summary endpoints
@@ -433,9 +477,10 @@ export const dashboardApi = {
     } catch (error) {
       console.error('Failed to fetch dashboard overview:', error);
       return {
-        risks: { total: 0, open: 0, high: 0, overdue: 0 },
+        risks: { total: 0, open: 0, high: 0, overdue: 0, top5OpenRisks: [] },
         compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
         policies: { total: 0, active: 0, draft: 0 },
+        incidents: { total: 0, open: 0, closed: 0, resolved: 0 },
         users: { total: 0, admins: 0, managers: 0 },
       };
     }

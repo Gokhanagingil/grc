@@ -342,9 +342,11 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
 
   /**
    * Get summary/reporting data for requirements
+   * Enhanced with KPI-ready fields for Dashboard
    */
   async getSummary(tenantId: string): Promise<{
     total: number;
+    totalCount: number;
     byFramework: Record<string, number>;
     byStatus: Record<string, number>;
     byCategory: Record<string, number>;
@@ -352,6 +354,7 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     compliantCount: number;
     nonCompliantCount: number;
     inProgressCount: number;
+    requirementCoveragePercentage: number;
   }> {
     const qb = this.repository.createQueryBuilder('requirement');
     qb.where('requirement.tenantId = :tenantId', { tenantId });
@@ -394,8 +397,15 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
       }
     }
 
+    // Calculate requirement coverage percentage (compliant / total requirements)
+    const requirementCoveragePercentage =
+      requirements.length > 0
+        ? Math.round((compliantCount / requirements.length) * 100 * 100) / 100
+        : 0;
+
     return {
       total: requirements.length,
+      totalCount: requirements.length,
       byFramework,
       byStatus,
       byCategory,
@@ -403,6 +413,7 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
       compliantCount,
       nonCompliantCount,
       inProgressCount,
+      requirementCoveragePercentage,
     };
   }
 }
