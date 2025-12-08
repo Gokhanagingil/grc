@@ -1,10 +1,14 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, In } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRisk } from '../entities/grc-risk.entity';
 import { GrcRiskHistory } from '../entities/history';
+import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
+import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
+import { GrcPolicy } from '../entities/grc-policy.entity';
+import { GrcRequirement } from '../entities/grc-requirement.entity';
 import {
   RiskCreatedEvent,
   RiskUpdatedEvent,
@@ -34,6 +38,14 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     repository: Repository<GrcRisk>,
     @InjectRepository(GrcRiskHistory)
     private readonly historyRepository: Repository<GrcRiskHistory>,
+    @InjectRepository(GrcRiskPolicy)
+    private readonly riskPolicyRepository: Repository<GrcRiskPolicy>,
+    @InjectRepository(GrcRiskRequirement)
+    private readonly riskRequirementRepository: Repository<GrcRiskRequirement>,
+    @InjectRepository(GrcPolicy)
+    private readonly policyRepository: Repository<GrcPolicy>,
+    @InjectRepository(GrcRequirement)
+    private readonly requirementRepository: Repository<GrcRequirement>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
   ) {
@@ -447,12 +459,35 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       severity: string;
       score: number | null;
     }>;
+    totalLinkedPolicies: number;
+    totalLinkedRequirements: number;
+    risksWithPoliciesCount: number;
+    risksWithRequirementsCount: number;
   }> {
     const qb = this.repository.createQueryBuilder('risk');
     qb.where('risk.tenantId = :tenantId', { tenantId });
     qb.andWhere('risk.isDeleted = :isDeleted', { isDeleted: false });
 
     const risks = await qb.getMany();
+
+    // Get relationship counts
+    const [totalLinkedPolicies, totalLinkedRequirements] = await Promise.all([
+      this.riskPolicyRepository.count({ where: { tenantId } }),
+      this.riskRequirementRepository.count({ where: { tenantId } }),
+    ]);
+
+    // Get count of risks that have at least one linked policy or requirement
+    const risksWithPolicies = await this.riskPolicyRepository
+      .createQueryBuilder('rp')
+      .select('DISTINCT rp.riskId')
+      .where('rp.tenantId = :tenantId', { tenantId })
+      .getRawMany();
+
+    const risksWithRequirements = await this.riskRequirementRepository
+      .createQueryBuilder('rr')
+      .select('DISTINCT rr.riskId')
+      .where('rr.tenantId = :tenantId', { tenantId })
+      .getRawMany();
 
     const byStatus: Record<string, number> = {};
     const bySeverity: Record<string, number> = {};
@@ -527,6 +562,176 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       highPriorityCount,
       overdueCount,
       top5OpenRisks,
+      totalLinkedPolicies,
+      totalLinkedRequirements,
+      risksWithPoliciesCount: risksWithPolicies.length,
+      risksWithRequirementsCount: risksWithRequirements.length,
+    };
+  }
+
+  // ============================================================================
+  // Relationship Management Methods
+  // ============================================================================
+
+  /**
+   * Link policies to a risk
+   * Replaces existing policy links with the new set
+   */
+  async linkPolicies(
+    tenantId: string,
+    riskId: string,
+    policyIds: string[],
+  ): Promise<GrcRiskPolicy[]> {
+    // Verify risk exists
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    // Verify all policies exist
+    const policies = await this.policyRepository.find({
+      where: {
+        id: In(policyIds),
+        tenantId,
+        isDeleted: false,
+      },
+    });
+
+    if (policies.length !== policyIds.length) {
+      const foundIds = policies.map((p) => p.id);
+      const missingIds = policyIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Policies not found: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // Remove existing links for this risk
+    await this.riskPolicyRepository.delete({
+      tenantId,
+      riskId,
+    });
+
+    // Create new links
+    const riskPolicies = policyIds.map((policyId) =>
+      this.riskPolicyRepository.create({
+        tenantId,
+        riskId,
+        policyId,
+      }),
+    );
+
+    return this.riskPolicyRepository.save(riskPolicies);
+  }
+
+  /**
+   * Get policies linked to a risk
+   */
+  async getLinkedPolicies(
+    tenantId: string,
+    riskId: string,
+  ): Promise<GrcPolicy[]> {
+    // Verify risk exists
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const riskPolicies = await this.riskPolicyRepository.find({
+      where: { tenantId, riskId },
+      relations: ['policy'],
+    });
+
+    return riskPolicies.map((rp) => rp.policy).filter((p) => p && !p.isDeleted);
+  }
+
+  /**
+   * Link requirements to a risk
+   * Replaces existing requirement links with the new set
+   */
+  async linkRequirements(
+    tenantId: string,
+    riskId: string,
+    requirementIds: string[],
+  ): Promise<GrcRiskRequirement[]> {
+    // Verify risk exists
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    // Verify all requirements exist
+    const requirements = await this.requirementRepository.find({
+      where: {
+        id: In(requirementIds),
+        tenantId,
+        isDeleted: false,
+      },
+    });
+
+    if (requirements.length !== requirementIds.length) {
+      const foundIds = requirements.map((r) => r.id);
+      const missingIds = requirementIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Requirements not found: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // Remove existing links for this risk
+    await this.riskRequirementRepository.delete({
+      tenantId,
+      riskId,
+    });
+
+    // Create new links
+    const riskRequirements = requirementIds.map((requirementId) =>
+      this.riskRequirementRepository.create({
+        tenantId,
+        riskId,
+        requirementId,
+      }),
+    );
+
+    return this.riskRequirementRepository.save(riskRequirements);
+  }
+
+  /**
+   * Get requirements linked to a risk
+   */
+  async getLinkedRequirements(
+    tenantId: string,
+    riskId: string,
+  ): Promise<GrcRequirement[]> {
+    // Verify risk exists
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const riskRequirements = await this.riskRequirementRepository.find({
+      where: { tenantId, riskId },
+      relations: ['requirement'],
+    });
+
+    return riskRequirements
+      .map((rr) => rr.requirement)
+      .filter((r) => r && !r.isDeleted);
+  }
+
+  /**
+   * Get relationship counts for a risk
+   */
+  async getRelationshipCounts(
+    tenantId: string,
+    riskId: string,
+  ): Promise<{ linkedPoliciesCount: number; linkedRequirementsCount: number }> {
+    const [policiesCount, requirementsCount] = await Promise.all([
+      this.riskPolicyRepository.count({ where: { tenantId, riskId } }),
+      this.riskRequirementRepository.count({ where: { tenantId, riskId } }),
+    ]);
+
+    return {
+      linkedPoliciesCount: policiesCount,
+      linkedRequirementsCount: requirementsCount,
     };
   }
 }

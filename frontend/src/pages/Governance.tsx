@@ -31,12 +31,21 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { policyApi, unwrapPaginatedResponse } from '../services/grcClient';
+import { policyApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+
+// Risk interface for associated risks display
+interface Risk {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+}
 
 interface Policy {
   id: number;
@@ -58,7 +67,11 @@ export const Governance: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [viewingPolicy, setViewingPolicy] = useState<Policy | null>(null);
+  const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
+  const [risksLoading, setRisksLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -132,6 +145,27 @@ export const Governance: React.FC = () => {
       content: '',
     });
     setOpenDialog(true);
+  };
+
+  const fetchAssociatedRisks = async (policyId: string) => {
+    if (!tenantId) return;
+    setRisksLoading(true);
+    try {
+      const response = await policyApi.getLinkedRisks(tenantId, policyId);
+      const risks = unwrapResponse<Risk[]>(response) || [];
+      setAssociatedRisks(risks);
+    } catch (err) {
+      console.error('Failed to fetch associated risks:', err);
+      setAssociatedRisks([]);
+    } finally {
+      setRisksLoading(false);
+    }
+  };
+
+  const handleViewPolicy = (policy: Policy) => {
+    setViewingPolicy(policy);
+    setOpenViewDialog(true);
+    fetchAssociatedRisks(String(policy.id));
   };
 
   const handleSavePolicy = async () => {
@@ -254,6 +288,9 @@ export const Governance: React.FC = () => {
                         {policy.effective_date ? new Date(policy.effective_date).toLocaleDateString() : '-'}
                       </TableCell>
                       <TableCell>
+                        <IconButton size="small" onClick={() => handleViewPolicy(policy)}>
+                          <ViewIcon />
+                        </IconButton>
                         <IconButton size="small" onClick={() => handleEditPolicy(policy)}>
                           <EditIcon />
                         </IconButton>
@@ -369,6 +406,98 @@ export const Governance: React.FC = () => {
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button onClick={handleSavePolicy} variant="contained">
             {editingPolicy ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Policy Dialog */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Policy Details</DialogTitle>
+        <DialogContent>
+          {viewingPolicy && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="h6">{viewingPolicy.title}</Typography>
+              </Grid>
+              {viewingPolicy.description && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Description</Typography>
+                  <Typography>{viewingPolicy.description}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Category</Typography>
+                <Typography>{viewingPolicy.category || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Status</Typography>
+                <Chip
+                  label={viewingPolicy.status}
+                  color={getStatusColor(viewingPolicy.status) as 'success' | 'warning' | 'default'}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Version</Typography>
+                <Typography>{viewingPolicy.version}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Owner</Typography>
+                <Typography>{viewingPolicy.owner_first_name} {viewingPolicy.owner_last_name}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Effective Date</Typography>
+                <Typography>
+                  {viewingPolicy.effective_date ? new Date(viewingPolicy.effective_date).toLocaleDateString() : '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Review Date</Typography>
+                <Typography>
+                  {viewingPolicy.review_date ? new Date(viewingPolicy.review_date).toLocaleDateString() : '-'}
+                </Typography>
+              </Grid>
+
+              {/* Associated Risks Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Associated Risks</Typography>
+                  {risksLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : associatedRisks.length === 0 ? (
+                    <Typography color="textSecondary">No risks linked to this policy.</Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {associatedRisks.map((risk) => (
+                        <Chip
+                          key={risk.id}
+                          label={`${risk.title} (${risk.severity})`}
+                          color={risk.severity === 'critical' ? 'error' : risk.severity === 'high' ? 'warning' : 'default'}
+                          variant="outlined"
+                          size="small"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+          <Button
+            onClick={() => {
+              if (viewingPolicy) {
+                handleEditPolicy(viewingPolicy);
+                setOpenViewDialog(false);
+              }
+            }}
+            variant="contained"
+          >
+            Edit
           </Button>
         </DialogActions>
       </Dialog>

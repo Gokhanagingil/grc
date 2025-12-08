@@ -21,7 +21,13 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcRiskService } from '../services/grc-risk.service';
-import { CreateRiskDto, UpdateRiskDto, RiskFilterDto } from '../dto';
+import {
+  CreateRiskDto,
+  UpdateRiskDto,
+  RiskFilterDto,
+  LinkPoliciesDto,
+  LinkRequirementsDto,
+} from '../dto';
 import { Perf } from '../../common/decorators';
 
 /**
@@ -242,5 +248,99 @@ export class GrcRiskController {
     }
 
     return risk;
+  }
+
+  // ============================================================================
+  // Relationship Management Endpoints
+  // ============================================================================
+
+  /**
+   * POST /grc/risks/:id/policies
+   * Link policies to a risk (replaces existing links)
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Post(':id/policies')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async linkPolicies(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() linkPoliciesDto: LinkPoliciesDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.linkPolicies(
+      tenantId,
+      id,
+      linkPoliciesDto.policyIds,
+    );
+
+    return { message: 'Policies linked successfully' };
+  }
+
+  /**
+   * GET /grc/risks/:id/policies
+   * Get policies linked to a risk
+   */
+  @Get(':id/policies')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getLinkedPolicies(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.riskService.getLinkedPolicies(tenantId, id);
+  }
+
+  /**
+   * POST /grc/risks/:id/requirements
+   * Link requirements to a risk (replaces existing links)
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Post(':id/requirements')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async linkRequirements(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() linkRequirementsDto: LinkRequirementsDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.linkRequirements(
+      tenantId,
+      id,
+      linkRequirementsDto.requirementIds,
+    );
+
+    return { message: 'Requirements linked successfully' };
+  }
+
+  /**
+   * GET /grc/risks/:id/requirements
+   * Get requirements linked to a risk
+   */
+  @Get(':id/requirements')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getLinkedRequirements(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.riskService.getLinkedRequirements(tenantId, id);
   }
 }

@@ -17,6 +17,8 @@ import {
   GrcPolicyControl,
   GrcRequirementControl,
   GrcIssueEvidence,
+  GrcRiskPolicy,
+  GrcRiskRequirement,
   GrcRiskHistory,
   GrcPolicyHistory,
   GrcRequirementHistory,
@@ -69,6 +71,8 @@ import {
       GrcPolicyControl,
       GrcRequirementControl,
       GrcIssueEvidence,
+      GrcRiskPolicy,
+      GrcRiskRequirement,
       // History entities
       GrcRiskHistory,
       GrcPolicyHistory,

@@ -31,12 +31,21 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { requirementApi, unwrapPaginatedResponse } from '../services/grcClient';
+import { requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+
+// Risk interface for associated risks display
+interface Risk {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+}
 
 interface ComplianceRequirement {
   id: number;
@@ -60,7 +69,11 @@ export const Compliance: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<ComplianceRequirement | null>(null);
+  const [viewingRequirement, setViewingRequirement] = useState<ComplianceRequirement | null>(null);
+  const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
+  const [risksLoading, setRisksLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -134,6 +147,27 @@ export const Compliance: React.FC = () => {
       assignedTo: '',
     });
     setOpenDialog(true);
+  };
+
+  const fetchAssociatedRisks = async (requirementId: string) => {
+    if (!tenantId) return;
+    setRisksLoading(true);
+    try {
+      const response = await requirementApi.getLinkedRisks(tenantId, requirementId);
+      const risks = unwrapResponse<Risk[]>(response) || [];
+      setAssociatedRisks(risks);
+    } catch (err) {
+      console.error('Failed to fetch associated risks:', err);
+      setAssociatedRisks([]);
+    } finally {
+      setRisksLoading(false);
+    }
+  };
+
+  const handleViewRequirement = (requirement: ComplianceRequirement) => {
+    setViewingRequirement(requirement);
+    setOpenViewDialog(true);
+    fetchAssociatedRisks(String(requirement.id));
   };
 
   const handleSaveRequirement = async () => {
@@ -269,6 +303,9 @@ export const Compliance: React.FC = () => {
                         {requirement.due_date ? new Date(requirement.due_date).toLocaleDateString() : '-'}
                       </TableCell>
                       <TableCell>
+                        <IconButton size="small" onClick={() => handleViewRequirement(requirement)}>
+                          <ViewIcon />
+                        </IconButton>
                         <IconButton size="small" onClick={() => handleEditRequirement(requirement)}>
                           <EditIcon />
                         </IconButton>
@@ -371,6 +408,102 @@ export const Compliance: React.FC = () => {
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button onClick={handleSaveRequirement} variant="contained">
             {editingRequirement ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Requirement Dialog */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Requirement Details</DialogTitle>
+        <DialogContent>
+          {viewingRequirement && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="h6">{viewingRequirement.title}</Typography>
+              </Grid>
+              {viewingRequirement.description && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Description</Typography>
+                  <Typography>{viewingRequirement.description}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Regulation</Typography>
+                <Typography>{viewingRequirement.regulation || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Category</Typography>
+                <Typography>{viewingRequirement.category || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Status</Typography>
+                <Chip
+                  label={viewingRequirement.status}
+                  color={getStatusColor(viewingRequirement.status) as 'success' | 'info' | 'warning' | 'error' | 'default'}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Due Date</Typography>
+                <Typography>
+                  {viewingRequirement.due_date ? new Date(viewingRequirement.due_date).toLocaleDateString() : '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Owner</Typography>
+                <Typography>{viewingRequirement.owner_first_name} {viewingRequirement.owner_last_name}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Assigned To</Typography>
+                <Typography>{viewingRequirement.assigned_first_name} {viewingRequirement.assigned_last_name}</Typography>
+              </Grid>
+              {viewingRequirement.evidence && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Evidence</Typography>
+                  <Typography>{viewingRequirement.evidence}</Typography>
+                </Grid>
+              )}
+
+              {/* Associated Risks Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Associated Risks</Typography>
+                  {risksLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : associatedRisks.length === 0 ? (
+                    <Typography color="textSecondary">No risks linked to this requirement.</Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {associatedRisks.map((risk) => (
+                        <Chip
+                          key={risk.id}
+                          label={`${risk.title} (${risk.severity})`}
+                          color={risk.severity === 'critical' ? 'error' : risk.severity === 'high' ? 'warning' : 'default'}
+                          variant="outlined"
+                          size="small"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+          <Button
+            onClick={() => {
+              if (viewingRequirement) {
+                handleEditRequirement(viewingRequirement);
+                setOpenViewDialog(false);
+              }
+            }}
+            variant="contained"
+          >
+            Edit
           </Button>
         </DialogActions>
       </Dialog>

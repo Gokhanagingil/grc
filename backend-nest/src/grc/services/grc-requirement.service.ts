@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
+import { GrcRisk } from '../entities/grc-risk.entity';
 import {
   RequirementCreatedEvent,
   RequirementUpdatedEvent,
@@ -29,6 +31,8 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
   constructor(
     @InjectRepository(GrcRequirement)
     repository: Repository<GrcRequirement>,
+    @InjectRepository(GrcRiskRequirement)
+    private readonly riskRequirementRepository: Repository<GrcRiskRequirement>,
     private readonly eventEmitter: EventEmitter2,
   ) {
     super(repository);
@@ -355,12 +359,26 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     nonCompliantCount: number;
     inProgressCount: number;
     requirementCoveragePercentage: number;
+    totalLinkedRisks: number;
+    requirementsWithRisksCount: number;
   }> {
     const qb = this.repository.createQueryBuilder('requirement');
     qb.where('requirement.tenantId = :tenantId', { tenantId });
     qb.andWhere('requirement.isDeleted = :isDeleted', { isDeleted: false });
 
     const requirements = await qb.getMany();
+
+    // Get relationship counts
+    const totalLinkedRisks = await this.riskRequirementRepository.count({
+      where: { tenantId },
+    });
+
+    // Get count of requirements that have at least one linked risk
+    const requirementsWithRisks = await this.riskRequirementRepository
+      .createQueryBuilder('rr')
+      .select('DISTINCT rr.requirementId')
+      .where('rr.tenantId = :tenantId', { tenantId })
+      .getRawMany();
 
     const byFramework: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
@@ -414,6 +432,52 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
       nonCompliantCount,
       inProgressCount,
       requirementCoveragePercentage,
+      totalLinkedRisks,
+      requirementsWithRisksCount: requirementsWithRisks.length,
     };
+  }
+
+  // ============================================================================
+  // Relationship Management Methods
+  // ============================================================================
+
+  /**
+   * Get risks linked to a requirement
+   */
+  async getLinkedRisks(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<GrcRisk[]> {
+    // Verify requirement exists
+    const requirement = await this.findOneActiveForTenant(
+      tenantId,
+      requirementId,
+    );
+    if (!requirement) {
+      throw new NotFoundException(
+        `Requirement with ID ${requirementId} not found`,
+      );
+    }
+
+    const riskRequirements = await this.riskRequirementRepository.find({
+      where: { tenantId, requirementId },
+      relations: ['risk'],
+    });
+
+    return riskRequirements
+      .map((rr) => rr.risk)
+      .filter((r) => r && !r.isDeleted);
+  }
+
+  /**
+   * Get count of risks linked to a requirement
+   */
+  async getLinkedRisksCount(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<number> {
+    return this.riskRequirementRepository.count({
+      where: { tenantId, requirementId },
+    });
   }
 }
