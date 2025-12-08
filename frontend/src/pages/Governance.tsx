@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -32,12 +30,14 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
+  AccountBalance as PolicyIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { policyApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 // Risk interface for associated risks display
 interface Risk {
@@ -217,10 +217,16 @@ export const Governance: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading policies..." />;
+  }
+
+  if (error && policies.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load policies"
+        message={error}
+        onRetry={fetchPolicies}
+      />
     );
   }
 
@@ -241,7 +247,7 @@ export const Governance: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={800}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -257,10 +263,15 @@ export const Governance: React.FC = () => {
               <TableBody>
                 {policies.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography color="textSecondary" sx={{ py: 4 }}>
-                        No policies found. Click "New Policy" to create one.
-                      </Typography>
+                    <TableCell colSpan={7} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<PolicyIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No policies found"
+                        message="Get started by creating your first policy document."
+                        actionLabel="Create Policy"
+                        onAction={handleCreatePolicy}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -303,7 +314,7 @@ export const Governance: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 

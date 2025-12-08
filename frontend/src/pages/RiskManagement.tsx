@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -36,12 +34,14 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   FilterList as FilterIcon,
+  Security as RiskIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 // Policy interface for relationship management
 interface Policy {
@@ -416,10 +416,16 @@ export const RiskManagement: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading risks..." />;
+  }
+
+  if (error && risks.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load risks"
+        message={error}
+        onRetry={fetchRisks}
+      />
     );
   }
 
@@ -494,7 +500,7 @@ export const RiskManagement: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={900}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -511,10 +517,15 @@ export const RiskManagement: React.FC = () => {
               <TableBody>
                 {risks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography color="textSecondary">
-                        {tenantId ? 'No risks found' : 'Please select a tenant to view risks'}
-                      </Typography>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<RiskIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No risks found"
+                        message={tenantId ? 'Get started by creating your first risk assessment.' : 'Please select a tenant to view risks.'}
+                        actionLabel={tenantId ? 'Create Risk' : undefined}
+                        onAction={tenantId ? handleCreateRisk : undefined}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -588,7 +599,7 @@ export const RiskManagement: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
