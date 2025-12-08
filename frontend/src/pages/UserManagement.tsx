@@ -34,19 +34,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { api } from '../services/api';
-
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  department: string;
-  is_active: boolean;
-  created_at: string;
-}
+import { userClient, User, UserFormData } from '../services/userClient';
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -72,8 +60,8 @@ export const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setError('');
-      const response = await api.get('/users');
-      setUsers(response.data.users || []);
+      const response = await userClient.list();
+      setUsers(response.users || []);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
@@ -126,46 +114,58 @@ export const UserManagement: React.FC = () => {
 
   const handleSaveUser = async () => {
     try {
-      const userData = { ...formData };
+      const userData: UserFormData = {
+        username: formData.username,
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role,
+        department: formData.department,
+        isActive: formData.isActive,
+      };
       
-      // Don't send empty password for updates
-      if (editingUser && !userData.password) {
-        delete (userData as any).password;
+      // Only include password if provided
+      if (formData.password) {
+        userData.password = formData.password;
       }
 
       if (editingUser) {
-        await api.put(`/users/${editingUser.id}`, userData);
+        await userClient.update(editingUser.id, userData);
       } else {
-        await api.post('/users', userData);
+        await userClient.create(userData);
       }
 
       setOpenDialog(false);
       fetchUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save user');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save user');
     }
   };
 
-  const handleDeleteUser = async (id: number) => {
+  const handleDeleteUser = async (id: string | number) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await api.delete(`/users/${id}`);
+        await userClient.delete(id);
         fetchUsers();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete user');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete user');
       }
     }
   };
 
   const handleToggleUserStatus = async (user: User) => {
     try {
-      await api.put(`/users/${user.id}`, {
-        ...user,
-        is_active: !user.is_active,
-      });
+      if (user.is_active) {
+        await userClient.deactivate(user.id);
+      } else {
+        await userClient.activate(user.id);
+      }
       fetchUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update user status');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to update user status');
     }
   };
 
