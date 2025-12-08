@@ -14,6 +14,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
 import { ItsmModule } from './itsm/itsm.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -92,7 +93,10 @@ import { StructuredLoggerService } from './common/logger';
     // Metrics collection and /metrics endpoint
     MetricsModule,
 
-    // Rate limiting - default: 100 requests per 60 seconds
+    // Dashboard aggregation (composes data from GRC and ITSM modules)
+    DashboardModule,
+
+    // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],

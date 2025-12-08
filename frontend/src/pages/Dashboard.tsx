@@ -28,7 +28,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { dashboardApi } from '../services/grcClient';
+import { dashboardApi, RiskTrendDataPoint, ComplianceByRegulationItem } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
 
@@ -116,8 +116,8 @@ const StatCard: React.FC<{
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [riskTrends, setRiskTrends] = useState([]);
-  const [complianceData, setComplianceData] = useState([]);
+  const [riskTrends, setRiskTrends] = useState<RiskTrendDataPoint[]>([]);
+  const [complianceData, setComplianceData] = useState<ComplianceByRegulationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -128,14 +128,17 @@ export const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      // Use the centralized dashboard API which aggregates from summary endpoints
-      const overview = await dashboardApi.getOverview(tenantId);
+      
+      // Fetch all dashboard data in parallel from dedicated NestJS endpoints
+      const [overview, trends, complianceByReg] = await Promise.all([
+        dashboardApi.getOverview(tenantId),
+        dashboardApi.getRiskTrends(tenantId),
+        dashboardApi.getComplianceByRegulation(tenantId),
+      ]);
       
       setStats(overview);
-      // Risk trends and compliance by regulation are not available in NestJS
-      // These would need dedicated endpoints or can be derived from the summary data
-      setRiskTrends([]);
-      setComplianceData([]);
+      setRiskTrends(trends);
+      setComplianceData(complianceByReg);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
@@ -146,6 +149,7 @@ export const Dashboard: React.FC = () => {
       } else if (status === 403) {
         setError('You do not have permission to view the dashboard.');
       } else if (status === 404 || status === 502) {
+        // Graceful degradation: show empty data instead of error
         setStats({
           risks: { total: 0, open: 0, high: 0, overdue: 0 },
           compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
