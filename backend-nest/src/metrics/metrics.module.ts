@@ -1,6 +1,11 @@
 import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { MetricsService } from './metrics.service';
 import { MetricsController } from './metrics.controller';
+import { GrcRisk } from '../grc/entities/grc-risk.entity';
+import { GrcPolicy } from '../grc/entities/grc-policy.entity';
+import { GrcRequirement } from '../grc/entities/grc-requirement.entity';
+import { ItsmIncident } from '../itsm/incident/incident.entity';
 
 /**
  * Metrics Module
@@ -10,6 +15,14 @@ import { MetricsController } from './metrics.controller';
  */
 @Global()
 @Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      GrcRisk,
+      GrcPolicy,
+      GrcRequirement,
+      ItsmIncident,
+    ]),
+  ],
   controllers: [MetricsController],
   providers: [MetricsService],
   exports: [MetricsService],

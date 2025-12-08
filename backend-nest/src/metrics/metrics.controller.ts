@@ -1,11 +1,11 @@
 import { Controller, Get, Header } from '@nestjs/common';
-import { MetricsService } from './metrics.service';
+import { MetricsService, BasicMetrics } from './metrics.service';
 
 /**
  * Metrics Controller
  *
  * Exposes Prometheus-compatible metrics endpoint at /metrics.
- * Also provides a JSON endpoint for debugging.
+ * Also provides JSON endpoints for debugging and basic monitoring.
  */
 @Controller('metrics')
 export class MetricsController {
@@ -31,5 +31,23 @@ export class MetricsController {
   @Get('json')
   getMetricsJson(): Record<string, unknown> {
     return this.metricsService.toJson();
+  }
+
+  /**
+   * GET /metrics/basic
+   *
+   * Returns basic metrics including entity counts for monitoring.
+   * This lightweight endpoint is designed to be polled by external monitoring tools.
+   *
+   * Response includes:
+   * - timestamp: ISO 8601 timestamp
+   * - uptime_seconds: Application uptime
+   * - memory_usage_mb: Current heap memory usage
+   * - entity_counts: Counts of risks, policies, requirements, incidents
+   * - http_stats: Total requests, errors, and average latency
+   */
+  @Get('basic')
+  async getBasicMetrics(): Promise<BasicMetrics> {
+    return this.metricsService.getBasicMetrics();
   }
 }

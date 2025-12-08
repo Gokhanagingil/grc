@@ -4,9 +4,9 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { StructuredLoggerService } from '../logger';
 
 /**
  * Standard API Error Response
@@ -45,7 +45,11 @@ export interface ApiErrorResponse {
  */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
+  private readonly logger = new StructuredLoggerService();
+
+  constructor() {
+    this.logger.setContext('GlobalExceptionFilter');
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -98,23 +102,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = 'An unexpected error occurred';
 
       // Log the actual error for debugging
-      this.logger.error(
-        `Unexpected error: ${exception.message}`,
-        exception.stack,
-        {
-          path: request.url,
-          method: request.method,
-        },
-      );
+      this.logger.error(`Unexpected error: ${exception.message}`, {
+        path: request.url,
+        method: request.method,
+        error: exception,
+      });
     } else {
       // Unknown error type
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       errorCode = 'INTERNAL_SERVER_ERROR';
       message = 'An unexpected error occurred';
 
-      this.logger.error('Unknown error type', String(exception), {
+      this.logger.error('Unknown error type', {
         path: request.url,
         method: request.method,
+        exception: String(exception),
       });
     }
 

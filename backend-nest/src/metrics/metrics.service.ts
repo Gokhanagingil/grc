@@ -1,4 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { GrcRisk } from '../grc/entities/grc-risk.entity';
+import { GrcPolicy } from '../grc/entities/grc-policy.entity';
+import { GrcRequirement } from '../grc/entities/grc-requirement.entity';
+import { ItsmIncident } from '../itsm/incident/incident.entity';
 
 /**
  * Route metrics data structure
@@ -13,6 +19,26 @@ interface RouteMetrics {
 }
 
 /**
+ * Basic entity counts for monitoring
+ */
+export interface BasicMetrics {
+  timestamp: string;
+  uptime_seconds: number;
+  memory_usage_mb: number;
+  entity_counts: {
+    risks: number;
+    policies: number;
+    requirements: number;
+    incidents: number;
+  };
+  http_stats: {
+    total_requests: number;
+    total_errors: number;
+    avg_latency_ms: number;
+  };
+}
+
+/**
  * Metrics Service
  *
  * Collects and stores in-memory metrics for request counts, latencies, and errors.
@@ -24,6 +50,17 @@ export class MetricsService {
   private readonly routeMetrics: Map<string, RouteMetrics> = new Map();
   private totalRequests: number = 0;
   private totalErrors: number = 0;
+
+  constructor(
+    @InjectRepository(GrcRisk)
+    private readonly riskRepository: Repository<GrcRisk>,
+    @InjectRepository(GrcPolicy)
+    private readonly policyRepository: Repository<GrcPolicy>,
+    @InjectRepository(GrcRequirement)
+    private readonly requirementRepository: Repository<GrcRequirement>,
+    @InjectRepository(ItsmIncident)
+    private readonly incidentRepository: Repository<ItsmIncident>,
+  ) {}
 
   /**
    * Record a request with its latency and status code
@@ -277,6 +314,38 @@ export class MetricsService {
       total_errors: this.totalErrors,
       avg_latency_ms: this.getAverageLatencyMs(),
       routes,
+    };
+  }
+
+  /**
+   * Get basic metrics including entity counts
+   * This endpoint is designed for lightweight monitoring and can be polled frequently.
+   */
+  async getBasicMetrics(): Promise<BasicMetrics> {
+    // Run all count queries in parallel for efficiency
+    const [risksCount, policiesCount, requirementsCount, incidentsCount] =
+      await Promise.all([
+        this.riskRepository.count(),
+        this.policyRepository.count(),
+        this.requirementRepository.count(),
+        this.incidentRepository.count(),
+      ]);
+
+    return {
+      timestamp: new Date().toISOString(),
+      uptime_seconds: this.getUptimeSeconds(),
+      memory_usage_mb: this.getMemoryUsageMb(),
+      entity_counts: {
+        risks: risksCount,
+        policies: policiesCount,
+        requirements: requirementsCount,
+        incidents: incidentsCount,
+      },
+      http_stats: {
+        total_requests: this.totalRequests,
+        total_errors: this.totalErrors,
+        avg_latency_ms: this.getAverageLatencyMs(),
+      },
     };
   }
 
