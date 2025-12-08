@@ -1,6 +1,16 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+/**
+ * API Base URL Configuration
+ * 
+ * In production/staging: Uses /api (relative path) for single-origin architecture
+ * via NGINX reverse proxy. This eliminates CORS issues and firewall problems.
+ * 
+ * In development: Falls back to http://localhost:3001/api for direct backend access.
+ * 
+ * The REACT_APP_API_URL is set at build time via Docker build args or .env file.
+ */
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 /**
  * Standard API Error Response
