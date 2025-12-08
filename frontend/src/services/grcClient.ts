@@ -113,6 +113,13 @@ export const API_PATHS = {
     USERS: '/tenants/users',
     HEALTH: '/tenants/health',
   },
+
+  // Dashboard endpoints (NestJS)
+  DASHBOARD: {
+    OVERVIEW: '/dashboard/overview',
+    RISK_TRENDS: '/dashboard/risk-trends',
+    COMPLIANCE_BY_REGULATION: '/dashboard/compliance-by-regulation',
+  },
 } as const;
 
 // ============================================================================
@@ -401,106 +408,43 @@ export const incidentApi = {
 };
 
 // ============================================================================
-// Dashboard API (Aggregated from summary endpoints)
+// Dashboard API (Uses dedicated NestJS Dashboard endpoints)
 // ============================================================================
+
+/**
+ * Risk trend data point for time-series chart
+ */
+export interface RiskTrendDataPoint {
+  date: string;
+  total_risks: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+/**
+ * Compliance by regulation data point
+ */
+export interface ComplianceByRegulationItem {
+  regulation: string;
+  completed: number;
+  pending: number;
+  overdue: number;
+}
 
 export const dashboardApi = {
   /**
-   * Get dashboard overview by aggregating data from multiple summary endpoints
-   * Enhanced with KPI-ready fields for Dashboard
+   * Get dashboard overview from the dedicated NestJS Dashboard endpoint
+   * This endpoint aggregates data from GRC and ITSM services on the backend
    */
   getOverview: async (tenantId: string): Promise<DashboardOverview> => {
     try {
-      const [riskSummary, policySummary, requirementSummary, incidentSummary] = await Promise.all([
-        riskApi.summary(tenantId).catch(() => ({ data: null })),
-        policyApi.summary(tenantId).catch(() => ({ data: null })),
-        requirementApi.summary(tenantId).catch(() => ({ data: null })),
-        incidentApi.summary(tenantId).catch(() => ({ data: null })),
-      ]);
-
-      // Extract data from responses, handling both envelope and flat formats
-      const riskData = unwrapResponse<{
-        totalCount?: number;
-        total?: number;
-        byStatus?: Record<string, number>;
-        bySeverity?: Record<string, number>;
-        highPriorityCount?: number;
-        overdueCount?: number;
-        top5OpenRisks?: Array<{
-          id: string;
-          title: string;
-          severity: string;
-          score: number | null;
-        }>;
-      }>(riskSummary) || {};
-      
-      const policyData = unwrapResponse<{
-        totalCount?: number;
-        total?: number;
-        byStatus?: Record<string, number>;
-        activeCount?: number;
-        draftCount?: number;
-        policyCoveragePercentage?: number;
-      }>(policySummary) || {};
-      
-      const requirementData = unwrapResponse<{
-        totalCount?: number;
-        total?: number;
-        byStatus?: Record<string, number>;
-        compliantCount?: number;
-        nonCompliantCount?: number;
-        inProgressCount?: number;
-        requirementCoveragePercentage?: number;
-      }>(requirementSummary) || {};
-      
-      const incidentData = unwrapResponse<{
-        totalCount?: number;
-        total?: number;
-        byStatus?: Record<string, number>;
-        openCount?: number;
-        closedCount?: number;
-        resolvedCount?: number;
-        resolvedToday?: number;
-        avgResolutionTimeHours?: number | null;
-      }>(incidentSummary) || {};
-
-      return {
-        risks: {
-          total: riskData.totalCount || riskData.total || 0,
-          open: riskData.byStatus?.['identified'] || riskData.byStatus?.['open'] || 0,
-          high: (riskData.bySeverity?.['high'] || 0) + (riskData.bySeverity?.['critical'] || 0),
-          overdue: riskData.overdueCount || 0,
-          top5OpenRisks: riskData.top5OpenRisks || [],
-        },
-        compliance: {
-          total: requirementData.totalCount || requirementData.total || 0,
-          pending: requirementData.byStatus?.['pending'] || requirementData.inProgressCount || 0,
-          completed: requirementData.byStatus?.['compliant'] || requirementData.compliantCount || 0,
-          overdue: requirementData.byStatus?.['non_compliant'] || requirementData.nonCompliantCount || 0,
-          coveragePercentage: requirementData.requirementCoveragePercentage,
-        },
-        policies: {
-          total: policyData.totalCount || policyData.total || 0,
-          active: policyData.byStatus?.['active'] || policyData.activeCount || 0,
-          draft: policyData.byStatus?.['draft'] || policyData.draftCount || 0,
-          coveragePercentage: policyData.policyCoveragePercentage,
-        },
-        incidents: {
-          total: incidentData.totalCount || incidentData.total || 0,
-          open: incidentData.openCount || 0,
-          closed: incidentData.closedCount || 0,
-          resolved: incidentData.resolvedCount || 0,
-          resolvedToday: incidentData.resolvedToday,
-          avgResolutionTimeHours: incidentData.avgResolutionTimeHours,
-        },
-        users: {
-          total: 0, // User count not available from NestJS summary endpoints
-          admins: 0,
-          managers: 0,
-        },
-      };
+      const response = await api.get(API_PATHS.DASHBOARD.OVERVIEW, withTenantId(tenantId));
+      return unwrapResponse<DashboardOverview>(response);
     } catch (error) {
       console.error('Failed to fetch dashboard overview:', error);
+      // Return empty data on error for graceful degradation
       return {
         risks: { total: 0, open: 0, high: 0, overdue: 0, top5OpenRisks: [] },
         compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
@@ -508,6 +452,34 @@ export const dashboardApi = {
         incidents: { total: 0, open: 0, closed: 0, resolved: 0 },
         users: { total: 0, admins: 0, managers: 0 },
       };
+    }
+  },
+
+  /**
+   * Get risk trends data from the dedicated NestJS Dashboard endpoint
+   * Returns risk counts grouped by severity for visualization
+   */
+  getRiskTrends: async (tenantId: string): Promise<RiskTrendDataPoint[]> => {
+    try {
+      const response = await api.get(API_PATHS.DASHBOARD.RISK_TRENDS, withTenantId(tenantId));
+      return unwrapResponse<RiskTrendDataPoint[]>(response) || [];
+    } catch (error) {
+      console.error('Failed to fetch risk trends:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get compliance breakdown by regulation from the dedicated NestJS Dashboard endpoint
+   * Returns compliance status grouped by framework for visualization
+   */
+  getComplianceByRegulation: async (tenantId: string): Promise<ComplianceByRegulationItem[]> => {
+    try {
+      const response = await api.get(API_PATHS.DASHBOARD.COMPLIANCE_BY_REGULATION, withTenantId(tenantId));
+      return unwrapResponse<ComplianceByRegulationItem[]>(response) || [];
+    } catch (error) {
+      console.error('Failed to fetch compliance by regulation:', error);
+      return [];
     }
   },
 };
