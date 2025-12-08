@@ -127,7 +127,7 @@ export class SettingsController {
    */
   @Get('system-info')
   @Roles(UserRole.ADMIN)
-  async getSystemInfo(@Req() request: Request): Promise<{
+  getSystemInfo(@Req() request: Request): {
     backendVersion: string;
     frontendVersion: string;
     apiGatewayStatus: string;
@@ -137,7 +137,7 @@ export class SettingsController {
     storageProvider: string;
     nodeEnv: string;
     uptime: number;
-  }> {
+  } {
     const tenantId = request.headers['x-tenant-id'] as string | undefined;
 
     return {
