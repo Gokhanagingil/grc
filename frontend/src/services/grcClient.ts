@@ -340,26 +340,26 @@ export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items
 /**
  * Unwrap paginated policy response with field transformation
  */
-export function unwrapPaginatedPolicyResponse<T extends Record<string, unknown>>(
+export function unwrapPaginatedPolicyResponse<T>(
   response: { data: unknown }
 ): { items: T[]; total: number; page: number; pageSize: number } {
-  const result = unwrapPaginatedResponse<T>(response);
+  const result = unwrapPaginatedResponse<Record<string, unknown>>(response);
   return {
     ...result,
-    items: result.items.map(item => transformPolicyResponse(item)),
+    items: result.items.map(item => transformPolicyResponse(item)) as T[],
   };
 }
 
 /**
  * Unwrap paginated requirement response with field transformation
  */
-export function unwrapPaginatedRequirementResponse<T extends Record<string, unknown>>(
+export function unwrapPaginatedRequirementResponse<T>(
   response: { data: unknown }
 ): { items: T[]; total: number; page: number; pageSize: number } {
-  const result = unwrapPaginatedResponse<T>(response);
+  const result = unwrapPaginatedResponse<Record<string, unknown>>(response);
   return {
     ...result,
-    items: result.items.map(item => transformRequirementResponse(item)),
+    items: result.items.map(item => transformRequirementResponse(item)) as T[],
   };
 }
 
