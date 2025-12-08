@@ -18,6 +18,8 @@ export { GrcRiskControl } from './grc-risk-control.entity';
 export { GrcPolicyControl } from './grc-policy-control.entity';
 export { GrcRequirementControl } from './grc-requirement-control.entity';
 export { GrcIssueEvidence } from './grc-issue-evidence.entity';
+export { GrcRiskPolicy } from './grc-risk-policy.entity';
+export { GrcRiskRequirement } from './grc-risk-requirement.entity';
 
 // History Entities
 export {

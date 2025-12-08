@@ -12,6 +12,8 @@ import { User } from '../../users/user.entity';
 import { RiskSeverity, RiskLikelihood, RiskStatus } from '../enums';
 import { GrcRiskControl } from './grc-risk-control.entity';
 import { GrcIssue } from './grc-issue.entity';
+import { GrcRiskPolicy } from './grc-risk-policy.entity';
+import { GrcRiskRequirement } from './grc-risk-requirement.entity';
 
 /**
  * GRC Risk Entity
@@ -95,4 +97,10 @@ export class GrcRisk extends BaseEntity {
 
   @OneToMany(() => GrcIssue, (issue) => issue.risk)
   issues: GrcIssue[];
+
+  @OneToMany(() => GrcRiskPolicy, (rp) => rp.risk)
+  riskPolicies: GrcRiskPolicy[];
+
+  @OneToMany(() => GrcRiskRequirement, (rr) => rr.risk)
+  riskRequirements: GrcRiskRequirement[];
 }

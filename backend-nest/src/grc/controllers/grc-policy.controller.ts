@@ -266,4 +266,26 @@ export class GrcPolicyController {
 
     return policy;
   }
+
+  // ============================================================================
+  // Relationship Management Endpoints
+  // ============================================================================
+
+  /**
+   * GET /grc/policies/:id/risks
+   * Get risks linked to a policy
+   */
+  @Get(':id/risks')
+  @Permissions(Permission.GRC_POLICY_READ)
+  @Perf()
+  async getLinkedRisks(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.policyService.getLinkedRisks(tenantId, id);
+  }
 }

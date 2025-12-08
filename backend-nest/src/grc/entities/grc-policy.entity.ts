@@ -11,6 +11,7 @@ import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { PolicyStatus } from '../enums';
 import { GrcPolicyControl } from './grc-policy-control.entity';
+import { GrcRiskPolicy } from './grc-risk-policy.entity';
 
 /**
  * GRC Policy Entity
@@ -82,4 +83,7 @@ export class GrcPolicy extends BaseEntity {
 
   @OneToMany(() => GrcPolicyControl, (pc) => pc.policy)
   policyControls: GrcPolicyControl[];
+
+  @OneToMany(() => GrcRiskPolicy, (rp) => rp.policy)
+  riskPolicies: GrcRiskPolicy[];
 }

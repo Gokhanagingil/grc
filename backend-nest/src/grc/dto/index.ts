@@ -28,3 +28,7 @@ export {
   RequirementFilterDto,
   REQUIREMENT_SORTABLE_FIELDS,
 } from './filter-requirement.dto';
+
+// Relationship DTOs
+export { LinkPoliciesDto } from './link-policies.dto';
+export { LinkRequirementsDto } from './link-requirements.dto';

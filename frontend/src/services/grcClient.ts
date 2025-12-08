@@ -39,6 +39,8 @@ export const API_PATHS = {
     STATISTICS: '/grc/risks/statistics',
     HIGH_SEVERITY: '/grc/risks/high-severity',
     CONTROLS: (id: string) => `/grc/risks/${id}/controls`,
+    POLICIES: (id: string) => `/grc/risks/${id}/policies`,
+    REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
   },
 
   // GRC Policy endpoints (Governance)
@@ -53,6 +55,7 @@ export const API_PATHS = {
     ACTIVE: '/grc/policies/active',
     DUE_FOR_REVIEW: '/grc/policies/due-for-review',
     CONTROLS: (id: string) => `/grc/policies/${id}/controls`,
+    RISKS: (id: string) => `/grc/policies/${id}/risks`,
   },
 
   // GRC Requirement endpoints (Compliance)
@@ -66,6 +69,7 @@ export const API_PATHS = {
     STATISTICS: '/grc/requirements/statistics',
     FRAMEWORKS: '/grc/requirements/frameworks',
     CONTROLS: (id: string) => `/grc/requirements/${id}/controls`,
+    RISKS: (id: string) => `/grc/requirements/${id}/risks`,
   },
 
   // ITSM Incident endpoints
@@ -277,6 +281,19 @@ export const riskApi = {
   
   highSeverity: (tenantId: string) => 
     api.get(API_PATHS.GRC_RISKS.HIGH_SEVERITY, withTenantId(tenantId)),
+
+  // Relationship management
+  getLinkedPolicies: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.POLICIES(riskId), withTenantId(tenantId)),
+
+  linkPolicies: (tenantId: string, riskId: string, policyIds: string[]) =>
+    api.post(API_PATHS.GRC_RISKS.POLICIES(riskId), { policyIds }, withTenantId(tenantId)),
+
+  getLinkedRequirements: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.REQUIREMENTS(riskId), withTenantId(tenantId)),
+
+  linkRequirements: (tenantId: string, riskId: string, requirementIds: string[]) =>
+    api.post(API_PATHS.GRC_RISKS.REQUIREMENTS(riskId), { requirementIds }, withTenantId(tenantId)),
 };
 
 // ============================================================================
@@ -310,6 +327,10 @@ export const policyApi = {
   
   dueForReview: (tenantId: string) => 
     api.get(API_PATHS.GRC_POLICIES.DUE_FOR_REVIEW, withTenantId(tenantId)),
+
+  // Relationship management
+  getLinkedRisks: (tenantId: string, policyId: string) =>
+    api.get(API_PATHS.GRC_POLICIES.RISKS(policyId), withTenantId(tenantId)),
 };
 
 // ============================================================================
@@ -340,6 +361,10 @@ export const requirementApi = {
   
   frameworks: (tenantId: string) => 
     api.get(API_PATHS.GRC_REQUIREMENTS.FRAMEWORKS, withTenantId(tenantId)),
+
+  // Relationship management
+  getLinkedRisks: (tenantId: string, requirementId: string) =>
+    api.get(API_PATHS.GRC_REQUIREMENTS.RISKS(requirementId), withTenantId(tenantId)),
 };
 
 // ============================================================================

@@ -40,8 +40,24 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { riskApi, unwrapPaginatedResponse } from '../services/grcClient';
+import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+
+// Policy interface for relationship management
+interface Policy {
+  id: string;
+  title: string;
+  status: string;
+  category: string | null;
+}
+
+// Requirement interface for relationship management
+interface Requirement {
+  id: string;
+  title: string;
+  status: string;
+  framework: string;
+}
 
 // Risk enums matching backend
 export enum RiskSeverity {
@@ -120,6 +136,16 @@ export const RiskManagement: React.FC = () => {
     dueDate: null as Date | null,
   });
 
+  // Relationship management state
+  const [allPolicies, setAllPolicies] = useState<Policy[]>([]);
+  const [allRequirements, setAllRequirements] = useState<Requirement[]>([]);
+  const [linkedPolicies, setLinkedPolicies] = useState<Policy[]>([]);
+  const [linkedRequirements, setLinkedRequirements] = useState<Requirement[]>([]);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
+  const [selectedRequirementIds, setSelectedRequirementIds] = useState<string[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSaving, setRelationshipSaving] = useState(false);
+
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
@@ -173,6 +199,75 @@ export const RiskManagement: React.FC = () => {
     fetchRisks();
   }, [fetchRisks]);
 
+  // Fetch all policies and requirements for relationship dropdowns
+  const fetchAllPoliciesAndRequirements = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        policyApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
+        requirementApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
+      ]);
+      const policiesResult = unwrapPaginatedResponse<Policy>(policiesResponse);
+      const requirementsResult = unwrapPaginatedResponse<Requirement>(requirementsResponse);
+      setAllPolicies(policiesResult.items);
+      setAllRequirements(requirementsResult.items);
+    } catch (err) {
+      console.error('Failed to fetch policies/requirements for relationships:', err);
+    }
+  }, [tenantId]);
+
+  // Fetch linked policies and requirements for a specific risk
+  const fetchRiskRelationships = useCallback(async (riskId: string) => {
+    if (!tenantId) return;
+    setRelationshipLoading(true);
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        riskApi.getLinkedPolicies(tenantId, riskId),
+        riskApi.getLinkedRequirements(tenantId, riskId),
+      ]);
+      const policies = unwrapResponse<Policy[]>(policiesResponse) || [];
+      const requirements = unwrapResponse<Requirement[]>(requirementsResponse) || [];
+      setLinkedPolicies(policies);
+      setLinkedRequirements(requirements);
+      setSelectedPolicyIds(policies.map(p => p.id));
+      setSelectedRequirementIds(requirements.map(r => r.id));
+    } catch (err) {
+      console.error('Failed to fetch risk relationships:', err);
+      setLinkedPolicies([]);
+      setLinkedRequirements([]);
+      setSelectedPolicyIds([]);
+      setSelectedRequirementIds([]);
+    } finally {
+      setRelationshipLoading(false);
+    }
+  }, [tenantId]);
+
+  // Save relationship changes
+  const handleSaveRelationships = async () => {
+    if (!tenantId || !viewingRisk) return;
+    setRelationshipSaving(true);
+    try {
+      await Promise.all([
+        riskApi.linkPolicies(tenantId, viewingRisk.id, selectedPolicyIds),
+        riskApi.linkRequirements(tenantId, viewingRisk.id, selectedRequirementIds),
+      ]);
+      setSuccess('Relationships updated successfully');
+      // Refresh linked items
+      await fetchRiskRelationships(viewingRisk.id);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to save relationships:', err);
+      setError('Failed to save relationships');
+    } finally {
+      setRelationshipSaving(false);
+    }
+  };
+
+  // Fetch all policies/requirements on mount
+  useEffect(() => {
+    fetchAllPoliciesAndRequirements();
+  }, [fetchAllPoliciesAndRequirements]);
+
   const handleCreateRisk = () => {
     setEditingRisk(null);
     setFormData({
@@ -208,6 +303,8 @@ export const RiskManagement: React.FC = () => {
   const handleViewRisk = (risk: Risk) => {
     setViewingRisk(risk);
     setOpenViewDialog(true);
+    // Fetch relationships when viewing a risk
+    fetchRiskRelationships(risk.id);
   };
 
   const handleSaveRisk = async () => {
@@ -712,6 +809,116 @@ export const RiskManagement: React.FC = () => {
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
                 <Typography>{new Date(viewingRisk.updatedAt).toLocaleString()}</Typography>
+              </Grid>
+
+              {/* Relationship Management Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Linked Relationships</Typography>
+                  {relationshipLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <Grid container spacing={2}>
+                      {/* Linked Policies */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Policies</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedPolicyIds}
+                            label="Linked Policies"
+                            onChange={(e) => setSelectedPolicyIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const policy = allPolicies.find(p => p.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={policy?.title || id}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allPolicies.map((policy) => (
+                              <MenuItem key={policy.id} value={policy.id}>
+                                {policy.title} ({policy.status})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedPolicies.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedPolicies.length} {linkedPolicies.length === 1 ? 'policy' : 'policies'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Linked Requirements */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Requirements</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedRequirementIds}
+                            label="Linked Requirements"
+                            onChange={(e) => setSelectedRequirementIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const requirement = allRequirements.find(r => r.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={requirement?.title || id}
+                                      size="small"
+                                      color="secondary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allRequirements.map((requirement) => (
+                              <MenuItem key={requirement.id} value={requirement.id}>
+                                {requirement.title} ({requirement.framework})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedRequirements.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedRequirements.length} {linkedRequirements.length === 1 ? 'requirement' : 'requirements'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Save Relationships Button */}
+                      <Grid item xs={12}>
+                        <Button
+                          variant="outlined"
+                          onClick={handleSaveRelationships}
+                          disabled={relationshipSaving}
+                          startIcon={relationshipSaving ? <CircularProgress size={16} /> : null}
+                        >
+                          {relationshipSaving ? 'Saving...' : 'Save Relationships'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  )}
+                </Box>
               </Grid>
             </Grid>
           )}

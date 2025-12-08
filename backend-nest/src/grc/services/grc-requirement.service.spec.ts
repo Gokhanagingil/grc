@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GrcRequirementService } from './grc-requirement.service';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
 import { ComplianceFramework } from '../enums';
 
 describe('GrcRequirementService', () => {
@@ -40,6 +41,20 @@ describe('GrcRequirementService', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    const mockRiskRequirementRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
     const mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -50,6 +65,10 @@ describe('GrcRequirementService', () => {
         {
           provide: getRepositoryToken(GrcRequirement),
           useValue: mockRequirementRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRiskRequirement),
+          useValue: mockRiskRequirementRepository,
         },
         {
           provide: EventEmitter2,
