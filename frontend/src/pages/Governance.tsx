@@ -35,7 +35,8 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { policyApi, unwrapPaginatedResponse } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Policy {
   id: number;
@@ -52,6 +53,7 @@ interface Policy {
 }
 
 export const Governance: React.FC = () => {
+  const { user } = useAuth();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,15 +70,20 @@ export const Governance: React.FC = () => {
     content: '',
   });
 
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
+
   useEffect(() => {
     fetchPolicies();
-  }, []);
+  }, [tenantId]);
 
   const fetchPolicies = async () => {
     try {
       setError('');
-      const response = await api.get('/governance/policies');
-      setPolicies(response.data.policies || []);
+      const response = await policyApi.list(tenantId);
+      // Handle NestJS response format
+      const result = unwrapPaginatedResponse<Policy>(response);
+      setPolicies(result.items || []);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
@@ -130,31 +137,38 @@ export const Governance: React.FC = () => {
   const handleSavePolicy = async () => {
     try {
       const policyData = {
-        ...formData,
+        name: formData.title, // NestJS uses 'name' instead of 'title'
+        summary: formData.description,
+        category: formData.category,
+        version: formData.version,
+        status: formData.status,
         effectiveDate: formData.effectiveDate?.toISOString().split('T')[0],
         reviewDate: formData.reviewDate?.toISOString().split('T')[0],
+        content: formData.content,
       };
 
       if (editingPolicy) {
-        await api.put(`/governance/policies/${editingPolicy.id}`, policyData);
+        await policyApi.update(tenantId, String(editingPolicy.id), policyData);
       } else {
-        await api.post('/governance/policies', policyData);
+        await policyApi.create(tenantId, policyData);
       }
 
       setOpenDialog(false);
       fetchPolicies();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save policy');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save policy');
     }
   };
 
   const handleDeletePolicy = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this policy?')) {
       try {
-        await api.delete(`/governance/policies/${id}`);
+        await policyApi.delete(tenantId, String(id));
         fetchPolicies();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete policy');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete policy');
       }
     }
   };
