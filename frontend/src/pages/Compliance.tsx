@@ -35,7 +35,8 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { requirementApi, unwrapPaginatedResponse } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ComplianceRequirement {
   id: number;
@@ -54,6 +55,7 @@ interface ComplianceRequirement {
 }
 
 export const Compliance: React.FC = () => {
+  const { user } = useAuth();
   const [requirements, setRequirements] = useState<ComplianceRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -70,15 +72,20 @@ export const Compliance: React.FC = () => {
     assignedTo: '',
   });
 
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
+
   useEffect(() => {
     fetchRequirements();
-  }, []);
+  }, [tenantId]);
 
   const fetchRequirements = async () => {
     try {
       setError('');
-      const response = await api.get('/compliance/requirements');
-      setRequirements(response.data.requirements || []);
+      const response = await requirementApi.list(tenantId);
+      // Handle NestJS response format
+      const result = unwrapPaginatedResponse<ComplianceRequirement>(response);
+      setRequirements(result.items || []);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
@@ -132,30 +139,38 @@ export const Compliance: React.FC = () => {
   const handleSaveRequirement = async () => {
     try {
       const requirementData = {
-        ...formData,
+        name: formData.title, // NestJS uses 'name' instead of 'title'
+        summary: formData.description,
+        framework: formData.regulation, // NestJS uses 'framework' instead of 'regulation'
+        category: formData.category,
+        status: formData.status,
         dueDate: formData.dueDate?.toISOString().split('T')[0],
+        evidence: formData.evidence,
+        assignedTo: formData.assignedTo,
       };
 
       if (editingRequirement) {
-        await api.put(`/compliance/requirements/${editingRequirement.id}`, requirementData);
+        await requirementApi.update(tenantId, String(editingRequirement.id), requirementData);
       } else {
-        await api.post('/compliance/requirements', requirementData);
+        await requirementApi.create(tenantId, requirementData);
       }
 
       setOpenDialog(false);
       fetchRequirements();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save compliance requirement');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save compliance requirement');
     }
   };
 
   const handleDeleteRequirement = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this compliance requirement?')) {
       try {
-        await api.delete(`/compliance/requirements/${id}`);
+        await requirementApi.delete(tenantId, String(id));
         fetchRequirements();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete compliance requirement');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete compliance requirement');
       }
     }
   };

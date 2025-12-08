@@ -40,7 +40,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { riskApi, unwrapPaginatedResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 
 // Risk enums matching backend
@@ -140,35 +140,13 @@ export const RiskManagement: React.FC = () => {
         params.append('severity', severityFilter);
       }
       
-      // Route through NestJS proxy for GRC risks
-      const headers: Record<string, string> = {};
-      if (tenantId) {
-        headers['x-tenant-id'] = tenantId;
-      }
+      // Use centralized API client - no more /nest/ prefix
+      const response = await riskApi.list(tenantId, params);
       
-      const response = await api.get(`/nest/grc/risks?${params}`, { headers });
-      
-      // Handle NestJS response format: { success: true, data: [...], meta: {...} }
-      const responseData = response.data as { 
-        success?: boolean; 
-        data?: Risk[]; 
-        items?: Risk[];
-        meta?: { total: number; page: number; pageSize: number; totalPages: number };
-        total?: number;
-      };
-      
-      if (responseData.success && Array.isArray(responseData.data)) {
-        setRisks(responseData.data);
-        setTotal(responseData.meta?.total || responseData.data.length);
-      } else if (Array.isArray(responseData.items)) {
-        // Fallback for old format
-        setRisks(responseData.items);
-        setTotal(responseData.total || responseData.items.length);
-      } else {
-        // Empty or unexpected format - show empty state
-        setRisks([]);
-        setTotal(0);
-      }
+      // Handle NestJS response format using centralized unwrapper
+      const result = unwrapPaginatedResponse<Risk>(response);
+      setRisks(result.items);
+      setTotal(result.total);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
@@ -251,16 +229,12 @@ export const RiskManagement: React.FC = () => {
         dueDate: formData.dueDate?.toISOString().split('T')[0] || undefined,
       };
 
-      const headers: Record<string, string> = {};
-      if (tenantId) {
-        headers['x-tenant-id'] = tenantId;
-      }
-
+      // Use centralized API client - no more /nest/ prefix
       if (editingRisk) {
-        await api.patch(`/nest/grc/risks/${editingRisk.id}`, riskData, { headers });
+        await riskApi.update(tenantId, editingRisk.id, riskData);
         setSuccess('Risk updated successfully');
       } else {
-        await api.post('/nest/grc/risks', riskData, { headers });
+        await riskApi.create(tenantId, riskData);
         setSuccess('Risk created successfully');
       }
 
@@ -279,12 +253,8 @@ export const RiskManagement: React.FC = () => {
   const handleDeleteRisk = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this risk?')) {
       try {
-        const headers: Record<string, string> = {};
-        if (tenantId) {
-          headers['x-tenant-id'] = tenantId;
-        }
-        
-        await api.delete(`/nest/grc/risks/${id}`, { headers });
+        // Use centralized API client - no more /nest/ prefix
+        await riskApi.delete(tenantId, id);
         setSuccess('Risk deleted successfully');
         fetchRisks();
         

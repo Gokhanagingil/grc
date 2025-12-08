@@ -30,7 +30,8 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { api } from '../services/api';
+import { dashboardApi } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardStats {
   risks: {
@@ -98,24 +99,27 @@ const StatCard: React.FC<{
 );
 
 export const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [riskTrends, setRiskTrends] = useState([]);
   const [complianceData, setComplianceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [overviewRes, trendsRes, complianceRes] = await Promise.all([
-          api.get('/dashboard/overview'),
-          api.get('/dashboard/risk-trends'),
-          api.get('/dashboard/compliance-by-regulation'),
-        ]);
-
-        setStats(overviewRes.data);
-        setRiskTrends(trendsRes.data || []);
-        setComplianceData(complianceRes.data || []);
+        // Use the centralized dashboard API which aggregates from summary endpoints
+        const overview = await dashboardApi.getOverview(tenantId);
+        
+        setStats(overview);
+        // Risk trends and compliance by regulation are not available in NestJS
+        // These would need dedicated endpoints or can be derived from the summary data
+        setRiskTrends([]);
+        setComplianceData([]);
       } catch (err: unknown) {
         const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
         const status = error.response?.status;
@@ -144,7 +148,7 @@ export const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [tenantId]);
 
   if (loading) {
     return (

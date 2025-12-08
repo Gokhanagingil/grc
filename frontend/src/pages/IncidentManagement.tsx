@@ -38,7 +38,7 @@ import {
   CheckCircle as ResolveIcon,
   Lock as CloseIcon,
 } from '@mui/icons-material';
-import { api } from '../services/api';
+import { incidentApi, unwrapPaginatedResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 
 export enum IncidentCategory {
@@ -174,26 +174,13 @@ export const IncidentManagement: React.FC = () => {
         params.append('search', searchFilter);
       }
 
-      const response = await api.get(`/nest/itsm/incidents?${params}`, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      // Use centralized API client - no more /nest/ prefix
+      const response = await incidentApi.list(tenantId, params);
 
-      // API response format: { success: true, data: [...], meta: { page, pageSize, total, totalPages } }
-      const responseData = response.data as { success: boolean; data: Incident[]; meta?: { total: number; page: number; pageSize: number; totalPages: number } };
-      
-      // Handle both old format (items array) and new format (data array with meta)
-      if (Array.isArray(responseData.data)) {
-        setIncidents(responseData.data);
-        setTotal(responseData.meta?.total || responseData.data.length);
-      } else if (responseData.data && 'items' in responseData.data) {
-        // Fallback for old format
-        const oldFormat = responseData.data as unknown as PaginatedResponse<Incident>;
-        setIncidents(oldFormat.items);
-        setTotal(oldFormat.total);
-      } else {
-        setIncidents([]);
-        setTotal(0);
-      }
+      // Handle NestJS response format using centralized unwrapper
+      const result = unwrapPaginatedResponse<Incident>(response);
+      setIncidents(result.items);
+      setTotal(result.total);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to fetch incidents');
@@ -259,15 +246,12 @@ export const IncidentManagement: React.FC = () => {
         status: editingIncident ? formData.status : undefined,
       };
 
+      // Use centralized API client - no more /nest/ prefix
       if (editingIncident) {
-        await api.patch(`/nest/itsm/incidents/${editingIncident.id}`, incidentData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await incidentApi.update(tenantId, editingIncident.id, incidentData);
         setSuccess('Incident updated successfully');
       } else {
-        await api.post('/nest/itsm/incidents', incidentData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await incidentApi.create(tenantId, incidentData);
         setSuccess('Incident created successfully');
       }
 
@@ -290,9 +274,8 @@ export const IncidentManagement: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this incident?')) {
       try {
-        await api.delete(`/nest/itsm/incidents/${id}`, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        // Use centralized API client - no more /nest/ prefix
+        await incidentApi.delete(tenantId, id);
         setSuccess('Incident deleted successfully');
         fetchIncidents();
 
@@ -316,11 +299,8 @@ export const IncidentManagement: React.FC = () => {
     }
 
     try {
-      await api.post(`/nest/itsm/incidents/${resolvingIncident.id}/resolve`, {
-        resolutionNotes,
-      }, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      // Use centralized API client - no more /nest/ prefix
+      await incidentApi.resolve(tenantId, resolvingIncident.id, resolutionNotes);
       setSuccess('Incident resolved successfully');
       setOpenResolveDialog(false);
       fetchIncidents();
@@ -344,9 +324,8 @@ export const IncidentManagement: React.FC = () => {
     }
 
     try {
-      await api.post(`/nest/itsm/incidents/${incident.id}/close`, {}, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      // Use centralized API client - no more /nest/ prefix
+      await incidentApi.close(tenantId, incident.id);
       setSuccess('Incident closed successfully');
       fetchIncidents();
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api, ApiError, ApiSuccessResponse } from '../services/api';
+import { API_PATHS } from '../services/grcClient';
 
 /**
  * Helper to unwrap API responses that may be in the new envelope format
@@ -127,7 +128,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken) {
         try {
           api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-          const response = await api.get('/auth/me');
+          // Use /users/me endpoint (NestJS) instead of /auth/me
+          const response = await api.get(API_PATHS.AUTH.ME);
           // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
           const userData = unwrapApiResponse<User>(response.data);
           setUser(userData);
@@ -135,13 +137,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (userData?.tenantId) {
             localStorage.setItem('tenantId', userData.tenantId);
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const axiosError = error as { response?: { status?: number } };
           // If token is expired, try to refresh
-          if (error.response?.status === 401) {
+          if (axiosError.response?.status === 401) {
             const refreshed = await refreshAccessToken();
             if (refreshed) {
               try {
-                const response = await api.get('/auth/me');
+                // Use /users/me endpoint (NestJS) instead of /auth/me
+                const response = await api.get(API_PATHS.AUTH.ME);
                 const userData = unwrapApiResponse<User>(response.data);
                 setUser(userData);
                 if (userData?.tenantId) {
