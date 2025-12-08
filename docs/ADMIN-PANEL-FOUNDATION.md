@@ -92,6 +92,41 @@ Generic table component with:
 - Loading, error, and empty states
 - Nested property access via dot notation
 
+**Usage with Generics:**
+
+AdminTable is a generic component that should always be used with an explicit type parameter to ensure full type safety. The type parameter `T` represents the entity type being displayed in the table.
+
+```tsx
+import { AdminTable, Column } from '../../components/admin';
+import { User } from '../../services/userClient';
+
+// Define columns with the entity type
+const columns: Column<User>[] = [
+  { id: 'email', label: 'Email', minWidth: 200 },
+  { id: 'first_name', label: 'Name', format: (_, row) => `${row.first_name} ${row.last_name}` },
+  // ... more columns
+];
+
+// Use AdminTable with explicit type parameter
+<AdminTable<User>
+  columns={columns}
+  data={users}
+  rowKey="id"
+  // ... other props
+/>
+```
+
+This pattern ensures:
+- `columns` expects `Column<User>[]` matching your entity type
+- `data` expects `User[]` matching your entity type
+- TypeScript will catch mismatches between column definitions and data types
+- The `format` function receives properly typed `row` parameter
+
+For other entity types (e.g., Role, Permission), follow the same pattern:
+```tsx
+<AdminTable<Role> columns={roleColumns} data={roles} rowKey="id" />
+```
+
 ### AdminModal
 
 Modal dialog component with:

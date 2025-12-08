@@ -413,7 +413,7 @@ export const AdminUsers: React.FC = () => {
         />
       </Box>
 
-      <AdminTable
+      <AdminTable<User>
         columns={columns}
         data={users}
         loading={loading}

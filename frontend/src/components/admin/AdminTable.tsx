@@ -51,7 +51,7 @@ interface AdminTableProps<T> {
   rowActions?: (row: T) => React.ReactNode;
 }
 
-export function AdminTable<T extends Record<string, unknown>>({
+export function AdminTable<T extends object>({
   columns,
   data,
   loading = false,
