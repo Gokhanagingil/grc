@@ -196,7 +196,31 @@ export const AdminUsers: React.FC = () => {
       handleCloseModal();
       fetchUsers();
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save user';
+      // Extract error message from Axios error response
+      const axiosError = err as { 
+        response?: { 
+          data?: { 
+            message?: string | string[]; 
+            error?: string;
+          } 
+        };
+        message?: string;
+      };
+      
+      let errorMessage = 'Failed to save user';
+      
+      if (axiosError.response?.data?.message) {
+        const msg = axiosError.response.data.message;
+        // NestJS ValidationPipe returns an array of messages
+        if (Array.isArray(msg)) {
+          errorMessage = msg.join('. ');
+        } else {
+          errorMessage = msg;
+        }
+      } else if (axiosError.message) {
+        errorMessage = axiosError.message;
+      }
+      
       setError(errorMessage);
     } finally {
       setSaving(false);
@@ -223,7 +247,14 @@ export const AdminUsers: React.FC = () => {
       handleCloseDeleteModal();
       fetchUsers();
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      const axiosError = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      let errorMessage = 'Failed to delete user';
+      if (axiosError.response?.data?.message) {
+        const msg = axiosError.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join('. ') : msg;
+      } else if (axiosError.message) {
+        errorMessage = axiosError.message;
+      }
       setError(errorMessage);
     } finally {
       setDeleting(false);
@@ -241,7 +272,14 @@ export const AdminUsers: React.FC = () => {
       }
       fetchUsers();
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update user status';
+      const axiosError = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      let errorMessage = 'Failed to update user status';
+      if (axiosError.response?.data?.message) {
+        const msg = axiosError.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join('. ') : msg;
+      } else if (axiosError.message) {
+        errorMessage = axiosError.message;
+      }
       setError(errorMessage);
     }
   };
@@ -267,7 +305,14 @@ export const AdminUsers: React.FC = () => {
       handleCloseRoleModal();
       fetchUsers();
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update user role';
+      const axiosError = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      let errorMessage = 'Failed to update user role';
+      if (axiosError.response?.data?.message) {
+        const msg = axiosError.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join('. ') : msg;
+      } else if (axiosError.message) {
+        errorMessage = axiosError.message;
+      }
       setError(errorMessage);
     }
   };
