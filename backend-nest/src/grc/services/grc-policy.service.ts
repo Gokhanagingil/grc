@@ -348,14 +348,17 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
 
   /**
    * Get summary/reporting data for policies
+   * Enhanced with KPI-ready fields for Dashboard
    */
   async getSummary(tenantId: string): Promise<{
     total: number;
+    totalCount: number;
     byStatus: Record<string, number>;
     byCategory: Record<string, number>;
     dueForReviewCount: number;
     activeCount: number;
     draftCount: number;
+    policyCoveragePercentage: number;
   }> {
     const qb = this.repository.createQueryBuilder('policy');
     qb.where('policy.tenantId = :tenantId', { tenantId });
@@ -399,13 +402,21 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
       }
     }
 
+    // Calculate policy coverage percentage (active policies / total policies)
+    const policyCoveragePercentage =
+      policies.length > 0
+        ? Math.round((activeCount / policies.length) * 100 * 100) / 100
+        : 0;
+
     return {
       total: policies.length,
+      totalCount: policies.length,
       byStatus,
       byCategory,
       dueForReviewCount,
       activeCount,
       draftCount,
+      policyCoveragePercentage,
     };
   }
 }

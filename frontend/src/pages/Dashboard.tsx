@@ -13,7 +13,7 @@ import {
   Security as SecurityIcon,
   Gavel as ComplianceIcon,
   AccountBalance as GovernanceIcon,
-  People as PeopleIcon,
+  Warning as IncidentIcon,
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -39,17 +39,33 @@ interface DashboardStats {
     open: number;
     high: number;
     overdue: number;
+    top5OpenRisks?: Array<{
+      id: string;
+      title: string;
+      severity: string;
+      score: number | null;
+    }>;
   };
   compliance: {
     total: number;
     pending: number;
     completed: number;
     overdue: number;
+    coveragePercentage?: number;
   };
   policies: {
     total: number;
     active: number;
     draft: number;
+    coveragePercentage?: number;
+  };
+  incidents?: {
+    total: number;
+    open: number;
+    closed: number;
+    resolved: number;
+    resolvedToday?: number;
+    avgResolutionTimeHours?: number | null;
   };
   users: {
     total: number;
@@ -205,11 +221,11 @@ export const Dashboard: React.FC = () => {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Users"
-            value={stats.users.total}
-            icon={<PeopleIcon sx={{ color: 'white' }} />}
+            title="Incidents"
+            value={stats.incidents?.total || 0}
+            icon={<IncidentIcon sx={{ color: 'white' }} />}
             color="#ff9800"
-            subtitle={`${stats.users.admins} admins, ${stats.users.managers} managers`}
+            subtitle={`${stats.incidents?.open || 0} open, ${stats.incidents?.resolved || 0} resolved`}
           />
         </Grid>
 
@@ -273,7 +289,7 @@ export const Dashboard: React.FC = () => {
         </Grid>
 
         {/* Compliance by Regulation */}
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Compliance by Regulation
@@ -292,6 +308,132 @@ export const Dashboard: React.FC = () => {
             </ResponsiveContainer>
           </Paper>
         </Grid>
+
+        {/* Coverage KPIs */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Coverage KPIs
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              <Box>
+                <Typography variant="body2" color="textSecondary">
+                  Policy Coverage
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ flexGrow: 1, bgcolor: '#e0e0e0', borderRadius: 1, height: 20 }}>
+                    <Box
+                      sx={{
+                        width: `${stats.policies.coveragePercentage ?? 0}%`,
+                        bgcolor: '#4caf50',
+                        borderRadius: 1,
+                        height: '100%',
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body1" fontWeight="bold">
+                    {stats.policies.coveragePercentage?.toFixed(1) ?? 0}%
+                  </Typography>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="textSecondary">
+                  Requirement Compliance
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ flexGrow: 1, bgcolor: '#e0e0e0', borderRadius: 1, height: 20 }}>
+                    <Box
+                      sx={{
+                        width: `${stats.compliance.coveragePercentage ?? 0}%`,
+                        bgcolor: '#2196f3',
+                        borderRadius: 1,
+                        height: '100%',
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body1" fontWeight="bold">
+                    {stats.compliance.coveragePercentage?.toFixed(1) ?? 0}%
+                  </Typography>
+                </Box>
+              </Box>
+              {stats.incidents && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Incident Resolution
+                  </Typography>
+                  <Typography variant="body1">
+                    Resolved Today: <strong>{stats.incidents.resolvedToday ?? 0}</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    Avg Resolution Time: <strong>
+                      {stats.incidents.avgResolutionTimeHours != null
+                        ? `${stats.incidents.avgResolutionTimeHours.toFixed(1)} hours`
+                        : 'N/A'}
+                    </strong>
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Top 5 Open Risks */}
+        {stats.risks.top5OpenRisks && stats.risks.top5OpenRisks.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Top 5 Open Risks
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {stats.risks.top5OpenRisks.map((risk, index) => (
+                  <Box
+                    key={risk.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      p: 1,
+                      bgcolor: index % 2 === 0 ? '#f5f5f5' : 'white',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        #{index + 1}
+                      </Typography>
+                      <Typography variant="body1">{risk.title}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor:
+                            risk.severity === 'critical'
+                              ? '#f44336'
+                              : risk.severity === 'high'
+                              ? '#ff9800'
+                              : risk.severity === 'medium'
+                              ? '#2196f3'
+                              : '#4caf50',
+                          color: 'white',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {risk.severity}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        Score: {risk.score ?? 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
