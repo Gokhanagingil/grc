@@ -35,6 +35,16 @@ on:
     paths:
       - 'backend-nest/**'
       - '.github/workflows/backend-nest-ci.yml'
+  workflow_dispatch:
+    inputs:
+      run_acceptance_tests:
+        description: 'Run acceptance tests (full end-to-end scenario validation)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 env:
   NODE_VERSION: '20.x'
@@ -286,3 +296,99 @@ jobs:
           tags: grc-backend-nest:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Acceptance Tests - Full End-to-End Scenario Validation (Optional)
+  # ---------------------------------------------------------------------------
+  # This job runs the acceptance test runner which validates complete user
+  # scenarios. It requires a running backend with seeded data.
+  # 
+  # To enable: Remove the 'if: false' condition or trigger manually via
+  # workflow_dispatch with run_acceptance_tests: true
+  # ---------------------------------------------------------------------------
+  acceptance-tests:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests]
+    # Disabled by default - enable when ready for full acceptance testing
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_acceptance_tests == 'true' }}
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_acceptance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Start backend server
+        run: |
+          npm run start:prod &
+          echo "Waiting for server to start..."
+          sleep 15
+          curl -f http://localhost:3002/health/live || exit 1
+          echo "Server is ready"
+        env:
+          NODE_ENV: test
+          PORT: 3002
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          DB_SYNC: 'true'
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+      
+      - name: Seed database
+        run: npm run seed:grc
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          DB_SYNC: 'true'
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+      
+      - name: Run smoke tests
+        run: npm run smoke:grc
+        env:
+          NEST_API_URL: http://localhost:3002
+      
+      - name: Run acceptance tests
+        run: npm run acceptance:full
+        env:
+          BASE_URL: http://localhost:3002
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
