@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -25,7 +23,6 @@ import {
   Select,
   MenuItem,
   Alert,
-  CircularProgress,
   Switch,
   FormControlLabel,
 } from '@mui/material';
@@ -33,8 +30,10 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  People as UsersIcon,
 } from '@mui/icons-material';
 import { userClient, User, UserFormData } from '../services/userClient';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -179,10 +178,16 @@ export const UserManagement: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading users..." />;
+  }
+
+  if (error && users.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load users"
+        message={error}
+        onRetry={fetchUsers}
+      />
     );
   }
 
@@ -203,7 +208,7 @@ export const UserManagement: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={800}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -220,10 +225,15 @@ export const UserManagement: React.FC = () => {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography color="textSecondary" sx={{ py: 4 }}>
-                        No users found. Click "New User" to create one.
-                      </Typography>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<UsersIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No users found"
+                        message="Get started by adding your first user."
+                        actionLabel="New User"
+                        onAction={handleCreateUser}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -273,7 +283,7 @@ export const UserManagement: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 

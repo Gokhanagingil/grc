@@ -10,7 +10,8 @@
       "test:watch": "cross-env NODE_ENV=test jest --watch",
       "test:ci": "cross-env NODE_ENV=test jest --runInBand --forceExit",
       "test:coverage": "cross-env NODE_ENV=test jest --coverage",
-      "db:init:pg": "node scripts/init-db-pg.js"
+      "db:init:pg": "node scripts/init-db-pg.js",
+      "seed:demo-admin": "node scripts/seed-demo-admin.js"
     },
   "keywords": [
     "grc",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -6,8 +6,6 @@ import {
   CardContent,
   Typography,
   Paper,
-  CircularProgress,
-  Alert,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
@@ -32,6 +30,7 @@ import {
 } from 'recharts';
 import { dashboardApi } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState } from '../components/common';
 
 interface DashboardStats {
   risks: {
@@ -125,61 +124,71 @@ export const Dashboard: React.FC = () => {
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        // Use the centralized dashboard API which aggregates from summary endpoints
-        const overview = await dashboardApi.getOverview(tenantId);
-        
-        setStats(overview);
-        // Risk trends and compliance by regulation are not available in NestJS
-        // These would need dedicated endpoints or can be derived from the summary data
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      // Use the centralized dashboard API which aggregates from summary endpoints
+      const overview = await dashboardApi.getOverview(tenantId);
+      
+      setStats(overview);
+      // Risk trends and compliance by regulation are not available in NestJS
+      // These would need dedicated endpoints or can be derived from the summary data
+      setRiskTrends([]);
+      setComplianceData([]);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view the dashboard.');
+      } else if (status === 404 || status === 502) {
+        setStats({
+          risks: { total: 0, open: 0, high: 0, overdue: 0 },
+          compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
+          policies: { total: 0, active: 0, draft: 0 },
+          users: { total: 0, admins: 0, managers: 0 },
+        });
         setRiskTrends([]);
         setComplianceData([]);
-      } catch (err: unknown) {
-        const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
-        const status = error.response?.status;
-        const message = error.response?.data?.error?.message || error.response?.data?.message;
-        
-        if (status === 401) {
-          setError('Session expired. Please login again.');
-        } else if (status === 403) {
-          setError('You do not have permission to view the dashboard.');
-        } else if (status === 404 || status === 502) {
-          setStats({
-            risks: { total: 0, open: 0, high: 0, overdue: 0 },
-            compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
-            policies: { total: 0, active: 0, draft: 0 },
-            users: { total: 0, admins: 0, managers: 0 },
-          });
-          setRiskTrends([]);
-          setComplianceData([]);
-          console.warn('Dashboard backend not available');
-        } else {
-          setError(message || 'Failed to load dashboard data. Please try again.');
-        }
-      } finally {
-        setLoading(false);
+        console.warn('Dashboard backend not available');
+      } else {
+        setError(message || 'Failed to load dashboard data. Please try again.');
       }
-    };
-
-    fetchDashboardData();
+    } finally {
+      setLoading(false);
+    }
   }, [tenantId]);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
   if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <ErrorState
+        title="Failed to load dashboard"
+        message={error}
+        onRetry={fetchDashboardData}
+      />
+    );
   }
 
   if (!stats) {
-    return <Alert severity="warning">No data available</Alert>;
+    return (
+      <ErrorState
+        title="No data available"
+        message="Dashboard data could not be loaded. Please try again."
+        onRetry={fetchDashboardData}
+      />
+    );
   }
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];

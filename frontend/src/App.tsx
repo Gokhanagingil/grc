@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -37,37 +38,39 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="todos" element={<TodoList />} />
-              <Route path="governance" element={<Governance />} />
-              <Route path="risk" element={<RiskManagement />} />
-              <Route path="compliance" element={<Compliance />} />
-              <Route path="dotwalking" element={<DotWalkingBuilder />} />
-              <Route path="incidents" element={<IncidentManagement />} />
-              <Route path="users" element={
-                <ProtectedRoute allowedRoles={['admin', 'manager']}>
-                  <UserManagement />
+      <NotificationProvider>
+        <AuthProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Layout />
                 </ProtectedRoute>
-              } />
-              <Route path="admin" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminPanel />
-                </ProtectedRoute>
-              } />
-            </Route>
-          </Routes>
-        </Router>
-      </AuthProvider>
+              }>
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="todos" element={<TodoList />} />
+                <Route path="governance" element={<Governance />} />
+                <Route path="risk" element={<RiskManagement />} />
+                <Route path="compliance" element={<Compliance />} />
+                <Route path="dotwalking" element={<DotWalkingBuilder />} />
+                <Route path="incidents" element={<IncidentManagement />} />
+                <Route path="users" element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                    <UserManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                } />
+              </Route>
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </NotificationProvider>
     </ThemeProvider>
   );
 }

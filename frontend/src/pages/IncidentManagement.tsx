@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -25,7 +23,6 @@ import {
   Select,
   MenuItem,
   Alert,
-  CircularProgress,
   TablePagination,
   Tooltip,
 } from '@mui/material';
@@ -37,9 +34,11 @@ import {
   FilterList as FilterIcon,
   CheckCircle as ResolveIcon,
   Lock as CloseIcon,
+  Warning as IncidentIcon,
 } from '@mui/icons-material';
 import { incidentApi, unwrapPaginatedResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 export enum IncidentCategory {
   HARDWARE = 'hardware',
@@ -390,10 +389,16 @@ export const IncidentManagement: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading incidents..." />;
+  }
+
+  if (error && incidents.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load incidents"
+        message={error}
+        onRetry={fetchIncidents}
+      />
     );
   }
 
@@ -479,7 +484,7 @@ export const IncidentManagement: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={900}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -496,10 +501,15 @@ export const IncidentManagement: React.FC = () => {
               <TableBody>
                 {incidents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography color="textSecondary">
-                        {tenantId ? 'No incidents found' : 'Please select a tenant to view incidents'}
-                      </Typography>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<IncidentIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No incidents found"
+                        message={tenantId ? 'No incidents have been reported yet.' : 'Please select a tenant to view incidents.'}
+                        actionLabel={tenantId ? 'Report Incident' : undefined}
+                        onAction={tenantId ? handleCreateIncident : undefined}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -573,7 +583,7 @@ export const IncidentManagement: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
