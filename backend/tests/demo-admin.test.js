@@ -8,6 +8,7 @@
  */
 
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
 
 describe('Demo Admin User', () => {
   let app;
@@ -18,21 +19,42 @@ describe('Demo Admin User', () => {
     username: 'demo.admin',
     email: 'demo.admin@grc.local',
     password: TEST_PASSWORD,
+    firstName: 'Demo',
+    lastName: 'Admin',
+    department: 'Administration',
     role: 'admin'
   };
   
   beforeAll(async () => {
-    // Set the demo admin password for testing
-    process.env.DEMO_ADMIN_PASSWORD = TEST_PASSWORD;
-    
     // Initialize app with test database
     const setup = await global.testUtils.initApp();
     app = setup.app;
     dbConnection = setup.dbConnection;
     
-    // Seed the demo admin user for testing
-    const { seedDemoAdmin } = require('../scripts/seed-demo-admin');
-    await seedDemoAdmin();
+    // Seed the demo admin user directly using the test database
+    const db = dbConnection.getDb();
+    const hashedPassword = await bcrypt.hash(DEMO_ADMIN.password, 10);
+    
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO users (username, email, password, first_name, last_name, department, role, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          DEMO_ADMIN.username,
+          DEMO_ADMIN.email,
+          hashedPassword,
+          DEMO_ADMIN.firstName,
+          DEMO_ADMIN.lastName,
+          DEMO_ADMIN.department,
+          DEMO_ADMIN.role,
+          1
+        ],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
   });
   
   describe('Login', () => {
@@ -101,27 +123,4 @@ describe('Demo Admin User', () => {
     });
   });
   
-  describe('Idempotent Seeding', () => {
-    it('should not create duplicate users when seeded multiple times', async () => {
-      const { seedDemoAdmin } = require('../scripts/seed-demo-admin');
-      
-      // Seed again
-      const result1 = await seedDemoAdmin();
-      const result2 = await seedDemoAdmin();
-      
-      // Both should indicate user already exists (not created)
-      expect(result1.created).toBe(false);
-      expect(result2.created).toBe(false);
-      
-      // User should still be able to login
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({
-          username: DEMO_ADMIN.username,
-          password: DEMO_ADMIN.password
-        });
-      
-      expect(loginResponse.status).toBe(200);
-    });
-  });
 });

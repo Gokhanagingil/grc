@@ -43,6 +43,51 @@ function getDemoAdminConfig() {
   };
 }
 
+async function seedDemoAdminWithDb(db, config) {
+  const DEMO_ADMIN = config;
+  
+  // Check if demo admin already exists
+  const existingUser = await db.get(
+    'SELECT id, email, role FROM users WHERE email = ?',
+    [DEMO_ADMIN.email]
+  );
+  
+  if (existingUser) {
+    // Ensure the user has admin role
+    if (existingUser.role !== 'admin') {
+      await db.run(
+        'UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['admin', existingUser.id]
+      );
+    }
+    
+    return { created: false, updated: existingUser.role !== 'admin', userId: existingUser.id };
+  }
+  
+  // Hash password
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(DEMO_ADMIN.password, saltRounds);
+  
+  // Insert demo admin user
+  const result = await db.run(
+    `INSERT INTO users (username, email, password, first_name, last_name, department, role, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      DEMO_ADMIN.username,
+      DEMO_ADMIN.email,
+      hashedPassword,
+      DEMO_ADMIN.firstName,
+      DEMO_ADMIN.lastName,
+      DEMO_ADMIN.department,
+      DEMO_ADMIN.role,
+      1
+    ]
+  );
+  
+  const userId = result.lastID || result.rows?.[0]?.id;
+  return { created: true, userId };
+}
+
 async function seedDemoAdmin() {
   console.log('='.repeat(60));
   console.log('GRC Platform - Demo Admin User Seeding');
@@ -166,4 +211,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { seedDemoAdmin, getDemoAdminConfig };
+module.exports = { seedDemoAdmin, seedDemoAdminWithDb, getDemoAdminConfig };
