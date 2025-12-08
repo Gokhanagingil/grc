@@ -24,6 +24,8 @@ This document describes the enhancements made to the GRC platform's summary endp
 }
 ```
 
+Open risks are defined as risks that are not CLOSED or ACCEPTED (i.e., risks still being actively worked on).
+
 **Implementation:** `backend-nest/src/grc/services/grc-risk.service.ts`
 
 #### 2. Policy Summary (`/grc/policies/summary`)

@@ -497,10 +497,10 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
         overdueCount++;
       }
 
-      // Collect open risks (not closed or mitigated)
+      // Collect open risks (not closed or accepted)
       if (
         risk.status !== RiskStatus.CLOSED &&
-        risk.status !== RiskStatus.MITIGATED
+        risk.status !== RiskStatus.ACCEPTED
       ) {
         openRisks.push(risk);
       }
