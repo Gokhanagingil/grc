@@ -336,6 +336,69 @@ async function runSmokeTest() {
     console.log('[SKIP] Skipping requirement endpoints (no auth)');
   }
 
+  // 6. ITSM Incidents
+  printSection('6. ITSM Incidents');
+
+  if (token) {
+    const incidentsResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents', incidentsResponse)) {
+      passed++;
+      const incidents = incidentsResponse.data as Array<{
+        shortDescription: string;
+        status: string;
+      }>;
+      if (Array.isArray(incidents)) {
+        console.log(`    Found ${incidents.length} incidents`);
+        if (incidents.length > 0) {
+          console.log(
+            `    Sample: "${incidents[0].shortDescription}" (${incidents[0].status})`,
+          );
+        }
+      }
+    } else {
+      failed++;
+    }
+
+    const incidentStatsResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents/statistics',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents/statistics', incidentStatsResponse)) {
+      passed++;
+      const stats = incidentStatsResponse.data as { total?: number };
+      if (stats.total !== undefined) {
+        console.log(`    Total incidents: ${stats.total}`);
+      }
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping incident endpoints (no auth)');
+  }
+
+  // 7. User Profile (GET /users/me)
+  printSection('7. User Profile');
+
+  if (token) {
+    const userMeResponse = await makeRequest('GET', '/users/me', authHeaders);
+    if (printResult('GET /users/me', userMeResponse)) {
+      passed++;
+      const user = userMeResponse.data as { email?: string; role?: string };
+      if (user.email) {
+        console.log(`    User: ${user.email} (${user.role || 'unknown role'})`);
+      }
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping user profile endpoint (no auth)');
+  }
+
   // Summary
   printSection('Summary');
   const total = passed + failed;
