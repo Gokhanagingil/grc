@@ -84,9 +84,14 @@ services:
       # NOTE: Set DB_SYNC=true for initial setup to create tables, then set to false
       DB_SYNC: ${DB_SYNC:-true}
       
-      # Security
+      # Security - JWT Authentication
       JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      
+      # Refresh Token Configuration
+      # REFRESH_TOKEN_SECRET defaults to JWT_SECRET if not set
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
       
       # CORS - With API gateway, requests come from same origin (frontend container)
       # Keep external origin for direct access during debugging if needed
@@ -103,9 +108,10 @@ services:
     expose:
       - "3002"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/ready"]
+      # Use the canonical /api/v2/health endpoint for health checks
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/api/v2/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 30s
     networks:
