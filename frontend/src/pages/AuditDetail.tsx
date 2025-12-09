@@ -31,6 +31,10 @@ import {
   Edit as EditIcon,
   Lock as LockIcon,
   Visibility as ViewIcon,
+  Description as ReportIcon,
+  CheckCircle as FinalizeIcon,
+  Archive as ArchiveIcon,
+  Send as SubmitIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -121,6 +125,18 @@ interface ScopeObject {
   object_name: string | null;
 }
 
+interface AuditReport {
+  id: number;
+  audit_id: number;
+  version: number;
+  status: 'draft' | 'under_review' | 'final' | 'archived';
+  created_by: number;
+  created_by_first_name?: string;
+  created_by_last_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -155,7 +171,10 @@ export const AuditDetail: React.FC = () => {
     const [findings, setFindings] = useState<Finding[]>([]);
     const [criteria, setCriteria] = useState<AuditCriterion[]>([]);
     const [scopeObjects, setScopeObjects] = useState<ScopeObject[]>([]);
+    const [reports, setReports] = useState<AuditReport[]>([]);
     const [relatedDataLoading, setRelatedDataLoading] = useState(false);
+    const [generatingReport, setGeneratingReport] = useState(false);
+    const [reportActionLoading, setReportActionLoading] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -256,22 +275,74 @@ export const AuditDetail: React.FC = () => {
 
       try {
         setRelatedDataLoading(true);
-        const [findingsRes, criteriaRes, scopeRes] = await Promise.all([
+        const [findingsRes, criteriaRes, scopeRes, reportsRes] = await Promise.all([
           api.get(`/api/grc/audits/${id}/findings`),
           api.get(`/api/grc/audits/${id}/criteria`),
-          api.get(`/api/grc/audits/${id}/scope-objects`)
+          api.get(`/api/grc/audits/${id}/scope-objects`),
+          api.get(`/api/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
         ]);
         setFindings(findingsRes.data || []);
         setCriteria(criteriaRes.data || []);
         setScopeObjects(scopeRes.data || []);
+        setReports(reportsRes.data || []);
       } catch {
         setFindings([]);
         setCriteria([]);
         setScopeObjects([]);
+        setReports([]);
       } finally {
         setRelatedDataLoading(false);
       }
     }, [id, isNew]);
+
+    const handleGenerateReport = async () => {
+      if (!id) return;
+      try {
+        setGeneratingReport(true);
+        setError('');
+        const response = await api.post(`/api/grc/audits/${id}/reports/generate`);
+        setSuccess('Report generated successfully');
+        const newReportId = response.data.report?.id;
+        if (newReportId) {
+          setTimeout(() => navigate(`/audits/${id}/reports/${newReportId}`), 1500);
+        } else {
+          const reportsRes = await api.get(`/api/grc/audits/${id}/reports`);
+          setReports(reportsRes.data || []);
+        }
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to generate report');
+      } finally {
+        setGeneratingReport(false);
+      }
+    };
+
+    const handleReportStatusChange = async (reportId: number, newStatus: string) => {
+      if (!id) return;
+      try {
+        setReportActionLoading(reportId);
+        setError('');
+        await api.patch(`/api/grc/audits/${id}/reports/${reportId}/status`, { status: newStatus });
+        setSuccess(`Report status updated to ${newStatus.replace(/_/g, ' ')}`);
+        const reportsRes = await api.get(`/api/grc/audits/${id}/reports`);
+        setReports(reportsRes.data || []);
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to update report status');
+      } finally {
+        setReportActionLoading(null);
+      }
+    };
+
+    const getReportStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+      switch (status) {
+        case 'draft': return 'default';
+        case 'under_review': return 'info';
+        case 'final': return 'success';
+        case 'archived': return 'secondary';
+        default: return 'default';
+      }
+    };
 
     useEffect(() => {
       fetchAudit();
@@ -650,6 +721,7 @@ export const AuditDetail: React.FC = () => {
                           <Tab label={`Findings (${findings.length})`} />
                           <Tab label={`Criteria (${criteria.length})`} />
                           <Tab label={`Scope Objects (${scopeObjects.length})`} />
+                          <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
                         </Tabs>
                       </Box>
 
@@ -782,6 +854,102 @@ export const AuditDetail: React.FC = () => {
                                     </TableCell>
                                     <TableCell>{obj.object_id}</TableCell>
                                     <TableCell>{obj.object_name || '-'}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                      </TabPanel>
+
+                      <TabPanel value={activeTab} index={3}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                          <Typography variant="subtitle1">Audit Reports</Typography>
+                          <Button
+                            variant="contained"
+                            startIcon={generatingReport ? <CircularProgress size={20} color="inherit" /> : <ReportIcon />}
+                            onClick={handleGenerateReport}
+                            disabled={generatingReport}
+                          >
+                            {generatingReport ? 'Generating...' : 'Generate Report'}
+                          </Button>
+                        </Box>
+                        {relatedDataLoading ? (
+                          <Box display="flex" justifyContent="center" p={3}>
+                            <CircularProgress />
+                          </Box>
+                        ) : reports.length === 0 ? (
+                          <Typography color="textSecondary" sx={{ p: 2 }}>No reports generated for this audit yet. Click "Generate Report" to create one.</Typography>
+                        ) : (
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Version</TableCell>
+                                  <TableCell>Status</TableCell>
+                                  <TableCell>Created By</TableCell>
+                                  <TableCell>Created At</TableCell>
+                                  <TableCell>Actions</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {reports.map((report) => (
+                                  <TableRow key={report.id}>
+                                    <TableCell>v{report.version}</TableCell>
+                                    <TableCell>
+                                      <Chip 
+                                        label={report.status.replace(/_/g, ' ')} 
+                                        size="small"
+                                        color={getReportStatusColor(report.status)}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      {report.created_by_first_name && report.created_by_last_name
+                                        ? `${report.created_by_first_name} ${report.created_by_last_name}`
+                                        : '-'}
+                                    </TableCell>
+                                    <TableCell>{new Date(report.created_at).toLocaleString()}</TableCell>
+                                    <TableCell>
+                                      <Box display="flex" gap={0.5}>
+                                        <IconButton 
+                                          size="small" 
+                                          onClick={() => navigate(`/audits/${id}/reports/${report.id}`)}
+                                          title="View Report"
+                                        >
+                                          <ViewIcon fontSize="small" />
+                                        </IconButton>
+                                        {report.status === 'draft' && (
+                                          <IconButton 
+                                            size="small" 
+                                            onClick={() => handleReportStatusChange(report.id, 'under_review')}
+                                            title="Submit for Review"
+                                            disabled={reportActionLoading === report.id}
+                                          >
+                                            {reportActionLoading === report.id ? <CircularProgress size={16} /> : <SubmitIcon fontSize="small" />}
+                                          </IconButton>
+                                        )}
+                                        {report.status === 'under_review' && (
+                                          <IconButton 
+                                            size="small" 
+                                            onClick={() => handleReportStatusChange(report.id, 'final')}
+                                            title="Finalize Report"
+                                            disabled={reportActionLoading === report.id}
+                                          >
+                                            {reportActionLoading === report.id ? <CircularProgress size={16} /> : <FinalizeIcon fontSize="small" />}
+                                          </IconButton>
+                                        )}
+                                        {report.status === 'final' && (
+                                          <IconButton 
+                                            size="small" 
+                                            onClick={() => handleReportStatusChange(report.id, 'archived')}
+                                            title="Archive Report"
+                                            disabled={reportActionLoading === report.id}
+                                          >
+                                            {reportActionLoading === report.id ? <CircularProgress size={16} /> : <ArchiveIcon fontSize="small" />}
+                                          </IconButton>
+                                        )}
+                                      </Box>
+                                    </TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>

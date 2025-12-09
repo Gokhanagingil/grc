@@ -15,7 +15,7 @@ const aclService = require('./AclService');
 
 class SearchService {
   constructor() {
-    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos', 'audits', 'findings', 'capas', 'evidence'];
+    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos', 'audits', 'findings', 'capas', 'evidence', 'audit_reports'];
     this.tableFieldMappings = {
       risks: {
         id: 'r.id',
@@ -133,6 +133,15 @@ class SearchService {
             uploaded_at: 'e.uploaded_at',
             created_at: 'e.created_at',
             updated_at: 'e.updated_at'
+          },
+          audit_reports: {
+            id: 'ar.id',
+            audit_id: 'ar.audit_id',
+            version: 'ar.version',
+            status: 'ar.status',
+            created_by: 'ar.created_by',
+            created_at: 'ar.created_at',
+            updated_at: 'ar.updated_at'
           }
         };
   }
@@ -367,6 +376,14 @@ class SearchService {
                       LEFT JOIN audits a ON e.audit_id = a.id
                       LEFT JOIN users u ON e.uploaded_by = u.id`;
       
+            case 'audit_reports':
+              return `SELECT ar.*, 
+                      a.name as audit_name,
+                      u.first_name as created_by_first_name, u.last_name as created_by_last_name
+                      FROM audit_reports ar 
+                      LEFT JOIN audits a ON ar.audit_id = a.id
+                      LEFT JOIN users u ON ar.created_by = u.id`;
+      
             default:
               return `SELECT * FROM ${tableName}`;
     }
@@ -393,6 +410,8 @@ class SearchService {
               return 'SELECT COUNT(*) as total FROM capas c';
             case 'evidence':
               return 'SELECT COUNT(*) as total FROM evidence e';
+            case 'audit_reports':
+              return 'SELECT COUNT(*) as total FROM audit_reports ar';
             default:
               return `SELECT COUNT(*) as total FROM ${tableName}`;
     }
