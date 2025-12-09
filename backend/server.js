@@ -23,7 +23,11 @@ const capaRoutes = require('./routes/capas');
 const evidenceRoutes = require('./routes/evidence');
 
 // Platform Core Phase 2 routes
-const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes } = require('./routes/platform');
+const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes, metadataRoutes } = require('./routes/platform');
+
+// Platform Core Phase 7 routes
+const requirementsRoutes = require('./routes/requirements');
+const metricsRoutes = require('./routes/metrics');
 
 const app = express();
 
@@ -128,6 +132,11 @@ app.use('/api/platform/form-layouts', formLayoutRoutes);
 app.use('/api/platform/ui-policies', uiPolicyRoutes);
 app.use('/api/platform/modules', moduleRoutes);
 app.use('/api/platform/search', searchRoutes);
+app.use('/api/platform/metadata', metadataRoutes);
+
+// Platform Core Phase 7 routes
+app.use('/api/grc/requirements', requirementsRoutes);
+app.use('/api/grc/metrics', metricsRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT

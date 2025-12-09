@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Standards Template",
+  "description": "Template for importing standards into the GRC platform",
+  "type": "object",
+  "required": ["family", "version", "requirements"],
+  "properties": {
+    "family": {
+      "type": "string",
+      "enum": ["iso27001", "iso27002", "iso20000", "iso9001", "cobit2019", "nistcsf", "kvkk", "gdpr"],
+      "description": "The standard family identifier"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the standard (e.g., '2022', '2019', '1.1')"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name of the standard"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the standard"
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "title"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Control/clause code (e.g., 'A.5.1', 'DSS01.04')"
+          },
+          "title": {
+            "type": "string",
+            "description": "Short title of the requirement"
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description"
+          },
+          "description_long": {
+            "type": "string",
+            "description": "Detailed description with implementation guidance"
+          },
+          "hierarchy_level": {
+            "type": "string",
+            "enum": ["clause", "control", "subcontrol"],
+            "description": "Level in the hierarchy"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Domain category (e.g., 'security', 'privacy', 'itservice')"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category within the standard"
+          },
+          "regulation": {
+            "type": "string",
+            "description": "Regulation reference"
+          },
+          "metadata_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Default metadata tags to assign"
+          }
+        }
+      }
+    }
+  }
+}

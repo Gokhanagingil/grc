@@ -21,6 +21,8 @@ import { AuditList } from './pages/AuditList';
 import { AuditDetail } from './pages/AuditDetail';
 import { FindingDetail } from './pages/FindingDetail';
 import { ReportViewer } from './pages/ReportViewer';
+import { StandardsLibrary } from './pages/StandardsLibrary';
+import { StandardDetail } from './pages/StandardDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const theme = createTheme({
@@ -67,9 +69,11 @@ function App() {
                                 <Route path="audits/:id" element={<AuditDetail />} />
                                 <Route path="audits/:id/edit" element={<AuditDetail />} />
                                 <Route path="audits/:auditId/reports/:reportId" element={<ReportViewer />} />
-                                <Route path="findings/:id" element={<FindingDetail />} />
-                                <Route path="findings/:id/edit" element={<FindingDetail />} />
-                <Route path="users" element={
+                                                <Route path="findings/:id" element={<FindingDetail />} />
+                                                <Route path="findings/:id/edit" element={<FindingDetail />} />
+                                                <Route path="standards" element={<StandardsLibrary />} />
+                                                <Route path="standards/:id" element={<StandardDetail />} />
+                                <Route path="users" element={
                   <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <UserManagement />
                   </ProtectedRoute>
