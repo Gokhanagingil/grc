@@ -120,7 +120,7 @@ async function runSmokeTests() {
     logStep(2, 'Auth - Login');
     try {
       const loginResponse = await makeRequest('POST', '/api/auth/login', {
-        username: 'admin',
+        username: 'demo.admin',
         password: 'admin123',
       });
 
