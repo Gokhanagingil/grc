@@ -13,7 +13,7 @@ import {
 
 interface RadarChartProps {
   data: Array<Record<string, string | number>>;
-  dataKey: string;
+  dataKey?: string;
   nameKey: string;
   series: Array<{
     dataKey: string;

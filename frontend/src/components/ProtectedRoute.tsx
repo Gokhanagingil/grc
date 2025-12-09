@@ -3,9 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 
+type UserRole = 'admin' | 'manager' | 'user' | 'auditor' | 'audit_manager' | 'governance' | 'compliance' | 'executive' | 'director';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'manager' | 'user')[];
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
