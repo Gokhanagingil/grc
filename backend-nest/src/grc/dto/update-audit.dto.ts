@@ -50,7 +50,10 @@ export class UpdateAuditDto {
   @IsOptional()
   leadAuditorId?: string;
 
-  @IsDateString({}, { message: 'Planned start date must be a valid date string' })
+  @IsDateString(
+    {},
+    { message: 'Planned start date must be a valid date string' },
+  )
   @IsOptional()
   plannedStartDate?: string;
 
@@ -58,7 +61,10 @@ export class UpdateAuditDto {
   @IsOptional()
   plannedEndDate?: string;
 
-  @IsDateString({}, { message: 'Actual start date must be a valid date string' })
+  @IsDateString(
+    {},
+    { message: 'Actual start date must be a valid date string' },
+  )
   @IsOptional()
   actualStartDate?: string;
 
