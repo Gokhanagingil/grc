@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -23,12 +23,25 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Tooltip,
+  Snackbar,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as BackIcon,
   Edit as EditIcon,
   Lock as LockIcon,
+  CloudUpload as UploadIcon,
+  Download as DownloadIcon,
+  Share as ShareIcon,
+  Delete as DeleteIcon,
+  ContentCopy as CopyIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingState, ErrorState } from '../components/common';
@@ -86,6 +99,22 @@ interface Evidence {
   storage_type: string;
   storage_ref: string | null;
   uploaded_at: string;
+  file_name: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  storage_path: string | null;
+  checksum: string | null;
+  deleted_at: string | null;
+  uploaded_by_first_name?: string;
+  uploaded_by_last_name?: string;
+}
+
+interface ShareLink {
+  id: number;
+  token: string;
+  shareUrl: string;
+  expiresAt: string;
+  maxDownloads: number | null;
 }
 
 interface CAPA {
@@ -153,12 +182,28 @@ export const FindingDetail: React.FC = () => {
   const [permissions, setPermissions] = useState<FindingPermissions | null>(null);
   const [users, setUsers] = useState<User[]>([]);
 
-  const [activeTab, setActiveTab] = useState(0);
-  const [relatedRisks, setRelatedRisks] = useState<RelatedRisk[]>([]);
-  const [relatedRequirements, setRelatedRequirements] = useState<RelatedRequirement[]>([]);
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [capas, setCapas] = useState<CAPA[]>([]);
-  const [relatedDataLoading, setRelatedDataLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState(0);
+    const [relatedRisks, setRelatedRisks] = useState<RelatedRisk[]>([]);
+    const [relatedRequirements, setRelatedRequirements] = useState<RelatedRequirement[]>([]);
+    const [evidence, setEvidence] = useState<Evidence[]>([]);
+    const [capas, setCapas] = useState<CAPA[]>([]);
+    const [relatedDataLoading, setRelatedDataLoading] = useState(false);
+
+    // Evidence upload/share state
+    const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+    const [shareDialogOpen, setShareDialogOpen] = useState(false);
+    const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadTitle, setUploadTitle] = useState('');
+    const [uploadDescription, setUploadDescription] = useState('');
+    const [uploadType, setUploadType] = useState('document');
+    const [shareExpiresAt, setShareExpiresAt] = useState('');
+    const [shareMaxDownloads, setShareMaxDownloads] = useState<number | ''>('');
+    const [createdShareLink, setCreatedShareLink] = useState<ShareLink | null>(null);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -300,14 +345,177 @@ export const FindingDetail: React.FC = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const isFieldReadonly = (fieldName: string): boolean => {
-    if (!isEditMode) return true;
-    if (!permissions?.write) return true;
-    if (permissions?.deniedFields.includes(fieldName)) return true;
-    return false;
-  };
+    const isFieldReadonly = (fieldName: string): boolean => {
+      if (!isEditMode) return true;
+      if (!permissions?.write) return true;
+      if (permissions?.deniedFields.includes(fieldName)) return true;
+      return false;
+    };
 
-  if (loading) {
+    // Evidence upload handlers
+    const handleOpenUploadDialog = () => {
+      setUploadFile(null);
+      setUploadTitle('');
+      setUploadDescription('');
+      setUploadType('document');
+      setUploadDialogOpen(true);
+    };
+
+    const handleCloseUploadDialog = () => {
+      setUploadDialogOpen(false);
+      setUploadFile(null);
+      setUploadTitle('');
+      setUploadDescription('');
+      setUploadType('document');
+    };
+
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        setUploadFile(file);
+        if (!uploadTitle) {
+          setUploadTitle(file.name.replace(/\.[^/.]+$/, ''));
+        }
+      }
+    };
+
+    const handleUploadEvidence = async () => {
+      if (!uploadFile || !uploadTitle.trim()) {
+        setError('Please select a file and provide a title');
+        return;
+      }
+
+      try {
+        setUploading(true);
+        setError('');
+
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        formData.append('title', uploadTitle);
+        formData.append('description', uploadDescription);
+        formData.append('type', uploadType);
+        formData.append('finding_id', id || '');
+
+        await api.post('/api/grc/evidence/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        setSuccess('Evidence uploaded successfully');
+        handleCloseUploadDialog();
+        fetchRelatedData();
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to upload evidence');
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    const handleDownloadEvidence = async (ev: Evidence) => {
+      if (!ev.storage_path) {
+        setError('No file attached to this evidence');
+        return;
+      }
+
+      try {
+        const response = await api.get(`/api/grc/evidence/${ev.id}/download`, {
+          responseType: 'blob'
+        });
+
+        const blob = new Blob([response.data], { type: ev.mime_type || 'application/octet-stream' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = ev.file_name || 'download';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to download evidence');
+      }
+    };
+
+    const handleDeleteEvidence = async (ev: Evidence) => {
+      if (!window.confirm(`Are you sure you want to delete "${ev.title}"?`)) {
+        return;
+      }
+
+      try {
+        await api.delete(`/api/grc/evidence/${ev.id}/soft`);
+        setSuccess('Evidence deleted successfully');
+        fetchRelatedData();
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete evidence');
+      }
+    };
+
+    // Share link handlers
+    const handleOpenShareDialog = (ev: Evidence) => {
+      setSelectedEvidence(ev);
+      const defaultExpiry = new Date();
+      defaultExpiry.setDate(defaultExpiry.getDate() + 7);
+      setShareExpiresAt(defaultExpiry.toISOString().slice(0, 16));
+      setShareMaxDownloads('');
+      setCreatedShareLink(null);
+      setShareDialogOpen(true);
+    };
+
+    const handleCloseShareDialog = () => {
+      setShareDialogOpen(false);
+      setSelectedEvidence(null);
+      setCreatedShareLink(null);
+    };
+
+    const handleCreateShareLink = async () => {
+      if (!selectedEvidence || !shareExpiresAt) {
+        setError('Please set an expiration date');
+        return;
+      }
+
+      try {
+        const response = await api.post(`/api/grc/evidence/${selectedEvidence.id}/share`, {
+          expiresAt: new Date(shareExpiresAt).toISOString(),
+          maxDownloads: shareMaxDownloads || null
+        });
+
+        setCreatedShareLink(response.data.share);
+        setSuccess('Share link created successfully');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to create share link');
+      }
+    };
+
+    const handleCopyShareLink = () => {
+      if (createdShareLink) {
+        const fullUrl = `${window.location.origin}${createdShareLink.shareUrl}`;
+        navigator.clipboard.writeText(fullUrl);
+        setSnackbarMessage('Share link copied to clipboard');
+        setSnackbarOpen(true);
+      }
+    };
+
+    const formatFileSize = (bytes: number | null): string => {
+      if (!bytes) return '-';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const EVIDENCE_TYPES = [
+      { value: 'document', label: 'Document' },
+      { value: 'screenshot', label: 'Screenshot' },
+      { value: 'log', label: 'Log' },
+      { value: 'config', label: 'Configuration' },
+      { value: 'ticket', label: 'Ticket' },
+      { value: 'interview', label: 'Interview' },
+      { value: 'observation', label: 'Observation' },
+    ];
+
+    if (loading) {
     return (
       <ModuleGuard moduleKey="audit">
         <LoadingState message="Loading finding..." />
@@ -596,50 +804,99 @@ export const FindingDetail: React.FC = () => {
                 )}
               </TabPanel>
 
-              <TabPanel value={activeTab} index={2}>
-                {relatedDataLoading ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : evidence.length === 0 ? (
-                  <Typography color="textSecondary" sx={{ p: 2 }}>No evidence attached to this finding.</Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Title</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Storage Type</TableCell>
-                          <TableCell>Reference</TableCell>
-                          <TableCell>Uploaded</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {evidence.map((ev) => (
-                          <TableRow key={ev.id}>
-                            <TableCell>{ev.title}</TableCell>
-                            <TableCell>
-                              <Chip label={ev.type} size="small" variant="outlined" />
-                            </TableCell>
-                            <TableCell>{ev.storage_type}</TableCell>
-                            <TableCell>
-                              {ev.storage_ref ? (
-                                ev.storage_type === 'link' ? (
-                                  <a href={ev.storage_ref} target="_blank" rel="noopener noreferrer">
-                                    {ev.storage_ref.substring(0, 30)}...
-                                  </a>
-                                ) : ev.storage_ref
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell>{new Date(ev.uploaded_at).toLocaleDateString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </TabPanel>
+                            <TabPanel value={activeTab} index={2}>
+                              <Box display="flex" justifyContent="flex-end" mb={2}>
+                                <Button
+                                  variant="contained"
+                                  startIcon={<AddIcon />}
+                                  onClick={handleOpenUploadDialog}
+                                  size="small"
+                                >
+                                  Add Evidence
+                                </Button>
+                              </Box>
+                              {relatedDataLoading ? (
+                                <Box display="flex" justifyContent="center" p={3}>
+                                  <CircularProgress />
+                                </Box>
+                              ) : evidence.length === 0 ? (
+                                <Typography color="textSecondary" sx={{ p: 2 }}>No evidence attached to this finding.</Typography>
+                              ) : (
+                                <TableContainer>
+                                  <Table size="small">
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell>File Name</TableCell>
+                                        <TableCell>Type</TableCell>
+                                        <TableCell>Size</TableCell>
+                                        <TableCell>Uploaded By</TableCell>
+                                        <TableCell>Uploaded</TableCell>
+                                        <TableCell align="right">Actions</TableCell>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {evidence.filter(ev => !ev.deleted_at).map((ev) => (
+                                        <TableRow key={ev.id}>
+                                          <TableCell>
+                                            <Box>
+                                              <Typography variant="body2">{ev.title}</Typography>
+                                              {ev.file_name && (
+                                                <Typography variant="caption" color="textSecondary">
+                                                  {ev.file_name}
+                                                </Typography>
+                                              )}
+                                            </Box>
+                                          </TableCell>
+                                          <TableCell>
+                                            <Chip label={ev.type} size="small" variant="outlined" />
+                                          </TableCell>
+                                          <TableCell>{formatFileSize(ev.file_size)}</TableCell>
+                                          <TableCell>
+                                            {ev.uploaded_by_first_name && ev.uploaded_by_last_name
+                                              ? `${ev.uploaded_by_first_name} ${ev.uploaded_by_last_name}`
+                                              : '-'}
+                                          </TableCell>
+                                          <TableCell>{new Date(ev.uploaded_at).toLocaleDateString()}</TableCell>
+                                          <TableCell align="right">
+                                            <Box display="flex" justifyContent="flex-end" gap={0.5}>
+                                              {ev.storage_path && (
+                                                <Tooltip title="Download">
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={() => handleDownloadEvidence(ev)}
+                                                  >
+                                                    <DownloadIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              )}
+                                              {ev.storage_path && (
+                                                <Tooltip title="Get Share Link">
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={() => handleOpenShareDialog(ev)}
+                                                  >
+                                                    <ShareIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              )}
+                                              <Tooltip title="Delete">
+                                                <IconButton
+                                                  size="small"
+                                                  color="error"
+                                                  onClick={() => handleDeleteEvidence(ev)}
+                                                >
+                                                  <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                              </Tooltip>
+                                            </Box>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </TableContainer>
+                              )}
+                            </TabPanel>
 
               <TabPanel value={activeTab} index={3}>
                 {relatedDataLoading ? (
@@ -759,6 +1016,154 @@ export const FindingDetail: React.FC = () => {
             </Typography>
           </Paper>
         )}
+
+        {/* Upload Evidence Dialog */}
+        <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>Add Evidence</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 1 }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                fullWidth
+                sx={{ mb: 2 }}
+              >
+                {uploadFile ? uploadFile.name : 'Select File'}
+              </Button>
+              <TextField
+                fullWidth
+                label="Title"
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Description"
+                value={uploadDescription}
+                onChange={(e) => setUploadDescription(e.target.value)}
+                multiline
+                rows={2}
+                sx={{ mb: 2 }}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={uploadType}
+                  label="Type"
+                  onChange={(e) => setUploadType(e.target.value)}
+                >
+                  {EVIDENCE_TYPES.map(t => (
+                    <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseUploadDialog}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleUploadEvidence}
+              disabled={uploading || !uploadFile || !uploadTitle.trim()}
+              startIcon={uploading ? <CircularProgress size={20} /> : <UploadIcon />}
+            >
+              {uploading ? 'Uploading...' : 'Upload'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Share Link Dialog */}
+        <Dialog open={shareDialogOpen} onClose={handleCloseShareDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>Get Share Link</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 1 }}>
+              {selectedEvidence && (
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Creating share link for: <strong>{selectedEvidence.title}</strong>
+                </Typography>
+              )}
+              {!createdShareLink ? (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Expires At"
+                    type="datetime-local"
+                    value={shareExpiresAt}
+                    onChange={(e) => setShareExpiresAt(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    required
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Max Downloads (optional)"
+                    type="number"
+                    value={shareMaxDownloads}
+                    onChange={(e) => setShareMaxDownloads(e.target.value ? parseInt(e.target.value) : '')}
+                    inputProps={{ min: 1 }}
+                    helperText="Leave empty for unlimited downloads"
+                  />
+                </>
+              ) : (
+                <Box>
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    Share link created successfully!
+                  </Alert>
+                  <TextField
+                    fullWidth
+                    label="Share URL"
+                    value={`${window.location.origin}${createdShareLink.shareUrl}`}
+                    InputProps={{
+                      readOnly: true,
+                      endAdornment: (
+                        <IconButton onClick={handleCopyShareLink} size="small">
+                          <CopyIcon />
+                        </IconButton>
+                      ),
+                    }}
+                    sx={{ mb: 2 }}
+                  />
+                  <Typography variant="body2" color="textSecondary">
+                    Expires: {new Date(createdShareLink.expiresAt).toLocaleString()}
+                    {createdShareLink.maxDownloads && ` | Max downloads: ${createdShareLink.maxDownloads}`}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseShareDialog}>
+              {createdShareLink ? 'Close' : 'Cancel'}
+            </Button>
+            {!createdShareLink && (
+              <Button
+                variant="contained"
+                onClick={handleCreateShareLink}
+                disabled={!shareExpiresAt}
+                startIcon={<ShareIcon />}
+              >
+                Create Link
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+
+        {/* Snackbar for copy confirmation */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={3000}
+          onClose={() => setSnackbarOpen(false)}
+          message={snackbarMessage}
+        />
       </Box>
     </ModuleGuard>
   );
