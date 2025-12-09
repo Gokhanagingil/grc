@@ -18,6 +18,9 @@ const todoRoutes = require('./routes/todos');
 const dotwalkingRoutes = require('./routes/dotwalking');
 const nestProxyRoutes = require('./routes/nest-proxy');
 
+// Platform Core Phase 2 routes
+const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes } = require('./routes/platform');
+
 const app = express();
 
 // =============================================================================
@@ -48,7 +51,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
 };
 app.use(cors(corsOptions));
 
@@ -110,6 +113,13 @@ app.use('/api/dotwalking', dotwalkingRoutes);
 // NestJS backend proxy routes
 // Forwards requests to NestJS backend for gradual migration
 app.use('/api/nest', nestProxyRoutes);
+
+// Platform Core Phase 2 routes
+app.use('/api/platform/acl', aclRoutes);
+app.use('/api/platform/form-layouts', formLayoutRoutes);
+app.use('/api/platform/ui-policies', uiPolicyRoutes);
+app.use('/api/platform/modules', moduleRoutes);
+app.use('/api/platform/search', searchRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT
