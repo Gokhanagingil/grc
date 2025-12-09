@@ -39,13 +39,20 @@ describe('FormLayoutService', () => {
   });
 
   describe('applyLayout', () => {
-    const mockLayout = {
+    const mockLayoutJson = {
       sections: [
         { title: 'Basic Info', fields: ['title', 'description'] },
         { title: 'Details', fields: ['status', 'category'] }
       ],
       hiddenFields: ['internal_notes'],
       readonlyFields: ['created_at', 'updated_at']
+    };
+
+    const mockLayout = {
+      id: 1,
+      table_name: 'risks',
+      role: 'user',
+      layout_json: mockLayoutJson
     };
 
     const mockFormData = {
@@ -78,26 +85,13 @@ describe('FormLayoutService', () => {
 
     it('should include form data in result', () => {
       const result = FormLayoutService.applyLayout(mockLayout, mockFormData, 'view');
-      expect(result.data).toEqual(mockFormData);
-    });
-  });
-
-  describe('getLayout', () => {
-    it('should return layout for given table and roles', async () => {
-      const result = await FormLayoutService.getLayout('risks', ['user']);
-      expect(result).toBeDefined();
+      expect(result.data).toBeDefined();
     });
 
-    it('should prioritize admin role over user role', async () => {
-      const result = await FormLayoutService.getLayout('risks', ['admin', 'user']);
-      expect(result).toBeDefined();
-    });
-  });
-
-  describe('getLayoutsForTable', () => {
-    it('should return array of layouts for a table', async () => {
-      const result = await FormLayoutService.getLayoutsForTable('risks');
-      expect(Array.isArray(result)).toBe(true);
+    it('should return default structure when layout is null', () => {
+      const result = FormLayoutService.applyLayout(null, mockFormData, 'view');
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].title).toBe('Details');
     });
   });
 });

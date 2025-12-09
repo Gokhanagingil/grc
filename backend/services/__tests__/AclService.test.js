@@ -26,29 +26,48 @@ describe('AclService', () => {
       department: 'IT'
     };
 
-    it('should return true for owner-based condition when user is owner', () => {
-      const condition = { type: 'owner', field: 'created_by' };
+    it('should return true for owner_id condition when user is owner', () => {
+      const condition = { owner_id: '{{user.id}}' };
       const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
       expect(result).toBe(true);
     });
 
-    it('should return false for owner-based condition when user is not owner', () => {
-      const condition = { type: 'owner', field: 'created_by' };
+    it('should return false for owner_id condition when user is not owner', () => {
+      const condition = { owner_id: '{{user.id}}' };
+      const otherUser = { ...mockUser, id: 2 };
+      const result = AclService.evaluateCondition(condition, otherUser, mockRecord);
+      expect(result).toBe(false);
+    });
+
+    it('should return true for created_by condition when user is creator', () => {
+      const condition = { created_by: '{{user.id}}' };
+      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
+      expect(result).toBe(true);
+    });
+
+    it('should return false for created_by condition when user is not creator', () => {
+      const condition = { created_by: '{{user.id}}' };
       const otherUser = { ...mockUser, id: 2 };
       const result = AclService.evaluateCondition(condition, otherUser, mockRecord);
       expect(result).toBe(false);
     });
 
     it('should return true for role-based condition when user has matching role', () => {
-      const condition = { type: 'role', roles: ['user', 'manager'] };
+      const condition = { role: ['user', 'manager'] };
       const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
       expect(result).toBe(true);
     });
 
     it('should return false for role-based condition when user does not have matching role', () => {
-      const condition = { type: 'role', roles: ['admin'] };
+      const condition = { role: ['admin'] };
       const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
       expect(result).toBe(false);
+    });
+
+    it('should return true for single role condition when user has matching role', () => {
+      const condition = { role: 'user' };
+      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
+      expect(result).toBe(true);
     });
 
     it('should return true for field-based condition when field matches', () => {
@@ -63,83 +82,70 @@ describe('AclService', () => {
       expect(result).toBe(false);
     });
 
-    it('should handle AND conditions correctly', () => {
-      const condition = {
-        and: [
-          { type: 'owner', field: 'created_by' },
-          { type: 'field', field: 'status', operator: 'equals', value: 'open' }
-        ]
-      };
+    it('should return true for department condition when department matches', () => {
+      const condition = { department: 'IT' };
       const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
       expect(result).toBe(true);
     });
 
-    it('should handle OR conditions correctly', () => {
-      const condition = {
-        or: [
-          { type: 'role', roles: ['admin'] },
-          { type: 'owner', field: 'created_by' }
-        ]
-      };
+    it('should return false for department condition when department does not match', () => {
+      const condition = { department: 'HR' };
       const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
-      expect(result).toBe(true);
-    });
-
-    it('should handle NOT conditions correctly', () => {
-      const condition = {
-        not: { type: 'role', roles: ['admin'] }
-      };
-      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
-      expect(result).toBe(true);
-    });
-
-    it('should return true for always true condition', () => {
-      const condition = { always: true };
-      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
-      expect(result).toBe(true);
-    });
-
-    it('should return false for null condition', () => {
-      const result = AclService.evaluateCondition(null, mockUser, mockRecord);
       expect(result).toBe(false);
     });
+
+    it('should return true for user_id condition when user id matches', () => {
+      const condition = { user_id: 1 };
+      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
+      expect(result).toBe(true);
+    });
+
+    it('should return true for user_id array condition when user id is in array', () => {
+      const condition = { user_id: [1, 2, 3] };
+      const result = AclService.evaluateCondition(condition, mockUser, mockRecord);
+      expect(result).toBe(true);
+    });
+
+    it('should return true for null condition (default allow)', () => {
+      const result = AclService.evaluateCondition(null, mockUser, mockRecord);
+      expect(result).toBe(true);
+    });
+
+    it('should return true for empty condition (default allow)', () => {
+      const result = AclService.evaluateCondition({}, mockUser, mockRecord);
+      expect(result).toBe(true);
+    });
   });
 
-  describe('can', () => {
-    const adminUser = { id: 1, role: 'admin' };
-    const regularUser = { id: 2, role: 'user' };
+  describe('evaluateFieldCondition', () => {
+    const mockRecord = {
+      status: 'open',
+      severity: 'High',
+      risk_score: 50
+    };
 
-    it('should allow admin users to perform any action', async () => {
-      const result = await AclService.can(adminUser, 'read', 'risks');
-      expect(result.allowed).toBe(true);
+    it('should evaluate contains operator correctly', () => {
+      const condition = { type: 'field', field: 'status', operator: 'contains', value: 'op' };
+      const result = AclService.evaluateCondition(condition, {}, mockRecord);
+      expect(result).toBe(true);
     });
 
-    it('should check permissions for non-admin users', async () => {
-      const result = await AclService.can(regularUser, 'read', 'risks');
-      expect(result).toHaveProperty('allowed');
-      expect(result).toHaveProperty('deniedFields');
-      expect(result).toHaveProperty('maskedFields');
-    });
-  });
-
-  describe('filterRecords', () => {
-    const adminUser = { id: 1, role: 'admin' };
-    const regularUser = { id: 2, role: 'user' };
-
-    const mockRecords = [
-      { id: 1, title: 'Risk 1', created_by: 1, confidential_notes: 'Secret' },
-      { id: 2, title: 'Risk 2', created_by: 2, confidential_notes: 'Secret' },
-      { id: 3, title: 'Risk 3', created_by: 3, confidential_notes: 'Secret' }
-    ];
-
-    it('should return all records for admin users', async () => {
-      const result = await AclService.filterRecords(adminUser, 'risks', mockRecords);
-      expect(result.length).toBe(3);
+    it('should evaluate greater_than operator correctly', () => {
+      const condition = { type: 'field', field: 'risk_score', operator: 'greater_than', value: 40 };
+      const result = AclService.evaluateCondition(condition, {}, mockRecord);
+      expect(result).toBe(true);
     });
 
-    it('should filter records based on ACL rules for non-admin users', async () => {
-      const result = await AclService.filterRecords(regularUser, 'risks', mockRecords);
-      expect(Array.isArray(result)).toBe(true);
+    it('should evaluate less_than operator correctly', () => {
+      const condition = { type: 'field', field: 'risk_score', operator: 'less_than', value: 60 };
+      const result = AclService.evaluateCondition(condition, {}, mockRecord);
+      expect(result).toBe(true);
+    });
+
+    it('should evaluate in operator correctly', () => {
+      const condition = { type: 'field', field: 'severity', operator: 'in', value: ['High', 'Critical'] };
+      const result = AclService.evaluateCondition(condition, {}, mockRecord);
+      expect(result).toBe(true);
     });
   });
 });

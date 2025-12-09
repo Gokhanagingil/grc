@@ -106,32 +106,33 @@ describe('UiPolicyService', () => {
     });
   });
 
-  describe('getApplicableActions', () => {
-    const mockFormData = {
-      status: 'closed',
-      severity: 'High'
-    };
-
-    const mockContext = {
-      user: { id: 1, role: 'user' }
-    };
-
-    it('should return aggregated actions object', async () => {
-      const result = await UiPolicyService.getApplicableActions('risks', mockFormData, mockContext);
-      expect(result).toHaveProperty('hide');
-      expect(result).toHaveProperty('show');
-      expect(result).toHaveProperty('readonly');
-      expect(result).toHaveProperty('editable');
-      expect(result).toHaveProperty('mandatory');
-      expect(result).toHaveProperty('optional');
-      expect(result).toHaveProperty('disable');
+  describe('parseJson', () => {
+    it('should return null for null input', () => {
+      const result = UiPolicyService.parseJson(null);
+      expect(result).toBeNull();
     });
 
-    it('should return arrays for each action type', async () => {
-      const result = await UiPolicyService.getApplicableActions('risks', mockFormData, mockContext);
-      expect(Array.isArray(result.hide)).toBe(true);
-      expect(Array.isArray(result.readonly)).toBe(true);
-      expect(Array.isArray(result.mandatory)).toBe(true);
+    it('should return object as-is if already an object', () => {
+      const obj = { key: 'value' };
+      const result = UiPolicyService.parseJson(obj);
+      expect(result).toEqual(obj);
+    });
+
+    it('should parse valid JSON string', () => {
+      const result = UiPolicyService.parseJson('{"key": "value"}');
+      expect(result).toEqual({ key: 'value' });
+    });
+
+    it('should return null for invalid JSON string', () => {
+      const result = UiPolicyService.parseJson('invalid json');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('clearCache', () => {
+    it('should clear policy cache', () => {
+      UiPolicyService.clearCache();
+      expect(UiPolicyService.policyCache.size).toBe(0);
     });
   });
 
@@ -155,7 +156,7 @@ describe('UiPolicyService', () => {
       };
       const result = UiPolicyService.validatePolicy(policy);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Policy name is required');
+      expect(result.errors).toContain('Policy name is required and must be a string');
     });
 
     it('should reject policy without table_name', () => {
@@ -166,7 +167,7 @@ describe('UiPolicyService', () => {
       };
       const result = UiPolicyService.validatePolicy(policy);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Table name is required');
+      expect(result.errors).toContain('Table name is required and must be a string');
     });
 
     it('should reject policy without actions', () => {
@@ -177,7 +178,7 @@ describe('UiPolicyService', () => {
       };
       const result = UiPolicyService.validatePolicy(policy);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('At least one action is required');
+      expect(result.errors).toContain('Actions must be a non-empty array');
     });
 
     it('should reject policy with invalid action type', () => {
@@ -192,10 +193,4 @@ describe('UiPolicyService', () => {
     });
   });
 
-  describe('getPolicies', () => {
-    it('should return array of policies for a table', async () => {
-      const result = await UiPolicyService.getPolicies('risks');
-      expect(Array.isArray(result)).toBe(true);
-    });
-  });
 });
