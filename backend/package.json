@@ -16,7 +16,8 @@
     "migrate:phase4": "node scripts/migrate-platform-core-phase4.js",
     "migrate:phase5": "node scripts/migrate-platform-core-phase5.js",
     "migrate:phase6": "node scripts/migrate-platform-core-phase6.js",
-    "smoke:audit": "node scripts/smoke-test-audit.js"
+    "smoke:audit": "node scripts/smoke-test-audit.js",
+    "smoke:grc-core": "node scripts/smoke-grc-core.js"
   },
   "keywords": [
     "grc",

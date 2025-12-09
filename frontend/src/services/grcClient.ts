@@ -20,54 +20,54 @@ import { AxiosRequestConfig } from 'axios';
  * These paths are relative to the API base URL
  */
 export const API_PATHS = {
-  // Auth endpoints
+  // Auth endpoints (Express backend at /api/auth)
   AUTH: {
     LOGIN: '/auth/login',
-    ME: '/users/me', // NestJS uses /users/me instead of /auth/me
+    ME: '/auth/me', // Express backend uses /auth/me
     REFRESH: '/auth/refresh',
-    REGISTER: '/auth/register', // Legacy Express endpoint
+    REGISTER: '/auth/register',
   },
 
-  // GRC Risk endpoints
+  // GRC Risk endpoints (Express backend at /api/risk/risks)
   GRC_RISKS: {
-    LIST: '/grc/risks',
-    CREATE: '/grc/risks',
-    GET: (id: string) => `/grc/risks/${id}`,
-    UPDATE: (id: string) => `/grc/risks/${id}`,
-    DELETE: (id: string) => `/grc/risks/${id}`,
-    SUMMARY: '/grc/risks/summary',
-    STATISTICS: '/grc/risks/statistics',
-    HIGH_SEVERITY: '/grc/risks/high-severity',
-    CONTROLS: (id: string) => `/grc/risks/${id}/controls`,
-    POLICIES: (id: string) => `/grc/risks/${id}/policies`,
-    REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
+    LIST: '/risk/risks',
+    CREATE: '/risk/risks',
+    GET: (id: string) => `/risk/risks/${id}`,
+    UPDATE: (id: string) => `/risk/risks/${id}`,
+    DELETE: (id: string) => `/risk/risks/${id}`,
+    SUMMARY: '/risk/risks/summary',
+    STATISTICS: '/risk/risks/statistics',
+    HIGH_SEVERITY: '/risk/risks/high-severity',
+    CONTROLS: (id: string) => `/risk/risks/${id}/controls`,
+    POLICIES: (id: string) => `/risk/risks/${id}/policies`,
+    REQUIREMENTS: (id: string) => `/risk/risks/${id}/requirements`,
   },
 
-  // GRC Policy endpoints (Governance)
+  // GRC Policy endpoints (Express backend at /api/governance)
   GRC_POLICIES: {
-    LIST: '/grc/policies',
-    CREATE: '/grc/policies',
-    GET: (id: string) => `/grc/policies/${id}`,
-    UPDATE: (id: string) => `/grc/policies/${id}`,
-    DELETE: (id: string) => `/grc/policies/${id}`,
-    SUMMARY: '/grc/policies/summary',
-    STATISTICS: '/grc/policies/statistics',
-    ACTIVE: '/grc/policies/active',
-    DUE_FOR_REVIEW: '/grc/policies/due-for-review',
-    CONTROLS: (id: string) => `/grc/policies/${id}/controls`,
-    RISKS: (id: string) => `/grc/policies/${id}/risks`,
+    LIST: '/governance/policies',
+    CREATE: '/governance/policies',
+    GET: (id: string) => `/governance/policies/${id}`,
+    UPDATE: (id: string) => `/governance/policies/${id}`,
+    DELETE: (id: string) => `/governance/policies/${id}`,
+    SUMMARY: '/governance/policies/summary',
+    STATISTICS: '/governance/policies/statistics',
+    ACTIVE: '/governance/policies/active',
+    DUE_FOR_REVIEW: '/governance/policies/due-for-review',
+    CONTROLS: (id: string) => `/governance/policies/${id}/controls`,
+    RISKS: (id: string) => `/governance/policies/${id}/risks`,
     // Policy Version endpoints
     VERSIONS: {
-      LIST: (policyId: string) => `/grc/policies/${policyId}/versions`,
-      GET: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}`,
-      CREATE: (policyId: string) => `/grc/policies/${policyId}/versions`,
-      UPDATE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}`,
-      LATEST: (policyId: string) => `/grc/policies/${policyId}/versions/latest`,
-      PUBLISHED: (policyId: string) => `/grc/policies/${policyId}/versions/published`,
-      SUBMIT_FOR_REVIEW: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/submit-for-review`,
-      APPROVE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/approve`,
-      PUBLISH: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/publish`,
-      RETIRE: (policyId: string, versionId: string) => `/grc/policies/${policyId}/versions/${versionId}/retire`,
+      LIST: (policyId: string) => `/governance/policies/${policyId}/versions`,
+      GET: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}`,
+      CREATE: (policyId: string) => `/governance/policies/${policyId}/versions`,
+      UPDATE: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}`,
+      LATEST: (policyId: string) => `/governance/policies/${policyId}/versions/latest`,
+      PUBLISHED: (policyId: string) => `/governance/policies/${policyId}/versions/published`,
+      SUBMIT_FOR_REVIEW: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}/submit-for-review`,
+      APPROVE: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}/approve`,
+      PUBLISH: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}/publish`,
+      RETIRE: (policyId: string, versionId: string) => `/governance/policies/${policyId}/versions/${versionId}/retire`,
     },
   },
 
@@ -839,8 +839,8 @@ export const dashboardApi = {
 // ============================================================================
 
 export const authApi = {
-  login: (email: string, password: string) => 
-    api.post(API_PATHS.AUTH.LOGIN, { email, password }),
+  login: (username: string, password: string) => 
+    api.post(API_PATHS.AUTH.LOGIN, { username, password }),
   
   me: () => 
     api.get(API_PATHS.AUTH.ME),
