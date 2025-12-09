@@ -490,4 +490,255 @@ router.get('/can/create', authenticateToken, async (req, res) => {
   }
 });
 
+// =============================================================================
+// Audit ↔ Requirement (Criteria) Relationships
+// =============================================================================
+
+/**
+ * Get criteria (requirements) for an audit
+ */
+router.get('/:id/criteria', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    const criteria = await db.all(
+      `SELECT ac.*, cr.title, cr.description, cr.regulation, cr.category, cr.status
+       FROM audit_criteria ac
+       LEFT JOIN compliance_requirements cr ON ac.requirement_id = cr.id
+       WHERE ac.audit_id = ${placeholder}`,
+      [id]
+    );
+
+    res.json(criteria);
+  } catch (error) {
+    console.error('Error fetching audit criteria:', error);
+    res.status(500).json({ message: 'Failed to fetch criteria', error: error.message });
+  }
+});
+
+/**
+ * Add criterion (requirement) to audit
+ */
+router.post('/:id/criteria', authenticateToken, logActivity('CREATE', 'audit_criteria'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { requirement_id } = req.body;
+
+    if (!requirement_id) {
+      return res.status(400).json({ message: 'Requirement ID is required' });
+    }
+
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    // Verify requirement exists
+    const requirement = await db.get(`SELECT id FROM compliance_requirements WHERE id = ${placeholder}`, [requirement_id]);
+    if (!requirement) {
+      return res.status(400).json({ message: 'Invalid requirement ID' });
+    }
+
+    // Check if already linked
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+    const existing = await db.get(
+      `SELECT id FROM audit_criteria WHERE audit_id = ${placeholder2[0]} AND requirement_id = ${placeholder2[1]}`,
+      [id, requirement_id]
+    );
+    if (existing) {
+      return res.status(400).json({ message: 'Requirement is already linked to this audit' });
+    }
+
+    if (db.isPostgres()) {
+      await db.run(
+        `INSERT INTO audit_criteria (audit_id, requirement_id) VALUES ($1, $2)`,
+        [id, requirement_id]
+      );
+    } else {
+      await db.run(
+        `INSERT INTO audit_criteria (audit_id, requirement_id) VALUES (?, ?)`,
+        [id, requirement_id]
+      );
+    }
+
+    res.status(201).json({ message: 'Criterion added to audit successfully' });
+  } catch (error) {
+    console.error('Error adding criterion to audit:', error);
+    res.status(500).json({ message: 'Failed to add criterion', error: error.message });
+  }
+});
+
+/**
+ * Remove criterion from audit
+ */
+router.delete('/:id/criteria/:requirementId', authenticateToken, logActivity('DELETE', 'audit_criteria'), async (req, res) => {
+  try {
+    const { id, requirementId } = req.params;
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    await db.run(
+      `DELETE FROM audit_criteria WHERE audit_id = ${placeholder2[0]} AND requirement_id = ${placeholder2[1]}`,
+      [id, requirementId]
+    );
+
+    res.json({ message: 'Criterion removed from audit successfully' });
+  } catch (error) {
+    console.error('Error removing criterion from audit:', error);
+    res.status(500).json({ message: 'Failed to remove criterion', error: error.message });
+  }
+});
+
+// =============================================================================
+// Audit ↔ CMDB/Service Scope Objects Relationships
+// =============================================================================
+
+/**
+ * Get scope objects for an audit
+ */
+router.get('/:id/scope-objects', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    const scopeObjects = await db.all(
+      `SELECT * FROM audit_scope_objects WHERE audit_id = ${placeholder}`,
+      [id]
+    );
+
+    res.json(scopeObjects);
+  } catch (error) {
+    console.error('Error fetching scope objects:', error);
+    res.status(500).json({ message: 'Failed to fetch scope objects', error: error.message });
+  }
+});
+
+/**
+ * Add scope object to audit
+ */
+router.post('/:id/scope-objects', authenticateToken, logActivity('CREATE', 'audit_scope_object'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { object_type, object_id, object_name } = req.body;
+
+    if (!object_type || !object_id) {
+      return res.status(400).json({ message: 'Object type and ID are required' });
+    }
+
+    const validTypes = ['service', 'application', 'server', 'database', 'network', 'other'];
+    if (!validTypes.includes(object_type)) {
+      return res.status(400).json({ message: 'Invalid object type' });
+    }
+
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    if (db.isPostgres()) {
+      await db.run(
+        `INSERT INTO audit_scope_objects (audit_id, object_type, object_id, object_name) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (audit_id, object_type, object_id) DO UPDATE SET object_name = $4`,
+        [id, object_type, object_id, object_name]
+      );
+    } else {
+      await db.run(
+        `INSERT OR REPLACE INTO audit_scope_objects (audit_id, object_type, object_id, object_name) VALUES (?, ?, ?, ?)`,
+        [id, object_type, object_id, object_name]
+      );
+    }
+
+    res.status(201).json({ message: 'Scope object added to audit successfully' });
+  } catch (error) {
+    console.error('Error adding scope object to audit:', error);
+    res.status(500).json({ message: 'Failed to add scope object', error: error.message });
+  }
+});
+
+/**
+ * Remove scope object from audit
+ */
+router.delete('/:id/scope-objects/:scopeId', authenticateToken, logActivity('DELETE', 'audit_scope_object'), async (req, res) => {
+  try {
+    const { id, scopeId } = req.params;
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    await db.run(
+      `DELETE FROM audit_scope_objects WHERE id = ${placeholder2[0]} AND audit_id = ${placeholder2[1]}`,
+      [scopeId, id]
+    );
+
+    res.json({ message: 'Scope object removed from audit successfully' });
+  } catch (error) {
+    console.error('Error removing scope object from audit:', error);
+    res.status(500).json({ message: 'Failed to remove scope object', error: error.message });
+  }
+});
+
+// =============================================================================
+// Audit ↔ Findings Relationship
+// =============================================================================
+
+/**
+ * Get findings for an audit
+ */
+router.get('/:id/findings', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    const findings = await db.all(
+      `SELECT f.*, 
+        u1.first_name as owner_first_name, u1.last_name as owner_last_name,
+        (SELECT COUNT(*) FROM capas WHERE finding_id = f.id) as capa_count,
+        (SELECT COUNT(*) FROM evidence WHERE finding_id = f.id) as evidence_count
+       FROM findings f
+       LEFT JOIN users u1 ON f.owner_id = u1.id
+       WHERE f.audit_id = ${placeholder}
+       ORDER BY f.created_at DESC`,
+      [id]
+    );
+
+    res.json(findings);
+  } catch (error) {
+    console.error('Error fetching audit findings:', error);
+    res.status(500).json({ message: 'Failed to fetch findings', error: error.message });
+  }
+});
+
+// =============================================================================
+// Audit ↔ Evidence Relationship
+// =============================================================================
+
+/**
+ * Get evidence for an audit (directly linked to audit, not via findings)
+ */
+router.get('/:id/evidence', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    const evidence = await db.all(
+      `SELECT e.*, 
+        u.first_name as uploaded_by_first_name, u.last_name as uploaded_by_last_name
+       FROM evidence e
+       LEFT JOIN users u ON e.uploaded_by = u.id
+       WHERE e.audit_id = ${placeholder}
+       ORDER BY e.uploaded_at DESC`,
+      [id]
+    );
+
+    res.json(evidence);
+  } catch (error) {
+    console.error('Error fetching audit evidence:', error);
+    res.status(500).json({ message: 'Failed to fetch evidence', error: error.message });
+  }
+});
+
 module.exports = router;

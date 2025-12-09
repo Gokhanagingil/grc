@@ -12,16 +12,25 @@ import {
   Select,
   MenuItem,
   Alert,
-  Divider,
   Chip,
   Paper,
   CircularProgress,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as BackIcon,
   Edit as EditIcon,
   Lock as LockIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -79,33 +88,74 @@ interface User {
   email: string;
 }
 
-interface FormLayoutSection {
-  name: string;
-  label: string;
-  fields: string[];
-  collapsed?: boolean;
+interface Finding {
+  id: number;
+  audit_id: number;
+  title: string;
+  description: string | null;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: string;
+  owner_first_name?: string;
+  owner_last_name?: string;
+  capa_count: number;
+  evidence_count: number;
+  created_at: string;
 }
 
-interface FormLayoutConfig {
-  sections: FormLayoutSection[];
-  hiddenFields: string[];
-  readonlyFields: string[];
+interface AuditCriterion {
+  id: number;
+  audit_id: number;
+  requirement_id: number;
+  title: string;
+  description: string | null;
+  regulation: string | null;
+  category: string | null;
+  status: string | null;
+}
+
+interface ScopeObject {
+  id: number;
+  audit_id: number;
+  object_type: string;
+  object_id: string;
+  object_name: string | null;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
 }
 
 export const AuditDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  useAuth();
   const isNew = id === 'new';
   const isEditMode = window.location.pathname.endsWith('/edit') || isNew;
 
-  const [audit, setAudit] = useState<Audit | null>(null);
-  const [loading, setLoading] = useState(!isNew);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [permissions, setPermissions] = useState<AuditPermissions | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+    const [audit, setAudit] = useState<Audit | null>(null);
+    const [loading, setLoading] = useState(!isNew);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [permissions, setPermissions] = useState<AuditPermissions | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
+  
+    const [activeTab, setActiveTab] = useState(0);
+    const [findings, setFindings] = useState<Finding[]>([]);
+    const [criteria, setCriteria] = useState<AuditCriterion[]>([]);
+    const [scopeObjects, setScopeObjects] = useState<ScopeObject[]>([]);
+    const [relatedDataLoading, setRelatedDataLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -192,20 +242,43 @@ export const AuditDetail: React.FC = () => {
     }
   }, [id, isNew]);
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const response = await api.get('/api/users');
-      setUsers(response.data.users || response.data || []);
-    } catch {
-      setUsers([]);
-    }
-  }, []);
+    const fetchUsers = useCallback(async () => {
+      try {
+        const response = await api.get('/api/users');
+        setUsers(response.data.users || response.data || []);
+      } catch {
+        setUsers([]);
+      }
+    }, []);
 
-  useEffect(() => {
-    fetchAudit();
-    fetchPermissions();
-    fetchUsers();
-  }, [fetchAudit, fetchPermissions, fetchUsers]);
+    const fetchRelatedData = useCallback(async () => {
+      if (isNew || !id) return;
+
+      try {
+        setRelatedDataLoading(true);
+        const [findingsRes, criteriaRes, scopeRes] = await Promise.all([
+          api.get(`/api/grc/audits/${id}/findings`),
+          api.get(`/api/grc/audits/${id}/criteria`),
+          api.get(`/api/grc/audits/${id}/scope-objects`)
+        ]);
+        setFindings(findingsRes.data || []);
+        setCriteria(criteriaRes.data || []);
+        setScopeObjects(scopeRes.data || []);
+      } catch {
+        setFindings([]);
+        setCriteria([]);
+        setScopeObjects([]);
+      } finally {
+        setRelatedDataLoading(false);
+      }
+    }, [id, isNew]);
+
+    useEffect(() => {
+      fetchAudit();
+      fetchPermissions();
+      fetchUsers();
+      fetchRelatedData();
+    }, [fetchAudit, fetchPermissions, fetchUsers, fetchRelatedData]);
 
   useEffect(() => {
     evaluatePolicies(formData);
@@ -525,49 +598,200 @@ export const AuditDetail: React.FC = () => {
           </Card>
         )}
 
-        {!isNew && audit && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Audit Information</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Owner</Typography>
-                  <Typography>
-                    {audit.owner_first_name && audit.owner_last_name
-                      ? `${audit.owner_first_name} ${audit.owner_last_name}`
-                      : 'Not assigned'}
-                    {audit.owner_email && (
-                      <Typography variant="body2" color="textSecondary" component="span">
-                        {' '}({audit.owner_email})
-                      </Typography>
-                    )}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Lead Auditor</Typography>
-                  <Typography>
-                    {audit.lead_auditor_first_name && audit.lead_auditor_last_name
-                      ? `${audit.lead_auditor_first_name} ${audit.lead_auditor_last_name}`
-                      : 'Not assigned'}
-                    {audit.lead_auditor_email && (
-                      <Typography variant="body2" color="textSecondary" component="span">
-                        {' '}({audit.lead_auditor_email})
-                      </Typography>
-                    )}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Created</Typography>
-                  <Typography>{new Date(audit.created_at).toLocaleString()}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Last Updated</Typography>
-                  <Typography>{new Date(audit.updated_at).toLocaleString()}</Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        )}
+                {!isNew && audit && (
+                  <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>Audit Information</Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="textSecondary">Owner</Typography>
+                          <Typography>
+                            {audit.owner_first_name && audit.owner_last_name
+                              ? `${audit.owner_first_name} ${audit.owner_last_name}`
+                              : 'Not assigned'}
+                            {audit.owner_email && (
+                              <Typography variant="body2" color="textSecondary" component="span">
+                                {' '}({audit.owner_email})
+                              </Typography>
+                            )}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="textSecondary">Lead Auditor</Typography>
+                          <Typography>
+                            {audit.lead_auditor_first_name && audit.lead_auditor_last_name
+                              ? `${audit.lead_auditor_first_name} ${audit.lead_auditor_last_name}`
+                              : 'Not assigned'}
+                            {audit.lead_auditor_email && (
+                              <Typography variant="body2" color="textSecondary" component="span">
+                                {' '}({audit.lead_auditor_email})
+                              </Typography>
+                            )}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="textSecondary">Created</Typography>
+                          <Typography>{new Date(audit.created_at).toLocaleString()}</Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="textSecondary">Last Updated</Typography>
+                          <Typography>{new Date(audit.updated_at).toLocaleString()}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!isNew && audit && !isEditMode && (
+                  <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+                          <Tab label={`Findings (${findings.length})`} />
+                          <Tab label={`Criteria (${criteria.length})`} />
+                          <Tab label={`Scope Objects (${scopeObjects.length})`} />
+                        </Tabs>
+                      </Box>
+
+                      <TabPanel value={activeTab} index={0}>
+                        {relatedDataLoading ? (
+                          <Box display="flex" justifyContent="center" p={3}>
+                            <CircularProgress />
+                          </Box>
+                        ) : findings.length === 0 ? (
+                          <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit.</Typography>
+                        ) : (
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Title</TableCell>
+                                  <TableCell>Severity</TableCell>
+                                  <TableCell>Status</TableCell>
+                                  <TableCell>Owner</TableCell>
+                                  <TableCell>CAPAs</TableCell>
+                                  <TableCell>Evidence</TableCell>
+                                  <TableCell>Actions</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {findings.map((finding) => (
+                                  <TableRow key={finding.id}>
+                                    <TableCell>{finding.title}</TableCell>
+                                    <TableCell>
+                                      <Chip 
+                                        label={finding.severity} 
+                                        size="small"
+                                        color={
+                                          finding.severity === 'critical' ? 'error' :
+                                          finding.severity === 'high' ? 'warning' :
+                                          finding.severity === 'medium' ? 'info' : 'default'
+                                        }
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip 
+                                        label={finding.status.replace(/_/g, ' ')} 
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      {finding.owner_first_name && finding.owner_last_name
+                                        ? `${finding.owner_first_name} ${finding.owner_last_name}`
+                                        : '-'}
+                                    </TableCell>
+                                    <TableCell>{finding.capa_count}</TableCell>
+                                    <TableCell>{finding.evidence_count}</TableCell>
+                                    <TableCell>
+                                      <IconButton 
+                                        size="small" 
+                                        onClick={() => navigate(`/findings/${finding.id}`)}
+                                        title="View Finding"
+                                      >
+                                        <ViewIcon fontSize="small" />
+                                      </IconButton>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                      </TabPanel>
+
+                      <TabPanel value={activeTab} index={1}>
+                        {relatedDataLoading ? (
+                          <Box display="flex" justifyContent="center" p={3}>
+                            <CircularProgress />
+                          </Box>
+                        ) : criteria.length === 0 ? (
+                          <Typography color="textSecondary" sx={{ p: 2 }}>No criteria linked to this audit.</Typography>
+                        ) : (
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Title</TableCell>
+                                  <TableCell>Regulation</TableCell>
+                                  <TableCell>Category</TableCell>
+                                  <TableCell>Status</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {criteria.map((criterion) => (
+                                  <TableRow key={criterion.id}>
+                                    <TableCell>{criterion.title}</TableCell>
+                                    <TableCell>{criterion.regulation || '-'}</TableCell>
+                                    <TableCell>{criterion.category || '-'}</TableCell>
+                                    <TableCell>
+                                      {criterion.status ? (
+                                        <Chip label={criterion.status} size="small" variant="outlined" />
+                                      ) : '-'}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                      </TabPanel>
+
+                      <TabPanel value={activeTab} index={2}>
+                        {relatedDataLoading ? (
+                          <Box display="flex" justifyContent="center" p={3}>
+                            <CircularProgress />
+                          </Box>
+                        ) : scopeObjects.length === 0 ? (
+                          <Typography color="textSecondary" sx={{ p: 2 }}>No scope objects defined for this audit.</Typography>
+                        ) : (
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Object Type</TableCell>
+                                  <TableCell>Object ID</TableCell>
+                                  <TableCell>Name</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {scopeObjects.map((obj) => (
+                                  <TableRow key={obj.id}>
+                                    <TableCell>
+                                      <Chip label={obj.object_type} size="small" variant="outlined" />
+                                    </TableCell>
+                                    <TableCell>{obj.object_id}</TableCell>
+                                    <TableCell>{obj.object_name || '-'}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                      </TabPanel>
+                    </CardContent>
+                  </Card>
+                )}
 
         {permissions && (
           <Paper sx={{ mt: 2, p: 2, bgcolor: 'grey.100' }}>

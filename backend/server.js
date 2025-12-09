@@ -18,6 +18,9 @@ const todoRoutes = require('./routes/todos');
 const dotwalkingRoutes = require('./routes/dotwalking');
 const nestProxyRoutes = require('./routes/nest-proxy');
 const auditRoutes = require('./routes/audits');
+const findingRoutes = require('./routes/findings');
+const capaRoutes = require('./routes/capas');
+const evidenceRoutes = require('./routes/evidence');
 
 // Platform Core Phase 2 routes
 const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes } = require('./routes/platform');
@@ -111,6 +114,9 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/todos', todoRoutes);
 app.use('/api/dotwalking', dotwalkingRoutes);
 app.use('/api/grc/audits', auditRoutes);
+app.use('/api/grc/findings', findingRoutes);
+app.use('/api/grc/capas', capaRoutes);
+app.use('/api/grc/evidence', evidenceRoutes);
 
 // NestJS backend proxy routes
 // Forwards requests to NestJS backend for gradual migration

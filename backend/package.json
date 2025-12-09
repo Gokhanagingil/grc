@@ -12,8 +12,9 @@
       "test:coverage": "cross-env NODE_ENV=test jest --coverage",
       "db:init:pg": "node scripts/init-db-pg.js",
       "seed:demo-admin": "node scripts/seed-demo-admin.js",
-      "migrate:phase3": "node scripts/migrate-platform-core-phase3.js",
-      "smoke:audit": "node scripts/smoke-test-audit.js"
+            "migrate:phase3": "node scripts/migrate-platform-core-phase3.js",
+            "migrate:phase4": "node scripts/migrate-platform-core-phase4.js",
+            "smoke:audit": "node scripts/smoke-test-audit.js"
     },
   "keywords": [
     "grc",

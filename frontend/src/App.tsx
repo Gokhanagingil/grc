@@ -19,6 +19,7 @@ import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
 import { IncidentManagement } from './pages/IncidentManagement';
 import { AuditList } from './pages/AuditList';
 import { AuditDetail } from './pages/AuditDetail';
+import { FindingDetail } from './pages/FindingDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const theme = createTheme({
@@ -60,10 +61,12 @@ function App() {
                 <Route path="compliance" element={<Compliance />} />
                 <Route path="dotwalking" element={<DotWalkingBuilder />} />
                 <Route path="incidents" element={<IncidentManagement />} />
-                <Route path="audits" element={<AuditList />} />
-                <Route path="audits/new" element={<AuditDetail />} />
-                <Route path="audits/:id" element={<AuditDetail />} />
-                <Route path="audits/:id/edit" element={<AuditDetail />} />
+                                <Route path="audits" element={<AuditList />} />
+                                <Route path="audits/new" element={<AuditDetail />} />
+                                <Route path="audits/:id" element={<AuditDetail />} />
+                                <Route path="audits/:id/edit" element={<AuditDetail />} />
+                                <Route path="findings/:id" element={<FindingDetail />} />
+                                <Route path="findings/:id/edit" element={<FindingDetail />} />
                 <Route path="users" element={
                   <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <UserManagement />
