@@ -741,4 +741,381 @@ router.get('/:id/evidence', authenticateToken, async (req, res) => {
   }
 });
 
+// =============================================================================
+// Audit Reports - Report Generation and Lifecycle Management
+// =============================================================================
+
+const auditReportGenerator = require('../services/AuditReportGeneratorService');
+
+// Valid status transitions for reports
+const VALID_REPORT_STATUS_TRANSITIONS = {
+  draft: ['under_review'],
+  under_review: ['draft', 'final'],
+  final: ['archived'],
+  archived: []
+};
+
+/**
+ * Check if a report status transition is valid
+ */
+function isValidReportStatusTransition(currentStatus, newStatus) {
+  if (currentStatus === newStatus) return true;
+  const validTransitions = VALID_REPORT_STATUS_TRANSITIONS[currentStatus] || [];
+  return validTransitions.includes(newStatus);
+}
+
+/**
+ * Get all reports for an audit
+ */
+router.get('/:id/reports', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    // Check read permission via ACL
+    const canRead = await aclService.can(req.user, 'read', 'audit_reports');
+    if (!canRead.allowed) {
+      return res.status(403).json({ 
+        message: 'Access denied: You do not have permission to view audit reports',
+        error: 'FORBIDDEN'
+      });
+    }
+
+    const reports = await db.all(
+      `SELECT ar.id, ar.audit_id, ar.version, ar.status, ar.created_by, ar.created_at, ar.updated_at,
+        u.first_name as created_by_first_name, u.last_name as created_by_last_name
+       FROM audit_reports ar
+       LEFT JOIN users u ON ar.created_by = u.id
+       WHERE ar.audit_id = ${placeholder}
+       ORDER BY ar.version DESC`,
+      [id]
+    );
+
+    res.json(reports);
+  } catch (error) {
+    console.error('Error fetching audit reports:', error);
+    res.status(500).json({ message: 'Failed to fetch audit reports', error: error.message });
+  }
+});
+
+/**
+ * Get a specific report by ID
+ */
+router.get('/:id/reports/:reportId', authenticateToken, async (req, res) => {
+  try {
+    const { id, reportId } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    const report = await db.get(
+      `SELECT ar.*, 
+        u.first_name as created_by_first_name, u.last_name as created_by_last_name, u.email as created_by_email
+       FROM audit_reports ar
+       LEFT JOIN users u ON ar.created_by = u.id
+       WHERE ar.id = ${placeholder2[0]} AND ar.audit_id = ${placeholder2[1]}`,
+      [reportId, id]
+    );
+
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Check read permission via ACL
+    const canRead = await aclService.can(req.user, 'read', 'audit_reports', report);
+    if (!canRead.allowed) {
+      return res.status(403).json({ 
+        message: 'Access denied: You do not have permission to view this report',
+        error: 'FORBIDDEN'
+      });
+    }
+
+    res.json(report);
+  } catch (error) {
+    console.error('Error fetching audit report:', error);
+    res.status(500).json({ message: 'Failed to fetch audit report', error: error.message });
+  }
+});
+
+/**
+ * Generate a new audit report
+ * Creates a new draft version
+ */
+router.post('/:id/reports/generate', authenticateToken, logActivity('CREATE', 'audit_report'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id, status FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    // Check write permission via ACL - only auditors (admin/manager) can generate reports
+    const canWrite = await aclService.can(req.user, 'write', 'audit_reports');
+    if (!canWrite.allowed) {
+      return res.status(403).json({ 
+        message: 'Access denied: You do not have permission to generate audit reports',
+        error: 'FORBIDDEN'
+      });
+    }
+
+    // Check if user has the generate permission
+    const hasGeneratePermission = await aclService.hasPermission(req.user, 'audit_reports.generate');
+    if (!hasGeneratePermission && req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ 
+        message: 'Access denied: Only auditors can generate reports',
+        error: 'FORBIDDEN'
+      });
+    }
+
+    // Generate the report
+    const { html } = await auditReportGenerator.generateReport(id, req.user);
+
+    // Save the report
+    const report = await auditReportGenerator.saveReport(id, html, req.user.id);
+
+    res.status(201).json({
+      message: 'Audit report generated successfully',
+      report
+    });
+  } catch (error) {
+    console.error('Error generating audit report:', error);
+    res.status(500).json({ message: 'Failed to generate audit report', error: error.message });
+  }
+});
+
+/**
+ * Regenerate an existing report (only for draft/under_review)
+ */
+router.post('/:id/reports/:reportId/regenerate', authenticateToken, logActivity('UPDATE', 'audit_report'), async (req, res) => {
+  try {
+    const { id, reportId } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    // Get the report
+    const report = await db.get(
+      `SELECT * FROM audit_reports WHERE id = ${placeholder2[0]} AND audit_id = ${placeholder2[1]}`,
+      [reportId, id]
+    );
+
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Check if report can be regenerated
+    if (report.status === 'final' || report.status === 'archived') {
+      return res.status(400).json({ 
+        message: 'Cannot regenerate a finalized or archived report' 
+      });
+    }
+
+    // Check write permission via ACL
+    const canWrite = await aclService.can(req.user, 'write', 'audit_reports', report);
+    if (!canWrite.allowed) {
+      return res.status(403).json({ 
+        message: 'Access denied: You do not have permission to regenerate this report',
+        error: 'FORBIDDEN'
+      });
+    }
+
+    // Regenerate the report
+    const result = await auditReportGenerator.regenerateReport(reportId, req.user);
+
+    res.json({
+      message: 'Audit report regenerated successfully',
+      report: result
+    });
+  } catch (error) {
+    console.error('Error regenerating audit report:', error);
+    res.status(500).json({ message: 'Failed to regenerate audit report', error: error.message });
+  }
+});
+
+/**
+ * Update report status (lifecycle transitions)
+ * Allowed transitions:
+ * - draft → under_review (auditor)
+ * - under_review → final (audit_manager)
+ * - final → archived (governance/quality)
+ */
+router.patch('/:id/reports/:reportId/status', authenticateToken, logActivity('UPDATE', 'audit_report'), async (req, res) => {
+  try {
+    const { id, reportId } = req.params;
+    const { status } = req.body;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+
+    const validStatuses = ['draft', 'under_review', 'final', 'archived'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    // Get the report
+    const report = await db.get(
+      `SELECT * FROM audit_reports WHERE id = ${placeholder2[0]} AND audit_id = ${placeholder2[1]}`,
+      [reportId, id]
+    );
+
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Validate status transition
+    if (!isValidReportStatusTransition(report.status, status)) {
+      return res.status(400).json({ 
+        message: `Invalid status transition from '${report.status}' to '${status}'` 
+      });
+    }
+
+    // Check permissions based on target status
+    if (status === 'under_review') {
+      // Only auditors (admin/manager) can submit for review
+      const hasPermission = await aclService.hasPermission(req.user, 'audit_reports.submit_review');
+      if (!hasPermission && req.user.role !== 'admin' && req.user.role !== 'manager') {
+        return res.status(403).json({ 
+          message: 'Access denied: Only auditors can submit reports for review',
+          error: 'FORBIDDEN'
+        });
+      }
+    } else if (status === 'final') {
+      // Only audit managers can finalize
+      const hasPermission = await aclService.hasPermission(req.user, 'audit_reports.finalize');
+      if (!hasPermission && req.user.role !== 'admin' && req.user.role !== 'manager') {
+        return res.status(403).json({ 
+          message: 'Access denied: Only audit managers can finalize reports',
+          error: 'FORBIDDEN'
+        });
+      }
+
+      // Check if there's already a final report for this audit
+      const existingFinal = await db.get(
+        `SELECT id FROM audit_reports WHERE audit_id = ${placeholder2[0]} AND status = 'final' AND id != ${placeholder2[1]}`,
+        [id, reportId]
+      );
+      if (existingFinal) {
+        return res.status(400).json({ 
+          message: 'An audit can only have one final report. Please archive the existing final report first.' 
+        });
+      }
+    } else if (status === 'archived') {
+      // Only governance/quality roles (admin) can archive
+      const hasPermission = await aclService.hasPermission(req.user, 'audit_reports.archive');
+      if (!hasPermission && req.user.role !== 'admin') {
+        return res.status(403).json({ 
+          message: 'Access denied: Only governance/quality roles can archive reports',
+          error: 'FORBIDDEN'
+        });
+      }
+    }
+
+    // Update the status
+    if (db.isPostgres()) {
+      await db.run(
+        `UPDATE audit_reports SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        [status, reportId]
+      );
+    } else {
+      await db.run(
+        `UPDATE audit_reports SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [status, reportId]
+      );
+    }
+
+    res.json({ 
+      message: `Report status updated to '${status}' successfully`,
+      previousStatus: report.status,
+      newStatus: status
+    });
+  } catch (error) {
+    console.error('Error updating report status:', error);
+    res.status(500).json({ message: 'Failed to update report status', error: error.message });
+  }
+});
+
+/**
+ * Get report permissions for current user
+ */
+router.get('/:id/reports/:reportId/permissions', authenticateToken, async (req, res) => {
+  try {
+    const { id, reportId } = req.params;
+    const placeholder = db.isPostgres() ? '$1' : '?';
+    const placeholder2 = db.isPostgres() ? ['$1', '$2'] : ['?', '?'];
+
+    // Verify audit exists
+    const audit = await db.get(`SELECT id FROM audits WHERE id = ${placeholder}`, [id]);
+    if (!audit) {
+      return res.status(404).json({ message: 'Audit not found' });
+    }
+
+    const report = await db.get(
+      `SELECT * FROM audit_reports WHERE id = ${placeholder2[0]} AND audit_id = ${placeholder2[1]}`,
+      [reportId, id]
+    );
+
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    const [canRead, canWrite, canGenerate, canSubmitReview, canFinalize, canArchive, canRegenerate] = await Promise.all([
+      aclService.can(req.user, 'read', 'audit_reports', report),
+      aclService.can(req.user, 'write', 'audit_reports', report),
+      aclService.hasPermission(req.user, 'audit_reports.generate'),
+      aclService.hasPermission(req.user, 'audit_reports.submit_review'),
+      aclService.hasPermission(req.user, 'audit_reports.finalize'),
+      aclService.hasPermission(req.user, 'audit_reports.archive'),
+      aclService.hasPermission(req.user, 'audit_reports.regenerate')
+    ]);
+
+    // Determine available actions based on report status and permissions
+    const canSubmitForReview = report.status === 'draft' && (canSubmitReview || req.user.role === 'admin' || req.user.role === 'manager');
+    const canFinalizeReport = report.status === 'under_review' && (canFinalize || req.user.role === 'admin' || req.user.role === 'manager');
+    const canArchiveReport = report.status === 'final' && (canArchive || req.user.role === 'admin');
+    const canRegenerateReport = (report.status === 'draft' || report.status === 'under_review') && (canRegenerate || req.user.role === 'admin' || req.user.role === 'manager');
+
+    res.json({
+      read: canRead.allowed,
+      write: canWrite.allowed,
+      generate: canGenerate || req.user.role === 'admin' || req.user.role === 'manager',
+      submitForReview: canSubmitForReview,
+      finalize: canFinalizeReport,
+      archive: canArchiveReport,
+      regenerate: canRegenerateReport,
+      reportStatus: report.status
+    });
+  } catch (error) {
+    console.error('Error fetching report permissions:', error);
+    res.status(500).json({ message: 'Failed to fetch permissions', error: error.message });
+  }
+});
+
 module.exports = router;
