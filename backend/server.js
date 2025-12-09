@@ -29,6 +29,9 @@ const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes,
 const requirementsRoutes = require('./routes/requirements');
 const metricsRoutes = require('./routes/metrics');
 
+// Platform Core Phase 8 routes
+const grcDashboardRoutes = require('./routes/grc-dashboards');
+
 const app = express();
 
 // =============================================================================
@@ -137,6 +140,9 @@ app.use('/api/platform/metadata', metadataRoutes);
 // Platform Core Phase 7 routes
 app.use('/api/grc/requirements', requirementsRoutes);
 app.use('/api/grc/metrics', metricsRoutes);
+
+// Platform Core Phase 8 routes - Executive Dashboards
+app.use('/api/grc/dashboard', grcDashboardRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT

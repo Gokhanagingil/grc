@@ -33,6 +33,9 @@ import {
   AccountTree as DotWalkingIcon,
   ReportProblem as IncidentIcon,
   FactCheck as AuditIcon,
+  Assessment as AuditDashboardIcon,
+  VerifiedUser as ComplianceDashboardIcon,
+  HealthAndSafety as GrcHealthIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
@@ -55,6 +58,9 @@ const menuItems: NavMenuItem[] = [
   { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance', moduleKey: 'compliance' },
   { text: 'Audits', icon: <AuditIcon />, path: '/audits', moduleKey: 'audit' },
   { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents', moduleKey: 'itsm.incident' },
+  { text: 'Audit Dashboard', icon: <AuditDashboardIcon />, path: '/dashboards/audit', moduleKey: 'audit' },
+  { text: 'Compliance Dashboard', icon: <ComplianceDashboardIcon />, path: '/dashboards/compliance', moduleKey: 'compliance' },
+  { text: 'GRC Health', icon: <GrcHealthIcon />, path: '/dashboards/grc-health', roles: ['admin', 'manager'] },
   { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
   { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
   { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
