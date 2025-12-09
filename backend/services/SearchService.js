@@ -15,7 +15,7 @@ const aclService = require('./AclService');
 
 class SearchService {
   constructor() {
-    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos'];
+    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos', 'audits'];
     this.tableFieldMappings = {
       risks: {
         id: 'r.id',
@@ -61,6 +61,29 @@ class SearchService {
         evidence: 'c.evidence',
         created_at: 'c.created_at',
         updated_at: 'c.updated_at'
+      },
+      audits: {
+        id: 'a.id',
+        name: 'a.name',
+        description: 'a.description',
+        audit_type: 'a.audit_type',
+        status: 'a.status',
+        risk_level: 'a.risk_level',
+        department: 'a.department',
+        owner_id: 'a.owner_id',
+        lead_auditor_id: 'a.lead_auditor_id',
+        planned_start_date: 'a.planned_start_date',
+        planned_end_date: 'a.planned_end_date',
+        actual_start_date: 'a.actual_start_date',
+        actual_end_date: 'a.actual_end_date',
+        scope: 'a.scope',
+        objectives: 'a.objectives',
+        methodology: 'a.methodology',
+        findings_summary: 'a.findings_summary',
+        recommendations: 'a.recommendations',
+        conclusion: 'a.conclusion',
+        created_at: 'a.created_at',
+        updated_at: 'a.updated_at'
       }
     };
   }
@@ -257,6 +280,14 @@ class SearchService {
                 LEFT JOIN users u1 ON c.owner_id = u1.id 
                 LEFT JOIN users u2 ON c.assigned_to = u2.id`;
       
+      case 'audits':
+        return `SELECT a.*, 
+                u1.first_name as owner_first_name, u1.last_name as owner_last_name,
+                u2.first_name as lead_auditor_first_name, u2.last_name as lead_auditor_last_name
+                FROM audits a 
+                LEFT JOIN users u1 ON a.owner_id = u1.id 
+                LEFT JOIN users u2 ON a.lead_auditor_id = u2.id`;
+      
       default:
         return `SELECT * FROM ${tableName}`;
     }
@@ -275,6 +306,8 @@ class SearchService {
         return 'SELECT COUNT(*) as total FROM policies p';
       case 'compliance_requirements':
         return 'SELECT COUNT(*) as total FROM compliance_requirements c';
+      case 'audits':
+        return 'SELECT COUNT(*) as total FROM audits a';
       default:
         return `SELECT COUNT(*) as total FROM ${tableName}`;
     }
@@ -397,6 +430,22 @@ class SearchService {
         category: { type: 'string', label: 'Category', filterable: true },
         status: { type: 'enum', label: 'Status', values: ['pending', 'in_progress', 'completed'], filterable: true },
         due_date: { type: 'date', label: 'Due Date', sortable: true },
+        created_at: { type: 'datetime', label: 'Created At', sortable: true },
+        updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
+      },
+      audits: {
+        name: { type: 'string', label: 'Name', searchable: true },
+        description: { type: 'text', label: 'Description', searchable: true },
+        audit_type: { type: 'enum', label: 'Audit Type', values: ['internal', 'external'], filterable: true },
+        status: { type: 'enum', label: 'Status', values: ['planned', 'in_progress', 'completed', 'closed'], filterable: true },
+        risk_level: { type: 'enum', label: 'Risk Level', values: ['low', 'medium', 'high', 'critical'], filterable: true },
+        department: { type: 'string', label: 'Department', filterable: true },
+        owner_id: { type: 'reference', label: 'Owner', filterable: true },
+        lead_auditor_id: { type: 'reference', label: 'Lead Auditor', filterable: true },
+        planned_start_date: { type: 'date', label: 'Planned Start Date', sortable: true },
+        planned_end_date: { type: 'date', label: 'Planned End Date', sortable: true },
+        actual_start_date: { type: 'date', label: 'Actual Start Date', sortable: true },
+        actual_end_date: { type: 'date', label: 'Actual End Date', sortable: true },
         created_at: { type: 'datetime', label: 'Created At', sortable: true },
         updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
       }
