@@ -32,6 +32,7 @@ import {
   CheckCircle as TodoIcon,
   AccountTree as DotWalkingIcon,
   ReportProblem as IncidentIcon,
+  FactCheck as AuditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
@@ -52,6 +53,7 @@ const menuItems: NavMenuItem[] = [
   { text: 'Governance', icon: <GovernanceIcon />, path: '/governance', moduleKey: 'policy' },
   { text: 'Risk Management', icon: <RiskIcon />, path: '/risk', moduleKey: 'risk' },
   { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance', moduleKey: 'compliance' },
+  { text: 'Audits', icon: <AuditIcon />, path: '/audits', moduleKey: 'audit' },
   { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents', moduleKey: 'itsm.incident' },
   { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
   { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
