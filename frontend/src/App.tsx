@@ -65,31 +65,31 @@ function App() {
                 <Route path="compliance" element={<Compliance />} />
                 <Route path="dotwalking" element={<DotWalkingBuilder />} />
                 <Route path="incidents" element={<IncidentManagement />} />
-                                <Route path="audits" element={<AuditList />} />
-                                <Route path="audits/new" element={<AuditDetail />} />
-                                <Route path="audits/:id" element={<AuditDetail />} />
-                                <Route path="audits/:id/edit" element={<AuditDetail />} />
-                                <Route path="audits/:auditId/reports/:reportId" element={<ReportViewer />} />
-                                                <Route path="findings/:id" element={<FindingDetail />} />
-                                                <Route path="findings/:id/edit" element={<FindingDetail />} />
-                                                                                <Route path="standards" element={<StandardsLibrary />} />
-                                                                                <Route path="standards/:id" element={<StandardDetail />} />
-                                                                                <Route path="dashboards/audit" element={
-                                                  <ProtectedRoute allowedRoles={['admin', 'auditor', 'audit_manager', 'governance']}>
-                                                    <AuditDashboard />
-                                                  </ProtectedRoute>
-                                                } />
-                                                <Route path="dashboards/compliance" element={
-                                                  <ProtectedRoute allowedRoles={['admin', 'governance', 'compliance', 'audit_manager']}>
-                                                    <ComplianceDashboard />
-                                                  </ProtectedRoute>
-                                                } />
-                                                <Route path="dashboards/grc-health" element={
-                                                  <ProtectedRoute allowedRoles={['admin', 'governance', 'executive', 'director']}>
-                                                    <GrcHealthDashboard />
-                                                  </ProtectedRoute>
-                                                } />
-                                                                <Route path="users" element={
+                <Route path="audits" element={<AuditList />} />
+                <Route path="audits/new" element={<AuditDetail />} />
+                <Route path="audits/:id" element={<AuditDetail />} />
+                <Route path="audits/:id/edit" element={<AuditDetail />} />
+                <Route path="audits/:auditId/reports/:reportId" element={<ReportViewer />} />
+                <Route path="findings/:id" element={<FindingDetail />} />
+                <Route path="findings/:id/edit" element={<FindingDetail />} />
+                <Route path="standards" element={<StandardsLibrary />} />
+                <Route path="standards/:id" element={<StandardDetail />} />
+                <Route path="dashboards/audit" element={
+                  <ProtectedRoute allowedRoles={['admin', 'auditor', 'audit_manager', 'governance']}>
+                    <AuditDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="dashboards/compliance" element={
+                  <ProtectedRoute allowedRoles={['admin', 'governance', 'compliance', 'audit_manager']}>
+                    <ComplianceDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="dashboards/grc-health" element={
+                  <ProtectedRoute allowedRoles={['admin', 'governance', 'executive', 'director']}>
+                    <GrcHealthDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="users" element={
                   <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <UserManagement />
                   </ProtectedRoute>

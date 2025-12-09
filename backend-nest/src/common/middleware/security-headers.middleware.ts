@@ -1,4 +1,5 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 
 /**
@@ -9,6 +10,8 @@ import { Request, Response, NextFunction } from 'express';
  */
 @Injectable()
 export class SecurityHeadersMiddleware implements NestMiddleware {
+  constructor(private readonly configService: ConfigService) {}
+
   use(req: Request, res: Response, next: NextFunction): void {
     // Prevent clickjacking attacks
     res.setHeader('X-Frame-Options', 'DENY');
@@ -38,7 +41,11 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
 
     // Strict Transport Security (HSTS) - enforce HTTPS
     // Only enable in production to avoid issues with local development
-    if (process.env.NODE_ENV === 'production') {
+    const nodeEnv = this.configService.get<string>(
+      'app.nodeEnv',
+      'development',
+    );
+    if (nodeEnv === 'production') {
       res.setHeader(
         'Strict-Transport-Security',
         'max-age=31536000; includeSubDomains; preload',

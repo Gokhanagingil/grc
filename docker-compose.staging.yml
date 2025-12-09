@@ -1,36 +1,23 @@
 # =============================================================================
-# GRC Platform - Staging Docker Compose (API Gateway Architecture)
+# GRC Platform - Staging Environment Docker Compose
 # =============================================================================
-# Complete staging environment with PostgreSQL, NestJS backend, and React frontend.
-# Uses NGINX as an API gateway/reverse proxy for single-origin architecture.
-#
-# Architecture:
-#   Browser -> NGINX (port 80) -> Backend (internal port 3002)
-#   - Frontend served at /
-#   - All API requests proxied through /api/*
-#   - Backend NOT exposed publicly (internal network only)
+# Staging deployment configuration for Hetzner server
 #
 # Usage:
-#   Start:    docker compose -f docker-compose.staging.yml up -d --build
+#   Start:    docker compose -f docker-compose.staging.yml up -d
 #   Stop:     docker compose -f docker-compose.staging.yml down
-#   Logs:     docker compose -f docker-compose.staging.yml logs -f
 #   Rebuild:  docker compose -f docker-compose.staging.yml up -d --build --force-recreate
-#
-# Prerequisites:
-#   - Copy backend-nest/.env.staging.example to backend-nest/.env.staging
-#   - Copy frontend/.env.staging.example to frontend/.env.staging
-#   - Update all secrets and passwords in the .env.staging files
+#   Logs:     docker compose -f docker-compose.staging.yml logs -f
 #
 # After starting, access:
-#   - Frontend:    http://46.224.99.150 (port 80)
-#   - API Gateway: http://46.224.99.150/api/*
-#   - Health:      http://46.224.99.150/api-health
+#   - Frontend: http://46.224.99.150
+#   - Backend API: http://46.224.99.150:3002
+#   - Health: http://46.224.99.150:3002/health/live
+#   - Frontend Health: http://46.224.99.150/health
 #
-# Security Benefits:
-#   - Single-origin architecture eliminates CORS issues
-#   - Backend not directly accessible from internet
-#   - Rate limiting on auth endpoints
-#   - Security headers (CSP, X-Frame-Options, etc.)
+# Staging credentials:
+#   - Email: admin@grc-staging.local
+#   - Password: StagingPassword123!
 # =============================================================================
 
 services:
@@ -42,13 +29,13 @@ services:
     container_name: grc-staging-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-grc_staging}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_staging_password}
-      POSTGRES_DB: ${DB_NAME:-grc_staging}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-grc_platform}
     volumes:
-      - postgres_data_staging:/var/lib/postgresql/data
+      - grc_staging_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-grc_staging} -d ${DB_NAME:-grc_staging}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-grc_platform}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -57,10 +44,8 @@ services:
       - grc-staging-network
 
   # ---------------------------------------------------------------------------
-  # NestJS Backend API (Internal Only - Accessed via NGINX Gateway)
+  # NestJS Backend API
   # ---------------------------------------------------------------------------
-  # NOTE: Backend is NOT exposed publicly. All external access goes through
-  # the NGINX reverse proxy in the frontend container via /api/* routes.
   backend:
     build:
       context: ./backend-nest
@@ -75,61 +60,44 @@ services:
       NODE_ENV: production
       PORT: 3002
       
-      # Database (internal network)
+      # Database
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-grc_staging}
-      DB_PASSWORD: ${DB_PASSWORD:-changeme_staging_password}
-      DB_NAME: ${DB_NAME:-grc_staging}
-      # NOTE: Set DB_SYNC=true for initial setup to create tables, then set to false
-      DB_SYNC: ${DB_SYNC:-true}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-grc_platform}
+      DB_SYNC: ${DB_SYNC:-false}
       
-      # Security - JWT Authentication
-      JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-staging-jwt-secret-change-in-production-32chars}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       
-      # Refresh Token Configuration
-      # REFRESH_TOKEN_SECRET defaults to JWT_SECRET if not set
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET:-changeme_jwt_secret_minimum_32_characters_long}}
-      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
+      # CORS - Allow staging domain
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://46.224.99.150,http://localhost:3000,http://localhost:3001,http://localhost:3002}
       
-      # CORS - With API gateway, requests come from same origin (frontend container)
-      # Keep external origin for direct access during debugging if needed
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://frontend,http://46.224.99.150}
-      
-      # Demo credentials
+      # Demo admin (staging)
       DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@grc-staging.local}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-StagingPassword123!}
-      
-      # Audit logging
-      NEST_AUDIT_LOG_ENABLED: ${NEST_AUDIT_LOG_ENABLED:-true}
-    # NOTE: Port NOT exposed publicly - backend only accessible via internal Docker network
-    # The NGINX reverse proxy in frontend container handles all external API requests
-    expose:
-      - "3002"
+    ports:
+      - "3002:3002"
     healthcheck:
-      # Use the canonical /api/v2/health endpoint for health checks
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/api/v2/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/ready"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
       start_period: 30s
     networks:
       - grc-staging-network
 
   # ---------------------------------------------------------------------------
-  # React Frontend (NGINX API Gateway)
+  # React Frontend (Nginx)
   # ---------------------------------------------------------------------------
-  # NGINX serves as both the frontend web server and API gateway/reverse proxy.
-  # All /api/* requests are proxied to the backend container on internal network.
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Use relative /api path for single-origin architecture
-        # NGINX will proxy these requests to the backend container
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://46.224.99.150:3002}
     container_name: grc-staging-frontend
     restart: unless-stopped
     depends_on:
@@ -138,7 +106,7 @@ services:
     ports:
       - "80:80"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -147,15 +115,16 @@ services:
       - grc-staging-network
 
 # -----------------------------------------------------------------------------
+# Named Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  grc_staging_postgres_data:
+    driver: local
+
+# -----------------------------------------------------------------------------
 # Networks
 # -----------------------------------------------------------------------------
 networks:
   grc-staging-network:
     driver: bridge
 
-# -----------------------------------------------------------------------------
-# Volumes
-# -----------------------------------------------------------------------------
-volumes:
-  postgres_data_staging:
-    driver: local

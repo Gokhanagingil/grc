@@ -85,10 +85,10 @@ describe('HealthService', () => {
     it('should return healthy status when all auth config is present', () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string> = {
-          JWT_SECRET: 'test-secret',
-          JWT_EXPIRES_IN: '1h',
-          REFRESH_TOKEN_SECRET: 'refresh-secret',
-          REFRESH_TOKEN_EXPIRES_IN: '7d',
+          'jwt.secret': 'test-secret',
+          'jwt.expiresIn': '24h',
+          'jwt.refreshSecret': 'refresh-secret',
+          'jwt.refreshExpiresIn': '7d',
         };
         return config[key];
       });
@@ -106,10 +106,10 @@ describe('HealthService', () => {
     it('should return unhealthy status when JWT_SECRET is missing', () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string | undefined> = {
-          JWT_SECRET: undefined,
-          JWT_EXPIRES_IN: '1h',
-          REFRESH_TOKEN_SECRET: undefined,
-          REFRESH_TOKEN_EXPIRES_IN: '7d',
+          'jwt.secret': undefined,
+          'jwt.expiresIn': '24h',
+          'jwt.refreshSecret': undefined,
+          'jwt.refreshExpiresIn': '7d',
         };
         return config[key];
       });
@@ -123,10 +123,10 @@ describe('HealthService', () => {
     it('should return degraded status when JWT is configured but refresh token is not', () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string | undefined> = {
-          JWT_SECRET: 'test-secret',
-          JWT_EXPIRES_IN: undefined,
-          REFRESH_TOKEN_SECRET: undefined,
-          REFRESH_TOKEN_EXPIRES_IN: undefined,
+          'jwt.secret': 'test-secret',
+          'jwt.expiresIn': undefined,
+          'jwt.refreshSecret': undefined,
+          'jwt.refreshExpiresIn': undefined,
         };
         return config[key];
       });
@@ -158,10 +158,10 @@ describe('HealthService', () => {
       mockDataSource.showMigrations.mockResolvedValue(false);
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string> = {
-          JWT_SECRET: 'test-secret',
-          JWT_EXPIRES_IN: '1h',
-          REFRESH_TOKEN_SECRET: 'refresh-secret',
-          REFRESH_TOKEN_EXPIRES_IN: '7d',
+          'jwt.secret': 'test-secret',
+          'jwt.expiresIn': '24h',
+          'jwt.refreshSecret': 'refresh-secret',
+          'jwt.refreshExpiresIn': '7d',
         };
         return config[key];
       });
@@ -178,10 +178,10 @@ describe('HealthService', () => {
       mockDataSource.query.mockRejectedValue(new Error('Connection failed'));
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string> = {
-          JWT_SECRET: 'test-secret',
-          JWT_EXPIRES_IN: '1h',
-          REFRESH_TOKEN_SECRET: 'refresh-secret',
-          REFRESH_TOKEN_EXPIRES_IN: '7d',
+          'jwt.secret': 'test-secret',
+          'jwt.expiresIn': '24h',
+          'jwt.refreshSecret': 'refresh-secret',
+          'jwt.refreshExpiresIn': '7d',
         };
         return config[key];
       });
@@ -199,10 +199,10 @@ describe('HealthService', () => {
       mockDataSource.showMigrations.mockResolvedValue(false);
       mockConfigService.get.mockImplementation((key: string) => {
         const config: Record<string, string | undefined> = {
-          JWT_SECRET: 'test-secret',
-          JWT_EXPIRES_IN: undefined,
-          REFRESH_TOKEN_SECRET: undefined,
-          REFRESH_TOKEN_EXPIRES_IN: undefined,
+          'jwt.secret': 'test-secret',
+          'jwt.expiresIn': undefined,
+          'jwt.refreshSecret': undefined,
+          'jwt.refreshExpiresIn': undefined,
         };
         return config[key];
       });

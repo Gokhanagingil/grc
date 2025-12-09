@@ -12,8 +12,12 @@
  */
 
 import * as http from 'http';
+import { config } from 'dotenv';
 
-// Configuration
+// Load environment variables
+config();
+
+// Configuration - use validated env var with safe default
 const BASE_URL = process.env.NEST_API_URL || 'http://localhost:3002';
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_EMAIL = 'admin@grc-platform.local';
