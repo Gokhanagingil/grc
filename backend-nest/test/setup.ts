@@ -2,8 +2,23 @@
  * Test Setup
  *
  * This file is run before all e2e tests to set up the test environment.
+ *
+ * IMPORTANT: This file loads .env.test for local development.
+ * CI sets environment variables directly, so dotenv won't override them.
+ * This ensures both local and CI runs work correctly.
  */
 import * as crypto from 'crypto';
+import * as path from 'path';
+import { config } from 'dotenv';
+
+// Load .env.test file for local development
+// CI sets env vars directly via workflow env: blocks, so dotenv won't override them
+// (dotenv doesn't override existing env vars by default)
+// This allows local developers to use .env.test without breaking CI
+config({ path: path.resolve(__dirname, '../.env.test') });
+
+// Also load .env.test.local if it exists (for local overrides, gitignored)
+config({ path: path.resolve(__dirname, '../.env.test.local') });
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';

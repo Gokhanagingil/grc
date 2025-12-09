@@ -1,0 +1,39 @@
+{
+  "name": "grc-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GRC Platform - Governance, Risk, and Compliance management system",
+  "scripts": {
+    "---BACKEND-NEST---": "echo 'NestJS Backend Commands'",
+    "nest:install": "cd backend-nest && npm install",
+    "nest:build": "cd backend-nest && npm run build",
+    "nest:start": "cd backend-nest && npm run start",
+    "nest:start:dev": "cd backend-nest && npm run start:dev",
+    "nest:lint": "cd backend-nest && npm run lint",
+    "nest:test": "cd backend-nest && npm run test",
+    "nest:test:e2e": "cd backend-nest && npm run test:e2e",
+    "nest:seed:grc": "cd backend-nest && npm run seed:grc",
+    "nest:smoke:grc": "cd backend-nest && npm run smoke:grc",
+    
+    "---BACKEND-EXPRESS---": "echo 'Express Backend Commands'",
+    "backend:install": "cd backend && npm install",
+    "backend:start": "cd backend && npm run start",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:test": "cd backend && npm run test:ci",
+    
+    "---FRONTEND---": "echo 'Frontend Commands'",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:start": "cd frontend && npm start",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:lint": "cd frontend && npx eslint src/ --ext .ts,.tsx",
+    
+    "---SETUP---": "echo 'Setup Commands'",
+    "install:all": "npm run nest:install && npm run backend:install && npm run frontend:install",
+    
+    "---HELP---": "echo 'Run npm run help for available commands'",
+    "help": "echo 'GRC Platform Commands:' && echo '' && echo 'NestJS Backend (backend-nest/):' && echo '  npm run nest:install    - Install dependencies' && echo '  npm run nest:build      - Build the application' && echo '  npm run nest:start:dev  - Start in development mode' && echo '  npm run nest:test       - Run unit tests' && echo '  npm run nest:test:e2e   - Run E2E tests' && echo '  npm run nest:lint       - Run linter' && echo '' && echo 'Express Backend (backend/):' && echo '  npm run backend:install - Install dependencies' && echo '  npm run backend:dev     - Start in development mode' && echo '  npm run backend:test    - Run tests' && echo '' && echo 'Frontend (frontend/):' && echo '  npm run frontend:install - Install dependencies' && echo '  npm run frontend:start   - Start development server' && echo '  npm run frontend:build   - Build for production' && echo '' && echo 'Setup:' && echo '  npm run install:all     - Install all dependencies' && echo '' && echo 'For more details, see docs/LOCAL-DEVELOPMENT.md'"
+  },
+  "keywords": ["grc", "governance", "risk", "compliance"],
+  "author": "GRC Platform Team",
+  "license": "ISC"
+}
