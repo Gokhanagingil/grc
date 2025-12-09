@@ -29,6 +29,11 @@ export {
   REQUIREMENT_SORTABLE_FIELDS,
 } from './filter-requirement.dto';
 
+// Audit DTOs
+export { CreateAuditDto } from './create-audit.dto';
+export { UpdateAuditDto } from './update-audit.dto';
+export { AuditFilterDto, AUDIT_SORTABLE_FIELDS } from './filter-audit.dto';
+
 // Relationship DTOs
 export { LinkPoliciesDto } from './link-policies.dto';
 export { LinkRequirementsDto } from './link-requirements.dto';

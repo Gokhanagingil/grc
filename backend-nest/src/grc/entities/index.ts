@@ -12,6 +12,7 @@ export { GrcRequirement } from './grc-requirement.entity';
 export { GrcIssue } from './grc-issue.entity';
 export { GrcCapa } from './grc-capa.entity';
 export { GrcEvidence } from './grc-evidence.entity';
+export { GrcAudit, AuditStatus, AuditType, AuditRiskLevel } from './grc-audit.entity';
 
 // Policy Versioning Entities
 export { GrcPolicyVersion } from './grc-policy-version.entity';
