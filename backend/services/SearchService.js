@@ -15,7 +15,7 @@ const aclService = require('./AclService');
 
 class SearchService {
   constructor() {
-    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos', 'audits'];
+    this.supportedTables = ['risks', 'policies', 'compliance_requirements', 'users', 'todos', 'audits', 'findings', 'capas', 'evidence'];
     this.tableFieldMappings = {
       risks: {
         id: 'r.id',
@@ -62,30 +62,79 @@ class SearchService {
         created_at: 'c.created_at',
         updated_at: 'c.updated_at'
       },
-      audits: {
-        id: 'a.id',
-        name: 'a.name',
-        description: 'a.description',
-        audit_type: 'a.audit_type',
-        status: 'a.status',
-        risk_level: 'a.risk_level',
-        department: 'a.department',
-        owner_id: 'a.owner_id',
-        lead_auditor_id: 'a.lead_auditor_id',
-        planned_start_date: 'a.planned_start_date',
-        planned_end_date: 'a.planned_end_date',
-        actual_start_date: 'a.actual_start_date',
-        actual_end_date: 'a.actual_end_date',
-        scope: 'a.scope',
-        objectives: 'a.objectives',
-        methodology: 'a.methodology',
-        findings_summary: 'a.findings_summary',
-        recommendations: 'a.recommendations',
-        conclusion: 'a.conclusion',
-        created_at: 'a.created_at',
-        updated_at: 'a.updated_at'
-      }
-    };
+          audits: {
+            id: 'a.id',
+            name: 'a.name',
+            description: 'a.description',
+            audit_type: 'a.audit_type',
+            status: 'a.status',
+            risk_level: 'a.risk_level',
+            department: 'a.department',
+            owner_id: 'a.owner_id',
+            lead_auditor_id: 'a.lead_auditor_id',
+            planned_start_date: 'a.planned_start_date',
+            planned_end_date: 'a.planned_end_date',
+            actual_start_date: 'a.actual_start_date',
+            actual_end_date: 'a.actual_end_date',
+            scope: 'a.scope',
+            objectives: 'a.objectives',
+            methodology: 'a.methodology',
+            findings_summary: 'a.findings_summary',
+            recommendations: 'a.recommendations',
+            conclusion: 'a.conclusion',
+            created_at: 'a.created_at',
+            updated_at: 'a.updated_at'
+          },
+          findings: {
+            id: 'f.id',
+            audit_id: 'f.audit_id',
+            title: 'f.title',
+            description: 'f.description',
+            severity: 'f.severity',
+            status: 'f.status',
+            root_cause: 'f.root_cause',
+            recommendation: 'f.recommendation',
+            management_response: 'f.management_response',
+            owner_id: 'f.owner_id',
+            created_by: 'f.created_by',
+            created_at: 'f.created_at',
+            updated_at: 'f.updated_at'
+          },
+          capas: {
+            id: 'c.id',
+            finding_id: 'c.finding_id',
+            title: 'c.title',
+            description: 'c.description',
+            type: 'c.type',
+            status: 'c.status',
+            validation_status: 'c.validation_status',
+            due_date: 'c.due_date',
+            validation_date: 'c.validation_date',
+            validated_by: 'c.validated_by',
+            extended_due_date: 'c.extended_due_date',
+            extension_reason: 'c.extension_reason',
+            owner_id: 'c.owner_id',
+            created_by: 'c.created_by',
+            created_at: 'c.created_at',
+            updated_at: 'c.updated_at'
+          },
+          evidence: {
+            id: 'e.id',
+            finding_id: 'e.finding_id',
+            audit_id: 'e.audit_id',
+            title: 'e.title',
+            description: 'e.description',
+            type: 'e.type',
+            storage_type: 'e.storage_type',
+            storage_ref: 'e.storage_ref',
+            external_system: 'e.external_system',
+            external_id: 'e.external_id',
+            uploaded_by: 'e.uploaded_by',
+            uploaded_at: 'e.uploaded_at',
+            created_at: 'e.created_at',
+            updated_at: 'e.updated_at'
+          }
+        };
   }
 
   /**
@@ -280,16 +329,46 @@ class SearchService {
                 LEFT JOIN users u1 ON c.owner_id = u1.id 
                 LEFT JOIN users u2 ON c.assigned_to = u2.id`;
       
-      case 'audits':
-        return `SELECT a.*, 
-                u1.first_name as owner_first_name, u1.last_name as owner_last_name,
-                u2.first_name as lead_auditor_first_name, u2.last_name as lead_auditor_last_name
-                FROM audits a 
-                LEFT JOIN users u1 ON a.owner_id = u1.id 
-                LEFT JOIN users u2 ON a.lead_auditor_id = u2.id`;
+            case 'audits':
+              return `SELECT a.*, 
+                      u1.first_name as owner_first_name, u1.last_name as owner_last_name,
+                      u2.first_name as lead_auditor_first_name, u2.last_name as lead_auditor_last_name
+                      FROM audits a 
+                      LEFT JOIN users u1 ON a.owner_id = u1.id 
+                      LEFT JOIN users u2 ON a.lead_auditor_id = u2.id`;
       
-      default:
-        return `SELECT * FROM ${tableName}`;
+            case 'findings':
+              return `SELECT f.*, 
+                      a.name as audit_name,
+                      u1.first_name as owner_first_name, u1.last_name as owner_last_name,
+                      u2.first_name as created_by_first_name, u2.last_name as created_by_last_name
+                      FROM findings f 
+                      LEFT JOIN audits a ON f.audit_id = a.id
+                      LEFT JOIN users u1 ON f.owner_id = u1.id 
+                      LEFT JOIN users u2 ON f.created_by = u2.id`;
+      
+            case 'capas':
+              return `SELECT c.*, 
+                      f.title as finding_title,
+                      u1.first_name as owner_first_name, u1.last_name as owner_last_name,
+                      u2.first_name as validated_by_first_name, u2.last_name as validated_by_last_name
+                      FROM capas c 
+                      LEFT JOIN findings f ON c.finding_id = f.id
+                      LEFT JOIN users u1 ON c.owner_id = u1.id 
+                      LEFT JOIN users u2 ON c.validated_by = u2.id`;
+      
+            case 'evidence':
+              return `SELECT e.*, 
+                      f.title as finding_title,
+                      a.name as audit_name,
+                      u.first_name as uploaded_by_first_name, u.last_name as uploaded_by_last_name
+                      FROM evidence e 
+                      LEFT JOIN findings f ON e.finding_id = f.id
+                      LEFT JOIN audits a ON e.audit_id = a.id
+                      LEFT JOIN users u ON e.uploaded_by = u.id`;
+      
+            default:
+              return `SELECT * FROM ${tableName}`;
     }
   }
 
@@ -306,10 +385,16 @@ class SearchService {
         return 'SELECT COUNT(*) as total FROM policies p';
       case 'compliance_requirements':
         return 'SELECT COUNT(*) as total FROM compliance_requirements c';
-      case 'audits':
-        return 'SELECT COUNT(*) as total FROM audits a';
-      default:
-        return `SELECT COUNT(*) as total FROM ${tableName}`;
+            case 'audits':
+              return 'SELECT COUNT(*) as total FROM audits a';
+            case 'findings':
+              return 'SELECT COUNT(*) as total FROM findings f';
+            case 'capas':
+              return 'SELECT COUNT(*) as total FROM capas c';
+            case 'evidence':
+              return 'SELECT COUNT(*) as total FROM evidence e';
+            default:
+              return `SELECT COUNT(*) as total FROM ${tableName}`;
     }
   }
 
@@ -433,25 +518,59 @@ class SearchService {
         created_at: { type: 'datetime', label: 'Created At', sortable: true },
         updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
       },
-      audits: {
-        name: { type: 'string', label: 'Name', searchable: true },
-        description: { type: 'text', label: 'Description', searchable: true },
-        audit_type: { type: 'enum', label: 'Audit Type', values: ['internal', 'external'], filterable: true },
-        status: { type: 'enum', label: 'Status', values: ['planned', 'in_progress', 'completed', 'closed'], filterable: true },
-        risk_level: { type: 'enum', label: 'Risk Level', values: ['low', 'medium', 'high', 'critical'], filterable: true },
-        department: { type: 'string', label: 'Department', filterable: true },
-        owner_id: { type: 'reference', label: 'Owner', filterable: true },
-        lead_auditor_id: { type: 'reference', label: 'Lead Auditor', filterable: true },
-        planned_start_date: { type: 'date', label: 'Planned Start Date', sortable: true },
-        planned_end_date: { type: 'date', label: 'Planned End Date', sortable: true },
-        actual_start_date: { type: 'date', label: 'Actual Start Date', sortable: true },
-        actual_end_date: { type: 'date', label: 'Actual End Date', sortable: true },
-        created_at: { type: 'datetime', label: 'Created At', sortable: true },
-        updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
-      }
-    };
+          audits: {
+            name: { type: 'string', label: 'Name', searchable: true },
+            description: { type: 'text', label: 'Description', searchable: true },
+            audit_type: { type: 'enum', label: 'Audit Type', values: ['internal', 'external'], filterable: true },
+            status: { type: 'enum', label: 'Status', values: ['planned', 'in_progress', 'completed', 'closed'], filterable: true },
+            risk_level: { type: 'enum', label: 'Risk Level', values: ['low', 'medium', 'high', 'critical'], filterable: true },
+            department: { type: 'string', label: 'Department', filterable: true },
+            owner_id: { type: 'reference', label: 'Owner', filterable: true },
+            lead_auditor_id: { type: 'reference', label: 'Lead Auditor', filterable: true },
+            planned_start_date: { type: 'date', label: 'Planned Start Date', sortable: true },
+            planned_end_date: { type: 'date', label: 'Planned End Date', sortable: true },
+            actual_start_date: { type: 'date', label: 'Actual Start Date', sortable: true },
+            actual_end_date: { type: 'date', label: 'Actual End Date', sortable: true },
+            created_at: { type: 'datetime', label: 'Created At', sortable: true },
+            updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
+          },
+          findings: {
+            title: { type: 'string', label: 'Title', searchable: true },
+            description: { type: 'text', label: 'Description', searchable: true },
+            severity: { type: 'enum', label: 'Severity', values: ['low', 'medium', 'high', 'critical'], filterable: true },
+            status: { type: 'enum', label: 'Status', values: ['draft', 'under_discussion', 'action_agreed', 'in_progress', 'pending_validation', 'closed', 'reopened'], filterable: true },
+            audit_id: { type: 'reference', label: 'Audit', filterable: true },
+            owner_id: { type: 'reference', label: 'Owner', filterable: true },
+            created_at: { type: 'datetime', label: 'Created At', sortable: true },
+            updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
+          },
+          capas: {
+            title: { type: 'string', label: 'Title', searchable: true },
+            description: { type: 'text', label: 'Description', searchable: true },
+            type: { type: 'enum', label: 'Type', values: ['corrective', 'preventive', 'containment'], filterable: true },
+            status: { type: 'enum', label: 'Status', values: ['not_started', 'in_progress', 'implemented', 'overdue'], filterable: true },
+            validation_status: { type: 'enum', label: 'Validation Status', values: ['not_validated', 'validated', 'rejected'], filterable: true },
+            finding_id: { type: 'reference', label: 'Finding', filterable: true },
+            owner_id: { type: 'reference', label: 'Owner', filterable: true },
+            due_date: { type: 'date', label: 'Due Date', sortable: true },
+            created_at: { type: 'datetime', label: 'Created At', sortable: true },
+            updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
+          },
+          evidence: {
+            title: { type: 'string', label: 'Title', searchable: true },
+            description: { type: 'text', label: 'Description', searchable: true },
+            type: { type: 'enum', label: 'Type', values: ['document', 'screenshot', 'log', 'configuration', 'ticket', 'interview', 'observation'], filterable: true },
+            storage_type: { type: 'enum', label: 'Storage Type', values: ['link', 'external', 'reference'], filterable: true },
+            finding_id: { type: 'reference', label: 'Finding', filterable: true },
+            audit_id: { type: 'reference', label: 'Audit', filterable: true },
+            uploaded_by: { type: 'reference', label: 'Uploaded By', filterable: true },
+            uploaded_at: { type: 'datetime', label: 'Uploaded At', sortable: true },
+            created_at: { type: 'datetime', label: 'Created At', sortable: true },
+            updated_at: { type: 'datetime', label: 'Updated At', sortable: true }
+          }
+        };
 
-    return metadata[tableName] || {};
+        return metadata[tableName] || {};
   }
 
   /**
