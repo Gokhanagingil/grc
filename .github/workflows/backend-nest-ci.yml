@@ -173,6 +173,7 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-for-tests-only
       
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
