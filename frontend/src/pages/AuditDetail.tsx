@@ -32,7 +32,7 @@ import { LoadingState, ErrorState } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
-import api from '../services/api';
+import { api } from '../services/api';
 
 interface Audit {
   id: number;
@@ -127,18 +127,13 @@ export const AuditDetail: React.FC = () => {
     conclusion: '',
   });
 
-  const { layout, isLoading: layoutLoading } = useFormLayout('audits', user?.role ? [user.role] : []);
-  const { evaluateActions } = useUiPolicy('audits');
-
-  const [uiActions, setUiActions] = useState<{
-    hiddenFields: string[];
-    readonlyFields: string[];
-    mandatoryFields: string[];
-  }>({
-    hiddenFields: [],
-    readonlyFields: [],
-    mandatoryFields: [],
-  });
+  const { layout, isLoading: layoutLoading } = useFormLayout('audits');
+  const { 
+    isFieldHidden: uiPolicyHidden, 
+    isFieldReadonly: uiPolicyReadonly, 
+    isFieldMandatory: uiPolicyMandatory,
+    evaluatePolicies 
+  } = useUiPolicy('audits');
 
   const fetchAudit = useCallback(async () => {
     if (isNew) return;
@@ -213,13 +208,8 @@ export const AuditDetail: React.FC = () => {
   }, [fetchAudit, fetchPermissions, fetchUsers]);
 
   useEffect(() => {
-    const actions = evaluateActions(formData);
-    setUiActions({
-      hiddenFields: actions.filter(a => a.action === 'hide').map(a => a.field),
-      readonlyFields: actions.filter(a => a.action === 'readonly').map(a => a.field),
-      mandatoryFields: actions.filter(a => a.action === 'mandatory').map(a => a.field),
-    });
-  }, [formData, evaluateActions]);
+    evaluatePolicies(formData);
+  }, [formData, evaluatePolicies]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -265,7 +255,7 @@ export const AuditDetail: React.FC = () => {
 
   const isFieldHidden = (fieldName: string): boolean => {
     if (permissions?.maskedFields.includes(fieldName)) return true;
-    if (uiActions.hiddenFields.includes(fieldName)) return true;
+    if (uiPolicyHidden(fieldName)) return true;
     if (layout?.hiddenFields?.includes(fieldName)) return true;
     return false;
   };
@@ -274,14 +264,14 @@ export const AuditDetail: React.FC = () => {
     if (!isEditMode) return true;
     if (!permissions?.write) return true;
     if (permissions?.deniedFields.includes(fieldName)) return true;
-    if (uiActions.readonlyFields.includes(fieldName)) return true;
+    if (uiPolicyReadonly(fieldName)) return true;
     if (layout?.readonlyFields?.includes(fieldName)) return true;
     return false;
   };
 
   const isFieldMandatory = (fieldName: string): boolean => {
     if (fieldName === 'name') return true;
-    return uiActions.mandatoryFields.includes(fieldName);
+    return uiPolicyMandatory(fieldName);
   };
 
   const handleFieldChange = (field: string, value: unknown) => {

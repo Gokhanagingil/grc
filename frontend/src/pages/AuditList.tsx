@@ -36,7 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
-import api from '../services/api';
+import { api } from '../services/api';
 
 interface Audit {
   id: number;
