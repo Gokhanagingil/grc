@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -34,6 +34,7 @@ import {
   ReportProblem as IncidentIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { moduleApi } from '../services/platformApi';
 
 const drawerWidth = 240;
 
@@ -42,35 +43,54 @@ interface NavMenuItem {
   icon: React.ReactNode;
   path: string;
   roles?: ('admin' | 'manager' | 'user')[];
+  moduleKey?: string;
 }
 
 const menuItems: NavMenuItem[] = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { text: 'To-Do', icon: <TodoIcon />, path: '/todos' },
-  { text: 'Governance', icon: <GovernanceIcon />, path: '/governance' },
-  { text: 'Risk Management', icon: <RiskIcon />, path: '/risk' },
-  { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance' },
-  { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents' },
+  { text: 'Governance', icon: <GovernanceIcon />, path: '/governance', moduleKey: 'policy' },
+  { text: 'Risk Management', icon: <RiskIcon />, path: '/risk', moduleKey: 'risk' },
+  { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance', moduleKey: 'compliance' },
+  { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents', moduleKey: 'itsm.incident' },
   { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
   { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
-  { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'] },
+  { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
 ];
 
 export const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [enabledModules, setEnabledModules] = useState<string[]>([]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Filter menu items based on user role
+  useEffect(() => {
+    const fetchEnabledModules = async () => {
+      try {
+        const response = await moduleApi.getEnabled();
+        setEnabledModules(response.data.enabledModules);
+      } catch (error) {
+        console.error('Error fetching enabled modules:', error);
+        setEnabledModules(['risk', 'policy', 'compliance', 'audit', 'platform.admin']);
+      }
+    };
+    fetchEnabledModules();
+  }, []);
+
   const filteredMenuItems = useMemo(() => {
     if (!user) return [];
     return menuItems.filter((item) => {
-      if (!item.roles) return true; // No role restriction
-      return item.roles.includes(user.role);
+      if (item.roles && !item.roles.includes(user.role)) {
+        return false;
+      }
+      if (item.moduleKey && !enabledModules.includes(item.moduleKey)) {
+        return false;
+      }
+      return true;
     });
-  }, [user]);
+  }, [user, enabledModules]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
