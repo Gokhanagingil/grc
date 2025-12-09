@@ -13,6 +13,7 @@ import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
+import { Incidents } from './pages/Incidents';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const theme = createTheme({
@@ -51,6 +52,7 @@ function App() {
               <Route path="governance" element={<Governance />} />
               <Route path="risk" element={<RiskManagement />} />
               <Route path="compliance" element={<Compliance />} />
+              <Route path="itsm/incidents" element={<Incidents />} />
               <Route path="dotwalking" element={<DotWalkingBuilder />} />
               <Route path="users" element={
                 <ProtectedRoute allowedRoles={['admin', 'manager']}>

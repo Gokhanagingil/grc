@@ -35,20 +35,24 @@ async function bootstrap() {
   );
 
   // CORS configuration
-  const corsOrigins = configService.get<string>('cors.origins') || '';
+  const corsOrigins = configService.get<string>(
+    'cors.origins',
+    'http://localhost:3000,http://localhost:3001,http://localhost:3002',
+  );
   app.enableCors({
     origin: corsOrigins.split(',').map((origin) => origin.trim()),
     credentials: true,
   });
 
   // Get port from config (default 3002 to avoid conflict with Express on 3001)
-  const port = configService.get<number>('app.port') || 3002;
+  const port = configService.get<number>('app.port', 3002);
 
   await app.listen(port);
 
   // Log startup information using structured logger
+  const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
   logger.log('Application started', {
-    environment: configService.get<string>('app.nodeEnv'),
+    environment: nodeEnv,
     port,
     healthCheck: `http://localhost:${port}/health/live`,
     metrics: `http://localhost:${port}/metrics`,

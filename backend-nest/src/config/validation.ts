@@ -69,6 +69,22 @@ class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGINS: string =
     'http://localhost:3000,http://localhost:3001,http://localhost:3002';
+
+  @IsString()
+  @IsOptional()
+  NEST_AUDIT_LOG_ENABLED: string = 'true';
+
+  @IsString()
+  @IsOptional()
+  DEMO_ADMIN_EMAIL: string = 'admin@grc-platform.local';
+
+  @IsString()
+  @IsOptional()
+  DEMO_ADMIN_PASSWORD: string = 'TestPassword123!';
+
+  @IsString()
+  @IsOptional()
+  NEST_API_URL: string = 'http://localhost:3002';
 }
 
 /**

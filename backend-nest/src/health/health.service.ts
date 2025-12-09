@@ -107,31 +107,36 @@ export class HealthService {
   checkAuth(): AuthHealthResult {
     const timestamp = new Date().toISOString();
 
+    // Check JWT configuration with safe access
+    const jwtSecret = this.configService.get<string>('jwt.secret', '');
+    const jwtExpiresIn = this.configService.get<string>('jwt.expiresIn', '');
+    const refreshTokenSecret =
+      this.configService.get<string>('jwt.refreshSecret', '') || jwtSecret;
+
     const requiredEnvVars = [
       {
         name: 'JWT_SECRET',
-        configured: !!this.configService.get('JWT_SECRET'),
+        configured: !!jwtSecret,
       },
       {
         name: 'JWT_EXPIRES_IN',
-        configured: !!this.configService.get('JWT_EXPIRES_IN'),
+        configured: !!jwtExpiresIn,
       },
       {
         name: 'REFRESH_TOKEN_SECRET',
-        configured:
-          !!this.configService.get('REFRESH_TOKEN_SECRET') ||
-          !!this.configService.get('JWT_SECRET'),
+        configured: !!refreshTokenSecret,
       },
       {
         name: 'REFRESH_TOKEN_EXPIRES_IN',
-        configured: !!this.configService.get('REFRESH_TOKEN_EXPIRES_IN'),
+        configured: !!this.configService.get<string>(
+          'jwt.refreshExpiresIn',
+          '',
+        ),
       },
     ];
 
-    const jwtConfigured = !!this.configService.get('JWT_SECRET');
-    const refreshTokenConfigured =
-      !!this.configService.get('REFRESH_TOKEN_SECRET') ||
-      !!this.configService.get('JWT_SECRET');
+    const jwtConfigured = !!jwtSecret;
+    const refreshTokenConfigured = !!refreshTokenSecret;
 
     const allConfigured = requiredEnvVars.every((v) => v.configured);
 

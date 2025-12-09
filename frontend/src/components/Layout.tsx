@@ -31,6 +31,7 @@ import {
   AdminPanelSettings as AdminIcon,
   CheckCircle as TodoIcon,
   AccountTree as DotWalkingIcon,
+  Warning as IncidentIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -49,6 +50,7 @@ const menuItems: NavMenuItem[] = [
   { text: 'Governance', icon: <GovernanceIcon />, path: '/governance' },
   { text: 'Risk Management', icon: <RiskIcon />, path: '/risk' },
   { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance' },
+  { text: 'Incidents', icon: <IncidentIcon />, path: '/itsm/incidents' },
   { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
   { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
   { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'] },

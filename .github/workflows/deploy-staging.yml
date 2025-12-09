@@ -1,0 +1,146 @@
+# =============================================================================
+# GRC Platform - Staging Deployment Workflow
+# =============================================================================
+# Deploys to Hetzner staging server (46.224.99.150)
+#
+# Triggers:
+#   - Manual workflow dispatch
+#   - Push to main branch (optional, can be enabled)
+#
+# Secrets Required:
+#   - STAGING_SSH_HOST: 46.224.99.150
+#   - STAGING_SSH_USER: root (or grcdeploy)
+#   - STAGING_SSH_KEY: Private SSH key (BEGIN/END OPENSSH format)
+#
+# Deployment Path: /opt/grc-platform
+# =============================================================================
+
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+  # Uncomment to auto-deploy on push to main:
+  # push:
+  #   branches:
+  #     - main
+
+env:
+  DEPLOY_PATH: /opt/grc-platform
+  STAGING_HOST: ${{ secrets.STAGING_SSH_HOST }}
+  STAGING_USER: ${{ secrets.STAGING_SSH_USER }}
+
+jobs:
+  deploy:
+    name: Deploy to Staging Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "=== Starting Staging Deployment ==="
+            echo "Deploy path: ${{ env.DEPLOY_PATH }}"
+            echo "Timestamp: $(date)"
+            
+            # Navigate to deploy path
+            cd ${{ env.DEPLOY_PATH }} || {
+              echo "ERROR: Deploy path ${{ env.DEPLOY_PATH }} does not exist!"
+              exit 1
+            }
+            
+            # Check git status
+            echo "=== Git Status ==="
+            git status
+            
+            # Fetch latest changes
+            echo "=== Fetching latest changes ==="
+            git fetch --all
+            
+            # Checkout main branch
+            echo "=== Checking out main branch ==="
+            git checkout main || {
+              echo "ERROR: Failed to checkout main branch"
+              exit 1
+            }
+            
+            # Pull latest changes
+            echo "=== Pulling latest changes ==="
+            git pull origin main || {
+              echo "ERROR: Failed to pull latest changes"
+              exit 1
+            }
+            
+            # Show current commit
+            echo "=== Current Commit ==="
+            git log -1 --oneline
+            
+            # Check Docker and Docker Compose
+            echo "=== Docker Environment ==="
+            docker --version
+            docker compose version || docker-compose --version
+            
+            # Deploy with Docker Compose
+            echo "=== Deploying with Docker Compose ==="
+            docker compose -f docker-compose.staging.yml up -d --build --force-recreate || {
+              echo "ERROR: Docker Compose deployment failed"
+              docker compose -f docker-compose.staging.yml logs
+              exit 1
+            }
+            
+            # Wait for services to be healthy
+            echo "=== Waiting for services to be healthy ==="
+            sleep 10
+            
+            # Check container status
+            echo "=== Container Status ==="
+            docker compose -f docker-compose.staging.yml ps
+            
+            # Health checks
+            echo "=== Health Checks ==="
+            
+            # Backend health check
+            echo "Checking backend health..."
+            for i in {1..30}; do
+              if curl -sf http://localhost:3002/health/live > /dev/null; then
+                echo "✓ Backend health check passed"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "✗ Backend health check failed after 30 attempts"
+                docker compose -f docker-compose.staging.yml logs backend
+                exit 1
+              fi
+              echo "Waiting for backend... ($i/30)"
+              sleep 2
+            done
+            
+            # Frontend health check
+            echo "Checking frontend health..."
+            for i in {1..30}; do
+              if curl -sf http://localhost/health > /dev/null; then
+                echo "✓ Frontend health check passed"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "✗ Frontend health check failed after 30 attempts"
+                docker compose -f docker-compose.staging.yml logs frontend
+                exit 1
+              fi
+              echo "Waiting for frontend... ($i/30)"
+              sleep 2
+            done
+            
+            echo "=== Deployment Complete ==="
+            echo "Frontend: http://${{ secrets.STAGING_SSH_HOST }}"
+            echo "Backend API: http://${{ secrets.STAGING_SSH_HOST }}:3002"
+            echo "Backend Health: http://${{ secrets.STAGING_SSH_HOST }}:3002/health/live"
+

@@ -52,19 +52,30 @@ import { StructuredLoggerService } from './common/logger';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('db.host'),
-        port: configService.get<number>('db.port'),
-        username: configService.get<string>('db.user'),
-        password: configService.get<string>('db.password'),
-        database: configService.get<string>('db.name'),
-        autoLoadEntities: true,
-        // WARNING: synchronize should be false in production!
-        // It auto-creates/updates tables based on entities.
-        synchronize: configService.get<boolean>('db.synchronize'),
-        logging: configService.get<string>('app.nodeEnv') === 'development',
-      }),
+      useFactory: (configService: ConfigService) => {
+        // Get config values with safe defaults (validation ensures critical values exist)
+        const dbHost = configService.get<string>('db.host', 'localhost');
+        const dbPort = configService.get<number>('db.port', 5432);
+        const dbUser = configService.get<string>('db.user', 'postgres');
+        const dbPassword = configService.get<string>('db.password', 'postgres');
+        const dbName = configService.get<string>('db.name', 'grc_platform');
+        const dbSync = configService.get<boolean>('db.synchronize', false);
+        const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+
+        return {
+          type: 'postgres',
+          host: dbHost,
+          port: dbPort,
+          username: dbUser,
+          password: dbPassword,
+          database: dbName,
+          autoLoadEntities: true,
+          // WARNING: synchronize should be false in production!
+          // It auto-creates/updates tables based on entities.
+          synchronize: dbSync,
+          logging: nodeEnv === 'development',
+        };
+      },
     }),
 
     // Event bus (must be before modules that emit events)
@@ -92,7 +103,8 @@ import { StructuredLoggerService } from './common/logger';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const isTest = configService.get<string>('app.nodeEnv') === 'test';
+        const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+        const isTest = nodeEnv === 'test';
         return [
           {
             name: 'default',

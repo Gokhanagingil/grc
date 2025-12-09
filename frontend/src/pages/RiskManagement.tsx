@@ -150,12 +150,15 @@ export const RiskManagement: React.FC = () => {
         params.append('severity', severityFilter);
       }
       
-      const response = await api.get<PaginatedResponse<Risk>>(`/grc/risks?${params}`, {
+      const response = await api.get<PaginatedResponse<Risk>>(`/nest/grc/risks?${params}`, {
         headers: { 'x-tenant-id': tenantId },
       });
       
-      setRisks(response.data.items);
-      setTotal(response.data.total);
+      const items = Array.isArray(response?.data?.items) ? response.data.items : [];
+      const total = typeof response?.data?.total === 'number' ? response.data.total : 0;
+      
+      setRisks(items);
+      setTotal(total);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to fetch risks');
@@ -225,12 +228,12 @@ export const RiskManagement: React.FC = () => {
       };
 
       if (editingRisk) {
-        await api.patch(`/grc/risks/${editingRisk.id}`, riskData, {
+        await api.patch(`/nest/grc/risks/${editingRisk.id}`, riskData, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Risk updated successfully');
       } else {
-        await api.post('/grc/risks', riskData, {
+        await api.post('/nest/grc/risks', riskData, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Risk created successfully');
@@ -256,7 +259,7 @@ export const RiskManagement: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this risk?')) {
       try {
-        await api.delete(`/grc/risks/${id}`, {
+        await api.delete(`/nest/grc/risks/${id}`, {
           headers: { 'x-tenant-id': tenantId },
         });
         setSuccess('Risk deleted successfully');
