@@ -37,7 +37,7 @@ function TabPanel(props: TabPanelProps) {
 
 export const Login: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [registerData, setRegisterData] = useState({
     username: '',
     email: '',
@@ -63,7 +63,7 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      await login(loginData.email, loginData.password);
+      await login(loginData.username, loginData.password);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);
@@ -115,13 +115,13 @@ export const Login: React.FC = () => {
                 margin="normal"
                 required
                 fullWidth
-                id="email"
-                label="Email"
-                name="email"
-                autoComplete="email"
+                id="username"
+                label="Username"
+                name="username"
+                autoComplete="username"
                 autoFocus
-                value={loginData.email}
-                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                value={loginData.username}
+                onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
               />
               <TextField
                 margin="normal"

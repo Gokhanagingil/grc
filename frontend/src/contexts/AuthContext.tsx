@@ -28,7 +28,7 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<boolean>;
@@ -189,9 +189,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => clearInterval(refreshInterval);
   }, [token, refreshAccessToken]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { username, password });
       // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
       const unwrapped = unwrapApiResponse<{
         accessToken?: string;
