@@ -13,6 +13,7 @@ import {
   GrcIssue,
   GrcCapa,
   GrcEvidence,
+  GrcAudit,
   GrcRiskControl,
   GrcPolicyControl,
   GrcRequirementControl,
@@ -36,6 +37,7 @@ import {
   GrcRiskService,
   GrcPolicyService,
   GrcRequirementService,
+  GrcAuditService,
   // Platform Core Phase 1 services
   GrcPolicyVersionService,
   GrcAuditReportTemplateService,
@@ -49,6 +51,7 @@ import {
   GrcRiskController,
   GrcPolicyController,
   GrcRequirementController,
+  GrcAuditController,
   // Platform Core Phase 1 controllers
   GrcPolicyVersionController,
   AuditReportTemplateController,
@@ -83,6 +86,7 @@ import {
       GrcIssue,
       GrcCapa,
       GrcEvidence,
+      GrcAudit,
       // Mapping entities
       GrcRiskControl,
       GrcPolicyControl,
@@ -111,6 +115,7 @@ import {
     GrcRiskService,
     GrcPolicyService,
     GrcRequirementService,
+    GrcAuditService,
     // Platform Core Phase 1 services
     GrcPolicyVersionService,
     GrcAuditReportTemplateService,
@@ -123,6 +128,7 @@ import {
     GrcRiskController,
     GrcPolicyController,
     GrcRequirementController,
+    GrcAuditController,
     // Platform Core Phase 1 controllers
     GrcPolicyVersionController,
     AuditReportTemplateController,
@@ -134,6 +140,7 @@ import {
     GrcRiskService,
     GrcPolicyService,
     GrcRequirementService,
+    GrcAuditService,
     // Platform Core Phase 1 services
     GrcPolicyVersionService,
     GrcAuditReportTemplateService,

@@ -8,6 +8,7 @@
 export { GrcRiskController } from './grc-risk.controller';
 export { GrcPolicyController } from './grc-policy.controller';
 export { GrcRequirementController } from './grc-requirement.controller';
+export { GrcAuditController } from './grc-audit.controller';
 
 // Policy Versioning Controllers
 export { GrcPolicyVersionController } from './grc-policy-version.controller';

@@ -8,6 +8,7 @@
 export { GrcRiskService } from './grc-risk.service';
 export { GrcPolicyService } from './grc-policy.service';
 export { GrcRequirementService } from './grc-requirement.service';
+export { GrcAuditService } from './grc-audit.service';
 
 // Policy Versioning Services
 export { GrcPolicyVersionService } from './grc-policy-version.service';

@@ -19,6 +19,10 @@ export enum Permission {
   GRC_REQUIREMENT_READ = 'grc:requirement:read',
   GRC_REQUIREMENT_WRITE = 'grc:requirement:write',
 
+  // Audit permissions
+  GRC_AUDIT_READ = 'grc:audit:read',
+  GRC_AUDIT_WRITE = 'grc:audit:write',
+
   // Statistics permissions (restricted read access)
   GRC_STATISTICS_READ = 'grc:statistics:read',
 
@@ -54,6 +58,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_REQUIREMENT_READ]:
     'View requirements and requirement details',
   [Permission.GRC_REQUIREMENT_WRITE]: 'Create, update, and delete requirements',
+  [Permission.GRC_AUDIT_READ]: 'View audits and audit details',
+  [Permission.GRC_AUDIT_WRITE]: 'Create, update, and delete audits',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
   [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',
