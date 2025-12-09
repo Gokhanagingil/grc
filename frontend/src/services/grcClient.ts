@@ -166,6 +166,14 @@ export const API_PATHS = {
     COMPLIANCE_SUMMARY: '/grc/metrics/compliance/summary',
   },
 
+  // GRC Dashboard endpoints (Phase 8 - Express backend)
+  GRC_DASHBOARD: {
+    AUDIT_OVERVIEW: '/grc/dashboard/audit-overview',
+    COMPLIANCE_OVERVIEW: '/grc/dashboard/compliance-overview',
+    GRC_HEALTH: '/grc/dashboard/grc-health',
+    FILTERS: '/grc/dashboard/filters',
+  },
+
   // ITSM Incident endpoints
   ITSM_INCIDENTS: {
     LIST: '/itsm/incidents',
@@ -961,4 +969,185 @@ export const grcMetricsApi = {
   
   getComplianceSummary: () => 
     api.get(API_PATHS.GRC_METRICS.COMPLIANCE_SUMMARY),
+};
+
+// ============================================================================
+// GRC Dashboard API (Phase 8)
+// ============================================================================
+
+export interface AuditOverviewData {
+  auditPipeline: {
+    draft: number;
+    planned: number;
+    fieldwork: number;
+    reporting: number;
+    final: number;
+    closed: number;
+  };
+  findingsByDepartment: Array<{
+    department: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }>;
+  capaPerformance: {
+    total: number;
+    open: number;
+    overdue: number;
+    avgClosureDays: number;
+    validatedRate: number;
+  };
+  topRiskAreas: Array<{
+    riskId: string;
+    riskTitle: string;
+    relatedFindings: number;
+    maxSeverity: string;
+  }>;
+  auditCalendar: Array<{
+    month: string;
+    planned: number;
+    fieldwork: number;
+    reporting: number;
+    closed: number;
+  }>;
+}
+
+export interface ComplianceOverviewData {
+  standardsCoverage: Array<{
+    family: string;
+    totalRequirements: number;
+    audited: number;
+    withFindings: number;
+    complianceScore: number;
+  }>;
+  clauseHeatmap: Array<{
+    family: string;
+    code: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }>;
+  requirementStatus: {
+    compliant: number;
+    partiallyCompliant: number;
+    nonCompliant: number;
+    notAssessed: number;
+  };
+  domainBreakdown: Array<{
+    domain: string;
+    requirements: number;
+    findings: number;
+    capas: number;
+  }>;
+}
+
+export interface GrcHealthData {
+  departmentScores: Array<{
+    department: string;
+    score: number;
+    auditScore: number;
+    riskScore: number;
+    policyScore: number;
+    capaScore: number;
+  }>;
+  repeatedFindings: Array<{
+    theme: string;
+    count: number;
+  }>;
+  policyCompliance: Array<{
+    policyId: string;
+    policyTitle: string;
+    acknowledgedRate: number;
+  }>;
+  riskClusters: Array<{
+    cluster: string;
+    openFindings: number;
+    highRisks: number;
+  }>;
+}
+
+export interface DashboardFilters {
+  departments: string[];
+  families: string[];
+  versions: string[];
+}
+
+export const grcDashboardApi = {
+  getAuditOverview: async (params?: { from?: string; to?: string; department?: string }): Promise<AuditOverviewData> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.from) queryParams.append('from', params.from);
+      if (params?.to) queryParams.append('to', params.to);
+      if (params?.department) queryParams.append('department', params.department);
+      
+      const url = `${API_PATHS.GRC_DASHBOARD.AUDIT_OVERVIEW}${queryParams.toString() ? `?${queryParams}` : ''}`;
+      const response = await api.get(url);
+      return unwrapResponse<AuditOverviewData>(response);
+    } catch (error) {
+      console.error('Failed to fetch audit overview:', error);
+      return {
+        auditPipeline: { draft: 0, planned: 0, fieldwork: 0, reporting: 0, final: 0, closed: 0 },
+        findingsByDepartment: [],
+        capaPerformance: { total: 0, open: 0, overdue: 0, avgClosureDays: 0, validatedRate: 0 },
+        topRiskAreas: [],
+        auditCalendar: [],
+      };
+    }
+  },
+
+  getComplianceOverview: async (params?: { family?: string; version?: string }): Promise<ComplianceOverviewData> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.family) queryParams.append('family', params.family);
+      if (params?.version) queryParams.append('version', params.version);
+      
+      const url = `${API_PATHS.GRC_DASHBOARD.COMPLIANCE_OVERVIEW}${queryParams.toString() ? `?${queryParams}` : ''}`;
+      const response = await api.get(url);
+      return unwrapResponse<ComplianceOverviewData>(response);
+    } catch (error) {
+      console.error('Failed to fetch compliance overview:', error);
+      return {
+        standardsCoverage: [],
+        clauseHeatmap: [],
+        requirementStatus: { compliant: 0, partiallyCompliant: 0, nonCompliant: 0, notAssessed: 0 },
+        domainBreakdown: [],
+      };
+    }
+  },
+
+  getGrcHealth: async (params?: { from?: string; to?: string }): Promise<GrcHealthData> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.from) queryParams.append('from', params.from);
+      if (params?.to) queryParams.append('to', params.to);
+      
+      const url = `${API_PATHS.GRC_DASHBOARD.GRC_HEALTH}${queryParams.toString() ? `?${queryParams}` : ''}`;
+      const response = await api.get(url);
+      return unwrapResponse<GrcHealthData>(response);
+    } catch (error) {
+      console.error('Failed to fetch GRC health:', error);
+      return {
+        departmentScores: [],
+        repeatedFindings: [],
+        policyCompliance: [],
+        riskClusters: [],
+      };
+    }
+  },
+
+  getFilters: async (): Promise<DashboardFilters> => {
+    try {
+      const response = await api.get(API_PATHS.GRC_DASHBOARD.FILTERS);
+      return unwrapResponse<DashboardFilters>(response);
+    } catch (error) {
+      console.error('Failed to fetch dashboard filters:', error);
+      return {
+        departments: [],
+        families: [],
+        versions: [],
+      };
+    }
+  },
 };
