@@ -40,8 +40,12 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
   ): Promise<GrcAudit> {
     const auditData: Partial<GrcAudit> = {
       ...data,
-      plannedStartDate: data.plannedStartDate ? new Date(data.plannedStartDate) : null,
-      plannedEndDate: data.plannedEndDate ? new Date(data.plannedEndDate) : null,
+      plannedStartDate: data.plannedStartDate
+        ? new Date(data.plannedStartDate)
+        : null,
+      plannedEndDate: data.plannedEndDate
+        ? new Date(data.plannedEndDate)
+        : null,
       ownerUserId: userId,
       createdBy: userId,
       isDeleted: false,
@@ -85,18 +89,30 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     // Convert string dates to Date objects
     const updateData: Partial<GrcAudit> = {
       ...data,
-      plannedStartDate: data.plannedStartDate !== undefined
-        ? (data.plannedStartDate ? new Date(data.plannedStartDate) : null)
-        : undefined,
-      plannedEndDate: data.plannedEndDate !== undefined
-        ? (data.plannedEndDate ? new Date(data.plannedEndDate) : null)
-        : undefined,
-      actualStartDate: data.actualStartDate !== undefined
-        ? (data.actualStartDate ? new Date(data.actualStartDate) : null)
-        : undefined,
-      actualEndDate: data.actualEndDate !== undefined
-        ? (data.actualEndDate ? new Date(data.actualEndDate) : null)
-        : undefined,
+      plannedStartDate:
+        data.plannedStartDate !== undefined
+          ? data.plannedStartDate
+            ? new Date(data.plannedStartDate)
+            : null
+          : undefined,
+      plannedEndDate:
+        data.plannedEndDate !== undefined
+          ? data.plannedEndDate
+            ? new Date(data.plannedEndDate)
+            : null
+          : undefined,
+      actualStartDate:
+        data.actualStartDate !== undefined
+          ? data.actualStartDate
+            ? new Date(data.actualStartDate)
+            : null
+          : undefined,
+      actualEndDate:
+        data.actualEndDate !== undefined
+          ? data.actualEndDate
+            ? new Date(data.actualEndDate)
+            : null
+          : undefined,
       updatedBy: userId,
     };
 
@@ -148,7 +164,12 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     } as Partial<Omit<GrcAudit, 'id' | 'tenantId'>>);
 
     // Record audit log for delete action
-    await this.auditService?.recordDelete('GrcAudit', existing, userId, tenantId);
+    await this.auditService?.recordDelete(
+      'GrcAudit',
+      existing,
+      userId,
+      tenantId,
+    );
 
     // Emit domain event
     this.eventEmitter.emit('audit.deleted', {
@@ -248,11 +269,15 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     }
 
     if (plannedStartFrom) {
-      qb.andWhere('audit.plannedStartDate >= :plannedStartFrom', { plannedStartFrom });
+      qb.andWhere('audit.plannedStartDate >= :plannedStartFrom', {
+        plannedStartFrom,
+      });
     }
 
     if (plannedStartTo) {
-      qb.andWhere('audit.plannedStartDate <= :plannedStartTo', { plannedStartTo });
+      qb.andWhere('audit.plannedStartDate <= :plannedStartTo', {
+        plannedStartTo,
+      });
     }
 
     if (search) {
@@ -313,16 +338,13 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
   /**
    * Get distinct values for a field (for filter dropdowns)
    */
-  async getDistinctValues(
-    tenantId: string,
-    field: string,
-  ): Promise<string[]> {
+  async getDistinctValues(tenantId: string, field: string): Promise<string[]> {
     const allowedFields = ['department', 'status', 'auditType', 'riskLevel'];
     if (!allowedFields.includes(field)) {
       return [];
     }
 
-    const result = await this.repository
+    const result: { value: string }[] = await this.repository
       .createQueryBuilder('audit')
       .select(`DISTINCT audit.${field}`, 'value')
       .where('audit.tenantId = :tenantId', { tenantId })
@@ -336,7 +358,7 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
   /**
    * Check if user can create audits (always true for now, can be extended with ACL)
    */
-  async canCreate(): Promise<boolean> {
+  canCreate(): boolean {
     return true;
   }
 }

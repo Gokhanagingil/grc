@@ -65,7 +65,7 @@ export class GrcAuditController {
     }
 
     const result = await this.auditService.findWithFilters(tenantId, filterDto);
-    
+
     // Return in format expected by frontend
     return {
       audits: result.items,
@@ -85,8 +85,8 @@ export class GrcAuditController {
   @Get('can/create')
   @Permissions(Permission.GRC_AUDIT_READ)
   @Perf()
-  async canCreate() {
-    const allowed = await this.auditService.canCreate();
+  canCreate() {
+    const allowed = this.auditService.canCreate();
     return { allowed };
   }
 
