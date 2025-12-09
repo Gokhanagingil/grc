@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -6,14 +6,12 @@ import {
   CardContent,
   Typography,
   Paper,
-  CircularProgress,
-  Alert,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
   Gavel as ComplianceIcon,
   AccountBalance as GovernanceIcon,
-  People as PeopleIcon,
+  Warning as IncidentIcon,
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -30,7 +28,9 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { api } from '../services/api';
+import { dashboardApi, RiskTrendDataPoint, ComplianceByRegulationItem } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState } from '../components/common';
 
 interface DashboardStats {
   risks: {
@@ -38,17 +38,33 @@ interface DashboardStats {
     open: number;
     high: number;
     overdue: number;
+    top5OpenRisks?: Array<{
+      id: string;
+      title: string;
+      severity: string;
+      score: number | null;
+    }>;
   };
   compliance: {
     total: number;
     pending: number;
     completed: number;
     overdue: number;
+    coveragePercentage?: number;
   };
   policies: {
     total: number;
     active: number;
     draft: number;
+    coveragePercentage?: number;
+  };
+  incidents?: {
+    total: number;
+    open: number;
+    closed: number;
+    resolved: number;
+    resolvedToday?: number;
+    avgResolutionTimeHours?: number | null;
   };
   users: {
     total: number;
@@ -98,78 +114,86 @@ const StatCard: React.FC<{
 );
 
 export const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [riskTrends, setRiskTrends] = useState<any[]>([]);
-  const [complianceData, setComplianceData] = useState<any[]>([]);
+  const [riskTrends, setRiskTrends] = useState<RiskTrendDataPoint[]>([]);
+  const [complianceData, setComplianceData] = useState<ComplianceByRegulationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [overviewRes, trendsRes, complianceRes] = await Promise.all([
-          api.get('/dashboard/overview'),
-          api.get('/dashboard/risk-trends'),
-          api.get('/dashboard/compliance-by-regulation'),
-        ]);
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
 
-        // Defensive null-checks for dashboard stats
-        const overviewData = overviewRes?.data || {};
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Fetch all dashboard data in parallel from dedicated NestJS endpoints
+      const [overview, trends, complianceByReg] = await Promise.all([
+        dashboardApi.getOverview(tenantId),
+        dashboardApi.getRiskTrends(tenantId),
+        dashboardApi.getComplianceByRegulation(tenantId),
+      ]);
+      
+      setStats(overview);
+      setRiskTrends(trends);
+      setComplianceData(complianceByReg);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view the dashboard.');
+      } else if (status === 404 || status === 502) {
+        // Graceful degradation: show empty data instead of error
         setStats({
-          risks: {
-            total: typeof overviewData?.risks?.total === 'number' ? overviewData.risks.total : 0,
-            open: typeof overviewData?.risks?.open === 'number' ? overviewData.risks.open : 0,
-            high: typeof overviewData?.risks?.high === 'number' ? overviewData.risks.high : 0,
-            overdue: typeof overviewData?.risks?.overdue === 'number' ? overviewData.risks.overdue : 0,
-          },
-          compliance: {
-            total: typeof overviewData?.compliance?.total === 'number' ? overviewData.compliance.total : 0,
-            pending: typeof overviewData?.compliance?.pending === 'number' ? overviewData.compliance.pending : 0,
-            completed: typeof overviewData?.compliance?.completed === 'number' ? overviewData.compliance.completed : 0,
-            overdue: typeof overviewData?.compliance?.overdue === 'number' ? overviewData.compliance.overdue : 0,
-          },
-          policies: {
-            total: typeof overviewData?.policies?.total === 'number' ? overviewData.policies.total : 0,
-            active: typeof overviewData?.policies?.active === 'number' ? overviewData.policies.active : 0,
-            draft: typeof overviewData?.policies?.draft === 'number' ? overviewData.policies.draft : 0,
-          },
-          users: {
-            total: typeof overviewData?.users?.total === 'number' ? overviewData.users.total : 0,
-            admins: typeof overviewData?.users?.admins === 'number' ? overviewData.users.admins : 0,
-            managers: typeof overviewData?.users?.managers === 'number' ? overviewData.users.managers : 0,
-          },
+          risks: { total: 0, open: 0, high: 0, overdue: 0 },
+          compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
+          policies: { total: 0, active: 0, draft: 0 },
+          users: { total: 0, admins: 0, managers: 0 },
         });
-        setRiskTrends(Array.isArray(trendsRes?.data) ? trendsRes.data : []);
-        setComplianceData(Array.isArray(complianceRes?.data) ? complianceRes.data : []);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
+        setRiskTrends([]);
+        setComplianceData([]);
+        console.warn('Dashboard backend not available');
+      } else {
+        setError(message || 'Failed to load dashboard data. Please try again.');
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId]);
 
+  useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <ErrorState
+        title="Failed to load dashboard"
+        message={error}
+        onRetry={fetchDashboardData}
+      />
+    );
   }
 
-  // Ensure stats is always defined with safe defaults
-  const safeStats = stats || {
-    risks: { total: 0, open: 0, high: 0, overdue: 0 },
-    compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
-    policies: { total: 0, active: 0, draft: 0 },
-    users: { total: 0, admins: 0, managers: 0 },
-  };
+  if (!stats) {
+    return (
+      <ErrorState
+        title="No data available"
+        message="Dashboard data could not be loaded. Please try again."
+        onRetry={fetchDashboardData}
+      />
+    );
+  }
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -184,37 +208,37 @@ export const Dashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Risks"
-            value={safeStats.risks.total}
+            value={stats.risks.total}
             icon={<SecurityIcon sx={{ color: 'white' }} />}
             color="#f44336"
-            subtitle={`${safeStats.risks.open} open, ${safeStats.risks.high} high severity`}
+            subtitle={`${stats.risks.open} open, ${stats.risks.high} high severity`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Compliance Items"
-            value={safeStats.compliance.total}
+            value={stats.compliance.total}
             icon={<ComplianceIcon sx={{ color: 'white' }} />}
             color="#2196f3"
-            subtitle={`${safeStats.compliance.pending} pending, ${safeStats.compliance.overdue} overdue`}
+            subtitle={`${stats.compliance.pending} pending, ${stats.compliance.overdue} overdue`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Policies"
-            value={safeStats.policies.total}
+            value={stats.policies.total}
             icon={<GovernanceIcon sx={{ color: 'white' }} />}
             color="#4caf50"
-            subtitle={`${safeStats.policies.active} active, ${safeStats.policies.draft} draft`}
+            subtitle={`${stats.policies.active} active, ${stats.policies.draft} draft`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Users"
-            value={safeStats.users.total}
-            icon={<PeopleIcon sx={{ color: 'white' }} />}
+            title="Incidents"
+            value={stats.incidents?.total || 0}
+            icon={<IncidentIcon sx={{ color: 'white' }} />}
             color="#ff9800"
-            subtitle={`${safeStats.users.admins} admins, ${safeStats.users.managers} managers`}
+            subtitle={`${stats.incidents?.open || 0} open, ${stats.incidents?.resolved || 0} resolved`}
           />
         </Grid>
 
@@ -251,9 +275,9 @@ export const Dashboard: React.FC = () => {
               <PieChart>
                 <Pie
                   data={[
-                    { name: 'Completed', value: safeStats.compliance.completed },
-                    { name: 'Pending', value: safeStats.compliance.pending },
-                    { name: 'Overdue', value: safeStats.compliance.overdue },
+                    { name: 'Completed', value: stats.compliance.completed },
+                    { name: 'Pending', value: stats.compliance.pending },
+                    { name: 'Overdue', value: stats.compliance.overdue },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -264,9 +288,9 @@ export const Dashboard: React.FC = () => {
                   dataKey="value"
                 >
                   {[
-                    { name: 'Completed', value: safeStats.compliance.completed },
-                    { name: 'Pending', value: safeStats.compliance.pending },
-                    { name: 'Overdue', value: safeStats.compliance.overdue },
+                    { name: 'Completed', value: stats.compliance.completed },
+                    { name: 'Pending', value: stats.compliance.pending },
+                    { name: 'Overdue', value: stats.compliance.overdue },
                   ].map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -278,7 +302,7 @@ export const Dashboard: React.FC = () => {
         </Grid>
 
         {/* Compliance by Regulation */}
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Compliance by Regulation
@@ -297,6 +321,132 @@ export const Dashboard: React.FC = () => {
             </ResponsiveContainer>
           </Paper>
         </Grid>
+
+        {/* Coverage KPIs */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Coverage KPIs
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              <Box>
+                <Typography variant="body2" color="textSecondary">
+                  Policy Coverage
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ flexGrow: 1, bgcolor: '#e0e0e0', borderRadius: 1, height: 20 }}>
+                    <Box
+                      sx={{
+                        width: `${stats.policies.coveragePercentage ?? 0}%`,
+                        bgcolor: '#4caf50',
+                        borderRadius: 1,
+                        height: '100%',
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body1" fontWeight="bold">
+                    {stats.policies.coveragePercentage?.toFixed(1) ?? 0}%
+                  </Typography>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="textSecondary">
+                  Requirement Compliance
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ flexGrow: 1, bgcolor: '#e0e0e0', borderRadius: 1, height: 20 }}>
+                    <Box
+                      sx={{
+                        width: `${stats.compliance.coveragePercentage ?? 0}%`,
+                        bgcolor: '#2196f3',
+                        borderRadius: 1,
+                        height: '100%',
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body1" fontWeight="bold">
+                    {stats.compliance.coveragePercentage?.toFixed(1) ?? 0}%
+                  </Typography>
+                </Box>
+              </Box>
+              {stats.incidents && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Incident Resolution
+                  </Typography>
+                  <Typography variant="body1">
+                    Resolved Today: <strong>{stats.incidents.resolvedToday ?? 0}</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    Avg Resolution Time: <strong>
+                      {stats.incidents.avgResolutionTimeHours != null
+                        ? `${stats.incidents.avgResolutionTimeHours.toFixed(1)} hours`
+                        : 'N/A'}
+                    </strong>
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Top 5 Open Risks */}
+        {stats.risks.top5OpenRisks && stats.risks.top5OpenRisks.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Top 5 Open Risks
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {stats.risks.top5OpenRisks.map((risk, index) => (
+                  <Box
+                    key={risk.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      p: 1,
+                      bgcolor: index % 2 === 0 ? '#f5f5f5' : 'white',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        #{index + 1}
+                      </Typography>
+                      <Typography variant="body1">{risk.title}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor:
+                            risk.severity === 'critical'
+                              ? '#f44336'
+                              : risk.severity === 'high'
+                              ? '#ff9800'
+                              : risk.severity === 'medium'
+                              ? '#2196f3'
+                              : '#4caf50',
+                          color: 'white',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {risk.severity}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        Score: {risk.score ?? 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

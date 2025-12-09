@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -31,11 +29,25 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Gavel as ComplianceIcon,
+  Description as ReportIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { requirementApi, unwrapPaginatedRequirementResponse, unwrapResponse } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { AuditReportDialog } from '../components/AuditReportDialog';
+
+// Risk interface for associated risks display
+interface Risk {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+}
 
 interface ComplianceRequirement {
   id: number;
@@ -54,11 +66,17 @@ interface ComplianceRequirement {
 }
 
 export const Compliance: React.FC = () => {
+  const { user } = useAuth();
   const [requirements, setRequirements] = useState<ComplianceRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<ComplianceRequirement | null>(null);
+  const [viewingRequirement, setViewingRequirement] = useState<ComplianceRequirement | null>(null);
+  const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
+  const [risksLoading, setRisksLoading] = useState(false);
+  const [openReportDialog, setOpenReportDialog] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -70,17 +88,35 @@ export const Compliance: React.FC = () => {
     assignedTo: '',
   });
 
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
+
   useEffect(() => {
     fetchRequirements();
-  }, []);
+  }, [tenantId]);
 
   const fetchRequirements = async () => {
     try {
-      const response = await api.get('/compliance/requirements');
-      const requirements = Array.isArray(response?.data?.requirements) ? response.data.requirements : [];
-      setRequirements(requirements);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch compliance requirements');
+      setError('');
+      const response = await requirementApi.list(tenantId);
+      // Handle NestJS response format with field transformation (framework -> regulation)
+      const result = unwrapPaginatedRequirementResponse<ComplianceRequirement>(response);
+      setRequirements(result.items || []);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view compliance requirements.');
+      } else if (status === 404 || status === 502) {
+        setRequirements([]);
+        console.warn('Compliance backend not available');
+      } else {
+        setError(message || 'Failed to fetch compliance requirements. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -116,33 +152,61 @@ export const Compliance: React.FC = () => {
     setOpenDialog(true);
   };
 
+  const fetchAssociatedRisks = async (requirementId: string) => {
+    if (!tenantId) return;
+    setRisksLoading(true);
+    try {
+      const response = await requirementApi.getLinkedRisks(tenantId, requirementId);
+      const risks = unwrapResponse<Risk[]>(response) || [];
+      setAssociatedRisks(risks);
+    } catch (err) {
+      console.error('Failed to fetch associated risks:', err);
+      setAssociatedRisks([]);
+    } finally {
+      setRisksLoading(false);
+    }
+  };
+
+  const handleViewRequirement = (requirement: ComplianceRequirement) => {
+    setViewingRequirement(requirement);
+    setOpenViewDialog(true);
+    fetchAssociatedRisks(String(requirement.id));
+  };
+
   const handleSaveRequirement = async () => {
     try {
       const requirementData = {
-        ...formData,
+        title: formData.title, // NestJS requirement uses 'title'
+        description: formData.description,
+        framework: formData.regulation, // NestJS uses 'framework' instead of 'regulation'
+        referenceCode: `REQ-${Date.now()}`, // Generate a unique reference code (required by backend)
+        category: formData.category,
+        status: formData.status,
         dueDate: formData.dueDate?.toISOString().split('T')[0],
       };
 
       if (editingRequirement) {
-        await api.put(`/compliance/requirements/${editingRequirement.id}`, requirementData);
+        await requirementApi.update(tenantId, String(editingRequirement.id), requirementData);
       } else {
-        await api.post('/compliance/requirements', requirementData);
+        await requirementApi.create(tenantId, requirementData);
       }
 
       setOpenDialog(false);
       fetchRequirements();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save compliance requirement');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save compliance requirement');
     }
   };
 
   const handleDeleteRequirement = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this compliance requirement?')) {
       try {
-        await api.delete(`/compliance/requirements/${id}`);
+        await requirementApi.delete(tenantId, String(id));
         fetchRequirements();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete compliance requirement');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete compliance requirement');
       }
     }
   };
@@ -162,10 +226,16 @@ export const Compliance: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading compliance requirements..." />;
+  }
+
+  if (error && requirements.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load requirements"
+        message={error}
+        onRetry={fetchRequirements}
+      />
     );
   }
 
@@ -173,20 +243,29 @@ export const Compliance: React.FC = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Compliance Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateRequirement}
-        >
-          New Requirement
-        </Button>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ReportIcon />}
+            onClick={() => setOpenReportDialog(true)}
+          >
+            Generate Report
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRequirement}
+          >
+            New Requirement
+          </Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={800}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -202,56 +281,66 @@ export const Compliance: React.FC = () => {
               <TableBody>
                 {requirements.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography color="textSecondary">No compliance requirements found</Typography>
+                    <TableCell colSpan={7} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<ComplianceIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No compliance requirements found"
+                        message="Get started by creating your first compliance requirement."
+                        actionLabel="Create Requirement"
+                        onAction={handleCreateRequirement}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
                   requirements.map((requirement) => (
                     <TableRow key={requirement.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2">{requirement.title}</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {requirement.description}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{requirement.regulation}</TableCell>
-                    <TableCell>{requirement.category}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={requirement.status}
-                        color={getStatusColor(requirement.status) as any}
-                        size="small"
-                      />
-                      {isOverdue(requirement.due_date) && requirement.status !== 'completed' && (
+                      <TableCell>
+                        <Typography variant="subtitle2">{requirement.title}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {requirement.description}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{requirement.regulation}</TableCell>
+                      <TableCell>{requirement.category}</TableCell>
+                      <TableCell>
                         <Chip
-                          label="Overdue"
-                          color="error"
+                          label={requirement.status}
+                          color={getStatusColor(requirement.status) as any}
                           size="small"
-                          sx={{ ml: 1 }}
                         />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {requirement.owner_first_name} {requirement.owner_last_name}
-                    </TableCell>
-                    <TableCell>
-                      {requirement.due_date ? new Date(requirement.due_date).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditRequirement(requirement)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteRequirement(requirement.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
+                        {isOverdue(requirement.due_date) && requirement.status !== 'completed' && (
+                          <Chip
+                            label="Overdue"
+                            color="error"
+                            size="small"
+                            sx={{ ml: 1 }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {requirement.owner_first_name} {requirement.owner_last_name}
+                      </TableCell>
+                      <TableCell>
+                        {requirement.due_date ? new Date(requirement.due_date).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleViewRequirement(requirement)}>
+                          <ViewIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleEditRequirement(requirement)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteRequirement(requirement.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 
@@ -344,6 +433,122 @@ export const Compliance: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* View Requirement Dialog */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Requirement Details</DialogTitle>
+        <DialogContent>
+          {viewingRequirement && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="h6">{viewingRequirement.title}</Typography>
+              </Grid>
+              {viewingRequirement.description && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Description</Typography>
+                  <Typography>{viewingRequirement.description}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Regulation</Typography>
+                <Typography>{viewingRequirement.regulation || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Category</Typography>
+                <Typography>{viewingRequirement.category || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Status</Typography>
+                <Chip
+                  label={viewingRequirement.status}
+                  color={getStatusColor(viewingRequirement.status) as 'success' | 'info' | 'warning' | 'error' | 'default'}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Due Date</Typography>
+                <Typography>
+                  {viewingRequirement.due_date ? new Date(viewingRequirement.due_date).toLocaleDateString() : '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Owner</Typography>
+                <Typography>{viewingRequirement.owner_first_name} {viewingRequirement.owner_last_name}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Assigned To</Typography>
+                <Typography>{viewingRequirement.assigned_first_name} {viewingRequirement.assigned_last_name}</Typography>
+              </Grid>
+              {viewingRequirement.evidence && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Evidence</Typography>
+                  <Typography>{viewingRequirement.evidence}</Typography>
+                </Grid>
+              )}
+
+              {/* Associated Risks Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Associated Risks</Typography>
+                  {risksLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : associatedRisks.length === 0 ? (
+                    <Typography color="textSecondary">No risks linked to this requirement.</Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {associatedRisks.map((risk) => (
+                        <Chip
+                          key={risk.id}
+                          label={`${risk.title} (${risk.severity})`}
+                          color={risk.severity === 'critical' ? 'error' : risk.severity === 'high' ? 'warning' : 'default'}
+                          variant="outlined"
+                          size="small"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+          <Button
+            onClick={() => {
+              if (viewingRequirement) {
+                handleEditRequirement(viewingRequirement);
+                setOpenViewDialog(false);
+              }
+            }}
+            variant="contained"
+          >
+            Edit
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Audit Report Dialog */}
+      <AuditReportDialog
+        open={openReportDialog}
+        onClose={() => setOpenReportDialog(false)}
+        auditContext={{
+          requirements: requirements.map((r) => ({
+            id: r.id,
+            title: r.title,
+            regulation: r.regulation,
+            status: r.status,
+            dueDate: r.due_date,
+          })),
+          totalRequirements: requirements.length,
+          completedRequirements: requirements.filter((r) => r.status === 'completed').length,
+          pendingRequirements: requirements.filter((r) => r.status === 'pending').length,
+          generatedAt: new Date().toISOString(),
+        }}
+        title="Generate Compliance Report"
+      />
     </Box>
   );
 };

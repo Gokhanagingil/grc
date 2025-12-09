@@ -52,8 +52,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user?.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -125,15 +127,17 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         category: data.category || 'Testing',
       });
 
-    if (response.status === 201 && response.body.id) {
-      createdRiskIds.push(response.body.id);
-      return response.body.id;
+    // Response is wrapped in standard envelope
+    const responseData = response.body.data ?? response.body;
+    if (response.status === 201 && responseData.id) {
+      createdRiskIds.push(responseData.id);
+      return responseData.id;
     }
     return null;
   }
 
   // Helper function to create test policies
-  async function createTestPolicy(data: {
+  async function createTestPolicy(policyData: {
     name: string;
     code: string;
     status?: string;
@@ -146,17 +150,19 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('x-tenant-id', tenantId)
       .send({
-        name: data.name,
-        code: data.code,
+        name: policyData.name,
+        code: policyData.code,
         version: '1.0',
-        status: data.status || 'draft',
-        category: data.category || 'Testing',
-        summary: `Test policy for analytics: ${data.name}`,
+        status: policyData.status || 'draft',
+        category: policyData.category || 'Testing',
+        summary: `Test policy for analytics: ${policyData.name}`,
       });
 
-    if (response.status === 201 && response.body.id) {
-      createdPolicyIds.push(response.body.id);
-      return response.body.id;
+    // Response is wrapped in standard envelope
+    const responseData = response.body.data ?? response.body;
+    if (response.status === 201 && responseData.id) {
+      createdPolicyIds.push(responseData.id);
+      return responseData.id;
     }
     return null;
   }
@@ -176,13 +182,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response should have pagination structure
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(response.body).toHaveProperty('totalPages');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope with pagination in meta
+        const data = response.body.data ?? response.body.items ?? response.body;
+        const meta = response.body.meta ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        expect(meta).toHaveProperty('total');
+        expect(meta).toHaveProperty('page');
+        expect(meta).toHaveProperty('pageSize');
+        expect(meta).toHaveProperty('totalPages');
       });
 
       it('should respect page and pageSize parameters', async () => {
@@ -197,9 +204,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body.page).toBe(1);
-        expect(response.body.pageSize).toBe(5);
-        expect(response.body.items.length).toBeLessThanOrEqual(5);
+        // Response is wrapped in standard envelope with pagination in meta
+        const data = response.body.data ?? response.body.items ?? response.body;
+        const meta = response.body.meta ?? response.body;
+        expect(meta.page).toBe(1);
+        expect(meta.pageSize).toBe(5);
+        expect(data.length).toBeLessThanOrEqual(5);
       });
 
       it('should enforce maximum pageSize of 100', async () => {
@@ -230,10 +240,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const expectedTotalPages = Math.ceil(
-          response.body.total / response.body.pageSize,
-        );
-        expect(response.body.totalPages).toBe(expectedTotalPages);
+        // Response is wrapped in standard envelope with pagination in meta
+        const meta = response.body.meta ?? response.body;
+        const expectedTotalPages = Math.ceil(meta.total / meta.pageSize);
+        expect(meta.totalPages).toBe(expectedTotalPages);
       });
     });
 
@@ -250,11 +260,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(response.body).toHaveProperty('totalPages');
+        // Response is wrapped in standard envelope with pagination in meta
+        const data = response.body.data ?? response.body.items ?? response.body;
+        const meta = response.body.meta ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        expect(meta).toHaveProperty('total');
+        expect(meta).toHaveProperty('page');
+        expect(meta).toHaveProperty('pageSize');
+        expect(meta).toHaveProperty('totalPages');
       });
     });
 
@@ -271,11 +284,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(response.body).toHaveProperty('totalPages');
+        // Response is wrapped in standard envelope with pagination in meta
+        const data = response.body.data ?? response.body.items ?? response.body;
+        const meta = response.body.meta ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        expect(meta).toHaveProperty('total');
+        expect(meta).toHaveProperty('page');
+        expect(meta).toHaveProperty('pageSize');
+        expect(meta).toHaveProperty('totalPages');
       });
     });
   });
@@ -295,7 +311,9 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const items = response.body.items;
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         if (items.length >= 2) {
           // Verify descending order by createdAt
           const dates = items.map((r: { createdAt: string }) =>
@@ -319,7 +337,9 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        const items = response.body.items;
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         if (items.length >= 2) {
           // Verify ascending order by title
           const titles = items.map((r: { title: string }) => r.title);
@@ -344,7 +364,9 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
     });
   });
@@ -383,8 +405,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should have status=identified
-        for (const item of response.body.items) {
+        for (const item of items) {
           expect(item.status).toBe('identified');
         }
       });
@@ -401,8 +426,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should have severity=high
-        for (const item of response.body.items) {
+        for (const item of items) {
           expect(item.severity).toBe('high');
         }
       });
@@ -419,8 +447,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should contain the search term
-        for (const item of response.body.items) {
+        for (const item of items) {
           const matchesTitle = item.title
             .toLowerCase()
             .includes('analytics test');
@@ -442,8 +473,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
         // All returned items should match both filters
-        for (const item of response.body.items) {
+        for (const item of items) {
           expect(item.severity).toBe('high');
           expect(item.status).toBe('identified');
         }
@@ -461,9 +495,13 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body.page).toBe(1);
-        expect(response.body.pageSize).toBe(5);
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope with pagination in meta
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        const meta = response.body.meta ?? response.body;
+        expect(meta.page).toBe(1);
+        expect(meta.pageSize).toBe(5);
+        for (const item of items) {
           expect(item.severity).toBe('high');
         }
       });
@@ -498,7 +536,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        for (const item of items) {
           expect(item.status).toBe('draft');
         }
       });
@@ -515,7 +556,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        for (const item of items) {
           expect(item.category).toBe('Security');
         }
       });
@@ -532,7 +576,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        for (const item of items) {
           const matchesName = item.name
             .toLowerCase()
             .includes('analytics test');
@@ -558,7 +605,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        for (const item of items) {
           expect(item.framework).toBe('iso27001');
         }
       });
@@ -575,7 +625,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        for (const item of response.body.items) {
+        // Response is wrapped in standard envelope
+        const items =
+          response.body.data ?? response.body.items ?? response.body;
+        for (const item of items) {
           expect(item.status).toBe('compliant');
         }
       });
@@ -597,19 +650,21 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('byStatus');
-        expect(response.body).toHaveProperty('bySeverity');
-        expect(response.body).toHaveProperty('byLikelihood');
-        expect(response.body).toHaveProperty('byCategory');
-        expect(response.body).toHaveProperty('highPriorityCount');
-        expect(response.body).toHaveProperty('overdueCount');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byStatus');
+        expect(data).toHaveProperty('bySeverity');
+        expect(data).toHaveProperty('byLikelihood');
+        expect(data).toHaveProperty('byCategory');
+        expect(data).toHaveProperty('highPriorityCount');
+        expect(data).toHaveProperty('overdueCount');
 
-        expect(typeof response.body.total).toBe('number');
-        expect(typeof response.body.byStatus).toBe('object');
-        expect(typeof response.body.bySeverity).toBe('object');
-        expect(typeof response.body.highPriorityCount).toBe('number');
-        expect(typeof response.body.overdueCount).toBe('number');
+        expect(typeof data.total).toBe('number');
+        expect(typeof data.byStatus).toBe('object');
+        expect(typeof data.bySeverity).toBe('object');
+        expect(typeof data.highPriorityCount).toBe('number');
+        expect(typeof data.overdueCount).toBe('number');
       });
 
       it('should return 401 without authentication', async () => {
@@ -650,19 +705,21 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('byStatus');
-        expect(response.body).toHaveProperty('byCategory');
-        expect(response.body).toHaveProperty('dueForReviewCount');
-        expect(response.body).toHaveProperty('activeCount');
-        expect(response.body).toHaveProperty('draftCount');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byStatus');
+        expect(data).toHaveProperty('byCategory');
+        expect(data).toHaveProperty('dueForReviewCount');
+        expect(data).toHaveProperty('activeCount');
+        expect(data).toHaveProperty('draftCount');
 
-        expect(typeof response.body.total).toBe('number');
-        expect(typeof response.body.byStatus).toBe('object');
-        expect(typeof response.body.byCategory).toBe('object');
-        expect(typeof response.body.dueForReviewCount).toBe('number');
-        expect(typeof response.body.activeCount).toBe('number');
-        expect(typeof response.body.draftCount).toBe('number');
+        expect(typeof data.total).toBe('number');
+        expect(typeof data.byStatus).toBe('object');
+        expect(typeof data.byCategory).toBe('object');
+        expect(typeof data.dueForReviewCount).toBe('number');
+        expect(typeof data.activeCount).toBe('number');
+        expect(typeof data.draftCount).toBe('number');
       });
     });
 
@@ -679,21 +736,23 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('byFramework');
-        expect(response.body).toHaveProperty('byStatus');
-        expect(response.body).toHaveProperty('byCategory');
-        expect(response.body).toHaveProperty('byPriority');
-        expect(response.body).toHaveProperty('compliantCount');
-        expect(response.body).toHaveProperty('nonCompliantCount');
-        expect(response.body).toHaveProperty('inProgressCount');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byFramework');
+        expect(data).toHaveProperty('byStatus');
+        expect(data).toHaveProperty('byCategory');
+        expect(data).toHaveProperty('byPriority');
+        expect(data).toHaveProperty('compliantCount');
+        expect(data).toHaveProperty('nonCompliantCount');
+        expect(data).toHaveProperty('inProgressCount');
 
-        expect(typeof response.body.total).toBe('number');
-        expect(typeof response.body.byFramework).toBe('object');
-        expect(typeof response.body.byStatus).toBe('object');
-        expect(typeof response.body.compliantCount).toBe('number');
-        expect(typeof response.body.nonCompliantCount).toBe('number');
-        expect(typeof response.body.inProgressCount).toBe('number');
+        expect(typeof data.total).toBe('number');
+        expect(typeof data.byFramework).toBe('object');
+        expect(typeof data.byStatus).toBe('object');
+        expect(typeof data.compliantCount).toBe('number');
+        expect(typeof data.nonCompliantCount).toBe('number');
+        expect(typeof data.inProgressCount).toBe('number');
       });
     });
   });
@@ -713,8 +772,10 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
+      // Response is wrapped in standard envelope
+      const items = response.body.data ?? response.body.items ?? response.body;
       // All returned items should belong to the authenticated tenant
-      for (const item of response.body.items) {
+      for (const item of items) {
         expect(item.tenantId).toBe(tenantId);
       }
     });
@@ -739,8 +800,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
+      // Response is wrapped in standard envelope
+      const summaryData = summaryResponse.body.data ?? summaryResponse.body;
+      const risksMeta = risksResponse.body.meta ?? risksResponse.body;
       // Summary total should match the number of risks for this tenant
-      expect(summaryResponse.body.total).toBe(risksResponse.body.total);
+      expect(summaryData.total).toBe(risksMeta.total);
     });
   });
 });

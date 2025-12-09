@@ -35,9 +35,11 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Info as InfoIcon,
+  Label as MetadataIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { AdminMetadata } from './admin';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -150,8 +152,8 @@ export const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     if (tabValue === 0) fetchUsers();
-    if (tabValue === 2) fetchSystemStatus();
-    if (tabValue === 3) fetchLogs();
+    if (tabValue === 3) fetchSystemStatus();
+    if (tabValue === 4) fetchLogs();
   }, [tabValue, fetchUsers, fetchSystemStatus, fetchLogs]);
 
   const handleOpenUserDialog = (user?: User) => {
@@ -273,6 +275,7 @@ export const AdminPanel: React.FC = () => {
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
           <Tab label="User Management" />
           <Tab label="Tenant Management" />
+          <Tab label="Metadata" icon={<MetadataIcon />} iconPosition="start" />
           <Tab label="System Status" />
           <Tab label="Audit Logs" />
         </Tabs>
@@ -377,6 +380,10 @@ export const AdminPanel: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
+          <AdminMetadata />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">System Status</Typography>
             <Button startIcon={<RefreshIcon />} onClick={fetchSystemStatus}>
@@ -441,7 +448,7 @@ export const AdminPanel: React.FC = () => {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={4}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Audit Logs</Typography>
             <Button startIcon={<RefreshIcon />} onClick={fetchLogs}>

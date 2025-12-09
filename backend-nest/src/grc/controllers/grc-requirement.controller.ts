@@ -257,4 +257,26 @@ export class GrcRequirementController {
 
     return requirement;
   }
+
+  // ============================================================================
+  // Relationship Management Endpoints
+  // ============================================================================
+
+  /**
+   * GET /grc/requirements/:id/risks
+   * Get risks linked to a requirement
+   */
+  @Get(':id/risks')
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
+  @Perf()
+  async getLinkedRisks(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.requirementService.getLinkedRisks(tenantId, id);
+  }
 }

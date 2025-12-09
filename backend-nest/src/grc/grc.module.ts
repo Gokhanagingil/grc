@@ -13,14 +13,23 @@ import {
   GrcIssue,
   GrcCapa,
   GrcEvidence,
+  GrcAudit,
   GrcRiskControl,
   GrcPolicyControl,
   GrcRequirementControl,
   GrcIssueEvidence,
+  GrcRiskPolicy,
+  GrcRiskRequirement,
   GrcRiskHistory,
   GrcPolicyHistory,
   GrcRequirementHistory,
   UserHistory,
+  // Platform Core Phase 1 entities
+  GrcPolicyVersion,
+  GrcAuditReportTemplate,
+  GrcFieldMetadata,
+  GrcClassificationTag,
+  GrcFieldMetadataTag,
 } from './entities';
 
 // Services
@@ -28,6 +37,13 @@ import {
   GrcRiskService,
   GrcPolicyService,
   GrcRequirementService,
+  GrcAuditService,
+  // Platform Core Phase 1 services
+  GrcPolicyVersionService,
+  GrcAuditReportTemplateService,
+  SearchService,
+  QueryDSLService,
+  MetadataService,
 } from './services';
 
 // Controllers
@@ -35,6 +51,12 @@ import {
   GrcRiskController,
   GrcPolicyController,
   GrcRequirementController,
+  GrcAuditController,
+  // Platform Core Phase 1 controllers
+  GrcPolicyVersionController,
+  AuditReportTemplateController,
+  SearchController,
+  MetadataController,
 } from './controllers';
 
 /**
@@ -64,27 +86,67 @@ import {
       GrcIssue,
       GrcCapa,
       GrcEvidence,
+      GrcAudit,
       // Mapping entities
       GrcRiskControl,
       GrcPolicyControl,
       GrcRequirementControl,
       GrcIssueEvidence,
+      GrcRiskPolicy,
+      GrcRiskRequirement,
       // History entities
       GrcRiskHistory,
       GrcPolicyHistory,
       GrcRequirementHistory,
       UserHistory,
+      // Platform Core Phase 1 entities
+      GrcPolicyVersion,
+      GrcAuditReportTemplate,
+      GrcFieldMetadata,
+      GrcClassificationTag,
+      GrcFieldMetadataTag,
     ]),
     AuditModule,
     AuthModule,
     TenantsModule,
   ],
-  providers: [GrcRiskService, GrcPolicyService, GrcRequirementService],
+  providers: [
+    // Core services
+    GrcRiskService,
+    GrcPolicyService,
+    GrcRequirementService,
+    GrcAuditService,
+    // Platform Core Phase 1 services
+    GrcPolicyVersionService,
+    GrcAuditReportTemplateService,
+    SearchService,
+    QueryDSLService,
+    MetadataService,
+  ],
   controllers: [
+    // Core controllers
     GrcRiskController,
     GrcPolicyController,
     GrcRequirementController,
+    GrcAuditController,
+    // Platform Core Phase 1 controllers
+    GrcPolicyVersionController,
+    AuditReportTemplateController,
+    SearchController,
+    MetadataController,
   ],
-  exports: [GrcRiskService, GrcPolicyService, GrcRequirementService],
+  exports: [
+    // Core services
+    GrcRiskService,
+    GrcPolicyService,
+    GrcRequirementService,
+    GrcAuditService,
+    // Platform Core Phase 1 services
+    GrcPolicyVersionService,
+    GrcAuditReportTemplateService,
+    SearchService,
+    QueryDSLService,
+    MetadataService,
+  ],
 })
 export class GrcModule {}

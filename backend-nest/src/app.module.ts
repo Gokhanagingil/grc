@@ -1,7 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { configuration, validate } from './config';
 import { EventsModule } from './events/events.module';
@@ -12,7 +12,9 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
+import { ItsmModule } from './itsm/itsm.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -22,7 +24,9 @@ import {
 import {
   RequestTimingInterceptor,
   PerformanceInterceptor,
+  ResponseTransformInterceptor,
 } from './common/interceptors';
+import { GlobalExceptionFilter } from './common/filters';
 import { StructuredLoggerService } from './common/logger';
 
 /**
@@ -91,13 +95,19 @@ import { StructuredLoggerService } from './common/logger';
     // GRC Domain Model (Risk, Control, Policy, Requirement, Issue, CAPA, Evidence)
     GrcModule,
 
+    // ITSM Domain Model (Incident, Problem, Change - future)
+    ItsmModule,
+
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,
 
     // Metrics collection and /metrics endpoint
     MetricsModule,
 
-    // Rate limiting - default: 100 requests per 60 seconds
+    // Dashboard aggregation (composes data from GRC and ITSM modules)
+    DashboardModule,
+
+    // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -124,6 +134,11 @@ import { StructuredLoggerService } from './common/logger';
   providers: [
     AppService,
     StructuredLoggerService,
+    // Global exception filter for standard error responses
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
     // Global rate limiting guard
     {
       provide: APP_GUARD,
@@ -137,6 +152,11 @@ import { StructuredLoggerService } from './common/logger';
     {
       provide: APP_INTERCEPTOR,
       useClass: PerformanceInterceptor,
+    },
+    // Global response transform interceptor for standard success responses
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseTransformInterceptor,
     },
   ],
 })

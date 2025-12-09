@@ -17,6 +17,20 @@ const dashboardRoutes = require('./routes/dashboard');
 const todoRoutes = require('./routes/todos');
 const dotwalkingRoutes = require('./routes/dotwalking');
 const nestProxyRoutes = require('./routes/nest-proxy');
+const auditRoutes = require('./routes/audits');
+const findingRoutes = require('./routes/findings');
+const capaRoutes = require('./routes/capas');
+const evidenceRoutes = require('./routes/evidence');
+
+// Platform Core Phase 2 routes
+const { aclRoutes, formLayoutRoutes, uiPolicyRoutes, moduleRoutes, searchRoutes, metadataRoutes } = require('./routes/platform');
+
+// Platform Core Phase 7 routes
+const requirementsRoutes = require('./routes/requirements');
+const metricsRoutes = require('./routes/metrics');
+
+// Platform Core Phase 8 routes
+const grcDashboardRoutes = require('./routes/grc-dashboards');
 
 const app = express();
 
@@ -48,7 +62,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
 };
 app.use(cors(corsOptions));
 
@@ -106,10 +120,29 @@ app.use('/api/compliance', complianceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/todos', todoRoutes);
 app.use('/api/dotwalking', dotwalkingRoutes);
+app.use('/api/grc/audits', auditRoutes);
+app.use('/api/grc/findings', findingRoutes);
+app.use('/api/grc/capas', capaRoutes);
+app.use('/api/grc/evidence', evidenceRoutes);
 
 // NestJS backend proxy routes
 // Forwards requests to NestJS backend for gradual migration
 app.use('/api/nest', nestProxyRoutes);
+
+// Platform Core Phase 2 routes
+app.use('/api/platform/acl', aclRoutes);
+app.use('/api/platform/form-layouts', formLayoutRoutes);
+app.use('/api/platform/ui-policies', uiPolicyRoutes);
+app.use('/api/platform/modules', moduleRoutes);
+app.use('/api/platform/search', searchRoutes);
+app.use('/api/platform/metadata', metadataRoutes);
+
+// Platform Core Phase 7 routes
+app.use('/api/grc/requirements', requirementsRoutes);
+app.use('/api/grc/metrics', metricsRoutes);
+
+// Platform Core Phase 8 routes - Executive Dashboards
+app.use('/api/grc/dashboard', grcDashboardRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT

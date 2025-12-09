@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -36,12 +34,30 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   FilterList as FilterIcon,
+  Security as RiskIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+
+// Policy interface for relationship management
+interface Policy {
+  id: string;
+  title: string;
+  status: string;
+  category: string | null;
+}
+
+// Requirement interface for relationship management
+interface Requirement {
+  id: string;
+  title: string;
+  status: string;
+  framework: string;
+}
 
 // Risk enums matching backend
 export enum RiskSeverity {
@@ -92,13 +108,6 @@ interface Risk {
   isDeleted: boolean;
 }
 
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
 
 export const RiskManagement: React.FC = () => {
   const { user } = useAuth();
@@ -127,17 +136,24 @@ export const RiskManagement: React.FC = () => {
     dueDate: null as Date | null,
   });
 
+  // Relationship management state
+  const [allPolicies, setAllPolicies] = useState<Policy[]>([]);
+  const [allRequirements, setAllRequirements] = useState<Requirement[]>([]);
+  const [linkedPolicies, setLinkedPolicies] = useState<Policy[]>([]);
+  const [linkedRequirements, setLinkedRequirements] = useState<Requirement[]>([]);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
+  const [selectedRequirementIds, setSelectedRequirementIds] = useState<string[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSaving, setRelationshipSaving] = useState(false);
+
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
   const fetchRisks = useCallback(async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-    
+    // Allow fetching even without tenantId - backend will handle authorization
     try {
       setLoading(true);
+      setError('');
       const params = new URLSearchParams({
         page: String(page + 1), // API uses 1-based pagination
         pageSize: String(rowsPerPage),
@@ -150,18 +166,30 @@ export const RiskManagement: React.FC = () => {
         params.append('severity', severityFilter);
       }
       
-      const response = await api.get<PaginatedResponse<Risk>>(`/nest/grc/risks?${params}`, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      // Use centralized API client - no more /nest/ prefix
+      const response = await riskApi.list(tenantId, params);
       
-      const items = Array.isArray(response?.data?.items) ? response.data.items : [];
-      const total = typeof response?.data?.total === 'number' ? response.data.total : 0;
-      
-      setRisks(items);
-      setTotal(total);
+      // Handle NestJS response format using centralized unwrapper
+      const result = unwrapPaginatedResponse<Risk>(response);
+      setRisks(result.items);
+      setTotal(result.total);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch risks');
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view risks.');
+      } else if (status === 404 || status === 502) {
+        // Backend not available - show empty state instead of error
+        setRisks([]);
+        setTotal(0);
+        console.warn('Risk management backend not available');
+      } else {
+        setError(message || 'Failed to fetch risks. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -170,6 +198,75 @@ export const RiskManagement: React.FC = () => {
   useEffect(() => {
     fetchRisks();
   }, [fetchRisks]);
+
+  // Fetch all policies and requirements for relationship dropdowns
+  const fetchAllPoliciesAndRequirements = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        policyApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
+        requirementApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
+      ]);
+      const policiesResult = unwrapPaginatedResponse<Policy>(policiesResponse);
+      const requirementsResult = unwrapPaginatedResponse<Requirement>(requirementsResponse);
+      setAllPolicies(policiesResult.items);
+      setAllRequirements(requirementsResult.items);
+    } catch (err) {
+      console.error('Failed to fetch policies/requirements for relationships:', err);
+    }
+  }, [tenantId]);
+
+  // Fetch linked policies and requirements for a specific risk
+  const fetchRiskRelationships = useCallback(async (riskId: string) => {
+    if (!tenantId) return;
+    setRelationshipLoading(true);
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        riskApi.getLinkedPolicies(tenantId, riskId),
+        riskApi.getLinkedRequirements(tenantId, riskId),
+      ]);
+      const policies = unwrapResponse<Policy[]>(policiesResponse) || [];
+      const requirements = unwrapResponse<Requirement[]>(requirementsResponse) || [];
+      setLinkedPolicies(policies);
+      setLinkedRequirements(requirements);
+      setSelectedPolicyIds(policies.map(p => p.id));
+      setSelectedRequirementIds(requirements.map(r => r.id));
+    } catch (err) {
+      console.error('Failed to fetch risk relationships:', err);
+      setLinkedPolicies([]);
+      setLinkedRequirements([]);
+      setSelectedPolicyIds([]);
+      setSelectedRequirementIds([]);
+    } finally {
+      setRelationshipLoading(false);
+    }
+  }, [tenantId]);
+
+  // Save relationship changes
+  const handleSaveRelationships = async () => {
+    if (!tenantId || !viewingRisk) return;
+    setRelationshipSaving(true);
+    try {
+      await Promise.all([
+        riskApi.linkPolicies(tenantId, viewingRisk.id, selectedPolicyIds),
+        riskApi.linkRequirements(tenantId, viewingRisk.id, selectedRequirementIds),
+      ]);
+      setSuccess('Relationships updated successfully');
+      // Refresh linked items
+      await fetchRiskRelationships(viewingRisk.id);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to save relationships:', err);
+      setError('Failed to save relationships');
+    } finally {
+      setRelationshipSaving(false);
+    }
+  };
+
+  // Fetch all policies/requirements on mount
+  useEffect(() => {
+    fetchAllPoliciesAndRequirements();
+  }, [fetchAllPoliciesAndRequirements]);
 
   const handleCreateRisk = () => {
     setEditingRisk(null);
@@ -206,6 +303,8 @@ export const RiskManagement: React.FC = () => {
   const handleViewRisk = (risk: Risk) => {
     setViewingRisk(risk);
     setOpenViewDialog(true);
+    // Fetch relationships when viewing a risk
+    fetchRiskRelationships(risk.id);
   };
 
   const handleSaveRisk = async () => {
@@ -227,15 +326,12 @@ export const RiskManagement: React.FC = () => {
         dueDate: formData.dueDate?.toISOString().split('T')[0] || undefined,
       };
 
+      // Use centralized API client - no more /nest/ prefix
       if (editingRisk) {
-        await api.patch(`/nest/grc/risks/${editingRisk.id}`, riskData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await riskApi.update(tenantId, editingRisk.id, riskData);
         setSuccess('Risk updated successfully');
       } else {
-        await api.post('/nest/grc/risks', riskData, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        await riskApi.create(tenantId, riskData);
         setSuccess('Risk created successfully');
       }
 
@@ -252,16 +348,10 @@ export const RiskManagement: React.FC = () => {
   };
 
   const handleDeleteRisk = async (id: string) => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
-
     if (window.confirm('Are you sure you want to delete this risk?')) {
       try {
-        await api.delete(`/nest/grc/risks/${id}`, {
-          headers: { 'x-tenant-id': tenantId },
-        });
+        // Use centralized API client - no more /nest/ prefix
+        await riskApi.delete(tenantId, id);
         setSuccess('Risk deleted successfully');
         fetchRisks();
         
@@ -326,10 +416,16 @@ export const RiskManagement: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading risks..." />;
+  }
+
+  if (error && risks.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load risks"
+        message={error}
+        onRetry={fetchRisks}
+      />
     );
   }
 
@@ -404,7 +500,7 @@ export const RiskManagement: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={900}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -421,10 +517,15 @@ export const RiskManagement: React.FC = () => {
               <TableBody>
                 {risks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography color="textSecondary">
-                        {tenantId ? 'No risks found' : 'Please select a tenant to view risks'}
-                      </Typography>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<RiskIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No risks found"
+                        message={tenantId ? 'Get started by creating your first risk assessment.' : 'Please select a tenant to view risks.'}
+                        actionLabel={tenantId ? 'Create Risk' : undefined}
+                        onAction={tenantId ? handleCreateRisk : undefined}
+                        minHeight="200px"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -498,7 +599,7 @@ export const RiskManagement: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
@@ -719,6 +820,116 @@ export const RiskManagement: React.FC = () => {
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
                 <Typography>{new Date(viewingRisk.updatedAt).toLocaleString()}</Typography>
+              </Grid>
+
+              {/* Relationship Management Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Linked Relationships</Typography>
+                  {relationshipLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <Grid container spacing={2}>
+                      {/* Linked Policies */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Policies</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedPolicyIds}
+                            label="Linked Policies"
+                            onChange={(e) => setSelectedPolicyIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const policy = allPolicies.find(p => p.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={policy?.title || id}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allPolicies.map((policy) => (
+                              <MenuItem key={policy.id} value={policy.id}>
+                                {policy.title} ({policy.status})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedPolicies.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedPolicies.length} {linkedPolicies.length === 1 ? 'policy' : 'policies'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Linked Requirements */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Requirements</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedRequirementIds}
+                            label="Linked Requirements"
+                            onChange={(e) => setSelectedRequirementIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const requirement = allRequirements.find(r => r.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={requirement?.title || id}
+                                      size="small"
+                                      color="secondary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allRequirements.map((requirement) => (
+                              <MenuItem key={requirement.id} value={requirement.id}>
+                                {requirement.title} ({requirement.framework})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedRequirements.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedRequirements.length} {linkedRequirements.length === 1 ? 'requirement' : 'requirements'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Save Relationships Button */}
+                      <Grid item xs={12}>
+                        <Button
+                          variant="outlined"
+                          onClick={handleSaveRelationships}
+                          disabled={relationshipSaving}
+                          startIcon={relationshipSaving ? <CircularProgress size={16} /> : null}
+                        >
+                          {relationshipSaving ? 'Saving...' : 'Save Relationships'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  )}
+                </Box>
               </Grid>
             </Grid>
           )}

@@ -41,8 +41,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user?.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -75,9 +77,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -128,12 +131,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRisk)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('title', newRisk.title);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newRisk.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdRiskId = response.body.id;
+        createdRiskId = data.id;
       });
 
       it('should return 400 without required title field', async () => {
@@ -170,8 +175,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRiskId);
-        expect(response.body).toHaveProperty('title', 'Test Risk - E2E');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRiskId);
+        expect(data).toHaveProperty('title', 'Test Risk - E2E');
       });
 
       it('should return 404 for non-existent risk', async () => {
@@ -209,9 +216,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRiskId);
-        expect(response.body).toHaveProperty('title', updateData.title);
-        expect(response.body).toHaveProperty('severity', updateData.severity);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRiskId);
+        expect(data).toHaveProperty('title', updateData.title);
+        expect(data).toHaveProperty('severity', updateData.severity);
       });
 
       it('should return 404 for non-existent risk', async () => {
@@ -259,8 +268,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedRisk = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedRisk = data.find(
           (r: { id: string }) => r.id === createdRiskId,
         );
         expect(deletedRisk).toBeUndefined();
@@ -295,9 +305,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('bySeverity');
-        expect(response.body).toHaveProperty('byStatus');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('bySeverity');
+        expect(data).toHaveProperty('byStatus');
       });
     });
   });
@@ -319,9 +331,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
     });
 
@@ -348,12 +361,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newPolicy)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('name', newPolicy.name);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newPolicy.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdPolicyId = response.body.id;
+        createdPolicyId = data.id;
       });
 
       it('should return 400 without required name field', async () => {
@@ -396,9 +411,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdPolicyId);
-        expect(response.body).toHaveProperty('name', updateData.name);
-        expect(response.body).toHaveProperty('status', updateData.status);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdPolicyId);
+        expect(data).toHaveProperty('name', updateData.name);
+        expect(data).toHaveProperty('status', updateData.status);
       });
     });
 
@@ -432,8 +449,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedPolicy = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedPolicy = data.find(
           (p: { id: string }) => p.id === createdPolicyId,
         );
         expect(deletedPolicy).toBeUndefined();
@@ -458,9 +476,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
       });
     });
 
@@ -488,12 +507,14 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(newRequirement)
           .expect(201);
 
-        expect(response.body).toHaveProperty('id');
-        expect(response.body).toHaveProperty('title', newRequirement.title);
-        expect(response.body).toHaveProperty('tenantId', tenantId);
-        expect(response.body).toHaveProperty('isDeleted', false);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newRequirement.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
 
-        createdRequirementId = response.body.id;
+        createdRequirementId = data.id;
       });
 
       it('should return 400 without required fields', async () => {
@@ -536,9 +557,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .send(updateData)
           .expect(200);
 
-        expect(response.body).toHaveProperty('id', createdRequirementId);
-        expect(response.body).toHaveProperty('title', updateData.title);
-        expect(response.body).toHaveProperty('status', updateData.status);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdRequirementId);
+        expect(data).toHaveProperty('title', updateData.title);
+        expect(data).toHaveProperty('status', updateData.status);
       });
     });
 
@@ -572,8 +595,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        const deletedRequirement = response.body.items.find(
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        const deletedRequirement = data.find(
           (r: { id: string }) => r.id === createdRequirementId,
         );
         expect(deletedRequirement).toBeUndefined();
@@ -593,9 +617,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('byFramework');
-        expect(response.body).toHaveProperty('byStatus');
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byFramework');
+        expect(data).toHaveProperty('byStatus');
       });
     });
 
@@ -612,7 +638,311 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(Array.isArray(response.body)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+      });
+    });
+  });
+
+  // ==================== TENANT ISOLATION ====================
+  describe('Tenant Isolation', () => {
+    let isolationTestRiskId: string;
+    const fakeTenantId = '00000000-0000-0000-0000-000000000099';
+
+    describe('Cross-tenant access prevention for Risks', () => {
+      it('should create a risk for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newRisk = {
+          title: 'Isolation Test Risk',
+          description: 'A risk created for tenant isolation testing',
+          category: 'Security',
+          severity: 'high',
+          likelihood: 'possible',
+          status: 'identified',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newRisk)
+          .expect(201);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestRiskId = data.id;
+      });
+
+      it('should return 403 when accessing risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // Attempt to access the risk with a different tenant ID
+        // TenantGuard should reject this request with 403 (user doesn't belong to fake tenant)
+        await request(app.getHttpServer())
+          .get(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ title: 'Hacked Risk Title' })
+          .expect(403);
+      });
+
+      it('should return 403 when deleting risk with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should not include risk in list when using fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // This should return 403 because user doesn't belong to fake tenant
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should clean up isolation test risk', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRiskId) {
+          console.log(
+            'Skipping test: database not connected or no risk created',
+          );
+          return;
+        }
+
+        // Clean up by deleting the test risk with correct tenant
+        await request(app.getHttpServer())
+          .delete(`/grc/risks/${isolationTestRiskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Cross-tenant access prevention for Policies', () => {
+      let isolationTestPolicyId: string;
+
+      it('should create a policy for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newPolicy = {
+          name: 'Isolation Test Policy',
+          code: 'POL-ISO-001',
+          version: '1.0',
+          status: 'draft',
+          category: 'Security',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/policies')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newPolicy)
+          .expect(201);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestPolicyId = data.id;
+      });
+
+      it('should return 403 when accessing policy with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating policy with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ name: 'Hacked Policy Name' })
+          .expect(403);
+      });
+
+      it('should clean up isolation test policy', async () => {
+        if (!dbConnected || !tenantId || !isolationTestPolicyId) {
+          console.log(
+            'Skipping test: database not connected or no policy created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/policies/${isolationTestPolicyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Cross-tenant access prevention for Requirements', () => {
+      let isolationTestRequirementId: string;
+
+      it('should create a requirement for isolation testing', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newRequirement = {
+          framework: 'iso27001',
+          referenceCode: 'A.ISO.TEST',
+          title: 'Isolation Test Requirement',
+          description: 'A requirement created for tenant isolation testing',
+          category: 'Security',
+          priority: 'High',
+          status: 'Pending',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/requirements')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newRequirement)
+          .expect(201);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('tenantId', tenantId);
+        isolationTestRequirementId = data.id;
+      });
+
+      it('should return 403 when accessing requirement with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .expect(403);
+      });
+
+      it('should return 403 when updating requirement with fake tenant ID', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', fakeTenantId)
+          .send({ title: 'Hacked Requirement Title' })
+          .expect(403);
+      });
+
+      it('should clean up isolation test requirement', async () => {
+        if (!dbConnected || !tenantId || !isolationTestRequirementId) {
+          console.log(
+            'Skipping test: database not connected or no requirement created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/requirements/${isolationTestRequirementId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+    });
+
+    describe('Invalid tenant ID handling', () => {
+      it('should return 400 for invalid UUID format in x-tenant-id', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', 'invalid-uuid-format')
+          .expect(400);
+      });
+
+      it('should return 400 when x-tenant-id header is missing', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
       });
     });
   });

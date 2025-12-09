@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcPolicy } from '../entities/grc-policy.entity';
+import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
+import { GrcRisk } from '../entities/grc-risk.entity';
 import {
   PolicyCreatedEvent,
   PolicyUpdatedEvent,
@@ -29,6 +31,8 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
   constructor(
     @InjectRepository(GrcPolicy)
     repository: Repository<GrcPolicy>,
+    @InjectRepository(GrcRiskPolicy)
+    private readonly riskPolicyRepository: Repository<GrcRiskPolicy>,
     private readonly eventEmitter: EventEmitter2,
   ) {
     super(repository);
@@ -348,20 +352,37 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
 
   /**
    * Get summary/reporting data for policies
+   * Enhanced with KPI-ready fields for Dashboard
    */
   async getSummary(tenantId: string): Promise<{
     total: number;
+    totalCount: number;
     byStatus: Record<string, number>;
     byCategory: Record<string, number>;
     dueForReviewCount: number;
     activeCount: number;
     draftCount: number;
+    policyCoveragePercentage: number;
+    totalLinkedRisks: number;
+    policiesWithRisksCount: number;
   }> {
     const qb = this.repository.createQueryBuilder('policy');
     qb.where('policy.tenantId = :tenantId', { tenantId });
     qb.andWhere('policy.isDeleted = :isDeleted', { isDeleted: false });
 
     const policies = await qb.getMany();
+
+    // Get relationship counts
+    const totalLinkedRisks = await this.riskPolicyRepository.count({
+      where: { tenantId },
+    });
+
+    // Get count of policies that have at least one linked risk
+    const policiesWithRisks = await this.riskPolicyRepository
+      .createQueryBuilder('rp')
+      .select('DISTINCT rp.policyId')
+      .where('rp.tenantId = :tenantId', { tenantId })
+      .getRawMany();
 
     const byStatus: Record<string, number> = {};
     const byCategory: Record<string, number> = {};
@@ -399,13 +420,55 @@ export class GrcPolicyService extends MultiTenantServiceBase<GrcPolicy> {
       }
     }
 
+    // Calculate policy coverage percentage (active policies / total policies)
+    const policyCoveragePercentage =
+      policies.length > 0
+        ? Math.round((activeCount / policies.length) * 100 * 100) / 100
+        : 0;
+
     return {
       total: policies.length,
+      totalCount: policies.length,
       byStatus,
       byCategory,
       dueForReviewCount,
       activeCount,
       draftCount,
+      policyCoveragePercentage,
+      totalLinkedRisks,
+      policiesWithRisksCount: policiesWithRisks.length,
     };
+  }
+
+  // ============================================================================
+  // Relationship Management Methods
+  // ============================================================================
+
+  /**
+   * Get risks linked to a policy
+   */
+  async getLinkedRisks(tenantId: string, policyId: string): Promise<GrcRisk[]> {
+    // Verify policy exists
+    const policy = await this.findOneActiveForTenant(tenantId, policyId);
+    if (!policy) {
+      throw new NotFoundException(`Policy with ID ${policyId} not found`);
+    }
+
+    const riskPolicies = await this.riskPolicyRepository.find({
+      where: { tenantId, policyId },
+      relations: ['risk'],
+    });
+
+    return riskPolicies.map((rp) => rp.risk).filter((r) => r && !r.isDeleted);
+  }
+
+  /**
+   * Get count of risks linked to a policy
+   */
+  async getLinkedRisksCount(
+    tenantId: string,
+    policyId: string,
+  ): Promise<number> {
+    return this.riskPolicyRepository.count({ where: { tenantId, policyId } });
   }
 }

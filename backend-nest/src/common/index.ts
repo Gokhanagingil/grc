@@ -5,3 +5,4 @@ export * from './middleware';
 export * from './interceptors';
 export * from './decorators';
 export * from './entities';
+export * from './filters';

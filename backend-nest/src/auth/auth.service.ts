@@ -17,6 +17,7 @@ import { JwtPayload } from './strategies/jwt.strategy';
 import { TenantsService } from '../tenants/tenants.service';
 import { UserLoggedInEvent, DomainEventNames } from '../events/domain-events';
 import { BruteForceService } from './security/brute-force.service';
+import { StructuredLoggerService } from '../common/logger';
 
 /**
  * Auth Service
@@ -29,6 +30,8 @@ import { BruteForceService } from './security/brute-force.service';
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new StructuredLoggerService();
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -37,7 +40,9 @@ export class AuthService {
     @Inject(forwardRef(() => TenantsService))
     private readonly tenantsService: TenantsService,
     private readonly bruteForceService: BruteForceService,
-  ) {}
+  ) {
+    this.logger.setContext('AuthService');
+  }
 
   /**
    * Get demo admin credentials from environment variables
@@ -185,13 +190,12 @@ export class AuthService {
         tenantId: demoTenant.id,
       });
 
-      console.log('='.repeat(60));
-      console.log('DEMO ADMIN USER CREATED');
-      console.log('='.repeat(60));
-      console.log(`Email: ${email}`);
-      console.log(`Tenant: ${demoTenant.name} (${demoTenant.id})`);
-      console.log('WARNING: Change these credentials in production!');
-      console.log('='.repeat(60));
+      this.logger.warn('demo.admin.created', {
+        email,
+        tenantId: demoTenant.id,
+        tenantName: demoTenant.name,
+        warning: 'Change these credentials in production!',
+      });
     } else if (!existingAdmin.tenantId) {
       // If admin exists but has no tenant, assign to demo tenant
       const demoTenant = await this.tenantsService.getOrCreateDemoTenant();
@@ -199,7 +203,11 @@ export class AuthService {
         existingAdmin.id,
         demoTenant.id,
       );
-      console.log(`Assigned existing admin to tenant: ${demoTenant.name}`);
+      this.logger.log('demo.admin.tenant.assigned', {
+        userId: existingAdmin.id,
+        tenantId: demoTenant.id,
+        tenantName: demoTenant.name,
+      });
     }
   }
 }

@@ -1,5 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { api } from '../services/api';
+import { api, ApiError, ApiSuccessResponse } from '../services/api';
+import { API_PATHS } from '../services/grcClient';
+
+/**
+ * Helper to unwrap API responses that may be in the new envelope format
+ * Handles both: { success: true, data: T } (NestJS) and flat T (legacy Express)
+ */
+function unwrapApiResponse<T>(raw: unknown): T {
+  if (raw && typeof raw === 'object' && 'success' in raw && (raw as { success: boolean }).success === true && 'data' in raw) {
+    return (raw as ApiSuccessResponse<T>).data;
+  }
+  return raw as T;
+}
 
 export interface User {
   id: number | string;
@@ -16,7 +28,7 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<boolean>;
@@ -73,9 +85,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const response = await api.post('/auth/refresh', { refreshToken: storedRefreshToken });
-      const { token: newToken, refreshToken: newRefreshToken } = response.data;
+      // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
+      const unwrapped = unwrapApiResponse<{
+        accessToken?: string;
+        token?: string;
+        refreshToken?: string;
+      }>(response.data);
+      
+      const { accessToken, token: legacyToken, refreshToken: newRefreshToken } = unwrapped;
+      const newToken = accessToken || legacyToken;
+      
+      if (!newToken) {
+        throw new Error('Refresh response did not contain a valid token');
+      }
       
       localStorage.setItem('token', newToken);
+      localStorage.setItem('accessToken', newToken);
       if (newRefreshToken) {
         localStorage.setItem('refreshToken', newRefreshToken);
         setRefreshToken(newRefreshToken);
@@ -86,6 +111,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Refresh failed, clear tokens
       localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setToken(null);
       setRefreshToken(null);
@@ -102,27 +128,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken) {
         try {
           api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-          const response = await api.get('/auth/me');
-          setUser(response.data);
-        } catch (error: any) {
+          // Use /users/me endpoint (NestJS) instead of /auth/me
+          const response = await api.get(API_PATHS.AUTH.ME);
+          // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
+          const userData = unwrapApiResponse<User>(response.data);
+          setUser(userData);
+          // Store tenant ID if available
+          if (userData?.tenantId) {
+            localStorage.setItem('tenantId', userData.tenantId);
+          }
+        } catch (error: unknown) {
+          const axiosError = error as { response?: { status?: number } };
           // If token is expired, try to refresh
-          if (error.response?.status === 401) {
+          if (axiosError.response?.status === 401) {
             const refreshed = await refreshAccessToken();
             if (refreshed) {
               try {
-                const response = await api.get('/auth/me');
-                setUser(response.data);
+                // Use /users/me endpoint (NestJS) instead of /auth/me
+                const response = await api.get(API_PATHS.AUTH.ME);
+                const userData = unwrapApiResponse<User>(response.data);
+                setUser(userData);
+                if (userData?.tenantId) {
+                  localStorage.setItem('tenantId', userData.tenantId);
+                }
               } catch {
                 // Refresh succeeded but /me failed, clear everything
                 localStorage.removeItem('token');
+                localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
+                localStorage.removeItem('tenantId');
                 setToken(null);
                 setRefreshToken(null);
               }
             }
           } else {
             localStorage.removeItem('token');
+            localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
+            localStorage.removeItem('tenantId');
             setToken(null);
             setRefreshToken(null);
           }
@@ -146,47 +189,101 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => clearInterval(refreshInterval);
   }, [token, refreshAccessToken]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { username, password });
+      // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
+      const unwrapped = unwrapApiResponse<{
+        accessToken?: string;
+        token?: string;
+        refreshToken?: string;
+        user: User;
+      }>(response.data);
+      
       // NestJS backend returns accessToken, Express backend returns token
-      const { accessToken, token: legacyToken, refreshToken: newRefreshToken, user: userData } = response.data;
+      const { accessToken, token: legacyToken, refreshToken: newRefreshToken, user: userData } = unwrapped;
       const newToken = accessToken || legacyToken;
       
+      if (!newToken) {
+        throw new Error('Login response did not contain a valid token');
+      }
+      
+      // Store tokens in localStorage
       localStorage.setItem('token', newToken);
+      localStorage.setItem('accessToken', newToken); // Also store as accessToken for consistency
       if (newRefreshToken) {
         localStorage.setItem('refreshToken', newRefreshToken);
         setRefreshToken(newRefreshToken);
       }
+      
+      // Store tenant ID for automatic header injection
+      if (userData?.tenantId) {
+        localStorage.setItem('tenantId', userData.tenantId);
+      }
+      
       setToken(newToken);
       setUser(userData);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+    } catch (error: unknown) {
+      // Handle standardized ApiError from the API client
+      if (error instanceof ApiError) {
+        throw new Error(error.message || 'Kullanıcı adı veya şifre hatalı');
+      }
+      // Handle legacy error format
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      throw new Error(axiosError.response?.data?.message || 'Kullanıcı adı veya şifre hatalı');
     }
   };
 
-  const register = async (userData: RegisterData) => {
+  const register = async (registerUserData: RegisterData) => {
     try {
-      const response = await api.post('/auth/register', userData);
-      const { token: newToken, refreshToken: newRefreshToken, user: newUser } = response.data;
+      const response = await api.post('/auth/register', registerUserData);
+      // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
+      const unwrapped = unwrapApiResponse<{
+        accessToken?: string;
+        token?: string;
+        refreshToken?: string;
+        user: User;
+      }>(response.data);
+      
+      const { accessToken, token: legacyToken, refreshToken: newRefreshToken, user: newUser } = unwrapped;
+      const newToken = accessToken || legacyToken;
+      
+      if (!newToken) {
+        throw new Error('Registration response did not contain a valid token');
+      }
       
       localStorage.setItem('token', newToken);
+      localStorage.setItem('accessToken', newToken);
       if (newRefreshToken) {
         localStorage.setItem('refreshToken', newRefreshToken);
         setRefreshToken(newRefreshToken);
       }
+      
+      // Store tenant ID for automatic header injection
+      if (newUser?.tenantId) {
+        localStorage.setItem('tenantId', newUser.tenantId);
+      }
+      
       setToken(newToken);
       setUser(newUser);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Registration failed');
+    } catch (error: unknown) {
+      // Handle standardized ApiError from the API client
+      if (error instanceof ApiError) {
+        throw new Error(error.message || 'Kayıt işlemi başarısız oldu');
+      }
+      // Handle legacy error format
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      throw new Error(axiosError.response?.data?.message || 'Kayıt işlemi başarısız oldu');
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('tenantId');
     setToken(null);
     setRefreshToken(null);
     setUser(null);

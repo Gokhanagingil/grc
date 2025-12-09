@@ -51,8 +51,10 @@ describe('Security & Access Control (e2e)', () => {
           password: DEMO_ADMIN_PASSWORD,
         });
 
-      adminToken = loginResponse.body.accessToken;
-      tenantId = loginResponse.body.user?.tenantId;
+      // Handle both wrapped (new) and unwrapped (legacy) response formats
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
     } catch (error) {
       console.warn(
         'Could not connect to database, skipping DB-dependent tests',
@@ -82,7 +84,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
       });
 
       it('should return 401 for /grc/policies without token', async () => {
@@ -164,9 +168,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
 
       it('should return 200 for /grc/policies with valid admin token', async () => {
@@ -181,9 +185,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
 
       it('should return 200 for /grc/requirements with valid admin token', async () => {
@@ -198,9 +202,9 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is paginated: { items: T[], total, page, pageSize, totalPages }
-        expect(response.body).toHaveProperty('items');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
       });
     });
   });
@@ -290,9 +294,11 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
         // All returned risks should belong to the current tenant
-        if (response.body.length > 0) {
-          response.body.forEach((risk: { tenantId: string }) => {
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((risk: { tenantId: string }) => {
             expect(risk.tenantId).toBe(tenantId);
           });
         }
@@ -310,8 +316,10 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        if (response.body.length > 0) {
-          response.body.forEach((policy: { tenantId: string }) => {
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((policy: { tenantId: string }) => {
             expect(policy.tenantId).toBe(tenantId);
           });
         }
@@ -329,8 +337,10 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        if (response.body.length > 0) {
-          response.body.forEach((req: { tenantId: string }) => {
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body.items ?? response.body;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((req: { tenantId: string }) => {
             expect(req.tenantId).toBe(tenantId);
           });
         }
@@ -439,8 +449,10 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
-        expect(response.body).toHaveProperty(
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
+        expect(response.body.error).toHaveProperty(
           'message',
           'Invalid email or password',
         );
@@ -460,7 +472,9 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(401);
 
-        expect(response.body).toHaveProperty('statusCode', 401);
+        // Error response is wrapped in standard envelope
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toHaveProperty('code', 'UNAUTHORIZED');
       });
     });
 
@@ -479,11 +493,13 @@ describe('Security & Access Control (e2e)', () => {
           })
           .expect(200);
 
-        expect(response.body).toHaveProperty('accessToken');
-        expect(typeof response.body.accessToken).toBe('string');
-        expect(response.body).toHaveProperty('user');
-        expect(response.body.user).toHaveProperty('email', DEMO_ADMIN_EMAIL);
-        expect(response.body.user).not.toHaveProperty('passwordHash');
+        // Handle both wrapped (new) and unwrapped (legacy) response formats
+        const responseData = response.body.data ?? response.body;
+        expect(responseData).toHaveProperty('accessToken');
+        expect(typeof responseData.accessToken).toBe('string');
+        expect(responseData).toHaveProperty('user');
+        expect(responseData.user).toHaveProperty('email', DEMO_ADMIN_EMAIL);
+        expect(responseData.user).not.toHaveProperty('passwordHash');
       });
     });
 

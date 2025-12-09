@@ -19,11 +19,32 @@ export enum Permission {
   GRC_REQUIREMENT_READ = 'grc:requirement:read',
   GRC_REQUIREMENT_WRITE = 'grc:requirement:write',
 
+  // Audit permissions
+  GRC_AUDIT_READ = 'grc:audit:read',
+  GRC_AUDIT_WRITE = 'grc:audit:write',
+
   // Statistics permissions (restricted read access)
   GRC_STATISTICS_READ = 'grc:statistics:read',
 
   // Administrative permissions
   GRC_ADMIN = 'grc:admin',
+
+  // ITSM Incident permissions
+  ITSM_INCIDENT_READ = 'itsm:incident:read',
+  ITSM_INCIDENT_WRITE = 'itsm:incident:write',
+
+  // ITSM Statistics permissions
+  ITSM_STATISTICS_READ = 'itsm:statistics:read',
+
+  // Admin Panel permissions
+  ADMIN_USERS_READ = 'admin:users:read',
+  ADMIN_USERS_WRITE = 'admin:users:write',
+  ADMIN_ROLES_READ = 'admin:roles:read',
+  ADMIN_ROLES_WRITE = 'admin:roles:write',
+  ADMIN_SETTINGS_READ = 'admin:settings:read',
+  ADMIN_SETTINGS_WRITE = 'admin:settings:write',
+  ADMIN_TENANTS_READ = 'admin:tenants:read',
+  ADMIN_TENANTS_WRITE = 'admin:tenants:write',
 }
 
 /**
@@ -37,6 +58,20 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_REQUIREMENT_READ]:
     'View requirements and requirement details',
   [Permission.GRC_REQUIREMENT_WRITE]: 'Create, update, and delete requirements',
+  [Permission.GRC_AUDIT_READ]: 'View audits and audit details',
+  [Permission.GRC_AUDIT_WRITE]: 'Create, update, and delete audits',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
+  [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',
+  [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
+  [Permission.ITSM_STATISTICS_READ]:
+    'View ITSM statistics and analytics dashboards',
+  [Permission.ADMIN_USERS_READ]: 'View users and user details',
+  [Permission.ADMIN_USERS_WRITE]: 'Create, update, and delete users',
+  [Permission.ADMIN_ROLES_READ]: 'View roles and role permissions',
+  [Permission.ADMIN_ROLES_WRITE]: 'Create, update, and delete roles',
+  [Permission.ADMIN_SETTINGS_READ]: 'View system settings',
+  [Permission.ADMIN_SETTINGS_WRITE]: 'Modify system settings',
+  [Permission.ADMIN_TENANTS_READ]: 'View tenants and tenant details',
+  [Permission.ADMIN_TENANTS_WRITE]: 'Create, update, and delete tenants',
 };

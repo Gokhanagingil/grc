@@ -220,3 +220,106 @@ export enum CoverageLevel {
   PARTIAL = 'partial',
   MINIMAL = 'minimal',
 }
+
+// ============================================================================
+// Policy Version Enums
+// ============================================================================
+
+/**
+ * PolicyVersionStatus - Status of a policy version in its lifecycle
+ */
+export enum PolicyVersionStatus {
+  DRAFT = 'draft',
+  IN_REVIEW = 'in_review',
+  APPROVED = 'approved',
+  PUBLISHED = 'published',
+  RETIRED = 'retired',
+}
+
+/**
+ * VersionType - Type of version increment
+ */
+export enum VersionType {
+  MAJOR = 'major',
+  MINOR = 'minor',
+}
+
+// ============================================================================
+// Audit Report Template Enums
+// ============================================================================
+
+/**
+ * AuditStandard - Standards for audit report templates
+ */
+export enum AuditStandard {
+  ISO27001 = 'iso27001',
+  ISO22301 = 'iso22301',
+  COBIT = 'cobit',
+  SOC2 = 'soc2',
+  NIST = 'nist',
+  PCI_DSS = 'pci_dss',
+  GDPR = 'gdpr',
+  HIPAA = 'hipaa',
+  CUSTOM = 'custom',
+}
+
+/**
+ * TemplateLanguage - Supported languages for templates
+ */
+export enum TemplateLanguage {
+  EN = 'en',
+  TR = 'tr',
+}
+
+// ============================================================================
+// Metadata System Enums
+// ============================================================================
+
+/**
+ * ClassificationTagType - Types of classification tags
+ */
+export enum ClassificationTagType {
+  PRIVACY = 'privacy',
+  SECURITY = 'security',
+  COMPLIANCE = 'compliance',
+}
+
+// ============================================================================
+// Search/Query DSL Enums
+// ============================================================================
+
+/**
+ * SearchEngine - Supported search engines
+ */
+export enum SearchEngine {
+  POSTGRES = 'postgres',
+  ELASTICSEARCH = 'elasticsearch',
+}
+
+/**
+ * QueryOperator - Operators for query DSL conditions
+ */
+export enum QueryOperator {
+  EQUALS = 'eq',
+  NOT_EQUALS = 'neq',
+  CONTAINS = 'contains',
+  STARTS_WITH = 'starts_with',
+  ENDS_WITH = 'ends_with',
+  IN = 'in',
+  NOT_IN = 'not_in',
+  BETWEEN = 'between',
+  GREATER_THAN = 'gt',
+  GREATER_THAN_OR_EQUAL = 'gte',
+  LESS_THAN = 'lt',
+  LESS_THAN_OR_EQUAL = 'lte',
+  IS_NULL = 'is_null',
+  IS_NOT_NULL = 'is_not_null',
+}
+
+/**
+ * LogicalOperator - Logical operators for combining conditions
+ */
+export enum LogicalOperator {
+  AND = 'AND',
+  OR = 'OR',
+}

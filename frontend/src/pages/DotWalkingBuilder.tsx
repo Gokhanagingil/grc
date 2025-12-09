@@ -60,7 +60,7 @@ interface TestResult {
 }
 
 export const DotWalkingBuilder: React.FC = () => {
-  const [schema, setSchema] = useState<Schema>({ entities: [], fields: {}, relationships: {} });
+  const [schema, setSchema] = useState<Schema | null>(null);
   const [path, setPath] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -71,27 +71,16 @@ export const DotWalkingBuilder: React.FC = () => {
   const fetchSchema = useCallback(async () => {
     try {
       const response = await api.get('/dotwalking/schema');
-      const schemaData = response?.data;
-      if (schemaData && typeof schemaData === 'object') {
-        setSchema({
-          entities: Array.isArray(schemaData.entities) ? schemaData.entities : [],
-          fields: schemaData.fields && typeof schemaData.fields === 'object' ? schemaData.fields : {},
-          relationships: schemaData.relationships && typeof schemaData.relationships === 'object' ? schemaData.relationships : {},
-        });
-      } else {
-        setSchema({ entities: [], fields: {}, relationships: {} });
-      }
+      setSchema(response.data);
     } catch (err: any) {
       setError('Failed to load schema');
-      setSchema({ entities: [], fields: {}, relationships: {} });
     }
   }, []);
 
   const fetchSuggestions = useCallback(async (currentPath: string) => {
     try {
       const response = await api.get(`/dotwalking/suggestions?path=${encodeURIComponent(currentPath)}`);
-      const suggestions = Array.isArray(response?.data?.suggestions) ? response.data.suggestions : [];
-      setSuggestions(suggestions);
+      setSuggestions(response.data.suggestions || []);
     } catch (err) {
       setSuggestions([]);
     }
@@ -133,23 +122,11 @@ export const DotWalkingBuilder: React.FC = () => {
     setTestResult(null);
     try {
       const response = await api.post('/dotwalking/test', { path });
-      const testData = response?.data;
-      setTestResult({
-        valid: testData?.valid === true,
-        error: testData?.error,
-        path: testData?.path,
-        depth: typeof testData?.depth === 'number' ? testData.depth : undefined,
-        sampleData: Array.isArray(testData?.sampleData) ? testData.sampleData : [],
-        sampleCount: typeof testData?.sampleCount === 'number' ? testData.sampleCount : 0,
-        suggestions: Array.isArray(testData?.suggestions) ? testData.suggestions : [],
-      });
+      setTestResult(response.data);
     } catch (err: any) {
       setTestResult({
         valid: false,
-        error: err.response?.data?.message || 'Test failed',
-        sampleData: [],
-        sampleCount: 0,
-        suggestions: [],
+        error: err.response?.data?.message || 'Test failed'
       });
     } finally {
       setLoading(false);
@@ -223,7 +200,7 @@ export const DotWalkingBuilder: React.FC = () => {
                   <Button
                     variant="contained"
                     onClick={handleTest}
-                    disabled={!path || loading || (parseResult ? !parseResult.valid : false)}
+                    disabled={!path || loading || (!!parseResult && !parseResult.valid)}
                     startIcon={loading ? <CircularProgress size={20} /> : <TestIcon />}
                   >
                     Test
@@ -280,12 +257,12 @@ export const DotWalkingBuilder: React.FC = () => {
                     Query executed successfully. Found {testResult.sampleCount} record(s).
                   </Alert>
                   
-                  {testResult.sampleData && Array.isArray(testResult.sampleData) && testResult.sampleData.length > 0 && (
+                  {testResult.sampleData && testResult.sampleData.length > 0 && (
                     <TableContainer sx={{ maxHeight: 400 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
                           <TableRow>
-                            {Object.keys(testResult.sampleData[0] || {}).map((key) => (
+                            {Object.keys(testResult.sampleData[0]).map((key) => (
                               <TableCell key={key}>{key}</TableCell>
                             ))}
                           </TableRow>
@@ -293,7 +270,7 @@ export const DotWalkingBuilder: React.FC = () => {
                         <TableBody>
                           {testResult.sampleData.map((row, index) => (
                             <TableRow key={index}>
-                              {Object.values(row || {}).map((value: any, cellIndex) => (
+                              {Object.values(row).map((value: any, cellIndex) => (
                                 <TableCell key={cellIndex}>
                                   {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
                                 </TableCell>
@@ -308,7 +285,7 @@ export const DotWalkingBuilder: React.FC = () => {
               ) : (
                 <Alert severity="error">
                   {testResult.error}
-                  {testResult.suggestions && Array.isArray(testResult.suggestions) && testResult.suggestions.length > 0 && (
+                  {testResult.suggestions && testResult.suggestions.length > 0 && (
                     <Box mt={1}>
                       <Typography variant="caption">Did you mean: </Typography>
                       {testResult.suggestions.map((s, i) => (
@@ -335,7 +312,7 @@ export const DotWalkingBuilder: React.FC = () => {
               <Typography variant="h6">Schema Reference</Typography>
             </Box>
 
-            {schema.entities && schema.entities.length > 0 ? (
+            {schema ? (
               <>
                 <Typography variant="subtitle2" gutterBottom>
                   Available Entities
@@ -389,13 +366,7 @@ export const DotWalkingBuilder: React.FC = () => {
               </>
             ) : (
               <Box display="flex" justifyContent="center" p={2}>
-                {schema.entities.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No schema available
-                  </Typography>
-                ) : (
-                  <CircularProgress size={24} />
-                )}
+                <CircularProgress size={24} />
               </Box>
             )}
           </Paper>

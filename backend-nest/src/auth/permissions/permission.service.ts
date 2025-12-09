@@ -10,7 +10,7 @@ import { UserRole } from '../../users/user.entity';
  */
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   /**
-   * ADMIN - Full access to all GRC features
+   * ADMIN - Full access to all GRC, ITSM, and Admin features
    */
   [UserRole.ADMIN]: [
     Permission.GRC_RISK_READ,
@@ -21,10 +21,21 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_REQUIREMENT_WRITE,
     Permission.GRC_STATISTICS_READ,
     Permission.GRC_ADMIN,
+    Permission.ITSM_INCIDENT_READ,
+    Permission.ITSM_INCIDENT_WRITE,
+    Permission.ITSM_STATISTICS_READ,
+    Permission.ADMIN_USERS_READ,
+    Permission.ADMIN_USERS_WRITE,
+    Permission.ADMIN_ROLES_READ,
+    Permission.ADMIN_ROLES_WRITE,
+    Permission.ADMIN_SETTINGS_READ,
+    Permission.ADMIN_SETTINGS_WRITE,
+    Permission.ADMIN_TENANTS_READ,
+    Permission.ADMIN_TENANTS_WRITE,
   ],
 
   /**
-   * MANAGER - Full GRC read/write access, including statistics
+   * MANAGER - Full GRC and ITSM read/write access, including statistics
    */
   [UserRole.MANAGER]: [
     Permission.GRC_RISK_READ,
@@ -34,15 +45,19 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_REQUIREMENT_READ,
     Permission.GRC_REQUIREMENT_WRITE,
     Permission.GRC_STATISTICS_READ,
+    Permission.ITSM_INCIDENT_READ,
+    Permission.ITSM_INCIDENT_WRITE,
+    Permission.ITSM_STATISTICS_READ,
   ],
 
   /**
-   * USER - Read-only access to GRC data (no statistics)
+   * USER - Read-only access to GRC and ITSM data (no statistics)
    */
   [UserRole.USER]: [
     Permission.GRC_RISK_READ,
     Permission.GRC_POLICY_READ,
     Permission.GRC_REQUIREMENT_READ,
+    Permission.ITSM_INCIDENT_READ,
   ],
 };
 

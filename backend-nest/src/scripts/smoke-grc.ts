@@ -340,6 +340,389 @@ async function runSmokeTest() {
     console.log('[SKIP] Skipping requirement endpoints (no auth)');
   }
 
+  // 6. ITSM Incidents
+  printSection('6. ITSM Incidents');
+
+  if (token) {
+    const incidentsResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents', incidentsResponse)) {
+      passed++;
+      const incidents = incidentsResponse.data as Array<{
+        shortDescription: string;
+        status: string;
+      }>;
+      if (Array.isArray(incidents)) {
+        console.log(`    Found ${incidents.length} incidents`);
+        if (incidents.length > 0) {
+          console.log(
+            `    Sample: "${incidents[0].shortDescription}" (${incidents[0].status})`,
+          );
+        }
+      }
+    } else {
+      failed++;
+    }
+
+    const incidentStatsResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents/statistics',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents/statistics', incidentStatsResponse)) {
+      passed++;
+      const stats = incidentStatsResponse.data as { total?: number };
+      if (stats.total !== undefined) {
+        console.log(`    Total incidents: ${stats.total}`);
+      }
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping incident endpoints (no auth)');
+  }
+
+  // 7. Summary Endpoints (KPI-ready data)
+  printSection('7. Summary Endpoints (KPI Data)');
+
+  if (token) {
+    // Risk Summary
+    const riskSummaryResponse = await makeRequest(
+      'GET',
+      '/grc/risks/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/risks/summary', riskSummaryResponse)) {
+      passed++;
+      const summary = riskSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        byStatus?: Record<string, number>;
+        top5OpenRisks?: Array<{
+          id: string;
+          title: string;
+          severity: string;
+          score: number | null;
+        }>;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(
+        `    Status breakdown: ${JSON.stringify(summary.byStatus || {})}`,
+      );
+      if (summary.top5OpenRisks && summary.top5OpenRisks.length > 0) {
+        console.log(
+          `    Top 5 Open Risks: ${summary.top5OpenRisks.length} risks`,
+        );
+        console.log(
+          `      #1: "${summary.top5OpenRisks[0].title}" (${summary.top5OpenRisks[0].severity}, score: ${summary.top5OpenRisks[0].score})`,
+        );
+      }
+    } else {
+      failed++;
+    }
+
+    // Policy Summary
+    const policySummaryResponse = await makeRequest(
+      'GET',
+      '/grc/policies/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/policies/summary', policySummaryResponse)) {
+      passed++;
+      const summary = policySummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        activeCount?: number;
+        policyCoveragePercentage?: number;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Active: ${summary.activeCount ?? 0}`);
+      console.log(
+        `    Coverage: ${summary.policyCoveragePercentage?.toFixed(1) ?? 0}%`,
+      );
+    } else {
+      failed++;
+    }
+
+    // Requirement Summary
+    const reqSummaryResponse = await makeRequest(
+      'GET',
+      '/grc/requirements/summary',
+      authHeaders,
+    );
+    if (printResult('GET /grc/requirements/summary', reqSummaryResponse)) {
+      passed++;
+      const summary = reqSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        compliantCount?: number;
+        requirementCoveragePercentage?: number;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(`    Compliant: ${summary.compliantCount ?? 0}`);
+      console.log(
+        `    Coverage: ${summary.requirementCoveragePercentage?.toFixed(1) ?? 0}%`,
+      );
+    } else {
+      failed++;
+    }
+
+    // Incident Summary
+    const incidentSummaryResponse = await makeRequest(
+      'GET',
+      '/itsm/incidents/summary',
+      authHeaders,
+    );
+    if (printResult('GET /itsm/incidents/summary', incidentSummaryResponse)) {
+      passed++;
+      const summary = incidentSummaryResponse.data as {
+        total?: number;
+        totalCount?: number;
+        openCount?: number;
+        closedCount?: number;
+        resolvedCount?: number;
+        resolvedToday?: number;
+        avgResolutionTimeHours?: number | null;
+      };
+      console.log(`    Total: ${summary.totalCount ?? summary.total ?? 0}`);
+      console.log(
+        `    Open: ${summary.openCount ?? 0}, Closed: ${summary.closedCount ?? 0}, Resolved: ${summary.resolvedCount ?? 0}`,
+      );
+      console.log(`    Resolved Today: ${summary.resolvedToday ?? 0}`);
+      console.log(
+        `    Avg Resolution Time: ${summary.avgResolutionTimeHours?.toFixed(1) ?? 'N/A'} hours`,
+      );
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping summary endpoints (no auth)');
+  }
+
+  // 8. Relationship Endpoints (Risk-Policy, Risk-Requirement links)
+  printSection('8. Relationship Endpoints');
+
+  if (token) {
+    // First, get a risk ID to test with
+    const risksForRelResponse = await makeRequest(
+      'GET',
+      '/grc/risks',
+      authHeaders,
+    );
+    const risksForRel = risksForRelResponse.data as Array<{ id: string }>;
+    const testRiskId =
+      Array.isArray(risksForRel) && risksForRel.length > 0
+        ? risksForRel[0].id
+        : null;
+
+    // Get a policy ID to test with
+    const policiesForRelResponse = await makeRequest(
+      'GET',
+      '/grc/policies',
+      authHeaders,
+    );
+    const policiesForRel = policiesForRelResponse.data as Array<{ id: string }>;
+    const testPolicyId =
+      Array.isArray(policiesForRel) && policiesForRel.length > 0
+        ? policiesForRel[0].id
+        : null;
+
+    // Get a requirement ID to test with
+    const reqsForRelResponse = await makeRequest(
+      'GET',
+      '/grc/requirements',
+      authHeaders,
+    );
+    const reqsForRel = reqsForRelResponse.data as Array<{ id: string }>;
+    const testRequirementId =
+      Array.isArray(reqsForRel) && reqsForRel.length > 0
+        ? reqsForRel[0].id
+        : null;
+
+    if (testRiskId) {
+      // Test GET /grc/risks/:id/policies
+      const riskPoliciesResponse = await makeRequest(
+        'GET',
+        `/grc/risks/${testRiskId}/policies`,
+        authHeaders,
+      );
+      if (
+        printResult(
+          `GET /grc/risks/${testRiskId}/policies`,
+          riskPoliciesResponse,
+        )
+      ) {
+        passed++;
+        const linkedPolicies = riskPoliciesResponse.data as Array<{
+          id: string;
+          title: string;
+        }>;
+        if (Array.isArray(linkedPolicies)) {
+          console.log(`    Found ${linkedPolicies.length} linked policies`);
+        }
+      } else {
+        failed++;
+      }
+
+      // Test GET /grc/risks/:id/requirements
+      const riskRequirementsResponse = await makeRequest(
+        'GET',
+        `/grc/risks/${testRiskId}/requirements`,
+        authHeaders,
+      );
+      if (
+        printResult(
+          `GET /grc/risks/${testRiskId}/requirements`,
+          riskRequirementsResponse,
+        )
+      ) {
+        passed++;
+        const linkedRequirements = riskRequirementsResponse.data as Array<{
+          id: string;
+          title: string;
+        }>;
+        if (Array.isArray(linkedRequirements)) {
+          console.log(
+            `    Found ${linkedRequirements.length} linked requirements`,
+          );
+        }
+      } else {
+        failed++;
+      }
+
+      // Test POST /grc/risks/:id/policies (link policies to risk)
+      if (testPolicyId) {
+        const linkPoliciesResponse = await makeRequest(
+          'POST',
+          `/grc/risks/${testRiskId}/policies`,
+          authHeaders,
+          { policyIds: [testPolicyId] },
+        );
+        if (
+          printResult(
+            `POST /grc/risks/${testRiskId}/policies`,
+            linkPoliciesResponse,
+            201,
+          )
+        ) {
+          passed++;
+          console.log(`    Successfully linked policy ${testPolicyId} to risk`);
+        } else {
+          failed++;
+        }
+      }
+
+      // Test POST /grc/risks/:id/requirements (link requirements to risk)
+      if (testRequirementId) {
+        const linkRequirementsResponse = await makeRequest(
+          'POST',
+          `/grc/risks/${testRiskId}/requirements`,
+          authHeaders,
+          { requirementIds: [testRequirementId] },
+        );
+        if (
+          printResult(
+            `POST /grc/risks/${testRiskId}/requirements`,
+            linkRequirementsResponse,
+            201,
+          )
+        ) {
+          passed++;
+          console.log(
+            `    Successfully linked requirement ${testRequirementId} to risk`,
+          );
+        } else {
+          failed++;
+        }
+      }
+    } else {
+      console.log('[SKIP] No risks found to test relationship endpoints');
+    }
+
+    if (testPolicyId) {
+      // Test GET /grc/policies/:id/risks
+      const policyRisksResponse = await makeRequest(
+        'GET',
+        `/grc/policies/${testPolicyId}/risks`,
+        authHeaders,
+      );
+      if (
+        printResult(
+          `GET /grc/policies/${testPolicyId}/risks`,
+          policyRisksResponse,
+        )
+      ) {
+        passed++;
+        const linkedRisks = policyRisksResponse.data as Array<{
+          id: string;
+          title: string;
+        }>;
+        if (Array.isArray(linkedRisks)) {
+          console.log(`    Found ${linkedRisks.length} linked risks`);
+        }
+      } else {
+        failed++;
+      }
+    } else {
+      console.log(
+        '[SKIP] No policies found to test reverse relationship endpoint',
+      );
+    }
+
+    if (testRequirementId) {
+      // Test GET /grc/requirements/:id/risks
+      const requirementRisksResponse = await makeRequest(
+        'GET',
+        `/grc/requirements/${testRequirementId}/risks`,
+        authHeaders,
+      );
+      if (
+        printResult(
+          `GET /grc/requirements/${testRequirementId}/risks`,
+          requirementRisksResponse,
+        )
+      ) {
+        passed++;
+        const linkedRisks = requirementRisksResponse.data as Array<{
+          id: string;
+          title: string;
+        }>;
+        if (Array.isArray(linkedRisks)) {
+          console.log(`    Found ${linkedRisks.length} linked risks`);
+        }
+      } else {
+        failed++;
+      }
+    } else {
+      console.log(
+        '[SKIP] No requirements found to test reverse relationship endpoint',
+      );
+    }
+  } else {
+    console.log('[SKIP] Skipping relationship endpoints (no auth)');
+  }
+
+  // 9. User Profile (GET /users/me)
+  printSection('9. User Profile');
+
+  if (token) {
+    const userMeResponse = await makeRequest('GET', '/users/me', authHeaders);
+    if (printResult('GET /users/me', userMeResponse)) {
+      passed++;
+      const user = userMeResponse.data as { email?: string; role?: string };
+      if (user.email) {
+        console.log(`    User: ${user.email} (${user.role || 'unknown role'})`);
+      }
+    } else {
+      failed++;
+    }
+  } else {
+    console.log('[SKIP] Skipping user profile endpoint (no auth)');
+  }
+
   // Summary
   printSection('Summary');
   const total = passed + failed;
