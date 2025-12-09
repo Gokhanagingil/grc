@@ -130,6 +130,42 @@ export const API_PATHS = {
     RISKS: (id: string) => `/grc/requirements/${id}/risks`,
   },
 
+  // Standards Library endpoints (Phase 7 - Express backend)
+  STANDARDS: {
+    LIST: '/grc/requirements',
+    FILTERS: '/grc/requirements/filters',
+    GET: (id: string) => `/grc/requirements/${id}`,
+    MAP_POLICY: '/grc/requirements/map/policy',
+    MAP_RISK: '/grc/requirements/map/risk',
+    MAP_FINDING: '/grc/requirements/map/finding',
+    MAP_AUDIT: '/grc/requirements/map/audit',
+    POLICIES: (id: string) => `/grc/requirements/${id}/policies`,
+    RISKS: (id: string) => `/grc/requirements/${id}/risks`,
+    FINDINGS: (id: string) => `/grc/requirements/${id}/findings`,
+    AUDITS: (id: string) => `/grc/requirements/${id}/audits`,
+  },
+
+  // Platform Metadata Engine endpoints (Phase 7 - Express backend)
+  PLATFORM_METADATA: {
+    TYPES: '/platform/metadata/types',
+    TYPE: (id: string) => `/platform/metadata/types/${id}`,
+    VALUES: '/platform/metadata/values',
+    TYPE_VALUES: (typeId: string) => `/platform/metadata/types/${typeId}/values`,
+    VALUE: (id: string) => `/platform/metadata/values/${id}`,
+    ASSIGN: '/platform/metadata/assign',
+    ASSIGNED: (objectType: string, objectId: string) => `/platform/metadata/assigned/${objectType}/${objectId}`,
+    REMOVE_ASSIGNED: (id: string) => `/platform/metadata/assigned/${id}`,
+    STATS: '/platform/metadata/stats',
+  },
+
+  // GRC Metrics endpoints (Phase 7 - Express backend)
+  GRC_METRICS: {
+    REQUIREMENTS_COVERAGE: '/grc/metrics/requirements/coverage',
+    FINDINGS_BY_STANDARD: '/grc/metrics/findings/by-standard',
+    REQUIREMENTS_TAGS: '/grc/metrics/requirements/tags',
+    COMPLIANCE_SUMMARY: '/grc/metrics/compliance/summary',
+  },
+
   // ITSM Incident endpoints
   ITSM_INCIDENTS: {
     LIST: '/itsm/incidents',
@@ -820,4 +856,109 @@ export const userApi = {
   delete: (id: number) => api.delete(API_PATHS.USERS.DELETE(id)),
   me: () => api.get(API_PATHS.USERS.ME),
   count: () => api.get(API_PATHS.USERS.COUNT),
+};
+
+// ============================================================================
+// Standards Library API (Phase 7)
+// ============================================================================
+
+export const standardsApi = {
+  list: (params?: URLSearchParams) => 
+    api.get(`${API_PATHS.STANDARDS.LIST}${params ? `?${params}` : ''}`),
+  
+  getFilters: () => 
+    api.get(API_PATHS.STANDARDS.FILTERS),
+  
+  get: (id: string) => 
+    api.get(API_PATHS.STANDARDS.GET(id)),
+  
+  mapPolicy: (requirementId: string, policyId: string, justification?: string) => 
+    api.post(API_PATHS.STANDARDS.MAP_POLICY, { requirementId, targetId: policyId, justification }),
+  
+  mapRisk: (requirementId: string, riskId: string) => 
+    api.post(API_PATHS.STANDARDS.MAP_RISK, { requirementId, targetId: riskId }),
+  
+  mapFinding: (requirementId: string, findingId: string, evidenceStrength?: string) => 
+    api.post(API_PATHS.STANDARDS.MAP_FINDING, { requirementId, targetId: findingId, evidenceStrength }),
+  
+  mapAudit: (requirementId: string, auditId: string) => 
+    api.post(API_PATHS.STANDARDS.MAP_AUDIT, { requirementId, targetId: auditId }),
+  
+  getPolicies: (id: string) => 
+    api.get(API_PATHS.STANDARDS.POLICIES(id)),
+  
+  getRisks: (id: string) => 
+    api.get(API_PATHS.STANDARDS.RISKS(id)),
+  
+  getFindings: (id: string) => 
+    api.get(API_PATHS.STANDARDS.FINDINGS(id)),
+  
+  getAudits: (id: string) => 
+    api.get(API_PATHS.STANDARDS.AUDITS(id)),
+};
+
+// ============================================================================
+// Platform Metadata Engine API (Phase 7)
+// ============================================================================
+
+export const platformMetadataApi = {
+  getTypes: () => 
+    api.get(API_PATHS.PLATFORM_METADATA.TYPES),
+  
+  getType: (id: string) => 
+    api.get(API_PATHS.PLATFORM_METADATA.TYPE(id)),
+  
+  createType: (data: { name: string; description?: string }) => 
+    api.post(API_PATHS.PLATFORM_METADATA.TYPES, data),
+  
+  updateType: (id: string, data: { name?: string; description?: string }) => 
+    api.put(API_PATHS.PLATFORM_METADATA.TYPE(id), data),
+  
+  deleteType: (id: string) => 
+    api.delete(API_PATHS.PLATFORM_METADATA.TYPE(id)),
+  
+  getValues: () => 
+    api.get(API_PATHS.PLATFORM_METADATA.VALUES),
+  
+  getTypeValues: (typeId: string) => 
+    api.get(API_PATHS.PLATFORM_METADATA.TYPE_VALUES(typeId)),
+  
+  createValue: (typeId: string, data: { value: string; color?: string; description?: string }) => 
+    api.post(API_PATHS.PLATFORM_METADATA.TYPE_VALUES(typeId), data),
+  
+  updateValue: (id: string, data: { value?: string; color?: string; description?: string }) => 
+    api.put(API_PATHS.PLATFORM_METADATA.VALUE(id), data),
+  
+  deleteValue: (id: string) => 
+    api.delete(API_PATHS.PLATFORM_METADATA.VALUE(id)),
+  
+  assignMetadata: (objectType: string, objectId: string, metadataValueId: string) => 
+    api.post(API_PATHS.PLATFORM_METADATA.ASSIGN, { objectType, objectId, metadataValueId }),
+  
+  getAssignedMetadata: (objectType: string, objectId: string) => 
+    api.get(API_PATHS.PLATFORM_METADATA.ASSIGNED(objectType, objectId)),
+  
+  removeAssignment: (id: string) => 
+    api.delete(API_PATHS.PLATFORM_METADATA.REMOVE_ASSIGNED(id)),
+  
+  getStats: () => 
+    api.get(API_PATHS.PLATFORM_METADATA.STATS),
+};
+
+// ============================================================================
+// GRC Metrics API (Phase 7)
+// ============================================================================
+
+export const grcMetricsApi = {
+  getRequirementsCoverage: () => 
+    api.get(API_PATHS.GRC_METRICS.REQUIREMENTS_COVERAGE),
+  
+  getFindingsByStandard: () => 
+    api.get(API_PATHS.GRC_METRICS.FINDINGS_BY_STANDARD),
+  
+  getRequirementsTags: () => 
+    api.get(API_PATHS.GRC_METRICS.REQUIREMENTS_TAGS),
+  
+  getComplianceSummary: () => 
+    api.get(API_PATHS.GRC_METRICS.COMPLIANCE_SUMMARY),
 };
