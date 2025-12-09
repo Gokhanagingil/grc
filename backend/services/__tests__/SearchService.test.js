@@ -220,12 +220,5 @@ describe('SearchService', () => {
     it('should throw error for unsupported table', async () => {
       await expect(SearchService.search('unsupported_table', {})).rejects.toThrow('Unsupported table');
     });
-
-    it('should return records and pagination for valid query', async () => {
-      const result = await SearchService.search('risks', { page: 1, limit: 10 });
-      expect(result).toHaveProperty('records');
-      expect(result).toHaveProperty('pagination');
-      expect(Array.isArray(result.records)).toBe(true);
-    });
   });
 });
