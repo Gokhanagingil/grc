@@ -438,9 +438,27 @@ Failed: 0/16
 | Admin Password | (see seed script or .env) |
 | Tenant ID | 00000000-0000-0000-0000-000000000001 |
 
+### Known Issue: Frontend API Paths
+
+The staging frontend container is built from an older version of the code that uses legacy API paths (`/governance/policies`, `/risk/risks`) instead of the normalized `/grc/...` paths. This causes the Governance and Risk Management pages to show "Failed to load" errors.
+
+**Impact:**
+- Dashboard works correctly (uses `/dashboard/overview` which is unchanged)
+- Login works correctly (uses `/auth/login` which is unchanged)
+- Governance page shows "Failed to load policies" (calls `/governance/policies` instead of `/grc/policies`)
+- Risk Management page shows "Failed to load risks" (calls `/risk/risks` instead of `/grc/risks`)
+
+**Resolution:**
+Rebuild and redeploy the staging frontend container with the latest code:
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && git pull origin main && docker compose -f docker-compose.staging.yml up -d --build --force-recreate grc-staging-frontend"
+```
+
+**Note:** The backend API endpoints are working correctly (verified via curl and smoke tests). Only the frontend needs to be rebuilt.
+
 ### Remaining Actions
 
-For future deployments, the staging container should be rebuilt with the latest code that includes the bcrypt fix in the seed script. See `docs/STAGING-MAINTENANCE-RUNBOOK.md` for maintenance procedures.
+For future deployments, both the backend and frontend staging containers should be rebuilt with the latest code. The backend needs the bcrypt fix in the seed script, and the frontend needs the normalized `/grc/...` API paths. See `docs/STAGING-MAINTENANCE-RUNBOOK.md` for maintenance procedures.
 
 ---
 
