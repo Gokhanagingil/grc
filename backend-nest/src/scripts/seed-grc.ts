@@ -11,6 +11,7 @@
 
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { AppModule } from '../app.module';
 import { Tenant } from '../tenants/tenant.entity';
 import { User, UserRole } from '../users/user.entity';
@@ -64,12 +65,18 @@ async function seedGrcData() {
     let adminUser = await userRepo.findOne({ where: { id: DEMO_ADMIN_ID } });
 
     if (!adminUser) {
+      // Hash the demo password properly using bcrypt
+      const demoPassword =
+        process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(demoPassword, saltRounds);
+
       adminUser = userRepo.create({
         id: DEMO_ADMIN_ID,
-        email: 'admin@grc-platform.local',
+        email: process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local',
         firstName: 'Demo',
         lastName: 'Admin',
-        passwordHash: '$2b$10$demohashdemohashdemohashdemohashdemohashdemoha', // Not a real hash
+        passwordHash,
         role: UserRole.ADMIN,
         tenantId: DEMO_TENANT_ID,
       });
