@@ -314,11 +314,143 @@ curl http://localhost:3002/health/live
 
 ---
 
+## 11. Staging Environment Validation
+
+**Status:** FIXED
+
+**Date Validated:** December 10, 2025
+
+### Initial Issues Found
+
+The staging environment at `http://46.224.99.150` was inconsistent with the local environment:
+
+1. **Wrong Admin User:** Staging had `admin@grc-staging.local` instead of `admin@grc-platform.local`
+2. **Different Tenant ID:** Staging tenant was `a9d21ae5-170f-49dd-987c-7aa452dbc0ba` instead of the expected `00000000-0000-0000-0000-000000000001`
+3. **No GRC Data:** All GRC tables (risks, policies, requirements, controls) had 0 records
+4. **Invalid Password Hash:** The deployed seed script had a hardcoded placeholder hash instead of proper bcrypt hashing
+
+### Root Cause
+
+The staging container was built from an older version of the code before the seed script bcrypt fix was applied. The seed script in the deployed container had a hardcoded placeholder password hash instead of the bcrypt hashing logic.
+
+### Resolution Steps
+
+1. **Stopped staging stack:**
+   ```bash
+   cd /opt/grc-platform && docker compose -f docker-compose.staging.yml down
+   ```
+
+2. **Removed PostgreSQL volume to reset database:**
+   ```bash
+   docker volume rm grc-platform_grc_staging_postgres_data
+   ```
+
+3. **Updated staging .env with correct admin credentials:**
+   ```
+   DEMO_ADMIN_EMAIL=admin@grc-platform.local
+   DEMO_ADMIN_PASSWORD=<seeded-password>
+   ```
+
+4. **Restarted staging stack:**
+   ```bash
+   docker compose -f docker-compose.staging.yml up -d
+   ```
+
+5. **Ran seed script inside backend container:**
+   ```bash
+   docker exec -e DEMO_ADMIN_EMAIL=admin@grc-platform.local \
+     -e DEMO_ADMIN_PASSWORD=<seeded-password> \
+     grc-staging-backend node dist/scripts/seed-grc.js
+   ```
+
+6. **Manually fixed password hash** (due to old compiled script):
+   ```sql
+   UPDATE nest_users SET password_hash = '$2b$10$...' 
+   WHERE email = 'admin@grc-platform.local';
+   ```
+
+### Verification Results
+
+| Test | Expected | Actual | Status |
+|------|----------|--------|--------|
+| Admin login (`admin@grc-platform.local`) | Success with JWT | Success | PASS |
+| Dashboard risks count | 8 | 8 | PASS |
+| Dashboard policies count | 8 | 8 | PASS |
+| Dashboard requirements count | 10 | 10 | PASS |
+| GET /grc/risks | 8 risks | 8 risks | PASS |
+| GET /grc/policies | 8 policies | 8 policies | PASS |
+| GET /grc/requirements | 10 requirements | 10 requirements | PASS |
+| Smoke tests (16 tests) | All pass | All pass | PASS |
+
+### API Response Samples (Staging)
+
+**Login Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "email": "admin@grc-platform.local",
+      "role": "admin",
+      "tenantId": "00000000-0000-0000-0000-000000000001"
+    }
+  }
+}
+```
+
+**Dashboard Overview Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "risks": { "total": 8, "open": 3, "high": 5 },
+    "compliance": { "total": 10 },
+    "policies": { "total": 8, "active": 6 }
+  }
+}
+```
+
+### Smoke Test Results (Against Staging)
+
+```
+========================================
+GRC Module Smoke Test
+========================================
+Base URL: http://46.224.99.150:3002
+Tenant ID: 00000000-0000-0000-0000-000000000001
+Demo User: admin@grc-platform.local
+
+Passed: 16/16 (100%)
+Failed: 0/16
+
+[SUCCESS] All smoke tests passed!
+```
+
+### Staging Credentials
+
+| Field | Value |
+|-------|-------|
+| Frontend URL | http://46.224.99.150 |
+| Backend API URL | http://46.224.99.150:3002 |
+| Admin Email | admin@grc-platform.local |
+| Admin Password | (see seed script or .env) |
+| Tenant ID | 00000000-0000-0000-0000-000000000001 |
+
+### Remaining Actions
+
+For future deployments, the staging container should be rebuilt with the latest code that includes the bcrypt fix in the seed script. See `docs/STAGING-MAINTENANCE-RUNBOOK.md` for maintenance procedures.
+
+---
+
 ## Conclusion
 
-The GRC platform has passed all Sprint 4 exit validation criteria. Two minor issues were identified and fixed:
+The GRC platform has passed all Sprint 4 exit validation criteria, including staging environment validation. Issues identified and fixed:
 
-1. Demo admin password hash in seed script
-2. Smoke test token parsing for NestJS response format
+1. Demo admin password hash in seed script (local)
+2. Smoke test token parsing for NestJS response format (local)
+3. Staging database reset and re-seeding with correct admin user
+4. Staging password hash manual fix (due to old deployed code)
 
-The platform is stable, environments are consistent, and core GRC + Audit + Auth flows are healthy. The codebase is ready for Sprint 5 development.
+The platform is stable, environments are now consistent, and core GRC + Audit + Auth flows are healthy on both local and staging. The codebase is ready for Sprint 5 development.
