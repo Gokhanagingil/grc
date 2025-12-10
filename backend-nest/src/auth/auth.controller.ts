@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Req,
   Headers,
+  Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -19,6 +20,8 @@ import { LoginDto } from './dto/login.dto';
  */
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger('AuthLogin');
+
   constructor(private readonly authService: AuthService) {}
 
   /**
@@ -39,10 +42,53 @@ export class AuthController {
     @Body() loginDto: LoginDto,
     @Req() req: Request,
     @Headers('x-correlation-id') correlationId?: string,
+    @Headers('x-tenant-id') tenantId?: string,
   ) {
     // Extract client IP (handle proxies)
     const ip = this.getClientIp(req);
-    return this.authService.login(loginDto, ip, correlationId);
+    const timestamp = new Date().toISOString();
+
+    // Log login attempt (safe: no password logged)
+    this.logger.log({
+      context: 'AuthLogin',
+      timestamp,
+      path: req.url,
+      method: req.method,
+      email: loginDto.email,
+      tenantIdHeader: tenantId || 'none',
+      origin: req.headers.origin || 'none',
+      ip,
+      status: 'ATTEMPT',
+    });
+
+    try {
+      const result = await this.authService.login(loginDto, ip, correlationId);
+
+      // Log successful login
+      this.logger.log({
+        context: 'AuthLogin',
+        timestamp: new Date().toISOString(),
+        path: req.url,
+        method: req.method,
+        email: loginDto.email,
+        status: 'SUCCESS',
+      });
+
+      return result;
+    } catch (error) {
+      // Log failed login (safe: no password logged)
+      this.logger.warn({
+        context: 'AuthLogin',
+        timestamp: new Date().toISOString(),
+        path: req.url,
+        method: req.method,
+        email: loginDto.email,
+        status: 'FAILURE',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
   }
 
   /**
