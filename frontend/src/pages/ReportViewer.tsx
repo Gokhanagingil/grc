@@ -78,9 +78,9 @@ export const ReportViewer: React.FC = () => {
       setError('');
       
       const [reportRes, auditRes, permissionsRes] = await Promise.all([
-        api.get(`/api/grc/audits/${auditId}/reports/${reportId}`),
-        api.get(`/api/grc/audits/${auditId}`),
-        api.get(`/api/grc/audits/${auditId}/reports/${reportId}/permissions`).catch(() => ({ data: null }))
+        api.get(`/grc/audits/${auditId}/reports/${reportId}`),
+        api.get(`/grc/audits/${auditId}`),
+        api.get(`/grc/audits/${auditId}/reports/${reportId}/permissions`).catch(() => ({ data: null }))
       ]);
       
       setReport(reportRes.data);
@@ -110,7 +110,7 @@ export const ReportViewer: React.FC = () => {
     try {
       setActionLoading(true);
       setError('');
-      await api.patch(`/api/grc/audits/${auditId}/reports/${reportId}/status`, { status: newStatus });
+      await api.patch(`/grc/audits/${auditId}/reports/${reportId}/status`, { status: newStatus });
       setSuccess(`Report status updated to ${newStatus.replace(/_/g, ' ')}`);
       await fetchReport();
     } catch (err: unknown) {
@@ -127,7 +127,7 @@ export const ReportViewer: React.FC = () => {
     try {
       setActionLoading(true);
       setError('');
-      await api.post(`/api/grc/audits/${auditId}/reports/${reportId}/regenerate`);
+      await api.post(`/grc/audits/${auditId}/reports/${reportId}/regenerate`);
       setSuccess('Report regenerated successfully');
       await fetchReport();
     } catch (err: unknown) {

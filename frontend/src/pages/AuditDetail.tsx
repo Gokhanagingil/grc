@@ -210,7 +210,7 @@ export const AuditDetail: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get(`/api/grc/audits/${id}`);
+      const response = await api.get(`/grc/audits/${id}`);
       const auditData = response.data;
       setAudit(auditData);
 
@@ -254,7 +254,7 @@ export const AuditDetail: React.FC = () => {
     }
 
     try {
-      const response = await api.get(`/api/grc/audits/${id}/permissions`);
+      const response = await api.get(`/grc/audits/${id}/permissions`);
       setPermissions(response.data);
     } catch {
       setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
@@ -276,10 +276,10 @@ export const AuditDetail: React.FC = () => {
       try {
         setRelatedDataLoading(true);
         const [findingsRes, criteriaRes, scopeRes, reportsRes] = await Promise.all([
-          api.get(`/api/grc/audits/${id}/findings`),
-          api.get(`/api/grc/audits/${id}/criteria`),
-          api.get(`/api/grc/audits/${id}/scope-objects`),
-          api.get(`/api/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
+          api.get(`/grc/audits/${id}/findings`),
+          api.get(`/grc/audits/${id}/criteria`),
+          api.get(`/grc/audits/${id}/scope-objects`),
+          api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
         ]);
         setFindings(findingsRes.data || []);
         setCriteria(criteriaRes.data || []);
@@ -300,13 +300,13 @@ export const AuditDetail: React.FC = () => {
       try {
         setGeneratingReport(true);
         setError('');
-        const response = await api.post(`/api/grc/audits/${id}/reports/generate`);
+        const response = await api.post(`/grc/audits/${id}/reports/generate`);
         setSuccess('Report generated successfully');
         const newReportId = response.data.report?.id;
         if (newReportId) {
           setTimeout(() => navigate(`/audits/${id}/reports/${newReportId}`), 1500);
         } else {
-          const reportsRes = await api.get(`/api/grc/audits/${id}/reports`);
+          const reportsRes = await api.get(`/grc/audits/${id}/reports`);
           setReports(reportsRes.data || []);
         }
       } catch (err: unknown) {
@@ -322,9 +322,9 @@ export const AuditDetail: React.FC = () => {
       try {
         setReportActionLoading(reportId);
         setError('');
-        await api.patch(`/api/grc/audits/${id}/reports/${reportId}/status`, { status: newStatus });
+        await api.patch(`/grc/audits/${id}/reports/${reportId}/status`, { status: newStatus });
         setSuccess(`Report status updated to ${newStatus.replace(/_/g, ' ')}`);
-        const reportsRes = await api.get(`/api/grc/audits/${id}/reports`);
+        const reportsRes = await api.get(`/grc/audits/${id}/reports`);
         setReports(reportsRes.data || []);
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
@@ -374,11 +374,11 @@ export const AuditDetail: React.FC = () => {
       };
 
       if (isNew) {
-        const response = await api.post('/api/grc/audits', payload);
+        const response = await api.post('/grc/audits', payload);
         setSuccess('Audit created successfully');
         setTimeout(() => navigate(`/audits/${response.data.audit.id}`), 1500);
       } else {
-        await api.put(`/api/grc/audits/${id}`, payload);
+        await api.put(`/grc/audits/${id}`, payload);
         setSuccess('Audit updated successfully');
         setTimeout(() => {
           setSuccess('');

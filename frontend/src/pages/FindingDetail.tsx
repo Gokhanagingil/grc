@@ -223,7 +223,7 @@ export const FindingDetail: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get(`/api/grc/findings/${id}`);
+      const response = await api.get(`/grc/findings/${id}`);
       const findingData = response.data;
       setFinding(findingData);
 
@@ -259,7 +259,7 @@ export const FindingDetail: React.FC = () => {
     }
 
     try {
-      const response = await api.get(`/api/grc/findings/${id}/permissions`);
+      const response = await api.get(`/grc/findings/${id}/permissions`);
       setPermissions(response.data);
     } catch {
       setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
@@ -281,10 +281,10 @@ export const FindingDetail: React.FC = () => {
     try {
       setRelatedDataLoading(true);
       const [risksRes, reqsRes, evidenceRes, capasRes] = await Promise.all([
-        api.get(`/api/grc/findings/${id}/risks`),
-        api.get(`/api/grc/findings/${id}/requirements`),
-        api.get(`/api/grc/evidence?finding_id=${id}`),
-        api.get(`/api/grc/capas?finding_id=${id}`)
+        api.get(`/grc/findings/${id}/risks`),
+        api.get(`/grc/findings/${id}/requirements`),
+        api.get(`/grc/evidence?finding_id=${id}`),
+        api.get(`/grc/capas?finding_id=${id}`)
       ]);
       setRelatedRisks(risksRes.data || []);
       setRelatedRequirements(reqsRes.data || []);
@@ -318,11 +318,11 @@ export const FindingDetail: React.FC = () => {
       setError('');
 
       if (isNew) {
-        const response = await api.post('/api/grc/findings', formData);
+        const response = await api.post('/grc/findings', formData);
         setSuccess('Finding created successfully');
         setTimeout(() => navigate(`/findings/${response.data.finding.id}`), 1500);
       } else {
-        await api.put(`/api/grc/findings/${id}`, formData);
+        await api.put(`/grc/findings/${id}`, formData);
         setSuccess('Finding updated successfully');
         setTimeout(() => {
           setSuccess('');
@@ -396,7 +396,7 @@ export const FindingDetail: React.FC = () => {
         formData.append('type', uploadType);
         formData.append('finding_id', id || '');
 
-        await api.post('/api/grc/evidence/upload', formData, {
+        await api.post('/grc/evidence/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
@@ -418,7 +418,7 @@ export const FindingDetail: React.FC = () => {
       }
 
       try {
-        const response = await api.get(`/api/grc/evidence/${ev.id}/download`, {
+        const response = await api.get(`/grc/evidence/${ev.id}/download`, {
           responseType: 'blob'
         });
 
@@ -443,7 +443,7 @@ export const FindingDetail: React.FC = () => {
       }
 
       try {
-        await api.delete(`/api/grc/evidence/${ev.id}/soft`);
+        await api.delete(`/grc/evidence/${ev.id}/soft`);
         setSuccess('Evidence deleted successfully');
         fetchRelatedData();
       } catch (err: unknown) {
@@ -476,7 +476,7 @@ export const FindingDetail: React.FC = () => {
       }
 
       try {
-        const response = await api.post(`/api/grc/evidence/${selectedEvidence.id}/share`, {
+        const response = await api.post(`/grc/evidence/${selectedEvidence.id}/share`, {
           expiresAt: new Date(shareExpiresAt).toISOString(),
           maxDownloads: shareMaxDownloads || null
         });
