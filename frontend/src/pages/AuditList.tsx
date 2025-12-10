@@ -102,7 +102,7 @@ export const AuditList: React.FC = () => {
       if (auditTypeFilter) params.append('audit_type', auditTypeFilter);
       if (searchQuery) params.append('search', searchQuery);
 
-      const response = await api.get(`/api/grc/audits?${params.toString()}`);
+      const response = await api.get(`/grc/audits?${params.toString()}`);
       setAudits(response.data.audits || []);
       setTotal(response.data.pagination?.total || 0);
     } catch (err: unknown) {
@@ -119,7 +119,7 @@ export const AuditList: React.FC = () => {
 
   const fetchCanCreate = useCallback(async () => {
     try {
-      const response = await api.get('/api/grc/audits/can/create');
+      const response = await api.get('/grc/audits/can/create');
       setCanCreate(response.data.allowed);
     } catch {
       setCanCreate(false);
@@ -128,7 +128,7 @@ export const AuditList: React.FC = () => {
 
   const fetchDepartments = useCallback(async () => {
     try {
-      const response = await api.get('/api/grc/audits/distinct/department');
+      const response = await api.get('/grc/audits/distinct/department');
       setDepartments(response.data || []);
     } catch {
       setDepartments([]);
@@ -148,7 +148,7 @@ export const AuditList: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this audit?')) return;
 
     try {
-      await api.delete(`/api/grc/audits/${id}`);
+      await api.delete(`/grc/audits/${id}`);
       setSuccess('Audit deleted successfully');
       fetchAudits();
       setTimeout(() => setSuccess(''), 3000);
