@@ -438,23 +438,31 @@ Failed: 0/16
 | Admin Password | (see seed script or .env) |
 | Tenant ID | 00000000-0000-0000-0000-000000000001 |
 
-### Known Issue: Frontend API Paths
+### Frontend API Paths Issue - RESOLVED
 
-The staging frontend container is built from an older version of the code that uses legacy API paths (`/governance/policies`, `/risk/risks`) instead of the normalized `/grc/...` paths. This causes the Governance and Risk Management pages to show "Failed to load" errors.
+**Date Fixed:** December 10, 2025
 
-**Impact:**
-- Dashboard works correctly (uses `/dashboard/overview` which is unchanged)
-- Login works correctly (uses `/auth/login` which is unchanged)
-- Governance page shows "Failed to load policies" (calls `/governance/policies` instead of `/grc/policies`)
-- Risk Management page shows "Failed to load risks" (calls `/risk/risks` instead of `/grc/risks`)
+The staging frontend container was using legacy API paths (`/governance/policies`, `/risk/risks`) instead of the normalized `/grc/...` paths. This caused the Governance and Risk Management pages to show "Failed to load" errors.
 
-**Resolution:**
-Rebuild and redeploy the staging frontend container with the latest code:
-```bash
-ssh root@46.224.99.150 "cd /opt/grc-platform && git pull origin main && docker compose -f docker-compose.staging.yml up -d --build --force-recreate grc-staging-frontend"
-```
+**Root Cause:**
+The frontend code in `frontend/src/services/grcClient.ts` had hardcoded legacy API paths that didn't match the NestJS backend's `/grc/...` routes.
 
-**Note:** The backend API endpoints are working correctly (verified via curl and smoke tests). Only the frontend needs to be rebuilt.
+**Fix Applied:**
+Updated `grcClient.ts` to use correct API paths:
+- `GRC_RISKS` paths: `/risk/risks` → `/grc/risks`
+- `GRC_POLICIES` paths: `/governance/policies` → `/grc/policies`
+
+**PR:** https://github.com/Gokhanagingil/grc/pull/66
+
+**Verification Results:**
+| Page | Status | API Endpoint |
+|------|--------|--------------|
+| Dashboard | Working | `/dashboard/overview` |
+| Governance | Working | `/grc/policies` |
+| Risk Management | Working | `/grc/risks` |
+| Login | Working | `/auth/login` |
+
+All pages now load correctly on staging with the expected data counts (8 risks, 8 policies, 10 requirements).
 
 ### Remaining Actions
 
