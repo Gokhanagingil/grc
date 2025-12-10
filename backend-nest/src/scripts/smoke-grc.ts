@@ -167,13 +167,28 @@ async function runSmokeTest() {
   );
 
   if (loginResponse.statusCode === 200 || loginResponse.statusCode === 201) {
-    const loginData = loginResponse.data as { access_token?: string };
-    token = loginData.access_token || '';
+    // Handle both response formats:
+    // - NestJS envelope: { success: true, data: { accessToken: "..." } }
+    // - Legacy format: { access_token: "..." }
+    const loginData = loginResponse.data as {
+      access_token?: string;
+      accessToken?: string;
+      data?: { accessToken?: string };
+      success?: boolean;
+    };
+    token =
+      loginData.data?.accessToken ||
+      loginData.accessToken ||
+      loginData.access_token ||
+      '';
     if (token) {
       console.log('[OK] POST /auth/login - Got JWT token');
       passed++;
     } else {
       console.log('[FAIL] POST /auth/login - No token in response');
+      console.log(
+        `    Response: ${JSON.stringify(loginData).substring(0, 200)}`,
+      );
       failed++;
     }
   } else {
