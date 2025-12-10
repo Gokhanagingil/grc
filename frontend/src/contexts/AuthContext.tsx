@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post('/auth/login', { email: username, password });
       // Unwrap the response envelope (handles both NestJS { success, data } and legacy Express flat responses)
       const unwrapped = unwrapApiResponse<{
         accessToken?: string;
