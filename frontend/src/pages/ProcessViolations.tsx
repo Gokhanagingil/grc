@@ -39,7 +39,9 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import {
   processViolationApi,
   riskApi,
+  processApi,
   unwrapPaginatedResponse,
+  unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
@@ -114,11 +116,12 @@ export const ProcessViolations: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [severityFilter, setSeverityFilter] = useState<string>('');
-  const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
-  const [allRisks, setAllRisks] = useState<Risk[]>([]);
-  const [selectedRiskId, setSelectedRiskId] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [severityFilter, setSeverityFilter] = useState<string>('');
+    const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
+    const [processName, setProcessName] = useState<string>('');
+    const [allRisks, setAllRisks] = useState<Risk[]>([]);
+    const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
   const [editFormData, setEditFormData] = useState({
     status: 'open',
@@ -172,21 +175,45 @@ export const ProcessViolations: React.FC = () => {
     }
   }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter]);
 
-  const fetchAllRisks = useCallback(async () => {
-    if (!tenantId) {
-      console.warn('Cannot fetch risks: tenantId is not available');
-      return;
-    }
-    try {
-      const params = new URLSearchParams({ pageSize: '100' });
-      const response = await riskApi.list(tenantId, params);
-      const result = unwrapPaginatedResponse<Risk>(response);
-      setAllRisks(result.items || []);
-    } catch (err) {
-      console.error('Failed to fetch risks:', err);
-      setAllRisks([]);
-    }
-  }, [tenantId]);
+    const fetchAllRisks = useCallback(async () => {
+      if (!tenantId) {
+        console.warn('Cannot fetch risks: tenantId is not available');
+        return;
+      }
+      try {
+        const params = new URLSearchParams({ pageSize: '100' });
+        const response = await riskApi.list(tenantId, params);
+        const result = unwrapPaginatedResponse<Risk>(response);
+        setAllRisks(result.items || []);
+      } catch (err) {
+        console.error('Failed to fetch risks:', err);
+        setAllRisks([]);
+      }
+    }, [tenantId]);
+
+    // Fetch process name when processFilter changes
+    const fetchProcessName = useCallback(async (processId: string) => {
+      if (!tenantId || !processId) {
+        setProcessName('');
+        return;
+      }
+      try {
+        const response = await processApi.get(tenantId, processId);
+        const process = unwrapResponse<{ name: string }>(response);
+        setProcessName(process?.name || '');
+      } catch (err) {
+        console.error('Failed to fetch process name:', err);
+        setProcessName('');
+      }
+    }, [tenantId]);
+
+    useEffect(() => {
+      if (processFilter) {
+        fetchProcessName(processFilter);
+      } else {
+        setProcessName('');
+      }
+    }, [processFilter, fetchProcessName]);
 
   useEffect(() => {
     fetchViolations();
@@ -395,16 +422,16 @@ export const ProcessViolations: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            {processFilter && (
-              <Chip
-                label={`Process: ${processFilter.substring(0, 8)}...`}
-                size="small"
-                onDelete={() => {
-                  setProcessFilter('');
-                  setPage(0);
-                }}
-              />
-            )}
+                        {processFilter && (
+                          <Chip
+                            label={`Process: ${processName || processFilter.substring(0, 8) + '...'}`}
+                            size="small"
+                            onDelete={() => {
+                              setProcessFilter('');
+                              setPage(0);
+                            }}
+                          />
+                        )}
             {(statusFilter || severityFilter || processFilter) && (
               <Button
                 size="small"

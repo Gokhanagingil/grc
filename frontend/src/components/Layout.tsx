@@ -61,7 +61,7 @@ const menuItems: NavMenuItem[] = [
   { text: 'Audits', icon: <AuditIcon />, path: '/audits', moduleKey: 'audit' },
   { text: 'Processes', icon: <ProcessIcon />, path: '/processes' },
   { text: 'Violations', icon: <ViolationIcon />, path: '/violations' },
-  { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents', moduleKey: 'itsm.incident' },
+  { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents' },
   { text: 'Audit Dashboard', icon: <AuditDashboardIcon />, path: '/dashboards/audit', moduleKey: 'audit' },
   { text: 'Compliance Dashboard', icon: <ComplianceDashboardIcon />, path: '/dashboards/compliance', moduleKey: 'compliance' },
   { text: 'GRC Health', icon: <GrcHealthIcon />, path: '/dashboards/grc-health', roles: ['admin', 'manager'] },
@@ -114,6 +114,11 @@ export const Layout: React.FC = () => {
 
   const handleProfileMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleProfileSettings = () => {
+    handleProfileMenuClose();
+    navigate('/profile');
   };
 
   const handleLogout = () => {
@@ -256,7 +261,7 @@ export const Layout: React.FC = () => {
         onClose={handleProfileMenuClose}
         onClick={handleProfileMenuClose}
       >
-        <MenuItem onClick={handleProfileMenuClose}>
+        <MenuItem onClick={handleProfileSettings}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>

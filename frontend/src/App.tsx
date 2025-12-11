@@ -26,6 +26,7 @@ import { StandardDetail } from './pages/StandardDetail';
 import { AuditDashboard, ComplianceDashboard, GrcHealthDashboard } from './pages/dashboards';
 import { ProcessManagement } from './pages/ProcessManagement';
 import { ProcessViolations } from './pages/ProcessViolations';
+import { Profile } from './pages/Profile';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const theme = createTheme({
@@ -69,6 +70,7 @@ function App() {
                 <Route path="incidents" element={<IncidentManagement />} />
                 <Route path="processes" element={<ProcessManagement />} />
                 <Route path="violations" element={<ProcessViolations />} />
+                <Route path="profile" element={<Profile />} />
                 <Route path="audits" element={<AuditList />} />
                 <Route path="audits/new" element={<AuditDetail />} />
                 <Route path="audits/:id" element={<AuditDetail />} />

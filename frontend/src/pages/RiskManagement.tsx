@@ -46,7 +46,8 @@ import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../compon
 // Policy interface for relationship management
 interface Policy {
   id: string;
-  title: string;
+  name: string;
+  code: string | null;
   status: string;
   category: string | null;
 }
@@ -55,6 +56,7 @@ interface Policy {
 interface Requirement {
   id: string;
   title: string;
+  referenceCode: string;
   status: string;
   framework: string;
 }
@@ -848,7 +850,7 @@ export const RiskManagement: React.FC = () => {
                                   return (
                                     <Chip
                                       key={id}
-                                      label={policy?.title || id}
+                                      label={policy ? `${policy.name}${policy.code ? ` [${policy.code}]` : ''}` : id}
                                       size="small"
                                       color="primary"
                                       variant="outlined"
@@ -860,7 +862,7 @@ export const RiskManagement: React.FC = () => {
                           >
                             {allPolicies.map((policy) => (
                               <MenuItem key={policy.id} value={policy.id}>
-                                {policy.title} ({policy.status})
+                                {policy.name}{policy.code ? ` [${policy.code}]` : ''} - {policy.status}
                               </MenuItem>
                             ))}
                           </Select>
@@ -890,7 +892,7 @@ export const RiskManagement: React.FC = () => {
                                   return (
                                     <Chip
                                       key={id}
-                                      label={requirement?.title || id}
+                                      label={requirement ? `[${requirement.framework.toUpperCase()}] ${requirement.referenceCode}` : id}
                                       size="small"
                                       color="secondary"
                                       variant="outlined"
@@ -902,7 +904,7 @@ export const RiskManagement: React.FC = () => {
                           >
                             {allRequirements.map((requirement) => (
                               <MenuItem key={requirement.id} value={requirement.id}>
-                                {requirement.title} ({requirement.framework})
+                                [{requirement.framework.toUpperCase()}] {requirement.referenceCode} - {requirement.title}
                               </MenuItem>
                             ))}
                           </Select>
