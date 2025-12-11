@@ -38,7 +38,9 @@ import {
   FilterList as FilterIcon,
   AccountTree as ProcessIcon,
   PlayArrow as RecordIcon,
+  Warning as ViolationIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import {
   processApi,
   processControlApi,
@@ -94,6 +96,7 @@ const PROCESS_CATEGORIES = ['ITSM', 'Security', 'Finance', 'Operations', 'HR', '
 
 export const ProcessManagement: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -618,6 +621,15 @@ export const ProcessManagement: React.FC = () => {
                         <Tooltip title="View Details">
                           <IconButton size="small" onClick={() => handleViewProcess(process)}>
                             <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="View Violations">
+                          <IconButton
+                            size="small"
+                            color="warning"
+                            onClick={() => navigate(`/violations?processId=${process.id}`)}
+                          >
+                            <ViolationIcon />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit">
