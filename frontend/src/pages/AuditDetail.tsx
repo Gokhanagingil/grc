@@ -47,12 +47,16 @@ import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
 
-const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T => {
-  const data = response.data;
-  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
-    return (data as { success: boolean; data: T }).data;
+const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
+  try {
+    const data = response.data;
+    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+      return (data as { success: boolean; data: T }).data;
+    }
+    return data as T;
+  } catch {
+    return null;
   }
-  return data as T;
 };
 
 interface Audit {
@@ -221,6 +225,12 @@ export const AuditDetail: React.FC = () => {
       setError('');
       const response = await api.get(`/grc/audits/${id}`);
       const auditData = unwrapResponse<Audit>(response);
+      
+      if (!auditData) {
+        setError('Failed to load audit data. Please try again.');
+        return;
+      }
+      
       setAudit(auditData);
 
       setFormData({
@@ -264,7 +274,8 @@ export const AuditDetail: React.FC = () => {
 
     try {
       const response = await api.get(`/grc/audits/${id}/permissions`);
-      setPermissions(unwrapResponse<AuditPermissions>(response));
+      const permissionsData = unwrapResponse<AuditPermissions>(response);
+      setPermissions(permissionsData || { read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
     } catch {
       setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
     }

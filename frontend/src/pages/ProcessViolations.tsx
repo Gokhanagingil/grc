@@ -42,6 +42,7 @@ import {
   unwrapPaginatedResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 interface ProcessViolation {
@@ -84,6 +85,8 @@ const VIOLATION_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const processIdFromUrl = searchParams.get('processId') || '';
   const [violations, setViolations] = useState<ProcessViolation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,6 +101,7 @@ export const ProcessViolations: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('');
+  const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
   const [allRisks, setAllRisks] = useState<Risk[]>([]);
   const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
@@ -124,6 +128,9 @@ export const ProcessViolations: React.FC = () => {
       if (severityFilter) {
         params.append('severity', severityFilter);
       }
+      if (processFilter) {
+        params.append('processId', processFilter);
+      }
 
       const response = await processViolationApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<ProcessViolation>(response);
@@ -148,7 +155,7 @@ export const ProcessViolations: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter]);
+  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter]);
 
   const fetchAllRisks = useCallback(async () => {
     try {
@@ -366,12 +373,23 @@ export const ProcessViolations: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            {(statusFilter || severityFilter) && (
+            {processFilter && (
+              <Chip
+                label={`Process: ${processFilter.substring(0, 8)}...`}
+                size="small"
+                onDelete={() => {
+                  setProcessFilter('');
+                  setPage(0);
+                }}
+              />
+            )}
+            {(statusFilter || severityFilter || processFilter) && (
               <Button
                 size="small"
                 onClick={() => {
                   setStatusFilter('');
                   setSeverityFilter('');
+                  setProcessFilter('');
                   setPage(0);
                 }}
               >
