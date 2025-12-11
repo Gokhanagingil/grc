@@ -73,8 +73,10 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_CONTROL_READ]: 'View controls and control details',
   [Permission.GRC_CONTROL_WRITE]: 'Create and update controls',
   [Permission.GRC_CONTROL_DELETE]: 'Delete controls',
-  [Permission.GRC_PROCESS_READ]: 'View processes, controls, results, and violations',
-  [Permission.GRC_PROCESS_WRITE]: 'Create and update processes, controls, and results',
+  [Permission.GRC_PROCESS_READ]:
+    'View processes, controls, results, and violations',
+  [Permission.GRC_PROCESS_WRITE]:
+    'Create and update processes, controls, and results',
   [Permission.GRC_PROCESS_DELETE]: 'Delete processes',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',

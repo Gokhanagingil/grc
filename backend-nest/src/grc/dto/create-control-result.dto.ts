@@ -58,6 +58,8 @@ export class CreateControlResultDto {
 
   @IsString({ message: 'Evidence reference must be a string' })
   @IsOptional()
-  @MaxLength(500, { message: 'Evidence reference must not exceed 500 characters' })
+  @MaxLength(500, {
+    message: 'Evidence reference must not exceed 500 characters',
+  })
   evidenceReference?: string;
 }

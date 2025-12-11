@@ -1,4 +1,9 @@
-import { Injectable, Optional, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -6,7 +11,12 @@ import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ControlResult } from '../entities/control-result.entity';
 import { ProcessControl } from '../entities/process-control.entity';
 import { ProcessViolation } from '../entities/process-violation.entity';
-import { ControlResultType, ViolationSeverity, ViolationStatus, ControlResultSource } from '../enums';
+import {
+  ControlResultType,
+  ViolationSeverity,
+  ViolationStatus,
+  ControlResultSource,
+} from '../enums';
 import {
   ControlResultFilterDto,
   CONTROL_RESULT_SORTABLE_FIELDS,
@@ -63,7 +73,9 @@ export class ControlResultService extends MultiTenantServiceBase<ControlResult> 
     });
 
     if (!control) {
-      throw new NotFoundException(`ProcessControl with ID ${data.controlId} not found`);
+      throw new NotFoundException(
+        `ProcessControl with ID ${data.controlId} not found`,
+      );
     }
 
     // Validate result value based on expected result type
@@ -323,7 +335,9 @@ export class ControlResultService extends MultiTenantServiceBase<ControlResult> 
     qb.where('result.tenantId = :tenantId', { tenantId });
     qb.andWhere('result.isDeleted = :isDeleted', { isDeleted: false });
     qb.andWhere('control.processId = :processId', { processId });
-    qb.andWhere('control.isDeleted = :controlDeleted', { controlDeleted: false });
+    qb.andWhere('control.isDeleted = :controlDeleted', {
+      controlDeleted: false,
+    });
 
     if (fromDate) {
       qb.andWhere('result.executionDate >= :fromDate', { fromDate });

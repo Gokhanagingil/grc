@@ -786,7 +786,8 @@ async function seedGrcData() {
       {
         name: 'Change Management Process',
         code: 'CHG-MGMT',
-        description: 'Process for managing changes to IT systems and infrastructure',
+        description:
+          'Process for managing changes to IT systems and infrastructure',
         category: 'ITSM',
         ownerUserId: DEMO_ADMIN_ID,
         isActive: true,
@@ -810,7 +811,8 @@ async function seedGrcData() {
       {
         name: 'Vendor Risk Assessment Process',
         code: 'VND-RISK',
-        description: 'Process for assessing and monitoring third-party vendor risks',
+        description:
+          'Process for assessing and monitoring third-party vendor risks',
         category: 'Third Party',
         isActive: true,
       },
@@ -844,7 +846,8 @@ async function seedGrcData() {
       {
         processCode: 'CHG-MGMT',
         name: 'Change Request Approval',
-        description: 'Verify that all change requests have proper approval before implementation',
+        description:
+          'Verify that all change requests have proper approval before implementation',
         isAutomated: false,
         method: ProcessControlMethod.WALKTHROUGH,
         frequency: ProcessControlFrequency.WEEKLY,
@@ -853,7 +856,8 @@ async function seedGrcData() {
       {
         processCode: 'CHG-MGMT',
         name: 'Change Testing Verification',
-        description: 'Verify that changes are tested in non-production environment before deployment',
+        description:
+          'Verify that changes are tested in non-production environment before deployment',
         isAutomated: true,
         method: ProcessControlMethod.SCRIPT,
         frequency: ProcessControlFrequency.DAILY,
@@ -862,7 +866,8 @@ async function seedGrcData() {
       {
         processCode: 'INC-MGMT',
         name: 'Incident Response Time',
-        description: 'Measure average incident response time against SLA targets',
+        description:
+          'Measure average incident response time against SLA targets',
         isAutomated: true,
         method: ProcessControlMethod.SCRIPT,
         frequency: ProcessControlFrequency.DAILY,
@@ -872,7 +877,8 @@ async function seedGrcData() {
       {
         processCode: 'INC-MGMT',
         name: 'Incident Root Cause Analysis',
-        description: 'Verify that root cause analysis is completed for all major incidents',
+        description:
+          'Verify that root cause analysis is completed for all major incidents',
         isAutomated: false,
         method: ProcessControlMethod.SAMPLING,
         frequency: ProcessControlFrequency.WEEKLY,
@@ -881,7 +887,8 @@ async function seedGrcData() {
       {
         processCode: 'ACC-REV',
         name: 'Access Review Completion',
-        description: 'Verify that quarterly access reviews are completed on time',
+        description:
+          'Verify that quarterly access reviews are completed on time',
         isAutomated: false,
         method: ProcessControlMethod.WALKTHROUGH,
         frequency: ProcessControlFrequency.QUARTERLY,
@@ -900,7 +907,8 @@ async function seedGrcData() {
       {
         processCode: 'VND-RISK',
         name: 'Vendor Security Assessment',
-        description: 'Verify that all critical vendors have completed security assessments',
+        description:
+          'Verify that all critical vendors have completed security assessments',
         isAutomated: false,
         method: ProcessControlMethod.INTERVIEW,
         frequency: ProcessControlFrequency.ANNUALLY,
@@ -928,7 +936,9 @@ async function seedGrcData() {
         });
         await processControlRepo.save(processControl);
         processControls.push(processControl);
-        console.log(`   Created process control: ${data.name} (${processCode})`);
+        console.log(
+          `   Created process control: ${data.name} (${processCode})`,
+        );
       }
     }
 
@@ -953,9 +963,18 @@ async function seedGrcData() {
           executionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
           executorUserId: DEMO_ADMIN_ID,
           source: ControlResultSource.MANUAL,
-          resultValueBoolean: control.expectedResultType === ControlResultType.BOOLEAN ? true : null,
-          resultValueNumber: control.expectedResultType === ControlResultType.NUMERIC ? 25 : null,
-          resultValueText: control.expectedResultType === ControlResultType.QUALITATIVE ? 'Assessment completed successfully' : null,
+          resultValueBoolean:
+            control.expectedResultType === ControlResultType.BOOLEAN
+              ? true
+              : null,
+          resultValueNumber:
+            control.expectedResultType === ControlResultType.NUMERIC
+              ? 25
+              : null,
+          resultValueText:
+            control.expectedResultType === ControlResultType.QUALITATIVE
+              ? 'Assessment completed successfully'
+              : null,
           isCompliant: true,
           isDeleted: false,
         });
@@ -969,9 +988,18 @@ async function seedGrcData() {
           executionDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
           executorUserId: DEMO_ADMIN_ID,
           source: ControlResultSource.MANUAL,
-          resultValueBoolean: control.expectedResultType === ControlResultType.BOOLEAN ? false : null,
-          resultValueNumber: control.expectedResultType === ControlResultType.NUMERIC ? 45 : null,
-          resultValueText: control.expectedResultType === ControlResultType.QUALITATIVE ? 'Issues found during assessment' : null,
+          resultValueBoolean:
+            control.expectedResultType === ControlResultType.BOOLEAN
+              ? false
+              : null,
+          resultValueNumber:
+            control.expectedResultType === ControlResultType.NUMERIC
+              ? 45
+              : null,
+          resultValueText:
+            control.expectedResultType === ControlResultType.QUALITATIVE
+              ? 'Issues found during assessment'
+              : null,
           isCompliant: false,
           isDeleted: false,
         });

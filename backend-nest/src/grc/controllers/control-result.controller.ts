@@ -20,10 +20,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { ControlResultService } from '../services/control-result.service';
-import {
-  CreateControlResultDto,
-  ControlResultFilterDto,
-} from '../dto';
+import { CreateControlResultDto, ControlResultFilterDto } from '../dto';
 
 @Controller('grc/control-results')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)

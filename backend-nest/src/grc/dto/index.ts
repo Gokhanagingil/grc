@@ -41,7 +41,10 @@ export { LinkRequirementsDto } from './link-requirements.dto';
 // Process DTOs (Sprint 5)
 export { CreateProcessDto } from './create-process.dto';
 export { UpdateProcessDto } from './update-process.dto';
-export { ProcessFilterDto, PROCESS_SORTABLE_FIELDS } from './filter-process.dto';
+export {
+  ProcessFilterDto,
+  PROCESS_SORTABLE_FIELDS,
+} from './filter-process.dto';
 
 // ProcessControl DTOs (Sprint 5)
 export { CreateProcessControlDto } from './create-process-control.dto';
@@ -60,7 +63,10 @@ export {
 } from './filter-control-result.dto';
 
 // ProcessViolation DTOs (Sprint 5)
-export { UpdateProcessViolationDto, LinkRiskDto } from './update-process-violation.dto';
+export {
+  UpdateProcessViolationDto,
+  LinkRiskDto,
+} from './update-process-violation.dto';
 export {
   ProcessViolationFilterDto,
   PROCESS_VIOLATION_SORTABLE_FIELDS,

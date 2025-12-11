@@ -85,7 +85,10 @@ export class ProcessViolationService extends MultiTenantServiceBase<ProcessViola
       });
 
       // Emit specific event if status changed to resolved
-      if (data.status === ViolationStatus.RESOLVED && beforeState.status !== ViolationStatus.RESOLVED) {
+      if (
+        data.status === ViolationStatus.RESOLVED &&
+        beforeState.status !== ViolationStatus.RESOLVED
+      ) {
         this.eventEmitter.emit('processViolation.resolved', {
           violationId: violation.id,
           controlId: violation.controlId,
@@ -169,7 +172,13 @@ export class ProcessViolationService extends MultiTenantServiceBase<ProcessViola
   ): Promise<ProcessViolation | null> {
     return this.repository.findOne({
       where: { id, tenantId, isDeleted: false },
-      relations: ['control', 'control.process', 'controlResult', 'linkedRisk', 'owner'],
+      relations: [
+        'control',
+        'control.process',
+        'controlResult',
+        'linkedRisk',
+        'owner',
+      ],
     });
   }
 
@@ -290,7 +299,8 @@ export class ProcessViolationService extends MultiTenantServiceBase<ProcessViola
 
     for (const violation of violations) {
       byStatus[violation.status] = (byStatus[violation.status] || 0) + 1;
-      bySeverity[violation.severity] = (bySeverity[violation.severity] || 0) + 1;
+      bySeverity[violation.severity] =
+        (bySeverity[violation.severity] || 0) + 1;
     }
 
     return {

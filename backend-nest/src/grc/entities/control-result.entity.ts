@@ -75,7 +75,12 @@ export class ControlResult extends BaseEntity {
   @Column({ name: 'is_compliant', type: 'boolean' })
   isCompliant: boolean;
 
-  @Column({ name: 'evidence_reference', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'evidence_reference',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   evidenceReference: string | null;
 
   @OneToOne(() => ProcessViolation, (violation) => violation.controlResult)

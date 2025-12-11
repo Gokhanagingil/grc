@@ -23,11 +23,7 @@ import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { ProcessService } from '../services/process.service';
 import { ProcessComplianceService } from '../services/process-compliance.service';
-import {
-  CreateProcessDto,
-  UpdateProcessDto,
-  ProcessFilterDto,
-} from '../dto';
+import { CreateProcessDto, UpdateProcessDto, ProcessFilterDto } from '../dto';
 
 @Controller('grc/processes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -61,7 +57,11 @@ export class ProcessController {
     }
     const fromDate = from ? new Date(from) : undefined;
     const toDate = to ? new Date(to) : undefined;
-    return this.complianceService.getComplianceOverview(tenantId, fromDate, toDate);
+    return this.complianceService.getComplianceOverview(
+      tenantId,
+      fromDate,
+      toDate,
+    );
   }
 
   @Get('statistics')

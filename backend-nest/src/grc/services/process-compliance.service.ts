@@ -104,7 +104,8 @@ export class ProcessComplianceService {
     qb.andWhere('result.isCompliant = :isCompliant', { isCompliant: true });
     const compliantResults = await qb.getCount();
 
-    const complianceScore = totalResults > 0 ? compliantResults / totalResults : 1;
+    const complianceScore =
+      totalResults > 0 ? compliantResults / totalResults : 1;
 
     return {
       processId,
@@ -154,7 +155,8 @@ export class ProcessComplianceService {
 
     return {
       processes: processScores,
-      overallComplianceScore: Math.round(overallComplianceScore * 10000) / 10000,
+      overallComplianceScore:
+        Math.round(overallComplianceScore * 10000) / 10000,
       totalCompliantResults,
       totalResults,
       fromDate: fromDate?.toISOString(),

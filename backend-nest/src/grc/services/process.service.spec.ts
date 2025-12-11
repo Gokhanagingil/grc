@@ -185,7 +185,9 @@ describe('ProcessService', () => {
       const existingProcess = { ...mockProcess, isDeleted: false };
       const deletedProcess = { ...mockProcess, isDeleted: true };
 
-      processRepository.findOne.mockResolvedValueOnce(existingProcess as Process);
+      processRepository.findOne.mockResolvedValueOnce(
+        existingProcess as Process,
+      );
       processRepository.merge.mockReturnValue(deletedProcess as Process);
       processRepository.save.mockResolvedValue(deletedProcess as Process);
 
