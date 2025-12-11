@@ -24,6 +24,8 @@ import { ReportViewer } from './pages/ReportViewer';
 import { StandardsLibrary } from './pages/StandardsLibrary';
 import { StandardDetail } from './pages/StandardDetail';
 import { AuditDashboard, ComplianceDashboard, GrcHealthDashboard } from './pages/dashboards';
+import { ProcessManagement } from './pages/ProcessManagement';
+import { ProcessViolations } from './pages/ProcessViolations';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const theme = createTheme({
@@ -65,6 +67,8 @@ function App() {
                 <Route path="compliance" element={<Compliance />} />
                 <Route path="dotwalking" element={<DotWalkingBuilder />} />
                 <Route path="incidents" element={<IncidentManagement />} />
+                <Route path="processes" element={<ProcessManagement />} />
+                <Route path="violations" element={<ProcessViolations />} />
                 <Route path="audits" element={<AuditList />} />
                 <Route path="audits/new" element={<AuditDetail />} />
                 <Route path="audits/:id" element={<AuditDetail />} />

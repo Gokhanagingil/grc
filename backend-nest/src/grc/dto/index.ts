@@ -37,3 +37,37 @@ export { AuditFilterDto, AUDIT_SORTABLE_FIELDS } from './filter-audit.dto';
 // Relationship DTOs
 export { LinkPoliciesDto } from './link-policies.dto';
 export { LinkRequirementsDto } from './link-requirements.dto';
+
+// Process DTOs (Sprint 5)
+export { CreateProcessDto } from './create-process.dto';
+export { UpdateProcessDto } from './update-process.dto';
+export {
+  ProcessFilterDto,
+  PROCESS_SORTABLE_FIELDS,
+} from './filter-process.dto';
+
+// ProcessControl DTOs (Sprint 5)
+export { CreateProcessControlDto } from './create-process-control.dto';
+export { UpdateProcessControlDto } from './update-process-control.dto';
+export {
+  ProcessControlFilterDto,
+  PROCESS_CONTROL_SORTABLE_FIELDS,
+} from './filter-process-control.dto';
+export { LinkRisksToControlDto } from './link-risks-to-control.dto';
+
+// ControlResult DTOs (Sprint 5)
+export { CreateControlResultDto } from './create-control-result.dto';
+export {
+  ControlResultFilterDto,
+  CONTROL_RESULT_SORTABLE_FIELDS,
+} from './filter-control-result.dto';
+
+// ProcessViolation DTOs (Sprint 5)
+export {
+  UpdateProcessViolationDto,
+  LinkRiskDto,
+} from './update-process-violation.dto';
+export {
+  ProcessViolationFilterDto,
+  PROCESS_VIOLATION_SORTABLE_FIELDS,
+} from './filter-process-violation.dto';

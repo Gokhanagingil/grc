@@ -46,3 +46,10 @@ export {
   GrcRequirementHistory,
   UserHistory,
 } from './history';
+
+// Process Controls Entities (Sprint 5)
+export { Process } from './process.entity';
+export { ProcessControl } from './process-control.entity';
+export { ControlResult } from './control-result.entity';
+export { ProcessViolation } from './process-violation.entity';
+export { ProcessControlRisk } from './process-control-risk.entity';

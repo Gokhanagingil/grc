@@ -323,3 +323,67 @@ export enum LogicalOperator {
   AND = 'AND',
   OR = 'OR',
 }
+
+// ============================================================================
+// Process Controls Enums (Sprint 5)
+// ============================================================================
+
+/**
+ * ProcessControlMethod - Methods for executing process controls
+ */
+export enum ProcessControlMethod {
+  SCRIPT = 'script',
+  SAMPLING = 'sampling',
+  INTERVIEW = 'interview',
+  WALKTHROUGH = 'walkthrough',
+  OBSERVATION = 'observation',
+}
+
+/**
+ * ProcessControlFrequency - How often a process control is executed
+ */
+export enum ProcessControlFrequency {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
+  ANNUALLY = 'annually',
+  EVENT_DRIVEN = 'event_driven',
+}
+
+/**
+ * ControlResultType - Expected result type for a process control
+ */
+export enum ControlResultType {
+  BOOLEAN = 'boolean',
+  NUMERIC = 'numeric',
+  QUALITATIVE = 'qualitative',
+}
+
+/**
+ * ControlResultSource - Source of a control result
+ */
+export enum ControlResultSource {
+  MANUAL = 'manual',
+  SCHEDULED_JOB = 'scheduled_job',
+  INTEGRATION = 'integration',
+}
+
+/**
+ * ViolationSeverity - Severity level of a process violation
+ */
+export enum ViolationSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+/**
+ * ViolationStatus - Status of a process violation
+ */
+export enum ViolationStatus {
+  OPEN = 'open',
+  IN_PROGRESS = 'in_progress',
+  RESOLVED = 'resolved',
+}

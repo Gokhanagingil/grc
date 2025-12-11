@@ -30,6 +30,12 @@ import {
   GrcFieldMetadata,
   GrcClassificationTag,
   GrcFieldMetadataTag,
+  // Sprint 5 - Process Controls entities
+  Process,
+  ProcessControl,
+  ControlResult,
+  ProcessViolation,
+  ProcessControlRisk,
 } from './entities';
 
 // Services
@@ -44,6 +50,12 @@ import {
   SearchService,
   QueryDSLService,
   MetadataService,
+  // Sprint 5 - Process Controls services
+  ProcessService,
+  ProcessControlService,
+  ControlResultService,
+  ProcessViolationService,
+  ProcessComplianceService,
 } from './services';
 
 // Controllers
@@ -57,6 +69,11 @@ import {
   AuditReportTemplateController,
   SearchController,
   MetadataController,
+  // Sprint 5 - Process Controls controllers
+  ProcessController,
+  ProcessControlController,
+  ControlResultController,
+  ProcessViolationController,
 } from './controllers';
 
 /**
@@ -105,6 +122,12 @@ import {
       GrcFieldMetadata,
       GrcClassificationTag,
       GrcFieldMetadataTag,
+      // Sprint 5 - Process Controls entities
+      Process,
+      ProcessControl,
+      ControlResult,
+      ProcessViolation,
+      ProcessControlRisk,
     ]),
     AuditModule,
     AuthModule,
@@ -122,6 +145,12 @@ import {
     SearchService,
     QueryDSLService,
     MetadataService,
+    // Sprint 5 - Process Controls services
+    ProcessService,
+    ProcessControlService,
+    ControlResultService,
+    ProcessViolationService,
+    ProcessComplianceService,
   ],
   controllers: [
     // Core controllers
@@ -134,6 +163,11 @@ import {
     AuditReportTemplateController,
     SearchController,
     MetadataController,
+    // Sprint 5 - Process Controls controllers
+    ProcessController,
+    ProcessControlController,
+    ControlResultController,
+    ProcessViolationController,
   ],
   exports: [
     // Core services
@@ -147,6 +181,12 @@ import {
     SearchService,
     QueryDSLService,
     MetadataService,
+    // Sprint 5 - Process Controls services
+    ProcessService,
+    ProcessControlService,
+    ControlResultService,
+    ProcessViolationService,
+    ProcessComplianceService,
   ],
 })
 export class GrcModule {}

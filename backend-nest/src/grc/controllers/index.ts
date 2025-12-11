@@ -21,3 +21,9 @@ export { SearchController } from './search.controller';
 
 // Metadata Controllers
 export { MetadataController } from './metadata.controller';
+
+// Process Controls Controllers (Sprint 5)
+export { ProcessController } from './process.controller';
+export { ProcessControlController } from './process-control.controller';
+export { ControlResultController } from './control-result.controller';
+export { ProcessViolationController } from './process-violation.controller';

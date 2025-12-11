@@ -33,3 +33,14 @@ export type {
 
 // Metadata Services
 export { MetadataService } from './metadata.service';
+
+// Process Controls Services (Sprint 5)
+export { ProcessService } from './process.service';
+export { ProcessControlService } from './process-control.service';
+export { ControlResultService } from './control-result.service';
+export { ProcessViolationService } from './process-violation.service';
+export {
+  ProcessComplianceService,
+  ComplianceScoreResponse,
+  ComplianceOverviewResponse,
+} from './process-compliance.service';

@@ -222,6 +222,43 @@ export const API_PATHS = {
     RISK_TRENDS: '/dashboard/risk-trends',
     COMPLIANCE_BY_REGULATION: '/dashboard/compliance-by-regulation',
   },
+
+  // Process endpoints (Sprint 5)
+  GRC_PROCESSES: {
+    LIST: '/grc/processes',
+    CREATE: '/grc/processes',
+    GET: (id: string) => `/grc/processes/${id}`,
+    UPDATE: (id: string) => `/grc/processes/${id}`,
+    DELETE: (id: string) => `/grc/processes/${id}`,
+    COMPLIANCE_SCORE: (id: string) => `/grc/processes/${id}/compliance-score`,
+    COMPLIANCE_OVERVIEW: '/grc/processes/compliance-overview',
+  },
+
+  // ProcessControl endpoints (Sprint 5)
+  GRC_PROCESS_CONTROLS: {
+    LIST: '/grc/process-controls',
+    CREATE: '/grc/process-controls',
+    GET: (id: string) => `/grc/process-controls/${id}`,
+    UPDATE: (id: string) => `/grc/process-controls/${id}`,
+    DELETE: (id: string) => `/grc/process-controls/${id}`,
+    LINK_RISKS: (id: string) => `/grc/process-controls/${id}/risks`,
+  },
+
+  // ControlResult endpoints (Sprint 5)
+  GRC_CONTROL_RESULTS: {
+    LIST: '/grc/control-results',
+    CREATE: '/grc/control-results',
+    GET: (id: string) => `/grc/control-results/${id}`,
+  },
+
+  // ProcessViolation endpoints (Sprint 5)
+  GRC_PROCESS_VIOLATIONS: {
+    LIST: '/grc/process-violations',
+    GET: (id: string) => `/grc/process-violations/${id}`,
+    UPDATE: (id: string) => `/grc/process-violations/${id}`,
+    LINK_RISK: (id: string) => `/grc/process-violations/${id}/link-risk`,
+    UNLINK_RISK: (id: string) => `/grc/process-violations/${id}/unlink-risk`,
+  },
 } as const;
 
 // ============================================================================
@@ -1150,4 +1187,144 @@ export const grcDashboardApi = {
       };
     }
   },
+};
+
+// ============================================================================
+// Process API (Sprint 5)
+// ============================================================================
+
+export const processApi = {
+  list: (tenantId: string, params?: URLSearchParams) =>
+    api.get(
+      `${API_PATHS.GRC_PROCESSES.LIST}${params ? `?${params}` : ''}`,
+      withTenantId(tenantId),
+    ),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_PROCESSES.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: Record<string, unknown>) =>
+    api.post(API_PATHS.GRC_PROCESSES.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.GRC_PROCESSES.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_PROCESSES.DELETE(id), withTenantId(tenantId)),
+
+  getComplianceScore: (
+    tenantId: string,
+    id: string,
+    params?: { from?: string; to?: string },
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params?.from) queryParams.append('from', params.from);
+    if (params?.to) queryParams.append('to', params.to);
+    const url = `${API_PATHS.GRC_PROCESSES.COMPLIANCE_SCORE(id)}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    return api.get(url, withTenantId(tenantId));
+  },
+
+  getComplianceOverview: (
+    tenantId: string,
+    params?: { from?: string; to?: string },
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params?.from) queryParams.append('from', params.from);
+    if (params?.to) queryParams.append('to', params.to);
+    const url = `${API_PATHS.GRC_PROCESSES.COMPLIANCE_OVERVIEW}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    return api.get(url, withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// ProcessControl API (Sprint 5)
+// ============================================================================
+
+export const processControlApi = {
+  list: (tenantId: string, params?: URLSearchParams) =>
+    api.get(
+      `${API_PATHS.GRC_PROCESS_CONTROLS.LIST}${params ? `?${params}` : ''}`,
+      withTenantId(tenantId),
+    ),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_PROCESS_CONTROLS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: Record<string, unknown>) =>
+    api.post(
+      API_PATHS.GRC_PROCESS_CONTROLS.CREATE,
+      data,
+      withTenantId(tenantId),
+    ),
+
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(
+      API_PATHS.GRC_PROCESS_CONTROLS.UPDATE(id),
+      data,
+      withTenantId(tenantId),
+    ),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_PROCESS_CONTROLS.DELETE(id), withTenantId(tenantId)),
+
+  linkRisks: (tenantId: string, id: string, riskIds: string[]) =>
+    api.put(
+      API_PATHS.GRC_PROCESS_CONTROLS.LINK_RISKS(id),
+      { riskIds },
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// ControlResult API (Sprint 5)
+// ============================================================================
+
+export const controlResultApi = {
+  list: (tenantId: string, params?: URLSearchParams) =>
+    api.get(
+      `${API_PATHS.GRC_CONTROL_RESULTS.LIST}${params ? `?${params}` : ''}`,
+      withTenantId(tenantId),
+    ),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CONTROL_RESULTS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: Record<string, unknown>) =>
+    api.post(API_PATHS.GRC_CONTROL_RESULTS.CREATE, data, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// ProcessViolation API (Sprint 5)
+// ============================================================================
+
+export const processViolationApi = {
+  list: (tenantId: string, params?: URLSearchParams) =>
+    api.get(
+      `${API_PATHS.GRC_PROCESS_VIOLATIONS.LIST}${params ? `?${params}` : ''}`,
+      withTenantId(tenantId),
+    ),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_PROCESS_VIOLATIONS.GET(id), withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(
+      API_PATHS.GRC_PROCESS_VIOLATIONS.UPDATE(id),
+      data,
+      withTenantId(tenantId),
+    ),
+
+  linkRisk: (tenantId: string, id: string, riskId: string) =>
+    api.patch(
+      API_PATHS.GRC_PROCESS_VIOLATIONS.LINK_RISK(id),
+      { riskId },
+      withTenantId(tenantId),
+    ),
+
+  unlinkRisk: (tenantId: string, id: string) =>
+    api.patch(
+      API_PATHS.GRC_PROCESS_VIOLATIONS.UNLINK_RISK(id),
+      {},
+      withTenantId(tenantId),
+    ),
 };
