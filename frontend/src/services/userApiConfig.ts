@@ -19,24 +19,24 @@ export type UserApiMode = 'express' | 'nest';
 const DEFAULTS = {
   EXPRESS_API_URL: 'http://localhost:3001/api',
   NEST_API_URL: 'http://localhost:3002',
-  USER_API_MODE: 'express' as UserApiMode,
+  USER_API_MODE: 'nest' as UserApiMode,
 } as const;
 
 /**
  * Get the current User API mode from environment variables.
- * Defaults to "express" to maintain backward compatibility.
+ * Defaults to "nest" as the primary backend for user management.
  * 
  * @returns The current API mode ("express" or "nest")
  */
 export function getUserApiMode(): UserApiMode {
   const mode = process.env.REACT_APP_USER_API_MODE?.toLowerCase();
   
-  if (mode === 'nest') {
-    return 'nest';
+  if (mode === 'express') {
+    return 'express';
   }
   
-  // Default to express for backward compatibility
-  return 'express';
+  // Default to nest as the primary backend
+  return 'nest';
 }
 
 /**
@@ -52,11 +52,23 @@ export function getExpressApiUrl(): string {
 
 /**
  * Get the NestJS API base URL from environment variables.
+ * Falls back to REACT_APP_API_URL (without /api suffix) for production compatibility.
  * 
  * @returns The NestJS API base URL
  */
 export function getNestApiUrl(): string {
-  return process.env.REACT_APP_NEST_API_URL || DEFAULTS.NEST_API_URL;
+  // First check for explicit NestJS URL
+  if (process.env.REACT_APP_NEST_API_URL) {
+    return process.env.REACT_APP_NEST_API_URL;
+  }
+  
+  // Fall back to main API URL (remove /api suffix if present) for production
+  const mainApiUrl = process.env.REACT_APP_API_URL;
+  if (mainApiUrl) {
+    return mainApiUrl.replace(/\/api\/?$/, '');
+  }
+  
+  return DEFAULTS.NEST_API_URL;
 }
 
 /**
