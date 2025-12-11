@@ -156,7 +156,8 @@ export const AuditDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   useAuth();
-  const isNew = id === 'new';
+  // Check for create mode: either no id (from /audits/new route) or id === 'new' (from /audits/:id route)
+  const isNew = !id || id === 'new';
   const isEditMode = window.location.pathname.endsWith('/edit') || isNew;
 
     const [audit, setAudit] = useState<Audit | null>(null);
