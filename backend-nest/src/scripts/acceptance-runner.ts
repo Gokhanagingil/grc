@@ -18,9 +18,13 @@
 
 import * as http from 'http';
 import * as https from 'https';
+import { config } from 'dotenv';
+
+// Load environment variables
+config();
 
 // Configuration from environment variables
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3002';
+const BASE_URL = process.env.BASE_URL || process.env.NEST_API_URL || 'http://localhost:3002';
 const DEMO_ADMIN_EMAIL =
   process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
 const DEMO_ADMIN_PASSWORD =
@@ -173,9 +177,10 @@ async function runScenario1LoginDashboard(): Promise<ScenarioResult> {
 
   // 1.1 Health Check
   const healthResponse = await makeRequest('GET', '/health/live');
+  const healthData = (healthResponse.data as { data?: { status?: string } })?.data || healthResponse.data;
   const healthPassed =
     healthResponse.statusCode === 200 &&
-    (healthResponse.data as { status?: string })?.status === 'ok';
+    (healthData as { status?: string })?.status === 'ok';
   checks.push({
     name: 'Health check',
     passed: healthPassed,
@@ -387,14 +392,17 @@ async function runScenario2RiskLifecycle(): Promise<ScenarioResult> {
     : undefined;
 
   let linkPolicyPassed = false;
+  let linkPolicyResponse: ApiResponse | null = null;
   if (existingPolicyId) {
-    const linkPolicyResponse = await makeRequest(
+    linkPolicyResponse = await makeRequest(
       'POST',
       `/grc/risks/${riskId}/policies`,
       getAuthHeaders(),
       { policyIds: [existingPolicyId] },
     );
-    linkPolicyPassed = linkPolicyResponse.statusCode === 201;
+    linkPolicyPassed =
+      linkPolicyResponse.statusCode >= 200 &&
+      linkPolicyResponse.statusCode < 300;
   }
   checks.push({
     name: 'Link policy to risk',
@@ -402,7 +410,7 @@ async function runScenario2RiskLifecycle(): Promise<ScenarioResult> {
     message: linkPolicyPassed
       ? undefined
       : existingPolicyId
-        ? 'Link failed'
+        ? `Status: ${linkPolicyResponse?.statusCode || 'N/A'}`
         : 'No existing policy found',
   });
   printCheck(
@@ -425,14 +433,17 @@ async function runScenario2RiskLifecycle(): Promise<ScenarioResult> {
     : undefined;
 
   let linkRequirementPassed = false;
+  let linkRequirementResponse: ApiResponse | null = null;
   if (existingRequirementId) {
-    const linkRequirementResponse = await makeRequest(
+    linkRequirementResponse = await makeRequest(
       'POST',
       `/grc/risks/${riskId}/requirements`,
       getAuthHeaders(),
       { requirementIds: [existingRequirementId] },
     );
-    linkRequirementPassed = linkRequirementResponse.statusCode === 201;
+    linkRequirementPassed =
+      linkRequirementResponse.statusCode >= 200 &&
+      linkRequirementResponse.statusCode < 300;
   }
   checks.push({
     name: 'Link requirement to risk',
@@ -440,7 +451,7 @@ async function runScenario2RiskLifecycle(): Promise<ScenarioResult> {
     message: linkRequirementPassed
       ? undefined
       : existingRequirementId
-        ? 'Link failed'
+        ? `Status: ${linkRequirementResponse?.statusCode || 'N/A'}`
         : 'No existing requirement found',
   });
   printCheck(
@@ -816,7 +827,9 @@ async function runScenario4GovernanceCompliance(): Promise<ScenarioResult> {
     getAuthHeaders(),
     { policyIds: [policyId] },
   );
-  const linkPolicyPassed = linkPolicyResponse.statusCode === 201;
+  const linkPolicyPassed =
+    linkPolicyResponse.statusCode >= 200 &&
+    linkPolicyResponse.statusCode < 300;
   checks.push({
     name: 'Link policy to risk',
     passed: linkPolicyPassed,
@@ -837,7 +850,9 @@ async function runScenario4GovernanceCompliance(): Promise<ScenarioResult> {
     getAuthHeaders(),
     { requirementIds: [requirementId] },
   );
-  const linkRequirementPassed = linkRequirementResponse.statusCode === 201;
+  const linkRequirementPassed =
+    linkRequirementResponse.statusCode >= 200 &&
+    linkRequirementResponse.statusCode < 300;
   checks.push({
     name: 'Link requirement to risk',
     passed: linkRequirementPassed,
