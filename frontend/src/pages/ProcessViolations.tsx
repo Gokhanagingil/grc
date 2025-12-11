@@ -31,7 +31,6 @@ import {
   FilterList as FilterIcon,
   Warning as ViolationIcon,
   Link as LinkIcon,
-  LinkOff as UnlinkIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -120,6 +119,7 @@ export const ProcessViolations: React.FC = () => {
     const [severityFilter, setSeverityFilter] = useState<string>('');
     const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
     const [processName, setProcessName] = useState<string>('');
+    const [searchFilter, setSearchFilter] = useState<string>('');
     const [allRisks, setAllRisks] = useState<Risk[]>([]);
     const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
@@ -291,22 +291,6 @@ export const ProcessViolations: React.FC = () => {
     }
   };
 
-  const handleUnlinkRisk = async (violation: ProcessViolation) => {
-    if (!tenantId) return;
-
-    if (window.confirm('Are you sure you want to unlink the risk from this violation?')) {
-      try {
-        await processViolationApi.unlinkRisk(tenantId, violation.id);
-        setSuccess('Risk unlinked successfully');
-        fetchViolations();
-        setTimeout(() => setSuccess(''), 3000);
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || 'Failed to unlink risk');
-      }
-    }
-  };
-
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -386,6 +370,13 @@ export const ProcessViolations: React.FC = () => {
         <CardContent>
           <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
             <FilterIcon color="action" />
+            <TextField
+              size="small"
+              placeholder="Search title..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              sx={{ minWidth: 150 }}
+            />
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Status</InputLabel>
               <Select
@@ -432,13 +423,14 @@ export const ProcessViolations: React.FC = () => {
                             }}
                           />
                         )}
-            {(statusFilter || severityFilter || processFilter) && (
+            {(statusFilter || severityFilter || processFilter || searchFilter) && (
               <Button
                 size="small"
                 onClick={() => {
                   setStatusFilter('');
                   setSeverityFilter('');
                   setProcessFilter('');
+                  setSearchFilter('');
                   setPage(0);
                 }}
               >
@@ -456,10 +448,11 @@ export const ProcessViolations: React.FC = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Title</TableCell>
-                  <TableCell>Process / Control</TableCell>
+                  <TableCell>Process</TableCell>
+                  <TableCell>Control</TableCell>
                   <TableCell>Severity</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Linked Risk</TableCell>
+                  <TableCell>Owner</TableCell>
                   <TableCell>Due Date</TableCell>
                   <TableCell>Created</TableCell>
                   <TableCell>Actions</TableCell>
@@ -468,7 +461,7 @@ export const ProcessViolations: React.FC = () => {
               <TableBody>
                 {violations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 0, border: 'none' }}>
                       <EmptyState
                         icon={<ViolationIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
                         title="No violations found"
@@ -478,7 +471,16 @@ export const ProcessViolations: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  violations.map((violation) => (
+                  violations
+                    .filter((v) => {
+                      if (!searchFilter) return true;
+                      const search = searchFilter.toLowerCase();
+                      return (
+                        v.title.toLowerCase().includes(search) ||
+                        (v.description && v.description.toLowerCase().includes(search))
+                      );
+                    })
+                    .map((violation) => (
                     <TableRow key={violation.id} hover>
                       <TableCell>
                         <Typography variant="subtitle2">{violation.title}</Typography>
@@ -494,16 +496,14 @@ export const ProcessViolations: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {violation.control?.process?.name && (
-                          <Typography variant="body2">
-                            {violation.control.process.name}
-                          </Typography>
-                        )}
-                        {violation.control?.name && (
-                          <Typography variant="caption" color="textSecondary">
-                            {violation.control.name}
-                          </Typography>
-                        )}
+                        <Typography variant="body2">
+                          {violation.control?.process?.name || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {violation.control?.name || '-'}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -520,25 +520,9 @@ export const ProcessViolations: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        {violation.linkedRisk ? (
-                          <Tooltip title={violation.linkedRisk.title}>
-                            <Chip
-                              label={violation.linkedRisk.title.substring(0, 20) + '...'}
-                              size="small"
-                              variant="outlined"
-                              onDelete={() => handleUnlinkRisk(violation)}
-                              deleteIcon={<UnlinkIcon />}
-                            />
-                          </Tooltip>
-                        ) : (
-                          <Button
-                            size="small"
-                            startIcon={<LinkIcon />}
-                            onClick={() => handleOpenLinkRisk(violation)}
-                          >
-                            Link Risk
-                          </Button>
-                        )}
+                        <Typography variant="body2" color="textSecondary">
+                          {violation.ownerUserId ? violation.ownerUserId.substring(0, 8) + '...' : 'N/A'}
+                        </Typography>
                       </TableCell>
                       <TableCell>{formatDate(violation.dueDate)}</TableCell>
                       <TableCell>{formatDate(violation.createdAt)}</TableCell>
@@ -551,6 +535,11 @@ export const ProcessViolations: React.FC = () => {
                         <Tooltip title="Edit">
                           <IconButton size="small" onClick={() => handleEditViolation(violation)}>
                             <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={violation.linkedRiskId ? 'Change Linked Risk' : 'Link Risk'}>
+                          <IconButton size="small" onClick={() => handleOpenLinkRisk(violation)}>
+                            <LinkIcon />
                           </IconButton>
                         </Tooltip>
                       </TableCell>

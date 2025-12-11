@@ -76,6 +76,7 @@ interface ProcessControl {
   expectedResultType: string;
   parameters: Record<string, unknown> | null;
   isActive: boolean;
+  ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -137,6 +138,8 @@ export const ProcessManagement: React.FC = () => {
       expectedResultType: 'boolean',
       isActive: true,
     });
+
+  const [controlFormErrors, setControlFormErrors] = useState<{ name?: string }>({});
 
   const [resultFormData, setResultFormData] = useState({
     isCompliant: true,
@@ -316,6 +319,7 @@ export const ProcessManagement: React.FC = () => {
         expectedResultType: 'boolean',
         isActive: true,
       });
+      setControlFormErrors({});
       setOpenControlDialog(true);
     };
 
@@ -330,6 +334,7 @@ export const ProcessManagement: React.FC = () => {
       expectedResultType: control.expectedResultType,
       isActive: control.isActive,
     });
+    setControlFormErrors({});
     setOpenControlDialog(true);
   };
 
@@ -338,6 +343,16 @@ export const ProcessManagement: React.FC = () => {
       setError('Process context is required');
       return;
     }
+
+    const errors: { name?: string } = {};
+    if (!controlFormData.name.trim()) {
+      errors.name = 'Control name is required';
+    }
+    if (Object.keys(errors).length > 0) {
+      setControlFormErrors(errors);
+      return;
+    }
+    setControlFormErrors({});
 
     try {
       const controlData = {
@@ -547,6 +562,7 @@ export const ProcessManagement: React.FC = () => {
                 <TableRow>
                   <TableCell>Name</TableCell>
                   <TableCell>Code</TableCell>
+                  <TableCell>Owner</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Compliance</TableCell>
@@ -556,7 +572,7 @@ export const ProcessManagement: React.FC = () => {
               <TableBody>
                 {processes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 0, border: 'none' }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 0, border: 'none' }}>
                       <EmptyState
                         icon={<ProcessIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
                         title="No processes found"
@@ -589,6 +605,11 @@ export const ProcessManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip label={process.code} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="textSecondary">
+                          {process.ownerUserId ? process.ownerUserId.substring(0, 8) + '...' : 'N/A'}
+                        </Typography>
                       </TableCell>
                       <TableCell>{process.category || '-'}</TableCell>
                       <TableCell>
@@ -795,9 +816,11 @@ export const ProcessManagement: React.FC = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Name</TableCell>
+                      <TableCell>Automated</TableCell>
                       <TableCell>Method</TableCell>
                       <TableCell>Frequency</TableCell>
-                      <TableCell>Type</TableCell>
+                      <TableCell>Expected Result</TableCell>
+                      <TableCell>Owner</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
@@ -807,13 +830,23 @@ export const ProcessManagement: React.FC = () => {
                       <TableRow key={control.id}>
                         <TableCell>
                           <Typography variant="body2">{control.name}</Typography>
-                          {control.isAutomated && (
-                            <Chip label="Automated" size="small" color="info" sx={{ ml: 1 }} />
-                          )}
                         </TableCell>
-                        <TableCell>{control.method}</TableCell>
-                        <TableCell>{control.frequency}</TableCell>
-                        <TableCell>{control.expectedResultType}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={control.isAutomated ? 'Yes' : 'No'}
+                            size="small"
+                            color={control.isAutomated ? 'info' : 'default'}
+                            variant={control.isAutomated ? 'filled' : 'outlined'}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.method || '-'}</TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.frequency?.replace('_', ' ') || '-'}</TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.expectedResultType || '-'}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="textSecondary">
+                            {control.ownerUserId ? control.ownerUserId.substring(0, 8) + '...' : 'N/A'}
+                          </Typography>
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={control.isActive ? 'Active' : 'Inactive'}
@@ -870,9 +903,16 @@ export const ProcessManagement: React.FC = () => {
             <TextField
               label="Name"
               value={controlFormData.name}
-              onChange={(e) => setControlFormData({ ...controlFormData, name: e.target.value })}
+              onChange={(e) => {
+                setControlFormData({ ...controlFormData, name: e.target.value });
+                if (controlFormErrors.name && e.target.value.trim()) {
+                  setControlFormErrors({});
+                }
+              }}
               fullWidth
               required
+              error={!!controlFormErrors.name}
+              helperText={controlFormErrors.name}
             />
             <TextField
               label="Description"
