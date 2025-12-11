@@ -225,6 +225,65 @@ ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose
 ssh root@46.224.99.150 "cd /opt/grc-platform && git pull origin main && docker compose -f docker-compose.staging.yml up -d --build --force-recreate"
 ```
 
+### Redeploying Staging Frontend
+
+Use this procedure when frontend code changes need to be deployed to staging (e.g., API path fixes, UI updates).
+
+**Prerequisites:**
+- The staging server's git remote is configured for SSH access (`git@github.com:Gokhanagingil/grc.git`)
+- Changes have been merged to the `main` branch
+
+**Step 1: Pull Latest Code**
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && git fetch origin && git checkout main && git pull origin main"
+```
+
+If you encounter local changes blocking the pull:
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && git checkout . && git clean -fd && git pull origin main"
+```
+
+**Step 2: Rebuild Frontend Container**
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml up -d --build --force-recreate frontend"
+```
+
+Note: The frontend service is named `frontend` in docker-compose.staging.yml and creates a container named `grc-staging-frontend`.
+
+**Step 3: Verify Deployment**
+
+```bash
+# Check container is running
+ssh root@46.224.99.150 "docker ps --filter name=grc-staging-frontend"
+
+# Check the deployed JS contains correct API paths
+ssh root@46.224.99.150 "docker exec grc-staging-frontend grep -o '/grc/policies\|/grc/risks' /usr/share/nginx/html/static/js/main.*.js | sort | uniq -c"
+```
+
+Expected output should show `/grc/policies` and `/grc/risks` paths.
+
+**Step 4: Browser Verification**
+
+1. Navigate to http://46.224.99.150
+2. Login with `admin@grc-platform.local` / `TestPassword123!`
+3. Verify Dashboard shows correct counts (8 risks, 8 policies, 10 requirements)
+4. Navigate to Governance → Policies should load without errors
+5. Navigate to Risk Management → Risks should load without errors
+
+**Environment Variables for Frontend Build:**
+
+The frontend build uses these environment variables (defined in docker-compose.staging.yml):
+- `REACT_APP_API_URL`: Backend API URL (default: `http://46.224.99.150:3002`)
+
+**Troubleshooting:**
+
+If the frontend still shows old behavior after rebuild:
+1. Clear browser cache or use incognito mode
+2. Check if Docker used cached layers: `docker compose -f docker-compose.staging.yml build --no-cache frontend`
+3. Verify the source file has correct paths: `grep -n 'LIST:' frontend/src/services/grcClient.ts | head -5`
+
 ## Troubleshooting
 
 ### Container Won't Start
