@@ -705,7 +705,9 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('allowed', true);
+        // Response may be wrapped in standard envelope or returned directly
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('allowed', true);
       });
     });
 
