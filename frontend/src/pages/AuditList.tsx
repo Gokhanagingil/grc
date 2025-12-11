@@ -120,7 +120,10 @@ export const AuditList: React.FC = () => {
   const fetchCanCreate = useCallback(async () => {
     try {
       const response = await api.get('/grc/audits/can/create');
-      setCanCreate(response.data.allowed);
+      // Handle NestJS response envelope: { success: true, data: { allowed: true } }
+      const data = response.data;
+      const allowed = data?.data?.allowed ?? data?.allowed ?? false;
+      setCanCreate(allowed);
     } catch {
       // Fallback: allow admin and manager users to create audits even if the check fails
       const userRole = user?.role;
