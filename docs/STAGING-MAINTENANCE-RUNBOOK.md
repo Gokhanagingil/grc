@@ -1,6 +1,6 @@
 # GRC Platform - Staging Maintenance Runbook
 
-**Last Updated:** December 10, 2025  
+**Last Updated:** December 11, 2025  
 **Staging Server:** 46.224.99.150  
 **Deployment Path:** /opt/grc-platform
 
@@ -337,6 +337,159 @@ After a hard reset and seed:
 | Risks | 8 |
 | Policies | 8 |
 | Requirements | 10 |
+
+## Staging Deployment & Health Checklist (December 2025 - Devin Sprint)
+
+This section documents the complete staging deployment and validation procedure verified in December 2025.
+
+### Quick Redeploy Commands
+
+To redeploy staging from the latest main branch:
+
+```bash
+# 1. SSH to staging server
+ssh root@46.224.99.150
+
+# 2. Navigate to project directory
+cd /opt/grc-platform
+
+# 3. Fetch and reset to latest main
+git fetch --all
+git reset --hard origin/main
+
+# 4. Rebuild and restart containers
+docker compose -f docker-compose.staging.yml up -d --build backend frontend
+
+# 5. Wait for containers to be healthy (check status)
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+```
+
+Expected output should show all three containers as "healthy":
+- `grc-staging-frontend` - Up (healthy) - 0.0.0.0:80->80/tcp
+- `grc-staging-backend` - Up (healthy) - 0.0.0.0:3002->3002/tcp
+- `grc-staging-db` - Up (healthy) - 5432/tcp
+
+### Health Endpoint Verification
+
+After deployment, verify the backend health endpoints:
+
+```bash
+# Liveness check (should return 200)
+curl -s -o /dev/null -w "%{http_code}" http://46.224.99.150:3002/health/live
+
+# Readiness check (should return 200)
+curl -s -o /dev/null -w "%{http_code}" http://46.224.99.150:3002/health/ready
+
+# Full health response
+curl -s http://46.224.99.150:3002/health/live
+```
+
+Expected response:
+```json
+{"success":true,"data":{"status":"ok","timestamp":"...","uptime":...,"service":"grc-platform-nest"}}
+```
+
+### Running Tests on Staging
+
+To run the full test suite inside the backend container:
+
+```bash
+# 1. Run seed script (creates demo data)
+ssh root@46.224.99.150 "docker exec grc-staging-backend node dist/scripts/seed-grc.js"
+
+# Expected output:
+# - 1 demo tenant (00000000-0000-0000-0000-000000000001)
+# - 1 demo admin user (admin@grc-platform.local)
+# - 8 controls, 8 risks, 8 policies, 10 requirements
+# - 4 processes, 7 process controls
+
+# 2. Run smoke tests (16 checks)
+ssh root@46.224.99.150 "docker exec grc-staging-backend node dist/scripts/smoke-grc.js"
+
+# Expected: Passed: 16/16 (100%)
+
+# 3. Run acceptance tests (5 scenarios, 29 checks)
+ssh root@46.224.99.150 "docker exec grc-staging-backend node dist/scripts/acceptance-runner.js"
+
+# Expected: Scenarios: 5 passed, 0 failed
+#           Total checks: 29 passed, 0 failed
+```
+
+### Interpreting Test Results
+
+**Seed Script Success Indicators:**
+- "GRC Demo Data Seed Complete!" message
+- Summary shows: Controls: 8, Risks: 8, Policies: 8, Requirements: 10, Processes: 4, Process Controls: 7
+
+**Smoke Test Success Indicators:**
+- All endpoints return HTTP 200
+- "Passed: 16/16 (100%)" at the end
+- "[SUCCESS] All smoke tests passed!" message
+
+**Acceptance Test Success Indicators:**
+- All 5 scenarios show [PASS] for each check
+- "Scenarios: 5 passed, 0 failed"
+- "Total checks: 29 passed, 0 failed"
+- "[SUCCESS] All acceptance scenarios passed!" message
+
+### Frontend Verification Checklist
+
+After deployment, verify the frontend manually:
+
+1. **Login**: Navigate to http://46.224.99.150 and login with:
+   - Email: `admin@grc-platform.local`
+   - Password: `TestPassword123!`
+
+2. **Dashboard**: Verify the dashboard shows:
+   - Total Risks: 8
+   - Compliance Items: 10
+   - Policies: 8
+   - Risk Trends chart displays correctly
+   - Compliance by Regulation chart shows data
+
+3. **Governance (Policies)**: Navigate to Governance menu
+   - Page loads without errors
+   - Shows 8 policies in the table
+
+4. **Risk Management**: Navigate to Risk Management menu
+   - Page loads without errors
+   - Shows 8 risks with severity indicators
+
+5. **Compliance**: Navigate to Compliance menu
+   - Page loads without errors
+   - Shows 10 requirements
+
+6. **Processes**: Navigate to Processes menu
+   - Page loads without errors
+   - Shows 4-5 processes
+   - "View Violations" button is visible for each row
+
+7. **Violations**: Click "View Violations" on any process
+   - Navigates to `/violations?processId=<uuid>`
+   - Page loads without crashing (may show "No violations found")
+
+### Known Limitations (December 2025)
+
+The following features are not available in the staging Docker environment because they depend on the Express backend which is not included in the staging Docker Compose setup:
+
+1. **Audits Page**: The Audits page (`/audits`) shows a white screen because it depends on `/platform/modules/*` endpoints that are only available in the Express backend.
+
+2. **Platform Module Features**: ACL, Form Layouts, UI Policies, and Module licensing features require the Express backend.
+
+These limitations do not affect the core GRC functionality (Dashboard, Governance, Risk Management, Compliance, Processes, Violations).
+
+### Minimal Endpoint Smoke List
+
+| Endpoint | Method | Expected Status | Description |
+|----------|--------|-----------------|-------------|
+| `/health/live` | GET | 200 | Backend liveness |
+| `/health/ready` | GET | 200 | Backend readiness |
+| `/auth/login` | POST | 200 | Authentication |
+| `/grc/risks` | GET | 200 | Risk list (requires auth) |
+| `/grc/policies` | GET | 200 | Policy list (requires auth) |
+| `/grc/requirements` | GET | 200 | Requirement list (requires auth) |
+| `/dashboard/overview` | GET | 200 | Dashboard KPIs (requires auth) |
+| `/itsm/incidents` | GET | 200 | Incident list (requires auth) |
 
 ## Contact
 
