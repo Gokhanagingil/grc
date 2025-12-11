@@ -26,6 +26,7 @@ import { UpdateAuditDto } from '../dto/update-audit.dto';
 import { AuditFilterDto } from '../dto/filter-audit.dto';
 import { Perf } from '../../common/decorators';
 import { AuditRequirementStatus } from '../entities/grc-audit-requirement.entity';
+import { IssueSeverity, IssueStatus } from '../enums';
 
 /**
  * GRC Audit Controller
@@ -440,16 +441,16 @@ export class GrcAuditController {
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
     @Param('id') id: string,
-    @Body()
-    body: {
-      title: string;
-      description?: string;
-      severity?: string;
-      status?: string;
-      ownerUserId?: string;
-      dueDate?: string;
-      requirementIds?: string[];
-    },
+        @Body()
+        body: {
+          title: string;
+          description?: string;
+          severity?: IssueSeverity;
+          status?: IssueStatus;
+          ownerUserId?: string;
+          dueDate?: string;
+          requirementIds?: string[];
+        },
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
