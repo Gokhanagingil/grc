@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
   Card,
   CardContent,
+  CardActionArea,
   Typography,
   Paper,
 } from '@mui/material';
@@ -79,8 +81,9 @@ const StatCard: React.FC<{
   icon: React.ReactNode;
   color: string;
   subtitle?: string;
-}> = ({ title, value, icon, color, subtitle }) => (
-  <Card>
+  onClick?: () => void;
+}> = ({ title, value, icon, color, subtitle, onClick }) => {
+  const cardContent = (
     <CardContent>
       <Box display="flex" alignItems="center" justifyContent="space-between">
         <Box>
@@ -110,11 +113,24 @@ const StatCard: React.FC<{
         </Box>
       </Box>
     </CardContent>
-  </Card>
-);
+  );
+
+  if (onClick) {
+    return (
+      <Card sx={{ cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
+        <CardActionArea onClick={onClick}>
+          {cardContent}
+        </CardActionArea>
+      </Card>
+    );
+  }
+
+  return <Card>{cardContent}</Card>;
+};
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [riskTrends, setRiskTrends] = useState<RiskTrendDataPoint[]>([]);
   const [complianceData, setComplianceData] = useState<ComplianceByRegulationItem[]>([]);
@@ -123,6 +139,12 @@ export const Dashboard: React.FC = () => {
 
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
+
+  // Navigation handlers for clickable dashboard metrics
+  const handleNavigateToRisks = () => navigate('/risks', { state: { source: 'dashboard' } });
+  const handleNavigateToCompliance = () => navigate('/compliance', { state: { source: 'dashboard' } });
+  const handleNavigateToPolicies = () => navigate('/governance', { state: { source: 'dashboard' } });
+  const handleNavigateToIncidents = () => navigate('/incidents', { state: { source: 'dashboard' } });
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -204,7 +226,7 @@ export const Dashboard: React.FC = () => {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Statistics Cards */}
+        {/* Statistics Cards - Clickable for drill-down navigation */}
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Risks"
@@ -212,6 +234,7 @@ export const Dashboard: React.FC = () => {
             icon={<SecurityIcon sx={{ color: 'white' }} />}
             color="#f44336"
             subtitle={`${stats.risks.open} open, ${stats.risks.high} high severity`}
+            onClick={handleNavigateToRisks}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -221,6 +244,7 @@ export const Dashboard: React.FC = () => {
             icon={<ComplianceIcon sx={{ color: 'white' }} />}
             color="#2196f3"
             subtitle={`${stats.compliance.pending} pending, ${stats.compliance.overdue} overdue`}
+            onClick={handleNavigateToCompliance}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -230,6 +254,7 @@ export const Dashboard: React.FC = () => {
             icon={<GovernanceIcon sx={{ color: 'white' }} />}
             color="#4caf50"
             subtitle={`${stats.policies.active} active, ${stats.policies.draft} draft`}
+            onClick={handleNavigateToPolicies}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -239,6 +264,7 @@ export const Dashboard: React.FC = () => {
             icon={<IncidentIcon sx={{ color: 'white' }} />}
             color="#ff9800"
             subtitle={`${stats.incidents?.open || 0} open, ${stats.incidents?.resolved || 0} resolved`}
+            onClick={handleNavigateToIncidents}
           />
         </Grid>
 
