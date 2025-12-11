@@ -4,11 +4,20 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcAudit } from '../entities/grc-audit.entity';
+import {
+  GrcAuditRequirement,
+  AuditRequirementStatus,
+} from '../entities/grc-audit-requirement.entity';
+import { GrcIssueRequirement } from '../entities/grc-issue-requirement.entity';
+import { GrcIssue } from '../entities/grc-issue.entity';
+import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { AuditFilterDto, AUDIT_SORTABLE_FIELDS } from '../dto/filter-audit.dto';
 import { CreateAuditDto } from '../dto/create-audit.dto';
 import { UpdateAuditDto } from '../dto/update-audit.dto';
 import { PaginatedResponse, createPaginatedResponse } from '../dto';
 import { AuditService } from '../../audit/audit.service';
+import { IssueType, IssueStatus, IssueSeverity } from '../enums';
+import { AuditType } from '../entities/grc-audit.entity';
 
 /**
  * GRC Audit Service
@@ -23,6 +32,14 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
   constructor(
     @InjectRepository(GrcAudit)
     repository: Repository<GrcAudit>,
+    @InjectRepository(GrcAuditRequirement)
+    private readonly auditRequirementRepository: Repository<GrcAuditRequirement>,
+    @InjectRepository(GrcIssueRequirement)
+    private readonly issueRequirementRepository: Repository<GrcIssueRequirement>,
+    @InjectRepository(GrcIssue)
+    private readonly issueRepository: Repository<GrcIssue>,
+    @InjectRepository(GrcRequirement)
+    private readonly requirementRepository: Repository<GrcRequirement>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
   ) {
@@ -360,5 +377,220 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
    */
   canCreate(): boolean {
     return true;
+  }
+
+  /**
+   * Get requirements in audit scope
+   */
+  async getAuditRequirements(
+    tenantId: string,
+    auditId: string,
+  ): Promise<GrcAuditRequirement[]> {
+    return this.auditRequirementRepository.find({
+      where: { tenantId, auditId },
+      relations: ['requirement'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Add requirements to audit scope
+   */
+  async addRequirementsToAudit(
+    tenantId: string,
+    auditId: string,
+    requirementIds: string[],
+  ): Promise<GrcAuditRequirement[]> {
+    const audit = await this.findOneActiveForTenant(tenantId, auditId);
+    if (!audit) {
+      throw new Error('Audit not found');
+    }
+
+    const results: GrcAuditRequirement[] = [];
+
+    for (const requirementId of requirementIds) {
+      const requirement = await this.requirementRepository.findOne({
+        where: { id: requirementId, tenantId, isDeleted: false },
+      });
+
+      if (!requirement) {
+        continue;
+      }
+
+      const existing = await this.auditRequirementRepository.findOne({
+        where: { tenantId, auditId, requirementId },
+      });
+
+      if (existing) {
+        results.push(existing);
+        continue;
+      }
+
+      const auditRequirement = this.auditRequirementRepository.create({
+        tenantId,
+        auditId,
+        requirementId,
+        status: AuditRequirementStatus.PLANNED,
+      });
+
+      const saved =
+        await this.auditRequirementRepository.save(auditRequirement);
+      results.push(saved);
+    }
+
+    return results;
+  }
+
+  /**
+   * Remove requirement from audit scope
+   */
+  async removeRequirementFromAudit(
+    tenantId: string,
+    auditId: string,
+    requirementId: string,
+  ): Promise<boolean> {
+    const result = await this.auditRequirementRepository.delete({
+      tenantId,
+      auditId,
+      requirementId,
+    });
+
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Update audit requirement status
+   */
+  async updateAuditRequirementStatus(
+    tenantId: string,
+    auditId: string,
+    requirementId: string,
+    status: AuditRequirementStatus,
+    notes?: string,
+  ): Promise<GrcAuditRequirement | null> {
+    const auditRequirement = await this.auditRequirementRepository.findOne({
+      where: { tenantId, auditId, requirementId },
+    });
+
+    if (!auditRequirement) {
+      return null;
+    }
+
+    auditRequirement.status = status;
+    if (notes !== undefined) {
+      auditRequirement.notes = notes;
+    }
+
+    return this.auditRequirementRepository.save(auditRequirement);
+  }
+
+  /**
+   * Get findings for audit
+   */
+  async getAuditFindings(
+    tenantId: string,
+    auditId: string,
+  ): Promise<GrcIssue[]> {
+    return this.issueRepository.find({
+      where: {
+        tenantId,
+        auditId,
+        isDeleted: false,
+      },
+      relations: [
+        'issueRequirements',
+        'issueRequirements.requirement',
+        'capas',
+      ],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Create audit finding
+   */
+  async createAuditFinding(
+    tenantId: string,
+    userId: string,
+    auditId: string,
+    data: {
+      title: string;
+      description?: string;
+      severity?: IssueSeverity;
+      status?: IssueStatus;
+      ownerUserId?: string;
+      dueDate?: string;
+      requirementIds?: string[];
+    },
+  ): Promise<GrcIssue> {
+    const audit = await this.findOneActiveForTenant(tenantId, auditId);
+    if (!audit) {
+      throw new Error('Audit not found');
+    }
+
+    const issueType =
+      audit.auditType === AuditType.EXTERNAL
+        ? IssueType.EXTERNAL_AUDIT
+        : IssueType.INTERNAL_AUDIT;
+
+    const issue = this.issueRepository.create({
+      tenantId,
+      title: data.title,
+      description: data.description || null,
+      type: issueType,
+      severity: data.severity || IssueSeverity.MEDIUM,
+      status: data.status || IssueStatus.OPEN,
+      ownerUserId: data.ownerUserId || userId,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      auditId,
+      raisedByUserId: userId,
+      createdBy: userId,
+      isDeleted: false,
+    });
+
+    const savedIssue = await this.issueRepository.save(issue);
+
+    if (data.requirementIds && data.requirementIds.length > 0) {
+      for (const requirementId of data.requirementIds) {
+        const requirement = await this.requirementRepository.findOne({
+          where: { id: requirementId, tenantId, isDeleted: false },
+        });
+
+        if (requirement) {
+          const issueRequirement = this.issueRequirementRepository.create({
+            tenantId,
+            issueId: savedIssue.id,
+            requirementId,
+          });
+          await this.issueRequirementRepository.save(issueRequirement);
+        }
+      }
+    }
+
+    this.eventEmitter.emit('audit.finding.created', {
+      auditId,
+      issueId: savedIssue.id,
+      tenantId,
+      userId,
+    });
+
+    return savedIssue;
+  }
+
+  /**
+   * Get findings linked to a requirement
+   */
+  async getRequirementFindings(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<GrcIssue[]> {
+    const issueRequirements = await this.issueRequirementRepository.find({
+      where: { tenantId, requirementId },
+      relations: ['issue', 'issue.capas'],
+    });
+
+    return issueRequirements
+      .map((ir) => ir.issue)
+      .filter((issue) => issue && !issue.isDeleted);
   }
 }

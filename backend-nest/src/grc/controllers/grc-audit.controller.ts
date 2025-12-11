@@ -25,6 +25,7 @@ import { CreateAuditDto } from '../dto/create-audit.dto';
 import { UpdateAuditDto } from '../dto/update-audit.dto';
 import { AuditFilterDto } from '../dto/filter-audit.dto';
 import { Perf } from '../../common/decorators';
+import { AuditRequirementStatus } from '../entities/grc-audit-requirement.entity';
 
 /**
  * GRC Audit Controller
@@ -276,8 +277,137 @@ export class GrcAuditController {
   }
 
   /**
+   * GET /grc/audits/:id/requirements
+   * Get requirements in audit scope
+   */
+  @Get(':id/requirements')
+  @Permissions(Permission.GRC_AUDIT_READ)
+  @Perf()
+  async getRequirements(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    return this.auditService.getAuditRequirements(tenantId, id);
+  }
+
+  /**
+   * POST /grc/audits/:id/requirements
+   * Add requirements to audit scope
+   */
+  @Post(':id/requirements')
+  @Permissions(Permission.GRC_AUDIT_WRITE)
+  @Perf()
+  async addRequirements(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { requirementIds: string[] },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    if (!body.requirementIds || !Array.isArray(body.requirementIds)) {
+      throw new BadRequestException('requirementIds array is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    return this.auditService.addRequirementsToAudit(
+      tenantId,
+      id,
+      body.requirementIds,
+    );
+  }
+
+  /**
+   * DELETE /grc/audits/:id/requirements/:requirementId
+   * Remove requirement from audit scope
+   */
+  @Delete(':id/requirements/:requirementId')
+  @Permissions(Permission.GRC_AUDIT_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async removeRequirement(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Param('requirementId') requirementId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    const removed = await this.auditService.removeRequirementFromAudit(
+      tenantId,
+      id,
+      requirementId,
+    );
+
+    if (!removed) {
+      throw new NotFoundException(
+        `Requirement ${requirementId} not found in audit scope`,
+      );
+    }
+  }
+
+  /**
+   * PATCH /grc/audits/:id/requirements/:requirementId
+   * Update audit requirement status
+   */
+  @Patch(':id/requirements/:requirementId')
+  @Permissions(Permission.GRC_AUDIT_WRITE)
+  @Perf()
+  async updateRequirementStatus(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Param('requirementId') requirementId: string,
+    @Body() body: { status?: string; notes?: string },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    const result = await this.auditService.updateAuditRequirementStatus(
+      tenantId,
+      id,
+      requirementId,
+      body.status as AuditRequirementStatus,
+      body.notes,
+    );
+
+    if (!result) {
+      throw new NotFoundException(
+        `Requirement ${requirementId} not found in audit scope`,
+      );
+    }
+
+    return result;
+  }
+
+  /**
    * GET /grc/audits/:id/findings
-   * Get findings for an audit (placeholder - returns empty array for now)
+   * Get findings for an audit
    */
   @Get(':id/findings')
   @Permissions(Permission.GRC_AUDIT_READ)
@@ -295,8 +425,51 @@ export class GrcAuditController {
       throw new NotFoundException(`Audit with ID ${id} not found`);
     }
 
-    // Return empty array for now - findings module can be added later
-    return [];
+    return this.auditService.getAuditFindings(tenantId, id);
+  }
+
+  /**
+   * POST /grc/audits/:id/findings
+   * Create audit finding
+   */
+  @Post(':id/findings')
+  @Permissions(Permission.GRC_AUDIT_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createFinding(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body()
+    body: {
+      title: string;
+      description?: string;
+      severity?: string;
+      status?: string;
+      ownerUserId?: string;
+      dueDate?: string;
+      requirementIds?: string[];
+    },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    if (!body.title) {
+      throw new BadRequestException('title is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    return this.auditService.createAuditFinding(
+      tenantId,
+      req.user.id,
+      id,
+      body,
+    );
   }
 
   /**

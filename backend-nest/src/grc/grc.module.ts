@@ -20,6 +20,8 @@ import {
   GrcIssueEvidence,
   GrcRiskPolicy,
   GrcRiskRequirement,
+  GrcAuditRequirement,
+  GrcIssueRequirement,
   GrcRiskHistory,
   GrcPolicyHistory,
   GrcRequirementHistory,
@@ -111,6 +113,8 @@ import {
       GrcIssueEvidence,
       GrcRiskPolicy,
       GrcRiskRequirement,
+      GrcAuditRequirement,
+      GrcIssueRequirement,
       // History entities
       GrcRiskHistory,
       GrcPolicyHistory,

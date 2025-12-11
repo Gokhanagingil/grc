@@ -1,7 +1,15 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
+import { GrcAuditRequirement } from './grc-audit-requirement.entity';
 
 /**
  * Audit Status Enum
@@ -128,4 +136,7 @@ export class GrcAudit extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  @OneToMany(() => GrcAuditRequirement, (ar) => ar.audit)
+  auditRequirements: GrcAuditRequirement[];
 }
