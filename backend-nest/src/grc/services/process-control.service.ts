@@ -1,6 +1,6 @@
 import { Injectable, Optional, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, In } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ProcessControl } from '../entities/process-control.entity';
@@ -78,7 +78,9 @@ export class ProcessControlService extends MultiTenantServiceBase<ProcessControl
     tenantId: string,
     userId: string,
     id: string,
-    data: Partial<Omit<ProcessControl, 'id' | 'tenantId' | 'isDeleted' | 'processId'>>,
+    data: Partial<
+      Omit<ProcessControl, 'id' | 'tenantId' | 'isDeleted' | 'processId'>
+    >,
   ): Promise<ProcessControl | null> {
     const existing = await this.findOneActiveForTenant(tenantId, id);
     if (!existing) {
@@ -274,7 +276,9 @@ export class ProcessControlService extends MultiTenantServiceBase<ProcessControl
     // Verify control exists
     const control = await this.findOneActiveForTenant(tenantId, controlId);
     if (!control) {
-      throw new NotFoundException(`ProcessControl with ID ${controlId} not found`);
+      throw new NotFoundException(
+        `ProcessControl with ID ${controlId} not found`,
+      );
     }
 
     // Verify all risks exist

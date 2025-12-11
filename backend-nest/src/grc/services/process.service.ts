@@ -1,4 +1,4 @@
-import { Injectable, Optional, NotFoundException } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -121,7 +121,12 @@ export class ProcessService extends MultiTenantServiceBase<Process> {
       updatedBy: userId,
     } as Partial<Omit<Process, 'id' | 'tenantId'>>);
 
-    await this.auditService?.recordDelete('Process', existing, userId, tenantId);
+    await this.auditService?.recordDelete(
+      'Process',
+      existing,
+      userId,
+      tenantId,
+    );
 
     this.eventEmitter.emit('process.deleted', {
       processId: id,
