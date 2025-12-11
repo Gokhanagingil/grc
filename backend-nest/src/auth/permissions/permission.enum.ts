@@ -23,6 +23,16 @@ export enum Permission {
   GRC_AUDIT_READ = 'grc:audit:read',
   GRC_AUDIT_WRITE = 'grc:audit:write',
 
+  // Control permissions (for GrcControl and ProcessControl)
+  GRC_CONTROL_READ = 'grc:control:read',
+  GRC_CONTROL_WRITE = 'grc:control:write',
+  GRC_CONTROL_DELETE = 'grc:control:delete',
+
+  // Process permissions (Sprint 5)
+  GRC_PROCESS_READ = 'grc:process:read',
+  GRC_PROCESS_WRITE = 'grc:process:write',
+  GRC_PROCESS_DELETE = 'grc:process:delete',
+
   // Statistics permissions (restricted read access)
   GRC_STATISTICS_READ = 'grc:statistics:read',
 
@@ -60,6 +70,12 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_REQUIREMENT_WRITE]: 'Create, update, and delete requirements',
   [Permission.GRC_AUDIT_READ]: 'View audits and audit details',
   [Permission.GRC_AUDIT_WRITE]: 'Create, update, and delete audits',
+  [Permission.GRC_CONTROL_READ]: 'View controls and control details',
+  [Permission.GRC_CONTROL_WRITE]: 'Create and update controls',
+  [Permission.GRC_CONTROL_DELETE]: 'Delete controls',
+  [Permission.GRC_PROCESS_READ]: 'View processes, controls, results, and violations',
+  [Permission.GRC_PROCESS_WRITE]: 'Create and update processes, controls, and results',
+  [Permission.GRC_PROCESS_DELETE]: 'Delete processes',
   [Permission.GRC_STATISTICS_READ]: 'View statistics and analytics dashboards',
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
   [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',

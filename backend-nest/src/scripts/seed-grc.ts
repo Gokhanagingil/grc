@@ -29,7 +29,17 @@ import {
   PolicyStatus,
   ControlStatus,
   ComplianceFramework,
+  ProcessControlMethod,
+  ProcessControlFrequency,
+  ControlResultType,
+  ControlResultSource,
+  ViolationSeverity,
+  ViolationStatus,
 } from '../grc/enums';
+import { Process } from '../grc/entities/process.entity';
+import { ProcessControl } from '../grc/entities/process-control.entity';
+import { ControlResult } from '../grc/entities/control-result.entity';
+import { ProcessViolation } from '../grc/entities/process-violation.entity';
 
 // Demo tenant and user IDs (consistent for idempotency)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -765,6 +775,227 @@ async function seedGrcData() {
       }
     }
 
+    // 10. Seed Processes (Sprint 5)
+    console.log('10. Seeding processes...');
+    const processRepo = dataSource.getRepository(Process);
+    const existingProcesses = await processRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const processesData = [
+      {
+        name: 'Change Management Process',
+        code: 'CHG-MGMT',
+        description: 'Process for managing changes to IT systems and infrastructure',
+        category: 'ITSM',
+        ownerUserId: DEMO_ADMIN_ID,
+        isActive: true,
+      },
+      {
+        name: 'Incident Management Process',
+        code: 'INC-MGMT',
+        description: 'Process for handling and resolving IT incidents',
+        category: 'ITSM',
+        ownerUserId: DEMO_ADMIN_ID,
+        isActive: true,
+      },
+      {
+        name: 'Access Review Process',
+        code: 'ACC-REV',
+        description: 'Quarterly review of user access rights and permissions',
+        category: 'Security',
+        ownerUserId: DEMO_ADMIN_ID,
+        isActive: true,
+      },
+      {
+        name: 'Vendor Risk Assessment Process',
+        code: 'VND-RISK',
+        description: 'Process for assessing and monitoring third-party vendor risks',
+        category: 'Third Party',
+        isActive: true,
+      },
+    ];
+
+    const processes: Process[] = [];
+    for (const data of processesData) {
+      const existing = existingProcesses.find((p) => p.code === data.code);
+      if (existing) {
+        processes.push(existing);
+      } else {
+        const process = processRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await processRepo.save(process);
+        processes.push(process);
+        console.log(`   Created process: ${data.code} - ${data.name}`);
+      }
+    }
+
+    // 11. Seed Process Controls (Sprint 5)
+    console.log('11. Seeding process controls...');
+    const processControlRepo = dataSource.getRepository(ProcessControl);
+    const existingProcessControls = await processControlRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const processControlsData = [
+      {
+        processCode: 'CHG-MGMT',
+        name: 'Change Request Approval',
+        description: 'Verify that all change requests have proper approval before implementation',
+        isAutomated: false,
+        method: ProcessControlMethod.WALKTHROUGH,
+        frequency: ProcessControlFrequency.WEEKLY,
+        expectedResultType: ControlResultType.BOOLEAN,
+      },
+      {
+        processCode: 'CHG-MGMT',
+        name: 'Change Testing Verification',
+        description: 'Verify that changes are tested in non-production environment before deployment',
+        isAutomated: true,
+        method: ProcessControlMethod.SCRIPT,
+        frequency: ProcessControlFrequency.DAILY,
+        expectedResultType: ControlResultType.BOOLEAN,
+      },
+      {
+        processCode: 'INC-MGMT',
+        name: 'Incident Response Time',
+        description: 'Measure average incident response time against SLA targets',
+        isAutomated: true,
+        method: ProcessControlMethod.SCRIPT,
+        frequency: ProcessControlFrequency.DAILY,
+        expectedResultType: ControlResultType.NUMERIC,
+        parameters: { targetMinutes: 30, criticalTargetMinutes: 15 },
+      },
+      {
+        processCode: 'INC-MGMT',
+        name: 'Incident Root Cause Analysis',
+        description: 'Verify that root cause analysis is completed for all major incidents',
+        isAutomated: false,
+        method: ProcessControlMethod.SAMPLING,
+        frequency: ProcessControlFrequency.WEEKLY,
+        expectedResultType: ControlResultType.BOOLEAN,
+      },
+      {
+        processCode: 'ACC-REV',
+        name: 'Access Review Completion',
+        description: 'Verify that quarterly access reviews are completed on time',
+        isAutomated: false,
+        method: ProcessControlMethod.WALKTHROUGH,
+        frequency: ProcessControlFrequency.QUARTERLY,
+        expectedResultType: ControlResultType.BOOLEAN,
+      },
+      {
+        processCode: 'ACC-REV',
+        name: 'Orphaned Account Detection',
+        description: 'Automated detection of accounts without active owners',
+        isAutomated: true,
+        method: ProcessControlMethod.SCRIPT,
+        frequency: ProcessControlFrequency.WEEKLY,
+        expectedResultType: ControlResultType.NUMERIC,
+        parameters: { maxOrphanedAccounts: 0 },
+      },
+      {
+        processCode: 'VND-RISK',
+        name: 'Vendor Security Assessment',
+        description: 'Verify that all critical vendors have completed security assessments',
+        isAutomated: false,
+        method: ProcessControlMethod.INTERVIEW,
+        frequency: ProcessControlFrequency.ANNUALLY,
+        expectedResultType: ControlResultType.QUALITATIVE,
+      },
+    ];
+
+    const processControls: ProcessControl[] = [];
+    for (const data of processControlsData) {
+      const process = processes.find((p) => p.code === data.processCode);
+      if (!process) continue;
+
+      const existing = existingProcessControls.find(
+        (pc) => pc.processId === process.id && pc.name === data.name,
+      );
+      if (existing) {
+        processControls.push(existing);
+      } else {
+        const { processCode, ...controlData } = data;
+        const processControl = processControlRepo.create({
+          ...controlData,
+          processId: process.id,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await processControlRepo.save(processControl);
+        processControls.push(processControl);
+        console.log(`   Created process control: ${data.name} (${processCode})`);
+      }
+    }
+
+    // 12. Seed sample Control Results (Sprint 5)
+    console.log('12. Seeding sample control results...');
+    const controlResultRepo = dataSource.getRepository(ControlResult);
+    const violationRepo = dataSource.getRepository(ProcessViolation);
+
+    // Only seed if no results exist yet
+    const existingResults = await controlResultRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+      take: 1,
+    });
+
+    if (existingResults.length === 0) {
+      // Create some sample results for demonstration
+      for (const control of processControls.slice(0, 4)) {
+        // Create a compliant result
+        const compliantResult = controlResultRepo.create({
+          tenantId: DEMO_TENANT_ID,
+          controlId: control.id,
+          executionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+          executorUserId: DEMO_ADMIN_ID,
+          source: ControlResultSource.MANUAL,
+          resultValueBoolean: control.expectedResultType === ControlResultType.BOOLEAN ? true : null,
+          resultValueNumber: control.expectedResultType === ControlResultType.NUMERIC ? 25 : null,
+          resultValueText: control.expectedResultType === ControlResultType.QUALITATIVE ? 'Assessment completed successfully' : null,
+          isCompliant: true,
+          isDeleted: false,
+        });
+        await controlResultRepo.save(compliantResult);
+        console.log(`   Created compliant result for: ${control.name}`);
+
+        // Create a non-compliant result (which should trigger violation creation)
+        const nonCompliantResult = controlResultRepo.create({
+          tenantId: DEMO_TENANT_ID,
+          controlId: control.id,
+          executionDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          executorUserId: DEMO_ADMIN_ID,
+          source: ControlResultSource.MANUAL,
+          resultValueBoolean: control.expectedResultType === ControlResultType.BOOLEAN ? false : null,
+          resultValueNumber: control.expectedResultType === ControlResultType.NUMERIC ? 45 : null,
+          resultValueText: control.expectedResultType === ControlResultType.QUALITATIVE ? 'Issues found during assessment' : null,
+          isCompliant: false,
+          isDeleted: false,
+        });
+        await controlResultRepo.save(nonCompliantResult);
+        console.log(`   Created non-compliant result for: ${control.name}`);
+
+        // Create violation for non-compliant result
+        const violation = violationRepo.create({
+          tenantId: DEMO_TENANT_ID,
+          controlId: control.id,
+          controlResultId: nonCompliantResult.id,
+          severity: ViolationSeverity.MEDIUM,
+          status: ViolationStatus.OPEN,
+          title: `Violation: ${control.name} - ${nonCompliantResult.executionDate.toISOString().split('T')[0]}`,
+          description: `Non-compliant result recorded for control "${control.name}"`,
+          isDeleted: false,
+        });
+        await violationRepo.save(violation);
+        console.log(`   Created violation for: ${control.name}`);
+      }
+    } else {
+      console.log('   Control results already exist, skipping...');
+    }
+
     console.log('\n========================================');
     console.log('GRC Demo Data Seed Complete!');
     console.log('========================================');
@@ -777,6 +1008,8 @@ async function seedGrcData() {
     console.log(`  - Risks: ${risks.length}`);
     console.log(`  - Policies: ${policies.length}`);
     console.log(`  - Requirements: ${requirements.length}`);
+    console.log(`  - Processes: ${processes.length}`);
+    console.log(`  - Process Controls: ${processControls.length}`);
     console.log('');
     console.log('To test the API:');
     console.log('  1. Start NestJS: cd backend-nest && npm run start:dev');
