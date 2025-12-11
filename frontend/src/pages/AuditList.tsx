@@ -122,9 +122,11 @@ export const AuditList: React.FC = () => {
       const response = await api.get('/grc/audits/can/create');
       setCanCreate(response.data.allowed);
     } catch {
-      setCanCreate(false);
+      // Fallback: allow admin and manager users to create audits even if the check fails
+      const userRole = user?.role;
+      setCanCreate(userRole === 'admin' || userRole === 'manager');
     }
-  }, []);
+  }, [user?.role]);
 
   const fetchDepartments = useCallback(async () => {
     try {

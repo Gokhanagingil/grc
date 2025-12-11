@@ -645,6 +645,258 @@ describe('GRC CRUD Operations (e2e)', () => {
     });
   });
 
+  // ==================== AUDITS ====================
+  describe('GRC Audits', () => {
+    let createdAuditId: string;
+
+    describe('GET /grc/audits', () => {
+      it('should return list of audits with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/audits')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/audits')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/audits')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+    });
+
+    describe('GET /grc/audits/can/create', () => {
+      it('should return allowed status for admin user', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/audits/can/create')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response may be wrapped in standard envelope or returned directly
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('allowed', true);
+      });
+    });
+
+    describe('POST /grc/audits', () => {
+      it('should create a new audit with valid data', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newAudit = {
+          name: 'Test Audit - E2E',
+          description: 'A test audit created by e2e tests',
+          auditType: 'internal',
+          status: 'planned',
+          riskLevel: 'medium',
+          department: 'Engineering',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/audits')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newAudit)
+          .expect(201);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newAudit.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
+
+        createdAuditId = data.id;
+      });
+
+      it('should return 400 without required name field', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidAudit = {
+          description: 'Missing name',
+          auditType: 'internal',
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/audits')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidAudit)
+          .expect(400);
+      });
+    });
+
+    describe('GET /grc/audits/:id', () => {
+      it('should return a specific audit by ID', async () => {
+        if (!dbConnected || !tenantId || !createdAuditId) {
+          console.log(
+            'Skipping test: database not connected or no audit created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/audits/${createdAuditId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdAuditId);
+        expect(data).toHaveProperty('name', 'Test Audit - E2E');
+      });
+
+      it('should return 404 for non-existent audit', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/audits/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('PATCH /grc/audits/:id', () => {
+      it('should update an existing audit', async () => {
+        if (!dbConnected || !tenantId || !createdAuditId) {
+          console.log(
+            'Skipping test: database not connected or no audit created',
+          );
+          return;
+        }
+
+        const updateData = {
+          name: 'Test Audit - E2E Updated',
+          status: 'in_progress',
+        };
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/audits/${createdAuditId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(updateData)
+          .expect(200);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdAuditId);
+        expect(data).toHaveProperty('name', updateData.name);
+        expect(data).toHaveProperty('status', updateData.status);
+      });
+
+      it('should return 404 for non-existent audit', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch('/grc/audits/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ name: 'Updated' })
+          .expect(404);
+      });
+    });
+
+    describe('DELETE /grc/audits/:id', () => {
+      it('should soft delete an audit', async () => {
+        if (!dbConnected || !tenantId || !createdAuditId) {
+          console.log(
+            'Skipping test: database not connected or no audit created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/audits/${createdAuditId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should return 404 when trying to get deleted audit', async () => {
+        if (!dbConnected || !tenantId || !createdAuditId) {
+          console.log(
+            'Skipping test: database not connected or no audit created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/audits/${createdAuditId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('GET /grc/audits/statistics', () => {
+      it('should return audit statistics', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/audits/statistics')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('total');
+        expect(data).toHaveProperty('byStatus');
+        expect(data).toHaveProperty('byType');
+        expect(data).toHaveProperty('byRiskLevel');
+      });
+    });
+  });
+
   // ==================== TENANT ISOLATION ====================
   describe('Tenant Isolation', () => {
     let isolationTestRiskId: string;
