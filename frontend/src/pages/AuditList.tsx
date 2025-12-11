@@ -60,11 +60,6 @@ interface Audit {
   updated_at: string;
 }
 
-interface AuditPermissions {
-  read: boolean;
-  write: boolean;
-  delete: boolean;
-}
 
 export const AuditList: React.FC = () => {
   const { user } = useAuth();
