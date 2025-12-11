@@ -122,20 +122,20 @@ export const Compliance: React.FC = () => {
     }
   };
 
-  const handleCreateRequirement = () => {
-    setEditingRequirement(null);
-    setFormData({
-      title: '',
-      description: '',
-      regulation: '',
-      category: '',
-      status: 'pending',
-      dueDate: null,
-      evidence: '',
-      assignedTo: '',
-    });
-    setOpenDialog(true);
-  };
+    const handleCreateRequirement = () => {
+      setEditingRequirement(null);
+      setFormData({
+        title: '',
+        description: '',
+        regulation: 'iso27001',
+        category: '',
+        status: 'not_started',
+        dueDate: null,
+        evidence: '',
+        assignedTo: '',
+      });
+      setOpenDialog(true);
+    };
 
   const handleEditRequirement = (requirement: ComplianceRequirement) => {
     setEditingRequirement(requirement);
@@ -211,15 +211,16 @@ export const Compliance: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'in_progress': return 'info';
-      case 'pending': return 'warning';
-      case 'overdue': return 'error';
-      default: return 'default';
-    }
-  };
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'verified': return 'success';
+        case 'implemented': return 'info';
+        case 'in_progress': return 'warning';
+        case 'not_started': return 'default';
+        case 'non_compliant': return 'error';
+        default: return 'default';
+      }
+    };
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date();
@@ -371,12 +372,22 @@ export const Compliance: React.FC = () => {
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Regulation"
-                value={formData.regulation}
-                onChange={(e) => setFormData({ ...formData, regulation: e.target.value })}
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Framework</InputLabel>
+                <Select
+                  value={formData.regulation}
+                  label="Framework"
+                  onChange={(e) => setFormData({ ...formData, regulation: e.target.value })}
+                >
+                  <MenuItem value="iso27001">ISO 27001</MenuItem>
+                  <MenuItem value="soc2">SOC 2</MenuItem>
+                  <MenuItem value="gdpr">GDPR</MenuItem>
+                  <MenuItem value="hipaa">HIPAA</MenuItem>
+                  <MenuItem value="pci_dss">PCI DSS</MenuItem>
+                  <MenuItem value="nist">NIST</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={6}>
               <TextField
@@ -387,17 +398,19 @@ export const Compliance: React.FC = () => {
               />
             </Grid>
             <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="in_progress">In Progress</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
-                </Select>
-              </FormControl>
+                            <FormControl fullWidth>
+                              <InputLabel>Status</InputLabel>
+                              <Select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                              >
+                                <MenuItem value="not_started">Not Started</MenuItem>
+                                <MenuItem value="in_progress">In Progress</MenuItem>
+                                <MenuItem value="implemented">Implemented</MenuItem>
+                                <MenuItem value="verified">Verified</MenuItem>
+                                <MenuItem value="non_compliant">Non-Compliant</MenuItem>
+                              </Select>
+                            </FormControl>
             </Grid>
             <Grid item xs={6}>
                             <LocalizationProvider dateAdapter={AdapterDateFns}>

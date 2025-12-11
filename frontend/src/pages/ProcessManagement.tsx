@@ -89,9 +89,9 @@ interface ComplianceScore {
   nonCompliantResults: number;
 }
 
-const CONTROL_METHODS = ['SCRIPT', 'SAMPLING', 'INTERVIEW', 'WALKTHROUGH', 'OBSERVATION'];
-const CONTROL_FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY', 'EVENT_DRIVEN'];
-const RESULT_TYPES = ['BOOLEAN', 'NUMERIC', 'QUALITATIVE'];
+const CONTROL_METHODS = ['script', 'sampling', 'interview', 'walkthrough', 'observation'];
+const CONTROL_FREQUENCIES = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'event_driven'];
+const RESULT_TYPES = ['boolean', 'numeric', 'qualitative'];
 const PROCESS_CATEGORIES = ['ITSM', 'Security', 'Finance', 'Operations', 'HR', 'Compliance'];
 
 export const ProcessManagement: React.FC = () => {
@@ -128,15 +128,15 @@ export const ProcessManagement: React.FC = () => {
     isActive: true,
   });
 
-  const [controlFormData, setControlFormData] = useState({
-    name: '',
-    description: '',
-    isAutomated: false,
-    method: 'WALKTHROUGH',
-    frequency: 'MONTHLY',
-    expectedResultType: 'BOOLEAN',
-    isActive: true,
-  });
+    const [controlFormData, setControlFormData] = useState({
+      name: '',
+      description: '',
+      isAutomated: false,
+      method: 'walkthrough',
+      frequency: 'monthly',
+      expectedResultType: 'boolean',
+      isActive: true,
+    });
 
   const [resultFormData, setResultFormData] = useState({
     isCompliant: true,
@@ -305,19 +305,19 @@ export const ProcessManagement: React.FC = () => {
     }
   };
 
-  const handleCreateControl = () => {
-    setEditingControl(null);
-    setControlFormData({
-      name: '',
-      description: '',
-      isAutomated: false,
-      method: 'WALKTHROUGH',
-      frequency: 'MONTHLY',
-      expectedResultType: 'BOOLEAN',
-      isActive: true,
-    });
-    setOpenControlDialog(true);
-  };
+    const handleCreateControl = () => {
+      setEditingControl(null);
+      setControlFormData({
+        name: '',
+        description: '',
+        isAutomated: false,
+        method: 'walkthrough',
+        frequency: 'monthly',
+        expectedResultType: 'boolean',
+        isActive: true,
+      });
+      setOpenControlDialog(true);
+    };
 
   const handleEditControl = (control: ProcessControl) => {
     setEditingControl(control);

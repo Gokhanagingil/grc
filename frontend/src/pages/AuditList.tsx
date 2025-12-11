@@ -55,25 +55,23 @@ const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | 
 };
 
 interface Audit {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
-  audit_type: 'internal' | 'external';
-  status: 'planned' | 'in_progress' | 'completed' | 'closed';
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  auditType: 'internal' | 'external' | 'regulatory' | 'compliance';
+  status: 'planned' | 'in_progress' | 'completed' | 'closed' | 'cancelled';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   department: string | null;
-  owner_id: number | null;
-  lead_auditor_id: number | null;
-  planned_start_date: string | null;
-  planned_end_date: string | null;
-  actual_start_date: string | null;
-  actual_end_date: string | null;
-  owner_first_name?: string;
-  owner_last_name?: string;
-  lead_auditor_first_name?: string;
-  lead_auditor_last_name?: string;
-  created_at: string;
-  updated_at: string;
+  ownerUserId: string | null;
+  leadAuditorId: string | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  owner?: { firstName?: string; lastName?: string };
+  leadAuditor?: { firstName?: string; lastName?: string };
+  createdAt: string;
+  updatedAt: string;
 }
 
 
@@ -107,16 +105,16 @@ export const AuditList: React.FC = () => {
       setLoading(true);
       setError('');
 
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        limit: String(rowsPerPage),
-      });
+            const params = new URLSearchParams({
+              page: String(page + 1),
+              pageSize: String(rowsPerPage),
+            });
 
-      if (statusFilter) params.append('status', statusFilter);
-      if (riskLevelFilter) params.append('risk_level', riskLevelFilter);
-      if (departmentFilter) params.append('department', departmentFilter);
-      if (auditTypeFilter) params.append('audit_type', auditTypeFilter);
-      if (searchQuery) params.append('search', searchQuery);
+            if (statusFilter) params.append('status', statusFilter);
+            if (riskLevelFilter) params.append('riskLevel', riskLevelFilter);
+            if (departmentFilter) params.append('department', departmentFilter);
+            if (auditTypeFilter) params.append('auditType', auditTypeFilter);
+            if (searchQuery) params.append('search', searchQuery);
 
       const response = await api.get(`/grc/audits?${params.toString()}`);
       const data = unwrapResponse<{ audits: Audit[]; pagination: { total: number } }>(response);
@@ -183,7 +181,7 @@ export const AuditList: React.FC = () => {
     fetchDepartments();
   }, [fetchCanCreate, fetchDepartments]);
 
-  const handleDeleteAudit = async (id: number) => {
+  const handleDeleteAudit = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this audit?')) return;
 
     try {
@@ -437,40 +435,40 @@ export const AuditList: React.FC = () => {
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={audit.audit_type === 'internal' ? 'Internal' : 'External'}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={formatStatus(audit.status)}
-                            size="small"
-                            color={getStatusColor(audit.status)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={audit.risk_level.charAt(0).toUpperCase() + audit.risk_level.slice(1)}
-                            size="small"
-                            color={getRiskLevelColor(audit.risk_level)}
-                          />
-                        </TableCell>
-                        <TableCell>{audit.department || '-'}</TableCell>
-                        <TableCell>
-                          {audit.owner_first_name && audit.owner_last_name
-                            ? `${audit.owner_first_name} ${audit.owner_last_name}`
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {audit.planned_start_date || audit.planned_end_date ? (
-                            <Typography variant="body2">
-                              {formatDate(audit.planned_start_date)} - {formatDate(audit.planned_end_date)}
-                            </Typography>
-                          ) : '-'}
-                        </TableCell>
+                                                <TableCell>
+                                                  <Chip
+                                                    label={audit.auditType.charAt(0).toUpperCase() + audit.auditType.slice(1)}
+                                                    size="small"
+                                                    variant="outlined"
+                                                  />
+                                                </TableCell>
+                                                <TableCell>
+                                                  <Chip
+                                                    label={formatStatus(audit.status)}
+                                                    size="small"
+                                                    color={getStatusColor(audit.status)}
+                                                  />
+                                                </TableCell>
+                                                <TableCell>
+                                                  <Chip
+                                                    label={audit.riskLevel.charAt(0).toUpperCase() + audit.riskLevel.slice(1)}
+                                                    size="small"
+                                                    color={getRiskLevelColor(audit.riskLevel)}
+                                                  />
+                                                </TableCell>
+                                                <TableCell>{audit.department || '-'}</TableCell>
+                                                <TableCell>
+                                                  {audit.owner?.firstName && audit.owner?.lastName
+                                                    ? `${audit.owner.firstName} ${audit.owner.lastName}`
+                                                    : '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {audit.plannedStartDate || audit.plannedEndDate ? (
+                                                    <Typography variant="body2">
+                                                      {formatDate(audit.plannedStartDate)} - {formatDate(audit.plannedEndDate)}
+                                                    </Typography>
+                                                  ) : '-'}
+                                                </TableCell>
                         <TableCell>
                           <Tooltip title="View">
                             <IconButton

@@ -60,33 +60,29 @@ const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | 
 };
 
 interface Audit {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
-  audit_type: 'internal' | 'external';
-  status: 'planned' | 'in_progress' | 'completed' | 'closed';
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  auditType: 'internal' | 'external' | 'regulatory' | 'compliance';
+  status: 'planned' | 'in_progress' | 'completed' | 'closed' | 'cancelled';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   department: string | null;
-  owner_id: number | null;
-  lead_auditor_id: number | null;
-  planned_start_date: string | null;
-  planned_end_date: string | null;
-  actual_start_date: string | null;
-  actual_end_date: string | null;
+  ownerUserId: string | null;
+  leadAuditorId: string | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
   scope: string | null;
   objectives: string | null;
   methodology: string | null;
-  findings_summary: string | null;
+  findingsSummary: string | null;
   recommendations: string | null;
   conclusion: string | null;
-  owner_first_name?: string;
-  owner_last_name?: string;
-  owner_email?: string;
-  lead_auditor_first_name?: string;
-  lead_auditor_last_name?: string;
-  lead_auditor_email?: string;
-  created_at: string;
-  updated_at: string;
+  owner?: { firstName?: string; lastName?: string; email?: string };
+  leadAuditor?: { firstName?: string; lastName?: string; email?: string };
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AuditPermissions {
@@ -189,25 +185,25 @@ export const AuditDetail: React.FC = () => {
     const [generatingReport, setGeneratingReport] = useState(false);
     const [reportActionLoading, setReportActionLoading] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    audit_type: 'internal' as 'internal' | 'external',
-    status: 'planned' as 'planned' | 'in_progress' | 'completed' | 'closed',
-    risk_level: 'medium' as 'low' | 'medium' | 'high' | 'critical',
-    department: '',
-    lead_auditor_id: null as number | null,
-    planned_start_date: null as Date | null,
-    planned_end_date: null as Date | null,
-    actual_start_date: null as Date | null,
-    actual_end_date: null as Date | null,
-    scope: '',
-    objectives: '',
-    methodology: '',
-    findings_summary: '',
-    recommendations: '',
-    conclusion: '',
-  });
+    const [formData, setFormData] = useState({
+      name: '',
+      description: '',
+      audit_type: 'internal' as 'internal' | 'external' | 'regulatory' | 'compliance',
+      status: 'planned' as 'planned' | 'in_progress' | 'completed' | 'closed' | 'cancelled',
+      risk_level: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+      department: '',
+      lead_auditor_id: null as number | null,
+      planned_start_date: null as Date | null,
+      planned_end_date: null as Date | null,
+      actual_start_date: null as Date | null,
+      actual_end_date: null as Date | null,
+      scope: '',
+      objectives: '',
+      methodology: '',
+      findings_summary: '',
+      recommendations: '',
+      conclusion: '',
+    });
 
   const { layout, isLoading: layoutLoading } = useFormLayout('audits');
   const { 
@@ -233,25 +229,25 @@ export const AuditDetail: React.FC = () => {
       
       setAudit(auditData);
 
-      setFormData({
-        name: auditData.name || '',
-        description: auditData.description || '',
-        audit_type: auditData.audit_type || 'internal',
-        status: auditData.status || 'planned',
-        risk_level: auditData.risk_level || 'medium',
-        department: auditData.department || '',
-        lead_auditor_id: auditData.lead_auditor_id,
-        planned_start_date: auditData.planned_start_date ? new Date(auditData.planned_start_date) : null,
-        planned_end_date: auditData.planned_end_date ? new Date(auditData.planned_end_date) : null,
-        actual_start_date: auditData.actual_start_date ? new Date(auditData.actual_start_date) : null,
-        actual_end_date: auditData.actual_end_date ? new Date(auditData.actual_end_date) : null,
-        scope: auditData.scope || '',
-        objectives: auditData.objectives || '',
-        methodology: auditData.methodology || '',
-        findings_summary: auditData.findings_summary || '',
-        recommendations: auditData.recommendations || '',
-        conclusion: auditData.conclusion || '',
-      });
+            setFormData({
+              name: auditData.name || '',
+              description: auditData.description || '',
+              audit_type: auditData.auditType || 'internal',
+              status: auditData.status || 'planned',
+              risk_level: auditData.riskLevel || 'medium',
+              department: auditData.department || '',
+              lead_auditor_id: auditData.leadAuditorId ? Number(auditData.leadAuditorId) : null,
+              planned_start_date: auditData.plannedStartDate ? new Date(auditData.plannedStartDate) : null,
+              planned_end_date: auditData.plannedEndDate ? new Date(auditData.plannedEndDate) : null,
+              actual_start_date: auditData.actualStartDate ? new Date(auditData.actualStartDate) : null,
+              actual_end_date: auditData.actualEndDate ? new Date(auditData.actualEndDate) : null,
+              scope: auditData.scope || '',
+              objectives: auditData.objectives || '',
+              methodology: auditData.methodology || '',
+              findings_summary: auditData.findingsSummary || '',
+              recommendations: auditData.recommendations || '',
+              conclusion: auditData.conclusion || '',
+            });
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       if (error.response?.status === 403) {
@@ -710,40 +706,40 @@ export const AuditDetail: React.FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Audit Information</Typography>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="textSecondary">Owner</Typography>
-                          <Typography>
-                            {audit.owner_first_name && audit.owner_last_name
-                              ? `${audit.owner_first_name} ${audit.owner_last_name}`
-                              : 'Not assigned'}
-                            {audit.owner_email && (
-                              <Typography variant="body2" color="textSecondary" component="span">
-                                {' '}({audit.owner_email})
-                              </Typography>
-                            )}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="textSecondary">Lead Auditor</Typography>
-                          <Typography>
-                            {audit.lead_auditor_first_name && audit.lead_auditor_last_name
-                              ? `${audit.lead_auditor_first_name} ${audit.lead_auditor_last_name}`
-                              : 'Not assigned'}
-                            {audit.lead_auditor_email && (
-                              <Typography variant="body2" color="textSecondary" component="span">
-                                {' '}({audit.lead_auditor_email})
-                              </Typography>
-                            )}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="textSecondary">Created</Typography>
-                          <Typography>{new Date(audit.created_at).toLocaleString()}</Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="textSecondary">Last Updated</Typography>
-                          <Typography>{new Date(audit.updated_at).toLocaleString()}</Typography>
-                        </Grid>
+                                                <Grid item xs={12} md={6}>
+                                                  <Typography variant="body2" color="textSecondary">Owner</Typography>
+                                                  <Typography>
+                                                    {audit.owner?.firstName && audit.owner?.lastName
+                                                      ? `${audit.owner.firstName} ${audit.owner.lastName}`
+                                                      : 'Not assigned'}
+                                                    {audit.owner?.email && (
+                                                      <Typography variant="body2" color="textSecondary" component="span">
+                                                        {' '}({audit.owner.email})
+                                                      </Typography>
+                                                    )}
+                                                  </Typography>
+                                                </Grid>
+                                                <Grid item xs={12} md={6}>
+                                                  <Typography variant="body2" color="textSecondary">Lead Auditor</Typography>
+                                                  <Typography>
+                                                    {audit.leadAuditor?.firstName && audit.leadAuditor?.lastName
+                                                      ? `${audit.leadAuditor.firstName} ${audit.leadAuditor.lastName}`
+                                                      : 'Not assigned'}
+                                                    {audit.leadAuditor?.email && (
+                                                      <Typography variant="body2" color="textSecondary" component="span">
+                                                        {' '}({audit.leadAuditor.email})
+                                                      </Typography>
+                                                    )}
+                                                  </Typography>
+                                                </Grid>
+                                                <Grid item xs={12} md={6}>
+                                                  <Typography variant="body2" color="textSecondary">Created</Typography>
+                                                  <Typography>{new Date(audit.createdAt).toLocaleString()}</Typography>
+                                                </Grid>
+                                                <Grid item xs={12} md={6}>
+                                                  <Typography variant="body2" color="textSecondary">Last Updated</Typography>
+                                                  <Typography>{new Date(audit.updatedAt).toLocaleString()}</Typography>
+                                                </Grid>
                       </Grid>
                     </CardContent>
                   </Card>
