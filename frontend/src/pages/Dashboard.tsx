@@ -141,7 +141,7 @@ export const Dashboard: React.FC = () => {
   const tenantId = user?.tenantId || '';
 
   // Navigation handlers for clickable dashboard metrics
-  const handleNavigateToRisks = () => navigate('/risks', { state: { source: 'dashboard' } });
+  const handleNavigateToRisks = () => navigate('/risk', { state: { source: 'dashboard' } });
   const handleNavigateToCompliance = () => navigate('/compliance', { state: { source: 'dashboard' } });
   const handleNavigateToPolicies = () => navigate('/governance', { state: { source: 'dashboard' } });
   const handleNavigateToIncidents = () => navigate('/incidents', { state: { source: 'dashboard' } });
