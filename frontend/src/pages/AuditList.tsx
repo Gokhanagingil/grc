@@ -38,6 +38,14 @@ import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../compon
 import { ModuleGuard } from '../components/ModuleGuard';
 import { api } from '../services/api';
 
+const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T => {
+  const data = response.data;
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+    return (data as { success: boolean; data: T }).data;
+  }
+  return data as T;
+};
+
 interface Audit {
   id: number;
   name: string;
@@ -103,8 +111,9 @@ export const AuditList: React.FC = () => {
       if (searchQuery) params.append('search', searchQuery);
 
       const response = await api.get(`/grc/audits?${params.toString()}`);
-      setAudits(response.data.audits || []);
-      setTotal(response.data.pagination?.total || 0);
+      const data = unwrapResponse<{ audits: Audit[]; pagination: { total: number } }>(response);
+      setAudits(data.audits || []);
+      setTotal(data.pagination?.total || 0);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       if (error.response?.status === 403) {
@@ -145,7 +154,7 @@ export const AuditList: React.FC = () => {
   const fetchDepartments = useCallback(async () => {
     try {
       const response = await api.get('/grc/audits/distinct/department');
-      setDepartments(response.data || []);
+      setDepartments(unwrapResponse<string[]>(response) || []);
     } catch {
       setDepartments([]);
     }

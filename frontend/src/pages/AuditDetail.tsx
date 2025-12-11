@@ -47,6 +47,14 @@ import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
 
+const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T => {
+  const data = response.data;
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+    return (data as { success: boolean; data: T }).data;
+  }
+  return data as T;
+};
+
 interface Audit {
   id: number;
   name: string;
@@ -212,7 +220,7 @@ export const AuditDetail: React.FC = () => {
       setLoading(true);
       setError('');
       const response = await api.get(`/grc/audits/${id}`);
-      const auditData = response.data;
+      const auditData = unwrapResponse<Audit>(response);
       setAudit(auditData);
 
       setFormData({
@@ -256,7 +264,7 @@ export const AuditDetail: React.FC = () => {
 
     try {
       const response = await api.get(`/grc/audits/${id}/permissions`);
-      setPermissions(response.data);
+      setPermissions(unwrapResponse<AuditPermissions>(response));
     } catch {
       setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
     }
@@ -282,10 +290,10 @@ export const AuditDetail: React.FC = () => {
           api.get(`/grc/audits/${id}/scope-objects`),
           api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
         ]);
-        setFindings(findingsRes.data || []);
-        setCriteria(criteriaRes.data || []);
-        setScopeObjects(scopeRes.data || []);
-        setReports(reportsRes.data || []);
+        setFindings(unwrapResponse<Finding[]>(findingsRes) || []);
+        setCriteria(unwrapResponse<AuditCriterion[]>(criteriaRes) || []);
+        setScopeObjects(unwrapResponse<ScopeObject[]>(scopeRes) || []);
+        setReports(unwrapResponse<AuditReport[]>(reportsRes) || []);
       } catch {
         setFindings([]);
         setCriteria([]);
@@ -384,9 +392,15 @@ export const AuditDetail: React.FC = () => {
 
       if (isNew) {
         const response = await api.post('/grc/audits', payload);
+        const createdAudit = unwrapResponse<{ id: string }>(response);
+        const auditId = createdAudit?.id;
+        
+        if (!auditId) {
+          setError('Audit was created but the system could not determine its ID. Please check the audit list.');
+          return;
+        }
+        
         setSuccess('Audit created successfully');
-        // Handle both response formats: { audit: { id } } or { id }
-        const auditId = response.data.audit?.id || response.data.id;
         setTimeout(() => navigate(`/audits/${auditId}`), 1500);
       } else {
         await api.patch(`/grc/audits/${id}`, payload);
