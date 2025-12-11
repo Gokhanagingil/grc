@@ -80,8 +80,23 @@ interface Risk {
   severity: string;
 }
 
-const VIOLATION_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-const VIOLATION_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
+// Backend expects lowercase enum values
+const VIOLATION_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+const VIOLATION_STATUSES = ['open', 'in_progress', 'resolved'];
+
+// Display labels for UI (uppercase for display)
+const SEVERITY_LABELS: Record<string, string> = {
+  low: 'LOW',
+  medium: 'MEDIUM',
+  high: 'HIGH',
+  critical: 'CRITICAL',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  open: 'OPEN',
+  in_progress: 'IN PROGRESS',
+  resolved: 'RESOLVED',
+};
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
@@ -106,7 +121,7 @@ export const ProcessViolations: React.FC = () => {
   const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
   const [editFormData, setEditFormData] = useState({
-    status: 'OPEN',
+    status: 'open',
     dueDate: null as Date | null,
     resolutionNotes: '',
   });
@@ -158,13 +173,18 @@ export const ProcessViolations: React.FC = () => {
   }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter]);
 
   const fetchAllRisks = useCallback(async () => {
+    if (!tenantId) {
+      console.warn('Cannot fetch risks: tenantId is not available');
+      return;
+    }
     try {
       const params = new URLSearchParams({ pageSize: '1000' });
       const response = await riskApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<Risk>(response);
-      setAllRisks(result.items);
+      setAllRisks(result.items || []);
     } catch (err) {
       console.error('Failed to fetch risks:', err);
+      setAllRisks([]);
     }
   }, [tenantId]);
 
@@ -270,14 +290,15 @@ export const ProcessViolations: React.FC = () => {
   };
 
   const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
-    switch (severity) {
-      case 'CRITICAL':
+    const normalizedSeverity = severity.toLowerCase();
+    switch (normalizedSeverity) {
+      case 'critical':
         return 'error';
-      case 'HIGH':
+      case 'high':
         return 'warning';
-      case 'MEDIUM':
+      case 'medium':
         return 'info';
-      case 'LOW':
+      case 'low':
         return 'success';
       default:
         return 'default';
@@ -285,12 +306,13 @@ export const ProcessViolations: React.FC = () => {
   };
 
   const getStatusColor = (status: string): 'error' | 'warning' | 'success' | 'default' => {
-    switch (status) {
-      case 'RESOLVED':
+    const normalizedStatus = status.toLowerCase();
+    switch (normalizedStatus) {
+      case 'resolved':
         return 'success';
-      case 'IN_PROGRESS':
+      case 'in_progress':
         return 'warning';
-      case 'OPEN':
+      case 'open':
         return 'error';
       default:
         return 'default';
@@ -350,7 +372,7 @@ export const ProcessViolations: React.FC = () => {
                 <MenuItem value="">All</MenuItem>
                 {VIOLATION_STATUSES.map((status) => (
                   <MenuItem key={status} value={status}>
-                    {status.replace('_', ' ')}
+                    {STATUS_LABELS[status] || status.toUpperCase().replace('_', ' ')}
                   </MenuItem>
                 ))}
               </Select>
@@ -368,7 +390,7 @@ export const ProcessViolations: React.FC = () => {
                 <MenuItem value="">All</MenuItem>
                 {VIOLATION_SEVERITIES.map((severity) => (
                   <MenuItem key={severity} value={severity}>
-                    {severity}
+                    {SEVERITY_LABELS[severity] || severity.toUpperCase()}
                   </MenuItem>
                 ))}
               </Select>
@@ -458,14 +480,14 @@ export const ProcessViolations: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={violation.severity}
+                          label={SEVERITY_LABELS[violation.severity] || violation.severity.toUpperCase()}
                           color={getSeverityColor(violation.severity)}
                           size="small"
                         />
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={violation.status.replace('_', ' ')}
+                          label={STATUS_LABELS[violation.status] || violation.status.toUpperCase().replace('_', ' ')}
                           color={getStatusColor(violation.status)}
                           size="small"
                         />
@@ -537,11 +559,11 @@ export const ProcessViolations: React.FC = () => {
 
               <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
                 <Chip
-                  label={`Severity: ${viewingViolation.severity}`}
+                  label={`Severity: ${SEVERITY_LABELS[viewingViolation.severity] || viewingViolation.severity.toUpperCase()}`}
                   color={getSeverityColor(viewingViolation.severity)}
                 />
                 <Chip
-                  label={`Status: ${viewingViolation.status.replace('_', ' ')}`}
+                  label={`Status: ${STATUS_LABELS[viewingViolation.status] || viewingViolation.status.toUpperCase().replace('_', ' ')}`}
                   color={getStatusColor(viewingViolation.status)}
                 />
               </Box>
@@ -616,7 +638,7 @@ export const ProcessViolations: React.FC = () => {
               >
                 {VIOLATION_STATUSES.map((status) => (
                   <MenuItem key={status} value={status}>
-                    {status.replace('_', ' ')}
+                    {STATUS_LABELS[status] || status.toUpperCase().replace('_', ' ')}
                   </MenuItem>
                 ))}
               </Select>

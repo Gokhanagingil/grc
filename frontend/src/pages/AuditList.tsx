@@ -40,12 +40,16 @@ import { api } from '../services/api';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
+    if (!response || !response.data) {
+      return null;
+    }
     const data = response.data;
     if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
       return (data as { success: boolean; data: T }).data;
     }
     return data as T;
-  } catch {
+  } catch (err) {
+    console.error('Error unwrapping response:', err);
     return null;
   }
 };

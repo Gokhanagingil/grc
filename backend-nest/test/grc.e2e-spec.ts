@@ -897,6 +897,135 @@ describe('GRC CRUD Operations (e2e)', () => {
     });
   });
 
+  // ==================== PROCESS VIOLATIONS ====================
+  describe('GRC Process Violations', () => {
+    describe('GET /grc/process-violations', () => {
+      it('should return list of process violations with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/process-violations')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in standard envelope: { success, data, meta }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/process-violations')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/process-violations')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+
+      it('should filter violations by status (lowercase)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        // Test with lowercase status values (backend expects lowercase)
+        const response = await request(app.getHttpServer())
+          .get('/grc/process-violations?status=open')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
+      });
+
+      it('should filter violations by severity (lowercase)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        // Test with lowercase severity values (backend expects lowercase)
+        const response = await request(app.getHttpServer())
+          .get('/grc/process-violations?severity=high')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(Array.isArray(response.body.data)).toBe(true);
+      });
+    });
+
+    describe('PATCH /grc/process-violations/:id', () => {
+      it('should return 404 for non-existent violation', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch('/grc/process-violations/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ status: 'in_progress' })
+          .expect(404);
+      });
+
+      it('should reject invalid status values', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch('/grc/process-violations/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ status: 'INVALID_STATUS' })
+          .expect(400);
+      });
+    });
+
+    describe('PATCH /grc/process-violations/:id/link-risk', () => {
+      it('should return 404 for non-existent violation when linking risk', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch('/grc/process-violations/00000000-0000-0000-0000-000000000000/link-risk')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ riskId: '00000000-0000-0000-0000-000000000001' })
+          .expect(404);
+      });
+    });
+  });
+
   // ==================== TENANT ISOLATION ====================
   describe('Tenant Isolation', () => {
     let isolationTestRiskId: string;
