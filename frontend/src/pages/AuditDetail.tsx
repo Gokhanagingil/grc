@@ -365,20 +365,30 @@ export const AuditDetail: React.FC = () => {
       setSaving(true);
       setError('');
 
+      // Transform snake_case formData to camelCase for backend DTO
       const payload = {
-        ...formData,
-        planned_start_date: formData.planned_start_date?.toISOString().split('T')[0] || null,
-        planned_end_date: formData.planned_end_date?.toISOString().split('T')[0] || null,
-        actual_start_date: formData.actual_start_date?.toISOString().split('T')[0] || null,
-        actual_end_date: formData.actual_end_date?.toISOString().split('T')[0] || null,
+        name: formData.name,
+        description: formData.description || undefined,
+        auditType: formData.audit_type,
+        status: formData.status,
+        riskLevel: formData.risk_level,
+        department: formData.department || undefined,
+        leadAuditorId: formData.lead_auditor_id ? String(formData.lead_auditor_id) : undefined,
+        plannedStartDate: formData.planned_start_date?.toISOString().split('T')[0] || undefined,
+        plannedEndDate: formData.planned_end_date?.toISOString().split('T')[0] || undefined,
+        scope: formData.scope || undefined,
+        objectives: formData.objectives || undefined,
+        methodology: formData.methodology || undefined,
       };
 
       if (isNew) {
         const response = await api.post('/grc/audits', payload);
         setSuccess('Audit created successfully');
-        setTimeout(() => navigate(`/audits/${response.data.audit.id}`), 1500);
+        // Handle both response formats: { audit: { id } } or { id }
+        const auditId = response.data.audit?.id || response.data.id;
+        setTimeout(() => navigate(`/audits/${auditId}`), 1500);
       } else {
-        await api.put(`/grc/audits/${id}`, payload);
+        await api.patch(`/grc/audits/${id}`, payload);
         setSuccess('Audit updated successfully');
         setTimeout(() => {
           setSuccess('');
