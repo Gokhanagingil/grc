@@ -204,8 +204,8 @@ export const RiskManagement: React.FC = () => {
     if (!tenantId) return;
     try {
       const [policiesResponse, requirementsResponse] = await Promise.all([
-        policyApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
-        requirementApi.list(tenantId, new URLSearchParams({ pageSize: '1000' })),
+        policyApi.list(tenantId, new URLSearchParams({ pageSize: '100' })),
+        requirementApi.list(tenantId, new URLSearchParams({ pageSize: '100' })),
       ]);
       const policiesResult = unwrapPaginatedResponse<Policy>(policiesResponse);
       const requirementsResult = unwrapPaginatedResponse<Requirement>(requirementsResponse);

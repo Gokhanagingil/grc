@@ -178,7 +178,7 @@ export const ProcessViolations: React.FC = () => {
       return;
     }
     try {
-      const params = new URLSearchParams({ pageSize: '1000' });
+      const params = new URLSearchParams({ pageSize: '100' });
       const response = await riskApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<Risk>(response);
       setAllRisks(result.items || []);
