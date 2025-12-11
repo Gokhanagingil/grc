@@ -76,7 +76,12 @@ export const AuditList: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
-  const [canCreate, setCanCreate] = useState(false);
+  
+  // Initialize canCreate based on user role immediately for admin/manager
+  // This ensures the button is visible right away for authorized users
+  const userRole = user?.role;
+  const isAuthorizedRole = userRole === 'admin' || userRole === 'manager';
+  const [canCreate, setCanCreate] = useState(isAuthorizedRole);
 
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riskLevelFilter, setRiskLevelFilter] = useState<string>('');
@@ -118,13 +123,27 @@ export const AuditList: React.FC = () => {
   }, [page, rowsPerPage, statusFilter, riskLevelFilter, departmentFilter, auditTypeFilter, searchQuery]);
 
   const fetchCanCreate = useCallback(async () => {
+    // For admin/manager users, always allow creation regardless of API response
+    // This ensures the button is never hidden due to API issues for authorized users
+    const userRole = user?.role;
+    const isAuthorizedByRole = userRole === 'admin' || userRole === 'manager';
+    
+    if (isAuthorizedByRole) {
+      setCanCreate(true);
+      return;
+    }
+    
+    // For other users, check with the API
     try {
       const response = await api.get('/grc/audits/can/create');
-      setCanCreate(response.data.allowed);
+      // Handle both envelope format { success: true, data: { allowed: true } } 
+      // and flat format { allowed: true }
+      const data = response.data?.data || response.data;
+      const allowed = data?.allowed === true;
+      setCanCreate(allowed);
     } catch {
-      // Fallback: allow admin and manager users to create audits even if the check fails
-      const userRole = user?.role;
-      setCanCreate(userRole === 'admin' || userRole === 'manager');
+      // On error, deny access for non-admin/manager users
+      setCanCreate(false);
     }
   }, [user?.role]);
 

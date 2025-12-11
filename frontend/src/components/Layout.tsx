@@ -36,6 +36,8 @@ import {
   Assessment as AuditDashboardIcon,
   VerifiedUser as ComplianceDashboardIcon,
   HealthAndSafety as GrcHealthIcon,
+  AccountTreeOutlined as ProcessIcon,
+  Warning as ViolationIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
@@ -57,6 +59,8 @@ const menuItems: NavMenuItem[] = [
   { text: 'Risk Management', icon: <RiskIcon />, path: '/risk', moduleKey: 'risk' },
   { text: 'Compliance', icon: <ComplianceIcon />, path: '/compliance', moduleKey: 'compliance' },
   { text: 'Audits', icon: <AuditIcon />, path: '/audits', moduleKey: 'audit' },
+  { text: 'Processes', icon: <ProcessIcon />, path: '/processes' },
+  { text: 'Violations', icon: <ViolationIcon />, path: '/violations' },
   { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents', moduleKey: 'itsm.incident' },
   { text: 'Audit Dashboard', icon: <AuditDashboardIcon />, path: '/dashboards/audit', moduleKey: 'audit' },
   { text: 'Compliance Dashboard', icon: <ComplianceDashboardIcon />, path: '/dashboards/compliance', moduleKey: 'compliance' },
