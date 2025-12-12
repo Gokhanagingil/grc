@@ -6,6 +6,8 @@ import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
 import { GrcRisk } from '../entities/grc-risk.entity';
+import { GrcIssueRequirement } from '../entities/grc-issue-requirement.entity';
+import { GrcIssue } from '../entities/grc-issue.entity';
 import {
   RequirementCreatedEvent,
   RequirementUpdatedEvent,
@@ -33,6 +35,8 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     repository: Repository<GrcRequirement>,
     @InjectRepository(GrcRiskRequirement)
     private readonly riskRequirementRepository: Repository<GrcRiskRequirement>,
+    @InjectRepository(GrcIssueRequirement)
+    private readonly issueRequirementRepository: Repository<GrcIssueRequirement>,
     private readonly eventEmitter: EventEmitter2,
   ) {
     super(repository);
@@ -477,6 +481,45 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     requirementId: string,
   ): Promise<number> {
     return this.riskRequirementRepository.count({
+      where: { tenantId, requirementId },
+    });
+  }
+
+  /**
+   * Get issues (findings) linked to a requirement
+   */
+  async getLinkedIssues(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<GrcIssue[]> {
+    const requirement = await this.findOneActiveForTenant(
+      tenantId,
+      requirementId,
+    );
+    if (!requirement) {
+      throw new NotFoundException(
+        `Requirement with ID ${requirementId} not found`,
+      );
+    }
+
+    const issueRequirements = await this.issueRequirementRepository.find({
+      where: { tenantId, requirementId },
+      relations: ['issue', 'issue.owner', 'issue.capas'],
+    });
+
+    return issueRequirements
+      .map((ir) => ir.issue)
+      .filter((issue) => issue && !issue.isDeleted);
+  }
+
+  /**
+   * Get count of issues linked to a requirement
+   */
+  async getLinkedIssuesCount(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<number> {
+    return this.issueRequirementRepository.count({
       where: { tenantId, requirementId },
     });
   }
