@@ -540,7 +540,12 @@ export const AuditDetail: React.FC = () => {
 
         const getUniqueFrameworks = (): string[] => {
           const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
-          return [...new Set(frameworks)].filter(Boolean) as string[];
+          const unique: string[] = [];
+          for (const f of frameworks) {
+            if (!f) continue;
+            if (!unique.includes(f)) unique.push(f);
+          }
+          return unique;
         };
 
         const getUniqueDomains = (): string[] => {
@@ -552,7 +557,12 @@ export const AuditDetail: React.FC = () => {
               return parts.length > 0 ? parts[0] : '';
             })
             .filter(Boolean);
-          return [...new Set(domains)];
+          const unique: string[] = [];
+          for (const d of domains) {
+            if (!d) continue;
+            if (!unique.includes(d)) unique.push(d);
+          }
+          return unique;
         };
 
         const getFilteredRequirements = (): AuditRequirement[] => {
@@ -1252,24 +1262,27 @@ export const AuditDetail: React.FC = () => {
                                                     <TableCell>
                                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                                         {finding.issueRequirements && finding.issueRequirements.length > 0 ? (
-                                                          finding.issueRequirements.map((ir) => (
-                                                            <Chip
-                                                              key={ir.id}
-                                                              label={ir.requirement?.referenceCode || 'Req'}
-                                                              size="small"
-                                                              variant="outlined"
-                                                              color="primary"
-                                                              onClick={() => {
-                                                                const matchingAuditReq = auditRequirements.find(
-                                                                  ar => ar.requirementId === ir.requirementId
-                                                                );
-                                                                if (matchingAuditReq) {
-                                                                  handleOpenRequirementDrawer(matchingAuditReq);
-                                                                }
-                                                              }}
-                                                              sx={{ cursor: 'pointer' }}
-                                                            />
-                                                          ))
+                                                          finding.issueRequirements.map((ir) => {
+                                                            const matchingAuditReq = auditRequirements.find(
+                                                              ar => ar.requirementId === ir.requirementId
+                                                            );
+                                                            const referenceCode = matchingAuditReq?.referenceCode || matchingAuditReq?.requirement?.referenceCode || 'Req';
+                                                            return (
+                                                              <Chip
+                                                                key={ir.id}
+                                                                label={referenceCode}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="primary"
+                                                                onClick={() => {
+                                                                  if (matchingAuditReq) {
+                                                                    handleOpenRequirementDrawer(matchingAuditReq);
+                                                                  }
+                                                                }}
+                                                                sx={{ cursor: 'pointer' }}
+                                                              />
+                                                            );
+                                                          })
                                                         ) : (
                                                           <Typography variant="body2" color="textSecondary">-</Typography>
                                                         )}
