@@ -279,4 +279,22 @@ export class GrcRequirementController {
 
     return this.requirementService.getLinkedRisks(tenantId, id);
   }
+
+  /**
+   * GET /grc/requirements/:id/issues
+   * Get issues (findings) linked to a requirement
+   */
+  @Get(':id/issues')
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
+  @Perf()
+  async getLinkedIssues(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.requirementService.getLinkedIssues(tenantId, id);
+  }
 }

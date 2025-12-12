@@ -41,6 +41,9 @@ import {
   CheckCircle as FinalizeIcon,
   Archive as ArchiveIcon,
   Send as SubmitIcon,
+  Add as AddIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -49,6 +52,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
+import { AuditScopeCard, RequirementDetailDrawer } from '../components/audit';
 import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
@@ -128,6 +132,12 @@ interface AuditRequirement {
   requirementId: string;
   status: 'planned' | 'in_scope' | 'sampled' | 'tested' | 'completed';
   notes?: string;
+  framework?: string;
+  referenceCode?: string;
+  title?: string;
+  description?: string | null;
+  category?: string | null;
+  priority?: string | null;
   requirement?: {
     id: string;
     framework: string;
@@ -225,6 +235,11 @@ export const AuditDetail: React.FC = () => {
         });
         const [savingRequirements, setSavingRequirements] = useState(false);
         const [savingFinding, setSavingFinding] = useState(false);
+        const [requirementDrawerOpen, setRequirementDrawerOpen] = useState(false);
+        const [selectedRequirement, setSelectedRequirement] = useState<AuditRequirement | null>(null);
+        const [frameworkFilter, setFrameworkFilter] = useState<string>('');
+        const [domainFilter, setDomainFilter] = useState<string>('');
+        const [searchFilter, setSearchFilter] = useState<string>('');
 
     const [formData, setFormData] = useState({
       name: '',
@@ -492,6 +507,91 @@ export const AuditDetail: React.FC = () => {
             case 'sampled': return 'primary';
             case 'tested': return 'warning';
             case 'completed': return 'success';
+            default: return 'default';
+          }
+        };
+
+        const handleOpenRequirementDrawer = (requirement: AuditRequirement) => {
+          setSelectedRequirement(requirement);
+          setRequirementDrawerOpen(true);
+        };
+
+        const handleCloseRequirementDrawer = () => {
+          setRequirementDrawerOpen(false);
+          setSelectedRequirement(null);
+        };
+
+        const handleOpenFinding = (findingId: string) => {
+          navigate(`/findings/${findingId}`);
+        };
+
+        const handleAddFindingFromRequirement = (requirementId: string) => {
+          setFindingFormData({
+            title: '',
+            description: '',
+            severity: 'medium',
+            status: 'open',
+            ownerUserId: '',
+            dueDate: '',
+            requirementIds: [requirementId],
+          });
+          setAddFindingModalOpen(true);
+        };
+
+        const getUniqueFrameworks = (): string[] => {
+          const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
+          return [...new Set(frameworks)].filter(Boolean) as string[];
+        };
+
+        const getUniqueDomains = (): string[] => {
+          const domains = auditRequirements
+            .filter(r => !frameworkFilter || (r.framework || r.requirement?.framework) === frameworkFilter)
+            .map(r => {
+              const code = r.referenceCode || r.requirement?.referenceCode || '';
+              const parts = code.split('.');
+              return parts.length > 0 ? parts[0] : '';
+            })
+            .filter(Boolean);
+          return [...new Set(domains)];
+        };
+
+        const getFilteredRequirements = (): AuditRequirement[] => {
+          return auditRequirements.filter(r => {
+            const framework = r.framework || r.requirement?.framework;
+            const referenceCode = r.referenceCode || r.requirement?.referenceCode || '';
+            const title = r.title || r.requirement?.title || '';
+            const description = r.description || r.requirement?.description || '';
+            
+            if (frameworkFilter && framework !== frameworkFilter) return false;
+            if (domainFilter) {
+              if (!referenceCode.startsWith(domainFilter)) return false;
+            }
+            if (searchFilter) {
+              const search = searchFilter.toLowerCase();
+              const matchesTitle = title.toLowerCase().includes(search);
+              const matchesDescription = description.toLowerCase().includes(search);
+              const matchesCode = referenceCode.toLowerCase().includes(search);
+              if (!matchesTitle && !matchesDescription && !matchesCode) return false;
+            }
+            return true;
+          });
+        };
+
+        const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'default' => {
+          switch (severity) {
+            case 'critical': return 'error';
+            case 'high': return 'warning';
+            case 'medium': return 'info';
+            default: return 'default';
+          }
+        };
+
+        const getStatusColor = (status: string): 'default' | 'primary' | 'success' | 'warning' => {
+          switch (status) {
+            case 'open': return 'warning';
+            case 'in_progress': return 'primary';
+            case 'resolved':
+            case 'closed': return 'success';
             default: return 'default';
           }
         };
@@ -837,6 +937,22 @@ export const AuditDetail: React.FC = () => {
           </Card>
         )}
 
+                {!isNew && audit && !isEditMode && (
+                  <AuditScopeCard
+                    audit={{
+                      name: audit.name,
+                      description: audit.description,
+                      objectives: audit.objectives,
+                      plannedStartDate: audit.plannedStartDate,
+                      plannedEndDate: audit.plannedEndDate,
+                      actualStartDate: audit.actualStartDate,
+                      actualEndDate: audit.actualEndDate,
+                      department: audit.department,
+                    }}
+                    frameworks={getUniqueFrameworks()}
+                  />
+                )}
+
                 {!isNew && audit && (
                   <Card sx={{ mb: 3 }}>
                     <CardContent>
@@ -900,6 +1016,7 @@ export const AuditDetail: React.FC = () => {
                                             <Button
                                               variant="contained"
                                               onClick={handleOpenAddRequirementModal}
+                                              startIcon={<AddIcon />}
                                             >
                                               Add Requirements
                                             </Button>
@@ -912,58 +1029,157 @@ export const AuditDetail: React.FC = () => {
                                         ) : auditRequirements.length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No requirements in audit scope. Click "Add Requirements" to add standards/requirements to this audit.</Typography>
                                         ) : (
-                                          <TableContainer>
-                                            <Table size="small">
-                                              <TableHead>
-                                                <TableRow>
-                                                  <TableCell>Framework</TableCell>
-                                                  <TableCell>Reference Code</TableCell>
-                                                  <TableCell>Title</TableCell>
-                                                  <TableCell>Audit Status</TableCell>
-                                                  <TableCell>Actions</TableCell>
-                                                </TableRow>
-                                              </TableHead>
-                                              <TableBody>
-                                                {auditRequirements.map((ar) => (
-                                                  <TableRow key={ar.id}>
-                                                    <TableCell>
-                                                      <Chip label={ar.requirement?.framework || '-'} size="small" variant="outlined" />
-                                                    </TableCell>
-                                                    <TableCell>{ar.requirement?.referenceCode || '-'}</TableCell>
-                                                    <TableCell>{ar.requirement?.title || '-'}</TableCell>
-                                                    <TableCell>
-                                                      <Chip 
-                                                        label={ar.status.replace(/_/g, ' ')} 
-                                                        size="small"
-                                                        color={getRequirementStatusColor(ar.status)}
-                                                      />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                      <Box display="flex" gap={0.5}>
-                                                        <IconButton 
-                                                          size="small" 
-                                                          onClick={() => navigate(`/compliance/${ar.requirementId}`)}
-                                                          title="View Requirement"
-                                                        >
-                                                          <ViewIcon fontSize="small" />
-                                                        </IconButton>
-                                                        {permissions?.write && (
-                                                          <IconButton 
-                                                            size="small" 
-                                                            onClick={() => handleRemoveRequirement(ar.requirementId)}
-                                                            title="Remove from Scope"
-                                                            color="error"
-                                                          >
-                                                            <ArchiveIcon fontSize="small" />
-                                                          </IconButton>
-                                                        )}
-                                                      </Box>
-                                                    </TableCell>
-                                                  </TableRow>
-                                                ))}
-                                              </TableBody>
-                                            </Table>
-                                          </TableContainer>
+                                          <Grid container spacing={2}>
+                                            {/* Left Filter Panel */}
+                                            <Grid item xs={12} md={3}>
+                                              <Paper variant="outlined" sx={{ p: 2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                                  <FilterIcon color="action" />
+                                                  <Typography variant="subtitle2">Filters</Typography>
+                                                </Box>
+                                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                                  <InputLabel>Framework</InputLabel>
+                                                  <Select
+                                                    value={frameworkFilter}
+                                                    label="Framework"
+                                                    onChange={(e) => {
+                                                      setFrameworkFilter(e.target.value);
+                                                      setDomainFilter('');
+                                                    }}
+                                                  >
+                                                    <MenuItem value="">All Frameworks</MenuItem>
+                                                    {getUniqueFrameworks().map((fw) => (
+                                                      <MenuItem key={fw} value={fw}>{fw}</MenuItem>
+                                                    ))}
+                                                  </Select>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                                  <InputLabel>Domain/Annex</InputLabel>
+                                                  <Select
+                                                    value={domainFilter}
+                                                    label="Domain/Annex"
+                                                    onChange={(e) => setDomainFilter(e.target.value)}
+                                                  >
+                                                    <MenuItem value="">All Domains</MenuItem>
+                                                    {getUniqueDomains().map((domain) => (
+                                                      <MenuItem key={domain} value={domain}>{domain}</MenuItem>
+                                                    ))}
+                                                  </Select>
+                                                </FormControl>
+                                                <TextField
+                                                  fullWidth
+                                                  size="small"
+                                                  placeholder="Search requirements..."
+                                                  value={searchFilter}
+                                                  onChange={(e) => setSearchFilter(e.target.value)}
+                                                  InputProps={{
+                                                    startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
+                                                  }}
+                                                />
+                                                {(frameworkFilter || domainFilter || searchFilter) && (
+                                                  <Button
+                                                    size="small"
+                                                    onClick={() => {
+                                                      setFrameworkFilter('');
+                                                      setDomainFilter('');
+                                                      setSearchFilter('');
+                                                    }}
+                                                    sx={{ mt: 1 }}
+                                                  >
+                                                    Clear Filters
+                                                  </Button>
+                                                )}
+                                              </Paper>
+                                            </Grid>
+                                            {/* Right Panel - Requirement List */}
+                                            <Grid item xs={12} md={9}>
+                                              <TableContainer component={Paper} variant="outlined">
+                                                <Table size="small">
+                                                  <TableHead>
+                                                    <TableRow>
+                                                      <TableCell>Framework</TableCell>
+                                                      <TableCell>Reference Code</TableCell>
+                                                      <TableCell>Title</TableCell>
+                                                      <TableCell>Description</TableCell>
+                                                      <TableCell>Audit Status</TableCell>
+                                                      <TableCell>Actions</TableCell>
+                                                    </TableRow>
+                                                  </TableHead>
+                                                  <TableBody>
+                                                    {getFilteredRequirements().map((ar) => (
+                                                      <TableRow key={ar.id} hover>
+                                                        <TableCell>
+                                                          <Chip label={ar.framework || '-'} size="small" color="primary" variant="outlined" />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                          <Typography variant="body2" fontWeight="medium">
+                                                            {ar.referenceCode || '-'}
+                                                          </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                          <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                                                            {ar.title || '-'}
+                                                          </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                          <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 150 }}>
+                                                            {ar.description ? ar.description.substring(0, 50) + (ar.description.length > 50 ? '...' : '') : '-'}
+                                                          </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                          <Chip 
+                                                            label={ar.status.replace(/_/g, ' ')} 
+                                                            size="small"
+                                                            color={getRequirementStatusColor(ar.status)}
+                                                          />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                          <Box display="flex" gap={0.5}>
+                                                            <Button 
+                                                              size="small" 
+                                                              variant="outlined"
+                                                              onClick={() => handleOpenRequirementDrawer(ar)}
+                                                            >
+                                                              View
+                                                            </Button>
+                                                            {permissions?.write && (
+                                                              <>
+                                                                <Button
+                                                                  size="small"
+                                                                  variant="outlined"
+                                                                  color="primary"
+                                                                  onClick={() => handleAddFindingFromRequirement(ar.requirementId)}
+                                                                >
+                                                                  Add Finding
+                                                                </Button>
+                                                                <IconButton 
+                                                                  size="small" 
+                                                                  onClick={() => handleRemoveRequirement(ar.requirementId)}
+                                                                  title="Remove from Scope"
+                                                                  color="error"
+                                                                >
+                                                                  <ArchiveIcon fontSize="small" />
+                                                                </IconButton>
+                                                              </>
+                                                            )}
+                                                          </Box>
+                                                        </TableCell>
+                                                      </TableRow>
+                                                    ))}
+                                                    {getFilteredRequirements().length === 0 && (
+                                                      <TableRow>
+                                                        <TableCell colSpan={6} align="center">
+                                                          <Typography color="textSecondary" sx={{ py: 2 }}>
+                                                            No requirements match the current filters
+                                                          </Typography>
+                                                        </TableCell>
+                                                      </TableRow>
+                                                    )}
+                                                  </TableBody>
+                                                </Table>
+                                              </TableContainer>
+                                            </Grid>
+                                          </Grid>
                                         )}
                                       </TabPanel>
 
@@ -975,6 +1191,7 @@ export const AuditDetail: React.FC = () => {
                                             <Button
                                               variant="contained"
                                               onClick={handleOpenAddFindingModal}
+                                              startIcon={<AddIcon />}
                                             >
                                               Add Finding
                                             </Button>
@@ -987,29 +1204,36 @@ export const AuditDetail: React.FC = () => {
                                         ) : findings.length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit. Click "Add Finding" to create a new finding.</Typography>
                                         ) : (
-                                          <TableContainer>
+                                          <TableContainer component={Paper} variant="outlined">
                                             <Table size="small">
                                               <TableHead>
                                                 <TableRow>
-                                                  <TableCell>Title</TableCell>
-                                                  <TableCell>Type</TableCell>
-                                                  <TableCell>Severity</TableCell>
+                                                  <TableCell>Finding Title</TableCell>
                                                   <TableCell>Status</TableCell>
-                                                  <TableCell>Owner</TableCell>
-                                                  <TableCell>Due Date</TableCell>
-                                                  <TableCell>Requirements</TableCell>
-                                                  <TableCell>CAPAs</TableCell>
+                                                  <TableCell>Severity</TableCell>
+                                                  <TableCell>Assigned To</TableCell>
+                                                  <TableCell>Related Requirements</TableCell>
                                                   <TableCell>Actions</TableCell>
                                                 </TableRow>
                                               </TableHead>
                                               <TableBody>
                                                 {findings.map((finding) => (
-                                                  <TableRow key={finding.id}>
-                                                    <TableCell>{finding.title}</TableCell>
+                                                  <TableRow key={finding.id} hover>
+                                                    <TableCell>
+                                                      <Typography variant="body2" fontWeight="medium">
+                                                        {finding.title}
+                                                      </Typography>
+                                                      {finding.dueDate && (
+                                                        <Typography variant="caption" color="textSecondary">
+                                                          Due: {new Date(finding.dueDate).toLocaleDateString()}
+                                                        </Typography>
+                                                      )}
+                                                    </TableCell>
                                                     <TableCell>
                                                       <Chip 
-                                                        label={finding.type?.replace(/_/g, ' ') || 'Finding'} 
+                                                        label={finding.status.replace(/_/g, ' ')} 
                                                         size="small"
+                                                        color={getStatusColor(finding.status)}
                                                         variant="outlined"
                                                       />
                                                     </TableCell>
@@ -1017,38 +1241,58 @@ export const AuditDetail: React.FC = () => {
                                                       <Chip 
                                                         label={finding.severity} 
                                                         size="small"
-                                                        color={
-                                                          finding.severity === 'critical' ? 'error' :
-                                                          finding.severity === 'high' ? 'warning' :
-                                                          finding.severity === 'medium' ? 'info' : 'default'
-                                                        }
-                                                      />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                      <Chip 
-                                                        label={finding.status.replace(/_/g, ' ')} 
-                                                        size="small"
-                                                        variant="outlined"
+                                                        color={getSeverityColor(finding.severity)}
                                                       />
                                                     </TableCell>
                                                     <TableCell>
                                                       {finding.owner?.firstName && finding.owner?.lastName
                                                         ? `${finding.owner.firstName} ${finding.owner.lastName}`
-                                                        : '-'}
+                                                        : <Typography variant="body2" color="textSecondary">Unassigned</Typography>}
                                                     </TableCell>
                                                     <TableCell>
-                                                      {finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : '-'}
+                                                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                        {finding.issueRequirements && finding.issueRequirements.length > 0 ? (
+                                                          finding.issueRequirements.map((ir) => (
+                                                            <Chip
+                                                              key={ir.id}
+                                                              label={ir.requirement?.referenceCode || 'Req'}
+                                                              size="small"
+                                                              variant="outlined"
+                                                              color="primary"
+                                                              onClick={() => {
+                                                                const matchingAuditReq = auditRequirements.find(
+                                                                  ar => ar.requirementId === ir.requirementId
+                                                                );
+                                                                if (matchingAuditReq) {
+                                                                  handleOpenRequirementDrawer(matchingAuditReq);
+                                                                }
+                                                              }}
+                                                              sx={{ cursor: 'pointer' }}
+                                                            />
+                                                          ))
+                                                        ) : (
+                                                          <Typography variant="body2" color="textSecondary">-</Typography>
+                                                        )}
+                                                      </Box>
                                                     </TableCell>
-                                                    <TableCell>{finding.issueRequirements?.length || 0}</TableCell>
-                                                    <TableCell>{finding.capas?.length || 0}</TableCell>
                                                     <TableCell>
-                                                      <IconButton 
-                                                        size="small" 
-                                                        onClick={() => navigate(`/findings/${finding.id}`)}
-                                                        title="View Finding"
-                                                      >
-                                                        <ViewIcon fontSize="small" />
-                                                      </IconButton>
+                                                      <Box display="flex" gap={0.5}>
+                                                        <Button
+                                                          size="small"
+                                                          variant="outlined"
+                                                          onClick={() => navigate(`/findings/${finding.id}`)}
+                                                        >
+                                                          View
+                                                        </Button>
+                                                        {finding.capas && finding.capas.length > 0 && (
+                                                          <Chip
+                                                            label={`${finding.capas.length} CAPA${finding.capas.length > 1 ? 's' : ''}`}
+                                                            size="small"
+                                                            color="info"
+                                                            variant="outlined"
+                                                          />
+                                                        )}
+                                                      </Box>
                                                     </TableCell>
                                                   </TableRow>
                                                 ))}
@@ -1401,6 +1645,24 @@ export const AuditDetail: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Requirement Detail Drawer */}
+        <RequirementDetailDrawer
+          open={requirementDrawerOpen}
+          onClose={handleCloseRequirementDrawer}
+          requirement={selectedRequirement ? {
+            id: selectedRequirement.requirementId,
+            framework: selectedRequirement.framework || '',
+            referenceCode: selectedRequirement.referenceCode || '',
+            title: selectedRequirement.title || '',
+            description: selectedRequirement.description,
+            category: selectedRequirement.category,
+            priority: selectedRequirement.priority,
+            status: selectedRequirement.status,
+          } : null}
+          onOpenFinding={handleOpenFinding}
+          onAddFinding={handleAddFindingFromRequirement}
+        />
       </Box>
     </ModuleGuard>
   );
