@@ -12,6 +12,8 @@ import { User } from '../../users/user.entity';
 import { ComplianceFramework } from '../enums';
 import { GrcRequirementControl } from './grc-requirement-control.entity';
 import { GrcRiskRequirement } from './grc-risk-requirement.entity';
+import { GrcAuditRequirement } from './grc-audit-requirement.entity';
+import { GrcIssueRequirement } from './grc-issue-requirement.entity';
 
 /**
  * GRC Compliance Requirement Entity
@@ -73,4 +75,10 @@ export class GrcRequirement extends BaseEntity {
 
   @OneToMany(() => GrcRiskRequirement, (rr) => rr.requirement)
   riskRequirements: GrcRiskRequirement[];
+
+  @OneToMany(() => GrcAuditRequirement, (ar) => ar.requirement)
+  auditRequirements: GrcAuditRequirement[];
+
+  @OneToMany(() => GrcIssueRequirement, (ir) => ir.requirement)
+  issueRequirements: GrcIssueRequirement[];
 }

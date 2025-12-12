@@ -24,6 +24,12 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  ListItemText,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -101,17 +107,38 @@ interface User {
 }
 
 interface Finding {
-  id: number;
-  audit_id: number;
+  id: string;
+  auditId: string;
   title: string;
   description: string | null;
+  type: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   status: string;
-  owner_first_name?: string;
-  owner_last_name?: string;
-  capa_count: number;
-  evidence_count: number;
-  created_at: string;
+  ownerUserId?: string;
+  owner?: { firstName?: string; lastName?: string };
+  dueDate?: string;
+  capas?: Array<{ id: string }>;
+  issueRequirements?: Array<{ id: string; requirementId: string }>;
+  createdAt: string;
+}
+
+interface AuditRequirement {
+  id: string;
+  auditId: string;
+  requirementId: string;
+  status: 'planned' | 'in_scope' | 'sampled' | 'tested' | 'completed';
+  notes?: string;
+  requirement?: {
+    id: string;
+    framework: string;
+    referenceCode: string;
+    title: string;
+    description?: string;
+    category?: string;
+    priority?: string;
+    status?: string;
+  };
+  createdAt: string;
 }
 
 interface AuditCriterion {
@@ -176,14 +203,28 @@ export const AuditDetail: React.FC = () => {
     const [permissions, setPermissions] = useState<AuditPermissions | null>(null);
     const [users, setUsers] = useState<User[]>([]);
   
-    const [activeTab, setActiveTab] = useState(0);
-    const [findings, setFindings] = useState<Finding[]>([]);
-    const [criteria, setCriteria] = useState<AuditCriterion[]>([]);
-    const [scopeObjects, setScopeObjects] = useState<ScopeObject[]>([]);
-    const [reports, setReports] = useState<AuditReport[]>([]);
-    const [relatedDataLoading, setRelatedDataLoading] = useState(false);
-    const [generatingReport, setGeneratingReport] = useState(false);
-    const [reportActionLoading, setReportActionLoading] = useState<number | null>(null);
+                const [activeTab, setActiveTab] = useState(0);
+                const [findings, setFindings] = useState<Finding[]>([]);
+                const [auditRequirements, setAuditRequirements] = useState<AuditRequirement[]>([]);
+                const [reports, setReports] = useState<AuditReport[]>([]);
+        const [relatedDataLoading, setRelatedDataLoading] = useState(false);
+        const [generatingReport, setGeneratingReport] = useState(false);
+        const [reportActionLoading, setReportActionLoading] = useState<number | null>(null);
+        const [addRequirementModalOpen, setAddRequirementModalOpen] = useState(false);
+        const [addFindingModalOpen, setAddFindingModalOpen] = useState(false);
+        const [availableRequirements, setAvailableRequirements] = useState<Array<{ id: string; framework: string; referenceCode: string; title: string }>>([]);
+        const [selectedRequirementIds, setSelectedRequirementIds] = useState<string[]>([]);
+        const [findingFormData, setFindingFormData] = useState({
+          title: '',
+          description: '',
+          severity: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+          status: 'open',
+          ownerUserId: '',
+          dueDate: '',
+          requirementIds: [] as string[],
+        });
+        const [savingRequirements, setSavingRequirements] = useState(false);
+        const [savingFinding, setSavingFinding] = useState(false);
 
     const [formData, setFormData] = useState({
       name: '',
@@ -286,30 +327,27 @@ export const AuditDetail: React.FC = () => {
       }
     }, []);
 
-    const fetchRelatedData = useCallback(async () => {
-      if (isNew || !id) return;
+                const fetchRelatedData = useCallback(async () => {
+                  if (isNew || !id) return;
 
-      try {
-        setRelatedDataLoading(true);
-        const [findingsRes, criteriaRes, scopeRes, reportsRes] = await Promise.all([
-          api.get(`/grc/audits/${id}/findings`),
-          api.get(`/grc/audits/${id}/criteria`),
-          api.get(`/grc/audits/${id}/scope-objects`),
-          api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
-        ]);
-        setFindings(unwrapResponse<Finding[]>(findingsRes) || []);
-        setCriteria(unwrapResponse<AuditCriterion[]>(criteriaRes) || []);
-        setScopeObjects(unwrapResponse<ScopeObject[]>(scopeRes) || []);
-        setReports(unwrapResponse<AuditReport[]>(reportsRes) || []);
-      } catch {
-        setFindings([]);
-        setCriteria([]);
-        setScopeObjects([]);
-        setReports([]);
-      } finally {
-        setRelatedDataLoading(false);
-      }
-    }, [id, isNew]);
+                  try {
+                    setRelatedDataLoading(true);
+                    const [findingsRes, requirementsRes, reportsRes] = await Promise.all([
+                      api.get(`/grc/audits/${id}/findings`),
+                      api.get(`/grc/audits/${id}/requirements`),
+                      api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
+                    ]);
+                    setFindings(unwrapResponse<Finding[]>(findingsRes) || []);
+                    setAuditRequirements(unwrapResponse<AuditRequirement[]>(requirementsRes) || []);
+                    setReports(unwrapResponse<AuditReport[]>(reportsRes) || []);
+                  } catch {
+                    setFindings([]);
+                    setAuditRequirements([]);
+                    setReports([]);
+                  } finally {
+                    setRelatedDataLoading(false);
+                  }
+                }, [id, isNew]);
 
     const handleGenerateReport = async () => {
       if (!id) return;
@@ -350,17 +388,115 @@ export const AuditDetail: React.FC = () => {
       }
     };
 
-    const getReportStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-      switch (status) {
-        case 'draft': return 'default';
-        case 'under_review': return 'info';
-        case 'final': return 'success';
-        case 'archived': return 'secondary';
-        default: return 'default';
-      }
-    };
+        const getReportStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+          switch (status) {
+            case 'draft': return 'default';
+            case 'under_review': return 'info';
+            case 'final': return 'success';
+            case 'archived': return 'secondary';
+            default: return 'default';
+          }
+        };
 
-    useEffect(() => {
+        const fetchAvailableRequirements = async () => {
+          try {
+            const response = await api.get('/grc/requirements');
+            const data = unwrapResponse<Array<{ id: string; framework: string; referenceCode: string; title: string }>>(response);
+            setAvailableRequirements(data || []);
+          } catch {
+            setAvailableRequirements([]);
+          }
+        };
+
+        const handleOpenAddRequirementModal = () => {
+          fetchAvailableRequirements();
+          setSelectedRequirementIds([]);
+          setAddRequirementModalOpen(true);
+        };
+
+        const handleAddRequirements = async () => {
+          if (!id || selectedRequirementIds.length === 0) return;
+          try {
+            setSavingRequirements(true);
+            setError('');
+            await api.post(`/grc/audits/${id}/requirements`, { requirementIds: selectedRequirementIds });
+            setSuccess('Requirements added to audit scope');
+            setAddRequirementModalOpen(false);
+            fetchRelatedData();
+          } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || 'Failed to add requirements');
+          } finally {
+            setSavingRequirements(false);
+          }
+        };
+
+        const handleRemoveRequirement = async (requirementId: string) => {
+          if (!id) return;
+          try {
+            setError('');
+            await api.delete(`/grc/audits/${id}/requirements/${requirementId}`);
+            setSuccess('Requirement removed from audit scope');
+            fetchRelatedData();
+          } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || 'Failed to remove requirement');
+          }
+        };
+
+        const handleOpenAddFindingModal = () => {
+          setFindingFormData({
+            title: '',
+            description: '',
+            severity: 'medium',
+            status: 'open',
+            ownerUserId: '',
+            dueDate: '',
+            requirementIds: [],
+          });
+          setAddFindingModalOpen(true);
+        };
+
+        const handleAddFinding = async () => {
+          if (!id || !findingFormData.title.trim()) {
+            setError('Finding title is required');
+            return;
+          }
+          try {
+            setSavingFinding(true);
+            setError('');
+            await api.post(`/grc/audits/${id}/findings`, {
+              title: findingFormData.title,
+              description: findingFormData.description || undefined,
+              severity: findingFormData.severity,
+              status: findingFormData.status,
+              ownerUserId: findingFormData.ownerUserId || undefined,
+              dueDate: findingFormData.dueDate || undefined,
+              requirementIds: findingFormData.requirementIds.length > 0 ? findingFormData.requirementIds : undefined,
+            });
+            setSuccess('Finding created successfully');
+            setAddFindingModalOpen(false);
+            fetchRelatedData();
+          } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || 'Failed to create finding');
+          } finally {
+            setSavingFinding(false);
+          }
+        };
+
+        const getRequirementStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+          switch (status) {
+            case 'planned': return 'default';
+            case 'in_scope': return 'info';
+            case 'sampled': return 'primary';
+            case 'tested': return 'warning';
+            case 'completed': return 'success';
+            default: return 'default';
+          }
+        };
+
+        useEffect(() => {
       fetchAudit();
       fetchPermissions();
       fetchUsers();
@@ -745,156 +881,185 @@ export const AuditDetail: React.FC = () => {
                   </Card>
                 )}
 
-                {!isNew && audit && !isEditMode && (
-                  <Card sx={{ mb: 3 }}>
-                    <CardContent>
-                      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-                          <Tab label={`Findings (${findings.length})`} />
-                          <Tab label={`Criteria (${criteria.length})`} />
-                          <Tab label={`Scope Objects (${scopeObjects.length})`} />
-                          <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
-                        </Tabs>
-                      </Box>
+                                {!isNew && audit && !isEditMode && (
+                                  <Card sx={{ mb: 3 }}>
+                                    <CardContent>
+                                      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+                                          <Tab label={`Scope & Standards (${auditRequirements.length})`} />
+                                          <Tab label={`Findings & CAPA (${findings.length})`} />
+                                          <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
+                                        </Tabs>
+                                      </Box>
 
-                      <TabPanel value={activeTab} index={0}>
-                        {relatedDataLoading ? (
-                          <Box display="flex" justifyContent="center" p={3}>
-                            <CircularProgress />
-                          </Box>
-                        ) : findings.length === 0 ? (
-                          <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit.</Typography>
-                        ) : (
-                          <TableContainer>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Title</TableCell>
-                                  <TableCell>Severity</TableCell>
-                                  <TableCell>Status</TableCell>
-                                  <TableCell>Owner</TableCell>
-                                  <TableCell>CAPAs</TableCell>
-                                  <TableCell>Evidence</TableCell>
-                                  <TableCell>Actions</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {findings.map((finding) => (
-                                  <TableRow key={finding.id}>
-                                    <TableCell>{finding.title}</TableCell>
-                                    <TableCell>
-                                      <Chip 
-                                        label={finding.severity} 
-                                        size="small"
-                                        color={
-                                          finding.severity === 'critical' ? 'error' :
-                                          finding.severity === 'high' ? 'warning' :
-                                          finding.severity === 'medium' ? 'info' : 'default'
-                                        }
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip 
-                                        label={finding.status.replace(/_/g, ' ')} 
-                                        size="small"
-                                        variant="outlined"
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      {finding.owner_first_name && finding.owner_last_name
-                                        ? `${finding.owner_first_name} ${finding.owner_last_name}`
-                                        : '-'}
-                                    </TableCell>
-                                    <TableCell>{finding.capa_count}</TableCell>
-                                    <TableCell>{finding.evidence_count}</TableCell>
-                                    <TableCell>
-                                      <IconButton 
-                                        size="small" 
-                                        onClick={() => navigate(`/findings/${finding.id}`)}
-                                        title="View Finding"
-                                      >
-                                        <ViewIcon fontSize="small" />
-                                      </IconButton>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        )}
-                      </TabPanel>
+                                      {/* Scope & Standards Tab */}
+                                      <TabPanel value={activeTab} index={0}>
+                                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                                          <Typography variant="subtitle1">Requirements in Audit Scope</Typography>
+                                          {permissions?.write && (
+                                            <Button
+                                              variant="contained"
+                                              onClick={handleOpenAddRequirementModal}
+                                            >
+                                              Add Requirements
+                                            </Button>
+                                          )}
+                                        </Box>
+                                        {relatedDataLoading ? (
+                                          <Box display="flex" justifyContent="center" p={3}>
+                                            <CircularProgress />
+                                          </Box>
+                                        ) : auditRequirements.length === 0 ? (
+                                          <Typography color="textSecondary" sx={{ p: 2 }}>No requirements in audit scope. Click "Add Requirements" to add standards/requirements to this audit.</Typography>
+                                        ) : (
+                                          <TableContainer>
+                                            <Table size="small">
+                                              <TableHead>
+                                                <TableRow>
+                                                  <TableCell>Framework</TableCell>
+                                                  <TableCell>Reference Code</TableCell>
+                                                  <TableCell>Title</TableCell>
+                                                  <TableCell>Audit Status</TableCell>
+                                                  <TableCell>Actions</TableCell>
+                                                </TableRow>
+                                              </TableHead>
+                                              <TableBody>
+                                                {auditRequirements.map((ar) => (
+                                                  <TableRow key={ar.id}>
+                                                    <TableCell>
+                                                      <Chip label={ar.requirement?.framework || '-'} size="small" variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell>{ar.requirement?.referenceCode || '-'}</TableCell>
+                                                    <TableCell>{ar.requirement?.title || '-'}</TableCell>
+                                                    <TableCell>
+                                                      <Chip 
+                                                        label={ar.status.replace(/_/g, ' ')} 
+                                                        size="small"
+                                                        color={getRequirementStatusColor(ar.status)}
+                                                      />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      <Box display="flex" gap={0.5}>
+                                                        <IconButton 
+                                                          size="small" 
+                                                          onClick={() => navigate(`/compliance/${ar.requirementId}`)}
+                                                          title="View Requirement"
+                                                        >
+                                                          <ViewIcon fontSize="small" />
+                                                        </IconButton>
+                                                        {permissions?.write && (
+                                                          <IconButton 
+                                                            size="small" 
+                                                            onClick={() => handleRemoveRequirement(ar.requirementId)}
+                                                            title="Remove from Scope"
+                                                            color="error"
+                                                          >
+                                                            <ArchiveIcon fontSize="small" />
+                                                          </IconButton>
+                                                        )}
+                                                      </Box>
+                                                    </TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </TableContainer>
+                                        )}
+                                      </TabPanel>
 
-                      <TabPanel value={activeTab} index={1}>
-                        {relatedDataLoading ? (
-                          <Box display="flex" justifyContent="center" p={3}>
-                            <CircularProgress />
-                          </Box>
-                        ) : criteria.length === 0 ? (
-                          <Typography color="textSecondary" sx={{ p: 2 }}>No criteria linked to this audit.</Typography>
-                        ) : (
-                          <TableContainer>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Title</TableCell>
-                                  <TableCell>Regulation</TableCell>
-                                  <TableCell>Category</TableCell>
-                                  <TableCell>Status</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {criteria.map((criterion) => (
-                                  <TableRow key={criterion.id}>
-                                    <TableCell>{criterion.title}</TableCell>
-                                    <TableCell>{criterion.regulation || '-'}</TableCell>
-                                    <TableCell>{criterion.category || '-'}</TableCell>
-                                    <TableCell>
-                                      {criterion.status ? (
-                                        <Chip label={criterion.status} size="small" variant="outlined" />
-                                      ) : '-'}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        )}
-                      </TabPanel>
+                                      {/* Findings & CAPA Tab */}
+                                      <TabPanel value={activeTab} index={1}>
+                                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                                          <Typography variant="subtitle1">Audit Findings</Typography>
+                                          {permissions?.write && (
+                                            <Button
+                                              variant="contained"
+                                              onClick={handleOpenAddFindingModal}
+                                            >
+                                              Add Finding
+                                            </Button>
+                                          )}
+                                        </Box>
+                                        {relatedDataLoading ? (
+                                          <Box display="flex" justifyContent="center" p={3}>
+                                            <CircularProgress />
+                                          </Box>
+                                        ) : findings.length === 0 ? (
+                                          <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit. Click "Add Finding" to create a new finding.</Typography>
+                                        ) : (
+                                          <TableContainer>
+                                            <Table size="small">
+                                              <TableHead>
+                                                <TableRow>
+                                                  <TableCell>Title</TableCell>
+                                                  <TableCell>Type</TableCell>
+                                                  <TableCell>Severity</TableCell>
+                                                  <TableCell>Status</TableCell>
+                                                  <TableCell>Owner</TableCell>
+                                                  <TableCell>Due Date</TableCell>
+                                                  <TableCell>Requirements</TableCell>
+                                                  <TableCell>CAPAs</TableCell>
+                                                  <TableCell>Actions</TableCell>
+                                                </TableRow>
+                                              </TableHead>
+                                              <TableBody>
+                                                {findings.map((finding) => (
+                                                  <TableRow key={finding.id}>
+                                                    <TableCell>{finding.title}</TableCell>
+                                                    <TableCell>
+                                                      <Chip 
+                                                        label={finding.type?.replace(/_/g, ' ') || 'Finding'} 
+                                                        size="small"
+                                                        variant="outlined"
+                                                      />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      <Chip 
+                                                        label={finding.severity} 
+                                                        size="small"
+                                                        color={
+                                                          finding.severity === 'critical' ? 'error' :
+                                                          finding.severity === 'high' ? 'warning' :
+                                                          finding.severity === 'medium' ? 'info' : 'default'
+                                                        }
+                                                      />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      <Chip 
+                                                        label={finding.status.replace(/_/g, ' ')} 
+                                                        size="small"
+                                                        variant="outlined"
+                                                      />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      {finding.owner?.firstName && finding.owner?.lastName
+                                                        ? `${finding.owner.firstName} ${finding.owner.lastName}`
+                                                        : '-'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      {finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : '-'}
+                                                    </TableCell>
+                                                    <TableCell>{finding.issueRequirements?.length || 0}</TableCell>
+                                                    <TableCell>{finding.capas?.length || 0}</TableCell>
+                                                    <TableCell>
+                                                      <IconButton 
+                                                        size="small" 
+                                                        onClick={() => navigate(`/findings/${finding.id}`)}
+                                                        title="View Finding"
+                                                      >
+                                                        <ViewIcon fontSize="small" />
+                                                      </IconButton>
+                                                    </TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </TableContainer>
+                                        )}
+                                      </TabPanel>
 
-                      <TabPanel value={activeTab} index={2}>
-                        {relatedDataLoading ? (
-                          <Box display="flex" justifyContent="center" p={3}>
-                            <CircularProgress />
-                          </Box>
-                        ) : scopeObjects.length === 0 ? (
-                          <Typography color="textSecondary" sx={{ p: 2 }}>No scope objects defined for this audit.</Typography>
-                        ) : (
-                          <TableContainer>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Object Type</TableCell>
-                                  <TableCell>Object ID</TableCell>
-                                  <TableCell>Name</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {scopeObjects.map((obj) => (
-                                  <TableRow key={obj.id}>
-                                    <TableCell>
-                                      <Chip label={obj.object_type} size="small" variant="outlined" />
-                                    </TableCell>
-                                    <TableCell>{obj.object_id}</TableCell>
-                                    <TableCell>{obj.object_name || '-'}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        )}
-                      </TabPanel>
-
-                      <TabPanel value={activeTab} index={3}>
+                                      {/* Reports Tab */}
+                                      <TabPanel value={activeTab} index={2}>
                         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                           <Typography variant="subtitle1">Audit Reports</Typography>
                           <Button
@@ -1005,6 +1170,237 @@ export const AuditDetail: React.FC = () => {
             </Typography>
           </Paper>
         )}
+
+        {/* Add Requirements Modal */}
+        <Dialog 
+          open={addRequirementModalOpen} 
+          onClose={() => setAddRequirementModalOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Add Requirements to Audit Scope</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Select requirements to add to this audit's scope. Requirements already in scope will be skipped.
+            </Typography>
+            {availableRequirements.length === 0 ? (
+              <Typography color="textSecondary">No requirements available.</Typography>
+            ) : (
+              <TableContainer sx={{ maxHeight: 400 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          indeterminate={selectedRequirementIds.length > 0 && selectedRequirementIds.length < availableRequirements.length}
+                          checked={selectedRequirementIds.length === availableRequirements.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRequirementIds(availableRequirements.map(r => r.id));
+                            } else {
+                              setSelectedRequirementIds([]);
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>Framework</TableCell>
+                      <TableCell>Reference Code</TableCell>
+                      <TableCell>Title</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {availableRequirements.map((req) => {
+                      const isSelected = selectedRequirementIds.includes(req.id);
+                      const isAlreadyInScope = auditRequirements.some(ar => ar.requirementId === req.id);
+                      return (
+                        <TableRow 
+                          key={req.id} 
+                          hover 
+                          onClick={() => {
+                            if (isAlreadyInScope) return;
+                            if (isSelected) {
+                              setSelectedRequirementIds(prev => prev.filter(id => id !== req.id));
+                            } else {
+                              setSelectedRequirementIds(prev => [...prev, req.id]);
+                            }
+                          }}
+                          sx={{ 
+                            cursor: isAlreadyInScope ? 'not-allowed' : 'pointer',
+                            opacity: isAlreadyInScope ? 0.5 : 1,
+                          }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox 
+                              checked={isSelected || isAlreadyInScope} 
+                              disabled={isAlreadyInScope}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={req.framework} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>{req.referenceCode}</TableCell>
+                          <TableCell>
+                            <ListItemText 
+                              primary={req.title}
+                              secondary={isAlreadyInScope ? 'Already in scope' : undefined}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddRequirementModalOpen(false)}>Cancel</Button>
+            <Button 
+              variant="contained" 
+              onClick={handleAddRequirements}
+              disabled={selectedRequirementIds.length === 0 || savingRequirements}
+              startIcon={savingRequirements ? <CircularProgress size={20} color="inherit" /> : undefined}
+            >
+              {savingRequirements ? 'Adding...' : `Add ${selectedRequirementIds.length} Requirement(s)`}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Add Finding Modal */}
+        <Dialog 
+          open={addFindingModalOpen} 
+          onClose={() => setAddFindingModalOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Create Audit Finding</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={findingFormData.title}
+                  onChange={(e) => setFindingFormData(prev => ({ ...prev, title: e.target.value }))}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={findingFormData.description}
+                  onChange={(e) => setFindingFormData(prev => ({ ...prev, description: e.target.value }))}
+                  multiline
+                  rows={3}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Severity</InputLabel>
+                  <Select
+                    value={findingFormData.severity}
+                    label="Severity"
+                    onChange={(e) => setFindingFormData(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' | 'critical' }))}
+                  >
+                    <MenuItem value="low">Low</MenuItem>
+                    <MenuItem value="medium">Medium</MenuItem>
+                    <MenuItem value="high">High</MenuItem>
+                    <MenuItem value="critical">Critical</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={findingFormData.status}
+                    label="Status"
+                    onChange={(e) => setFindingFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <MenuItem value="open">Open</MenuItem>
+                    <MenuItem value="in_progress">In Progress</MenuItem>
+                    <MenuItem value="resolved">Resolved</MenuItem>
+                    <MenuItem value="closed">Closed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Owner</InputLabel>
+                  <Select
+                    value={findingFormData.ownerUserId}
+                    label="Owner"
+                    onChange={(e) => setFindingFormData(prev => ({ ...prev, ownerUserId: e.target.value }))}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {users.map(u => (
+                      <MenuItem key={u.id} value={String(u.id)}>{u.first_name} {u.last_name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Due Date"
+                  type="date"
+                  value={findingFormData.dueDate}
+                  onChange={(e) => setFindingFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              {auditRequirements.length > 0 && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Link to Requirements</InputLabel>
+                    <Select
+                      multiple
+                      value={findingFormData.requirementIds}
+                      label="Link to Requirements"
+                      onChange={(e) => setFindingFormData(prev => ({ ...prev, requirementIds: e.target.value as string[] }))}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(selected as string[]).map((value) => {
+                            const ar = auditRequirements.find(r => r.requirementId === value);
+                            return (
+                              <Chip 
+                                key={value} 
+                                label={ar?.requirement?.referenceCode || value} 
+                                size="small" 
+                              />
+                            );
+                          })}
+                        </Box>
+                      )}
+                    >
+                      {auditRequirements.map((ar) => (
+                        <MenuItem key={ar.requirementId} value={ar.requirementId}>
+                          <Checkbox checked={findingFormData.requirementIds.includes(ar.requirementId)} />
+                          <ListItemText 
+                            primary={ar.requirement?.title || ar.requirementId}
+                            secondary={`${ar.requirement?.framework || ''} - ${ar.requirement?.referenceCode || ''}`}
+                          />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddFindingModalOpen(false)}>Cancel</Button>
+            <Button 
+              variant="contained" 
+              onClick={handleAddFinding}
+              disabled={!findingFormData.title.trim() || savingFinding}
+              startIcon={savingFinding ? <CircularProgress size={20} color="inherit" /> : undefined}
+            >
+              {savingFinding ? 'Creating...' : 'Create Finding'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ModuleGuard>
   );

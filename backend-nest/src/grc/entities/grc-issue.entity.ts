@@ -14,6 +14,8 @@ import { GrcRisk } from './grc-risk.entity';
 import { GrcControl } from './grc-control.entity';
 import { GrcCapa } from './grc-capa.entity';
 import { GrcIssueEvidence } from './grc-issue-evidence.entity';
+import { GrcAudit } from './grc-audit.entity';
+import { GrcIssueRequirement } from './grc-issue-requirement.entity';
 
 /**
  * GRC Issue Entity
@@ -28,6 +30,7 @@ import { GrcIssueEvidence } from './grc-issue-evidence.entity';
 @Index(['tenantId', 'severity'])
 @Index(['tenantId', 'riskId'])
 @Index(['tenantId', 'controlId'])
+@Index(['tenantId', 'auditId'])
 @Index(['tenantId', 'status', 'createdAt'])
 export class GrcIssue extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
@@ -75,6 +78,13 @@ export class GrcIssue extends BaseEntity {
   @JoinColumn({ name: 'control_id' })
   control: GrcControl | null;
 
+  @Column({ name: 'audit_id', type: 'uuid', nullable: true })
+  auditId: string | null;
+
+  @ManyToOne(() => GrcAudit, { nullable: true })
+  @JoinColumn({ name: 'audit_id' })
+  audit: GrcAudit | null;
+
   @Column({ name: 'raised_by_user_id', type: 'uuid', nullable: true })
   raisedByUserId: string | null;
 
@@ -109,4 +119,7 @@ export class GrcIssue extends BaseEntity {
 
   @OneToMany(() => GrcIssueEvidence, (ie) => ie.issue)
   issueEvidence: GrcIssueEvidence[];
+
+  @OneToMany(() => GrcIssueRequirement, (ir) => ir.issue)
+  issueRequirements: GrcIssueRequirement[];
 }
