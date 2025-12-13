@@ -9,7 +9,7 @@ import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 
 @Entity('tenant_initialization_profile')
-@Index(['tenantId'], { unique: true })
+@Index('idx_tenant_init_profile_tenant_unique', ['tenantId'], { unique: true })
 export class TenantInitializationProfile extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
