@@ -12,7 +12,7 @@ import {
   FrameworkType,
   MaturityLevel,
 } from '../entities';
-import { SUITE_MANIFEST, getDefaultModulesForSuite } from '../config';
+import { getDefaultModulesForSuite } from '../config';
 
 export interface OnboardingContext {
   status: 'active' | 'pending' | 'suspended';
