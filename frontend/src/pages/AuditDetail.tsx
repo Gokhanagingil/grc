@@ -56,6 +56,7 @@ import { AuditScopeCard, RequirementDetailDrawer } from '../components/audit';
 import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
+import { useOnboardingSafe } from '../contexts/OnboardingContext';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
@@ -201,6 +202,7 @@ export const AuditDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   useAuth();
+  const { context: onboardingContext } = useOnboardingSafe();
   // Check for create mode: either no id (from /audits/new route) or id === 'new' (from /audits/:id route)
   const isNew = !id || id === 'new';
   const isEditMode = window.location.pathname.endsWith('/edit') || isNew;
@@ -538,15 +540,20 @@ export const AuditDetail: React.FC = () => {
           setAddFindingModalOpen(true);
         };
 
-        const getUniqueFrameworks = (): string[] => {
-          const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
-          const unique: string[] = [];
-          for (const f of frameworks) {
-            if (!f) continue;
-            if (!unique.includes(f)) unique.push(f);
-          }
-          return unique;
-        };
+                const getUniqueFrameworks = (): string[] => {
+                  const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
+                  const unique: string[] = [];
+                  for (const f of frameworks) {
+                    if (!f) continue;
+                    if (!unique.includes(f)) unique.push(f);
+                  }
+                  // Filter frameworks based on onboarding context activeFrameworks
+                  // If activeFrameworks is empty, show all frameworks (fail-open behavior)
+                  if (onboardingContext.activeFrameworks.length > 0) {
+                    return unique.filter(fw => onboardingContext.activeFrameworks.includes(fw as never));
+                  }
+                  return unique;
+                };
 
         const getUniqueDomains = (): string[] => {
           const domains = auditRequirements

@@ -42,6 +42,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
 
 // Policy interface for relationship management
 interface Policy {
@@ -431,21 +432,24 @@ export const RiskManagement: React.FC = () => {
     );
   }
 
-  return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Risk Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateRisk}
-        >
-          New Risk
-        </Button>
-      </Box>
+    return (
+      <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h4">Risk Management</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRisk}
+          >
+            New Risk
+          </Button>
+        </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
+        {/* Onboarding Framework Warning Banner */}
+        <GrcFrameworkWarningBanner />
+
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
       {/* Filters */}
       <Card sx={{ mb: 2 }}>
@@ -556,19 +560,21 @@ export const RiskManagement: React.FC = () => {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="body2">{risk.score ?? '-'}</Typography>
-                          {risk.score && (
-                            <LinearProgress
-                              variant="determinate"
-                              value={Math.min((risk.score / 20) * 100, 100)}
-                              color={getRiskScoreColor(risk.score)}
-                              sx={{ width: 50, height: 8, borderRadius: 4 }}
-                            />
-                          )}
-                        </Box>
-                      </TableCell>
+                                            <TableCell>
+                                              <FeatureGate feature="advanced_risk_scoring">
+                                                <Box display="flex" alignItems="center" gap={1}>
+                                                  <Typography variant="body2">{risk.score ?? '-'}</Typography>
+                                                  {risk.score && (
+                                                    <LinearProgress
+                                                      variant="determinate"
+                                                      value={Math.min((risk.score / 20) * 100, 100)}
+                                                      color={getRiskScoreColor(risk.score)}
+                                                      sx={{ width: 50, height: 8, borderRadius: 4 }}
+                                                    />
+                                                  )}
+                                                </Box>
+                                              </FeatureGate>
+                                            </TableCell>
                       <TableCell>
                         <Chip
                           label={formatStatus(risk.status)}
