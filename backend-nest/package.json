@@ -18,9 +18,13 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "seed:grc": "ts-node -r tsconfig-paths/register src/scripts/seed-grc.ts",
-    "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
-    "acceptance:full": "ts-node -r tsconfig-paths/register src/scripts/acceptance-runner.ts"
+        "seed:grc": "ts-node -r tsconfig-paths/register src/scripts/seed-grc.ts",
+        "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
+        "acceptance:full": "ts-node -r tsconfig-paths/register src/scripts/acceptance-runner.ts",
+        "migration:generate": "typeorm migration:generate -d src/data-source.ts",
+        "migration:run": "typeorm migration:run -d src/data-source.ts",
+        "migration:revert": "typeorm migration:revert -d src/data-source.ts",
+        "migration:show": "typeorm migration:show -d src/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -37,6 +41,7 @@
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
+    "dotenv": "^17.2.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",

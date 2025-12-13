@@ -259,6 +259,11 @@ export const API_PATHS = {
     LINK_RISK: (id: string) => `/grc/process-violations/${id}/link-risk`,
     UNLINK_RISK: (id: string) => `/grc/process-violations/${id}/unlink-risk`,
   },
+
+  // Onboarding Core endpoints
+  ONBOARDING: {
+    CONTEXT: '/onboarding/context',
+  },
 } as const;
 
 // ============================================================================
@@ -1327,4 +1332,120 @@ export const processViolationApi = {
       {},
       withTenantId(tenantId),
     ),
+};
+
+// ============================================================================
+// Onboarding Core Types
+// ============================================================================
+
+export enum SuiteType {
+  GRC_SUITE = 'GRC_SUITE',
+  ITSM_SUITE = 'ITSM_SUITE',
+}
+
+export enum ModuleType {
+  RISK = 'risk',
+  POLICY = 'policy',
+  CONTROL = 'control',
+  AUDIT = 'audit',
+  INCIDENT = 'incident',
+  REQUEST = 'request',
+  CHANGE = 'change',
+  PROBLEM = 'problem',
+  CMDB = 'cmdb',
+}
+
+export enum FrameworkType {
+  ISO27001 = 'ISO27001',
+  SOC2 = 'SOC2',
+  GDPR = 'GDPR',
+  HIPAA = 'HIPAA',
+  NIST = 'NIST',
+  PCI_DSS = 'PCI_DSS',
+}
+
+export enum MaturityLevel {
+  FOUNDATIONAL = 'foundational',
+  INTERMEDIATE = 'intermediate',
+  ADVANCED = 'advanced',
+}
+
+export enum PolicyCode {
+  FRAMEWORK_REQUIRED = 'FRAMEWORK_REQUIRED',
+  ADVANCED_RISK_SCORING_DISABLED = 'ADVANCED_RISK_SCORING_DISABLED',
+  ISO27001_EVIDENCE_RECOMMENDED = 'ISO27001_EVIDENCE_RECOMMENDED',
+  AUDIT_SCOPE_FILTERED = 'AUDIT_SCOPE_FILTERED',
+  CLAUSE_LEVEL_ASSESSMENT_WARNING = 'CLAUSE_LEVEL_ASSESSMENT_WARNING',
+  ITSM_RELATED_RISK_DISABLED = 'ITSM_RELATED_RISK_DISABLED',
+  MAJOR_INCIDENT_AUTOMATION_DISABLED = 'MAJOR_INCIDENT_AUTOMATION_DISABLED',
+}
+
+export enum WarningSeverity {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+}
+
+export interface PolicyWarning {
+  code: PolicyCode;
+  severity: WarningSeverity;
+  message: string;
+  targets: string[];
+}
+
+export interface PolicyResult {
+  disabledFeatures: string[];
+  warnings: PolicyWarning[];
+  metadata: Record<string, unknown>;
+}
+
+export interface OnboardingContext {
+  status: 'active' | 'pending' | 'suspended';
+  schemaVersion: number;
+  policySetVersion: string | null;
+  activeSuites: SuiteType[];
+  enabledModules: Record<SuiteType, ModuleType[]>;
+  activeFrameworks: FrameworkType[];
+  maturity: MaturityLevel;
+  metadata: {
+    initializedAt: Date | null;
+    lastUpdatedAt: Date | null;
+  };
+}
+
+export interface OnboardingContextWithPolicy {
+  context: OnboardingContext;
+  policy: PolicyResult;
+}
+
+export const DEFAULT_ONBOARDING_CONTEXT: OnboardingContext = {
+  status: 'active',
+  schemaVersion: 1,
+  policySetVersion: null,
+  activeSuites: [],
+  enabledModules: {
+    [SuiteType.GRC_SUITE]: [],
+    [SuiteType.ITSM_SUITE]: [],
+  },
+  activeFrameworks: [],
+  maturity: MaturityLevel.FOUNDATIONAL,
+  metadata: {
+    initializedAt: null,
+    lastUpdatedAt: null,
+  },
+};
+
+export const DEFAULT_POLICY_RESULT: PolicyResult = {
+  disabledFeatures: [],
+  warnings: [],
+  metadata: {},
+};
+
+// ============================================================================
+// Onboarding Core API
+// ============================================================================
+
+export const onboardingApi = {
+  getContext: (tenantId: string) =>
+    api.get(API_PATHS.ONBOARDING.CONTEXT, withTenantId(tenantId)),
 };
