@@ -338,6 +338,101 @@ If the onboarding context fetch fails, the UI continues to function with default
 5. Create a tenant with ITSM_SUITE only (no GRC_SUITE)
 6. Verify `itsm_related_risk` is disabled
 
+## Staging Verification
+
+### Running Migrations
+
+1. Ensure the database connection is configured in `.env`:
+   ```
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USERNAME=postgres
+   DB_PASSWORD=your_password
+   DB_DATABASE=grc_platform
+   ```
+
+2. Run the migrations:
+   ```bash
+   cd backend-nest
+   npm run migration:run
+   ```
+
+3. Verify the tables were created:
+   ```sql
+   SELECT table_name FROM information_schema.tables 
+   WHERE table_schema = 'public' 
+   AND table_name LIKE 'tenant_%' OR table_name = 'onboarding_decision';
+   ```
+
+### Verifying /onboarding/context Endpoint
+
+1. Start the backend server:
+   ```bash
+   cd backend-nest && npm run start:dev
+   ```
+
+2. Authenticate and obtain a JWT token
+
+3. Call the endpoint with a valid tenant ID:
+   ```bash
+   curl -X GET http://localhost:3002/onboarding/context \
+     -H "Authorization: Bearer <token>" \
+     -H "x-tenant-id: <tenant-id>"
+   ```
+
+4. Expected response for empty tables (default fallback):
+   ```json
+   {
+     "success": true,
+     "data": {
+       "context": {
+         "status": "active",
+         "schemaVersion": 1,
+         "policySetVersion": null,
+         "activeSuites": [],
+         "enabledModules": { "GRC_SUITE": [], "ITSM_SUITE": [] },
+         "activeFrameworks": [],
+         "maturity": "foundational"
+       },
+       "policy": {
+         "disabledFeatures": ["advanced_risk_scoring", "major_incident_automation"],
+         "warnings": []
+       }
+     }
+   }
+   ```
+
+### UI Verification Checks
+
+After deploying to staging, verify the following 3 UI behaviors:
+
+1. **GRC Warning Banner** (Risk Management page)
+   - Navigate to `/risks`
+   - If no frameworks are configured, a warning banner should appear at the top of the page
+   - The banner displays: "No compliance frameworks are configured..."
+
+2. **Hidden Advanced Risk Scoring** (Risk Management page)
+   - Navigate to `/risks`
+   - For tenants with `foundational` maturity level, the Score column in the risk table should be hidden
+   - For tenants with `intermediate` or `advanced` maturity, the Score column should be visible
+
+3. **Hidden Related Risk Field** (ITSM Incident Details)
+   - Navigate to `/incidents` and view an incident's details
+   - If GRC_SUITE is NOT enabled for the tenant, the "Related Risk" field should be hidden
+   - If GRC_SUITE IS enabled, the "Related Risk" field should be visible
+
+### Troubleshooting
+
+If the `/onboarding/context` endpoint returns an error:
+- Check the backend logs for warnings about query failures
+- The service is designed to return a fallback context and never throw runtime errors
+- Verify the database connection is working
+
+If UI components are not gating correctly:
+- Check browser console for errors related to OnboardingContext
+- Verify the OnboardingProvider is wrapping the application
+- Check that the tenant has the expected onboarding configuration
+
 ## Exit Validation
 
 Before merging, verify:

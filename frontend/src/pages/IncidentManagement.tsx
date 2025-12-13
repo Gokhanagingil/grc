@@ -39,6 +39,7 @@ import {
 import { incidentApi, unwrapPaginatedResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
   HARDWARE = 'hardware',
@@ -769,10 +770,16 @@ export const IncidentManagement: React.FC = () => {
                 <Typography variant="subtitle2">Assignment Group</Typography>
                 <Typography>{viewingIncident.assignmentGroup || '-'}</Typography>
               </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Related Service</Typography>
-                <Typography>{viewingIncident.relatedService || '-'}</Typography>
-              </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="subtitle2">Related Service</Typography>
+                              <Typography>{viewingIncident.relatedService || '-'}</Typography>
+                            </Grid>
+                            <SuiteGate suite="GRC_SUITE">
+                              <Grid item xs={6}>
+                                <Typography variant="subtitle2">Related Risk</Typography>
+                                <Typography>{viewingIncident.relatedRiskId || '-'}</Typography>
+                              </Grid>
+                            </SuiteGate>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Created</Typography>
                 <Typography>{new Date(viewingIncident.createdAt).toLocaleString()}</Typography>
