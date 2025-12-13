@@ -351,13 +351,24 @@ If the onboarding context fetch fails, the UI continues to function with default
    DB_DATABASE=grc_platform
    ```
 
-2. Run the migrations:
+2. Available migration commands:
    ```bash
    cd backend-nest
+   
+   # Generate a new migration from entity changes
+   npm run migration:generate src/migrations/MigrationName
+   
+   # Run pending migrations
    npm run migration:run
+   
+   # Revert the last migration
+   npm run migration:revert
+   
+   # Show migration status
+   npm run migration:show
    ```
 
-3. Verify the tables were created:
+4. Verify the tables were created:
    ```sql
    SELECT table_name FROM information_schema.tables 
    WHERE table_schema = 'public' 

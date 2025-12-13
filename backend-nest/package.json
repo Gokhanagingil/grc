@@ -21,6 +21,7 @@
         "seed:grc": "ts-node -r tsconfig-paths/register src/scripts/seed-grc.ts",
         "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
         "acceptance:full": "ts-node -r tsconfig-paths/register src/scripts/acceptance-runner.ts",
+        "migration:generate": "typeorm migration:generate -d src/data-source.ts",
         "migration:run": "typeorm migration:run -d src/data-source.ts",
         "migration:revert": "typeorm migration:revert -d src/data-source.ts",
         "migration:show": "typeorm migration:show -d src/data-source.ts"
