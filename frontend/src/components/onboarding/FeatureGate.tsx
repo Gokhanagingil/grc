@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Tooltip, Box } from '@mui/material';
 import { useOnboardingSafe } from '../../contexts/OnboardingContext';
+import { SuiteType } from '../../services/grcClient';
 
 interface FeatureGateProps {
   feature: string;
@@ -48,7 +49,7 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
 };
 
 interface SuiteGateProps {
-  suite: 'GRC_SUITE' | 'ITSM_SUITE';
+  suite: SuiteType;
   children: ReactNode;
   fallback?: ReactNode;
   hideWhenDisabled?: boolean;
@@ -61,7 +62,7 @@ export const SuiteGate: React.FC<SuiteGateProps> = ({
   hideWhenDisabled = false,
 }) => {
   const { isSuiteEnabled } = useOnboardingSafe();
-  const enabled = isSuiteEnabled(suite as 'GRC_SUITE' | 'ITSM_SUITE');
+  const enabled = isSuiteEnabled(suite);
 
   if (!enabled) {
     if (hideWhenDisabled) {
