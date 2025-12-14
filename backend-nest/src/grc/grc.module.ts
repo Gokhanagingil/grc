@@ -38,6 +38,12 @@ import {
   ControlResult,
   ProcessViolation,
   ProcessControlRisk,
+  // Audit Phase 2 - Standards Library entities
+  Standard,
+  StandardClause,
+  AuditScopeStandard,
+  AuditScopeClause,
+  GrcIssueClause,
 } from './entities';
 
 // Services
@@ -58,6 +64,8 @@ import {
   ControlResultService,
   ProcessViolationService,
   ProcessComplianceService,
+  // Audit Phase 2 - Standards Library services
+  StandardsService,
 } from './services';
 
 // Controllers
@@ -76,6 +84,9 @@ import {
   ProcessControlController,
   ControlResultController,
   ProcessViolationController,
+  // Audit Phase 2 - Standards Library controllers
+  StandardsController,
+  AuditScopeController,
 } from './controllers';
 
 /**
@@ -132,6 +143,12 @@ import {
       ControlResult,
       ProcessViolation,
       ProcessControlRisk,
+      // Audit Phase 2 - Standards Library entities
+      Standard,
+      StandardClause,
+      AuditScopeStandard,
+      AuditScopeClause,
+      GrcIssueClause,
     ]),
     AuditModule,
     AuthModule,
@@ -155,6 +172,8 @@ import {
     ControlResultService,
     ProcessViolationService,
     ProcessComplianceService,
+    // Audit Phase 2 - Standards Library services
+    StandardsService,
   ],
   controllers: [
     // Core controllers
@@ -172,6 +191,9 @@ import {
     ProcessControlController,
     ControlResultController,
     ProcessViolationController,
+    // Audit Phase 2 - Standards Library controllers
+    StandardsController,
+    AuditScopeController,
   ],
   exports: [
     // Core services
@@ -191,6 +213,8 @@ import {
     ControlResultService,
     ProcessViolationService,
     ProcessComplianceService,
+    // Audit Phase 2 - Standards Library services
+    StandardsService,
   ],
 })
 export class GrcModule {}

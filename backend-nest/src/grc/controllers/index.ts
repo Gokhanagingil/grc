@@ -27,3 +27,6 @@ export { ProcessController } from './process.controller';
 export { ProcessControlController } from './process-control.controller';
 export { ControlResultController } from './control-result.controller';
 export { ProcessViolationController } from './process-violation.controller';
+
+// Standards Library Controllers (Audit Phase 2)
+export { StandardsController, AuditScopeController } from './standards.controller';
