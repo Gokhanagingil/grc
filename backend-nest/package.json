@@ -20,12 +20,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
         "seed:grc": "ts-node -r tsconfig-paths/register src/scripts/seed-grc.ts",
         "seed:standards": "ts-node -r tsconfig-paths/register src/scripts/seed-standards.ts",
+        "seed:standards:prod": "node dist/scripts/seed-standards.js",
         "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
         "acceptance:full": "ts-node -r tsconfig-paths/register src/scripts/acceptance-runner.ts",
         "migration:generate": "typeorm migration:generate -d src/data-source.ts",
         "migration:run": "typeorm migration:run -d src/data-source.ts",
         "migration:revert": "typeorm migration:revert -d src/data-source.ts",
-        "migration:show": "typeorm migration:show -d src/data-source.ts"
+        "migration:show": "typeorm migration:show -d src/data-source.ts",
+        "migrations:status:prod": "node dist/scripts/migrations-status.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
