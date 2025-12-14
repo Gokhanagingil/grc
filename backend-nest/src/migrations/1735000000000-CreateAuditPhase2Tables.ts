@@ -23,11 +23,14 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
         "tenant_id" uuid NOT NULL,
         "code" varchar(100) NOT NULL,
         "name" varchar(255) NOT NULL,
+        "short_name" varchar(100),
         "version" varchar(50),
         "domain" varchar(100),
         "description" text,
-        "publisher" text,
+        "publisher" varchar(255),
         "published_date" date,
+        "effective_date" date,
+        "is_active" boolean NOT NULL DEFAULT true,
         "metadata" jsonb,
         "created_at" timestamp NOT NULL DEFAULT now(),
         "updated_at" timestamp NOT NULL DEFAULT now(),
@@ -72,6 +75,9 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_standards_is_deleted" ON "standards" ("is_deleted")`,
     );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_is_active" ON "standards" ("tenant_id", "is_active", "is_deleted")`,
+    );
 
     // Create standard_clauses table
     await queryRunner.query(`
@@ -82,9 +88,13 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
         "code" varchar(100) NOT NULL,
         "title" varchar(255) NOT NULL,
         "description" text,
+        "description_long" text,
         "parent_id" uuid,
         "hierarchy_level" integer NOT NULL DEFAULT 0,
+        "level" integer NOT NULL DEFAULT 1,
         "sort_order" integer NOT NULL DEFAULT 0,
+        "path" varchar(500),
+        "is_auditable" boolean NOT NULL DEFAULT true,
         "metadata" jsonb,
         "created_at" timestamp NOT NULL DEFAULT now(),
         "updated_at" timestamp NOT NULL DEFAULT now(),
@@ -127,6 +137,12 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_is_deleted" ON "standard_clauses" ("is_deleted")`,
     );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_level" ON "standard_clauses" ("tenant_id", "standard_id", "level")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_path" ON "standard_clauses" ("tenant_id", "path")`,
+    );
 
     // Create audit_scope_standards table
     await queryRunner.query(`
@@ -135,6 +151,10 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
         "tenant_id" uuid NOT NULL,
         "audit_id" uuid NOT NULL,
         "standard_id" uuid NOT NULL,
+        "scope_type" varchar(20) NOT NULL DEFAULT 'full',
+        "is_locked" boolean NOT NULL DEFAULT false,
+        "locked_at" timestamp,
+        "locked_by" uuid,
         "notes" text,
         "created_at" timestamp NOT NULL DEFAULT now(),
         CONSTRAINT "PK_audit_scope_standards" PRIMARY KEY ("id"),
@@ -168,6 +188,8 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
         "tenant_id" uuid NOT NULL,
         "audit_id" uuid NOT NULL,
         "clause_id" uuid NOT NULL,
+        "status" varchar(20) NOT NULL DEFAULT 'not_started',
+        "is_locked" boolean NOT NULL DEFAULT false,
         "notes" text,
         "created_at" timestamp NOT NULL DEFAULT now(),
         CONSTRAINT "PK_audit_scope_clauses" PRIMARY KEY ("id"),
