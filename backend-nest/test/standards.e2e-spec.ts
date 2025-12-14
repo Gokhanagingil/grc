@@ -181,8 +181,7 @@ describe('Standards Library (e2e)', () => {
         })
         .expect(201);
 
-      const auditId =
-        auditResponse.body.data?.id || auditResponse.body.id;
+      const auditId = auditResponse.body.data?.id || auditResponse.body.id;
 
       // Get audit scope
       const scopeResponse = await request(app.getHttpServer())

@@ -71,3 +71,6 @@ export {
   ProcessViolationFilterDto,
   PROCESS_VIOLATION_SORTABLE_FIELDS,
 } from './filter-process-violation.dto';
+
+// Standard DTOs
+export { CreateStandardDto } from './create-standard.dto';

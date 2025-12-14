@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 
@@ -18,7 +12,12 @@ export class TenantInitializationProfile extends BaseEntity {
   @Column({ name: 'schema_version', type: 'int', default: 1 })
   schemaVersion: number;
 
-  @Column({ name: 'policy_set_version', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'policy_set_version',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   policySetVersion: string | null;
 
   @Column({ name: 'initialized_at', type: 'timestamp', nullable: true })

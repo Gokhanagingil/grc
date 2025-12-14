@@ -12,10 +12,7 @@ import {
   OnboardingDecision,
 } from './entities';
 
-import {
-  OnboardingContextService,
-  PolicyEvaluatorService,
-} from './services';
+import { OnboardingContextService, PolicyEvaluatorService } from './services';
 
 import { OnboardingController } from './controllers';
 

@@ -14,9 +14,10 @@ import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
-import { DataSource, IsNull } from 'typeorm';
+import { DataSource, IsNull, FindOptionsWhere } from 'typeorm';
 import { Standard } from '../entities/standard.entity';
 import { Perf } from '../../common/decorators';
+import { CreateStandardDto } from '../dto/create-standard.dto';
 
 /**
  * Standard Controller
@@ -74,16 +75,7 @@ export class StandardController {
   @Perf()
   async create(
     @Headers('x-tenant-id') tenantId: string,
-    @Body()
-    body: {
-      code: string;
-      name: string;
-      version?: string;
-      domain?: string;
-      description?: string;
-      publisher?: string;
-      publishedDate?: string;
-    },
+    @Body() body: CreateStandardDto,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -96,16 +88,15 @@ export class StandardController {
     const standardRepo = this.dataSource.getRepository(Standard);
 
     // Check if standard with same code/version already exists
-    const whereClause: any = {
+    const whereClause: FindOptionsWhere<Standard> = {
       tenantId,
       code: body.code,
       isDeleted: false,
+      version:
+        body.version !== undefined && body.version !== null
+          ? body.version
+          : IsNull(),
     };
-    if (body.version !== undefined && body.version !== null) {
-      whereClause.version = body.version;
-    } else {
-      whereClause.version = IsNull();
-    }
     const existing = await standardRepo.findOne({
       where: whereClause,
     });
@@ -120,12 +111,14 @@ export class StandardController {
       tenantId,
       code: body.code,
       name: body.name,
-      version: body.version || null,
-      domain: body.domain || null,
-      description: body.description || null,
-      publisher: body.publisher || null,
+      version: body.version ?? null,
+      domain: body.domain ?? null,
+      description: body.description ?? null,
+      publisher: body.publisher ?? null,
       publishedDate: body.publishedDate
-        ? new Date(body.publishedDate)
+        ? typeof body.publishedDate === 'string'
+          ? new Date(body.publishedDate)
+          : body.publishedDate
         : null,
     });
 

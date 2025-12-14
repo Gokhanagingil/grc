@@ -217,7 +217,9 @@ export class StandardsService extends MultiTenantServiceBase<Standard> {
     tenantId: string,
     userId: string,
     clauseId: string,
-    data: Partial<Omit<StandardClause, 'id' | 'tenantId' | 'standardId' | 'isDeleted'>>,
+    data: Partial<
+      Omit<StandardClause, 'id' | 'tenantId' | 'standardId' | 'isDeleted'>
+    >,
   ): Promise<StandardClause | null> {
     const existing = await this.clauseRepository.findOne({
       where: { id: clauseId, tenantId, isDeleted: false },
@@ -293,7 +295,9 @@ export class StandardsService extends MultiTenantServiceBase<Standard> {
         scopeType,
         isLocked: false,
       });
-      standards.push(await this.auditScopeStandardRepository.save(scopeStandard));
+      standards.push(
+        await this.auditScopeStandardRepository.save(scopeStandard),
+      );
     }
 
     const clauses: AuditScopeClause[] = [];

@@ -194,12 +194,12 @@ import {
     ProcessControlController,
     ControlResultController,
     ProcessViolationController,
-      // Audit Phase 2 - Standards Library controllers
-      StandardController,
-      StandardClauseController,
-      GrcIssueController,
-      StandardsController,
-      AuditScopeController,
+    // Audit Phase 2 - Standards Library controllers
+    StandardController,
+    StandardClauseController,
+    GrcIssueController,
+    StandardsController,
+    AuditScopeController,
   ],
   exports: [
     // Core services

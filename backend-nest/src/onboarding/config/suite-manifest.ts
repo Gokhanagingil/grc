@@ -48,9 +48,13 @@ export function getSuiteForModule(moduleType: ModuleType): SuiteType | null {
 }
 
 export function isGrcModule(moduleType: ModuleType): boolean {
-  return SUITE_MANIFEST[SuiteType.GRC_SUITE].defaultModules.includes(moduleType);
+  return SUITE_MANIFEST[SuiteType.GRC_SUITE].defaultModules.includes(
+    moduleType,
+  );
 }
 
 export function isItsmModule(moduleType: ModuleType): boolean {
-  return SUITE_MANIFEST[SuiteType.ITSM_SUITE].defaultModules.includes(moduleType);
+  return SUITE_MANIFEST[SuiteType.ITSM_SUITE].defaultModules.includes(
+    moduleType,
+  );
 }

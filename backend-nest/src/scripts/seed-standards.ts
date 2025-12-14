@@ -265,7 +265,9 @@ async function seedStandards() {
         await clauseRepo.save(clause);
         clauseMap.set(clauseData.code, clause);
         createdClauses.push(clause);
-        console.log(`   Created clause: ${clauseData.code} - ${clauseData.title}`);
+        console.log(
+          `   Created clause: ${clauseData.code} - ${clauseData.title}`,
+        );
       }
     }
 

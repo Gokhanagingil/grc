@@ -24,7 +24,8 @@ import { config } from 'dotenv';
 config();
 
 // Configuration from environment variables
-const BASE_URL = process.env.BASE_URL || process.env.NEST_API_URL || 'http://localhost:3002';
+const BASE_URL =
+  process.env.BASE_URL || process.env.NEST_API_URL || 'http://localhost:3002';
 const DEMO_ADMIN_EMAIL =
   process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
 const DEMO_ADMIN_PASSWORD =
@@ -177,7 +178,9 @@ async function runScenario1LoginDashboard(): Promise<ScenarioResult> {
 
   // 1.1 Health Check
   const healthResponse = await makeRequest('GET', '/health/live');
-  const healthData = (healthResponse.data as { data?: { status?: string } })?.data || healthResponse.data;
+  const healthData =
+    (healthResponse.data as { data?: { status?: string } })?.data ||
+    healthResponse.data;
   const healthPassed =
     healthResponse.statusCode === 200 &&
     (healthData as { status?: string })?.status === 'ok';
@@ -828,8 +831,7 @@ async function runScenario4GovernanceCompliance(): Promise<ScenarioResult> {
     { policyIds: [policyId] },
   );
   const linkPolicyPassed =
-    linkPolicyResponse.statusCode >= 200 &&
-    linkPolicyResponse.statusCode < 300;
+    linkPolicyResponse.statusCode >= 200 && linkPolicyResponse.statusCode < 300;
   checks.push({
     name: 'Link policy to risk',
     passed: linkPolicyPassed,

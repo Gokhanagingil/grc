@@ -1018,7 +1018,9 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         // Use valid UUID v4 format (13th char must be '4', 17th char must be '8', '9', 'a', or 'b')
         await request(app.getHttpServer())
-          .patch('/grc/process-violations/00000000-0000-4000-a000-000000000000/link-risk')
+          .patch(
+            '/grc/process-violations/00000000-0000-4000-a000-000000000000/link-risk',
+          )
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({ riskId: '00000000-0000-4000-a000-000000000001' })

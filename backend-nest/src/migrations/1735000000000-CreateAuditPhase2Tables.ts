@@ -54,12 +54,24 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     `);
 
     // Create standard indexes for standards
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_tenant_id" ON "standards" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_code" ON "standards" ("code")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_domain" ON "standards" ("tenant_id", "domain")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_created_at" ON "standards" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_updated_at" ON "standards" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standards_is_deleted" ON "standards" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_tenant_id" ON "standards" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_code" ON "standards" ("code")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_domain" ON "standards" ("tenant_id", "domain")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_created_at" ON "standards" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_updated_at" ON "standards" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standards_is_deleted" ON "standards" ("is_deleted")`,
+    );
 
     // Create standard_clauses table
     await queryRunner.query(`
@@ -94,13 +106,27 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     `);
 
     // Create standard indexes for standard_clauses
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_tenant_id" ON "standard_clauses" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_standard_id" ON "standard_clauses" ("standard_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_parent_id" ON "standard_clauses" ("tenant_id", "parent_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_code" ON "standard_clauses" ("tenant_id", "code")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_created_at" ON "standard_clauses" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_updated_at" ON "standard_clauses" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_is_deleted" ON "standard_clauses" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_tenant_id" ON "standard_clauses" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_standard_id" ON "standard_clauses" ("standard_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_parent_id" ON "standard_clauses" ("tenant_id", "parent_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_code" ON "standard_clauses" ("tenant_id", "code")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_created_at" ON "standard_clauses" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_updated_at" ON "standard_clauses" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_standard_clauses_is_deleted" ON "standard_clauses" ("is_deleted")`,
+    );
 
     // Create audit_scope_standards table
     await queryRunner.query(`
@@ -125,9 +151,15 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     `);
 
     // Create standard indexes for audit_scope_standards
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_tenant_id" ON "audit_scope_standards" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_audit_id" ON "audit_scope_standards" ("audit_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_standard_id" ON "audit_scope_standards" ("tenant_id", "standard_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_tenant_id" ON "audit_scope_standards" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_audit_id" ON "audit_scope_standards" ("audit_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_standards_standard_id" ON "audit_scope_standards" ("tenant_id", "standard_id")`,
+    );
 
     // Create audit_scope_clauses table
     await queryRunner.query(`
@@ -152,9 +184,15 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     `);
 
     // Create standard indexes for audit_scope_clauses
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_tenant_id" ON "audit_scope_clauses" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_audit_id" ON "audit_scope_clauses" ("audit_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_clause_id" ON "audit_scope_clauses" ("tenant_id", "clause_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_tenant_id" ON "audit_scope_clauses" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_audit_id" ON "audit_scope_clauses" ("audit_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_audit_scope_clauses_clause_id" ON "audit_scope_clauses" ("tenant_id", "clause_id")`,
+    );
 
     // Create grc_issue_clauses table
     await queryRunner.query(`
@@ -179,9 +217,15 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     `);
 
     // Create standard indexes for grc_issue_clauses
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_tenant_id" ON "grc_issue_clauses" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_issue_id" ON "grc_issue_clauses" ("issue_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_clause_id" ON "grc_issue_clauses" ("tenant_id", "clause_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_tenant_id" ON "grc_issue_clauses" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_issue_id" ON "grc_issue_clauses" ("issue_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_issue_clauses_clause_id" ON "grc_issue_clauses" ("tenant_id", "clause_id")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

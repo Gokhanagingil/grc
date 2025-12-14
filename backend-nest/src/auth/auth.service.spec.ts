@@ -20,8 +20,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: jest.Mocked<UsersService>;
   let jwtService: jest.Mocked<JwtService>;
-  let configService: jest.Mocked<ConfigService>;
-  let tenantsService: jest.Mocked<TenantsService>;
   let bruteForceService: jest.Mocked<BruteForceService>;
   let eventEmitter: jest.Mocked<EventEmitter2>;
 
@@ -89,8 +87,6 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     usersService = module.get(UsersService);
     jwtService = module.get(JwtService);
-    configService = module.get(ConfigService);
-    tenantsService = module.get(TenantsService);
     bruteForceService = module.get(BruteForceService);
     eventEmitter = module.get(EventEmitter2);
   });
