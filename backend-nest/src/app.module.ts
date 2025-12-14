@@ -16,6 +16,7 @@ import { ItsmModule } from './itsm/itsm.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { PlatformModule } from './platform/platform.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -110,6 +111,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Onboarding Core (Suite-first Platform Onboarding)
     OnboardingModule,
+
+    // Platform Core (stub endpoints for dynamic platform features)
+    PlatformModule,
 
     // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
