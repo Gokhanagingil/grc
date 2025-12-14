@@ -1,17 +1,24 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
   Req,
   Headers,
   Logger,
+  UseGuards,
+  Request as NestRequest,
+  NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UsersService } from '../users/users.service';
+import { RequestWithUser } from '../common/types';
 
 /**
  * Auth Controller
@@ -22,7 +29,29 @@ import { LoginDto } from './dto/login.dto';
 export class AuthController {
   private readonly logger = new Logger('AuthLogin');
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  /**
+   * Get current user profile (compatibility endpoint)
+   *
+   * This endpoint provides backward compatibility for frontend code
+   * that calls /auth/me instead of /users/me.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async getProfile(@NestRequest() req: RequestWithUser) {
+    const user = await this.usersService.findById(req.user?.sub || '');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userResponse = { ...user };
+    delete (userResponse as { passwordHash?: string }).passwordHash;
+    return userResponse;
+  }
 
   /**
    * Login endpoint
