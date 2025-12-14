@@ -25,6 +25,8 @@ import {
   ExpandLess,
   ExpandMore,
   ArrowBack as BackIcon,
+  History as AuditLogsIcon,
+  MonitorHeart as SystemIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -66,7 +68,18 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'Tenants',
     icon: <TenantsIcon />,
     path: '/admin/tenants',
-    disabled: true,
+  },
+  {
+    id: 'audit-logs',
+    text: 'Audit Logs',
+    icon: <AuditLogsIcon />,
+    path: '/admin/audit-logs',
+  },
+  {
+    id: 'system',
+    text: 'System Status',
+    icon: <SystemIcon />,
+    path: '/admin/system',
   },
   {
     id: 'settings',

@@ -2,3 +2,6 @@ export { AdminUsers } from './AdminUsers';
 export { AdminRoles } from './AdminRoles';
 export { AdminSettings } from './AdminSettings';
 export { AdminMetadata } from './AdminMetadata';
+export { AdminTenants } from './AdminTenants';
+export { AdminAuditLogs } from './AdminAuditLogs';
+export { AdminSystem } from './AdminSystem';

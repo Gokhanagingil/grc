@@ -19,22 +19,17 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
-  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
-  Search as SearchIcon,
   FactCheck as AuditIcon,
-  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { api } from '../services/api';
 
@@ -287,30 +282,35 @@ export const AuditList: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-        <Card sx={{ mb: 2 }}>
-          <CardContent>
-            <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-              <FilterIcon color="action" />
-              
-              <TextField
-                size="small"
-                placeholder="Search audits..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(0);
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ minWidth: 200 }}
-              />
-
-              <FormControl size="small" sx={{ minWidth: 130 }}>
+        {/* Toolbar with Search and Filters */}
+        <TableToolbar
+          searchValue={searchQuery}
+          onSearchChange={(value) => {
+            setSearchQuery(value);
+            setPage(0);
+          }}
+          searchPlaceholder="Search audits..."
+          filters={[
+            ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
+            ...(riskLevelFilter ? [{ key: 'riskLevel', label: 'Risk', value: riskLevelFilter.charAt(0).toUpperCase() + riskLevelFilter.slice(1) }] : []),
+            ...(auditTypeFilter ? [{ key: 'auditType', label: 'Type', value: auditTypeFilter.charAt(0).toUpperCase() + auditTypeFilter.slice(1) }] : []),
+            ...(departmentFilter ? [{ key: 'department', label: 'Dept', value: departmentFilter }] : []),
+          ] as FilterOption[]}
+          onFilterRemove={(key) => {
+            if (key === 'status') { setStatusFilter(''); setPage(0); }
+            if (key === 'riskLevel') { setRiskLevelFilter(''); setPage(0); }
+            if (key === 'auditType') { setAuditTypeFilter(''); setPage(0); }
+            if (key === 'department') { setDepartmentFilter(''); setPage(0); }
+          }}
+          onClearFilters={() => {
+            clearFilters();
+            setPage(0);
+          }}
+          onRefresh={fetchAudits}
+          loading={loading}
+          actions={
+            <Box display="flex" gap={1} flexWrap="wrap">
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Status</InputLabel>
                 <Select
                   value={statusFilter}
@@ -328,7 +328,7 @@ export const AuditList: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 130 }}>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Risk Level</InputLabel>
                 <Select
                   value={riskLevelFilter}
@@ -346,7 +346,7 @@ export const AuditList: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 130 }}>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
                 <InputLabel>Type</InputLabel>
                 <Select
                   value={auditTypeFilter}
@@ -363,7 +363,7 @@ export const AuditList: React.FC = () => {
               </FormControl>
 
               {departments.length > 0 && (
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 130 }}>
                   <InputLabel>Department</InputLabel>
                   <Select
                     value={departmentFilter}
@@ -380,19 +380,9 @@ export const AuditList: React.FC = () => {
                   </Select>
                 </FormControl>
               )}
-
-              {hasFilters && (
-                <Button
-                  size="small"
-                  startIcon={<ClearIcon />}
-                  onClick={clearFilters}
-                >
-                  Clear Filters
-                </Button>
-              )}
             </Box>
-          </CardContent>
-        </Card>
+          }
+        />
 
         <Card>
           <CardContent>
