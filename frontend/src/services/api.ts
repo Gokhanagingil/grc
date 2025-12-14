@@ -4,6 +4,9 @@ import { getApiBaseUrl } from '../config';
 // Use Cursor's config helper for API base URL (environmental correctness)
 const API_BASE_URL = getApiBaseUrl();
 
+// Shared constant for tenant ID storage key to ensure consistency
+export const STORAGE_TENANT_ID_KEY = 'tenantId';
+
 /**
  * Standard API Error Response
  * Matches the backend's GlobalExceptionFilter error format
@@ -94,9 +97,15 @@ api.interceptors.request.use(
     }
     
     // Auto-add tenant ID header if available
-    const tenantId = localStorage.getItem('tenantId');
+    const tenantId = localStorage.getItem(STORAGE_TENANT_ID_KEY);
     if (tenantId) {
       config.headers['x-tenant-id'] = tenantId;
+    } else if (process.env.NODE_ENV === 'development') {
+      // Dev-only: log when tenantId is missing for tenant-required endpoints
+      const tenantRequiredPaths = ['/onboarding/context', '/grc/audits', '/grc/risks', '/grc/policies'];
+      if (tenantRequiredPaths.some(path => config.url?.includes(path))) {
+        console.warn(`[API Interceptor] Missing tenantId for tenant-required endpoint: ${config.url}`);
+      }
     }
     
     return config;
@@ -205,7 +214,7 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('tenantId');
+        localStorage.removeItem(STORAGE_TENANT_ID_KEY);
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
