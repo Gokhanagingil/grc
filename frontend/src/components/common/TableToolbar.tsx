@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -45,7 +45,31 @@ export interface TableToolbarProps {
   onColumnToggle?: (columnId: string) => void;
   loading?: boolean;
   actions?: React.ReactNode;
+  columnStorageKey?: string; // Optional key for localStorage persistence
 }
+
+// Safe localStorage helpers
+const safeGetStorage = (key: string): Record<string, boolean> | null => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const safeSetStorage = (key: string, value: Record<string, boolean>): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage errors (quota exceeded, etc.)
+  }
+};
 
 export const TableToolbar: React.FC<TableToolbarProps> = ({
   searchValue = '',
@@ -59,8 +83,68 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
   onColumnToggle,
   loading = false,
   actions,
+  columnStorageKey,
 }) => {
   const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
+  const [localSearchValue, setLocalSearchValue] = useState(searchValue);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedColumnsRef = useRef(false);
+
+  // Initialize columns from localStorage if storage key is provided
+  useEffect(() => {
+    if (columnStorageKey && columns.length > 0 && onColumnToggle && !hasInitializedColumnsRef.current) {
+      const stored = safeGetStorage(columnStorageKey);
+      if (stored) {
+        // Apply stored column visibility
+        columns.forEach((col) => {
+          if (col.id in stored && col.visible !== stored[col.id]) {
+            onColumnToggle(col.id);
+          }
+        });
+      }
+      hasInitializedColumnsRef.current = true;
+    }
+  }, [columnStorageKey, columns, onColumnToggle]);
+
+  // Save column visibility to localStorage when it changes
+  useEffect(() => {
+    if (columnStorageKey && columns.length > 0) {
+      const columnState: Record<string, boolean> = {};
+      columns.forEach((col) => {
+        columnState[col.id] = col.visible;
+      });
+      safeSetStorage(columnStorageKey, columnState);
+    }
+  }, [columnStorageKey, columns]);
+
+  // Sync local search value with prop
+  useEffect(() => {
+    setLocalSearchValue(searchValue);
+  }, [searchValue]);
+
+  // Debounced search handler
+  const handleSearchChange = useCallback((value: string) => {
+    setLocalSearchValue(value);
+    
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      if (onSearchChange) {
+        onSearchChange(value);
+      }
+    }, 300);
+  }, [onSearchChange]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleColumnMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setColumnMenuAnchor(event.currentTarget);
@@ -68,6 +152,12 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
 
   const handleColumnMenuClose = () => {
     setColumnMenuAnchor(null);
+  };
+
+  const handleColumnToggle = (columnId: string) => {
+    if (onColumnToggle) {
+      onColumnToggle(columnId);
+    }
   };
 
   const hasActiveFilters = filters.length > 0;
@@ -79,8 +169,8 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
         {onSearchChange && (
           <TextField
             placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={localSearchValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
             size="small"
             sx={{ minWidth: 250, maxWidth: 350 }}
             InputProps={{
@@ -89,9 +179,9 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
                   <SearchIcon color="action" />
                 </InputAdornment>
               ),
-              endAdornment: searchValue ? (
+              endAdornment: localSearchValue ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => onSearchChange('')}>
+                  <IconButton size="small" onClick={() => handleSearchChange('')}>
                     <ClearIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -114,14 +204,14 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
                   variant="outlined"
                 />
               ))}
-              {onClearFilters && filters.length > 1 && (
+              {onClearFilters && filters.length > 0 && (
                 <Button
                   size="small"
                   onClick={onClearFilters}
                   startIcon={<ClearIcon />}
                   sx={{ ml: 1 }}
                 >
-                  Clear All
+                  Clear{filters.length > 1 ? ' All' : ''}
                 </Button>
               )}
             </>
@@ -146,7 +236,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
                 {columns.map((column) => (
                   <MenuItem
                     key={column.id}
-                    onClick={() => onColumnToggle(column.id)}
+                    onClick={() => handleColumnToggle(column.id)}
                     dense
                   >
                     <Checkbox
