@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { api, ApiError, ApiSuccessResponse } from '../services/api';
+import { api, ApiError, ApiSuccessResponse, STORAGE_TENANT_ID_KEY } from '../services/api';
 import { API_PATHS } from '../services/grcClient';
 
 /**
@@ -149,14 +149,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 const userData = unwrapApiResponse<User>(response.data);
                 setUser(userData);
                 if (userData?.tenantId) {
-                  localStorage.setItem('tenantId', userData.tenantId);
+                  localStorage.setItem(STORAGE_TENANT_ID_KEY, userData.tenantId);
                 }
               } catch {
                 // Refresh succeeded but /me failed, clear everything
                 localStorage.removeItem('token');
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                localStorage.removeItem('tenantId');
+                localStorage.removeItem(STORAGE_TENANT_ID_KEY);
                 setToken(null);
                 setRefreshToken(null);
               }
@@ -165,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             localStorage.removeItem('token');
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            localStorage.removeItem('tenantId');
+            localStorage.removeItem(STORAGE_TENANT_ID_KEY);
             setToken(null);
             setRefreshToken(null);
           }
@@ -218,7 +218,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Store tenant ID for automatic header injection
       if (userData?.tenantId) {
-        localStorage.setItem('tenantId', userData.tenantId);
+        localStorage.setItem(STORAGE_TENANT_ID_KEY, userData.tenantId);
+      } else {
+        // If tenantId is missing from login response, fetch it from /users/me
+        // This ensures tenantId is always available for subsequent requests
+        try {
+          const meResponse = await api.get(API_PATHS.AUTH.ME);
+          const meUserData = unwrapApiResponse<User>(meResponse.data);
+          if (meUserData?.tenantId) {
+            localStorage.setItem(STORAGE_TENANT_ID_KEY, meUserData.tenantId);
+            // Update user object with tenantId if it was missing
+            if (!userData.tenantId) {
+              setUser({ ...userData, tenantId: meUserData.tenantId });
+            }
+          }
+        } catch (meError) {
+          // Non-fatal: log but don't block login
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AuthContext] Failed to fetch tenantId from /users/me after login:', meError);
+          }
+        }
       }
       
       setToken(newToken);
@@ -262,7 +281,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Store tenant ID for automatic header injection
       if (newUser?.tenantId) {
-        localStorage.setItem('tenantId', newUser.tenantId);
+        localStorage.setItem(STORAGE_TENANT_ID_KEY, newUser.tenantId);
+      } else {
+        // If tenantId is missing from register response, fetch it from /users/me
+        try {
+          const meResponse = await api.get(API_PATHS.AUTH.ME);
+          const meUserData = unwrapApiResponse<User>(meResponse.data);
+          if (meUserData?.tenantId) {
+            localStorage.setItem(STORAGE_TENANT_ID_KEY, meUserData.tenantId);
+            if (!newUser.tenantId) {
+              setUser({ ...newUser, tenantId: meUserData.tenantId });
+            }
+          }
+        } catch (meError) {
+          // Non-fatal: log but don't block registration
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AuthContext] Failed to fetch tenantId from /users/me after register:', meError);
+          }
+        }
       }
       
       setToken(newToken);
@@ -283,7 +319,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('tenantId');
+    localStorage.removeItem(STORAGE_TENANT_ID_KEY);
     setToken(null);
     setRefreshToken(null);
     setUser(null);

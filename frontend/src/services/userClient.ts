@@ -13,6 +13,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { getUserApiMode, getUserApiBaseUrl, UserApiMode } from './userApiConfig';
+import { STORAGE_TENANT_ID_KEY } from './api';
 
 // ============================================================================
 // Type Definitions
@@ -346,7 +347,7 @@ class UserClient {
         }
         
         // Add tenant ID header for NestJS
-        const tenantId = localStorage.getItem('tenantId');
+        const tenantId = localStorage.getItem(STORAGE_TENANT_ID_KEY);
         if (tenantId) {
           config.headers['x-tenant-id'] = tenantId;
         }

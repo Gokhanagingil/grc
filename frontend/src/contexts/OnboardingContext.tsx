@@ -12,6 +12,7 @@ import {
   DEFAULT_POLICY_RESULT,
 } from '../services/grcClient';
 import { useAuth } from './AuthContext';
+import { STORAGE_TENANT_ID_KEY } from '../services/api';
 
 export interface OnboardingContextValue {
   context: OnboardingContextType;
@@ -69,7 +70,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   const fetchOnboardingContext = useCallback(async () => {
-    if (!user?.tenantId || !token) {
+    // Get tenantId from user object or localStorage fallback
+    const tenantId = user?.tenantId || localStorage.getItem(STORAGE_TENANT_ID_KEY);
+    
+    if (!tenantId || !token) {
       return;
     }
 
@@ -77,7 +81,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setError(null);
 
     try {
-      const response = await onboardingApi.getContext(user.tenantId);
+      const response = await onboardingApi.getContext(tenantId);
       const data = unwrapResponse<OnboardingContextWithPolicy>(response);
       setContext(data.context);
       setPolicy(data.policy);
@@ -92,7 +96,9 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   }, [user?.tenantId, token]);
 
   useEffect(() => {
-    if (user?.tenantId && token) {
+    // Check both user.tenantId and localStorage to ensure we have tenantId
+    const tenantId = user?.tenantId || localStorage.getItem(STORAGE_TENANT_ID_KEY);
+    if (tenantId && token) {
       fetchOnboardingContext();
     }
   }, [user?.tenantId, token, fetchOnboardingContext]);
