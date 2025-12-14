@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 
@@ -15,7 +9,9 @@ export enum MaturityLevel {
 }
 
 @Entity('tenant_maturity_profile')
-@Index('idx_tenant_maturity_profile_tenant_unique', ['tenantId'], { unique: true })
+@Index('idx_tenant_maturity_profile_tenant_unique', ['tenantId'], {
+  unique: true,
+})
 export class TenantMaturityProfile extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })

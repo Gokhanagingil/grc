@@ -1,5 +1,13 @@
-import { SuiteType, ModuleType, FrameworkType, MaturityLevel } from '../entities';
-import { PolicyCode, WarningSeverity } from '../services/policy-evaluator.service';
+import {
+  SuiteType,
+  ModuleType,
+  FrameworkType,
+  MaturityLevel,
+} from '../entities';
+import {
+  PolicyCode,
+  WarningSeverity,
+} from '../services/policy-evaluator.service';
 
 export class OnboardingContextResponseDto {
   status: 'active' | 'pending' | 'suspended';

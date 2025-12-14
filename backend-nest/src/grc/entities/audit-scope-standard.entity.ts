@@ -16,11 +16,15 @@ export enum ScopeType {
 /**
  * Audit Scope Standard Entity
  *
+ * Many-to-many relationship between Audits and Standards.
+ * Represents which standards are included in an audit's scope.
+ * An audit can include multiple standards.
+ * A standard can be audited in multiple audits.
  * Links an audit to a standard, defining whether the full standard
  * or selected clauses are in scope.
  * Extends MappingEntityBase for standard mapping fields.
  */
-@Entity('grc_audit_scope_standards')
+@Entity('audit_scope_standards')
 @Index(['tenantId', 'auditId', 'standardId'], { unique: true })
 @Index(['tenantId', 'auditId'])
 @Index(['tenantId', 'standardId'])
@@ -41,7 +45,9 @@ export class AuditScopeStandard extends MappingEntityBase {
   @Index()
   standardId: string;
 
-  @ManyToOne(() => Standard, (standard) => standard.auditScopes, { nullable: false })
+  @ManyToOne(() => Standard, (standard) => standard.auditScopes, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'standard_id' })
   standard: Standard;
 

@@ -18,11 +18,14 @@ export enum ClauseScopeStatus {
 /**
  * Audit Scope Clause Entity
  *
- * Links an audit to specific clauses when scope_type is 'partial'.
+ * Many-to-many relationship between Audits and Standard Clauses.
+ * Represents which specific clauses are included in an audit's scope.
+ * An audit can include multiple clauses.
+ * A clause can be audited in multiple audits.
  * Tracks the audit status of each clause.
  * Extends MappingEntityBase for standard mapping fields.
  */
-@Entity('grc_audit_scope_clauses')
+@Entity('audit_scope_clauses')
 @Index(['tenantId', 'auditId', 'clauseId'], { unique: true })
 @Index(['tenantId', 'auditId'])
 @Index(['tenantId', 'clauseId'])
@@ -43,7 +46,9 @@ export class AuditScopeClause extends MappingEntityBase {
   @Index()
   clauseId: string;
 
-  @ManyToOne(() => StandardClause, (clause) => clause.auditScopes, { nullable: false })
+  @ManyToOne(() => StandardClause, (clause) => clause.auditScopes, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'clause_id' })
   clause: StandardClause;
 

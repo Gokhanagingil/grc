@@ -85,6 +85,9 @@ import {
   ControlResultController,
   ProcessViolationController,
   // Audit Phase 2 - Standards Library controllers
+  StandardController,
+  StandardClauseController,
+  GrcIssueController,
   StandardsController,
   AuditScopeController,
 } from './controllers';
@@ -192,6 +195,9 @@ import {
     ControlResultController,
     ProcessViolationController,
     // Audit Phase 2 - Standards Library controllers
+    StandardController,
+    StandardClauseController,
+    GrcIssueController,
     StandardsController,
     AuditScopeController,
   ],

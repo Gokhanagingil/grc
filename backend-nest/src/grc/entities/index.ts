@@ -62,10 +62,7 @@ export { ProcessControlRisk } from './process-control-risk.entity';
 // Standards Library Entities (Audit Phase 2)
 export { Standard, StandardDomain } from './standard.entity';
 export { StandardClause, ClauseLevel } from './standard-clause.entity';
-export {
-  AuditScopeStandard,
-  ScopeType,
-} from './audit-scope-standard.entity';
+export { AuditScopeStandard, ScopeType } from './audit-scope-standard.entity';
 export {
   AuditScopeClause,
   ClauseScopeStatus,

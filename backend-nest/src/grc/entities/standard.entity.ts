@@ -8,6 +8,8 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
+import { StandardClause } from './standard-clause.entity';
+import { AuditScopeStandard } from './audit-scope-standard.entity';
 
 /**
  * Standard Domain Enum
@@ -25,20 +27,23 @@ export enum StandardDomain {
 /**
  * Standard Entity
  *
+ * Represents a compliance standard (e.g., ISO/IEC 27001:2022).
  * Represents a compliance/regulatory standard as a first-class entity.
  * Examples: ISO 27001, ISO 22301, COBIT, NIST CSF, SOC 2, GDPR
+ * Standards contain clauses organized in a hierarchical structure.
  * Extends BaseEntity for standard audit fields.
  */
-@Entity('grc_standards')
+@Entity('standards')
+@Index(['tenantId', 'code'], { unique: true })
+@Index(['tenantId', 'domain'])
 @Index(['tenantId', 'code', 'version'], { unique: true })
 @Index(['tenantId', 'isActive', 'isDeleted'])
-@Index(['tenantId', 'domain'])
 export class Standard extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 100 })
   code: string;
 
   @Column({ type: 'varchar', length: 255 })
@@ -47,8 +52,8 @@ export class Standard extends BaseEntity {
   @Column({ name: 'short_name', type: 'varchar', length: 100, nullable: true })
   shortName: string | null;
 
-  @Column({ type: 'varchar', length: 50 })
-  version: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  version: string | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
@@ -56,12 +61,15 @@ export class Standard extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   publisher: string | null;
 
+  @Column({ name: 'published_date', type: 'date', nullable: true })
+  publishedDate: Date | null;
+
   @Column({ name: 'effective_date', type: 'date', nullable: true })
   effectiveDate: Date | null;
 
   @Column({
     type: 'varchar',
-    length: 50,
+    length: 100,
     nullable: true,
   })
   domain: string | null;
@@ -72,9 +80,9 @@ export class Standard extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @OneToMany('StandardClause', 'standard')
-  clauses: import('./standard-clause.entity').StandardClause[];
+  @OneToMany(() => StandardClause, (clause) => clause.standard)
+  clauses: StandardClause[];
 
-  @OneToMany('AuditScopeStandard', 'standard')
-  auditScopes: import('./audit-scope-standard.entity').AuditScopeStandard[];
+  @OneToMany(() => AuditScopeStandard, (ass) => ass.standard)
+  auditScopes: AuditScopeStandard[];
 }

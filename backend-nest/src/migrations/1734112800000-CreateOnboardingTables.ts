@@ -85,10 +85,18 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create standard indexes for tenant_initialization_profile
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_tenant_id" ON "tenant_initialization_profile" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_created_at" ON "tenant_initialization_profile" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_updated_at" ON "tenant_initialization_profile" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_is_deleted" ON "tenant_initialization_profile" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_tenant_id" ON "tenant_initialization_profile" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_created_at" ON "tenant_initialization_profile" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_updated_at" ON "tenant_initialization_profile" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_init_profile_is_deleted" ON "tenant_initialization_profile" ("is_deleted")`,
+    );
 
     // Create tenant_active_suite table
     await queryRunner.query(`
@@ -117,10 +125,18 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create standard indexes for tenant_active_suite
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_tenant_id" ON "tenant_active_suite" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_created_at" ON "tenant_active_suite" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_updated_at" ON "tenant_active_suite" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_is_deleted" ON "tenant_active_suite" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_tenant_id" ON "tenant_active_suite" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_created_at" ON "tenant_active_suite" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_updated_at" ON "tenant_active_suite" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_suite_is_deleted" ON "tenant_active_suite" ("is_deleted")`,
+    );
 
     // Create tenant_enabled_module table
     await queryRunner.query(`
@@ -156,10 +172,18 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create standard indexes for tenant_enabled_module
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_tenant_id" ON "tenant_enabled_module" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_created_at" ON "tenant_enabled_module" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_updated_at" ON "tenant_enabled_module" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_is_deleted" ON "tenant_enabled_module" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_tenant_id" ON "tenant_enabled_module" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_created_at" ON "tenant_enabled_module" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_updated_at" ON "tenant_enabled_module" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_enabled_module_is_deleted" ON "tenant_enabled_module" ("is_deleted")`,
+    );
 
     // Create tenant_active_framework table
     await queryRunner.query(`
@@ -188,10 +212,18 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create standard indexes for tenant_active_framework
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_tenant_id" ON "tenant_active_framework" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_created_at" ON "tenant_active_framework" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_updated_at" ON "tenant_active_framework" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_is_deleted" ON "tenant_active_framework" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_tenant_id" ON "tenant_active_framework" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_created_at" ON "tenant_active_framework" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_updated_at" ON "tenant_active_framework" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_active_framework_is_deleted" ON "tenant_active_framework" ("is_deleted")`,
+    );
 
     // Create tenant_maturity_profile table
     await queryRunner.query(`
@@ -220,10 +252,18 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create standard indexes for tenant_maturity_profile
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_tenant_id" ON "tenant_maturity_profile" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_created_at" ON "tenant_maturity_profile" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_updated_at" ON "tenant_maturity_profile" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_is_deleted" ON "tenant_maturity_profile" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_tenant_id" ON "tenant_maturity_profile" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_created_at" ON "tenant_maturity_profile" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_updated_at" ON "tenant_maturity_profile" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_tenant_maturity_profile_is_deleted" ON "tenant_maturity_profile" ("is_deleted")`,
+    );
 
     // Create onboarding_decision table
     await queryRunner.query(`
@@ -248,12 +288,24 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     `);
 
     // Create indexes for onboarding_decision
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_created" ON "onboarding_decision" ("tenant_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_type" ON "onboarding_decision" ("tenant_id", "decision_type")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_id" ON "onboarding_decision" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_created_at" ON "onboarding_decision" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_updated_at" ON "onboarding_decision" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_is_deleted" ON "onboarding_decision" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_created" ON "onboarding_decision" ("tenant_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_type" ON "onboarding_decision" ("tenant_id", "decision_type")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_tenant_id" ON "onboarding_decision" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_created_at" ON "onboarding_decision" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_updated_at" ON "onboarding_decision" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_onboarding_decision_is_deleted" ON "onboarding_decision" ("is_deleted")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -263,7 +315,9 @@ export class CreateOnboardingTables1734112800000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "tenant_active_framework"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "tenant_enabled_module"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "tenant_active_suite"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "tenant_initialization_profile"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "tenant_initialization_profile"`,
+    );
 
     // Drop enum types
     await queryRunner.query(`DROP TYPE IF EXISTS "decision_type_enum"`);

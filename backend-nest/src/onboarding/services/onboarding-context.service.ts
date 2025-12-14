@@ -96,8 +96,15 @@ export class OnboardingContextService {
         }),
       ]);
 
-      if (!initProfile && activeSuites.length === 0 && activeFrameworks.length === 0 && !maturityProfile) {
-        this.logger.debug(`No onboarding data found for tenant ${tenantId}, returning default context`);
+      if (
+        !initProfile &&
+        activeSuites.length === 0 &&
+        activeFrameworks.length === 0 &&
+        !maturityProfile
+      ) {
+        this.logger.debug(
+          `No onboarding data found for tenant ${tenantId}, returning default context`,
+        );
         return { ...DEFAULT_ONBOARDING_CONTEXT };
       }
 
@@ -110,7 +117,9 @@ export class OnboardingContextService {
 
       for (const suiteType of activeSuiteTypes) {
         const defaultModules = getDefaultModulesForSuite(suiteType);
-        const overrides = enabledModules.filter((m) => m.suiteType === suiteType);
+        const overrides = enabledModules.filter(
+          (m) => m.suiteType === suiteType,
+        );
 
         if (overrides.length === 0) {
           enabledModulesMap[suiteType] = defaultModules;
@@ -164,17 +173,11 @@ export class OnboardingContextService {
     return context.activeFrameworks.includes(frameworkType);
   }
 
-  isMaturityLevel(
-    context: OnboardingContext,
-    level: MaturityLevel,
-  ): boolean {
+  isMaturityLevel(context: OnboardingContext, level: MaturityLevel): boolean {
     return context.maturity === level;
   }
 
-  isMaturityAtLeast(
-    context: OnboardingContext,
-    level: MaturityLevel,
-  ): boolean {
+  isMaturityAtLeast(context: OnboardingContext, level: MaturityLevel): boolean {
     const levels = [
       MaturityLevel.FOUNDATIONAL,
       MaturityLevel.INTERMEDIATE,

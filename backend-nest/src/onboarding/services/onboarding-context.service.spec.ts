@@ -19,7 +19,9 @@ import {
 
 describe('OnboardingContextService', () => {
   let service: OnboardingContextService;
-  let initProfileRepository: jest.Mocked<Repository<TenantInitializationProfile>>;
+  let initProfileRepository: jest.Mocked<
+    Repository<TenantInitializationProfile>
+  >;
   let activeSuiteRepository: jest.Mocked<Repository<TenantActiveSuite>>;
   let enabledModuleRepository: jest.Mocked<Repository<TenantEnabledModule>>;
   let activeFrameworkRepository: jest.Mocked<Repository<TenantActiveFramework>>;
@@ -75,11 +77,19 @@ describe('OnboardingContextService', () => {
     }).compile();
 
     service = module.get<OnboardingContextService>(OnboardingContextService);
-    initProfileRepository = module.get(getRepositoryToken(TenantInitializationProfile));
+    initProfileRepository = module.get(
+      getRepositoryToken(TenantInitializationProfile),
+    );
     activeSuiteRepository = module.get(getRepositoryToken(TenantActiveSuite));
-    enabledModuleRepository = module.get(getRepositoryToken(TenantEnabledModule));
-    activeFrameworkRepository = module.get(getRepositoryToken(TenantActiveFramework));
-    maturityProfileRepository = module.get(getRepositoryToken(TenantMaturityProfile));
+    enabledModuleRepository = module.get(
+      getRepositoryToken(TenantEnabledModule),
+    );
+    activeFrameworkRepository = module.get(
+      getRepositoryToken(TenantActiveFramework),
+    );
+    maturityProfileRepository = module.get(
+      getRepositoryToken(TenantMaturityProfile),
+    );
   });
 
   afterEach(() => {
@@ -185,10 +195,18 @@ describe('OnboardingContextService', () => {
 
         const result = await service.getOnboardingContext(mockTenantId);
 
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(ModuleType.RISK);
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(ModuleType.POLICY);
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(ModuleType.CONTROL);
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(ModuleType.AUDIT);
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(
+          ModuleType.RISK,
+        );
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(
+          ModuleType.POLICY,
+        );
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(
+          ModuleType.CONTROL,
+        );
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(
+          ModuleType.AUDIT,
+        );
       });
 
       it('should override default modules when module overrides exist', async () => {
@@ -225,8 +243,12 @@ describe('OnboardingContextService', () => {
 
         const result = await service.getOnboardingContext(mockTenantId);
 
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(ModuleType.RISK);
-        expect(result.enabledModules[SuiteType.GRC_SUITE]).not.toContain(ModuleType.AUDIT);
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).toContain(
+          ModuleType.RISK,
+        );
+        expect(result.enabledModules[SuiteType.GRC_SUITE]).not.toContain(
+          ModuleType.AUDIT,
+        );
       });
 
       it('should return active frameworks when configured', async () => {
@@ -305,9 +327,19 @@ describe('OnboardingContextService', () => {
         },
       };
 
-      expect(service.isModuleEnabled(context, SuiteType.GRC_SUITE, ModuleType.RISK)).toBe(true);
-      expect(service.isModuleEnabled(context, SuiteType.GRC_SUITE, ModuleType.AUDIT)).toBe(false);
-      expect(service.isModuleEnabled(context, SuiteType.ITSM_SUITE, ModuleType.INCIDENT)).toBe(false);
+      expect(
+        service.isModuleEnabled(context, SuiteType.GRC_SUITE, ModuleType.RISK),
+      ).toBe(true);
+      expect(
+        service.isModuleEnabled(context, SuiteType.GRC_SUITE, ModuleType.AUDIT),
+      ).toBe(false);
+      expect(
+        service.isModuleEnabled(
+          context,
+          SuiteType.ITSM_SUITE,
+          ModuleType.INCIDENT,
+        ),
+      ).toBe(false);
     });
 
     it('isFrameworkActive should return true when framework is in activeFrameworks', () => {
@@ -316,8 +348,12 @@ describe('OnboardingContextService', () => {
         activeFrameworks: [FrameworkType.ISO27001],
       };
 
-      expect(service.isFrameworkActive(context, FrameworkType.ISO27001)).toBe(true);
-      expect(service.isFrameworkActive(context, FrameworkType.SOC2)).toBe(false);
+      expect(service.isFrameworkActive(context, FrameworkType.ISO27001)).toBe(
+        true,
+      );
+      expect(service.isFrameworkActive(context, FrameworkType.SOC2)).toBe(
+        false,
+      );
     });
 
     it('isMaturityAtLeast should correctly compare maturity levels', () => {
@@ -334,11 +370,33 @@ describe('OnboardingContextService', () => {
         maturity: MaturityLevel.ADVANCED,
       };
 
-      expect(service.isMaturityAtLeast(foundationalContext, MaturityLevel.FOUNDATIONAL)).toBe(true);
-      expect(service.isMaturityAtLeast(foundationalContext, MaturityLevel.INTERMEDIATE)).toBe(false);
-      expect(service.isMaturityAtLeast(intermediateContext, MaturityLevel.FOUNDATIONAL)).toBe(true);
-      expect(service.isMaturityAtLeast(intermediateContext, MaturityLevel.INTERMEDIATE)).toBe(true);
-      expect(service.isMaturityAtLeast(advancedContext, MaturityLevel.ADVANCED)).toBe(true);
+      expect(
+        service.isMaturityAtLeast(
+          foundationalContext,
+          MaturityLevel.FOUNDATIONAL,
+        ),
+      ).toBe(true);
+      expect(
+        service.isMaturityAtLeast(
+          foundationalContext,
+          MaturityLevel.INTERMEDIATE,
+        ),
+      ).toBe(false);
+      expect(
+        service.isMaturityAtLeast(
+          intermediateContext,
+          MaturityLevel.FOUNDATIONAL,
+        ),
+      ).toBe(true);
+      expect(
+        service.isMaturityAtLeast(
+          intermediateContext,
+          MaturityLevel.INTERMEDIATE,
+        ),
+      ).toBe(true);
+      expect(
+        service.isMaturityAtLeast(advancedContext, MaturityLevel.ADVANCED),
+      ).toBe(true);
     });
   });
 });

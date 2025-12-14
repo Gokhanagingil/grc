@@ -11,6 +11,10 @@ import {
 import { GrcIssueRequirement } from '../entities/grc-issue-requirement.entity';
 import { GrcIssue } from '../entities/grc-issue.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { AuditScopeStandard } from '../entities/audit-scope-standard.entity';
+import { AuditScopeClause } from '../entities/audit-scope-clause.entity';
+import { Standard } from '../entities/standard.entity';
+import { StandardClause } from '../entities/standard-clause.entity';
 import { AuditFilterDto, AUDIT_SORTABLE_FIELDS } from '../dto/filter-audit.dto';
 import { CreateAuditDto } from '../dto/create-audit.dto';
 import { UpdateAuditDto } from '../dto/update-audit.dto';
@@ -40,6 +44,14 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     private readonly issueRepository: Repository<GrcIssue>,
     @InjectRepository(GrcRequirement)
     private readonly requirementRepository: Repository<GrcRequirement>,
+    @InjectRepository(AuditScopeStandard)
+    private readonly auditScopeStandardRepository: Repository<AuditScopeStandard>,
+    @InjectRepository(AuditScopeClause)
+    private readonly auditScopeClauseRepository: Repository<AuditScopeClause>,
+    @InjectRepository(Standard)
+    private readonly standardRepository: Repository<Standard>,
+    @InjectRepository(StandardClause)
+    private readonly standardClauseRepository: Repository<StandardClause>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
   ) {
@@ -592,5 +604,40 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     return issueRequirements
       .map((ir) => ir.issue)
       .filter((issue) => issue && !issue.isDeleted);
+  }
+
+  /**
+   * Get audit scope (standards and clauses included in audit)
+   */
+  async getAuditScope(tenantId: string, auditId: string) {
+    // Get standards in scope
+    const scopeStandards = await this.auditScopeStandardRepository.find({
+      where: { tenantId, auditId },
+      relations: ['standard'],
+    });
+
+    // Get clauses in scope
+    const scopeClauses = await this.auditScopeClauseRepository.find({
+      where: { tenantId, auditId },
+      relations: ['clause', 'clause.standard'],
+    });
+
+    return {
+      success: true,
+      data: {
+        standards: scopeStandards.map((ss) => ({
+          id: ss.id,
+          standard: ss.standard,
+          notes: ss.notes,
+          createdAt: ss.createdAt,
+        })),
+        clauses: scopeClauses.map((sc) => ({
+          id: sc.id,
+          clause: sc.clause,
+          notes: sc.notes,
+          createdAt: sc.createdAt,
+        })),
+      },
+    };
   }
 }

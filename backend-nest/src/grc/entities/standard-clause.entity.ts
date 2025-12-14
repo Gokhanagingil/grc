@@ -9,6 +9,8 @@ import {
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { Standard } from './standard.entity';
+import { AuditScopeClause } from './audit-scope-clause.entity';
+import { GrcIssueClause } from './grc-issue-clause.entity';
 
 /**
  * Clause Level Enum
@@ -24,14 +26,18 @@ export enum ClauseLevel {
 /**
  * Standard Clause Entity
  *
+ * Represents a clause within a standard (e.g., "A.5.1.1" in ISO 27001).
  * Represents a hierarchical clause/control/article within a standard.
+ * Clauses can have a parent-child hierarchy to represent nested requirements.
  * Supports self-referencing for parent-child hierarchy.
  * Examples: ISO 27001 A.5.1, COBIT DSS01.04, NIST PR.DS-01
  * Extends BaseEntity for standard audit fields.
  */
-@Entity('grc_standard_clauses')
+@Entity('standard_clauses')
 @Index(['tenantId', 'standardId', 'code'], { unique: true })
-@Index(['tenantId', 'standardId', 'parentClauseId'])
+@Index(['tenantId', 'standardId'])
+@Index(['tenantId', 'parentId'])
+@Index(['tenantId', 'code'])
 @Index(['tenantId', 'standardId', 'level'])
 @Index(['tenantId', 'path'])
 export class StandardClause extends BaseEntity {
@@ -43,24 +49,16 @@ export class StandardClause extends BaseEntity {
   @Index()
   standardId: string;
 
-  @ManyToOne(() => Standard, (standard) => standard.clauses, { nullable: false })
+  @ManyToOne(() => Standard, (standard) => standard.clauses, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'standard_id' })
   standard: Standard;
 
-  @Column({ name: 'parent_clause_id', type: 'uuid', nullable: true })
-  parentClauseId: string | null;
-
-  @ManyToOne(() => StandardClause, (clause) => clause.children, { nullable: true })
-  @JoinColumn({ name: 'parent_clause_id' })
-  parentClause: StandardClause | null;
-
-  @OneToMany(() => StandardClause, (clause) => clause.parentClause)
-  children: StandardClause[];
-
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 100 })
   code: string;
 
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: 'varchar', length: 255 })
   title: string;
 
   @Column({ type: 'text', nullable: true })
@@ -68,6 +66,22 @@ export class StandardClause extends BaseEntity {
 
   @Column({ name: 'description_long', type: 'text', nullable: true })
   descriptionLong: string | null;
+
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
+  @Index()
+  parentId: string | null;
+
+  @ManyToOne(() => StandardClause, (clause) => clause.children, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'parent_id' })
+  parent: StandardClause | null;
+
+  @OneToMany(() => StandardClause, (clause) => clause.parent)
+  children: StandardClause[];
+
+  @Column({ name: 'hierarchy_level', type: 'integer', default: 0 })
+  hierarchyLevel: number;
 
   @Column({ type: 'integer', default: 1 })
   level: number;
@@ -84,9 +98,9 @@ export class StandardClause extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @OneToMany('AuditScopeClause', 'clause')
-  auditScopes: import('./audit-scope-clause.entity').AuditScopeClause[];
+  @OneToMany(() => AuditScopeClause, (asc) => asc.clause)
+  auditScopes: AuditScopeClause[];
 
-  @OneToMany('GrcIssueClause', 'clause')
-  issueClauses: import('./grc-issue-clause.entity').GrcIssueClause[];
+  @OneToMany(() => GrcIssueClause, (gic) => gic.clause)
+  issueClauses: GrcIssueClause[];
 }

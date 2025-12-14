@@ -7,7 +7,10 @@ import { StandardClause } from './standard-clause.entity';
 /**
  * GRC Issue Clause Entity
  *
- * Links findings/issues to specific clauses.
+ * Many-to-many relationship between Issues (Findings) and Standard Clauses.
+ * Links audit findings to the specific clauses they relate to.
+ * An issue/finding can be related to multiple clauses.
+ * A clause can have multiple issues/findings.
  * Enables traceability from findings back to the standard clauses.
  * Extends MappingEntityBase for standard mapping fields.
  */
@@ -32,7 +35,9 @@ export class GrcIssueClause extends MappingEntityBase {
   @Index()
   clauseId: string;
 
-  @ManyToOne(() => StandardClause, (clause) => clause.issueClauses, { nullable: false })
+  @ManyToOne(() => StandardClause, (clause) => clause.issueClauses, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'clause_id' })
   clause: StandardClause;
 

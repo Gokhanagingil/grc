@@ -3,11 +3,7 @@ import {
   OnboardingContext,
   OnboardingContextService,
 } from './onboarding-context.service';
-import {
-  SuiteType,
-  FrameworkType,
-  MaturityLevel,
-} from '../entities';
+import { SuiteType, FrameworkType, MaturityLevel } from '../entities';
 
 export enum PolicyCode {
   FRAMEWORK_REQUIRED = 'FRAMEWORK_REQUIRED',
@@ -165,38 +161,22 @@ export class PolicyEvaluatorService {
     }
   }
 
-  private getAvailableAuditStandards(
-    context: OnboardingContext,
-  ): string[] {
+  private getAvailableAuditStandards(context: OnboardingContext): string[] {
     const frameworkToStandards: Record<FrameworkType, string[]> = {
       [FrameworkType.ISO27001]: [
         'ISO 27001:2022',
         'ISO 27001:2013',
         'ISO 27002:2022',
       ],
-      [FrameworkType.SOC2]: [
-        'SOC 2 Type I',
-        'SOC 2 Type II',
-        'SOC 1',
-      ],
-      [FrameworkType.GDPR]: [
-        'GDPR',
-        'EU Data Protection',
-      ],
+      [FrameworkType.SOC2]: ['SOC 2 Type I', 'SOC 2 Type II', 'SOC 1'],
+      [FrameworkType.GDPR]: ['GDPR', 'EU Data Protection'],
       [FrameworkType.HIPAA]: [
         'HIPAA Security Rule',
         'HIPAA Privacy Rule',
         'HITECH',
       ],
-      [FrameworkType.NIST]: [
-        'NIST CSF',
-        'NIST 800-53',
-        'NIST 800-171',
-      ],
-      [FrameworkType.PCI_DSS]: [
-        'PCI DSS v4.0',
-        'PCI DSS v3.2.1',
-      ],
+      [FrameworkType.NIST]: ['NIST CSF', 'NIST 800-53', 'NIST 800-171'],
+      [FrameworkType.PCI_DSS]: ['PCI DSS v4.0', 'PCI DSS v3.2.1'],
     };
 
     const availableStandards: string[] = [];

@@ -18,31 +18,50 @@ import {
 
 describe('PolicyEvaluatorService', () => {
   let service: PolicyEvaluatorService;
-  let onboardingContextService: OnboardingContextService;
 
   beforeEach(async () => {
     const mockOnboardingContextService = {
-      isSuiteEnabled: jest.fn((context: OnboardingContext, suiteType: SuiteType) => {
-        return context.activeSuites.includes(suiteType);
-      }),
-      isModuleEnabled: jest.fn((context: OnboardingContext, suiteType: SuiteType, moduleType: ModuleType) => {
-        if (!context.activeSuites.includes(suiteType)) {
-          return false;
-        }
-        return context.enabledModules[suiteType]?.includes(moduleType) ?? false;
-      }),
-      isFrameworkActive: jest.fn((context: OnboardingContext, frameworkType: FrameworkType) => {
-        return context.activeFrameworks.includes(frameworkType);
-      }),
-      isMaturityLevel: jest.fn((context: OnboardingContext, level: MaturityLevel) => {
-        return context.maturity === level;
-      }),
-      isMaturityAtLeast: jest.fn((context: OnboardingContext, level: MaturityLevel) => {
-        const levels = [MaturityLevel.FOUNDATIONAL, MaturityLevel.INTERMEDIATE, MaturityLevel.ADVANCED];
-        const currentIndex = levels.indexOf(context.maturity);
-        const requiredIndex = levels.indexOf(level);
-        return currentIndex >= requiredIndex;
-      }),
+      isSuiteEnabled: jest.fn(
+        (context: OnboardingContext, suiteType: SuiteType) => {
+          return context.activeSuites.includes(suiteType);
+        },
+      ),
+      isModuleEnabled: jest.fn(
+        (
+          context: OnboardingContext,
+          suiteType: SuiteType,
+          moduleType: ModuleType,
+        ) => {
+          if (!context.activeSuites.includes(suiteType)) {
+            return false;
+          }
+          return (
+            context.enabledModules[suiteType]?.includes(moduleType) ?? false
+          );
+        },
+      ),
+      isFrameworkActive: jest.fn(
+        (context: OnboardingContext, frameworkType: FrameworkType) => {
+          return context.activeFrameworks.includes(frameworkType);
+        },
+      ),
+      isMaturityLevel: jest.fn(
+        (context: OnboardingContext, level: MaturityLevel) => {
+          return context.maturity === level;
+        },
+      ),
+      isMaturityAtLeast: jest.fn(
+        (context: OnboardingContext, level: MaturityLevel) => {
+          const levels = [
+            MaturityLevel.FOUNDATIONAL,
+            MaturityLevel.INTERMEDIATE,
+            MaturityLevel.ADVANCED,
+          ];
+          const currentIndex = levels.indexOf(context.maturity);
+          const requiredIndex = levels.indexOf(level);
+          return currentIndex >= requiredIndex;
+        },
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -56,7 +75,6 @@ describe('PolicyEvaluatorService', () => {
     }).compile();
 
     service = module.get<PolicyEvaluatorService>(PolicyEvaluatorService);
-    onboardingContextService = module.get<OnboardingContextService>(OnboardingContextService);
   });
 
   afterEach(() => {
@@ -73,7 +91,12 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
           [SuiteType.ITSM_SUITE]: [],
         },
         activeFrameworks: [],
@@ -95,7 +118,12 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
           [SuiteType.ITSM_SUITE]: [],
         },
         activeFrameworks: [FrameworkType.ISO27001],
@@ -117,7 +145,12 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
           [SuiteType.ITSM_SUITE]: [],
         },
         maturity: MaturityLevel.FOUNDATIONAL,
@@ -134,7 +167,12 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
           [SuiteType.ITSM_SUITE]: [],
         },
         maturity: MaturityLevel.INTERMEDIATE,
@@ -150,7 +188,12 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
           [SuiteType.ITSM_SUITE]: [],
         },
         maturity: MaturityLevel.ADVANCED,
@@ -239,7 +282,13 @@ describe('PolicyEvaluatorService', () => {
         activeSuites: [SuiteType.ITSM_SUITE],
         enabledModules: {
           [SuiteType.GRC_SUITE]: [],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
       };
 
@@ -254,8 +303,19 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE, SuiteType.ITSM_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
       };
 
@@ -287,7 +347,13 @@ describe('PolicyEvaluatorService', () => {
         activeSuites: [SuiteType.ITSM_SUITE],
         enabledModules: {
           [SuiteType.GRC_SUITE]: [],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
         maturity: MaturityLevel.FOUNDATIONAL,
       };
@@ -304,14 +370,22 @@ describe('PolicyEvaluatorService', () => {
         activeSuites: [SuiteType.ITSM_SUITE],
         enabledModules: {
           [SuiteType.GRC_SUITE]: [],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
         maturity: MaturityLevel.INTERMEDIATE,
       };
 
       const result = service.evaluate(context);
 
-      expect(result.disabledFeatures).not.toContain('major_incident_automation');
+      expect(result.disabledFeatures).not.toContain(
+        'major_incident_automation',
+      );
     });
 
     it('should NOT disable major_incident_automation when maturity is advanced', () => {
@@ -320,14 +394,22 @@ describe('PolicyEvaluatorService', () => {
         activeSuites: [SuiteType.ITSM_SUITE],
         enabledModules: {
           [SuiteType.GRC_SUITE]: [],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
         maturity: MaturityLevel.ADVANCED,
       };
 
       const result = service.evaluate(context);
 
-      expect(result.disabledFeatures).not.toContain('major_incident_automation');
+      expect(result.disabledFeatures).not.toContain(
+        'major_incident_automation',
+      );
     });
   });
 
@@ -340,8 +422,12 @@ describe('PolicyEvaluatorService', () => {
 
       const result = service.evaluate(context);
 
-      expect(service.isFeatureDisabled(result, 'advanced_risk_scoring')).toBe(true);
-      expect(service.isFeatureDisabled(result, 'some_other_feature')).toBe(false);
+      expect(service.isFeatureDisabled(result, 'advanced_risk_scoring')).toBe(
+        true,
+      );
+      expect(service.isFeatureDisabled(result, 'some_other_feature')).toBe(
+        false,
+      );
     });
 
     it('getWarningsForTarget should return warnings that include the target', () => {
@@ -370,8 +456,12 @@ describe('PolicyEvaluatorService', () => {
 
       const result = service.evaluate(context);
 
-      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(true);
-      expect(service.hasWarning(result, PolicyCode.ISO27001_EVIDENCE_RECOMMENDED)).toBe(false);
+      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(
+        true,
+      );
+      expect(
+        service.hasWarning(result, PolicyCode.ISO27001_EVIDENCE_RECOMMENDED),
+      ).toBe(false);
     });
   });
 
@@ -381,10 +471,25 @@ describe('PolicyEvaluatorService', () => {
         ...DEFAULT_ONBOARDING_CONTEXT,
         activeSuites: [SuiteType.GRC_SUITE, SuiteType.ITSM_SUITE],
         enabledModules: {
-          [SuiteType.GRC_SUITE]: [ModuleType.RISK, ModuleType.POLICY, ModuleType.CONTROL, ModuleType.AUDIT],
-          [SuiteType.ITSM_SUITE]: [ModuleType.INCIDENT, ModuleType.REQUEST, ModuleType.CHANGE, ModuleType.PROBLEM, ModuleType.CMDB],
+          [SuiteType.GRC_SUITE]: [
+            ModuleType.RISK,
+            ModuleType.POLICY,
+            ModuleType.CONTROL,
+            ModuleType.AUDIT,
+          ],
+          [SuiteType.ITSM_SUITE]: [
+            ModuleType.INCIDENT,
+            ModuleType.REQUEST,
+            ModuleType.CHANGE,
+            ModuleType.PROBLEM,
+            ModuleType.CMDB,
+          ],
         },
-        activeFrameworks: [FrameworkType.ISO27001, FrameworkType.SOC2, FrameworkType.GDPR],
+        activeFrameworks: [
+          FrameworkType.ISO27001,
+          FrameworkType.SOC2,
+          FrameworkType.GDPR,
+        ],
         maturity: MaturityLevel.ADVANCED,
       };
 
@@ -392,9 +497,15 @@ describe('PolicyEvaluatorService', () => {
 
       expect(result.disabledFeatures).not.toContain('advanced_risk_scoring');
       expect(result.disabledFeatures).not.toContain('itsm_related_risk');
-      expect(result.disabledFeatures).not.toContain('major_incident_automation');
-      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(false);
-      expect(service.hasWarning(result, PolicyCode.ISO27001_EVIDENCE_RECOMMENDED)).toBe(true);
+      expect(result.disabledFeatures).not.toContain(
+        'major_incident_automation',
+      );
+      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(
+        false,
+      );
+      expect(
+        service.hasWarning(result, PolicyCode.ISO27001_EVIDENCE_RECOMMENDED),
+      ).toBe(true);
     });
 
     it('should handle minimal setup with default context', () => {
@@ -405,7 +516,9 @@ describe('PolicyEvaluatorService', () => {
       expect(result.disabledFeatures).toContain('advanced_risk_scoring');
       expect(result.disabledFeatures).toContain('itsm_related_risk');
       expect(result.disabledFeatures).toContain('major_incident_automation');
-      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(false);
+      expect(service.hasWarning(result, PolicyCode.FRAMEWORK_REQUIRED)).toBe(
+        false,
+      );
     });
   });
 });
