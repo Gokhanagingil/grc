@@ -38,7 +38,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { requirementApi, unwrapPaginatedRequirementResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
 import { AuditReportDialog } from '../components/AuditReportDialog';
 
 // Risk interface for associated risks display
@@ -77,6 +77,8 @@ export const Compliance: React.FC = () => {
   const [associatedRisks, setAssociatedRisks] = useState<Risk[]>([]);
   const [risksLoading, setRisksLoading] = useState(false);
   const [openReportDialog, setOpenReportDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -263,6 +265,42 @@ export const Compliance: React.FC = () => {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {/* Toolbar with Search and Filters */}
+      <TableToolbar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search requirements..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: statusFilter.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) }] : []),
+        ] as FilterOption[]}
+        onFilterRemove={(key) => {
+          if (key === 'status') setStatusFilter('');
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setSearchQuery('');
+        }}
+        onRefresh={fetchRequirements}
+        loading={loading}
+        actions={
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="not_started">Not Started</MenuItem>
+              <MenuItem value="in_progress">In Progress</MenuItem>
+              <MenuItem value="implemented">Implemented</MenuItem>
+              <MenuItem value="verified">Verified</MenuItem>
+              <MenuItem value="non_compliant">Non-Compliant</MenuItem>
+            </Select>
+          </FormControl>
+        }
+      />
 
       <Card>
         <CardContent>

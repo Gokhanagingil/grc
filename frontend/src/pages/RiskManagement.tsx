@@ -33,7 +33,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   Security as RiskIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -41,7 +40,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
 import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
 
 // Policy interface for relationship management
@@ -127,6 +126,7 @@ export const RiskManagement: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>('');
   const [severityFilter, setSeverityFilter] = useState<RiskSeverity | ''>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -451,12 +451,34 @@ export const RiskManagement: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      {/* Filters */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+      {/* Toolbar with Search and Filters */}
+      <TableToolbar
+        searchValue={searchQuery}
+        onSearchChange={(value) => {
+          setSearchQuery(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search risks..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
+          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: formatSeverity(severityFilter) }] : []),
+        ] as FilterOption[]}
+        onFilterRemove={(key) => {
+          if (key === 'status') setStatusFilter('');
+          if (key === 'severity') setSeverityFilter('');
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setSeverityFilter('');
+          setSearchQuery('');
+          setPage(0);
+        }}
+        onRefresh={fetchRisks}
+        loading={loading}
+        actions={
+          <Box display="flex" gap={1} alignItems="center">
+            <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
@@ -472,7 +494,7 @@ export const RiskManagement: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Severity</InputLabel>
               <Select
                 value={severityFilter}
@@ -488,21 +510,9 @@ export const RiskManagement: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            {(statusFilter || severityFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setStatusFilter('');
-                  setSeverityFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
           </Box>
-        </CardContent>
-      </Card>
+        }
+      />
 
       <Card>
         <CardContent>

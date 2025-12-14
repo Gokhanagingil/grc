@@ -15,7 +15,7 @@ import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
-import { AdminUsers, AdminRoles, AdminSettings } from './pages/admin';
+import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem } from './pages/admin';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
 import { IncidentManagement } from './pages/IncidentManagement';
 import { AuditList } from './pages/AuditList';
@@ -118,7 +118,9 @@ function App() {
                   <Route path="roles" element={<AdminRoles />} />
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="permissions" element={<AdminRoles />} />
-                  <Route path="tenants" element={<AdminSettings />} />
+                  <Route path="tenants" element={<AdminTenants />} />
+                  <Route path="audit-logs" element={<AdminAuditLogs />} />
+                  <Route path="system" element={<AdminSystem />} />
                 </Route>
               </Routes>
             </Router>
