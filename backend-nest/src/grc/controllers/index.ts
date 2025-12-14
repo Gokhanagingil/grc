@@ -32,3 +32,4 @@ export { ProcessViolationController } from './process-violation.controller';
 export { StandardController } from './standard.controller';
 export { StandardClauseController } from './standard-clause.controller';
 export { GrcIssueController } from './grc-issue.controller';
+export { StandardsController, AuditScopeController } from './standards.controller';

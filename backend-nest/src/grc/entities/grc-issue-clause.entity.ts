@@ -11,6 +11,7 @@ import { StandardClause } from './standard-clause.entity';
  * Links audit findings to the specific clauses they relate to.
  * An issue/finding can be related to multiple clauses.
  * A clause can have multiple issues/findings.
+ * Enables traceability from findings back to the standard clauses.
  * Extends MappingEntityBase for standard mapping fields.
  */
 @Entity('grc_issue_clauses')

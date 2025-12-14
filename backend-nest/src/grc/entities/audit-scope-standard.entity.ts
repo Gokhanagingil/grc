@@ -5,12 +5,23 @@ import { GrcAudit } from './grc-audit.entity';
 import { Standard } from './standard.entity';
 
 /**
+ * Scope Type Enum
+ * Defines whether the full standard or only selected clauses are in scope
+ */
+export enum ScopeType {
+  FULL = 'full',
+  PARTIAL = 'partial',
+}
+
+/**
  * Audit Scope Standard Entity
  *
  * Many-to-many relationship between Audits and Standards.
  * Represents which standards are included in an audit's scope.
  * An audit can include multiple standards.
  * A standard can be audited in multiple audits.
+ * Links an audit to a standard, defining whether the full standard
+ * or selected clauses are in scope.
  * Extends MappingEntityBase for standard mapping fields.
  */
 @Entity('audit_scope_standards')
@@ -39,6 +50,23 @@ export class AuditScopeStandard extends MappingEntityBase {
   })
   @JoinColumn({ name: 'standard_id' })
   standard: Standard;
+
+  @Column({
+    name: 'scope_type',
+    type: 'varchar',
+    length: 20,
+    default: ScopeType.FULL,
+  })
+  scopeType: ScopeType;
+
+  @Column({ name: 'is_locked', type: 'boolean', default: false })
+  isLocked: boolean;
+
+  @Column({ name: 'locked_at', type: 'timestamp', nullable: true })
+  lockedAt: Date | null;
+
+  @Column({ name: 'locked_by', type: 'uuid', nullable: true })
+  lockedBy: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

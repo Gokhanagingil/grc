@@ -14,7 +14,7 @@ import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { Standard } from '../entities/standard.entity';
 import { Perf } from '../../common/decorators';
 
@@ -96,13 +96,18 @@ export class StandardController {
     const standardRepo = this.dataSource.getRepository(Standard);
 
     // Check if standard with same code/version already exists
+    const whereClause: any = {
+      tenantId,
+      code: body.code,
+      isDeleted: false,
+    };
+    if (body.version !== undefined && body.version !== null) {
+      whereClause.version = body.version;
+    } else {
+      whereClause.version = IsNull();
+    }
     const existing = await standardRepo.findOne({
-      where: {
-        tenantId,
-        code: body.code,
-        version: body.version || null,
-        isDeleted: false,
-      },
+      where: whereClause,
     });
 
     if (existing) {

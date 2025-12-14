@@ -52,7 +52,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
-import { AuditScopeCard, RequirementDetailDrawer } from '../components/audit';
+import { AuditScopeCard, RequirementDetailDrawer, StandardsScopeTab } from '../components/audit';
 import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
@@ -1020,6 +1020,7 @@ export const AuditDetail: React.FC = () => {
                                       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
                                           <Tab label={`Scope & Standards (${auditRequirements.length})`} />
+                                          <Tab label="Standards Library" />
                                           <Tab label={`Findings & CAPA (${findings.length})`} />
                                           <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
                                         </Tabs>
@@ -1200,8 +1201,17 @@ export const AuditDetail: React.FC = () => {
                                         )}
                                       </TabPanel>
 
-                                      {/* Findings & CAPA Tab */}
+                                      {/* Standards Library Tab (Phase 2) */}
                                       <TabPanel value={activeTab} index={1}>
+                                        <StandardsScopeTab
+                                          auditId={id || ''}
+                                          canEdit={permissions?.write || false}
+                                          auditStatus={audit?.status || 'planned'}
+                                        />
+                                      </TabPanel>
+
+                                      {/* Findings & CAPA Tab */}
+                                      <TabPanel value={activeTab} index={2}>
                                         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                                           <Typography variant="subtitle1">Audit Findings</Typography>
                                           {permissions?.write && (
@@ -1323,7 +1333,7 @@ export const AuditDetail: React.FC = () => {
                                       </TabPanel>
 
                                       {/* Reports Tab */}
-                                      <TabPanel value={activeTab} index={2}>
+                                      <TabPanel value={activeTab} index={3}>
                         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                           <Typography variant="subtitle1">Audit Reports</Typography>
                           <Button

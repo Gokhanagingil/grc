@@ -264,6 +264,32 @@ export const API_PATHS = {
   ONBOARDING: {
     CONTEXT: '/onboarding/context',
   },
+
+  // Standards Library endpoints (Audit Phase 2 - NestJS backend)
+  STANDARDS_LIBRARY: {
+    LIST: '/grc/standards',
+    CREATE: '/grc/standards',
+    GET: (id: string) => `/grc/standards/${id}`,
+    GET_WITH_CLAUSES: (id: string) => `/grc/standards/${id}/with-clauses`,
+    UPDATE: (id: string) => `/grc/standards/${id}`,
+    DELETE: (id: string) => `/grc/standards/${id}`,
+    SUMMARY: '/grc/standards/summary',
+    CLAUSES: (standardId: string) => `/grc/standards/${standardId}/clauses`,
+    CLAUSES_TREE: (standardId: string) => `/grc/standards/${standardId}/clauses/tree`,
+    CREATE_CLAUSE: (standardId: string) => `/grc/standards/${standardId}/clauses`,
+    GET_CLAUSE: (clauseId: string) => `/grc/standards/clauses/${clauseId}`,
+    UPDATE_CLAUSE: (clauseId: string) => `/grc/standards/clauses/${clauseId}`,
+  },
+
+  // Audit Scope endpoints (Audit Phase 2 - NestJS backend)
+  AUDIT_SCOPE: {
+    GET: (auditId: string) => `/grc/audits/${auditId}/scope`,
+    SET: (auditId: string) => `/grc/audits/${auditId}/scope`,
+    LOCK: (auditId: string) => `/grc/audits/${auditId}/scope/lock`,
+    CLAUSE_FINDINGS: (auditId: string, clauseId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings`,
+    LINK_FINDING: (auditId: string, clauseId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings`,
+    UNLINK_FINDING: (auditId: string, clauseId: string, issueId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings/${issueId}`,
+  },
 } as const;
 
 // ============================================================================
@@ -1448,4 +1474,202 @@ export const DEFAULT_POLICY_RESULT: PolicyResult = {
 export const onboardingApi = {
   getContext: (tenantId: string) =>
     api.get(API_PATHS.ONBOARDING.CONTEXT, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// Standards Library API (Audit Phase 2)
+// ============================================================================
+
+export interface StandardData {
+  id: string;
+  code: string;
+  name: string;
+  shortName?: string | null;
+  version: string;
+  description?: string | null;
+  publisher?: string | null;
+  effectiveDate?: string | null;
+  domain?: string | null;
+  isActive: boolean;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClauseData {
+  id: string;
+  standardId: string;
+  parentClauseId?: string | null;
+  code: string;
+  title: string;
+  description?: string | null;
+  descriptionLong?: string | null;
+  level: number;
+  sortOrder: number;
+  path?: string | null;
+  isAuditable: boolean;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClauseTreeNode {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  level: number;
+  sortOrder: number;
+  path: string | null;
+  isAuditable: boolean;
+  children: ClauseTreeNode[];
+}
+
+export interface StandardWithClauses extends StandardData {
+  clauseTree: ClauseTreeNode[];
+}
+
+export interface AuditScopeStandard {
+  id: string;
+  auditId: string;
+  standardId: string;
+  scopeType: 'full' | 'partial';
+  isLocked: boolean;
+  lockedAt?: string | null;
+  lockedBy?: string | null;
+  notes?: string | null;
+  standard?: StandardData;
+}
+
+export interface AuditScopeClause {
+  id: string;
+  auditId: string;
+  clauseId: string;
+  status: 'not_started' | 'in_progress' | 'completed' | 'not_applicable';
+  isLocked: boolean;
+  notes?: string | null;
+  clause?: ClauseData;
+}
+
+export interface AuditScope {
+  standards: AuditScopeStandard[];
+  clauses: AuditScopeClause[];
+  isLocked: boolean;
+}
+
+export const standardsLibraryApi = {
+  list: () => api.get(API_PATHS.STANDARDS_LIBRARY.LIST),
+
+  get: (id: string) => api.get(API_PATHS.STANDARDS_LIBRARY.GET(id)),
+
+  getWithClauses: (id: string) =>
+    api.get(API_PATHS.STANDARDS_LIBRARY.GET_WITH_CLAUSES(id)),
+
+  create: (data: {
+    code: string;
+    name: string;
+    shortName?: string;
+    version: string;
+    description?: string;
+    publisher?: string;
+    effectiveDate?: string;
+    domain?: string;
+    isActive?: boolean;
+    metadata?: Record<string, unknown>;
+  }) => api.post(API_PATHS.STANDARDS_LIBRARY.CREATE, data),
+
+  update: (
+    id: string,
+    data: {
+      code?: string;
+      name?: string;
+      shortName?: string;
+      version?: string;
+      description?: string;
+      publisher?: string;
+      effectiveDate?: string;
+      domain?: string;
+      isActive?: boolean;
+      metadata?: Record<string, unknown>;
+    }
+  ) => api.patch(API_PATHS.STANDARDS_LIBRARY.UPDATE(id), data),
+
+  delete: (id: string) => api.delete(API_PATHS.STANDARDS_LIBRARY.DELETE(id)),
+
+  getSummary: () => api.get(API_PATHS.STANDARDS_LIBRARY.SUMMARY),
+
+  getClauses: (standardId: string) =>
+    api.get(API_PATHS.STANDARDS_LIBRARY.CLAUSES(standardId)),
+
+  getClausesTree: (standardId: string) =>
+    api.get(API_PATHS.STANDARDS_LIBRARY.CLAUSES_TREE(standardId)),
+
+  createClause: (
+    standardId: string,
+    data: {
+      code: string;
+      title: string;
+      description?: string;
+      descriptionLong?: string;
+      parentClauseId?: string;
+      level?: number;
+      sortOrder?: number;
+      path?: string;
+      isAuditable?: boolean;
+      metadata?: Record<string, unknown>;
+    }
+  ) => api.post(API_PATHS.STANDARDS_LIBRARY.CREATE_CLAUSE(standardId), data),
+
+  getClause: (clauseId: string) =>
+    api.get(API_PATHS.STANDARDS_LIBRARY.GET_CLAUSE(clauseId)),
+
+  updateClause: (
+    clauseId: string,
+    data: {
+      code?: string;
+      title?: string;
+      description?: string;
+      descriptionLong?: string;
+      parentClauseId?: string;
+      level?: number;
+      sortOrder?: number;
+      path?: string;
+      isAuditable?: boolean;
+      metadata?: Record<string, unknown>;
+    }
+  ) => api.patch(API_PATHS.STANDARDS_LIBRARY.UPDATE_CLAUSE(clauseId), data),
+};
+
+// ============================================================================
+// Audit Scope API (Audit Phase 2)
+// ============================================================================
+
+export const auditScopeApi = {
+  getScope: (auditId: string) => api.get(API_PATHS.AUDIT_SCOPE.GET(auditId)),
+
+  setScope: (
+    auditId: string,
+    data: {
+      standardIds: string[];
+      clauseIds?: string[];
+    }
+  ) => api.post(API_PATHS.AUDIT_SCOPE.SET(auditId), data),
+
+  lockScope: (auditId: string) =>
+    api.post(API_PATHS.AUDIT_SCOPE.LOCK(auditId)),
+
+  getClauseFindings: (auditId: string, clauseId: string) =>
+    api.get(API_PATHS.AUDIT_SCOPE.CLAUSE_FINDINGS(auditId, clauseId)),
+
+  linkFindingToClause: (
+    auditId: string,
+    clauseId: string,
+    data: {
+      issueId: string;
+      notes?: string;
+    }
+  ) => api.post(API_PATHS.AUDIT_SCOPE.LINK_FINDING(auditId, clauseId), data),
+
+  unlinkFindingFromClause: (auditId: string, clauseId: string, issueId: string) =>
+    api.delete(API_PATHS.AUDIT_SCOPE.UNLINK_FINDING(auditId, clauseId, issueId)),
 };

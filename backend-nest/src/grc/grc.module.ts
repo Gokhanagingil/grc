@@ -64,6 +64,8 @@ import {
   ControlResultService,
   ProcessViolationService,
   ProcessComplianceService,
+  // Audit Phase 2 - Standards Library services
+  StandardsService,
 } from './services';
 
 // Controllers
@@ -82,6 +84,12 @@ import {
   ProcessControlController,
   ControlResultController,
   ProcessViolationController,
+  // Audit Phase 2 - Standards Library controllers
+  StandardController,
+  StandardClauseController,
+  GrcIssueController,
+  StandardsController,
+  AuditScopeController,
 } from './controllers';
 
 /**
@@ -121,12 +129,6 @@ import {
       GrcRiskRequirement,
       GrcAuditRequirement,
       GrcIssueRequirement,
-      // Audit Phase 2 - Standards Library entities
-      Standard,
-      StandardClause,
-      AuditScopeStandard,
-      AuditScopeClause,
-      GrcIssueClause,
       // History entities
       GrcRiskHistory,
       GrcPolicyHistory,
@@ -144,6 +146,12 @@ import {
       ControlResult,
       ProcessViolation,
       ProcessControlRisk,
+      // Audit Phase 2 - Standards Library entities
+      Standard,
+      StandardClause,
+      AuditScopeStandard,
+      AuditScopeClause,
+      GrcIssueClause,
     ]),
     AuditModule,
     AuthModule,
@@ -167,6 +175,8 @@ import {
     ControlResultService,
     ProcessViolationService,
     ProcessComplianceService,
+    // Audit Phase 2 - Standards Library services
+    StandardsService,
   ],
   controllers: [
     // Core controllers
@@ -184,10 +194,12 @@ import {
     ProcessControlController,
     ControlResultController,
     ProcessViolationController,
-    // Audit Phase 2 - Standards Library controllers
-    StandardController,
-    StandardClauseController,
-    GrcIssueController,
+      // Audit Phase 2 - Standards Library controllers
+      StandardController,
+      StandardClauseController,
+      GrcIssueController,
+      StandardsController,
+      AuditScopeController,
   ],
   exports: [
     // Core services
@@ -207,6 +219,8 @@ import {
     ControlResultService,
     ProcessViolationService,
     ProcessComplianceService,
+    // Audit Phase 2 - Standards Library services
+    StandardsService,
   ],
 })
 export class GrcModule {}
