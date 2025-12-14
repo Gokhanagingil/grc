@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
         "seed:grc": "ts-node -r tsconfig-paths/register src/scripts/seed-grc.ts",
+        "seed:standards": "ts-node -r tsconfig-paths/register src/scripts/seed-standards.ts",
         "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
         "acceptance:full": "ts-node -r tsconfig-paths/register src/scripts/acceptance-runner.ts",
         "migration:generate": "typeorm migration:generate -d src/data-source.ts",

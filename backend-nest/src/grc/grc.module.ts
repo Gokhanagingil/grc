@@ -38,6 +38,12 @@ import {
   ControlResult,
   ProcessViolation,
   ProcessControlRisk,
+  // Audit Phase 2 - Standards Library entities
+  Standard,
+  StandardClause,
+  AuditScopeStandard,
+  AuditScopeClause,
+  GrcIssueClause,
 } from './entities';
 
 // Services
@@ -115,6 +121,12 @@ import {
       GrcRiskRequirement,
       GrcAuditRequirement,
       GrcIssueRequirement,
+      // Audit Phase 2 - Standards Library entities
+      Standard,
+      StandardClause,
+      AuditScopeStandard,
+      AuditScopeClause,
+      GrcIssueClause,
       // History entities
       GrcRiskHistory,
       GrcPolicyHistory,
@@ -172,6 +184,10 @@ import {
     ProcessControlController,
     ControlResultController,
     ProcessViolationController,
+    // Audit Phase 2 - Standards Library controllers
+    StandardController,
+    StandardClauseController,
+    GrcIssueController,
   ],
   exports: [
     // Core services

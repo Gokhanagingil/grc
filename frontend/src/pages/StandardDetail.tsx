@@ -36,6 +36,7 @@ import {
   BugReport as FindingIcon,
   Assignment as AuditIcon,
   Label as TagIcon,
+  Create as CreateIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { standardsApi, platformMetadataApi } from '../services/grcClient';
@@ -266,7 +267,27 @@ export const StandardDetail: React.FC = () => {
           color="primary"
           sx={{ mr: 1 }}
         />
-        <Chip label={`v${requirement.version}`} variant="outlined" />
+        <Chip label={`v${requirement.version}`} variant="outlined" sx={{ mr: 1 }} />
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<CreateIcon />}
+          onClick={() => {
+            // Navigate to finding create page with context
+            navigate('/findings/new', {
+              state: {
+                standardId: requirement.id,
+                standardCode: requirement.code,
+                standardTitle: requirement.title,
+                clauseId: requirement.id, // For now, using requirement.id as clauseId
+                clauseCode: requirement.code,
+                clauseTitle: requirement.title,
+              },
+            });
+          }}
+        >
+          Create Finding
+        </Button>
       </Box>
 
       <Grid container spacing={3}>

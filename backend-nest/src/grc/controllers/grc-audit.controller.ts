@@ -498,6 +498,30 @@ export class GrcAuditController {
   }
 
   /**
+   * GET /grc/audits/:id/scope
+   * Get audit scope (standards and clauses included in audit)
+   */
+  @Get(':id/scope')
+  @Permissions(Permission.GRC_AUDIT_READ)
+  @Perf()
+  async getScope(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const audit = await this.auditService.findOneActiveForTenant(tenantId, id);
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
+    // Get audit scope from service
+    return this.auditService.getAuditScope(tenantId, id);
+  }
+
+  /**
    * GET /grc/audits/:id/scope-objects
    * Get scope objects for an audit (placeholder - returns empty array for now)
    */

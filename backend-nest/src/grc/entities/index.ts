@@ -58,3 +58,10 @@ export { ProcessControl } from './process-control.entity';
 export { ControlResult } from './control-result.entity';
 export { ProcessViolation } from './process-violation.entity';
 export { ProcessControlRisk } from './process-control-risk.entity';
+
+// Standards Library Entities (Audit Phase 2)
+export { Standard } from './standard.entity';
+export { StandardClause } from './standard-clause.entity';
+export { AuditScopeStandard } from './audit-scope-standard.entity';
+export { AuditScopeClause } from './audit-scope-clause.entity';
+export { GrcIssueClause } from './grc-issue-clause.entity';

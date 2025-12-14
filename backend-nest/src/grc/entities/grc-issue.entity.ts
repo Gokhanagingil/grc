@@ -16,6 +16,7 @@ import { GrcCapa } from './grc-capa.entity';
 import { GrcIssueEvidence } from './grc-issue-evidence.entity';
 import { GrcAudit } from './grc-audit.entity';
 import { GrcIssueRequirement } from './grc-issue-requirement.entity';
+import { GrcIssueClause } from './grc-issue-clause.entity';
 
 /**
  * GRC Issue Entity
@@ -122,4 +123,7 @@ export class GrcIssue extends BaseEntity {
 
   @OneToMany(() => GrcIssueRequirement, (ir) => ir.issue)
   issueRequirements: GrcIssueRequirement[];
+
+  @OneToMany(() => GrcIssueClause, (ic) => ic.issue)
+  issueClauses: GrcIssueClause[];
 }
