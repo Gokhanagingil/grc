@@ -44,3 +44,10 @@ export {
   ComplianceScoreResponse,
   ComplianceOverviewResponse,
 } from './process-compliance.service';
+
+// Standards Library Services (Audit Phase 2)
+export {
+  StandardsService,
+  ClauseTreeNode,
+  StandardWithClauses,
+} from './standards.service';
