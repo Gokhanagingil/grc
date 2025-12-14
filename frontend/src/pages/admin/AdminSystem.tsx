@@ -24,7 +24,7 @@ import { AdminPageHeader, AdminCard } from '../../components/admin';
 import { api } from '../../services/api';
 
 interface HealthCheck {
-  status: string;
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'unavailable';
   message?: string;
   responseTime?: number;
 }
@@ -58,11 +58,37 @@ export const AdminSystem: React.FC = () => {
         message: data?.message || 'OK',
         responseTime,
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const responseTime = Date.now() - startTime;
+      // Check if it's a 404 or network error (endpoint not available)
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { status?: number } };
+        if (axiosError.response?.status === 404) {
+          return {
+            status: 'unavailable',
+            message: 'Endpoint not available',
+            responseTime,
+          };
+        }
+      }
+      
+      // Check for network errors
+      if (err && typeof err === 'object' && 'message' in err) {
+        const errorMessage = (err as { message: string }).message;
+        if (errorMessage.includes('Network Error') || errorMessage.includes('timeout')) {
+          return {
+            status: 'unavailable',
+            message: 'Service unavailable',
+            responseTime,
+          };
+        }
+      }
+      
+      // Other errors are considered unhealthy
       return {
         status: 'unhealthy',
         message: err instanceof Error ? err.message : 'Health check failed',
-        responseTime: Date.now() - startTime,
+        responseTime,
       };
     }
   };
@@ -121,32 +147,44 @@ export const AdminSystem: React.FC = () => {
     return `${days}d ${hours}h ${minutes}m`;
   };
 
-  const getStatusColor = (status: string): 'success' | 'warning' | 'error' => {
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
     switch (status) {
       case 'healthy':
         return 'success';
       case 'degraded':
         return 'warning';
-      default:
+      case 'unhealthy':
         return 'error';
+      case 'unavailable':
+        return 'default';
+      default:
+        return 'default';
     }
   };
 
   const getStatusIcon = (status: string) => {
-    return status === 'healthy' ? (
-      <HealthyIcon color="success" />
-    ) : (
-      <UnhealthyIcon color="error" />
-    );
+    if (status === 'healthy') {
+      return <HealthyIcon color="success" />;
+    } else if (status === 'unavailable') {
+      return <InfoIcon color="action" />;
+    } else {
+      return <UnhealthyIcon color="error" />;
+    }
   };
 
   const overallHealth = systemStatus
     ? Object.values(systemStatus.health).every(h => h.status === 'healthy')
       ? 'healthy'
+      : Object.values(systemStatus.health).every(h => h.status === 'unavailable')
+      ? 'unavailable'
       : Object.values(systemStatus.health).some(h => h.status === 'unhealthy')
       ? 'unhealthy'
       : 'degraded'
     : 'unknown';
+  
+  const hasUnavailableEndpoints = systemStatus
+    ? Object.values(systemStatus.health).some(h => h.status === 'unavailable')
+    : false;
 
   return (
     <Box>
@@ -170,13 +208,28 @@ export const AdminSystem: React.FC = () => {
         </Alert>
       )}
 
+      {hasUnavailableEndpoints && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Health endpoints are not available in this environment. Some status information may be unavailable.
+        </Alert>
+      )}
+
       {loading && !systemStatus ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       ) : systemStatus ? (
         <>
-          <Card sx={{ mb: 3, bgcolor: overallHealth === 'healthy' ? 'success.light' : overallHealth === 'degraded' ? 'warning.light' : 'error.light' }}>
+          <Card sx={{ 
+            mb: 3, 
+            bgcolor: overallHealth === 'healthy' 
+              ? 'success.light' 
+              : overallHealth === 'degraded' 
+              ? 'warning.light' 
+              : overallHealth === 'unavailable'
+              ? 'grey.100'
+              : 'error.light' 
+          }}>
             <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 {getStatusIcon(overallHealth)}
@@ -218,7 +271,11 @@ export const AdminSystem: React.FC = () => {
                   )}
                 </Box>
                 {systemStatus.health.api.message && systemStatus.health.api.status !== 'healthy' && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                  <Typography 
+                    variant="caption" 
+                    color={systemStatus.health.api.status === 'unavailable' ? 'text.secondary' : 'error'} 
+                    sx={{ mt: 1, display: 'block' }}
+                  >
                     {systemStatus.health.api.message}
                   </Typography>
                 )}
@@ -239,7 +296,11 @@ export const AdminSystem: React.FC = () => {
                   )}
                 </Box>
                 {systemStatus.health.database.message && systemStatus.health.database.status !== 'healthy' && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                  <Typography 
+                    variant="caption" 
+                    color={systemStatus.health.database.status === 'unavailable' ? 'text.secondary' : 'error'} 
+                    sx={{ mt: 1, display: 'block' }}
+                  >
                     {systemStatus.health.database.message}
                   </Typography>
                 )}
@@ -260,7 +321,11 @@ export const AdminSystem: React.FC = () => {
                   )}
                 </Box>
                 {systemStatus.health.auth.message && systemStatus.health.auth.status !== 'healthy' && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                  <Typography 
+                    variant="caption" 
+                    color={systemStatus.health.auth.status === 'unavailable' ? 'text.secondary' : 'error'} 
+                    sx={{ mt: 1, display: 'block' }}
+                  >
                     {systemStatus.health.auth.message}
                   </Typography>
                 )}

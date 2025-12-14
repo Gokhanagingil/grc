@@ -49,6 +49,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
+import { ErrorBoundary } from './common/ErrorBoundary';
 
 const drawerWidth = 240;
 
@@ -224,6 +225,36 @@ export const Layout: React.FC = () => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
+  // Generate safe fallback label from path segment
+  const getFallbackLabel = (segment: string): string => {
+    if (!segment || segment.trim() === '') {
+      return 'Details';
+    }
+
+    // Check if segment looks like an ID (numeric or UUID-like)
+    const isIdLike = /^\d+$/.test(segment) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment);
+    if (isIdLike) {
+      return 'Details';
+    }
+
+    // Convert segment to readable label
+    // Replace dashes and underscores with spaces, then title case
+    const cleaned = segment
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleaned) {
+      return 'Details';
+    }
+
+    // Title case: capitalize first letter of each word
+    return cleaned
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   // Generate breadcrumbs from current path
   const getBreadcrumbs = () => {
     const pathParts = location.pathname.split('/').filter(Boolean);
@@ -249,21 +280,44 @@ export const Layout: React.FC = () => {
     
     // Build breadcrumbs
     if (currentGroup) {
-      breadcrumbs.push({ label: currentGroup.text, path: currentGroup.items[0]?.path || '/' });
+      const groupLabel = currentGroup.text || getFallbackLabel(currentGroup.id);
+      breadcrumbs.push({ label: groupLabel, path: currentGroup.items[0]?.path || '/' });
     }
     
     if (currentItem) {
-      breadcrumbs.push({ label: currentItem.text, path: currentItem.path });
+      const itemLabel = currentItem.text || getFallbackLabel(pathParts[0] || '');
+      breadcrumbs.push({ label: itemLabel, path: currentItem.path });
     }
     
     // Handle sub-pages (e.g., /audits/123)
-    if (pathParts.length > 1 && currentItem) {
-      const subPath = pathParts.slice(1).join('/');
-      if (subPath && subPath !== 'new') {
-        breadcrumbs.push({ label: subPath === 'edit' ? 'Edit' : 'Details', path: location.pathname });
-      } else if (subPath === 'new') {
+    if (pathParts.length > 1) {
+      const subPathParts = pathParts.slice(1);
+      const subPath = subPathParts.join('/');
+      
+      if (subPath === 'new') {
         breadcrumbs.push({ label: 'New', path: location.pathname });
+      } else if (subPath === 'edit') {
+        breadcrumbs.push({ label: 'Edit', path: location.pathname });
+      } else if (subPath && currentItem) {
+        // Use fallback label for the last segment
+        const lastSegment = subPathParts[subPathParts.length - 1];
+        const fallbackLabel = getFallbackLabel(lastSegment);
+        breadcrumbs.push({ label: fallbackLabel, path: location.pathname });
       }
+    }
+    
+    // If no breadcrumbs were found, generate from path
+    if (breadcrumbs.length === 0 && pathParts.length > 0) {
+      pathParts.forEach((part, index) => {
+        const path = '/' + pathParts.slice(0, index + 1).join('/');
+        const label = getFallbackLabel(part);
+        breadcrumbs.push({ label, path });
+      });
+    }
+    
+    // Ensure at least one breadcrumb
+    if (breadcrumbs.length === 0) {
+      breadcrumbs.push({ label: 'GRC Platform', path: '/' });
     }
     
     return breadcrumbs;
@@ -271,7 +325,7 @@ export const Layout: React.FC = () => {
 
   const breadcrumbs = getBreadcrumbs();
   const pageTitle = breadcrumbs.length > 0 
-    ? breadcrumbs[breadcrumbs.length - 1].label 
+    ? breadcrumbs[breadcrumbs.length - 1]?.label || 'GRC Platform'
     : menuItems.find(item => item.path === location.pathname)?.text || 'GRC Platform';
 
   const drawer = (
@@ -407,11 +461,11 @@ export const Layout: React.FC = () => {
                       cursor: 'pointer',
                     }}
                   >
-                    {crumb.label}
+                    {crumb.label || 'Page'}
                   </Link>
                 ))}
                 <Typography variant="body2" sx={{ color: 'white' }}>
-                  {breadcrumbs[breadcrumbs.length - 1].label}
+                  {breadcrumbs[breadcrumbs.length - 1]?.label || 'Page'}
                 </Typography>
               </Breadcrumbs>
             )}
@@ -481,7 +535,9 @@ export const Layout: React.FC = () => {
         }}
       >
         <Toolbar />
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </Box>
       <Menu
         anchorEl={anchorEl}
