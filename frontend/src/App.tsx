@@ -29,6 +29,7 @@ import { ProcessManagement } from './pages/ProcessManagement';
 import { ProcessViolations } from './pages/ProcessViolations';
 import { Profile } from './pages/Profile';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const theme = createTheme({
   palette: {
@@ -63,7 +64,14 @@ function App() {
                   </ProtectedRoute>
                 }>
                   <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route 
+                    path="dashboard" 
+                    element={
+                      <ErrorBoundary>
+                        <Dashboard />
+                      </ErrorBoundary>
+                    } 
+                  />
                   <Route path="todos" element={<TodoList />} />
                   <Route path="governance" element={<Governance />} />
                   <Route path="risk" element={<RiskManagement />} />
