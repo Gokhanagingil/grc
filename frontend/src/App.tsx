@@ -30,6 +30,7 @@ import { ProcessViolations } from './pages/ProcessViolations';
 import { Profile } from './pages/Profile';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
 
 const theme = createTheme({
   palette: {
@@ -60,7 +61,9 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={
                   <ProtectedRoute>
-                    <Layout />
+                    <InitializationErrorBoundary>
+                      <Layout />
+                    </InitializationErrorBoundary>
                   </ProtectedRoute>
                 }>
                   <Route index element={<Navigate to="/dashboard" replace />} />
