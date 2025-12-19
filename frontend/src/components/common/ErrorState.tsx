@@ -9,6 +9,9 @@ interface ErrorStateProps {
   retryLabel?: string;
   minHeight?: string | number;
   variant?: 'alert' | 'centered';
+  statusCode?: number;
+  endpoint?: string;
+  diagnosticHint?: string;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
@@ -18,6 +21,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   retryLabel = 'Try Again',
   minHeight = '400px',
   variant = 'centered',
+  statusCode,
+  endpoint,
+  diagnosticHint,
 }) => {
   if (variant === 'alert') {
     return (
@@ -58,6 +64,25 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <Typography variant="body1" color="textSecondary" maxWidth={400}>
         {message}
       </Typography>
+      {(statusCode || endpoint || diagnosticHint) && (
+        <Box sx={{ mt: 2, textAlign: 'left', maxWidth: 400 }}>
+          {statusCode && (
+            <Typography variant="body2" color="textSecondary">
+              <strong>Status:</strong> {statusCode}
+            </Typography>
+          )}
+          {endpoint && (
+            <Typography variant="body2" color="textSecondary">
+              <strong>Endpoint:</strong> {endpoint}
+            </Typography>
+          )}
+          {diagnosticHint && (
+            <Typography variant="body2" color="warning.main" sx={{ mt: 1, fontStyle: 'italic' }}>
+              {diagnosticHint}
+            </Typography>
+          )}
+        </Box>
+      )}
       {onRetry && (
         <Button
           variant="outlined"

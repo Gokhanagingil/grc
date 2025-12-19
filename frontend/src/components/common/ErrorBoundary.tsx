@@ -14,6 +14,7 @@ import {
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 interface ErrorBoundaryProps {
@@ -47,7 +48,12 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Log full error details with stack trace to console
+    console.error('ErrorBoundary caught an error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Component stack:', errorInfo.componentStack);
+    console.error('Error info:', errorInfo);
+    
     this.setState({
       error,
       errorInfo,
@@ -60,6 +66,10 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
 
   handleGoHome = () => {
     window.location.href = '/';
+  };
+
+  handleGoToDiagnostics = () => {
+    window.location.href = '/admin/system';
   };
 
   toggleDetails = () => {
@@ -93,17 +103,24 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 </Typography>
               </Box>
 
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                An unexpected error occurred. Please try reloading the page or returning to the home page.
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                {this.state.error?.message || 'An unexpected error occurred. Please try reloading the page or returning to the home page.'}
               </Typography>
 
-              <Box sx={{ display: 'flex', gap: 2, mb: isDevelopment ? 2 : 0 }}>
+              <Box sx={{ display: 'flex', gap: 2, mb: isDevelopment ? 2 : 0, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
                   startIcon={<RefreshIcon />}
                   onClick={this.handleReload}
                 >
                   Reload
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<SettingsIcon />}
+                  onClick={this.handleGoToDiagnostics}
+                >
+                  Go to Admin/System Diagnostics
                 </Button>
                 <Button
                   variant="outlined"

@@ -30,9 +30,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { dashboardApi, RiskTrendDataPoint, ComplianceByRegulationItem } from '../services/grcClient';
+import { dashboardApi, RiskTrendDataPoint, ComplianceByRegulationItem, API_PATHS } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
+import { getApiBaseUrl } from '../config';
 
 interface DashboardStats {
   risks: {
@@ -136,6 +137,9 @@ export const Dashboard: React.FC = () => {
   const [complianceData, setComplianceData] = useState<ComplianceByRegulationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [errorStatusCode, setErrorStatusCode] = useState<number | undefined>();
+  const [errorEndpoint, setErrorEndpoint] = useState<string | undefined>();
+  const [diagnosticHint, setDiagnosticHint] = useState<string | undefined>();
 
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
@@ -150,6 +154,24 @@ export const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       setError('');
+      setErrorStatusCode(undefined);
+      setErrorEndpoint(undefined);
+      setDiagnosticHint(undefined);
+      
+      // Diagnostics logging
+      const apiBaseUrl = getApiBaseUrl();
+      const endpoints = [
+        API_PATHS.DASHBOARD.OVERVIEW,
+        API_PATHS.DASHBOARD.RISK_TRENDS,
+        API_PATHS.DASHBOARD.COMPLIANCE_BY_REGULATION,
+      ];
+      
+      console.log('[Dashboard Diagnostics] Loading dashboard data:', {
+        apiBaseUrl,
+        tenantId: tenantId || '(not set)',
+        endpoints: endpoints.map(ep => `${apiBaseUrl}${ep}`),
+        timestamp: new Date().toISOString(),
+      });
       
       // Fetch all dashboard data in parallel from dedicated NestJS endpoints
       const [overview, trends, complianceByReg] = await Promise.all([
@@ -158,31 +180,95 @@ export const Dashboard: React.FC = () => {
         dashboardApi.getComplianceByRegulation(tenantId),
       ]);
       
-      setStats(overview);
-      setRiskTrends(trends);
-      setComplianceData(complianceByReg);
-    } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
-      const status = error.response?.status;
-      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      // Validate response shapes
+      if (!overview || typeof overview !== 'object') {
+        throw new Error('Invalid response: overview data is not an object');
+      }
+      if (!Array.isArray(trends)) {
+        console.warn('[Dashboard] Risk trends is not an array, defaulting to empty array');
+      }
+      if (!Array.isArray(complianceByReg)) {
+        console.warn('[Dashboard] Compliance data is not an array, defaulting to empty array');
+      }
       
+      // Ensure stats has required structure with null checks
+      const safeStats: DashboardStats = {
+        risks: overview.risks || { total: 0, open: 0, high: 0, overdue: 0 },
+        compliance: overview.compliance || { total: 0, pending: 0, completed: 0, overdue: 0 },
+        policies: overview.policies || { total: 0, active: 0, draft: 0 },
+        incidents: overview.incidents || { total: 0, open: 0, closed: 0, resolved: 0 },
+        users: overview.users || { total: 0, admins: 0, managers: 0 },
+      };
+      
+      setStats(safeStats);
+      setRiskTrends(Array.isArray(trends) ? trends : []);
+      setComplianceData(Array.isArray(complianceByReg) ? complianceByReg : []);
+    } catch (err: unknown) {
+      console.error('[Dashboard] Error fetching dashboard data:', err);
+      
+      // Enhanced error handling
+      const axiosError = err as {
+        response?: {
+          status?: number;
+          statusText?: string;
+          data?: unknown;
+          headers?: Record<string, string>;
+        };
+        request?: unknown;
+        message?: string;
+        code?: string;
+      };
+      
+      const status = axiosError.response?.status;
+      const responseData = axiosError.response?.data;
+      const contentType = axiosError.response?.headers?.['content-type'] || 
+                         axiosError.response?.headers?.['Content-Type'] || '';
+      
+      // Detect HTML responses (proxy/API mismatch)
+      const isHtmlResponse = typeof responseData === 'string' && 
+                            (responseData.trim().startsWith('<!DOCTYPE') || 
+                             responseData.trim().startsWith('<html') ||
+                             contentType.includes('text/html'));
+      
+      // Determine endpoint from error if available
+      let endpoint: string = API_PATHS.DASHBOARD.OVERVIEW;
+      if (axiosError.message?.includes('risk-trends')) {
+        endpoint = API_PATHS.DASHBOARD.RISK_TRENDS;
+      } else if (axiosError.message?.includes('compliance-by-regulation')) {
+        endpoint = API_PATHS.DASHBOARD.COMPLIANCE_BY_REGULATION;
+      }
+      
+      setErrorStatusCode(status);
+      setErrorEndpoint(`${getApiBaseUrl()}${endpoint}`);
+      
+      // Set diagnostic hint for HTML responses
+      if (isHtmlResponse) {
+        setDiagnosticHint('API base URL or proxy mismatch detected. The server returned HTML instead of JSON. Please check your API configuration.');
+      }
+      
+      // Handle specific status codes
       if (status === 401) {
         setError('Session expired. Please login again.');
       } else if (status === 403) {
         setError('You do not have permission to view the dashboard.');
-      } else if (status === 404 || status === 502) {
-        // Graceful degradation: show empty data instead of error
-        setStats({
-          risks: { total: 0, open: 0, high: 0, overdue: 0 },
-          compliance: { total: 0, pending: 0, completed: 0, overdue: 0 },
-          policies: { total: 0, active: 0, draft: 0 },
-          users: { total: 0, admins: 0, managers: 0 },
-        });
-        setRiskTrends([]);
-        setComplianceData([]);
-        console.warn('Dashboard backend not available');
+      } else if (status === 404) {
+        setError(`Dashboard endpoint not found (404). The API endpoint may not be available.`);
+        setDiagnosticHint('The dashboard API endpoint was not found. Please verify the backend service is running and the API base URL is correct.');
+      } else if (status === 500) {
+        setError('Internal server error (500). The server encountered an error while processing your request.');
+        setDiagnosticHint('A server error occurred. Please check backend logs or contact support.');
+      } else if (status === 502 || status === 503) {
+        setError('Service unavailable. The backend service may be down or unreachable.');
+        setDiagnosticHint('The backend service is not responding. Please check if the service is running.');
+      } else if (isHtmlResponse) {
+        setError('Invalid response format. The server returned HTML instead of JSON.');
       } else {
-        setError(message || 'Failed to load dashboard data. Please try again.');
+        const message: string = (responseData && typeof responseData === 'object' && 'error' in responseData)
+          ? (responseData as { error?: { message?: string } }).error?.message || 'Failed to load dashboard data. Please try again.'
+          : (responseData && typeof responseData === 'object' && 'message' in responseData)
+          ? (responseData as { message?: string }).message || 'Failed to load dashboard data. Please try again.'
+          : axiosError.message || 'Failed to load dashboard data. Please try again.';
+        setError(message);
       }
     } finally {
       setLoading(false);
@@ -203,6 +289,9 @@ export const Dashboard: React.FC = () => {
         title="Failed to load dashboard"
         message={error}
         onRetry={fetchDashboardData}
+        statusCode={errorStatusCode}
+        endpoint={errorEndpoint}
+        diagnosticHint={diagnosticHint}
       />
     );
   }
@@ -213,6 +302,9 @@ export const Dashboard: React.FC = () => {
         title="No data available"
         message="Dashboard data could not be loaded. Please try again."
         onRetry={fetchDashboardData}
+        statusCode={errorStatusCode}
+        endpoint={errorEndpoint}
+        diagnosticHint={diagnosticHint || 'The dashboard returned no data. This may indicate a backend issue or empty dataset.'}
       />
     );
   }
