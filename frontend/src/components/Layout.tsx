@@ -50,6 +50,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
 import { ErrorBoundary } from './common/ErrorBoundary';
+import { safeArray, safeIncludes } from '../utils/safeHelpers';
 
 const drawerWidth = 240;
 
@@ -143,11 +144,36 @@ export const Layout: React.FC = () => {
 
   useEffect(() => {
     const fetchEnabledModules = async () => {
+      console.log('[Layout] Fetching enabled modules...');
       try {
         const response = await moduleApi.getEnabled();
-        setEnabledModules(response.data.enabledModules);
+        // Handle both envelope format {success: true, data: {enabledModules: [...]}} 
+        // and flat format {enabledModules: [...]}
+        const responseData = response.data;
+        let modules: string[] = [];
+        
+        if (responseData && typeof responseData === 'object') {
+          // Check for NestJS envelope format
+          if ('success' in responseData && 'data' in responseData) {
+            const envelopeData = (responseData as { success: boolean; data: { enabledModules?: unknown } }).data;
+            modules = safeArray(envelopeData?.enabledModules as string[] | undefined);
+          } else if ('enabledModules' in responseData) {
+            // Flat format
+            modules = safeArray((responseData as { enabledModules?: unknown }).enabledModules as string[] | undefined);
+          }
+        }
+        
+        // If no modules found, use defaults
+        if (modules.length === 0) {
+          console.warn('[Layout] No enabled modules found in response, using defaults');
+          modules = ['risk', 'policy', 'compliance', 'audit', 'platform.admin'];
+        }
+        
+        console.log('[Layout] Enabled modules loaded:', modules.length, 'modules');
+        setEnabledModules(modules);
       } catch (error) {
-        console.error('Error fetching enabled modules:', error);
+        console.error('[Layout] Error fetching enabled modules:', error);
+        console.log('[Layout] Using default modules due to fetch error');
         setEnabledModules(['risk', 'policy', 'compliance', 'audit', 'platform.admin']);
       }
     };
@@ -166,10 +192,12 @@ export const Layout: React.FC = () => {
 
   const filterItem = (item: NavMenuItem): boolean => {
     if (!user) return false;
-    if (item.roles && !item.roles.includes(user.role)) {
+    // Use safeIncludes for role check (item.roles is static, but being defensive)
+    if (item.roles && !safeIncludes(item.roles, user.role)) {
       return false;
     }
-    if (item.moduleKey && !enabledModules.includes(item.moduleKey)) {
+    // Use safeIncludes for module check (enabledModules comes from API)
+    if (item.moduleKey && !safeIncludes(enabledModules, item.moduleKey)) {
       return false;
     }
     return true;
@@ -182,7 +210,7 @@ export const Layout: React.FC = () => {
   const filteredGroups = useMemo(() => {
     if (!user) return [];
     return menuGroups
-      .filter(group => !group.roles || group.roles.includes(user.role))
+      .filter(group => !group.roles || safeIncludes(group.roles, user.role))
       .map(group => ({
         ...group,
         items: group.items.filter(filterItem),
