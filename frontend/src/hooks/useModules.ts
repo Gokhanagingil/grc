@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { moduleApi, ModuleStatus, MenuItem } from '../services/platformApi';
+import { safeArray, safeIncludes } from '../utils/safeHelpers';
 
 export interface UseModulesResult {
   enabledModules: string[];
@@ -36,9 +37,10 @@ export function useModules(): UseModulesResult {
         moduleApi.getMenu(),
       ]);
 
-      setEnabledModules(enabledResponse.data.enabledModules);
-      setModuleStatuses(statusResponse.data.modules);
-      setMenuItems(menuResponse.data.menuItems);
+      // Use safeArray to handle undefined/null responses
+      setEnabledModules(safeArray(enabledResponse.data?.enabledModules));
+      setModuleStatuses(safeArray(statusResponse.data?.modules));
+      setMenuItems(safeArray(menuResponse.data?.menuItems));
     } catch (err) {
       console.error('Error fetching modules:', err);
       setError('Failed to load module configuration');
@@ -55,7 +57,8 @@ export function useModules(): UseModulesResult {
 
   const isModuleEnabled = useCallback(
     (moduleKey: string): boolean => {
-      return enabledModules.includes(moduleKey);
+      // Use safeIncludes to handle potential undefined/null enabledModules
+      return safeIncludes(enabledModules, moduleKey);
     },
     [enabledModules]
   );
