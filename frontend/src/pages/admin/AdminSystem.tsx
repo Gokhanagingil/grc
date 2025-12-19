@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Card,
   CardContent,
+  Divider,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -19,9 +20,11 @@ import {
   Cloud as ApiIcon,
   Timer as UptimeIcon,
   Code as VersionIcon,
+  Business as TenantIcon,
+  PlayArrow as TestIcon,
 } from '@mui/icons-material';
 import { AdminPageHeader, AdminCard } from '../../components/admin';
-import { api } from '../../services/api';
+import { api, STORAGE_TENANT_ID_KEY } from '../../services/api';
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy' | 'unavailable';
@@ -41,11 +44,21 @@ interface SystemStatus {
   environment?: string;
 }
 
+interface OnboardingTestResult {
+  success: boolean;
+  tenantId: string | null;
+  enabledModules: Record<string, string[]> | null;
+  error?: string;
+  responseTime?: number;
+}
+
 export const AdminSystem: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [onboardingTestLoading, setOnboardingTestLoading] = useState(false);
+  const [onboardingTestResult, setOnboardingTestResult] = useState<OnboardingTestResult | null>(null);
 
   const checkHealth = async (endpoint: string): Promise<HealthCheck> => {
     const startTime = Date.now();
@@ -138,6 +151,91 @@ export const AdminSystem: React.FC = () => {
   useEffect(() => {
     fetchSystemStatus();
   }, [fetchSystemStatus]);
+
+  const getCurrentTenantId = (): string | null => {
+    return localStorage.getItem(STORAGE_TENANT_ID_KEY);
+  };
+
+  const isTenantHeaderInjectionActive = (): boolean => {
+    const tenantId = getCurrentTenantId();
+    return tenantId !== null && tenantId.length > 0;
+  };
+
+  const testOnboardingContext = async () => {
+    const tenantId = getCurrentTenantId();
+    setOnboardingTestLoading(true);
+    setOnboardingTestResult(null);
+
+    const startTime = Date.now();
+    try {
+      if (!tenantId) {
+        setOnboardingTestResult({
+          success: false,
+          tenantId: null,
+          enabledModules: null,
+          error: 'No tenant ID found in localStorage. Please log in first.',
+          responseTime: Date.now() - startTime,
+        });
+        return;
+      }
+
+      const response = await api.get('/onboarding/context', {
+        headers: { 'x-tenant-id': tenantId },
+        timeout: 10000,
+      });
+
+      const responseTime = Date.now() - startTime;
+      const data = response.data?.data || response.data;
+      const context = data?.context || data;
+
+      setOnboardingTestResult({
+        success: true,
+        tenantId,
+        enabledModules: context?.enabledModules || null,
+        responseTime,
+      });
+    } catch (err: unknown) {
+      const responseTime = Date.now() - startTime;
+      let errorMessage = 'Failed to fetch onboarding context';
+      
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+        if (axiosError.response?.status === 400) {
+          errorMessage = axiosError.response.data?.message || 'Bad request - missing x-tenant-id header';
+        } else if (axiosError.response?.status === 401) {
+          errorMessage = 'Unauthorized - please log in again';
+        } else if (axiosError.response?.status === 404) {
+          errorMessage = 'Onboarding context endpoint not found';
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      setOnboardingTestResult({
+        success: false,
+        tenantId,
+        enabledModules: null,
+        error: errorMessage,
+        responseTime,
+      });
+    } finally {
+      setOnboardingTestLoading(false);
+    }
+  };
+
+  const formatEnabledModules = (modules: Record<string, string[]> | null): string => {
+    if (!modules) return 'None';
+    const entries = Object.entries(modules);
+    if (entries.length === 0) return 'None';
+    
+    const parts: string[] = [];
+    for (const [suite, moduleList] of entries) {
+      if (moduleList && moduleList.length > 0) {
+        parts.push(`${suite}: [${moduleList.join(', ')}]`);
+      }
+    }
+    return parts.length > 0 ? parts.join('; ') : 'All suites empty';
+  };
 
   const formatUptime = (seconds?: number): string => {
     if (!seconds) return 'N/A';
@@ -366,6 +464,108 @@ export const AdminSystem: React.FC = () => {
               />
             </Grid>
           </Grid>
+
+          <Divider sx={{ my: 4 }} />
+
+          <Typography variant="h6" gutterBottom>
+            Tenant Diagnostics
+          </Typography>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={4}>
+              <AdminCard title="Current Tenant ID" icon={<TenantIcon />}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontFamily: 'monospace', 
+                    wordBreak: 'break-all',
+                    color: getCurrentTenantId() ? 'text.primary' : 'error.main'
+                  }}
+                >
+                  {getCurrentTenantId() || 'Not set (login required)'}
+                </Typography>
+              </AdminCard>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <AdminCard title="Tenant Header Injection" icon={<ApiIcon />}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={isTenantHeaderInjectionActive() ? 'ACTIVE' : 'INACTIVE'}
+                    color={isTenantHeaderInjectionActive() ? 'success' : 'error'}
+                    size="small"
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {isTenantHeaderInjectionActive() 
+                      ? 'x-tenant-id header will be added to API calls' 
+                      : 'No tenant ID available for header injection'}
+                  </Typography>
+                </Box>
+              </AdminCard>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <AdminCard title="Test Onboarding Context" icon={<TestIcon />}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={testOnboardingContext}
+                  disabled={onboardingTestLoading || !getCurrentTenantId()}
+                  startIcon={onboardingTestLoading ? <CircularProgress size={16} /> : <TestIcon />}
+                  sx={{ mb: 1 }}
+                >
+                  {onboardingTestLoading ? 'Testing...' : 'Test Context'}
+                </Button>
+                {!getCurrentTenantId() && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Login required to test
+                  </Typography>
+                )}
+              </AdminCard>
+            </Grid>
+          </Grid>
+
+          {onboardingTestResult && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="subtitle1" gutterBottom>
+                  Onboarding Context Test Result
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <Chip
+                    label={onboardingTestResult.success ? 'SUCCESS' : 'FAILED'}
+                    color={onboardingTestResult.success ? 'success' : 'error'}
+                    size="small"
+                  />
+                  {onboardingTestResult.responseTime && (
+                    <Typography variant="caption" color="text.secondary">
+                      {onboardingTestResult.responseTime}ms
+                    </Typography>
+                  )}
+                </Box>
+                {onboardingTestResult.error && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {onboardingTestResult.error}
+                  </Alert>
+                )}
+                {onboardingTestResult.success && (
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>Tenant ID:</strong>{' '}
+                      <code style={{ fontFamily: 'monospace' }}>{onboardingTestResult.tenantId}</code>
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Enabled Modules:</strong>{' '}
+                      {formatEnabledModules(onboardingTestResult.enabledModules)}
+                    </Typography>
+                    {onboardingTestResult.enabledModules && 
+                     Object.values(onboardingTestResult.enabledModules).every(arr => arr.length === 0) && (
+                      <Alert severity="warning" sx={{ mt: 2 }}>
+                        All module arrays are empty. Run the onboarding seed script to enable modules for this tenant.
+                      </Alert>
+                    )}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </>
       ) : (
         <Alert severity="warning">
