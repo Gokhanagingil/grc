@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -53,6 +53,9 @@ import { ErrorBoundary } from './common/ErrorBoundary';
 import { safeArray, safeIncludes } from '../utils/safeHelpers';
 
 const drawerWidth = 240;
+
+// Storage key for last known good route (used by InitializationErrorBoundary)
+const LAST_GOOD_ROUTE_KEY = 'lastKnownGoodRoute';
 
 interface NavMenuItem {
   text: string;
@@ -186,6 +189,29 @@ export const Layout: React.FC = () => {
       if (group.items.some(item => location.pathname.startsWith(item.path))) {
         setExpandedGroups(prev => ({ ...prev, [group.id]: true }));
         break;
+      }
+    }
+  }, [location.pathname]);
+
+  // Track last known good route for Safe Home strategy
+  // This runs after successful render, so if we get here, the route is "good"
+  const hasTrackedRoute = useRef(false);
+  useEffect(() => {
+    // Only track after initial render and if we have a valid path
+    if (!hasTrackedRoute.current && location.pathname && location.pathname !== '/login') {
+      hasTrackedRoute.current = true;
+    }
+    
+    // Update last known good route on successful navigation
+    // Exclude login page and error-prone paths
+    const excludedPaths = ['/login', '/register', '/error'];
+    const isExcluded = excludedPaths.some(p => location.pathname.startsWith(p));
+    
+    if (!isExcluded && location.pathname) {
+      try {
+        sessionStorage.setItem(LAST_GOOD_ROUTE_KEY, location.pathname);
+      } catch {
+        // Ignore storage errors
       }
     }
   }, [location.pathname]);

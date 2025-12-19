@@ -14,7 +14,18 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Settings as SettingsIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
+
+// Safe home routes in order of preference
+const SAFE_HOME_ROUTES = ['/profile', '/admin/system', '/login'];
+
+// Storage key for last known good route
+const LAST_GOOD_ROUTE_KEY = 'lastKnownGoodRoute';
+
+// Debounce tracking for reload
+const RELOAD_DEBOUNCE_KEY = 'lastReloadAttempt';
+const RELOAD_DEBOUNCE_MS = 2000; // 2 seconds minimum between reloads
 
 interface InitializationErrorBoundaryProps {
   children: ReactNode;
@@ -76,8 +87,23 @@ class InitializationErrorBoundaryClass extends Component<
   }
 
   handleReload = () => {
-    // Clear any cached state that might be causing issues
+    // Debounce reload to prevent request storms
     try {
+      const lastReload = sessionStorage.getItem(RELOAD_DEBOUNCE_KEY);
+      const now = Date.now();
+      
+      if (lastReload) {
+        const lastReloadTime = parseInt(lastReload, 10);
+        if (!isNaN(lastReloadTime) && now - lastReloadTime < RELOAD_DEBOUNCE_MS) {
+          console.warn('[InitializationErrorBoundary] Reload debounced - too soon since last attempt');
+          return;
+        }
+      }
+      
+      // Record this reload attempt
+      sessionStorage.setItem(RELOAD_DEBOUNCE_KEY, now.toString());
+      
+      // Clear any cached state that might be causing issues
       sessionStorage.removeItem('onboarding_rate_limit_until');
     } catch {
       // Ignore storage errors
@@ -87,6 +113,41 @@ class InitializationErrorBoundaryClass extends Component<
 
   handleGoToSystemDiagnostics = () => {
     window.location.href = '/admin/system';
+  };
+
+  /**
+   * Safe Home Strategy:
+   * 1. Try last known good route from sessionStorage
+   * 2. Fall back to safe routes in order: /profile, /admin/system, /login
+   * 3. Avoid routes that previously crashed
+   */
+  handleGoHome = () => {
+    const currentPath = window.location.pathname;
+    
+    try {
+      // Try last known good route first
+      const lastGoodRoute = sessionStorage.getItem(LAST_GOOD_ROUTE_KEY);
+      if (lastGoodRoute && lastGoodRoute !== currentPath && !lastGoodRoute.includes(currentPath)) {
+        console.log('[InitializationErrorBoundary] Navigating to last known good route:', lastGoodRoute);
+        window.location.href = lastGoodRoute;
+        return;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    
+    // Find a safe route that isn't the current crashing path
+    for (const safeRoute of SAFE_HOME_ROUTES) {
+      if (safeRoute !== currentPath && !currentPath.startsWith(safeRoute)) {
+        console.log('[InitializationErrorBoundary] Navigating to safe route:', safeRoute);
+        window.location.href = safeRoute;
+        return;
+      }
+    }
+    
+    // Last resort: go to login
+    console.log('[InitializationErrorBoundary] Navigating to login as last resort');
+    window.location.href = '/login';
   };
 
   toggleDetails = () => {
@@ -137,11 +198,19 @@ class InitializationErrorBoundaryClass extends Component<
                   Retry / Reload
                 </Button>
                 <Button
+                  variant="contained"
+                  startIcon={<HomeIcon />}
+                  onClick={this.handleGoHome}
+                  color="success"
+                >
+                  Go Home
+                </Button>
+                <Button
                   variant="outlined"
                   startIcon={<SettingsIcon />}
                   onClick={this.handleGoToSystemDiagnostics}
                 >
-                  Go to Admin/System
+                  System Diagnostics
                 </Button>
               </Box>
 
