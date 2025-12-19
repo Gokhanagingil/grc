@@ -8,27 +8,69 @@ config();
 
 /**
  * Detect if we're running from the compiled dist directory
- * Checks if __filename includes 'dist' or if dist directory exists
+ *
+ * Uses __dirname (which is available in CommonJS) to determine if we're
+ * running from the compiled dist directory. This is the most reliable
+ * method for TypeORM CLI usage in production/staging environments.
+ *
+ * When running from dist/data-source.js:
+ *   __dirname will be: /app/dist (Docker) or <project>/backend-nest/dist (local)
+ *   __filename will be: /app/dist/data-source.js
+ *
+ * When running from src/data-source.ts (dev):
+ *   __dirname will be: <project>/backend-nest/src
+ *   __filename will be: <project>/backend-nest/src/data-source.ts
  */
 function isDistEnvironment(): boolean {
-  // Check if __filename includes 'dist' (works for compiled JS)
-  if (__filename.includes('dist')) {
-    return true;
-  }
-
-  // Check if dist directory exists (fallback for edge cases)
   try {
-    const distPath = path.join(process.cwd(), 'dist');
-    if (fs.existsSync(distPath) && fs.statSync(distPath).isDirectory()) {
-      // If we're in dist, we should be running from dist
-      // If we're in src but dist exists, we're in dev mode
-      return __dirname.includes('dist');
+    // Primary check: __filename is the most reliable indicator
+    // In dist: ends with .js and contains 'dist' in path
+    // In src: ends with .ts or contains 'src' in path
+    const filename = __filename || '';
+    if (filename.endsWith('.js') && filename.includes(path.sep + 'dist' + path.sep)) {
+      return true;
     }
-  } catch {
-    // If we can't check, assume dev mode
-  }
+    if (filename.endsWith('.ts') || filename.includes(path.sep + 'src' + path.sep)) {
+      return false;
+    }
 
-  return false;
+    // Secondary check: __dirname path
+    const currentDir = path.resolve(__dirname);
+    if (currentDir.includes(path.sep + 'dist' + path.sep) || 
+        currentDir.endsWith(path.sep + 'dist')) {
+      return true;
+    }
+    if (currentDir.includes(path.sep + 'src' + path.sep) || 
+        currentDir.endsWith(path.sep + 'src')) {
+      return false;
+    }
+
+    // Fallback: Check file system (for edge cases in Docker containers)
+    // If dist/data-source.js exists and we're executing a .js file, we're in dist
+    try {
+      const cwd = process.cwd();
+      const distDataSourcePath = path.join(cwd, 'dist', 'data-source.js');
+      const srcDataSourcePath = path.join(cwd, 'src', 'data-source.ts');
+      
+      if (fs.existsSync(distDataSourcePath) && filename.endsWith('.js')) {
+        // If dist/data-source.js exists and we're running a .js file, we're likely in dist
+        if (!fs.existsSync(srcDataSourcePath)) {
+          return true;
+        }
+        // If both exist, prefer dist if filename indicates dist
+        if (filename.includes('dist')) {
+          return true;
+        }
+      }
+    } catch {
+      // File system check failed, continue with other logic
+    }
+    
+    return false;
+  } catch {
+    // If all checks fail, default to dev mode (src) for safety
+    return false;
+  }
 }
 
 /**
@@ -37,9 +79,16 @@ function isDistEnvironment(): boolean {
  * This data source is used by the TypeORM CLI for running migrations.
  * It uses the same database configuration as the application.
  *
+ * Migration loading strategy:
+ * - Uses glob patterns to load migration files directly
+ * - In dev: loads from src/migrations/*.ts (excludes index.ts via pattern)
+ * - In dist: loads from dist/migrations/*.js (excludes index.js via pattern)
+ * - IMPORTANT: We must NOT have dist/migrations/index.js to avoid duplicate migrations
+ *
  * Usage:
  *   npm run migration:run    - Run pending migrations (dev)
- *   npx typeorm migration:run -d dist/data-source.js (prod)
+ *   npx typeorm migration:show -d dist/data-source.js (staging/prod)
+ *   npx typeorm migration:run -d dist/data-source.js (staging/prod)
  *   npm run migration:revert - Revert the last migration
  *
  * Environment variables:
@@ -52,7 +101,7 @@ function isDistEnvironment(): boolean {
  */
 const isDist = isDistEnvironment();
 
-export const AppDataSource = new DataSource({
+const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || process.env.POSTGRES_HOST || 'localhost',
   port: parseInt(
@@ -68,3 +117,7 @@ export const AppDataSource = new DataSource({
   synchronize: false,
   logging: process.env.NODE_ENV === 'development',
 });
+
+// Export for TypeORM CLI
+// TypeORM CLI expects either AppDataSource or DataSource export
+export { AppDataSource };
