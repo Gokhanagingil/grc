@@ -67,7 +67,7 @@ function isDistEnvironment(): boolean {
     }
     
     return false;
-  } catch (error) {
+  } catch {
     // If all checks fail, default to dev mode (src) for safety
     return false;
   }
