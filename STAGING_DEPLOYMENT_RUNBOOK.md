@@ -203,10 +203,40 @@ Deployment sonrası **mutlaka** aşağıdaki validation komutlarını çalışt�
 
 ### Validation Komutları (SSH ile Staging Host'ta veya Local'den)
 
+**Hızlı Content-Type Doğrulama (HEAD Request - Sadece Headers):**
+
 ```bash
-# Tüm validation komutlarını tek seferde çalıştır
+# Tüm validation komutlarını tek seferde çalıştır (HEAD request - sadece headers)
 echo "==========================================" && \
 echo "STAGING VALIDATION - API Reverse Proxy" && \
+echo "==========================================" && \
+echo "" && \
+echo "=== 1. Backend Health via Proxy (/health) ===" && \
+curl -I http://46.224.99.150/health 2>&1 && \
+echo "" && \
+echo "=== 2. Auth Login Endpoint (/auth/login) ===" && \
+curl -I http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 && \
+echo "" && \
+echo "=== 3. Audit Logs Endpoint (/audit-logs) ===" && \
+curl -I http://46.224.99.150/audit-logs 2>&1 && \
+echo "" && \
+echo "=== 4. GRC Risks Endpoint (/grc/risks) ===" && \
+curl -I http://46.224.99.150/grc/risks 2>&1 && \
+echo "" && \
+echo "=== 5. Frontend Health (/frontend-health) ===" && \
+curl -i http://46.224.99.150/frontend-health 2>&1 | head -10 && \
+echo "" && \
+echo "==========================================" && \
+echo "Validation completed" && \
+echo "=========================================="
+```
+
+**Detaylı Validation (Full Response - Headers + Body):**
+
+```bash
+# Tüm validation komutlarını tek seferde çalıştır (full response)
+echo "==========================================" && \
+echo "STAGING VALIDATION - API Reverse Proxy (Full Response)" && \
 echo "==========================================" && \
 echo "" && \
 echo "=== 1. Backend Health via Proxy (/health) ===" && \
@@ -279,25 +309,25 @@ E2E_BASE_URL=http://46.224.99.150 npx playwright test
 
 **Not**: `playwright.config.ts` içinde `staging` project tanımlı olmalı. Eğer yoksa, default project kullanılır.
 
-### Hızlı Doğrulama (Local'den)
+### Hızlı Doğrulama (Local'den - Content-Type Kontrolü)
 
-Staging host'a SSH yapmadan local'den doğrulama:
+Staging host'a SSH yapmadan local'den doğrulama (sadece Content-Type kontrolü):
 
 ```bash
-# Backend health (proxied)
-curl -i http://46.224.99.150/health | grep -E "(HTTP|Content-Type)"
+# Backend health (proxied) - Content-Type: application/json OLMALI
+curl -I http://46.224.99.150/health 2>&1 | grep -E "(HTTP|Content-Type)"
 
-# Auth login (should be JSON, not HTML)
-curl -i http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' | grep -E "(HTTP|Content-Type)"
+# Auth login (should be JSON, not HTML) - Content-Type: application/json OLMALI
+curl -I http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 | grep -E "(HTTP|Content-Type)"
 
-# Audit logs (should be JSON, not HTML)
-curl -i http://46.224.99.150/audit-logs | grep -E "(HTTP|Content-Type)"
+# Audit logs (should be JSON, not HTML) - Content-Type: application/json OLMALI
+curl -I http://46.224.99.150/audit-logs 2>&1 | grep -E "(HTTP|Content-Type)"
 
-# GRC risks (should be JSON, not HTML)
-curl -i http://46.224.99.150/grc/risks | grep -E "(HTTP|Content-Type)"
+# GRC risks (should be JSON, not HTML) - Content-Type: application/json OLMALI
+curl -I http://46.224.99.150/grc/risks 2>&1 | grep -E "(HTTP|Content-Type)"
 
-# Frontend health
-curl -i http://46.224.99.150/frontend-health | grep -E "(HTTP|Content-Type|healthy)"
+# Frontend health - Content-Type: text/plain OLMALI
+curl -i http://46.224.99.150/frontend-health 2>&1 | grep -E "(HTTP|Content-Type|healthy)"
 ```
 
 ### Beklenen Sonuçlar
