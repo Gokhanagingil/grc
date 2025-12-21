@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import { AuditLog } from './audit-log.entity';
-import { AuditService } from './audit.service';
-import { AuditInterceptor } from './audit.interceptor';
+import { Module } from @nestjs/common;
+import { TypeOrmModule } from @nestjs/typeorm;
+import { APP_INTERCEPTOR } from @nestjs/core;
+import { AuditLog } from ./audit-log.entity;
+import { AuditService } from ./audit.service;
+import { AuditController } from ./audit.controller;
+import { AuditInterceptor } from ./audit.interceptor;
 
 /**
  * Audit Module
@@ -13,10 +14,11 @@ import { AuditInterceptor } from './audit.interceptor';
  * (except health endpoints) to the audit_logs table.
  *
  * Configuration:
- * - NEST_AUDIT_LOG_ENABLED: Set to 'false' to disable audit logging
+ * - NEST_AUDIT_LOG_ENABLED: Set to false to disable audit logging
  */
 @Module({
   imports: [TypeOrmModule.forFeature([AuditLog])],
+  controllers: [AuditController],
   providers: [
     AuditService,
     // Register as global interceptor
