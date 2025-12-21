@@ -307,9 +307,23 @@ export class AuditService {
   }
 
   /**
-   * Count audit logs for a tenant
+   * Count audit logs for a tenant with optional filters
    */
-  async countForTenant(tenantId: string): Promise<number> {
-    return this.auditLogRepository.count({ where: { tenantId } });
+  async countForTenant(
+    tenantId: string,
+    filters?: { userId?: string; action?: string },
+  ): Promise<number> {
+    const query = this.auditLogRepository.createQueryBuilder('audit');
+    query.where('audit.tenantId = :tenantId', { tenantId });
+
+    if (filters?.userId) {
+      query.andWhere('audit.userId = :userId', { userId: filters.userId });
+    }
+
+    if (filters?.action) {
+      query.andWhere('audit.action = :action', { action: filters.action });
+    }
+
+    return query.getCount();
   }
 }
