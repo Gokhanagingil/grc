@@ -11,9 +11,9 @@
 #
 # After starting, access:
 #   - Frontend: http://46.224.99.150
-#   - Backend API: http://46.224.99.150:3002
-#   - Health: http://46.224.99.150:3002/health/live
-#   - Frontend Health: http://46.224.99.150/health
+#   - Backend API: http://46.224.99.150:3002 (direct) or http://46.224.99.150/* (via nginx proxy)
+#   - Backend Health: http://46.224.99.150/health (proxied to backend)
+#   - Frontend Health: http://46.224.99.150/frontend-health
 #
 # Staging credentials:
 #   - Email: admin@grc-staging.local
@@ -97,7 +97,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://46.224.99.150:3002}
+        # Empty string means use relative URL (nginx reverse proxy handles routing)
+        # This allows API calls to go to same origin, which nginx proxies to backend
+        REACT_APP_API_URL: ""
     container_name: grc-staging-frontend
     restart: unless-stopped
     depends_on:
@@ -106,7 +108,7 @@ services:
     ports:
       - "80:80"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/frontend-health"]
       interval: 30s
       timeout: 10s
       retries: 3
