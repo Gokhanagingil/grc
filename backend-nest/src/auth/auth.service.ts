@@ -164,7 +164,7 @@ export class AuthService {
         DomainEventNames.LOGIN_FAILED,
         new LoginFailedEvent(
           loginDto.email,
-          user.tenantId,
+          user.tenantId ?? null,
           'Account deactivated',
           clientIp,
         ),
