@@ -91,6 +91,19 @@ Each relationship has the following properties:
 
 The visual data model in the Admin Studio is derived entirely from dictionary metadata, not from database introspection or hardcoded definitions.
 
+### Visual Graph Implementation (FAZ 2)
+
+The Visual Data Model Explorer uses ReactFlow, a powerful React library for building node-based graphs and diagrams. This provides an interactive, demo-ready visualization of the data model.
+
+**Features:**
+- **Interactive Nodes**: Tables are rendered as draggable nodes showing table name, field count, and metadata indicators (tenant-scoped, soft delete)
+- **Relationship Edges**: Relationships are rendered as edges with type labels (1:1, 1:N, N:1, M:N) and distinct colors
+- **Click Interactions**: Clicking a node selects the table; clicking an edge shows relationship details
+- **Navigation Controls**: Zoom, pan, fit view, and minimap for large data models
+- **Focused View**: When a table is selected, the graph shows only that table and its directly related tables
+
+**Component Location**: `/frontend/src/components/admin/DataModelGraph.tsx`
+
 ### Data Flow
 
 ```
