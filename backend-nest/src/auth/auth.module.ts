@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -10,6 +11,15 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { PermissionService } from './permissions/permission.service';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { BruteForceService } from './security/brute-force.service';
+import { MfaService, MfaController } from './mfa';
+import { LdapService, LdapController } from './ldap';
+import {
+  UserMfaSettings,
+  UserMfaRecoveryCode,
+  TenantSecuritySettings,
+  TenantLdapConfig,
+  LdapGroupRoleMapping,
+} from './entities';
 
 /**
  * Parse expiresIn string (e.g., '24h', '7d', '30m') to seconds
@@ -43,6 +53,13 @@ function parseExpiresIn(value: string): number {
  */
 @Module({
   imports: [
+    TypeOrmModule.forFeature([
+      UserMfaSettings,
+      UserMfaRecoveryCode,
+      TenantSecuritySettings,
+      TenantLdapConfig,
+      LdapGroupRoleMapping,
+    ]),
     UsersModule,
     forwardRef(() => TenantsModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -74,13 +91,17 @@ function parseExpiresIn(value: string): number {
     PermissionService,
     PermissionsGuard,
     BruteForceService,
+    MfaService,
+    LdapService,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController, LdapController],
   exports: [
     AuthService,
     PermissionService,
     PermissionsGuard,
     BruteForceService,
+    MfaService,
+    LdapService,
   ],
 })
 export class AuthModule {}

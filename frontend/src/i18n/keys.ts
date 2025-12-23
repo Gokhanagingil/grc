@@ -207,12 +207,139 @@ export const ADMIN_DATA_MODEL_EN: Record<string, string> = {
 };
 
 /**
+ * Admin Security Keys (FAZ 3)
+ * Translation keys for security-related Admin Core screens
+ */
+export const ADMIN_SECURITY_KEYS = {
+  // Security Posture
+  securityPosture: {
+    title: 'admin.security.posture.title',
+    subtitle: 'admin.security.posture.subtitle',
+  },
+  
+  // Authentication
+  authentication: {
+    title: 'admin.security.authentication.title',
+    localAuth: 'admin.security.authentication.local_auth',
+    mfaAvailable: 'admin.security.authentication.mfa_available',
+    ldapEnabled: 'admin.security.authentication.ldap_enabled',
+    ldapHost: 'admin.security.authentication.ldap_host',
+  },
+  
+  // MFA Status
+  mfa: {
+    title: 'admin.security.mfa.title',
+    usersWithMfa: 'admin.security.mfa.users_with_mfa',
+    enforcedForAdmins: 'admin.security.mfa.enforced_for_admins',
+    enforcedForAll: 'admin.security.mfa.enforced_for_all',
+    setup: 'admin.security.mfa.setup',
+    verify: 'admin.security.mfa.verify',
+    disable: 'admin.security.mfa.disable',
+    recoveryCodesTitle: 'admin.security.mfa.recovery_codes_title',
+    recoveryCodesWarning: 'admin.security.mfa.recovery_codes_warning',
+  },
+  
+  // LDAP Status
+  ldap: {
+    title: 'admin.security.ldap.title',
+    configured: 'admin.security.ldap.configured',
+    enabled: 'admin.security.ldap.enabled',
+    lastConnectionTest: 'admin.security.ldap.last_connection_test',
+    connectionStatus: 'admin.security.ldap.connection_status',
+    testConnection: 'admin.security.ldap.test_connection',
+  },
+  
+  // Security Settings
+  settings: {
+    title: 'admin.security.settings.title',
+    passwordPolicy: 'admin.security.settings.password_policy',
+    minLength: 'admin.security.settings.min_length',
+    requireUppercase: 'admin.security.settings.require_uppercase',
+    requireLowercase: 'admin.security.settings.require_lowercase',
+    requireNumber: 'admin.security.settings.require_number',
+    requireSpecial: 'admin.security.settings.require_special',
+    sessionTimeout: 'admin.security.settings.session_timeout',
+  },
+  
+  // Common
+  common: {
+    enabled: 'admin.security.common.enabled',
+    disabled: 'admin.security.common.disabled',
+    configured: 'admin.security.common.configured',
+    notConfigured: 'admin.security.common.not_configured',
+    active: 'admin.security.common.active',
+    inactive: 'admin.security.common.inactive',
+  },
+} as const;
+
+/**
+ * Default English translations for Admin Security (FAZ 3)
+ */
+export const ADMIN_SECURITY_EN: Record<string, string> = {
+  // Security Posture
+  [ADMIN_SECURITY_KEYS.securityPosture.title]: 'Security Posture',
+  [ADMIN_SECURITY_KEYS.securityPosture.subtitle]: 'Overview of authentication modes and security configuration',
+  
+  // Authentication
+  [ADMIN_SECURITY_KEYS.authentication.title]: 'Authentication Modes',
+  [ADMIN_SECURITY_KEYS.authentication.localAuth]: 'Local Authentication',
+  [ADMIN_SECURITY_KEYS.authentication.mfaAvailable]: 'MFA Available',
+  [ADMIN_SECURITY_KEYS.authentication.ldapEnabled]: 'LDAP Enabled',
+  [ADMIN_SECURITY_KEYS.authentication.ldapHost]: 'LDAP Host',
+  
+  // MFA Status
+  [ADMIN_SECURITY_KEYS.mfa.title]: 'Multi-Factor Authentication',
+  [ADMIN_SECURITY_KEYS.mfa.usersWithMfa]: 'Users with MFA Enabled',
+  [ADMIN_SECURITY_KEYS.mfa.enforcedForAdmins]: 'Enforced for Admins',
+  [ADMIN_SECURITY_KEYS.mfa.enforcedForAll]: 'Enforced for All Users',
+  [ADMIN_SECURITY_KEYS.mfa.setup]: 'Set Up MFA',
+  [ADMIN_SECURITY_KEYS.mfa.verify]: 'Verify Code',
+  [ADMIN_SECURITY_KEYS.mfa.disable]: 'Disable MFA',
+  [ADMIN_SECURITY_KEYS.mfa.recoveryCodesTitle]: 'Recovery Codes',
+  [ADMIN_SECURITY_KEYS.mfa.recoveryCodesWarning]: 'Save these codes in a secure location. Each code can only be used once.',
+  
+  // LDAP Status
+  [ADMIN_SECURITY_KEYS.ldap.title]: 'LDAP / Active Directory',
+  [ADMIN_SECURITY_KEYS.ldap.configured]: 'LDAP Configured',
+  [ADMIN_SECURITY_KEYS.ldap.enabled]: 'LDAP Enabled',
+  [ADMIN_SECURITY_KEYS.ldap.lastConnectionTest]: 'Last Connection Test',
+  [ADMIN_SECURITY_KEYS.ldap.connectionStatus]: 'Connection Status',
+  [ADMIN_SECURITY_KEYS.ldap.testConnection]: 'Test Connection',
+  
+  // Security Settings
+  [ADMIN_SECURITY_KEYS.settings.title]: 'Security Settings',
+  [ADMIN_SECURITY_KEYS.settings.passwordPolicy]: 'Password Policy',
+  [ADMIN_SECURITY_KEYS.settings.minLength]: 'Minimum Length',
+  [ADMIN_SECURITY_KEYS.settings.requireUppercase]: 'Require Uppercase',
+  [ADMIN_SECURITY_KEYS.settings.requireLowercase]: 'Require Lowercase',
+  [ADMIN_SECURITY_KEYS.settings.requireNumber]: 'Require Number',
+  [ADMIN_SECURITY_KEYS.settings.requireSpecial]: 'Require Special Character',
+  [ADMIN_SECURITY_KEYS.settings.sessionTimeout]: 'Session Timeout (minutes)',
+  
+  // Common
+  [ADMIN_SECURITY_KEYS.common.enabled]: 'Enabled',
+  [ADMIN_SECURITY_KEYS.common.disabled]: 'Disabled',
+  [ADMIN_SECURITY_KEYS.common.configured]: 'Configured',
+  [ADMIN_SECURITY_KEYS.common.notConfigured]: 'Not Configured',
+  [ADMIN_SECURITY_KEYS.common.active]: 'Active',
+  [ADMIN_SECURITY_KEYS.common.inactive]: 'Inactive',
+};
+
+/**
+ * Combined translations for all Admin screens
+ */
+const ALL_TRANSLATIONS: Record<string, string> = {
+  ...ADMIN_DATA_MODEL_EN,
+  ...ADMIN_SECURITY_EN,
+};
+
+/**
  * Translation function placeholder
  * In FAZ 3+, this will be replaced with a proper i18n library integration
  * For now, it returns the English translation or the key if not found
  */
 export function t(key: string, params?: Record<string, string>): string {
-  let translation = ADMIN_DATA_MODEL_EN[key] || key;
+  let translation = ALL_TRANSLATIONS[key] || key;
   
   if (params) {
     Object.entries(params).forEach(([paramKey, value]) => {

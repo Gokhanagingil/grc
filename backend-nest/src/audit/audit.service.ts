@@ -7,6 +7,12 @@ import {
   AuditLogEvent,
   UserLoggedInEvent,
   TenantAccessedEvent,
+  LoginFailedEvent,
+  MfaEnabledEvent,
+  MfaDisabledEvent,
+  MfaChallengeFailedEvent,
+  LdapAuthAttemptEvent,
+  RoleChangedEvent,
   DomainEventNames,
 } from '../events/domain-events';
 import { ConfigService } from '@nestjs/config';
@@ -255,6 +261,145 @@ export class AuditService {
       metadata: {
         endpoint: event.endpoint,
         method: event.method,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  // ==================== Security Event Handlers (FAZ 3) ====================
+
+  /**
+   * Handle LoginFailedEvent
+   */
+  @OnEvent(DomainEventNames.LOGIN_FAILED)
+  async handleLoginFailed(event: LoginFailedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: null,
+      tenantId: event.tenantId,
+      action: 'LOGIN_FAILED',
+      resource: 'auth',
+      resourceId: null,
+      metadata: {
+        email: event.email,
+        reason: event.reason,
+        timestamp: event.timestamp.toISOString(),
+      },
+      ipAddress: event.ipAddress,
+    });
+  }
+
+  /**
+   * Handle MfaEnabledEvent
+   */
+  @OnEvent(DomainEventNames.MFA_ENABLED)
+  async handleMfaEnabled(event: MfaEnabledEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'MFA_ENABLED',
+      resource: 'auth',
+      resourceId: event.userId,
+      metadata: {
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle MfaDisabledEvent
+   */
+  @OnEvent(DomainEventNames.MFA_DISABLED)
+  async handleMfaDisabled(event: MfaDisabledEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'MFA_DISABLED',
+      resource: 'auth',
+      resourceId: event.userId,
+      metadata: {
+        disabledBy: event.disabledBy,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle MfaChallengeFailedEvent
+   */
+  @OnEvent(DomainEventNames.MFA_CHALLENGE_FAILED)
+  async handleMfaChallengeFailed(event: MfaChallengeFailedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'MFA_CHALLENGE_FAILED',
+      resource: 'auth',
+      resourceId: event.userId,
+      metadata: {
+        context: event.context,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle LdapAuthAttemptEvent
+   */
+  @OnEvent(DomainEventNames.LDAP_AUTH_ATTEMPT)
+  async handleLdapAuthAttempt(event: LdapAuthAttemptEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: null,
+      tenantId: event.tenantId,
+      action: event.success ? 'LDAP_AUTH_SUCCESS' : 'LDAP_AUTH_FAILED',
+      resource: 'auth',
+      resourceId: null,
+      metadata: {
+        username: event.username,
+        success: event.success,
+        errorMessage: event.errorMessage,
+        timestamp: event.timestamp.toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Handle RoleChangedEvent
+   */
+  @OnEvent(DomainEventNames.ROLE_CHANGED)
+  async handleRoleChanged(event: RoleChangedEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    await this.createAuditLog({
+      userId: event.userId,
+      tenantId: event.tenantId,
+      action: 'ROLE_CHANGED',
+      resource: 'users',
+      resourceId: event.userId,
+      metadata: {
+        oldRole: event.oldRole,
+        newRole: event.newRole,
+        changedBy: event.changedBy,
         timestamp: event.timestamp.toISOString(),
       },
     });

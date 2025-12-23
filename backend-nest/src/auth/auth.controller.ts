@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { MfaChallengeDto } from './mfa/dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { RequestWithUser } from '../common/types';
@@ -112,6 +113,59 @@ export class AuthController {
         path: req.url,
         method: req.method,
         email: loginDto.email,
+        status: 'FAILURE',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Complete MFA challenge
+   *
+   * Accepts MFA token and TOTP/recovery code, returns JWT token if valid.
+   * Rate limited to 10 requests per minute per IP.
+   */
+  @Post('mfa/verify')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
+  async completeMfaChallenge(
+    @Body() dto: MfaChallengeDto,
+    @Req() req: Request,
+  ) {
+    const ip = this.getClientIp(req);
+
+    this.logger.log({
+      context: 'AuthMfaChallenge',
+      timestamp: new Date().toISOString(),
+      path: req.url,
+      method: req.method,
+      status: 'ATTEMPT',
+    });
+
+    try {
+      const result = await this.authService.completeMfaChallenge(
+        dto.mfaToken || '',
+        dto.code,
+        ip,
+      );
+
+      this.logger.log({
+        context: 'AuthMfaChallenge',
+        timestamp: new Date().toISOString(),
+        path: req.url,
+        method: req.method,
+        status: 'SUCCESS',
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.warn({
+        context: 'AuthMfaChallenge',
+        timestamp: new Date().toISOString(),
+        path: req.url,
+        method: req.method,
         status: 'FAILURE',
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
       });
