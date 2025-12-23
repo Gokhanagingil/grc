@@ -16,6 +16,7 @@ import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
 import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem } from './pages/admin';
+import AdminDataModel from './pages/admin/AdminDataModel';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
 import { IncidentManagement } from './pages/IncidentManagement';
 import { AuditList } from './pages/AuditList';
@@ -132,6 +133,7 @@ function App() {
                   <Route path="tenants" element={<AdminTenants />} />
                   <Route path="audit-logs" element={<AdminAuditLogs />} />
                   <Route path="system" element={<AdminSystem />} />
+                  <Route path="data-model" element={<AdminDataModel />} />
                 </Route>
               </Routes>
             </Router>

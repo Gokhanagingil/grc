@@ -290,6 +290,18 @@ export const API_PATHS = {
     LINK_FINDING: (auditId: string, clauseId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings`,
     UNLINK_FINDING: (auditId: string, clauseId: string, issueId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings/${issueId}`,
   },
+
+  // Admin Studio Data Model Dictionary endpoints (FAZ 2)
+  DATA_MODEL: {
+    TABLES: '/admin/data-model/tables',
+    TABLE: (name: string) => `/admin/data-model/tables/${name}`,
+    TABLE_RELATIONSHIPS: (name: string) => `/admin/data-model/tables/${name}/relationships`,
+    TABLE_DOT_WALKING: (name: string) => `/admin/data-model/tables/${name}/dot-walking`,
+    RELATIONSHIPS: '/admin/data-model/relationships',
+    SUMMARY: '/admin/data-model/summary',
+    GRAPH: '/admin/data-model/graph',
+    REFRESH: '/admin/data-model/refresh',
+  },
 } as const;
 
 // ============================================================================
@@ -1672,4 +1684,151 @@ export const auditScopeApi = {
 
   unlinkFindingFromClause: (auditId: string, clauseId: string, issueId: string) =>
     api.delete(API_PATHS.AUDIT_SCOPE.UNLINK_FINDING(auditId, clauseId, issueId)),
+};
+
+// ============================================================================
+// Data Model Dictionary Types (Admin Studio FAZ 2)
+// ============================================================================
+
+export type DictionaryFieldType =
+  | 'string'
+  | 'text'
+  | 'integer'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'uuid'
+  | 'enum'
+  | 'json'
+  | 'reference'
+  | 'unknown';
+
+export type DictionaryRelationshipType =
+  | 'one-to-one'
+  | 'one-to-many'
+  | 'many-to-one'
+  | 'many-to-many';
+
+export interface DictionaryField {
+  name: string;
+  columnName: string;
+  type: DictionaryFieldType;
+  label: string;
+  description: string | null;
+  isRequired: boolean;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isGenerated: boolean;
+  isAuditField: boolean;
+  isTenantScoped: boolean;
+  defaultValue: unknown | null;
+  enumValues: string[] | null;
+  referenceTarget: string | null;
+  maxLength: number | null;
+}
+
+export interface DictionaryRelationship {
+  name: string;
+  type: DictionaryRelationshipType;
+  sourceTable: string;
+  sourceField: string;
+  targetTable: string;
+  targetField: string;
+  isNullable: boolean;
+  isCascade: boolean;
+  inverseRelationship: string | null;
+}
+
+export interface DictionaryTable {
+  name: string;
+  tableName: string;
+  label: string;
+  description: string | null;
+  isTenantScoped: boolean;
+  hasSoftDelete: boolean;
+  hasAuditFields: boolean;
+  fields: DictionaryField[];
+  relationships: DictionaryRelationship[];
+  primaryKeyField: string;
+}
+
+export interface DotWalkSegment {
+  field: string;
+  targetTable: string;
+  relationshipType: DictionaryRelationshipType;
+}
+
+export interface DotWalkPath {
+  path: string;
+  segments: DotWalkSegment[];
+  reachableTables: string[];
+}
+
+export interface DataModelSummary {
+  totalTables: number;
+  totalRelationships: number;
+  tenantScopedTables: number;
+  tablesWithSoftDelete: number;
+  relationshipsByType: Record<DictionaryRelationshipType, number>;
+}
+
+export interface DataModelGraphNode {
+  id: string;
+  label: string;
+  tableName: string;
+  fieldCount: number;
+  isTenantScoped: boolean;
+  hasSoftDelete: boolean;
+}
+
+export interface DataModelGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type: DictionaryRelationshipType;
+  sourceField: string;
+}
+
+export interface DataModelGraph {
+  nodes: DataModelGraphNode[];
+  edges: DataModelGraphEdge[];
+}
+
+// ============================================================================
+// Data Model Dictionary API (Admin Studio FAZ 2)
+// ============================================================================
+
+export const dataModelApi = {
+  listTables: (options?: {
+    tenantScopedOnly?: boolean;
+    withRelationships?: boolean;
+    search?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (options?.tenantScopedOnly) params.append('tenantScopedOnly', 'true');
+    if (options?.withRelationships) params.append('withRelationships', 'true');
+    if (options?.search) params.append('search', options.search);
+    const queryString = params.toString();
+    return api.get(`${API_PATHS.DATA_MODEL.TABLES}${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getTable: (name: string) => api.get(API_PATHS.DATA_MODEL.TABLE(name)),
+
+  getTableRelationships: (name: string) =>
+    api.get(API_PATHS.DATA_MODEL.TABLE_RELATIONSHIPS(name)),
+
+  getDotWalkingPaths: (name: string, maxDepth?: number) => {
+    const params = maxDepth ? `?maxDepth=${maxDepth}` : '';
+    return api.get(`${API_PATHS.DATA_MODEL.TABLE_DOT_WALKING(name)}${params}`);
+  },
+
+  listRelationships: () => api.get(API_PATHS.DATA_MODEL.RELATIONSHIPS),
+
+  getSummary: () => api.get(API_PATHS.DATA_MODEL.SUMMARY),
+
+  getGraph: () => api.get(API_PATHS.DATA_MODEL.GRAPH),
+
+  refreshCache: () => api.get(API_PATHS.DATA_MODEL.REFRESH),
 };
