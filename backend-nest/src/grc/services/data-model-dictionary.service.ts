@@ -20,9 +20,9 @@ export enum DictionaryFieldType {
 }
 
 /**
- * Relationship type enumeration
+ * Dictionary relationship type enumeration (TypeORM cardinality)
  */
-export enum RelationshipType {
+export enum DictionaryRelationshipType {
   ONE_TO_ONE = 'one-to-one',
   ONE_TO_MANY = 'one-to-many',
   MANY_TO_ONE = 'many-to-one',
@@ -55,7 +55,7 @@ export interface DictionaryField {
  */
 export interface DictionaryRelationship {
   name: string;
-  type: RelationshipType;
+  type: DictionaryRelationshipType;
   sourceTable: string;
   sourceField: string;
   targetTable: string;
@@ -87,7 +87,7 @@ export interface DictionaryTable {
 export interface DotWalkSegment {
   field: string;
   targetTable: string;
-  relationshipType: RelationshipType;
+  relationshipType: DictionaryRelationshipType;
 }
 
 /**
@@ -264,15 +264,15 @@ export class DataModelDictionaryService {
   /**
    * Map TypeORM relation type to dictionary relationship type
    */
-  private mapRelationType(type: string): RelationshipType {
-    const typeMap: Record<string, RelationshipType> = {
-      'one-to-one': RelationshipType.ONE_TO_ONE,
-      'one-to-many': RelationshipType.ONE_TO_MANY,
-      'many-to-one': RelationshipType.MANY_TO_ONE,
-      'many-to-many': RelationshipType.MANY_TO_MANY,
+  private mapRelationType(type: string): DictionaryRelationshipType {
+    const typeMap: Record<string, DictionaryRelationshipType> = {
+      'one-to-one': DictionaryRelationshipType.ONE_TO_ONE,
+      'one-to-many': DictionaryRelationshipType.ONE_TO_MANY,
+      'many-to-one': DictionaryRelationshipType.MANY_TO_ONE,
+      'many-to-many': DictionaryRelationshipType.MANY_TO_MANY,
     };
 
-    return typeMap[type] || RelationshipType.MANY_TO_ONE;
+    return typeMap[type] || DictionaryRelationshipType.MANY_TO_ONE;
   }
 
   /**
@@ -457,8 +457,8 @@ export class DataModelDictionaryService {
 
     for (const rel of table.relationships) {
       if (
-        rel.type === RelationshipType.MANY_TO_ONE ||
-        rel.type === RelationshipType.ONE_TO_ONE
+        rel.type === DictionaryRelationshipType.MANY_TO_ONE ||
+        rel.type === DictionaryRelationshipType.ONE_TO_ONE
       ) {
         const newSegment: DotWalkSegment = {
           field: rel.name,
@@ -495,18 +495,18 @@ export class DataModelDictionaryService {
     totalRelationships: number;
     tenantScopedTables: number;
     tablesWithSoftDelete: number;
-    relationshipsByType: Record<RelationshipType, number>;
+    relationshipsByType: Record<DictionaryRelationshipType, number>;
   } {
     this.initialize();
 
     const tables = Array.from(this.tableCache.values());
     const allRelationships = this.getAllRelationships();
 
-    const relationshipsByType: Record<RelationshipType, number> = {
-      [RelationshipType.ONE_TO_ONE]: 0,
-      [RelationshipType.ONE_TO_MANY]: 0,
-      [RelationshipType.MANY_TO_ONE]: 0,
-      [RelationshipType.MANY_TO_MANY]: 0,
+    const relationshipsByType: Record<DictionaryRelationshipType, number> = {
+      [DictionaryRelationshipType.ONE_TO_ONE]: 0,
+      [DictionaryRelationshipType.ONE_TO_MANY]: 0,
+      [DictionaryRelationshipType.MANY_TO_ONE]: 0,
+      [DictionaryRelationshipType.MANY_TO_MANY]: 0,
     };
 
     for (const rel of allRelationships) {

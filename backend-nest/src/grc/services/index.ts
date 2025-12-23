@@ -56,7 +56,7 @@ export {
 export {
   DataModelDictionaryService,
   DictionaryFieldType,
-  RelationshipType,
+  DictionaryRelationshipType,
   DictionaryField,
   DictionaryRelationship,
   DictionaryTable,

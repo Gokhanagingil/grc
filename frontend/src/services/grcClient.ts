@@ -1704,7 +1704,7 @@ export type DictionaryFieldType =
   | 'reference'
   | 'unknown';
 
-export type RelationshipType =
+export type DictionaryRelationshipType =
   | 'one-to-one'
   | 'one-to-many'
   | 'many-to-one'
@@ -1730,7 +1730,7 @@ export interface DictionaryField {
 
 export interface DictionaryRelationship {
   name: string;
-  type: RelationshipType;
+  type: DictionaryRelationshipType;
   sourceTable: string;
   sourceField: string;
   targetTable: string;
@@ -1756,7 +1756,7 @@ export interface DictionaryTable {
 export interface DotWalkSegment {
   field: string;
   targetTable: string;
-  relationshipType: RelationshipType;
+  relationshipType: DictionaryRelationshipType;
 }
 
 export interface DotWalkPath {
@@ -1770,7 +1770,7 @@ export interface DataModelSummary {
   totalRelationships: number;
   tenantScopedTables: number;
   tablesWithSoftDelete: number;
-  relationshipsByType: Record<RelationshipType, number>;
+  relationshipsByType: Record<DictionaryRelationshipType, number>;
 }
 
 export interface DataModelGraphNode {
@@ -1787,7 +1787,7 @@ export interface DataModelGraphEdge {
   source: string;
   target: string;
   label: string;
-  type: RelationshipType;
+  type: DictionaryRelationshipType;
   sourceField: string;
 }
 
