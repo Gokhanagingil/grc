@@ -69,7 +69,7 @@ export class MfaController {
     }
 
     // Generate secret
-    const setup = await this.mfaService.generateSecret(userId, email);
+    const setup = this.mfaService.generateSecret(userId, email);
 
     // Store the secret (not yet enabled)
     await this.mfaService.setupMfa(userId, setup.secret);
@@ -93,7 +93,7 @@ export class MfaController {
       throw new BadRequestException('User not found');
     }
 
-    const tenantId: string | undefined = req.tenantId || req.user?.tenantId;
+    const tenantId = req.tenantId ?? req.user?.tenantId;
     return this.mfaService.verifyAndEnableMfa(userId, dto.code, tenantId);
   }
 
@@ -118,7 +118,7 @@ export class MfaController {
       throw new BadRequestException('Invalid MFA code');
     }
 
-    const tenantId: string | undefined = req.tenantId || req.user?.tenantId;
+    const tenantId = req.tenantId ?? req.user?.tenantId;
     await this.mfaService.disableMfa(userId, userId, tenantId);
 
     return { success: true, message: 'MFA disabled successfully' };
@@ -201,9 +201,7 @@ export class MfaController {
   @Get('admin/status/:userId')
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions(Permission.ADMIN_USERS_READ)
-  async getAdminMfaStatus(
-    @NestRequest() req: RequestWithUser,
-  ) {
+  async getAdminMfaStatus(@NestRequest() req: RequestWithUser) {
     const userId = req.params?.userId;
     if (!userId) {
       throw new BadRequestException('User ID required');

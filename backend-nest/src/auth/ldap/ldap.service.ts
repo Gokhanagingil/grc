@@ -7,7 +7,10 @@ import * as crypto from 'crypto';
 import { TenantLdapConfig } from '../entities/tenant-ldap-config.entity';
 import { LdapGroupRoleMapping } from '../entities/ldap-group-role-mapping.entity';
 import { StructuredLoggerService } from '../../common/logger';
-import { LdapAuthAttemptEvent, DomainEventNames } from '../../events/domain-events';
+import {
+  LdapAuthAttemptEvent,
+  DomainEventNames,
+} from '../../events/domain-events';
 
 /**
  * LDAP User Info returned from authentication
@@ -58,11 +61,12 @@ export class LdapService {
     private readonly eventEmitter: EventEmitter2,
   ) {
     this.logger.setContext('LdapService');
-    
+
     // Get encryption key from config
-    const keyString = this.configService.get<string>('LDAP_ENCRYPTION_KEY') || 
-                      this.configService.get<string>('JWT_SECRET') || 
-                      'default-ldap-key-change-in-production';
+    const keyString =
+      this.configService.get<string>('LDAP_ENCRYPTION_KEY') ||
+      this.configService.get<string>('JWT_SECRET') ||
+      'default-ldap-key-change-in-production';
     this.encryptionKey = crypto.createHash('sha256').update(keyString).digest();
   }
 
@@ -88,7 +92,9 @@ export class LdapService {
   /**
    * Get LDAP configuration for display (without sensitive data)
    */
-  async getLdapConfigSafe(tenantId: string): Promise<Partial<TenantLdapConfig> | null> {
+  async getLdapConfigSafe(
+    tenantId: string,
+  ): Promise<Partial<TenantLdapConfig> | null> {
     const config = await this.getLdapConfig(tenantId);
     if (!config) return null;
 
@@ -203,6 +209,7 @@ export class LdapService {
     username: string,
     _password: string,
   ): Promise<LdapUserInfo | null> {
+    void _password;
     const config = await this.getLdapConfig(tenantId);
 
     if (!config || !config.enabled) {
@@ -329,7 +336,11 @@ export class LdapService {
   decryptPassword(encryptedPassword: string): string {
     const [ivHex, encrypted] = encryptedPassword.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      this.encryptionKey,
+      iv,
+    );
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
