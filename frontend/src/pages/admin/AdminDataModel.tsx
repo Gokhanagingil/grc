@@ -54,6 +54,8 @@ import {
   DataModelSummary,
   DataModelGraph,
 } from '../../services/grcClient';
+import { t, ADMIN_DATA_MODEL_KEYS } from '../../i18n';
+import { DataModelGraphComponent } from '../../components/admin/DataModelGraph';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -155,7 +157,7 @@ export default function AdminDataModel() {
       }
     } catch (err) {
       console.error('Failed to load data model:', err);
-      setError('Failed to load data model. Please try again.');
+      setError(t(ADMIN_DATA_MODEL_KEYS.status.error));
     } finally {
       setLoading(false);
     }
@@ -228,7 +230,7 @@ export default function AdminDataModel() {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Total Tables
+                {t(ADMIN_DATA_MODEL_KEYS.summary.totalTables)}
               </Typography>
               <Typography variant="h4">{summary.totalTables}</Typography>
             </CardContent>
@@ -238,7 +240,7 @@ export default function AdminDataModel() {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Total Relationships
+                {t(ADMIN_DATA_MODEL_KEYS.summary.totalRelationships)}
               </Typography>
               <Typography variant="h4">{summary.totalRelationships}</Typography>
             </CardContent>
@@ -248,7 +250,7 @@ export default function AdminDataModel() {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Tenant-Scoped Tables
+                {t(ADMIN_DATA_MODEL_KEYS.summary.tenantScopedTables)}
               </Typography>
               <Typography variant="h4">{summary.tenantScopedTables}</Typography>
             </CardContent>
@@ -258,7 +260,7 @@ export default function AdminDataModel() {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Soft Delete Tables
+                {t(ADMIN_DATA_MODEL_KEYS.summary.softDeleteTables)}
               </Typography>
               <Typography variant="h4">{summary.tablesWithSoftDelete}</Typography>
             </CardContent>
@@ -274,7 +276,7 @@ export default function AdminDataModel() {
         <TextField
           fullWidth
           size="small"
-          placeholder="Search tables..."
+          placeholder={t(ADMIN_DATA_MODEL_KEYS.tableList.searchPlaceholder)}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
@@ -294,7 +296,7 @@ export default function AdminDataModel() {
                 onChange={(e) => setShowTenantScopedOnly(e.target.checked)}
               />
             }
-            label={<Typography variant="caption">Tenant-scoped only</Typography>}
+            label={<Typography variant="caption">{t(ADMIN_DATA_MODEL_KEYS.tableList.tenantScopedOnly)}</Typography>}
           />
           <FormControlLabel
             control={
@@ -304,7 +306,7 @@ export default function AdminDataModel() {
                 onChange={(e) => setShowWithRelationshipsOnly(e.target.checked)}
               />
             }
-            label={<Typography variant="caption">With relationships</Typography>}
+            label={<Typography variant="caption">{t(ADMIN_DATA_MODEL_KEYS.tableList.withRelationships)}</Typography>}
           />
         </Box>
       </Box>
@@ -327,12 +329,12 @@ export default function AdminDataModel() {
               />
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 {table.isTenantScoped && (
-                  <Tooltip title="Tenant-scoped">
+                  <Tooltip title={t(ADMIN_DATA_MODEL_KEYS.tableList.tenantScopedTooltip)}>
                     <TenantIcon fontSize="small" color="primary" />
                   </Tooltip>
                 )}
                 {table.hasSoftDelete && (
-                  <Tooltip title="Soft delete">
+                  <Tooltip title={t(ADMIN_DATA_MODEL_KEYS.tableList.softDeleteTooltip)}>
                     <SoftDeleteIcon fontSize="small" color="action" />
                   </Tooltip>
                 )}
@@ -359,18 +361,18 @@ export default function AdminDataModel() {
     return (
       <Box>
         <Typography variant="subtitle2" gutterBottom>
-          Fields ({regularFields.length})
+          {t(ADMIN_DATA_MODEL_KEYS.fields.title)} ({regularFields.length})
         </Typography>
         <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Column</TableCell>
-                <TableCell align="center">Required</TableCell>
-                <TableCell align="center">Primary</TableCell>
-                <TableCell>Details</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.name)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.type)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.column)}</TableCell>
+                <TableCell align="center">{t(ADMIN_DATA_MODEL_KEYS.fields.required)}</TableCell>
+                <TableCell align="center">{t(ADMIN_DATA_MODEL_KEYS.fields.primary)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.details)}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -384,7 +386,7 @@ export default function AdminDataModel() {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {field.isPrimaryKey && (
-                          <Tooltip title="Primary Key">
+                          <Tooltip title={t(ADMIN_DATA_MODEL_KEYS.fields.primaryKeyTooltip)}>
                             <KeyIcon fontSize="small" color="warning" />
                           </Tooltip>
                         )}
@@ -406,9 +408,9 @@ export default function AdminDataModel() {
                     </TableCell>
                     <TableCell align="center">
                       {field.isRequired ? (
-                        <Chip label="Yes" size="small" color="error" />
+                        <Chip label={t(ADMIN_DATA_MODEL_KEYS.common.yes)} size="small" color="error" />
                       ) : (
-                        <Chip label="No" size="small" variant="outlined" />
+                        <Chip label={t(ADMIN_DATA_MODEL_KEYS.common.no)} size="small" variant="outlined" />
                       )}
                     </TableCell>
                     <TableCell align="center">
@@ -431,32 +433,32 @@ export default function AdminDataModel() {
                           <Grid container spacing={2}>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">
-                                Nullable: {field.isNullable ? 'Yes' : 'No'}
+                                {t(ADMIN_DATA_MODEL_KEYS.fields.nullable)}: {field.isNullable ? t(ADMIN_DATA_MODEL_KEYS.common.yes) : t(ADMIN_DATA_MODEL_KEYS.common.no)}
                               </Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">
-                                Generated: {field.isGenerated ? 'Yes' : 'No'}
+                                {t(ADMIN_DATA_MODEL_KEYS.fields.generated)}: {field.isGenerated ? t(ADMIN_DATA_MODEL_KEYS.common.yes) : t(ADMIN_DATA_MODEL_KEYS.common.no)}
                               </Typography>
                             </Grid>
                             {field.maxLength && (
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="textSecondary">
-                                  Max Length: {field.maxLength}
+                                  {t(ADMIN_DATA_MODEL_KEYS.fields.maxLength)}: {field.maxLength}
                                 </Typography>
                               </Grid>
                             )}
                             {field.enumValues && (
                               <Grid item xs={12}>
                                 <Typography variant="caption" color="textSecondary">
-                                  Enum Values: {field.enumValues.join(', ')}
+                                  {t(ADMIN_DATA_MODEL_KEYS.fields.enumValues)}: {field.enumValues.join(', ')}
                                 </Typography>
                               </Grid>
                             )}
                             {field.defaultValue !== null && (
                               <Grid item xs={12}>
                                 <Typography variant="caption" color="textSecondary">
-                                  Default: {String(field.defaultValue)}
+                                  {t(ADMIN_DATA_MODEL_KEYS.fields.defaultValue)}: {String(field.defaultValue)}
                                 </Typography>
                               </Grid>
                             )}
@@ -475,15 +477,15 @@ export default function AdminDataModel() {
           <>
             <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
               <AuditIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Audit Fields ({auditFields.length})
+              {t(ADMIN_DATA_MODEL_KEYS.fields.auditFields)} ({auditFields.length})
             </Typography>
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Column</TableCell>
+                    <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.name)}</TableCell>
+                    <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.type)}</TableCell>
+                    <TableCell>{t(ADMIN_DATA_MODEL_KEYS.fields.column)}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -522,7 +524,7 @@ export default function AdminDataModel() {
     if (relationships.length === 0) {
       return (
         <Alert severity="info">
-          This table has no relationships defined.
+          {t(ADMIN_DATA_MODEL_KEYS.relationships.noRelationships)}
         </Alert>
       );
     }
@@ -530,18 +532,18 @@ export default function AdminDataModel() {
     return (
       <Box>
         <Typography variant="subtitle2" gutterBottom>
-          Outgoing Relationships ({relationships.length})
+          {t(ADMIN_DATA_MODEL_KEYS.relationships.outgoing)} ({relationships.length})
         </Typography>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Target Table</TableCell>
-                <TableCell>Target Field</TableCell>
-                <TableCell align="center">Nullable</TableCell>
-                <TableCell align="center">Cascade</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.relationships.name)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.relationships.type)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.relationships.targetTable)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.relationships.targetField)}</TableCell>
+                <TableCell align="center">{t(ADMIN_DATA_MODEL_KEYS.relationships.nullable)}</TableCell>
+                <TableCell align="center">{t(ADMIN_DATA_MODEL_KEYS.relationships.cascade)}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -576,13 +578,13 @@ export default function AdminDataModel() {
                   </TableCell>
                   <TableCell align="center">
                     {rel.isNullable ? (
-                      <Chip label="Yes" size="small" variant="outlined" />
+                      <Chip label={t(ADMIN_DATA_MODEL_KEYS.common.yes)} size="small" variant="outlined" />
                     ) : (
-                      <Chip label="No" size="small" color="error" />
+                      <Chip label={t(ADMIN_DATA_MODEL_KEYS.common.no)} size="small" color="error" />
                     )}
                   </TableCell>
                   <TableCell align="center">
-                    {rel.isCascade && <Chip label="Yes" size="small" color="warning" />}
+                    {rel.isCascade && <Chip label={t(ADMIN_DATA_MODEL_KEYS.common.yes)} size="small" color="warning" />}
                   </TableCell>
                 </TableRow>
               ))}
@@ -596,93 +598,24 @@ export default function AdminDataModel() {
   const renderVisualGraph = () => {
     if (!graph) return null;
 
-    const tableNodes = graph.nodes.filter((n) =>
-      selectedTable ? n.id === selectedTable.name || 
-        graph.edges.some(
-          (e) =>
-            (e.source === selectedTable.name && e.target === n.id) ||
-            (e.target === selectedTable.name && e.source === n.id)
-        )
-      : true
-    );
-
-    const relevantEdges = selectedTable
-      ? graph.edges.filter(
-          (e) => e.source === selectedTable.name || e.target === selectedTable.name
-        )
-      : graph.edges.slice(0, 20);
-
     return (
       <Box>
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            Visual representation of the data model. 
+            {t(ADMIN_DATA_MODEL_KEYS.visualGraph.description)}
             {selectedTable
-              ? ` Showing relationships for "${selectedTable.label}".`
-              : ' Select a table to focus on its relationships.'}
+              ? ` ${t(ADMIN_DATA_MODEL_KEYS.visualGraph.selectedTableDescription, { tableName: selectedTable.label })}`
+              : ` ${t(ADMIN_DATA_MODEL_KEYS.actions.selectTable)}`}
           </Typography>
         </Alert>
 
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Related Tables ({tableNodes.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-            {tableNodes.map((node) => (
-              <Chip
-                key={node.id}
-                label={node.label}
-                color={node.id === selectedTable?.name ? 'primary' : 'default'}
-                variant={node.id === selectedTable?.name ? 'filled' : 'outlined'}
-                onClick={() => {
-                  const target = tables.find((t) => t.name === node.id);
-                  if (target) handleTableSelect(target);
-                }}
-                icon={node.isTenantScoped ? <TenantIcon /> : undefined}
-              />
-            ))}
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          <Typography variant="subtitle2" gutterBottom>
-            Relationships ({relevantEdges.length})
-          </Typography>
-          <List dense>
-            {relevantEdges.map((edge) => (
-              <ListItem key={edge.id}>
-                <ListItemIcon>
-                  <LinkIcon />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip
-                        label={edge.source}
-                        size="small"
-                        variant="outlined"
-                        color={edge.source === selectedTable?.name ? 'primary' : 'default'}
-                      />
-                      <ArrowIcon fontSize="small" />
-                      <Chip
-                        label={getRelationshipTypeLabel(edge.type)}
-                        size="small"
-                        color={getRelationshipTypeColor(edge.type)}
-                      />
-                      <ArrowIcon fontSize="small" />
-                      <Chip
-                        label={edge.target}
-                        size="small"
-                        variant="outlined"
-                        color={edge.target === selectedTable?.name ? 'primary' : 'default'}
-                      />
-                    </Box>
-                  }
-                  secondary={`via ${edge.sourceField}`}
-                />
-              </ListItem>
-            ))}
-          </List>
+          <DataModelGraphComponent
+            graph={graph}
+            tables={tables}
+            selectedTable={selectedTable}
+            onTableSelect={handleTableSelect}
+          />
         </Paper>
       </Box>
     );
@@ -692,7 +625,7 @@ export default function AdminDataModel() {
     if (!selectedTable) {
       return (
         <Alert severity="info">
-          Select a table to see dot-walking paths.
+          {t(ADMIN_DATA_MODEL_KEYS.dotWalking.selectTablePrompt)}
         </Alert>
       );
     }
@@ -700,8 +633,7 @@ export default function AdminDataModel() {
     if (dotWalkPaths.length === 0) {
       return (
         <Alert severity="info">
-          No dot-walking paths available from "{selectedTable.label}".
-          This table may not have reference relationships.
+          {t(ADMIN_DATA_MODEL_KEYS.dotWalking.noPathsAvailable, { tableName: selectedTable.label })}
         </Alert>
       );
     }
@@ -710,8 +642,7 @@ export default function AdminDataModel() {
       <Box>
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            Dot-walking paths from "{selectedTable.label}". These paths can be used
-            in reporting and workflow configurations to traverse related data.
+            {t(ADMIN_DATA_MODEL_KEYS.dotWalking.description, { tableName: selectedTable.label })}
           </Typography>
         </Alert>
 
@@ -719,9 +650,9 @@ export default function AdminDataModel() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Path</TableCell>
-                <TableCell>Reachable Tables</TableCell>
-                <TableCell>Depth</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.dotWalking.path)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.dotWalking.reachableTables)}</TableCell>
+                <TableCell>{t(ADMIN_DATA_MODEL_KEYS.dotWalking.depth)}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -790,13 +721,13 @@ export default function AdminDataModel() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h5" gutterBottom>
-            Data Model Explorer
+            {t(ADMIN_DATA_MODEL_KEYS.title)}
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Explore the platform's data model, relationships, and dictionary metadata.
+            {t(ADMIN_DATA_MODEL_KEYS.subtitle)}
           </Typography>
         </Box>
-        <Tooltip title="Refresh data model cache">
+        <Tooltip title={t(ADMIN_DATA_MODEL_KEYS.actions.refresh)}>
           <IconButton onClick={handleRefresh} disabled={loading}>
             <RefreshIcon />
           </IconButton>
@@ -825,7 +756,7 @@ export default function AdminDataModel() {
                   {selectedTable.isTenantScoped && (
                     <Chip
                       icon={<TenantIcon />}
-                      label="Tenant-scoped"
+                      label={t(ADMIN_DATA_MODEL_KEYS.tableList.tenantScopedTooltip)}
                       size="small"
                       color="primary"
                     />
@@ -833,14 +764,14 @@ export default function AdminDataModel() {
                   {selectedTable.hasSoftDelete && (
                     <Chip
                       icon={<SoftDeleteIcon />}
-                      label="Soft delete"
+                      label={t(ADMIN_DATA_MODEL_KEYS.tableList.softDeleteTooltip)}
                       size="small"
                     />
                   )}
                   {selectedTable.hasAuditFields && (
                     <Chip
                       icon={<AuditIcon />}
-                      label="Audit fields"
+                      label={t(ADMIN_DATA_MODEL_KEYS.fields.auditFields)}
                       size="small"
                     />
                   )}
@@ -858,9 +789,9 @@ export default function AdminDataModel() {
                 onChange={(_, newValue) => setActiveTab(newValue)}
                 sx={{ borderBottom: 1, borderColor: 'divider' }}
               >
-                <Tab label="Fields" icon={<TableIcon />} iconPosition="start" />
+                <Tab label={t(ADMIN_DATA_MODEL_KEYS.tabs.fields)} icon={<TableIcon />} iconPosition="start" />
                 <Tab
-                  label="Relationships"
+                  label={t(ADMIN_DATA_MODEL_KEYS.tabs.relationships)}
                   icon={
                     <Badge badgeContent={selectedTable.relationships.length} color="secondary">
                       <LinkIcon />
@@ -868,8 +799,8 @@ export default function AdminDataModel() {
                   }
                   iconPosition="start"
                 />
-                <Tab label="Visual Graph" icon={<TreeIcon />} iconPosition="start" />
-                <Tab label="Dot-Walking" icon={<ArrowIcon />} iconPosition="start" />
+                <Tab label={t(ADMIN_DATA_MODEL_KEYS.tabs.visualGraph)} icon={<TreeIcon />} iconPosition="start" />
+                <Tab label={t(ADMIN_DATA_MODEL_KEYS.tabs.dotWalking)} icon={<ArrowIcon />} iconPosition="start" />
               </Tabs>
 
               <TabPanel value={activeTab} index={0}>
@@ -889,7 +820,7 @@ export default function AdminDataModel() {
             <Paper sx={{ p: 4, textAlign: 'center' }}>
               <TableIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
               <Typography variant="h6" color="textSecondary">
-                Select a table to view its details
+                {t(ADMIN_DATA_MODEL_KEYS.actions.selectTable)}
               </Typography>
             </Paper>
           )}

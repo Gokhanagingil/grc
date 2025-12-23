@@ -4,6 +4,24 @@
 
 The Admin Studio is a platform administration interface designed to make the GRC Platform self-describing to administrators. It provides visibility into the platform's data model, dictionary metadata, and entity relationships.
 
+## i18n Foundation
+
+FAZ 2 establishes the i18n (internationalization) foundation for the Admin Studio. All user-facing text uses translation keys that can be localized in future phases.
+
+**Key Points:**
+- All UI text uses translation keys (e.g., `admin.data_model.title`, `admin.dictionary.fields`)
+- Dictionary metadata (table names, field names) remains language-neutral
+- Display labels are conceptually separate from technical identifiers
+- Translation keys are defined in `/frontend/src/i18n/keys.ts`
+
+**What is NOT included in FAZ 2:**
+- Full translation coverage
+- Language switch UI
+- Translation management screens
+- Existing content translation
+
+The i18n foundation ensures future localization can be added without refactoring data structures.
+
 ## What Admin Studio Covers in FAZ 2
 
 ### Data Model Explorer
