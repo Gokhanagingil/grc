@@ -51,3 +51,15 @@ export {
   ClauseTreeNode,
   StandardWithClauses,
 } from './standards.service';
+
+// Data Model Dictionary Services (Admin Studio FAZ 2)
+export {
+  DataModelDictionaryService,
+  DictionaryFieldType,
+  RelationshipType,
+  DictionaryField,
+  DictionaryRelationship,
+  DictionaryTable,
+  DotWalkSegment,
+  DotWalkPath,
+} from './data-model-dictionary.service';

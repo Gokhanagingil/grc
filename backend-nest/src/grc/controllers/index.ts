@@ -36,3 +36,6 @@ export {
   StandardsController,
   AuditScopeController,
 } from './standards.controller';
+
+// Data Model Dictionary Controllers (Admin Studio FAZ 2)
+export { DataModelDictionaryController } from './data-model-dictionary.controller';

@@ -66,6 +66,8 @@ import {
   ProcessComplianceService,
   // Audit Phase 2 - Standards Library services
   StandardsService,
+  // Admin Studio FAZ 2 - Data Model Dictionary services
+  DataModelDictionaryService,
 } from './services';
 
 // Controllers
@@ -90,6 +92,8 @@ import {
   GrcIssueController,
   StandardsController,
   AuditScopeController,
+  // Admin Studio FAZ 2 - Data Model Dictionary controllers
+  DataModelDictionaryController,
 } from './controllers';
 
 /**
@@ -177,6 +181,8 @@ import {
     ProcessComplianceService,
     // Audit Phase 2 - Standards Library services
     StandardsService,
+    // Admin Studio FAZ 2 - Data Model Dictionary services
+    DataModelDictionaryService,
   ],
   controllers: [
     // Core controllers
@@ -200,6 +206,8 @@ import {
     GrcIssueController,
     StandardsController,
     AuditScopeController,
+    // Admin Studio FAZ 2 - Data Model Dictionary controllers
+    DataModelDictionaryController,
   ],
   exports: [
     // Core services
@@ -221,6 +229,8 @@ import {
     ProcessComplianceService,
     // Audit Phase 2 - Standards Library services
     StandardsService,
+    // Admin Studio FAZ 2 - Data Model Dictionary services
+    DataModelDictionaryService,
   ],
 })
 export class GrcModule {}
