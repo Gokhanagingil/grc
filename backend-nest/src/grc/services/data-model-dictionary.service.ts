@@ -44,7 +44,7 @@ export interface DictionaryField {
   isGenerated: boolean;
   isAuditField: boolean;
   isTenantScoped: boolean;
-  defaultValue: unknown | null;
+  defaultValue: unknown;
   enumValues: string[] | null;
   referenceTarget: string | null;
   maxLength: number | null;
@@ -147,8 +147,7 @@ export class DataModelDictionaryService {
       (f) => f.name === 'createdAt' || f.name === 'updatedAt',
     );
 
-    const primaryKeyField =
-      metadata.primaryColumns[0]?.propertyName || 'id';
+    const primaryKeyField = metadata.primaryColumns[0]?.propertyName || 'id';
 
     return {
       name: metadata.name,
@@ -184,7 +183,9 @@ export class DataModelDictionaryService {
         isAuditField: this.isAuditField(column.propertyName),
         isTenantScoped: column.propertyName === 'tenantId',
         defaultValue: column.default ?? null,
-        enumValues: column.enum ? Object.values(column.enum) as string[] : null,
+        enumValues: column.enum
+          ? (Object.values(column.enum) as string[])
+          : null,
         referenceTarget: null,
         maxLength: column.length ? parseInt(column.length, 10) : null,
       };
@@ -215,9 +216,12 @@ export class DataModelDictionaryService {
         targetTable: targetMetadata.name,
         targetField: relation.inverseSidePropertyPath || 'id',
         isNullable: relation.isNullable,
-        isCascade: Array.isArray(relation.cascadeOptions)
-          ? relation.cascadeOptions.length > 0
-          : !!relation.cascadeOptions,
+        isCascade:
+          relation.isCascadeInsert ||
+          relation.isCascadeUpdate ||
+          relation.isCascadeRemove ||
+          relation.isCascadeSoftRemove ||
+          relation.isCascadeRecover,
         inverseRelationship: relation.inverseSidePropertyPath || null,
       };
 
@@ -422,10 +426,7 @@ export class DataModelDictionaryService {
   /**
    * Generate dot-walking paths from a base table
    */
-  getDotWalkingPaths(
-    baseTable: string,
-    maxDepth: number = 3,
-  ): DotWalkPath[] {
+  getDotWalkingPaths(baseTable: string, maxDepth: number = 3): DotWalkPath[] {
     this.initialize();
 
     const paths: DotWalkPath[] = [];

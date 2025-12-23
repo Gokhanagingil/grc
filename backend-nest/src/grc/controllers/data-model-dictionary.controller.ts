@@ -19,33 +19,19 @@ import {
   DotWalkPath,
 } from '../services/data-model-dictionary.service';
 
-/**
- * Data Model Dictionary Controller
- *
- * API endpoints for the Admin Studio Data Model Explorer.
- * Provides metadata about tables, fields, relationships, and dot-walking paths.
- *
- * All endpoints require admin role for access.
- */
 @Controller('admin/data-model')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class DataModelDictionaryController {
-  constructor(
-    private readonly dictionaryService: DataModelDictionaryService,
-  ) {}
+  constructor(private readonly dictionaryService: DataModelDictionaryService) {}
 
-  /**
-   * GET /admin/data-model/tables
-   * List all tables in the data model
-   */
   @Get('tables')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async listTables(
+  listTables(
     @Query('tenantScopedOnly') tenantScopedOnly?: string,
     @Query('withRelationships') withRelationships?: string,
     @Query('search') search?: string,
-  ): Promise<{ success: boolean; data: DictionaryTable[] }> {
+  ): { success: boolean; data: DictionaryTable[] } {
     const tables = this.dictionaryService.getFilteredTables({
       tenantScopedOnly: tenantScopedOnly === 'true',
       withRelationships: withRelationships === 'true',
@@ -58,16 +44,13 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/tables/:name
-   * Get a specific table by name
-   */
   @Get('tables/:name')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async getTable(
-    @Param('name') name: string,
-  ): Promise<{ success: boolean; data: DictionaryTable }> {
+  getTable(@Param('name') name: string): {
+    success: boolean;
+    data: DictionaryTable;
+  } {
     const table = this.dictionaryService.getTable(name);
 
     if (!table) {
@@ -80,16 +63,13 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/tables/:name/relationships
-   * Get relationships for a specific table
-   */
   @Get('tables/:name/relationships')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async getTableRelationships(
-    @Param('name') name: string,
-  ): Promise<{ success: boolean; data: DictionaryRelationship[] }> {
+  getTableRelationships(@Param('name') name: string): {
+    success: boolean;
+    data: DictionaryRelationship[];
+  } {
     const table = this.dictionaryService.getTable(name);
 
     if (!table) {
@@ -105,17 +85,13 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/tables/:name/dot-walking
-   * Get dot-walking paths from a base table
-   */
   @Get('tables/:name/dot-walking')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async getDotWalkingPaths(
+  getDotWalkingPaths(
     @Param('name') name: string,
     @Query('maxDepth') maxDepthStr?: string,
-  ): Promise<{ success: boolean; data: DotWalkPath[] }> {
+  ): { success: boolean; data: DotWalkPath[] } {
     const table = this.dictionaryService.getTable(name);
 
     if (!table) {
@@ -135,17 +111,13 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/relationships
-   * Get all relationships in the data model
-   */
   @Get('relationships')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async listRelationships(): Promise<{
+  listRelationships(): {
     success: boolean;
     data: DictionaryRelationship[];
-  }> {
+  } {
     const relationships = this.dictionaryService.getAllRelationships();
 
     return {
@@ -154,14 +126,10 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/summary
-   * Get data model summary statistics
-   */
   @Get('summary')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async getSummary(): Promise<{
+  getSummary(): {
     success: boolean;
     data: {
       totalTables: number;
@@ -170,7 +138,7 @@ export class DataModelDictionaryController {
       tablesWithSoftDelete: number;
       relationshipsByType: Record<string, number>;
     };
-  }> {
+  } {
     const summary = this.dictionaryService.getDataModelSummary();
 
     return {
@@ -179,14 +147,10 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * GET /admin/data-model/graph
-   * Get data model as a graph structure for visualization
-   */
   @Get('graph')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async getGraph(): Promise<{
+  getGraph(): {
     success: boolean;
     data: {
       nodes: Array<{
@@ -206,7 +170,7 @@ export class DataModelDictionaryController {
         sourceField: string;
       }>;
     };
-  }> {
+  } {
     const tables = this.dictionaryService.getAllTables();
     const relationships = this.dictionaryService.getAllRelationships();
 
@@ -234,14 +198,10 @@ export class DataModelDictionaryController {
     };
   }
 
-  /**
-   * POST /admin/data-model/refresh
-   * Refresh the dictionary cache
-   */
   @Get('refresh')
   @Permissions(Permission.GRC_ADMIN)
   @Perf()
-  async refreshCache(): Promise<{ success: boolean; message: string }> {
+  refreshCache(): { success: boolean; message: string } {
     this.dictionaryService.refreshCache();
 
     return {
