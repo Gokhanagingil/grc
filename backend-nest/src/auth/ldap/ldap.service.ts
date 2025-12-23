@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -201,7 +201,7 @@ export class LdapService {
   async authenticateUser(
     tenantId: string,
     username: string,
-    password: string,
+    _password: string,
   ): Promise<LdapUserInfo | null> {
     const config = await this.getLdapConfig(tenantId);
 

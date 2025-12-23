@@ -70,11 +70,11 @@ export class MfaService {
    * Generate a new TOTP secret for a user
    * Returns the secret and QR code URL for setup
    */
-  async generateSecret(userId: string, userEmail: string): Promise<{
+  generateSecret(_userId: string, userEmail: string): {
     secret: string;
     qrCodeUrl: string;
     manualEntryKey: string;
-  }> {
+  } {
     // Generate a random secret
     const secretBuffer = crypto.randomBytes(TOTP_CONFIG.secretLength);
     const secret = this.base32Encode(secretBuffer);

@@ -93,7 +93,7 @@ export class MfaController {
       throw new BadRequestException('User not found');
     }
 
-    const tenantId = req.tenantId || req.user?.tenantId;
+    const tenantId: string | undefined = req.tenantId || req.user?.tenantId;
     return this.mfaService.verifyAndEnableMfa(userId, dto.code, tenantId);
   }
 
@@ -118,7 +118,7 @@ export class MfaController {
       throw new BadRequestException('Invalid MFA code');
     }
 
-    const tenantId = req.tenantId || req.user?.tenantId;
+    const tenantId: string | undefined = req.tenantId || req.user?.tenantId;
     await this.mfaService.disableMfa(userId, userId, tenantId);
 
     return { success: true, message: 'MFA disabled successfully' };
