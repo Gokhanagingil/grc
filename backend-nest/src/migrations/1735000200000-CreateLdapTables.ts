@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 /**
  * Migration: Create LDAP Tables
- * 
+ *
  * Creates tables for LDAP/Active Directory integration:
  * - tenant_ldap_config: Per-tenant LDAP configuration
  * - ldap_group_role_mapping: Maps LDAP groups to platform roles
@@ -78,7 +78,8 @@ export class CreateLdapTables1735000200000 implements MigrationInterface {
             type: 'varchar',
             length: '512',
             default: "'(uid={{username}})'",
-            comment: 'LDAP filter for user search. {{username}} is replaced with login username',
+            comment:
+              'LDAP filter for user search. {{username}} is replaced with login username',
           },
           {
             name: 'username_attribute',

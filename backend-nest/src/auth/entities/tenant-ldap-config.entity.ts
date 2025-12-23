@@ -47,34 +47,79 @@ export class TenantLdapConfig {
   @Column({ name: 'bind_dn', type: 'varchar', length: 512, nullable: true })
   bindDn: string | null;
 
-  @Column({ name: 'bind_password', type: 'varchar', length: 512, nullable: true })
+  @Column({
+    name: 'bind_password',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
   bindPassword: string | null;
 
   @Column({ name: 'base_dn', type: 'varchar', length: 512, nullable: true })
   baseDn: string | null;
 
-  @Column({ name: 'user_search_filter', type: 'varchar', length: 512, default: '(uid={{username}})' })
+  @Column({
+    name: 'user_search_filter',
+    type: 'varchar',
+    length: 512,
+    default: '(uid={{username}})',
+  })
   userSearchFilter: string;
 
-  @Column({ name: 'username_attribute', type: 'varchar', length: 64, default: 'uid' })
+  @Column({
+    name: 'username_attribute',
+    type: 'varchar',
+    length: 64,
+    default: 'uid',
+  })
   usernameAttribute: string;
 
-  @Column({ name: 'email_attribute', type: 'varchar', length: 64, default: 'mail' })
+  @Column({
+    name: 'email_attribute',
+    type: 'varchar',
+    length: 64,
+    default: 'mail',
+  })
   emailAttribute: string;
 
-  @Column({ name: 'first_name_attribute', type: 'varchar', length: 64, default: 'givenName' })
+  @Column({
+    name: 'first_name_attribute',
+    type: 'varchar',
+    length: 64,
+    default: 'givenName',
+  })
   firstNameAttribute: string;
 
-  @Column({ name: 'last_name_attribute', type: 'varchar', length: 64, default: 'sn' })
+  @Column({
+    name: 'last_name_attribute',
+    type: 'varchar',
+    length: 64,
+    default: 'sn',
+  })
   lastNameAttribute: string;
 
-  @Column({ name: 'group_search_base', type: 'varchar', length: 512, nullable: true })
+  @Column({
+    name: 'group_search_base',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
   groupSearchBase: string | null;
 
-  @Column({ name: 'group_search_filter', type: 'varchar', length: 512, default: '(member={{userDn}})' })
+  @Column({
+    name: 'group_search_filter',
+    type: 'varchar',
+    length: 512,
+    default: '(member={{userDn}})',
+  })
   groupSearchFilter: string;
 
-  @Column({ name: 'default_role', type: 'varchar', length: 32, default: 'user' })
+  @Column({
+    name: 'default_role',
+    type: 'varchar',
+    length: 32,
+    default: 'user',
+  })
   defaultRole: string;
 
   @Column({ name: 'allow_local_fallback', default: true })
@@ -86,7 +131,12 @@ export class TenantLdapConfig {
   @Column({ name: 'last_connection_test', type: 'timestamp', nullable: true })
   lastConnectionTest: Date | null;
 
-  @Column({ name: 'last_connection_status', type: 'varchar', length: 32, nullable: true })
+  @Column({
+    name: 'last_connection_status',
+    type: 'varchar',
+    length: 32,
+    nullable: true,
+  })
   lastConnectionStatus: string | null;
 
   @Column({ name: 'last_connection_error', type: 'text', nullable: true })

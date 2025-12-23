@@ -33,7 +33,12 @@ export class LdapGroupRoleMapping {
   @Column({ name: 'ldap_group_dn', type: 'varchar', length: 512 })
   ldapGroupDn: string;
 
-  @Column({ name: 'ldap_group_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'ldap_group_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   ldapGroupName: string | null;
 
   @Column({ name: 'platform_role', type: 'varchar', length: 32 })

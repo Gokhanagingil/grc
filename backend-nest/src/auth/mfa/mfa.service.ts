@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -57,11 +61,12 @@ export class MfaService {
     private readonly eventEmitter: EventEmitter2,
   ) {
     this.logger.setContext('MfaService');
-    
+
     // Get encryption key from config or generate a default one
-    const keyString = this.configService.get<string>('MFA_ENCRYPTION_KEY') || 
-                      this.configService.get<string>('JWT_SECRET') || 
-                      'default-mfa-key-change-in-production';
+    const keyString =
+      this.configService.get<string>('MFA_ENCRYPTION_KEY') ||
+      this.configService.get<string>('JWT_SECRET') ||
+      'default-mfa-key-change-in-production';
     // Derive a 32-byte key from the string
     this.encryptionKey = crypto.createHash('sha256').update(keyString).digest();
   }
@@ -70,7 +75,10 @@ export class MfaService {
    * Generate a new TOTP secret for a user
    * Returns the secret and QR code URL for setup
    */
-  generateSecret(_userId: string, userEmail: string): {
+  generateSecret(
+    _userId: string,
+    userEmail: string,
+  ): {
     secret: string;
     qrCodeUrl: string;
     manualEntryKey: string;
@@ -137,7 +145,11 @@ export class MfaService {
     if (!isValid) {
       this.eventEmitter.emit(
         DomainEventNames.MFA_CHALLENGE_FAILED,
-        new MfaChallengeFailedEvent(userId, tenantId || null, 'setup_verification'),
+        new MfaChallengeFailedEvent(
+          userId,
+          tenantId || null,
+          'setup_verification',
+        ),
       );
       throw new UnauthorizedException('Invalid MFA code');
     }
@@ -251,7 +263,11 @@ export class MfaService {
   /**
    * Check if MFA is required for a user based on tenant policy
    */
-  async isMfaRequired(userId: string, tenantId: string, userRole: string): Promise<boolean> {
+  async isMfaRequired(
+    userId: string,
+    tenantId: string,
+    userRole: string,
+  ): Promise<boolean> {
     // Check user-level enforcement
     const userSettings = await this.mfaSettingsRepository.findOne({
       where: { userId },
@@ -335,7 +351,9 @@ export class MfaService {
   /**
    * Get or create tenant security settings
    */
-  async getTenantSecuritySettings(tenantId: string): Promise<TenantSecuritySettings> {
+  async getTenantSecuritySettings(
+    tenantId: string,
+  ): Promise<TenantSecuritySettings> {
     let settings = await this.securitySettingsRepository.findOne({
       where: { tenantId },
     });
@@ -379,7 +397,7 @@ export class MfaService {
   async regenerateRecoveryCodes(userId: string): Promise<string[]> {
     // Delete existing codes
     await this.recoveryCodeRepository.delete({ userId });
-    
+
     // Generate new codes
     return this.generateRecoveryCodes(userId);
   }
@@ -415,15 +433,17 @@ export class MfaService {
    */
   private verifyTotp(secret: string, code: string): boolean {
     const currentTime = Math.floor(Date.now() / 1000 / TOTP_CONFIG.period);
-    
+
     // Check current and adjacent time windows
     for (let i = -1; i <= 1; i++) {
       const expectedCode = this.generateTotp(secret, currentTime + i);
-      if (crypto.timingSafeEqual(Buffer.from(code), Buffer.from(expectedCode))) {
+      if (
+        crypto.timingSafeEqual(Buffer.from(code), Buffer.from(expectedCode))
+      ) {
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -468,18 +488,24 @@ export class MfaService {
   /**
    * Verify a recovery code
    */
-  private async verifyRecoveryCode(userId: string, code: string): Promise<boolean> {
+  private async verifyRecoveryCode(
+    userId: string,
+    code: string,
+  ): Promise<boolean> {
     const recoveryCodes = await this.recoveryCodeRepository.find({
       where: { userId, usedAt: undefined },
     });
 
     for (const recoveryCode of recoveryCodes) {
-      const isValid = await bcrypt.compare(code.toUpperCase(), recoveryCode.codeHash);
+      const isValid = await bcrypt.compare(
+        code.toUpperCase(),
+        recoveryCode.codeHash,
+      );
       if (isValid) {
         // Mark code as used
         recoveryCode.usedAt = new Date();
         await this.recoveryCodeRepository.save(recoveryCode);
-        
+
         this.logger.log('mfa.recovery_code_used', { userId });
         return true;
       }
@@ -505,7 +531,11 @@ export class MfaService {
   private decryptSecret(encryptedSecret: string): string {
     const [ivHex, encrypted] = encryptedSecret.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      this.encryptionKey,
+      iv,
+    );
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
@@ -543,7 +573,7 @@ export class MfaService {
   private base32Decode(encoded: string): Buffer {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     const cleanedInput = encoded.toUpperCase().replace(/[^A-Z2-7]/g, '');
-    
+
     let bits = 0;
     let value = 0;
     const result: number[] = [];

@@ -15,7 +15,11 @@ import { User, UserRole } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TenantsService } from '../tenants/tenants.service';
-import { UserLoggedInEvent, LoginFailedEvent, DomainEventNames } from '../events/domain-events';
+import {
+  UserLoggedInEvent,
+  LoginFailedEvent,
+  DomainEventNames,
+} from '../events/domain-events';
 import { BruteForceService } from './security/brute-force.service';
 import { StructuredLoggerService } from '../common/logger';
 import { MfaService } from './mfa/mfa.service';
@@ -138,7 +142,12 @@ export class AuthService {
       );
       this.eventEmitter.emit(
         DomainEventNames.LOGIN_FAILED,
-        new LoginFailedEvent(loginDto.email, null, 'Invalid credentials', clientIp),
+        new LoginFailedEvent(
+          loginDto.email,
+          null,
+          'Invalid credentials',
+          clientIp,
+        ),
       );
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -153,14 +162,19 @@ export class AuthService {
       );
       this.eventEmitter.emit(
         DomainEventNames.LOGIN_FAILED,
-        new LoginFailedEvent(loginDto.email, user.tenantId, 'Account deactivated', clientIp),
+        new LoginFailedEvent(
+          loginDto.email,
+          user.tenantId,
+          'Account deactivated',
+          clientIp,
+        ),
       );
       throw new UnauthorizedException('Account is deactivated');
     }
 
     // Check if MFA is enabled for this user
     const mfaEnabled = await this.mfaService.isMfaEnabled(user.id);
-    
+
     if (mfaEnabled) {
       // Generate MFA challenge token (short-lived JWT for MFA verification)
       const mfaPayload = {
@@ -169,12 +183,12 @@ export class AuthService {
         type: 'mfa_challenge',
       };
       const mfaToken = this.jwtService.sign(mfaPayload, { expiresIn: '5m' });
-      
+
       this.logger.log('auth.mfa_challenge_issued', {
         userId: user.id,
         email: user.email,
       });
-      
+
       return {
         mfaRequired: true,
         mfaToken,

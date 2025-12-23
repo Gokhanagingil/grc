@@ -27,21 +27,31 @@ function isDistEnvironment(): boolean {
     // In dist: ends with .js and contains 'dist' in path
     // In src: ends with .ts or contains 'src' in path
     const filename = __filename || '';
-    if (filename.endsWith('.js') && filename.includes(path.sep + 'dist' + path.sep)) {
+    if (
+      filename.endsWith('.js') &&
+      filename.includes(path.sep + 'dist' + path.sep)
+    ) {
       return true;
     }
-    if (filename.endsWith('.ts') || filename.includes(path.sep + 'src' + path.sep)) {
+    if (
+      filename.endsWith('.ts') ||
+      filename.includes(path.sep + 'src' + path.sep)
+    ) {
       return false;
     }
 
     // Secondary check: __dirname path
     const currentDir = path.resolve(__dirname);
-    if (currentDir.includes(path.sep + 'dist' + path.sep) || 
-        currentDir.endsWith(path.sep + 'dist')) {
+    if (
+      currentDir.includes(path.sep + 'dist' + path.sep) ||
+      currentDir.endsWith(path.sep + 'dist')
+    ) {
       return true;
     }
-    if (currentDir.includes(path.sep + 'src' + path.sep) || 
-        currentDir.endsWith(path.sep + 'src')) {
+    if (
+      currentDir.includes(path.sep + 'src' + path.sep) ||
+      currentDir.endsWith(path.sep + 'src')
+    ) {
       return false;
     }
 
@@ -51,7 +61,7 @@ function isDistEnvironment(): boolean {
       const cwd = process.cwd();
       const distDataSourcePath = path.join(cwd, 'dist', 'data-source.js');
       const srcDataSourcePath = path.join(cwd, 'src', 'data-source.ts');
-      
+
       if (fs.existsSync(distDataSourcePath) && filename.endsWith('.js')) {
         // If dist/data-source.js exists and we're running a .js file, we're likely in dist
         if (!fs.existsSync(srcDataSourcePath)) {
@@ -65,7 +75,7 @@ function isDistEnvironment(): boolean {
     } catch {
       // File system check failed, continue with other logic
     }
-    
+
     return false;
   } catch {
     // If all checks fail, default to dev mode (src) for safety

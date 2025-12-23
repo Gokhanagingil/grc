@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, Length, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  Length,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 /**
  * DTO for MFA setup initiation

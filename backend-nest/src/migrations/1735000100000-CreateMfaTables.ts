@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 /**
  * Migration: Create MFA Tables
- * 
+ *
  * Creates tables for Multi-Factor Authentication (MFA) support:
  * - user_mfa_settings: Per-user MFA configuration
  * - user_mfa_recovery_codes: Recovery codes for MFA reset

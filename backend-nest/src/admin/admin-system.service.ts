@@ -101,10 +101,13 @@ export class AdminSystemService {
       },
       securitySettings: {
         passwordMinLength: securitySettings?.passwordMinLength || 8,
-        passwordRequireUppercase: securitySettings?.passwordRequireUppercase || false,
-        passwordRequireLowercase: securitySettings?.passwordRequireLowercase || false,
+        passwordRequireUppercase:
+          securitySettings?.passwordRequireUppercase || false,
+        passwordRequireLowercase:
+          securitySettings?.passwordRequireLowercase || false,
         passwordRequireNumber: securitySettings?.passwordRequireNumber || false,
-        passwordRequireSpecial: securitySettings?.passwordRequireSpecial || false,
+        passwordRequireSpecial:
+          securitySettings?.passwordRequireSpecial || false,
         sessionTimeoutMinutes: securitySettings?.sessionTimeoutMinutes || 60,
       },
     };
@@ -123,7 +126,7 @@ export class AdminSystemService {
     });
 
     const modes: string[] = ['local'];
-    
+
     if (ldapConfig?.enabled) {
       modes.push('ldap');
     }
@@ -133,14 +136,18 @@ export class AdminSystemService {
       where: { tenantId },
     });
 
-    if (securitySettings?.mfaRequiredForAll || securitySettings?.mfaRequiredForAdmins) {
+    if (
+      securitySettings?.mfaRequiredForAll ||
+      securitySettings?.mfaRequiredForAdmins
+    ) {
       modes.push('mfa_enforced');
     }
 
     return {
       modes,
       primary: ldapConfig?.enabled ? 'ldap' : 'local',
-      fallback: ldapConfig?.enabled && ldapConfig?.allowLocalFallback ? 'local' : null,
+      fallback:
+        ldapConfig?.enabled && ldapConfig?.allowLocalFallback ? 'local' : null,
     };
   }
 }

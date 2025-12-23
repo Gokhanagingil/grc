@@ -339,7 +339,9 @@ export class AuditService {
    * Handle MfaChallengeFailedEvent
    */
   @OnEvent(DomainEventNames.MFA_CHALLENGE_FAILED)
-  async handleMfaChallengeFailed(event: MfaChallengeFailedEvent): Promise<void> {
+  async handleMfaChallengeFailed(
+    event: MfaChallengeFailedEvent,
+  ): Promise<void> {
     if (!this.isEnabled) {
       return;
     }
