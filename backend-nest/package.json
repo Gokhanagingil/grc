@@ -29,7 +29,12 @@
         "migration:run": "typeorm migration:run -d src/data-source.ts",
         "migration:revert": "typeorm migration:revert -d src/data-source.ts",
         "migration:show": "typeorm migration:show -d src/data-source.ts",
-        "migrations:status:prod": "node dist/scripts/migrations-status.js"
+        "migrations:status:prod": "node dist/scripts/migrations-status.js",
+        "validate:env": "ts-node -r tsconfig-paths/register src/scripts/validate-env.ts",
+        "validate:db": "ts-node -r tsconfig-paths/register src/scripts/validate-db.ts",
+        "validate:migrations": "ts-node -r tsconfig-paths/register src/scripts/validate-migrations.ts",
+        "smoke:auth-onboarding": "ts-node -r tsconfig-paths/register src/scripts/smoke-auth-onboarding.ts",
+        "platform:validate": "ts-node -r tsconfig-paths/register src/scripts/platform-validate.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
