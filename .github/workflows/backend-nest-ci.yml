@@ -103,10 +103,9 @@ jobs:
         run: npm ci
       
       - name: Run npm audit
-        run: npm audit --audit-level=high || true
-        # Note: Using || true to not fail the build on vulnerabilities
-        # This allows visibility into security issues without blocking PRs
-        # TODO: Remove || true once all high/critical vulnerabilities are resolved
+        run: npm audit --audit-level=high
+        # Security audit is enforced - CI will fail on high/critical vulnerabilities
+        # This ensures security issues are addressed before merging
 
   # ---------------------------------------------------------------------------
   # Build - TypeScript Compilation
