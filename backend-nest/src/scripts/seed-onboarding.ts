@@ -43,7 +43,9 @@ async function seedOnboarding() {
     console.log('   Demo tenant found');
 
     console.log('2. Seeding initialization profile...');
-    const initProfileRepo = dataSource.getRepository(TenantInitializationProfile);
+    const initProfileRepo = dataSource.getRepository(
+      TenantInitializationProfile,
+    );
     let initProfile = await initProfileRepo.findOne({
       where: { tenantId: DEMO_TENANT_ID },
     });

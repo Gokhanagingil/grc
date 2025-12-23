@@ -15,9 +15,24 @@ import { User, UserRole } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TenantsService } from '../tenants/tenants.service';
-import { UserLoggedInEvent, DomainEventNames } from '../events/domain-events';
+import {
+  UserLoggedInEvent,
+  LoginFailedEvent,
+  DomainEventNames,
+} from '../events/domain-events';
 import { BruteForceService } from './security/brute-force.service';
 import { StructuredLoggerService } from '../common/logger';
+import { MfaService } from './mfa/mfa.service';
+
+/**
+ * Login response type - either full access or MFA challenge
+ */
+export interface LoginResponse {
+  accessToken?: string;
+  user?: Partial<User>;
+  mfaRequired?: boolean;
+  mfaToken?: string;
+}
 
 /**
  * Auth Service
@@ -40,6 +55,8 @@ export class AuthService {
     @Inject(forwardRef(() => TenantsService))
     private readonly tenantsService: TenantsService,
     private readonly bruteForceService: BruteForceService,
+    @Inject(forwardRef(() => MfaService))
+    private readonly mfaService: MfaService,
   ) {
     this.logger.setContext('AuthService');
   }
@@ -78,7 +95,7 @@ export class AuthService {
   }
 
   /**
-   * Login and return JWT token
+   * Login and return JWT token or MFA challenge
    *
    * @param loginDto - Login credentials
    * @param ip - Client IP address for brute force tracking
@@ -88,7 +105,7 @@ export class AuthService {
     loginDto: LoginDto,
     ip?: string,
     correlationId?: string,
-  ): Promise<{ accessToken: string; user: Partial<User> }> {
+  ): Promise<LoginResponse> {
     const clientIp = ip || 'unknown';
 
     // Check brute force protection
@@ -116,12 +133,21 @@ export class AuthService {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
     if (!user) {
-      // Record failed attempt
+      // Record failed attempt and emit event
       this.bruteForceService.recordFailure(
         clientIp,
         loginDto.email,
         undefined,
         correlationId,
+      );
+      this.eventEmitter.emit(
+        DomainEventNames.LOGIN_FAILED,
+        new LoginFailedEvent(
+          loginDto.email,
+          null,
+          'Invalid credentials',
+          clientIp,
+        ),
       );
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -134,11 +160,117 @@ export class AuthService {
         user.tenantId || undefined,
         correlationId,
       );
+      this.eventEmitter.emit(
+        DomainEventNames.LOGIN_FAILED,
+        new LoginFailedEvent(
+          loginDto.email,
+          user.tenantId ?? null,
+          'Account deactivated',
+          clientIp,
+        ),
+      );
       throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Check if MFA is enabled for this user
+    const mfaEnabled = await this.mfaService.isMfaEnabled(user.id);
+
+    if (mfaEnabled) {
+      // Generate MFA challenge token (short-lived JWT for MFA verification)
+      const mfaPayload = {
+        sub: user.id,
+        email: user.email,
+        type: 'mfa_challenge',
+      };
+      const mfaToken = this.jwtService.sign(mfaPayload, { expiresIn: '5m' });
+
+      this.logger.log('auth.mfa_challenge_issued', {
+        userId: user.id,
+        email: user.email,
+      });
+
+      return {
+        mfaRequired: true,
+        mfaToken,
+      };
     }
 
     // Record successful login (resets brute force counter)
     this.bruteForceService.recordSuccess(clientIp, loginDto.email);
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    // Emit login event for audit logging
+    this.eventEmitter.emit(
+      DomainEventNames.USER_LOGGED_IN,
+      new UserLoggedInEvent(user.id, user.email, user.tenantId || null),
+    );
+
+    // Return user without password hash
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Destructuring to exclude passwordHash from response
+    const { passwordHash: _passwordHash, ...userWithoutPassword } = user;
+
+    return {
+      accessToken,
+      user: userWithoutPassword,
+    };
+  }
+
+  /**
+   * Complete MFA challenge and return JWT token
+   *
+   * @param mfaToken - MFA challenge token from initial login
+   * @param code - TOTP or recovery code
+   * @param ip - Client IP address for brute force tracking
+   */
+  async completeMfaChallenge(
+    mfaToken: string,
+    code: string,
+    ip?: string,
+  ): Promise<LoginResponse> {
+    const clientIp = ip || 'unknown';
+
+    // Verify MFA token
+    let mfaPayload: { sub: string; email: string; type: string };
+    try {
+      mfaPayload = this.jwtService.verify(mfaToken);
+      if (mfaPayload.type !== 'mfa_challenge') {
+        throw new UnauthorizedException('Invalid MFA token');
+      }
+    } catch {
+      throw new UnauthorizedException('Invalid or expired MFA token');
+    }
+
+    // Get user
+    const user = await this.usersService.findById(mfaPayload.sub);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // Verify MFA code
+    const isValid = await this.mfaService.verifyMfaCode(
+      user.id,
+      code,
+      user.tenantId,
+    );
+
+    if (!isValid) {
+      this.bruteForceService.recordFailure(
+        clientIp,
+        user.email,
+        user.tenantId || undefined,
+      );
+      throw new UnauthorizedException('Invalid MFA code');
+    }
+
+    // Record successful login
+    this.bruteForceService.recordSuccess(clientIp, user.email);
 
     const payload: JwtPayload = {
       sub: user.id,
