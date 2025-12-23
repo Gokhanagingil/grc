@@ -6,6 +6,7 @@ import { TenantSecuritySettings } from '../auth/entities/tenant-security-setting
 import { TenantLdapConfig } from '../auth/entities/tenant-ldap-config.entity';
 import { UserMfaSettings } from '../auth/entities/user-mfa-settings.entity';
 import { AuthModule } from '../auth/auth.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Admin Module
@@ -23,6 +24,7 @@ import { AuthModule } from '../auth/auth.module';
       UserMfaSettings,
     ]),
     AuthModule,
+    TenantsModule,
   ],
   controllers: [AdminSystemController],
   providers: [AdminSystemService],
