@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ./frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps
 
       - name: Set E2E environment variables
         id: set-env
@@ -60,7 +60,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: ./frontend
-        run: npm run test:e2e
+        run: npx playwright test
 
       - name: Upload Playwright report
         if: always()
