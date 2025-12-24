@@ -233,8 +233,8 @@ The frontend's `unwrapApiResponse` helper in AuthContext.tsx handles both format
 
 ## Staging Environment Notes
 
-- **Frontend URL:** (to be verified)
-- **Backend URL:** (to be verified)
-- **Login Credentials:** admin@grc-staging.local / StagingPassword123!
+- **Frontend URL:** Refer to team password manager
+- **Backend URL:** Refer to team password manager
+- **Login Credentials:** Stored in team password manager / vault. Ask Release Captain if you don't have access.
 
 The 404 errors on staging suggest the Express backend routes are not being reached. This needs investigation during Phase 4 smoke testing.

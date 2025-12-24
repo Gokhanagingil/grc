@@ -1,5 +1,7 @@
 # Staging Release Checklist
 
+> **Security Notice:** Never commit secrets, credentials, or API keys to this repository. All sensitive values must be stored in the team password manager or environment variables. If you discover exposed credentials, report them immediately to the Release Captain.
+
 This document provides a complete validation checklist for staging deployments. Use it alongside `scripts/deploy-staging.sh` to ensure safe, repeatable deployments.
 
 ## Quick Reference
@@ -44,11 +46,9 @@ After the script completes successfully, verify these items manually in the brow
 
 ### Access Staging
 
-**URL:** `http://46.224.99.150`
+**URL:** Refer to the team password manager or ask the Release Captain for the current staging URL.
 
-**Credentials:**
-- Email: `admin@grc-staging.local`
-- Password: `StagingPassword123!`
+**Credentials:** Stored in the team password manager / vault. Ask the Release Captain if you don't have access.
 
 ### Checklist
 
@@ -56,8 +56,8 @@ Copy this checklist and mark items as you verify:
 
 ```
 [ ] 1. LOGIN
-    - Open http://46.224.99.150
-    - Enter credentials
+    - Open staging URL (from password manager)
+    - Enter credentials (from password manager)
     - Login succeeds, redirected to dashboard
     - No console errors (F12 > Console)
 
