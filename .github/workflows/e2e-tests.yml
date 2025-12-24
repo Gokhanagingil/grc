@@ -1,0 +1,127 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Set E2E environment variables
+        id: set-env
+        run: |
+          # Set REACT_APP_E2E_API_MODE to nest (always use NestJS for E2E tests)
+          # This is embedded at build time by Create React App
+          echo "REACT_APP_E2E_API_MODE=nest" >> $GITHUB_ENV
+          
+          # Set E2E_BASE_URL explicitly for CI (do not read secrets in PR)
+          # Use localhost for static server in CI
+          echo "E2E_BASE_URL=http://127.0.0.1:3000" >> $GITHUB_ENV
+          
+          # Enable API mocking in CI (tests run without real backend)
+          echo "E2E_MOCK_API=1" >> $GITHUB_ENV
+          
+          # Set E2E_EMAIL with fallback (do not depend on secrets for PRs)
+          if [ -n "${{ secrets.E2E_EMAIL }}" ]; then
+            echo "E2E_EMAIL=${{ secrets.E2E_EMAIL }}" >> $GITHUB_ENV
+          else
+            echo "E2E_EMAIL=admin@grc-platform.local" >> $GITHUB_ENV
+          fi
+          
+          # Set E2E_PASSWORD with fallback (do not depend on secrets for PRs)
+          if [ -n "${{ secrets.E2E_PASSWORD }}" ]; then
+            echo "E2E_PASSWORD=${{ secrets.E2E_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "E2E_PASSWORD=TestPassword123!" >> $GITHUB_ENV
+          fi
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          REACT_APP_E2E_API_MODE: nest
+
+      - name: Start static server
+        working-directory: ./frontend
+        run: |
+          npx serve -s build -l 3000 > /tmp/serve.log 2>&1 & echo $! > /tmp/serve.pid
+          echo "Static server started with PID: $(cat /tmp/serve.pid)"
+
+      - name: Wait for static server
+        working-directory: ./frontend
+        run: |
+          echo "Waiting for static server to be ready..."
+          timeout=120
+          elapsed=0
+          while ! curl -fsS http://127.0.0.1:3000/ > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout waiting for server"
+              echo "Last 200 lines of serve.log:"
+              tail -n 200 /tmp/serve.log || true
+              exit 1
+            fi
+            echo "Waiting... ($elapsed/$timeout seconds)"
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Static server is ready!"
+
+      - name: Run E2E tests
+        id: run-tests
+        working-directory: ./frontend
+        run: npx playwright test --project=chromium --reporter=list
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_MOCK_API: 1
+
+      - name: Stop static server
+        if: always()
+        run: |
+          if [ -f /tmp/serve.pid ]; then
+            kill $(cat /tmp/serve.pid) 2>/dev/null || true
+            rm -f /tmp/serve.pid
+          fi
+          # Print serve.log tail on failure
+          if [ "${{ steps.run-tests.outcome }}" != "success" ] && [ -f /tmp/serve.log ]; then
+            echo "Server logs (last 200 lines):"
+            tail -n 200 /tmp/serve.log || true
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: frontend/test-results/
+          retention-days: 7

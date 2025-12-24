@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, Breadcrumbs, Link } from '@mui/material';
+import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 
 interface BreadcrumbItem {
@@ -13,6 +13,18 @@ interface AdminPageHeaderProps {
   breadcrumbs?: BreadcrumbItem[];
   actions?: React.ReactNode;
 }
+
+const getTitleTestId = (title: string): string => {
+  const titleMap: Record<string, string> = {
+    'User Management': 'page-admin-users-title',
+    'Roles & Permissions': 'page-admin-roles-title',
+    'Tenant Management': 'page-admin-tenants-title',
+    'Audit Logs': 'page-admin-audit-logs-title',
+    'System Status': 'page-admin-system-title',
+    'System Settings': 'page-admin-settings-title',
+  };
+  return titleMap[title] || `page-${title.toLowerCase().replace(/\s+/g, '-')}-title`;
+};
 
 export const AdminPageHeader: React.FC<AdminPageHeaderProps> = ({
   title,
@@ -54,7 +66,12 @@ export const AdminPageHeader: React.FC<AdminPageHeaderProps> = ({
         }}
       >
         <Box>
-          <Typography variant="h4" component="h1" gutterBottom={!!subtitle}>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            gutterBottom={!!subtitle}
+            data-testid={getTitleTestId(title)}
+          >
             {title}
           </Typography>
           {subtitle && (

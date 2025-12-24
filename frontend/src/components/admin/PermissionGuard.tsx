@@ -19,7 +19,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   fallback,
   showAccessDenied = true,
 }) => {
-  const { hasPermission, hasAllPermissions, hasAnyPermission } = usePermission();
+  const { hasAllPermissions, hasAnyPermission } = usePermission();
 
   const allPermissions = permission ? [permission, ...permissions] : permissions;
 

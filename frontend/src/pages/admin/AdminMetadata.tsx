@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -116,15 +116,7 @@ export const AdminMetadata: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    if (tenantId) {
-      fetchFields();
-      fetchTags();
-      fetchTables();
-    }
-  }, [tenantId]);
-
-  const fetchFields = async () => {
+  const fetchFields = useCallback(async () => {
     try {
       setLoading(true);
       const response = await metadataApi.fields.list(tenantId);
@@ -139,9 +131,9 @@ export const AdminMetadata: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
 
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     try {
       const response = await metadataApi.tags.list(tenantId);
       const result = unwrapPaginatedResponse<ClassificationTag>(response);
@@ -153,9 +145,9 @@ export const AdminMetadata: React.FC = () => {
       }
       setTags([]);
     }
-  };
+  }, [tenantId]);
 
-  const fetchTables = async () => {
+  const fetchTables = useCallback(async () => {
     try {
       const response = await metadataApi.fields.getTables(tenantId);
       const result = unwrapResponse<string[]>(response);
@@ -163,7 +155,15 @@ export const AdminMetadata: React.FC = () => {
     } catch (err) {
       setTables([]);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (tenantId) {
+      fetchFields();
+      fetchTags();
+      fetchTables();
+    }
+  }, [tenantId, fetchFields, fetchTags, fetchTables]);
 
   const handleSeedDefaultTags = async () => {
     try {

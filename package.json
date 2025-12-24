@@ -26,6 +26,8 @@
     "frontend:start": "cd frontend && npm start",
     "frontend:build": "cd frontend && npm run build",
     "frontend:lint": "cd frontend && npx eslint src/ --ext .ts,.tsx",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "e2e:ci": "npm --prefix frontend run test:e2e -- --project=chromium",
     
     "---SETUP---": "echo 'Setup Commands'",
     "install:all": "npm run nest:install && npm run backend:install && npm run frontend:install",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -96,13 +96,7 @@ export const PolicyVersionsTab: React.FC<PolicyVersionsTabProps> = ({
 
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    if (policyId && tenantId) {
-      fetchVersions();
-    }
-  }, [policyId, tenantId]);
-
-  const fetchVersions = async () => {
+  const fetchVersions = useCallback(async () => {
     try {
       setError('');
       setLoading(true);
@@ -119,7 +113,13 @@ export const PolicyVersionsTab: React.FC<PolicyVersionsTabProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, policyId]);
+
+  useEffect(() => {
+    if (policyId && tenantId) {
+      fetchVersions();
+    }
+  }, [policyId, tenantId, fetchVersions]);
 
   const handleCreateDraft = async () => {
     try {

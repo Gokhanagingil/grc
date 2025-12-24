@@ -111,14 +111,6 @@ interface Incident {
   isDeleted: boolean;
 }
 
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
 export const IncidentManagement: React.FC = () => {
   const { user } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
