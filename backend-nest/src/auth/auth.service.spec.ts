@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { BruteForceService } from './security/brute-force.service';
+import { MfaService } from './mfa/mfa.service';
 import { User, UserRole } from '../users/user.entity';
 
 // Mock bcrypt
@@ -72,6 +73,11 @@ describe('AuthService', () => {
       emit: jest.fn(),
     };
 
+    const mockMfaService = {
+      isMfaEnabled: jest.fn().mockResolvedValue(false),
+      verifyMfaCode: jest.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -81,6 +87,7 @@ describe('AuthService', () => {
         { provide: TenantsService, useValue: mockTenantsService },
         { provide: BruteForceService, useValue: mockBruteForceService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: MfaService, useValue: mockMfaService },
       ],
     }).compile();
 

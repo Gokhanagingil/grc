@@ -66,10 +66,97 @@ export class AuditLogEvent extends BaseDomainEvent {
 }
 
 /**
+ * Emitted when MFA is enabled for a user
+ */
+export class MfaEnabledEvent extends BaseDomainEvent {
+  constructor(
+    public readonly userId: string,
+    public readonly tenantId: string | null,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Emitted when MFA is disabled for a user
+ */
+export class MfaDisabledEvent extends BaseDomainEvent {
+  constructor(
+    public readonly userId: string,
+    public readonly tenantId: string | null,
+    public readonly disabledBy: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Emitted when MFA challenge fails
+ */
+export class MfaChallengeFailedEvent extends BaseDomainEvent {
+  constructor(
+    public readonly userId: string,
+    public readonly tenantId: string | null,
+    public readonly context: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Emitted when a user login fails
+ */
+export class LoginFailedEvent extends BaseDomainEvent {
+  constructor(
+    public readonly email: string,
+    public readonly tenantId: string | null,
+    public readonly reason: string,
+    public readonly ipAddress?: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Emitted when LDAP authentication is attempted
+ */
+export class LdapAuthAttemptEvent extends BaseDomainEvent {
+  constructor(
+    public readonly username: string,
+    public readonly tenantId: string,
+    public readonly success: boolean,
+    public readonly errorMessage?: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Emitted when a user's role is changed
+ */
+export class RoleChangedEvent extends BaseDomainEvent {
+  constructor(
+    public readonly userId: string,
+    public readonly tenantId: string | null,
+    public readonly oldRole: string,
+    public readonly newRole: string,
+    public readonly changedBy: string,
+  ) {
+    super();
+  }
+}
+
+/**
  * Event names as constants for type safety
  */
 export const DomainEventNames = {
   USER_LOGGED_IN: 'user.logged_in',
+  LOGIN_FAILED: 'user.login_failed',
   TENANT_ACCESSED: 'tenant.accessed',
   AUDIT_LOG: 'audit.log',
+  MFA_ENABLED: 'mfa.enabled',
+  MFA_DISABLED: 'mfa.disabled',
+  MFA_CHALLENGE_FAILED: 'mfa.challenge_failed',
+  LDAP_AUTH_ATTEMPT: 'ldap.auth_attempt',
+  ROLE_CHANGED: 'user.role_changed',
 } as const;

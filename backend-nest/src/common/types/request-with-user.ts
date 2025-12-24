@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   sub: string;
   email: string;
   role: UserRole | string;
+  tenantId?: string;
 }
 
 /**

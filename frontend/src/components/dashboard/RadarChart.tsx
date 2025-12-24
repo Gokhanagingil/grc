@@ -40,7 +40,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({
           <PolarAngleAxis dataKey={nameKey} tick={{ fontSize: 11 }} />
           <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 10 }} />
           <Tooltip
-            formatter={(value: number) => `${(value * 100).toFixed(0)}%`}
+            formatter={(value: number | undefined) => value !== undefined ? `${(value * 100).toFixed(0)}%` : '0%'}
           />
           {series.map((s) => (
             <Radar

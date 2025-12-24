@@ -190,17 +190,25 @@ The platform uses SQLite3 with the following main tables:
 - [ ] Docker containerization
 - [ ] CI/CD pipeline
 
+## 📚 Documentation
+
+- [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md) - Repository layout and backend strategy
+- [Contributing Guide](CONTRIBUTING.md) - Development setup and contribution guidelines
+- [Security Policy](SECURITY.md) - Vulnerability reporting and secrets management
+
 ## 🤝 Contributing
+
+Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a pull request. Key points:
 
 1. Fork the repository
 2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+3. Follow the code style guidelines
+4. Run tests before submitting
+5. Create a Pull Request using the provided template
 
 ## 📄 License
 
-This project is licensed under the ISC License.
+This project is licensed under the ISC License. See [LICENSE](LICENSE) for details.
 
 ## 👥 Authors
 

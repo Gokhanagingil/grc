@@ -120,6 +120,7 @@ const menuGroups: NavMenuGroup[] = [
     items: [
       { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
       { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
+      { text: 'Data Model', icon: <DotWalkingIcon />, path: '/admin/data-model', roles: ['admin'] },
       { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
     ],
   },
