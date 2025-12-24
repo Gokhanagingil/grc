@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ./frontend
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
       - name: Set E2E environment variables
         id: set-env
@@ -57,6 +57,29 @@ jobs:
           else
             echo "E2E_PASSWORD=TestPassword123!" >> $GITHUB_ENV
           fi
+
+      - name: Start frontend server
+        working-directory: ./frontend
+        run: npm start &
+        env:
+          BROWSER: none
+          REACT_APP_E2E_API_MODE: nest
+
+      - name: Wait for frontend server
+        run: |
+          echo "Waiting for frontend server to be ready..."
+          timeout=120
+          elapsed=0
+          while ! curl -f http://localhost:3000/login > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout waiting for server"
+              exit 1
+            fi
+            echo "Waiting... ($elapsed/$timeout seconds)"
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Frontend server is ready!"
 
       - name: Run E2E tests
         working-directory: ./frontend
