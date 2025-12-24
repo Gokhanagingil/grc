@@ -18,6 +18,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlatformModule } from './platform/platform.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { JobsModule } from './jobs/jobs.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -116,10 +118,16 @@ import { StructuredLoggerService } from './common/logger';
     // Platform Core (stub endpoints for dynamic platform features)
     PlatformModule,
 
-    // Admin Core (system visibility, security posture)
-    AdminModule,
+        // Admin Core (system visibility, security posture)
+        AdminModule,
 
-    // Rate limiting- default: 100 requests per 60 seconds
+        // Notifications Foundation (Email + Webhook with audit logging)
+        NotificationsModule,
+
+        // Background Jobs Foundation (in-process job runner with registry)
+        JobsModule,
+
+        // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
