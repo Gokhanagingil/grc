@@ -58,10 +58,10 @@ export class JobsController {
    */
   @Get('platform-validation')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async getLastPlatformValidation(): Promise<{
+  getLastPlatformValidation(): {
     hasResult: boolean;
     result: unknown;
-  }> {
+  } {
     const result = this.platformSelfCheckJob.getLastValidationResult();
     return {
       hasResult: result !== null,

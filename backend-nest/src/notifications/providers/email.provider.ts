@@ -56,7 +56,7 @@ export class EmailProvider implements NotificationProvider {
     return true;
   }
 
-  async send(payload: NotificationPayload): Promise<NotificationResult> {
+  send(payload: NotificationPayload): NotificationResult {
     const timestamp = new Date().toISOString();
 
     if (!this.isEnabled) {

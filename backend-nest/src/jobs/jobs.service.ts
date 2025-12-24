@@ -54,7 +54,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     this.logger.setContext('JobsService');
   }
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
     this.logger.log('Jobs service initialized', {
       registeredJobs: this.registry.size,
     });
