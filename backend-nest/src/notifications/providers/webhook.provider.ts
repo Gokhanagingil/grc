@@ -31,7 +31,9 @@ export class WebhookProvider implements NotificationProvider {
   }
 
   get isEnabled(): boolean {
-    return this.configService.get<string>('WEBHOOK_ENABLED', 'false') === 'true';
+    return (
+      this.configService.get<string>('WEBHOOK_ENABLED', 'false') === 'true'
+    );
   }
 
   validateConfig(): boolean {
@@ -147,7 +149,8 @@ export class WebhookProvider implements NotificationProvider {
         clearTimeout(timeoutId);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       const isTimeout = error instanceof Error && error.name === 'AbortError';
 
       this.logger.error('Failed to send webhook notification', {

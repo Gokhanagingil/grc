@@ -21,7 +21,10 @@ import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../auth/permissions/permissions.guard';
 import { Permissions } from '../auth/permissions/permissions.decorator';
 import { Permission } from '../auth/permissions/permission.enum';
-import { NotificationsService, NotificationStatusSummary } from './notifications.service';
+import {
+  NotificationsService,
+  NotificationStatusSummary,
+} from './notifications.service';
 import { NotificationResult } from './interfaces/notification-provider.interface';
 import { NotificationLog } from './entities/notification-log.entity';
 import { RequestWithUser } from '../common/types';

@@ -45,7 +45,8 @@ export class PlatformSelfCheckJob implements Job {
 
   readonly config: JobConfig = {
     name: 'platform-self-check',
-    description: 'Nightly platform validation running environment, database, and migration checks',
+    description:
+      'Nightly platform validation running environment, database, and migration checks',
     scheduleIntervalMs: 24 * 60 * 60 * 1000,
     enabled: true,
     runOnStartup: false,
@@ -122,7 +123,8 @@ export class PlatformSelfCheckJob implements Job {
     } catch (error) {
       const completedAt = new Date();
       const durationMs = completedAt.getTime() - startedAt.getTime();
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
 
       this.logger.error('Platform self-check job failed', {
         jobId,
@@ -214,7 +216,10 @@ export class PlatformSelfCheckJob implements Job {
           }
         } catch (parseError) {
           this.logger.warn('Failed to parse validation output', {
-            error: parseError instanceof Error ? parseError.message : 'Unknown error',
+            error:
+              parseError instanceof Error
+                ? parseError.message
+                : 'Unknown error',
             output: output.substring(0, 500),
           });
 

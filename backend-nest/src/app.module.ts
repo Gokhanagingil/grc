@@ -118,16 +118,16 @@ import { StructuredLoggerService } from './common/logger';
     // Platform Core (stub endpoints for dynamic platform features)
     PlatformModule,
 
-        // Admin Core (system visibility, security posture)
-        AdminModule,
+    // Admin Core (system visibility, security posture)
+    AdminModule,
 
-        // Notifications Foundation (Email + Webhook with audit logging)
-        NotificationsModule,
+    // Notifications Foundation (Email + Webhook with audit logging)
+    NotificationsModule,
 
-        // Background Jobs Foundation (in-process job runner with registry)
-        JobsModule,
+    // Background Jobs Foundation (in-process job runner with registry)
+    JobsModule,
 
-        // Rate limiting- default: 100 requests per 60 seconds
+    // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],

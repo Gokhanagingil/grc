@@ -184,7 +184,9 @@ export class NotificationsService {
     return result;
   }
 
-  async getNotificationStatus(tenantId: string): Promise<NotificationStatusSummary> {
+  async getNotificationStatus(
+    tenantId: string,
+  ): Promise<NotificationStatusSummary> {
     const last24Hours = new Date();
     last24Hours.setHours(last24Hours.getHours() - 24);
 

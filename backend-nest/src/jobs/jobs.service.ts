@@ -178,7 +178,8 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     try {
       result = await entry.job.execute();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       result = {
         jobId: randomUUID(),
         jobName: name,
@@ -204,7 +205,9 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (entry.job.config.scheduleIntervalMs) {
-      entry.nextRunAt = new Date(Date.now() + entry.job.config.scheduleIntervalMs);
+      entry.nextRunAt = new Date(
+        Date.now() + entry.job.config.scheduleIntervalMs,
+      );
     }
 
     await this.saveJobRun(result);

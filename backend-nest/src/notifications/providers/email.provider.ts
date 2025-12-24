@@ -91,7 +91,8 @@ export class EmailProvider implements NotificationProvider {
       const smtpConfig = {
         host: this.configService.get<string>('SMTP_HOST'),
         port: parseInt(this.configService.get<string>('SMTP_PORT', '587'), 10),
-        secure: this.configService.get<string>('SMTP_SECURE', 'false') === 'true',
+        secure:
+          this.configService.get<string>('SMTP_SECURE', 'false') === 'true',
         from: this.configService.get<string>('SMTP_FROM'),
       };
 
@@ -115,7 +116,8 @@ export class EmailProvider implements NotificationProvider {
         },
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
 
       this.logger.error('Failed to send email notification', {
         correlationId: payload.correlationId,
