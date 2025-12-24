@@ -16,13 +16,13 @@ import { NotificationsController } from './notifications.controller';
 import { EmailProvider } from './providers/email.provider';
 import { WebhookProvider } from './providers/webhook.provider';
 import { NotificationLog } from './entities/notification-log.entity';
-import { TenantsModule } from '../tenants/tenants.module';
+import { GuardsModule } from '../common/guards';
 
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([NotificationLog]),
-    TenantsModule,
+    GuardsModule,
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, EmailProvider, WebhookProvider],
