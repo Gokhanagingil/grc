@@ -37,12 +37,8 @@ jobs:
           # This is embedded at build time by Create React App
           echo "REACT_APP_E2E_API_MODE=nest" >> $GITHUB_ENV
           
-          # Set E2E_BASE_URL with fallback (for Playwright, not React)
-          if [ -n "${{ secrets.E2E_BASE_URL }}" ]; then
-            echo "E2E_BASE_URL=${{ secrets.E2E_BASE_URL }}" >> $GITHUB_ENV
-          else
-            echo "E2E_BASE_URL=http://localhost:3000" >> $GITHUB_ENV
-          fi
+          # Set E2E_BASE_URL explicitly for CI (use local default, not secrets for PRs)
+          echo "E2E_BASE_URL=http://127.0.0.1:3000" >> $GITHUB_ENV
           
           # Set E2E_EMAIL with fallback
           if [ -n "${{ secrets.E2E_EMAIL }}" ]; then
@@ -58,38 +54,51 @@ jobs:
             echo "E2E_PASSWORD=TestPassword123!" >> $GITHUB_ENV
           fi
 
-      - name: Start frontend server
+      - name: Build frontend
         working-directory: ./frontend
-        run: npm start &
+        run: npm run build
         env:
-          PORT: 3000
-          BROWSER: none
           REACT_APP_E2E_API_MODE: nest
 
-      - name: Wait for frontend server
+      - name: Start static server
         working-directory: ./frontend
         run: |
-          echo "Waiting for frontend server to be ready..."
-          timeout=120
+          nohup npx serve -s build -l 3000 > /tmp/serve.log 2>&1 &
+          echo $! > /tmp/serve.pid
+          echo "Static server started with PID: $(cat /tmp/serve.pid)"
+
+      - name: Wait for static server
+        working-directory: ./frontend
+        run: |
+          echo "Waiting for static server to be ready..."
+          timeout=60
           elapsed=0
-          while ! curl -f http://localhost:3000/login > /dev/null 2>&1; do
+          while ! curl -fsS http://127.0.0.1:3000/ > /dev/null 2>&1; do
             if [ $elapsed -ge $timeout ]; then
               echo "Timeout waiting for server"
+              echo "Last 200 lines of serve.log:"
+              tail -n 200 /tmp/serve.log || true
               exit 1
             fi
             echo "Waiting... ($elapsed/$timeout seconds)"
             sleep 2
             elapsed=$((elapsed + 2))
           done
-          echo "Frontend server is ready!"
-
-      - name: Diagnostic - Show available npm scripts
-        working-directory: ./frontend
-        run: npm run
+          echo "Static server is ready!"
 
       - name: Run E2E tests
         working-directory: ./frontend
-        run: npx playwright test --project=chromium
+        run: npx playwright test --project=chromium --reporter=list
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+
+      - name: Stop static server
+        if: always()
+        run: |
+          if [ -f /tmp/serve.pid ]; then
+            kill $(cat /tmp/serve.pid) 2>/dev/null || true
+            rm -f /tmp/serve.pid
+          fi
 
       - name: Upload Playwright report
         if: always()
