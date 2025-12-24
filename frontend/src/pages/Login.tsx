@@ -106,8 +106,8 @@ export const Login: React.FC = () => {
           </Box>
 
           <TabPanel value={tabValue} index={0}>
-            <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
-              <Typography component="h1" variant="h5" align="center" gutterBottom>
+            <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }} data-testid="form-login">
+              <Typography component="h1" variant="h5" align="center" gutterBottom data-testid="page-login-title">
                 GRC Platform Login
               </Typography>
               {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -122,6 +122,7 @@ export const Login: React.FC = () => {
                 autoFocus
                 value={loginData.username}
                 onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                inputProps={{ 'data-testid': 'input-username' }}
               />
               <TextField
                 margin="normal"
@@ -134,6 +135,7 @@ export const Login: React.FC = () => {
                 autoComplete="current-password"
                 value={loginData.password}
                 onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                inputProps={{ 'data-testid': 'input-password' }}
               />
               <Button
                 type="submit"
@@ -141,6 +143,7 @@ export const Login: React.FC = () => {
                 variant="contained"
                 sx={{ mt: 3, mb: 2 }}
                 disabled={loading}
+                data-testid="btn-submit-login"
               >
                 {loading ? 'Signing In...' : 'Sign In'}
               </Button>
