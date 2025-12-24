@@ -31,6 +31,6 @@ export interface NotificationProvider {
   readonly providerType: string;
   readonly isEnabled: boolean;
 
-  send(payload: NotificationPayload): Promise<NotificationResult> | NotificationResult;
+  send(payload: NotificationPayload): Promise<NotificationResult>;
   validateConfig(): boolean;
 }

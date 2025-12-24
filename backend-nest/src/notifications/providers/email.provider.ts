@@ -56,11 +56,11 @@ export class EmailProvider implements NotificationProvider {
     return true;
   }
 
-  send(payload: NotificationPayload): NotificationResult {
+  send(payload: NotificationPayload): Promise<NotificationResult> {
     const timestamp = new Date().toISOString();
 
     if (!this.isEnabled) {
-      return {
+      return Promise.resolve({
         success: false,
         messageCode: 'NOTIFICATION_EMAIL_DISABLED',
         providerType: this.providerType,
@@ -70,11 +70,11 @@ export class EmailProvider implements NotificationProvider {
           code: 'PROVIDER_DISABLED',
           message: 'Email provider is disabled',
         },
-      };
+      });
     }
 
     if (!this.validateConfig()) {
-      return {
+      return Promise.resolve({
         success: false,
         messageCode: 'NOTIFICATION_EMAIL_CONFIG_INVALID',
         providerType: this.providerType,
@@ -84,7 +84,7 @@ export class EmailProvider implements NotificationProvider {
           code: 'CONFIG_INVALID',
           message: 'Email provider configuration is invalid',
         },
-      };
+      });
     }
 
     try {
@@ -103,7 +103,7 @@ export class EmailProvider implements NotificationProvider {
         smtpPort: smtpConfig.port,
       });
 
-      return {
+      return Promise.resolve({
         success: true,
         messageCode: 'NOTIFICATION_EMAIL_SENT',
         providerType: this.providerType,
@@ -113,7 +113,7 @@ export class EmailProvider implements NotificationProvider {
           subject: payload.subject,
           smtpHost: smtpConfig.host,
         },
-      };
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
@@ -123,7 +123,7 @@ export class EmailProvider implements NotificationProvider {
         error: errorMessage,
       });
 
-      return {
+      return Promise.resolve({
         success: false,
         messageCode: 'NOTIFICATION_EMAIL_FAILED',
         providerType: this.providerType,
@@ -133,7 +133,7 @@ export class EmailProvider implements NotificationProvider {
           code: 'SEND_FAILED',
           message: errorMessage,
         },
-      };
+      });
     }
   }
 }

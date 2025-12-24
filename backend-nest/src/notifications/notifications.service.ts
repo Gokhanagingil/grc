@@ -103,8 +103,6 @@ export class NotificationsService {
       } else if (providerName === 'webhook') {
         result = await this.webhookProvider.send(payload);
       } else {
-        // This branch should never be reached due to type constraints,
-        // but we handle it for runtime safety
         const unknownProvider = providerName as string;
         result = {
           success: false,
