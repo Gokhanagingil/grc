@@ -37,17 +37,17 @@ jobs:
           # This is embedded at build time by Create React App
           echo "REACT_APP_E2E_API_MODE=nest" >> $GITHUB_ENV
           
-          # Set E2E_BASE_URL explicitly for CI (use local default, not secrets for PRs)
+          # Set E2E_BASE_URL explicitly for CI (do not read secrets in PR)
           echo "E2E_BASE_URL=http://127.0.0.1:3000" >> $GITHUB_ENV
           
-          # Set E2E_EMAIL with fallback
+          # Set E2E_EMAIL with fallback (do not depend on secrets for PRs)
           if [ -n "${{ secrets.E2E_EMAIL }}" ]; then
             echo "E2E_EMAIL=${{ secrets.E2E_EMAIL }}" >> $GITHUB_ENV
           else
             echo "E2E_EMAIL=admin@grc-platform.local" >> $GITHUB_ENV
           fi
           
-          # Set E2E_PASSWORD with fallback
+          # Set E2E_PASSWORD with fallback (do not depend on secrets for PRs)
           if [ -n "${{ secrets.E2E_PASSWORD }}" ]; then
             echo "E2E_PASSWORD=${{ secrets.E2E_PASSWORD }}" >> $GITHUB_ENV
           else
@@ -63,15 +63,14 @@ jobs:
       - name: Start static server
         working-directory: ./frontend
         run: |
-          nohup npx serve -s build -l 3000 > /tmp/serve.log 2>&1 &
-          echo $! > /tmp/serve.pid
+          npx serve -s build -l 3000 > /tmp/serve.log 2>&1 & echo $! > /tmp/serve.pid
           echo "Static server started with PID: $(cat /tmp/serve.pid)"
 
       - name: Wait for static server
         working-directory: ./frontend
         run: |
           echo "Waiting for static server to be ready..."
-          timeout=60
+          timeout=120
           elapsed=0
           while ! curl -fsS http://127.0.0.1:3000/ > /dev/null 2>&1; do
             if [ $elapsed -ge $timeout ]; then
@@ -87,6 +86,7 @@ jobs:
           echo "Static server is ready!"
 
       - name: Run E2E tests
+        id: run-tests
         working-directory: ./frontend
         run: npx playwright test --project=chromium --reporter=list
         env:
@@ -98,6 +98,11 @@ jobs:
           if [ -f /tmp/serve.pid ]; then
             kill $(cat /tmp/serve.pid) 2>/dev/null || true
             rm -f /tmp/serve.pid
+          fi
+          # Print serve.log tail on failure
+          if [ "${{ steps.run-tests.outcome }}" != "success" ] && [ -f /tmp/serve.log ]; then
+            echo "Server logs (last 200 lines):"
+            tail -n 200 /tmp/serve.log || true
           fi
 
       - name: Upload Playwright report
