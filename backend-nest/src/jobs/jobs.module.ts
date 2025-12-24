@@ -15,9 +15,10 @@ import { JobsService } from './jobs.service';
 import { JobsController } from './jobs.controller';
 import { JobRun } from './entities/job-run.entity';
 import { PlatformSelfCheckJob } from './jobs/platform-self-check.job';
+import { TenantsModule } from '../tenants/tenants.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([JobRun])],
+  imports: [TypeOrmModule.forFeature([JobRun]), TenantsModule],
   controllers: [JobsController],
   providers: [JobsService, PlatformSelfCheckJob],
   exports: [JobsService],
