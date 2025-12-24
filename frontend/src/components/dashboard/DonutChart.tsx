@@ -52,9 +52,9 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number, name: string) => [
-              `${value} (${((value / total) * 100).toFixed(1)}%)`,
-              name,
+            formatter={(value: number | undefined, name: string | undefined) => [
+              value !== undefined ? `${value} (${((value / total) * 100).toFixed(1)}%)` : '0',
+              name ?? '',
             ]}
           />
           {showLegend && <Legend />}
