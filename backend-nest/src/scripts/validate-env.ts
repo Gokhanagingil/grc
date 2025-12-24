@@ -193,6 +193,72 @@ const ENV_VARS: EnvVarSpec[] = [
     description: 'LDAP bind password',
     sensitive: true,
   },
+
+  // SMTP Email Notifications - Optional (disabled by default)
+  {
+    name: 'SMTP_ENABLED',
+    required: false,
+    description: 'Enable SMTP email notifications',
+    defaultValue: 'false',
+  },
+  {
+    name: 'SMTP_HOST',
+    required: false,
+    description: 'SMTP server hostname',
+  },
+  {
+    name: 'SMTP_PORT',
+    required: false,
+    description: 'SMTP server port',
+    defaultValue: '587',
+  },
+  {
+    name: 'SMTP_USER',
+    required: false,
+    description: 'SMTP authentication username',
+  },
+  {
+    name: 'SMTP_PASSWORD',
+    required: false,
+    description: 'SMTP authentication password',
+    sensitive: true,
+  },
+  {
+    name: 'SMTP_FROM',
+    required: false,
+    description: 'SMTP sender email address',
+  },
+  {
+    name: 'SMTP_SECURE',
+    required: false,
+    description: 'Use TLS for SMTP connection',
+    defaultValue: 'false',
+  },
+
+  // Webhook Notifications - Optional (disabled by default)
+  {
+    name: 'WEBHOOK_ENABLED',
+    required: false,
+    description: 'Enable webhook notifications',
+    defaultValue: 'false',
+  },
+  {
+    name: 'WEBHOOK_URL',
+    required: false,
+    description: 'Webhook endpoint URL',
+  },
+  {
+    name: 'WEBHOOK_SECRET',
+    required: false,
+    description: 'Webhook authentication secret',
+    sensitive: true,
+  },
+  {
+    name: 'WEBHOOK_TIMEOUT_MS',
+    required: false,
+    description: 'Webhook request timeout in milliseconds',
+    defaultValue: '5000',
+  },
 ];
 
 function getEnvValue(name: string): string | undefined {

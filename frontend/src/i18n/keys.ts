@@ -326,11 +326,125 @@ export const ADMIN_SECURITY_EN: Record<string, string> = {
 };
 
 /**
+ * Admin Platform Keys (FAZ 5)
+ * Translation keys for Platform Core Foundation screens (Notifications, Jobs)
+ */
+export const ADMIN_PLATFORM_KEYS = {
+  // Notifications
+  notifications: {
+    title: 'admin.platform.notifications.title',
+    subtitle: 'admin.platform.notifications.subtitle',
+    emailProvider: 'admin.platform.notifications.email_provider',
+    webhookProvider: 'admin.platform.notifications.webhook_provider',
+    enabled: 'admin.platform.notifications.enabled',
+    disabled: 'admin.platform.notifications.disabled',
+    configured: 'admin.platform.notifications.configured',
+    notConfigured: 'admin.platform.notifications.not_configured',
+    testNotification: 'admin.platform.notifications.test_notification',
+    testEmail: 'admin.platform.notifications.test_email',
+    testWebhook: 'admin.platform.notifications.test_webhook',
+    recentLogs: 'admin.platform.notifications.recent_logs',
+    noLogs: 'admin.platform.notifications.no_logs',
+    status: 'admin.platform.notifications.status',
+    success: 'admin.platform.notifications.success',
+    failed: 'admin.platform.notifications.failed',
+    lastAttempt: 'admin.platform.notifications.last_attempt',
+  },
+  
+  // Jobs
+  jobs: {
+    title: 'admin.platform.jobs.title',
+    subtitle: 'admin.platform.jobs.subtitle',
+    registeredJobs: 'admin.platform.jobs.registered_jobs',
+    recentRuns: 'admin.platform.jobs.recent_runs',
+    noJobs: 'admin.platform.jobs.no_jobs',
+    noRuns: 'admin.platform.jobs.no_runs',
+    triggerJob: 'admin.platform.jobs.trigger_job',
+    jobName: 'admin.platform.jobs.job_name',
+    jobStatus: 'admin.platform.jobs.job_status',
+    lastRun: 'admin.platform.jobs.last_run',
+    nextRun: 'admin.platform.jobs.next_run',
+    duration: 'admin.platform.jobs.duration',
+    runCount: 'admin.platform.jobs.run_count',
+    successCount: 'admin.platform.jobs.success_count',
+    failureCount: 'admin.platform.jobs.failure_count',
+    platformValidation: 'admin.platform.jobs.platform_validation',
+    validationPassed: 'admin.platform.jobs.validation_passed',
+    validationFailed: 'admin.platform.jobs.validation_failed',
+    noValidationResult: 'admin.platform.jobs.no_validation_result',
+  },
+  
+  // Common
+  common: {
+    loading: 'admin.platform.common.loading',
+    error: 'admin.platform.common.error',
+    refresh: 'admin.platform.common.refresh',
+    running: 'admin.platform.common.running',
+    pending: 'admin.platform.common.pending',
+    completed: 'admin.platform.common.completed',
+  },
+} as const;
+
+/**
+ * Default English translations for Admin Platform (FAZ 5)
+ */
+export const ADMIN_PLATFORM_EN: Record<string, string> = {
+  // Notifications
+  [ADMIN_PLATFORM_KEYS.notifications.title]: 'Notification Status',
+  [ADMIN_PLATFORM_KEYS.notifications.subtitle]: 'Monitor notification providers and recent activity',
+  [ADMIN_PLATFORM_KEYS.notifications.emailProvider]: 'Email Provider (SMTP)',
+  [ADMIN_PLATFORM_KEYS.notifications.webhookProvider]: 'Webhook Provider',
+  [ADMIN_PLATFORM_KEYS.notifications.enabled]: 'Enabled',
+  [ADMIN_PLATFORM_KEYS.notifications.disabled]: 'Disabled',
+  [ADMIN_PLATFORM_KEYS.notifications.configured]: 'Configured',
+  [ADMIN_PLATFORM_KEYS.notifications.notConfigured]: 'Not Configured',
+  [ADMIN_PLATFORM_KEYS.notifications.testNotification]: 'Test Notification',
+  [ADMIN_PLATFORM_KEYS.notifications.testEmail]: 'Test Email',
+  [ADMIN_PLATFORM_KEYS.notifications.testWebhook]: 'Test Webhook',
+  [ADMIN_PLATFORM_KEYS.notifications.recentLogs]: 'Recent Notification Logs',
+  [ADMIN_PLATFORM_KEYS.notifications.noLogs]: 'No notification logs available',
+  [ADMIN_PLATFORM_KEYS.notifications.status]: 'Status',
+  [ADMIN_PLATFORM_KEYS.notifications.success]: 'Success',
+  [ADMIN_PLATFORM_KEYS.notifications.failed]: 'Failed',
+  [ADMIN_PLATFORM_KEYS.notifications.lastAttempt]: 'Last Attempt',
+  
+  // Jobs
+  [ADMIN_PLATFORM_KEYS.jobs.title]: 'Background Jobs',
+  [ADMIN_PLATFORM_KEYS.jobs.subtitle]: 'Monitor scheduled jobs and platform validation',
+  [ADMIN_PLATFORM_KEYS.jobs.registeredJobs]: 'Registered Jobs',
+  [ADMIN_PLATFORM_KEYS.jobs.recentRuns]: 'Recent Job Runs',
+  [ADMIN_PLATFORM_KEYS.jobs.noJobs]: 'No jobs registered',
+  [ADMIN_PLATFORM_KEYS.jobs.noRuns]: 'No job runs recorded',
+  [ADMIN_PLATFORM_KEYS.jobs.triggerJob]: 'Trigger Job',
+  [ADMIN_PLATFORM_KEYS.jobs.jobName]: 'Job Name',
+  [ADMIN_PLATFORM_KEYS.jobs.jobStatus]: 'Status',
+  [ADMIN_PLATFORM_KEYS.jobs.lastRun]: 'Last Run',
+  [ADMIN_PLATFORM_KEYS.jobs.nextRun]: 'Next Run',
+  [ADMIN_PLATFORM_KEYS.jobs.duration]: 'Duration',
+  [ADMIN_PLATFORM_KEYS.jobs.runCount]: 'Run Count',
+  [ADMIN_PLATFORM_KEYS.jobs.successCount]: 'Success',
+  [ADMIN_PLATFORM_KEYS.jobs.failureCount]: 'Failures',
+  [ADMIN_PLATFORM_KEYS.jobs.platformValidation]: 'Platform Validation Summary',
+  [ADMIN_PLATFORM_KEYS.jobs.validationPassed]: 'Platform validation passed',
+  [ADMIN_PLATFORM_KEYS.jobs.validationFailed]: 'Platform validation failed',
+  [ADMIN_PLATFORM_KEYS.jobs.noValidationResult]: 'No validation result available. Trigger the platform-self-check job to run validation.',
+  
+  // Common
+  [ADMIN_PLATFORM_KEYS.common.loading]: 'Loading...',
+  [ADMIN_PLATFORM_KEYS.common.error]: 'An error occurred',
+  [ADMIN_PLATFORM_KEYS.common.refresh]: 'Refresh',
+  [ADMIN_PLATFORM_KEYS.common.running]: 'Running',
+  [ADMIN_PLATFORM_KEYS.common.pending]: 'Pending',
+  [ADMIN_PLATFORM_KEYS.common.completed]: 'Completed',
+};
+
+/**
  * Combined translations for all Admin screens
  */
 const ALL_TRANSLATIONS: Record<string, string> = {
   ...ADMIN_DATA_MODEL_EN,
   ...ADMIN_SECURITY_EN,
+  ...ADMIN_PLATFORM_EN,
 };
 
 /**
