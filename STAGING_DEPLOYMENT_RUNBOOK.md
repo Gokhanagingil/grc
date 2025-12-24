@@ -1,5 +1,16 @@
 # GRC Platform - Staging Deployment Runbook
 
+> **New Automated Deploy Script Available**
+> 
+> For a fully automated, validated deployment, use the new deploy script:
+> ```bash
+> cd /opt/grc-platform && ./scripts/deploy-staging.sh
+> ```
+> See `docs/STAGING_RELEASE_CHECKLIST.md` for the complete validation checklist.
+> The script below is retained for reference and manual troubleshooting.
+
+---
+
 ## 🎯 Tek Komut Bloğu (Staging Host'ta Çalıştır)
 
 ```bash
