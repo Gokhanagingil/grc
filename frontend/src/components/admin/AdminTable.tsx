@@ -49,6 +49,7 @@ interface AdminTableProps<T> {
   onSort?: (column: string) => void;
   onRowClick?: (row: T) => void;
   rowActions?: (row: T) => React.ReactNode;
+  'data-testid'?: string;
 }
 
 export function AdminTable<T extends object>({
@@ -69,6 +70,7 @@ export function AdminTable<T extends object>({
   onSort,
   onRowClick,
   rowActions,
+  'data-testid': dataTestId,
 }: AdminTableProps<T>) {
   const getValue = (row: T, columnId: keyof T | string): unknown => {
     if (typeof columnId === 'string' && columnId.includes('.')) {
@@ -113,7 +115,7 @@ export function AdminTable<T extends object>({
   const rowCount = data.length;
 
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+    <Paper sx={{ width: '100%', overflow: 'hidden' }} data-testid={dataTestId}>
       <TableContainer>
         <Table stickyHeader>
           <TableHead>

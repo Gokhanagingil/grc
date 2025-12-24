@@ -152,25 +152,6 @@ interface AuditRequirement {
   createdAt: string;
 }
 
-interface AuditCriterion {
-  id: number;
-  audit_id: number;
-  requirement_id: number;
-  title: string;
-  description: string | null;
-  regulation: string | null;
-  category: string | null;
-  status: string | null;
-}
-
-interface ScopeObject {
-  id: number;
-  audit_id: number;
-  object_type: string;
-  object_id: string;
-  object_name: string | null;
-}
-
 interface AuditReport {
   id: number;
   audit_id: number;

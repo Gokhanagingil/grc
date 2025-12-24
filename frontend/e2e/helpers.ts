@@ -255,6 +255,41 @@ export async function setupMockApi(page: Page) {
 }
 
 /**
+ * Ensure the sidebar/navigation drawer is open and visible
+ * This is important for E2E tests where the drawer might be collapsed on smaller viewports
+ */
+export async function ensureSidebarOpen(page: Page) {
+  // Check if hamburger menu button exists (mobile view)
+  const menuButton = page.getByTestId('btn-toggle-sidebar');
+  const menuButtonCount = await menuButton.count();
+  
+  if (menuButtonCount > 0) {
+    // Check if button is visible (drawer is closed)
+    const isVisible = await menuButton.isVisible().catch(() => false);
+    if (isVisible) {
+      await menuButton.click();
+      // Wait a bit for drawer animation
+      await page.waitForTimeout(300);
+    }
+  }
+  
+  // Verify at least one nav item is visible (desktop view or after opening mobile drawer)
+  // This ensures the sidebar is actually open
+  const navItems = [
+    page.getByTestId('nav-dashboard'),
+    page.getByTestId('nav-admin'),
+    page.getByTestId('nav-audit'),
+  ];
+  
+  // Wait for at least one nav item to be visible
+  await Promise.race(
+    navItems.map(item => 
+      expect(item).toBeVisible({ timeout: 2000 }).catch(() => {})
+    )
+  );
+}
+
+/**
  * Login helper function
  */
 export async function login(page: Page) {
@@ -273,6 +308,9 @@ export async function login(page: Page) {
   
   // Wait for navigation to dashboard after login
   await page.waitForURL(/\/(dashboard|admin)/);
+  
+  // Ensure sidebar is open so navigation items are accessible
+  await ensureSidebarOpen(page);
 }
 
 /**

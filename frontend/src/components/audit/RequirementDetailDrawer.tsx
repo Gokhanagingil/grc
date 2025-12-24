@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Drawer,
   Box,
@@ -73,13 +73,7 @@ export const RequirementDetailDrawer: React.FC<RequirementDetailDrawerProps> = (
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && requirement) {
-      fetchFindings();
-    }
-  }, [open, requirement]);
-
-  const fetchFindings = async () => {
+  const fetchFindings = useCallback(async () => {
     if (!requirement) return;
     
     try {
@@ -92,7 +86,13 @@ export const RequirementDetailDrawer: React.FC<RequirementDetailDrawerProps> = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [requirement]);
+
+  useEffect(() => {
+    if (open && requirement) {
+      fetchFindings();
+    }
+  }, [open, requirement, fetchFindings]);
 
   const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'default' => {
     switch (severity) {

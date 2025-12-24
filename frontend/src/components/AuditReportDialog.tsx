@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -53,13 +53,7 @@ export const AuditReportDialog: React.FC<AuditReportDialogProps> = ({
 
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    if (open && tenantId) {
-      fetchTemplates();
-    }
-  }, [open, tenantId]);
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setTemplatesLoading(true);
       setError('');
@@ -79,7 +73,13 @@ export const AuditReportDialog: React.FC<AuditReportDialogProps> = ({
     } finally {
       setTemplatesLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (open && tenantId) {
+      fetchTemplates();
+    }
+  }, [open, tenantId, fetchTemplates]);
 
   const handleGenerateReport = async () => {
     if (!selectedTemplateId) {

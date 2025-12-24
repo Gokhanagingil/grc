@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -92,11 +92,7 @@ export const Governance: React.FC = () => {
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    fetchPolicies();
-  }, [tenantId]);
-
-  const fetchPolicies = async () => {
+  const fetchPolicies = useCallback(async () => {
     try {
       setError('');
       const response = await policyApi.list(tenantId);
@@ -121,7 +117,11 @@ export const Governance: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchPolicies();
+  }, [fetchPolicies]);
 
   const handleCreatePolicy = () => {
     setEditingPolicy(null);

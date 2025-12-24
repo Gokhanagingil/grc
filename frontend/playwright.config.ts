@@ -33,6 +33,8 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         /* Base URL to use in actions like `await page.goto('/')`. */
         baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+        /* Set desktop viewport to ensure sidebar is always visible */
+        viewport: { width: 1440, height: 900 },
         /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
         trace: 'on-first-retry',
         /* Take screenshot on failure */
@@ -49,6 +51,8 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         /* Staging base URL */
         baseURL: process.env.E2E_BASE_URL || 'http://46.224.99.150',
+        /* Set desktop viewport to ensure sidebar is always visible */
+        viewport: { width: 1440, height: 900 },
         /* More retries for staging (network flakiness) */
         retries: 1,
         /* Higher timeout for staging */

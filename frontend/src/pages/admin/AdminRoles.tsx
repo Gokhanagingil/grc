@@ -23,18 +23,13 @@ import {
   SupervisorAccount as ManagerIcon,
   Person as UserIcon,
 } from '@mui/icons-material';
-import { AdminPageHeader, AdminCard } from '../../components/admin';
+import { AdminPageHeader } from '../../components/admin';
 import { api } from '../../services/api';
 
 interface Permission {
   id: string;
   name: string;
   description: string;
-}
-
-interface RolePermissions {
-  role: string;
-  permissions: string[];
 }
 
 const ROLE_ICONS: Record<string, React.ReactNode> = {
