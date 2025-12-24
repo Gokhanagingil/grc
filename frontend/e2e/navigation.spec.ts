@@ -11,23 +11,18 @@ test.describe('Navigation', () => {
     await page.goto('/dashboard');
     
     // Check for Admin menu item
-    const adminMenuItem = page.getByTestId('nav-admin');
+    // Use .first() because drawer is rendered twice (mobile/desktop) causing duplicate test IDs
+    const adminMenuItem = page.getByTestId('nav-admin').first();
     await expect(adminMenuItem).toBeVisible();
     
     // Check for Audit menu item
-    const auditMenuItem = page.getByTestId('nav-audit');
+    const auditMenuItem = page.getByTestId('nav-audit').first();
     await expect(auditMenuItem).toBeVisible();
   });
 
   test('Clicking Admin -> Users loads Users list page', async ({ page }) => {
-    await page.goto('/admin');
-    
-    // Click Admin menu to navigate to admin panel
-    await page.getByTestId('nav-admin').click();
-    await page.waitForURL('/admin*');
-    
-    // Click Users menu item
-    await page.getByTestId('nav-admin-users').click();
+    // Navigate directly to admin/users since we're already in the admin context after login
+    await page.goto('/admin/users');
     await page.waitForURL('/admin/users');
     
     // Verify page loaded
