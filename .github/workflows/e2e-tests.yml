@@ -38,7 +38,11 @@ jobs:
           echo "REACT_APP_E2E_API_MODE=nest" >> $GITHUB_ENV
           
           # Set E2E_BASE_URL explicitly for CI (do not read secrets in PR)
+          # Use localhost for static server in CI
           echo "E2E_BASE_URL=http://127.0.0.1:3000" >> $GITHUB_ENV
+          
+          # Enable API mocking in CI (tests run without real backend)
+          echo "E2E_MOCK_API=1" >> $GITHUB_ENV
           
           # Set E2E_EMAIL with fallback (do not depend on secrets for PRs)
           if [ -n "${{ secrets.E2E_EMAIL }}" ]; then
@@ -91,6 +95,7 @@ jobs:
         run: npx playwright test --project=chromium --reporter=list
         env:
           E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_MOCK_API: 1
 
       - name: Stop static server
         if: always()
