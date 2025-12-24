@@ -143,7 +143,7 @@ export const Login: React.FC = () => {
                 variant="contained"
                 sx={{ mt: 3, mb: 2 }}
                 disabled={loading}
-                data-testid="btn-submit-login"
+                data-testid="button-login"
               >
                 {loading ? 'Signing In...' : 'Sign In'}
               </Button>

@@ -13,7 +13,7 @@ test.describe('Authentication', () => {
     await expect(page.getByTestId('form-login')).toBeVisible();
     await expect(page.getByTestId('input-username')).toBeVisible();
     await expect(page.getByTestId('input-password')).toBeVisible();
-    await expect(page.getByTestId('btn-submit-login')).toBeVisible();
+    await expect(page.getByTestId('button-login')).toBeVisible();
   });
 
   test('Login with admin credentials works and redirects to dashboard', async ({ page }) => {
