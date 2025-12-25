@@ -15,9 +15,6 @@
 #   - Backend Health: http://46.224.99.150/health (proxied to backend)
 #   - Frontend Health: http://46.224.99.150/frontend-health
 #
-# Staging credentials:
-#   - Email: admin@grc-staging.local
-#   - Password: StagingPassword123!
 # =============================================================================
 
 services:
@@ -69,15 +66,15 @@ services:
       DB_SYNC: ${DB_SYNC:-false}
       
       # Security
-      JWT_SECRET: ${JWT_SECRET:-staging-jwt-secret-change-in-production-32chars}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET environment variable is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       
       # CORS - Allow staging domain
       CORS_ORIGINS: ${CORS_ORIGINS:-http://46.224.99.150,http://localhost:3000,http://localhost:3001,http://localhost:3002}
       
       # Demo admin (staging)
-      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@grc-staging.local}
-      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-StagingPassword123!}
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD}
     ports:
       - "3002:3002"
     healthcheck:
