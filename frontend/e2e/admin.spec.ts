@@ -18,13 +18,23 @@ test.describe('Admin Panel', () => {
 
   test('Audit Logs page can refresh without errors', async ({ page }) => {
     // Use Promise.all to avoid race condition - register wait before navigation triggers request
+    // IMPORTANT: The predicate must distinguish between:
+    // 1. HTML navigation response for /admin/audit-logs (text/html) - EXCLUDE
+    // 2. API request for /audit-logs (application/json) - INCLUDE
     const [initialResponse] = await Promise.all([
       page.waitForResponse(
         (response) => {
           try {
             const url = response.url();
             const req = response.request();
-            return !!url && !!req && url.includes('/audit-logs') && req.method() === 'GET' && response.status() < 500;
+            const resourceType = req.resourceType();
+            // Only match xhr/fetch requests (API calls), not document requests (HTML navigation)
+            // Also ensure pathname ends with /audit-logs (not /admin/audit-logs)
+            const pathname = new URL(url).pathname;
+            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
+            const isAuditLogsEndpoint = pathname === '/audit-logs' || pathname.endsWith('/audit-logs');
+            const isNotAdminPage = !pathname.includes('/admin/');
+            return isApiRequest && isAuditLogsEndpoint && isNotAdminPage && req.method() === 'GET' && response.status() < 500;
           } catch {
             return false;
           }
@@ -52,10 +62,20 @@ test.describe('Admin Panel', () => {
     const refreshResponse = await Promise.all([
       page.waitForResponse(
         (response) => {
-          const url = response.url();
-          return url.includes('/audit-logs') && response.request().method() === 'GET';
+          try {
+            const url = response.url();
+            const req = response.request();
+            const resourceType = req.resourceType();
+            const pathname = new URL(url).pathname;
+            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
+            const isAuditLogsEndpoint = pathname === '/audit-logs' || pathname.endsWith('/audit-logs');
+            const isNotAdminPage = !pathname.includes('/admin/');
+            return isApiRequest && isAuditLogsEndpoint && isNotAdminPage && req.method() === 'GET';
+          } catch {
+            return false;
+          }
         },
-        { timeout: 10000 }
+        { timeout: 15000 }
       ),
       refreshButton.click(),
     ]).then(([response]) => response);

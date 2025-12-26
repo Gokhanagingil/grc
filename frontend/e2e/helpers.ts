@@ -70,7 +70,7 @@ export async function setupMockApi(page: Page) {
 
   // Helper to check if URL matches API endpoint pattern
   const isApiUrl = (url: string): boolean => {
-    const apiSegments = ['/auth/', '/onboarding/', '/users/', '/admin/', '/grc/', '/audit/', '/api/'];
+    const apiSegments = ['/auth/', '/onboarding/', '/users/', '/admin/', '/grc/', '/audit/', '/api/', '/audit-logs', '/health/'];
     return apiSegments.some(segment => url.includes(segment));
   };
 
