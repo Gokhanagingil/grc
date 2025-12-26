@@ -73,26 +73,13 @@ test.describe('Navigation', () => {
   test('Clicking Admin -> System Status loads and shows at least one status widget', async ({ page }) => {
     await page.goto('/admin');
     
-    // Verify we're on admin page and nav item exists
-    await page.waitForURL(/\/admin/);
-    const navSystemButton = page.getByTestId('nav-admin-system');
-    await expect(navSystemButton).toBeVisible({ timeout: 10000 });
+    // Use the same simple sequential pattern that works for System Settings
+    await page.getByTestId('nav-admin-system').click();
+    await page.waitForURL('/admin/system');
     
-    // Navigate to System Status page using Promise.all for route + click
-    await Promise.all([
-      page.waitForURL('**/admin/system', { timeout: 15000 }),
-      navSystemButton.click(),
-    ]);
-    
-    // Verify not redirected to login
-    await expect(page).not.toHaveURL(/\/login/i);
-    
-    // Wait for page title - use toHaveCount(1) before toBeVisible for robustness
-    // The title is now rendered immediately (deterministic UI), independent of API calls
-    const title = page.getByTestId('page-admin-system-title');
-    await expect(title).toHaveCount(1, { timeout: 15000 });
-    await expect(title).toBeVisible({ timeout: 15000 });
-    await expect(title).toContainText('System Status');
+    // Wait for page title - the title is rendered immediately (deterministic UI)
+    await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('page-admin-system-title')).toContainText('System Status');
     
     // Verify widgets container is present (always rendered, even during loading)
     await expect(page.getByTestId('system-status-widgets')).toBeVisible({ timeout: 15000 });
