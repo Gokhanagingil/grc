@@ -21,6 +21,8 @@ ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 COPY package*.json ./
 
 # Install dependencies
+# Use legacy peer deps to handle react-scripts peer dependency constraints with TypeScript 5.x
+ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 RUN npm ci
 
 # Copy source code
