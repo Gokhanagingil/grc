@@ -78,11 +78,29 @@ test.describe('Navigation', () => {
     const navSystemButton = page.getByTestId('nav-admin-system');
     await expect(navSystemButton).toBeVisible({ timeout: 10000 });
     
-    await navSystemButton.click();
-    await page.waitForURL('/admin/system', { timeout: 10000 });
-    
-    // Wait for page to stabilize - React needs time to render after navigation
-    await page.waitForLoadState('domcontentloaded');
+    // Use Promise.all to wait for health API response along with navigation
+    // This ensures we wait for AdminSystem to mount and start fetching health data
+    // The health check is the semantic signal that the component has mounted
+    await Promise.all([
+      page.waitForResponse(
+        (response) => {
+          try {
+            const url = response.url();
+            const req = response.request();
+            const resourceType = req.resourceType();
+            // Only match xhr/fetch requests to health endpoints
+            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
+            const isHealthEndpoint = url.includes('/health/');
+            return isApiRequest && isHealthEndpoint && req.method() === 'GET';
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 20000 }
+      ),
+      navSystemButton.click(),
+      page.waitForURL('/admin/system', { timeout: 10000 }),
+    ]);
     
     // Wait for page title with increased timeout for CI
     await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
