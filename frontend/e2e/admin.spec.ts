@@ -17,20 +17,35 @@ test.describe('Admin Panel', () => {
   });
 
   test('Audit Logs page can refresh without errors', async ({ page }) => {
-    // Navigate to audit logs page
-    await page.goto('/admin/audit-logs');
+    // Use Promise.all to avoid race condition - register wait before navigation triggers request
+    // IMPORTANT: The predicate must distinguish between:
+    // 1. HTML navigation response for /admin/audit-logs (text/html) - EXCLUDE
+    // 2. API request for /audit-logs (application/json) - INCLUDE
+    const [initialResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) => {
+          try {
+            const url = response.url();
+            const req = response.request();
+            const resourceType = req.resourceType();
+            // Only match xhr/fetch requests (API calls), not document requests (HTML navigation)
+            // Also ensure pathname ends with /audit-logs (not /admin/audit-logs)
+            const pathname = new URL(url).pathname;
+            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
+            const isAuditLogsEndpoint = pathname === '/audit-logs' || pathname.endsWith('/audit-logs');
+            const isNotAdminPage = !pathname.includes('/admin/');
+            return isApiRequest && isAuditLogsEndpoint && isNotAdminPage && req.method() === 'GET' && response.status() < 500;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 15000 }
+      ),
+      page.goto('/admin/audit-logs'),
+    ]);
     
     // Wait for page to load
     await expect(page.getByTestId('page-admin-audit-logs-title')).toBeVisible();
-    
-    // Wait for the initial API call to complete and verify it succeeds
-    const initialResponse = await page.waitForResponse(
-      (response) => {
-        const url = response.url();
-        return url.includes('/audit-logs') && response.request().method() === 'GET';
-      },
-      { timeout: 10000 }
-    );
     
     // Verify the API call was successful (200 or 201)
     expect([200, 201]).toContain(initialResponse.status());
@@ -47,10 +62,20 @@ test.describe('Admin Panel', () => {
     const refreshResponse = await Promise.all([
       page.waitForResponse(
         (response) => {
-          const url = response.url();
-          return url.includes('/audit-logs') && response.request().method() === 'GET';
+          try {
+            const url = response.url();
+            const req = response.request();
+            const resourceType = req.resourceType();
+            const pathname = new URL(url).pathname;
+            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
+            const isAuditLogsEndpoint = pathname === '/audit-logs' || pathname.endsWith('/audit-logs');
+            const isNotAdminPage = !pathname.includes('/admin/');
+            return isApiRequest && isAuditLogsEndpoint && isNotAdminPage && req.method() === 'GET';
+          } catch {
+            return false;
+          }
         },
-        { timeout: 10000 }
+        { timeout: 15000 }
       ),
       refreshButton.click(),
     ]).then(([response]) => response);

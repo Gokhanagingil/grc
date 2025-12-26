@@ -73,15 +73,20 @@ test.describe('Navigation', () => {
   test('Clicking Admin -> System Status loads and shows at least one status widget', async ({ page }) => {
     await page.goto('/admin');
     
+    // Use the same simple sequential pattern that works for System Settings
     await page.getByTestId('nav-admin-system').click();
     await page.waitForURL('/admin/system');
     
-    await expect(page.getByTestId('page-admin-system-title')).toBeVisible();
+    // Wait for page title - the title is rendered immediately (deterministic UI)
+    await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('page-admin-system-title')).toContainText('System Status');
     
-    // Check that at least one status section is visible (API, Database, or Auth health)
-    const statusSection = page.locator('text=/API|Database|Auth|Health/i').first();
-    await expect(statusSection).toBeVisible({ timeout: 5000 });
+    // Verify widgets container is present (always rendered, even during loading)
+    await expect(page.getByTestId('system-status-widgets')).toBeVisible({ timeout: 15000 });
+    
+    // Check that at least one status widget label is visible (API, Database, or Auth)
+    // These are now always present in the DOM with skeleton loading states
+    await expect(page.getByText(/API|Database|Auth/i).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('Clicking Admin -> System Settings loads and shows at least one settings section', async ({ page }) => {

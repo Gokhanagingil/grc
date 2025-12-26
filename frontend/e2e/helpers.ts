@@ -70,7 +70,7 @@ export async function setupMockApi(page: Page) {
 
   // Helper to check if URL matches API endpoint pattern
   const isApiUrl = (url: string): boolean => {
-    const apiSegments = ['/auth/', '/onboarding/', '/users/', '/admin/', '/grc/', '/audit/', '/api/'];
+    const apiSegments = ['/auth/', '/onboarding/', '/users/', '/admin/', '/grc/', '/audit/', '/api/', '/audit-logs', '/health/'];
     return apiSegments.some(segment => url.includes(segment));
   };
 
@@ -175,14 +175,30 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Handle health/detailed - GET
-    if (url.includes('/health/detailed') && method === 'GET') {
+    // Handle health endpoints - GET (live, db, auth, detailed)
+    // Use pathname-based matching for reliability (avoids URL differences)
+    const pathname = new URL(url).pathname;
+    if (method === 'GET' && (
+      pathname === '/health/live' || 
+      pathname === '/health/db' || 
+      pathname === '/health/auth' || 
+      pathname === '/health/detailed'
+    )) {
       logMock(method, url, true);
-      await route.fulfill(successResponse({
-        status: 'ok',
-        uptime: 1000,
-        timestamp: new Date().toISOString(),
-      }));
+      if (pathname === '/health/detailed') {
+        await route.fulfill(successResponse({
+          status: 'OK',
+          uptime: 1000,
+          timestamp: new Date().toISOString(),
+          environment: 'test',
+        }));
+      } else {
+        // /health/live, /health/db, /health/auth all return same format
+        await route.fulfill(successResponse({
+          status: 'OK',
+          message: 'Service is healthy',
+        }));
+      }
       return;
     }
 
