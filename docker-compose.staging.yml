@@ -68,6 +68,8 @@ services:
       # Security
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET environment variable is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET}}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
       
       # CORS - Allow staging domain
       CORS_ORIGINS: ${CORS_ORIGINS:-http://46.224.99.150,http://localhost:3000,http://localhost:3001,http://localhost:3002}
