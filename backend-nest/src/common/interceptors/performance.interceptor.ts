@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
+import { sanitizeString } from '../logger/log-sanitizer';
 import { PERF_METADATA_KEY } from '../decorators/perf.decorator';
 import { RequestWithUser } from '../types';
 
@@ -65,7 +66,8 @@ export class PerformanceInterceptor implements NestInterceptor {
           let errorMessage = 'Unknown error occurred';
           if (error instanceof Error) {
             errorName = error.name;
-            errorMessage = error.message;
+            // Sanitize error message to prevent PII/token leakage in logs
+            errorMessage = sanitizeString(error.message);
           }
 
           this.logger.warn('perf.handler.failed', {
