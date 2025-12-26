@@ -259,6 +259,39 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle admin/notifications/status - GET (System Status page)
+    if (url.includes('/admin/notifications/status') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        email: { enabled: false, configured: false },
+        webhook: { enabled: false, configured: false },
+        recentLogs: { total: 0, success: 0, failed: 0, lastAttempt: null },
+      }));
+      return;
+    }
+
+    // Handle admin/jobs/status - GET (System Status page)
+    if (url.includes('/admin/jobs/status') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        registeredJobs: [],
+        totalJobs: 0,
+        enabledJobs: 0,
+        recentRuns: [],
+      }));
+      return;
+    }
+
+    // Handle admin/jobs/platform-validation - GET (System Status page)
+    if (url.includes('/admin/jobs/platform-validation') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        hasResult: false,
+        result: null,
+      }));
+      return;
+    }
+
     // Generic fallback for other API endpoints
     if (method === 'GET') {
       logMock(method, url, true);
