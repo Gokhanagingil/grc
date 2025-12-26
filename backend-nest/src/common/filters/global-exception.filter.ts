@@ -6,7 +6,11 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { StructuredLoggerService } from '../logger';
+import {
+  StructuredLoggerService,
+  sanitizeLogData,
+  sanitizeString,
+} from '../logger';
 
 /**
  * Standard API Error Response
@@ -101,12 +105,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       errorCode = 'INTERNAL_SERVER_ERROR';
       message = 'An unexpected error occurred';
 
-      // Log the actual error for debugging
-      this.logger.error(`Unexpected error: ${exception.message}`, {
-        path: request.url,
-        method: request.method,
-        error: exception,
-      });
+      // Log the actual error for debugging (sanitized to prevent PII/token leakage)
+      this.logger.error(
+        `Unexpected error: ${sanitizeString(exception.message)}`,
+        {
+          path: request.url,
+          method: request.method,
+          error: sanitizeLogData({
+            name: exception.name,
+            message: exception.message,
+            stack: exception.stack,
+          }),
+        },
+      );
     } else {
       // Unknown error type
       status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -116,7 +127,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       this.logger.error('Unknown error type', {
         path: request.url,
         method: request.method,
-        exception: String(exception),
+        exception: sanitizeString(String(exception)),
       });
     }
 

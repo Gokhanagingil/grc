@@ -118,10 +118,22 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 30
 
-      - name: Upload test artifacts
+      - name: Upload test artifacts (screenshots, videos, traces)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts
-          path: frontend/test-results/
+          path: |
+            frontend/test-results/
           retention-days: 7
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_id }}
+          path: |
+            frontend/test-results/**/*.zip
+            frontend/test-results/**/trace.zip
+          retention-days: 14
+          if-no-files-found: ignore
