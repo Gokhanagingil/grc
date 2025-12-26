@@ -117,7 +117,7 @@ Frontend Dockerfile uses `ENV NPM_CONFIG_LEGACY_PEER_DEPS=true` before `npm ci` 
 - Build time'da `REACT_APP_API_URL` environment variable ile set edilir
 - Staging icin: `http://46.224.99.150:3002` veya reverse proxy arkasinda `/api`
 
-**Not:** Frontend image build uses `NPM_CONFIG_LEGACY_PEER_DEPS=true` due to CRA/react-scripts peer dependency constraints with TypeScript 5.x.
+**Not:** Frontend image build uses legacy peer deps because CRA/react-scripts peer deps conflict with TS 5.x.
 
 ## docker-compose.staging.yml Tasarimi
 
