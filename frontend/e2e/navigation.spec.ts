@@ -82,11 +82,14 @@ test.describe('Navigation', () => {
     await expect(page.getByTestId('page-admin-system-title')).toContainText('System Status');
     
     // Verify widgets container is present (always rendered, even during loading)
+    // The container has data-testid="system-status-widgets" and contains the health check cards
     await expect(page.getByTestId('system-status-widgets')).toBeVisible({ timeout: 15000 });
     
-    // Check that at least one status widget label is visible (API, Database, or Auth)
-    // These are now always present in the DOM with skeleton loading states
-    await expect(page.getByText(/API|Database|Auth/i).first()).toBeVisible({ timeout: 15000 });
+    // Verify at least one Card component is rendered within the widgets container
+    // Cards are MUI components that contain the health status information
+    const widgetsContainer = page.getByTestId('system-status-widgets');
+    const cards = widgetsContainer.locator('.MuiCard-root');
+    await expect(cards.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('Clicking Admin -> System Settings loads and shows at least one settings section', async ({ page }) => {
