@@ -17,20 +17,25 @@ test.describe('Admin Panel', () => {
   });
 
   test('Audit Logs page can refresh without errors', async ({ page }) => {
-    // Navigate to audit logs page
-    await page.goto('/admin/audit-logs');
+    // Use Promise.all to avoid race condition - register wait before navigation triggers request
+    const [initialResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) => {
+          try {
+            const url = response.url();
+            const req = response.request();
+            return !!url && !!req && url.includes('/audit-logs') && req.method() === 'GET' && response.status() < 500;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 15000 }
+      ),
+      page.goto('/admin/audit-logs'),
+    ]);
     
     // Wait for page to load
     await expect(page.getByTestId('page-admin-audit-logs-title')).toBeVisible();
-    
-    // Wait for the initial API call to complete and verify it succeeds
-    const initialResponse = await page.waitForResponse(
-      (response) => {
-        const url = response.url();
-        return url.includes('/audit-logs') && response.request().method() === 'GET';
-      },
-      { timeout: 10000 }
-    );
     
     // Verify the API call was successful (200 or 201)
     expect([200, 201]).toContain(initialResponse.status());

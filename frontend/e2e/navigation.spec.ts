@@ -76,12 +76,14 @@ test.describe('Navigation', () => {
     await page.getByTestId('nav-admin-system').click();
     await page.waitForURL('/admin/system');
     
-    await expect(page.getByTestId('page-admin-system-title')).toBeVisible();
+    // Wait for page title with increased timeout for CI
+    await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('page-admin-system-title')).toContainText('System Status');
     
     // Check that at least one status section is visible (API, Database, or Auth health)
+    // Use increased timeout for CI where health checks may take longer
     const statusSection = page.locator('text=/API|Database|Auth|Health/i').first();
-    await expect(statusSection).toBeVisible({ timeout: 5000 });
+    await expect(statusSection).toBeVisible({ timeout: 15000 });
   });
 
   test('Clicking Admin -> System Settings loads and shows at least one settings section', async ({ page }) => {

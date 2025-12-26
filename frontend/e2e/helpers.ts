@@ -175,14 +175,23 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Handle health/detailed - GET
-    if (url.includes('/health/detailed') && method === 'GET') {
+    // Handle health endpoints - GET (live, db, auth, detailed)
+    if (url.includes('/health/') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse({
-        status: 'ok',
-        uptime: 1000,
-        timestamp: new Date().toISOString(),
-      }));
+      if (url.includes('/health/detailed')) {
+        await route.fulfill(successResponse({
+          status: 'OK',
+          uptime: 1000,
+          timestamp: new Date().toISOString(),
+          environment: 'test',
+        }));
+      } else {
+        // /health/live, /health/db, /health/auth all return same format
+        await route.fulfill(successResponse({
+          status: 'OK',
+          message: 'Service is healthy',
+        }));
+      }
       return;
     }
 
