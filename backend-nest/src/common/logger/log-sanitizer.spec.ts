@@ -18,16 +18,18 @@ describe('LogSanitizer', () => {
   describe('sanitizeString', () => {
     describe('JWT tokens', () => {
       it('should redact JWT tokens', () => {
+        // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const jwt =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.FAKE_SIG_FOR_TESTING_abc123';
         const result = sanitizeString(`Token: ${jwt}`);
         expect(result).toBe('Token: [JWT_REDACTED]');
         expect(result).not.toContain('eyJ');
       });
 
       it('should redact multiple JWT tokens in a string', () => {
-        const jwt1 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc123def456';
-        const jwt2 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.xyz789ghi012';
+        // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
+        const jwt1 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_001';
+        const jwt2 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.FAKE_SIG_FOR_TESTING_002';
         const result = sanitizeString(`First: ${jwt1}, Second: ${jwt2}`);
         expect(result).toBe('First: [JWT_REDACTED], Second: [JWT_REDACTED]');
       });
@@ -41,8 +43,9 @@ describe('LogSanitizer', () => {
     describe('Authorization headers', () => {
       it('should redact Bearer tokens with JWT', () => {
         // When Bearer token contains a JWT, the JWT pattern matches first
+        // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const bearerToken =
-          'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc123def456';
+          'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_003';
         const result = sanitizeString(bearerToken);
         // JWT pattern matches first, so we get JWT_REDACTED
         expect(result).toBe('Bearer [JWT_REDACTED]');
@@ -57,8 +60,9 @@ describe('LogSanitizer', () => {
 
       it('should handle case-insensitive Bearer with JWT', () => {
         // When Bearer token contains a JWT, the JWT pattern matches first
+        // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const bearerToken =
-          'bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc123def456';
+          'bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_004';
         const result = sanitizeString(bearerToken);
         // JWT pattern matches first, lowercase bearer preserved
         expect(result).toBe('bearer [JWT_REDACTED]');
@@ -172,8 +176,9 @@ describe('LogSanitizer', () => {
       });
 
       it('should sanitize authorization key', () => {
+        // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const data = {
-          authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc',
+          authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_005',
         };
         const result = sanitizeLogData(data);
         expect(result.authorization).toMatch(/\[REDACTED\]/);
