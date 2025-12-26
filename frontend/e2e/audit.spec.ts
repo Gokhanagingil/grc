@@ -55,8 +55,14 @@ test.describe('Audit Module', () => {
         await createButton.click();
         
         // Should navigate to create page or open dialog
-        // Accept either /audits/new or modal opening
-        await page.waitForTimeout(1000);
+        // Wait for either URL change or modal to appear instead of using timeout
+        await Promise.race([
+          page.waitForURL('**/audits/new', { timeout: 3000 }),
+          page.locator('[role="dialog"]').waitFor({ state: 'visible', timeout: 3000 }),
+        ]).catch(() => {
+          // One of them should succeed
+        });
+        
         const url = page.url();
         const isCreatePage = url.includes('/audits/new');
         const hasModal = await page.locator('[role="dialog"]').count() > 0;
@@ -87,7 +93,14 @@ test.describe('Audit Module', () => {
     
     if (buttonExists && !isDisabled) {
       await createButton.click();
-      await page.waitForTimeout(1000);
+      
+      // Wait for navigation or dialog instead of using timeout
+      await Promise.race([
+        page.waitForURL('**/audits/new', { timeout: 3000 }),
+        page.locator('[role="dialog"]').waitFor({ state: 'visible', timeout: 3000 }),
+      ]).catch(() => {
+        // One of them should succeed
+      });
       
       // If we're on the create page, check for form fields
       if (page.url().includes('/audits/new')) {

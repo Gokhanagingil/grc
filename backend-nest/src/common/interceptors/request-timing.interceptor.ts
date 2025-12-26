@@ -9,6 +9,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Response } from 'express';
 import { StructuredLoggerService } from '../logger/structured-logger.service';
+import { sanitizeLogData } from '../logger/log-sanitizer';
 import { MetricsService } from '../../metrics/metrics.service';
 import { RequestWithUser } from '../types';
 
@@ -70,9 +71,9 @@ export class RequestTimingInterceptor implements NestInterceptor {
             statusCode = errorObj.status || errorObj.statusCode || 500;
           }
 
-          // Log structured error
+          // Log structured error (sanitized to prevent PII/token leakage)
           this.logger.error('request.failed', {
-            error,
+            error: sanitizeLogData(error),
             latencyMs,
             statusCode,
             route: routePath,

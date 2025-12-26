@@ -100,8 +100,12 @@ test.describe('Admin Panel', () => {
     await expect(filterButton).toBeVisible();
     await filterButton.click();
     
-    // Filter panel should appear (contains date inputs, action field, etc.)
-    await page.waitForTimeout(500);
+    // Wait for filter panel to appear using proper selector instead of timeout
+    // The filter panel should contain date inputs or other filter controls
+    const filterPanel = page.locator('[data-testid="filter-panel"], .MuiCollapse-entered, [role="region"]').first();
+    await expect(filterPanel).toBeVisible({ timeout: 2000 }).catch(() => {
+      // Filter panel may not have a specific testid, continue with date input check
+    });
     
     // Check for filter inputs
     const dateInputs = page.locator('input[type="date"]');

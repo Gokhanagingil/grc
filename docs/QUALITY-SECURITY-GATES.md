@@ -78,6 +78,35 @@ The following files are intentionally excluded from credential pattern scanning 
 grep -rn "StagingPassword" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.github .
 ```
 
+### 3a. Secret Pattern Check
+
+**Workflow:** `.github/workflows/secret-pattern-check.yml`
+**Allowlist File:** `.github/secret-allowlist.txt`
+
+**Risk Level:** P1 (High)
+
+**Purpose:** Scans tracked files for strings that resemble real secrets (JWT-like tokens, API key patterns, private keys) and fails if found. Uses an allowlist for known safe patterns like test fixtures.
+
+**Detected Patterns:**
+- JWT-like tokens (three base64 segments)
+- API key patterns (sk_live_*, pk_test_*, AKIA*, ghp_*, etc.)
+- Private key headers (-----BEGIN PRIVATE KEY-----)
+
+**Adding Allowlist Entries:**
+Edit `.github/secret-allowlist.txt` and add one pattern per line. Lines starting with `#` are comments. Use this for:
+- Test fixtures with fake/example values
+- Documentation examples
+- CI/CD configuration values
+
+**Local Testing:**
+```bash
+# Check for JWT-like patterns
+grep -rE 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' --exclude-dir=node_modules .
+
+# Check for API key patterns
+grep -rE 'sk_live_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}' --exclude-dir=node_modules .
+```
+
 ## Migration Safety Gates
 
 ### 4. No dist/migrations/index.js Check
@@ -166,6 +195,7 @@ npm run validate:migrations -- --json
 ### 8. Log Sanitization Layer
 
 **Location:** `backend-nest/src/common/logger/log-sanitizer.ts`
+**Unit Tests:** `backend-nest/src/common/logger/log-sanitizer.spec.ts`
 
 **Risk Level:** P1 (High)
 
@@ -177,6 +207,8 @@ npm run validate:migrations -- --json
 - Email addresses (domain preserved for context)
 - API keys and secrets
 - Password field values
+- Refresh tokens and session IDs
+- Cookie values
 
 **Usage:**
 ```typescript
@@ -192,8 +224,17 @@ const safeData = sanitizeLogData(requestBody);
 const safeHeaders = sanitizeHeaders(request.headers);
 ```
 
-**Integration:**
-The `GlobalExceptionFilter` automatically sanitizes error messages and stack traces before logging.
+**Integration Points:**
+The log sanitizer is integrated into the following components:
+- `GlobalExceptionFilter` - Sanitizes error messages and stack traces
+- `RequestTimingInterceptor` - Sanitizes error objects in request failure logs
+- `PerformanceInterceptor` - Sanitizes error messages in performance logs
+
+**Running Unit Tests:**
+```bash
+cd backend-nest
+npm run test -- --testPathPattern=log-sanitizer
+```
 
 ## Risk Priority Matrix
 

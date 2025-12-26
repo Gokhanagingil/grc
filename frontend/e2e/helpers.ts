@@ -259,6 +259,39 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle admin/notifications/status - GET (System Status page)
+    if (url.includes('/admin/notifications/status') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        email: { enabled: false, configured: false },
+        webhook: { enabled: false, configured: false },
+        recentLogs: { total: 0, success: 0, failed: 0, lastAttempt: null },
+      }));
+      return;
+    }
+
+    // Handle admin/jobs/status - GET (System Status page)
+    if (url.includes('/admin/jobs/status') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        registeredJobs: [],
+        totalJobs: 0,
+        enabledJobs: 0,
+        recentRuns: [],
+      }));
+      return;
+    }
+
+    // Handle admin/jobs/platform-validation - GET (System Status page)
+    if (url.includes('/admin/jobs/platform-validation') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        hasResult: false,
+        result: null,
+      }));
+      return;
+    }
+
     // Generic fallback for other API endpoints
     if (method === 'GET') {
       logMock(method, url, true);
@@ -284,8 +317,13 @@ export async function ensureSidebarOpen(page: Page) {
     const isVisible = await menuButton.isVisible().catch(() => false);
     if (isVisible) {
       await menuButton.click();
-      // Wait a bit for drawer animation
-      await page.waitForTimeout(300);
+      // Wait for drawer animation to complete using proper selector instead of timeout
+      // The drawer should become visible with nav items
+      await page.locator('[data-testid="nav-dashboard"], [data-testid="nav-admin"]').first()
+        .waitFor({ state: 'visible', timeout: 2000 })
+        .catch(() => {
+          // Drawer may already be open or animation may be instant
+        });
     }
   }
   
