@@ -284,8 +284,13 @@ export async function ensureSidebarOpen(page: Page) {
     const isVisible = await menuButton.isVisible().catch(() => false);
     if (isVisible) {
       await menuButton.click();
-      // Wait a bit for drawer animation
-      await page.waitForTimeout(300);
+      // Wait for drawer animation to complete using proper selector instead of timeout
+      // The drawer should become visible with nav items
+      await page.locator('[data-testid="nav-dashboard"], [data-testid="nav-admin"]').first()
+        .waitFor({ state: 'visible', timeout: 2000 })
+        .catch(() => {
+          // Drawer may already be open or animation may be instant
+        });
     }
   }
   
