@@ -10,8 +10,6 @@ import {
   FormControlLabel,
   Autocomplete,
   Chip,
-  Box,
-  Typography,
 } from '@mui/material';
 
 type FieldType = 'text' | 'email' | 'password' | 'number' | 'select' | 'multiselect' | 'switch' | 'textarea';

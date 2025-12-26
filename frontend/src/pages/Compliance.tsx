@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -93,11 +93,7 @@ export const Compliance: React.FC = () => {
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
-  useEffect(() => {
-    fetchRequirements();
-  }, [tenantId]);
-
-  const fetchRequirements = async () => {
+  const fetchRequirements = useCallback(async () => {
     try {
       setError('');
       const response = await requirementApi.list(tenantId);
@@ -122,7 +118,11 @@ export const Compliance: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchRequirements();
+  }, [fetchRequirements]);
 
     const handleCreateRequirement = () => {
       setEditingRequirement(null);

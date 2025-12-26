@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -217,7 +217,7 @@ export const Layout: React.FC = () => {
     }
   }, [location.pathname]);
 
-  const filterItem = (item: NavMenuItem): boolean => {
+  const filterItem = useCallback((item: NavMenuItem): boolean => {
     if (!user) return false;
     // Use safeIncludes for role check (item.roles is static, but being defensive)
     if (item.roles && !safeIncludes(item.roles, user.role)) {
@@ -228,11 +228,11 @@ export const Layout: React.FC = () => {
       return false;
     }
     return true;
-  };
+  }, [user, enabledModules]);
 
   const filteredStandaloneItems = useMemo(() => {
     return standaloneItems.filter(filterItem);
-  }, [user, enabledModules]);
+  }, [filterItem]);
 
   const filteredGroups = useMemo(() => {
     if (!user) return [];
@@ -243,12 +243,7 @@ export const Layout: React.FC = () => {
         items: group.items.filter(filterItem),
       }))
       .filter(group => group.items.length > 0);
-  }, [user, enabledModules]);
-
-  const filteredMenuItems = useMemo(() => {
-    if (!user) return [];
-    return menuItems.filter(filterItem);
-  }, [user, enabledModules]);
+  }, [user, filterItem]);
 
   const handleGroupToggle = (groupId: string) => {
     setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -393,80 +388,102 @@ export const Layout: React.FC = () => {
       <Divider />
       <List>
         {/* Standalone items */}
-        {filteredStandaloneItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={isItemSelected(item.path)}
-              onClick={() => navigate(item.path)}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon
+        {filteredStandaloneItems.map((item) => {
+          const testId = item.path === '/dashboard' ? 'nav-dashboard' : `nav-${item.text.toLowerCase().replace(/\s+/g, '-')}`;
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={isItemSelected(item.path)}
+                onClick={() => navigate(item.path)}
+                data-testid={testId}
                 sx={{
-                  color: isItemSelected(item.path) ? 'white' : 'inherit',
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-
-        {/* Grouped items */}
-        {filteredGroups.map((group) => (
-          <React.Fragment key={group.id}>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleGroupToggle(group.id)}>
-                <ListItemIcon>{group.icon}</ListItemIcon>
-                <ListItemText 
-                  primary={group.text} 
-                  primaryTypographyProps={{ fontWeight: 'medium' }}
-                />
-                {expandedGroups[group.id] ? <ExpandLess /> : <ExpandMore />}
+                <ListItemIcon
+                  sx={{
+                    color: isItemSelected(item.path) ? 'white' : 'inherit',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>
-            <Collapse in={expandedGroups[group.id]} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {group.items.map((item) => (
-                  <ListItem key={item.text} disablePadding>
-                    <ListItemButton
-                      selected={isItemSelected(item.path)}
-                      onClick={() => navigate(item.path)}
-                      sx={{
-                        pl: 4,
-                        '&.Mui-selected': {
-                          backgroundColor: 'primary.main',
-                          color: 'white',
-                          '&:hover': {
-                            backgroundColor: 'primary.dark',
-                          },
-                        },
-                      }}
-                    >
-                      <ListItemIcon
-                        sx={{
-                          color: isItemSelected(item.path) ? 'white' : 'inherit',
-                          minWidth: 36,
-                        }}
-                      >
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText primary={item.text} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </Collapse>
-          </React.Fragment>
-        ))}
+          );
+        })}
+
+        {/* Grouped items */}
+        {filteredGroups.map((group) => {
+          const groupTestId = group.id === 'admin' ? 'nav-admin' : group.id === 'grc' && group.items.some(i => i.path === '/audits') ? null : `nav-${group.id}`;
+          return (
+            <React.Fragment key={group.id}>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  onClick={() => handleGroupToggle(group.id)}
+                  data-testid={groupTestId || undefined}
+                >
+                  <ListItemIcon>{group.icon}</ListItemIcon>
+                  <ListItemText 
+                    primary={group.text} 
+                    primaryTypographyProps={{ fontWeight: 'medium' }}
+                  />
+                  {expandedGroups[group.id] ? <ExpandLess /> : <ExpandMore />}
+                </ListItemButton>
+              </ListItem>
+              <Collapse in={expandedGroups[group.id]} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {group.items.map((item) => {
+                    let testId: string | undefined;
+                    if (item.path === '/audits') {
+                      testId = 'nav-audit';
+                    } else if (item.path.startsWith('/admin')) {
+                      // Admin items will be handled in AdminLayout
+                      testId = undefined;
+                    } else {
+                      testId = `nav-${item.text.toLowerCase().replace(/\s+/g, '-')}`;
+                    }
+                    return (
+                      <ListItem key={item.text} disablePadding>
+                        <ListItemButton
+                          selected={isItemSelected(item.path)}
+                          onClick={() => navigate(item.path)}
+                          data-testid={testId}
+                          sx={{
+                            pl: 4,
+                            '&.Mui-selected': {
+                              backgroundColor: 'primary.main',
+                              color: 'white',
+                              '&:hover': {
+                                backgroundColor: 'primary.dark',
+                              },
+                            },
+                          }}
+                        >
+                          <ListItemIcon
+                            sx={{
+                              color: isItemSelected(item.path) ? 'white' : 'inherit',
+                              minWidth: 36,
+                            }}
+                          >
+                            {item.icon}
+                          </ListItemIcon>
+                          <ListItemText primary={item.text} />
+                        </ListItemButton>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </Collapse>
+            </React.Fragment>
+          );
+        })}
       </List>
     </div>
   );
@@ -487,6 +504,7 @@ export const Layout: React.FC = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
+            data-testid="btn-toggle-sidebar"
             sx={{ mr: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />

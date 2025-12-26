@@ -267,12 +267,13 @@ export const AuditList: React.FC = () => {
     <ModuleGuard moduleKey="audit">
       <Box>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4">Audit Management</Typography>
+          <Typography variant="h4" data-testid="page-audit-list-title">Audit Management</Typography>
           {canCreate && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => navigate('/audits/new')}
+              data-testid="btn-create-audit"
             >
               New Audit
             </Button>

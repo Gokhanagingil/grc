@@ -166,10 +166,15 @@ export const AdminAuditLogs: React.FC = () => {
               startIcon={<FilterIcon />}
               onClick={() => setShowFilters(!showFilters)}
               color={hasActiveFilters ? 'primary' : 'inherit'}
+              data-testid="btn-filter-audit-logs"
             >
               Filters {hasActiveFilters && `(${Object.values(filters).filter(v => v).length})`}
             </Button>
-            <Button startIcon={<RefreshIcon />} onClick={fetchLogs}>
+            <Button 
+              startIcon={<RefreshIcon />} 
+              onClick={fetchLogs}
+              data-testid="btn-refresh-audit-logs"
+            >
               Refresh
             </Button>
           </>
@@ -247,6 +252,7 @@ export const AdminAuditLogs: React.FC = () => {
         loading={loading}
         error={null}
         rowKey="id"
+        data-testid="table-audit-logs"
         pagination={{
           page,
           rowsPerPage,

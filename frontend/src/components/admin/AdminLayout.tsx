@@ -11,7 +11,6 @@ import {
   Divider,
   Typography,
   Chip,
-  Collapse,
 } from '@mui/material';
 import {
   People as UsersIcon,
@@ -22,8 +21,6 @@ import {
   TableChart as TablesIcon,
   ViewColumn as FieldsIcon,
   AccountTree as WorkflowsIcon,
-  ExpandLess,
-  ExpandMore,
   ArrowBack as BackIcon,
   History as AuditLogsIcon,
   MonitorHeart as SystemIcon,
@@ -155,40 +152,52 @@ export const AdminLayout: React.FC = () => {
 
         <Divider sx={{ my: 1 }} />
 
-        {filteredMenuItems.map((item) => (
-          <ListItem key={item.id} disablePadding>
-            <ListItemButton
-              selected={isSelected(item.path)}
-              onClick={() => handleNavigation(item)}
-              disabled={item.disabled}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
-                },
-                opacity: item.disabled ? 0.5 : 1,
-              }}
-            >
-              <ListItemIcon
+        {filteredMenuItems.map((item) => {
+          const testIdMap: Record<string, string> = {
+            'users': 'nav-admin-users',
+            'roles': 'nav-admin-roles',
+            'tenants': 'nav-admin-tenants',
+            'audit-logs': 'nav-admin-audit-logs',
+            'system': 'nav-admin-system',
+            'settings': 'nav-admin-settings',
+          };
+          const testId = testIdMap[item.id] || `nav-admin-${item.id}`;
+          return (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton
+                selected={isSelected(item.path)}
+                onClick={() => handleNavigation(item)}
+                disabled={item.disabled}
+                data-testid={testId}
                 sx={{
-                  color: isSelected(item.path) ? 'white' : 'inherit',
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                    '& .MuiListItemIcon-root': {
+                      color: 'white',
+                    },
+                  },
+                  opacity: item.disabled ? 0.5 : 1,
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-              {item.disabled && (
-                <Chip label="Read-only" size="small" variant="outlined" />
-              )}
-            </ListItemButton>
-          </ListItem>
-        ))}
+                <ListItemIcon
+                  sx={{
+                    color: isSelected(item.path) ? 'white' : 'inherit',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+                {item.disabled && (
+                  <Chip label="Read-only" size="small" variant="outlined" />
+                )}
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
 
         <Divider sx={{ my: 2 }} />
 
@@ -198,23 +207,32 @@ export const AdminLayout: React.FC = () => {
           </Typography>
         </ListItem>
 
-        {futureMenuItems.map((item) => (
-          <ListItem key={item.id} disablePadding>
-            <ListItemButton
-              disabled
-              sx={{ opacity: 0.5 }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-              <Chip
-                label="Soon"
-                size="small"
-                color="info"
-                variant="outlined"
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {futureMenuItems.map((item) => {
+          const testIdMap: Record<string, string> = {
+            'tables': 'section-tables-coming-soon',
+            'fields': 'section-fields-coming-soon',
+            'workflows': 'section-workflows-coming-soon',
+          };
+          const testId = testIdMap[item.id] || `section-${item.id}-coming-soon`;
+          return (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton
+                disabled
+                data-testid={testId}
+                sx={{ opacity: 0.5 }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+                <Chip
+                  label="Soon"
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
 
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
