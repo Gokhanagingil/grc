@@ -176,9 +176,16 @@ export async function setupMockApi(page: Page) {
     }
 
     // Handle health endpoints - GET (live, db, auth, detailed)
-    if (url.includes('/health/') && method === 'GET') {
+    // Use pathname-based matching for reliability (avoids URL differences)
+    const pathname = new URL(url).pathname;
+    if (method === 'GET' && (
+      pathname === '/health/live' || 
+      pathname === '/health/db' || 
+      pathname === '/health/auth' || 
+      pathname === '/health/detailed'
+    )) {
       logMock(method, url, true);
-      if (url.includes('/health/detailed')) {
+      if (pathname === '/health/detailed') {
         await route.fulfill(successResponse({
           status: 'OK',
           uptime: 1000,

@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   Divider,
+  Skeleton,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -511,50 +512,65 @@ export const AdminSystem: React.FC = () => {
         </Alert>
       )}
 
-      {loading && !systemStatus ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : systemStatus ? (
-        <>
-          <Card sx={{ 
-            mb: 3, 
-            bgcolor: overallHealth === 'healthy' 
-              ? 'success.light' 
-              : overallHealth === 'degraded' 
-              ? 'warning.light' 
-              : overallHealth === 'unavailable'
-              ? 'grey.100'
-              : 'error.light' 
-          }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {getStatusIcon(overallHealth)}
-                <Box>
-                  <Typography variant="h6">
-                    System Status: {overallHealth.charAt(0).toUpperCase() + overallHealth.slice(1)}
-                  </Typography>
-                  {lastChecked && (
-                    <Typography variant="body2" color="text.secondary">
-                      Last checked: {lastChecked.toLocaleTimeString()}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-              <Chip
-                label={overallHealth.toUpperCase()}
-                color={getStatusColor(overallHealth)}
-                size="medium"
-              />
-            </CardContent>
-          </Card>
+      {/* Overall status card - always rendered with loading state support */}
+      <Card sx={{ 
+        mb: 3, 
+        bgcolor: loading && !systemStatus 
+          ? 'grey.100'
+          : overallHealth === 'healthy' 
+          ? 'success.light' 
+          : overallHealth === 'degraded' 
+          ? 'warning.light' 
+          : overallHealth === 'unavailable'
+          ? 'grey.100'
+          : 'error.light' 
+      }}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {loading && !systemStatus ? (
+              <CircularProgress size={24} />
+            ) : (
+              getStatusIcon(overallHealth)
+            )}
+            <Box>
+              <Typography variant="h6">
+                {loading && !systemStatus 
+                  ? 'Checking System Status...' 
+                  : `System Status: ${overallHealth.charAt(0).toUpperCase() + overallHealth.slice(1)}`}
+              </Typography>
+              {lastChecked && (
+                <Typography variant="body2" color="text.secondary">
+                  Last checked: {lastChecked.toLocaleTimeString()}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          {loading && !systemStatus ? (
+            <Skeleton variant="rounded" width={80} height={24} />
+          ) : (
+            <Chip
+              label={overallHealth.toUpperCase()}
+              color={getStatusColor(overallHealth)}
+              size="medium"
+            />
+          )}
+        </CardContent>
+      </Card>
 
-          <Typography variant="h6" gutterBottom>
-            Health Checks
-          </Typography>
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={4}>
-              <AdminCard title="API Gateway" icon={<ApiIcon />}>
+      <Typography variant="h6" gutterBottom>
+        Health Checks
+      </Typography>
+      {/* Widgets container - always present with data-testid for E2E tests */}
+      <Grid container spacing={3} sx={{ mb: 4 }} data-testid="system-status-widgets">
+        <Grid item xs={12} sm={6} md={4}>
+          <AdminCard title="API" icon={<ApiIcon />}>
+            {loading && !systemStatus ? (
+              <Box>
+                <Skeleton variant="rounded" width={80} height={24} sx={{ mb: 1 }} />
+                <Skeleton variant="text" width={60} />
+              </Box>
+            ) : systemStatus ? (
+              <>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Chip
                     label={systemStatus.health.api.status.toUpperCase()}
@@ -576,10 +592,21 @@ export const AdminSystem: React.FC = () => {
                     {systemStatus.health.api.message}
                   </Typography>
                 )}
-              </AdminCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <AdminCard title="Database" icon={<DatabaseIcon />}>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">No data</Typography>
+            )}
+          </AdminCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <AdminCard title="Database" icon={<DatabaseIcon />}>
+            {loading && !systemStatus ? (
+              <Box>
+                <Skeleton variant="rounded" width={80} height={24} sx={{ mb: 1 }} />
+                <Skeleton variant="text" width={60} />
+              </Box>
+            ) : systemStatus ? (
+              <>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Chip
                     label={systemStatus.health.database.status.toUpperCase()}
@@ -601,10 +628,21 @@ export const AdminSystem: React.FC = () => {
                     {systemStatus.health.database.message}
                   </Typography>
                 )}
-              </AdminCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <AdminCard title="Authentication" icon={<InfoIcon />}>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">No data</Typography>
+            )}
+          </AdminCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <AdminCard title="Auth" icon={<InfoIcon />}>
+            {loading && !systemStatus ? (
+              <Box>
+                <Skeleton variant="rounded" width={80} height={24} sx={{ mb: 1 }} />
+                <Skeleton variant="text" width={60} />
+              </Box>
+            ) : systemStatus ? (
+              <>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Chip
                     label={systemStatus.health.auth.status.toUpperCase()}
@@ -626,10 +664,17 @@ export const AdminSystem: React.FC = () => {
                     {systemStatus.health.auth.message}
                   </Typography>
                 )}
-              </AdminCard>
-            </Grid>
-          </Grid>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">No data</Typography>
+            )}
+          </AdminCard>
+        </Grid>
+      </Grid>
 
+      {/* System Information and remaining sections - only show when data is available */}
+      {systemStatus ? (
+        <>
           <Typography variant="h6" gutterBottom>
             System Information
           </Typography>

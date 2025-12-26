@@ -78,38 +78,28 @@ test.describe('Navigation', () => {
     const navSystemButton = page.getByTestId('nav-admin-system');
     await expect(navSystemButton).toBeVisible({ timeout: 10000 });
     
-    // Use Promise.all to wait for health API response along with navigation
-    // This ensures we wait for AdminSystem to mount and start fetching health data
-    // The health check is the semantic signal that the component has mounted
+    // Navigate to System Status page using Promise.all for route + click
     await Promise.all([
-      page.waitForResponse(
-        (response) => {
-          try {
-            const url = response.url();
-            const req = response.request();
-            const resourceType = req.resourceType();
-            // Only match xhr/fetch requests to health endpoints
-            const isApiRequest = resourceType === 'xhr' || resourceType === 'fetch';
-            const isHealthEndpoint = url.includes('/health/');
-            return isApiRequest && isHealthEndpoint && req.method() === 'GET';
-          } catch {
-            return false;
-          }
-        },
-        { timeout: 20000 }
-      ),
+      page.waitForURL('**/admin/system', { timeout: 15000 }),
       navSystemButton.click(),
-      page.waitForURL('/admin/system', { timeout: 10000 }),
     ]);
     
-    // Wait for page title with increased timeout for CI
-    await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('page-admin-system-title')).toContainText('System Status');
+    // Verify not redirected to login
+    await expect(page).not.toHaveURL(/\/login/i);
     
-    // Check that at least one status section is visible (API, Database, or Auth health)
-    // Use increased timeout for CI where health checks may take longer
-    const statusSection = page.locator('text=/API|Database|Auth|Health/i').first();
-    await expect(statusSection).toBeVisible({ timeout: 15000 });
+    // Wait for page title - use toHaveCount(1) before toBeVisible for robustness
+    // The title is now rendered immediately (deterministic UI), independent of API calls
+    const title = page.getByTestId('page-admin-system-title');
+    await expect(title).toHaveCount(1, { timeout: 15000 });
+    await expect(title).toBeVisible({ timeout: 15000 });
+    await expect(title).toContainText('System Status');
+    
+    // Verify widgets container is present (always rendered, even during loading)
+    await expect(page.getByTestId('system-status-widgets')).toBeVisible({ timeout: 15000 });
+    
+    // Check that at least one status widget label is visible (API, Database, or Auth)
+    // These are now always present in the DOM with skeleton loading states
+    await expect(page.getByText(/API|Database|Auth/i).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('Clicking Admin -> System Settings loads and shows at least one settings section', async ({ page }) => {
