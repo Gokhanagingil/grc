@@ -81,29 +81,8 @@ test.describe('Navigation', () => {
     await navSystemButton.click();
     await page.waitForURL('/admin/system', { timeout: 10000 });
     
-    // Diagnostic: Log current URL and page content on failure
-    const currentUrl = page.url();
-    console.log(`[DEBUG] Current URL after navigation: ${currentUrl}`);
-    
-    // Wait for page to stabilize - the AdminSystem component renders AdminPageHeader immediately
-    // but we need to wait for React to finish rendering
+    // Wait for page to stabilize - React needs time to render after navigation
     await page.waitForLoadState('domcontentloaded');
-    
-    // Check if the title element exists (even if not visible yet)
-    const titleCount = await page.getByTestId('page-admin-system-title').count();
-    console.log(`[DEBUG] Title element count: ${titleCount}`);
-    
-    // If title not found, log page content for debugging
-    if (titleCount === 0) {
-      const bodyText = await page.locator('body').textContent();
-      console.log(`[DEBUG] Page body text (first 500 chars): ${bodyText?.substring(0, 500)}`);
-      
-      // Check for common error states
-      const hasAccessDenied = bodyText?.includes('Access Denied');
-      const hasLogin = bodyText?.includes('Login') || bodyText?.includes('Sign in');
-      const has404 = bodyText?.includes('404') || bodyText?.includes('Not Found');
-      console.log(`[DEBUG] Access Denied: ${hasAccessDenied}, Login page: ${hasLogin}, 404: ${has404}`);
-    }
     
     // Wait for page title with increased timeout for CI
     await expect(page.getByTestId('page-admin-system-title')).toBeVisible({ timeout: 15000 });
