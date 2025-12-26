@@ -108,6 +108,10 @@ Yeni olusturulan Dockerfile:
 - SPA routing icin try_files konfigurasyonu
 - Gzip compression enabled
 - Security headers
+- Deterministic builds with `NPM_CONFIG_LEGACY_PEER_DEPS=true`
+
+**Deterministic Build Note:**
+Frontend Dockerfile uses `ENV NPM_CONFIG_LEGACY_PEER_DEPS=true` before `npm ci` to ensure deterministic builds. Do not manually edit the Dockerfile during staging deploys - the build is now fully automated and reproducible.
 
 **API Base URL:**
 - Build time'da `REACT_APP_API_URL` environment variable ile set edilir

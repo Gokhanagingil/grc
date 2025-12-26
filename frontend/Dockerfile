@@ -20,7 +20,8 @@ ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 # Copy package files first for better layer caching
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (legacy-peer-deps for deterministic builds)
+ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 RUN npm ci
 
 # Copy source code
