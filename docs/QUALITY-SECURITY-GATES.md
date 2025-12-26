@@ -65,10 +65,17 @@ trufflehog filesystem . --only-verified
 **Adding New Patterns:**
 Edit `.github/credential-patterns.txt` and add one pattern per line. Lines starting with `#` are comments.
 
+**Excluded Files:**
+The following files are intentionally excluded from credential pattern scanning because they contain legitimate staging/demo credentials for operational purposes:
+- `STAGING_AUDIT_LOGS_DIAGNOSTIC.sh` - Staging environment diagnostics
+- `staging-disk-cleanup-rebuild.sh` - Staging cleanup operations
+- `STAGING_VALIDATION_SCRIPT.sh` - Staging validation scripts
+- `*.env.staging.example` - Example environment files
+
 **Local Testing:**
 ```bash
 # Check for patterns manually
-grep -rn "StagingPassword" --exclude-dir=node_modules --exclude-dir=dist .
+grep -rn "StagingPassword" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.github .
 ```
 
 ## Migration Safety Gates
