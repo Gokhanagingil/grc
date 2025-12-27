@@ -15,7 +15,7 @@
  *   - Swap: 2GB configured and active
  */
 
-import { execSync } from 'child_process';
+import * as fs from 'fs';
 import * as os from 'os';
 
 interface MemoryInfo {
@@ -40,7 +40,7 @@ function getMemoryInfo(): MemoryInfo {
 
   let availableBytes = freeBytes;
   try {
-    const meminfo = execSync('cat /proc/meminfo', { encoding: 'utf-8' });
+    const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
     const availableMatch = meminfo.match(/MemAvailable:\s+(\d+)\s+kB/);
     if (availableMatch) {
       availableBytes = parseInt(availableMatch[1], 10) * 1024;
@@ -58,23 +58,27 @@ function getMemoryInfo(): MemoryInfo {
 
 function getSwapInfo(): SwapInfo {
   try {
-    const swapOutput = execSync('swapon --show --bytes --noheadings', {
-      encoding: 'utf-8',
-    });
+    // Read swap information from /proc/swaps
+    const swapsContent = fs.readFileSync('/proc/swaps', 'utf8');
+    const lines = swapsContent.trim().split('\n');
 
-    if (!swapOutput.trim()) {
+    // Skip header line (first line)
+    if (lines.length <= 1) {
       return { totalMB: 0, usedMB: 0, freeMB: 0, active: false };
     }
 
     let totalBytes = 0;
     let usedBytes = 0;
 
-    const lines = swapOutput.trim().split('\n');
-    for (const line of lines) {
-      const parts = line.split(/\s+/);
+    // Parse swap entries (format: Filename Type Size Used Priority)
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(/\s+/);
       if (parts.length >= 4) {
-        totalBytes += parseInt(parts[2], 10) || 0;
-        usedBytes += parseInt(parts[3], 10) || 0;
+        // Size is in KB, convert to bytes
+        const sizeKB = parseInt(parts[2], 10) || 0;
+        const usedKB = parseInt(parts[3], 10) || 0;
+        totalBytes += sizeKB * 1024;
+        usedBytes += usedKB * 1024;
       }
     }
 
@@ -85,13 +89,14 @@ function getSwapInfo(): SwapInfo {
       active: totalBytes > 0,
     };
   } catch {
+    // If /proc/swaps doesn't exist or is unreadable, return unknown state
     return { totalMB: 0, usedMB: 0, freeMB: 0, active: false };
   }
 }
 
 function checkSwapPersistence(): boolean {
   try {
-    const fstab = execSync('cat /etc/fstab', { encoding: 'utf-8' });
+    const fstab = fs.readFileSync('/etc/fstab', 'utf8');
     return fstab.includes('swapfile') || fstab.includes('swap');
   } catch {
     return false;
@@ -123,31 +128,37 @@ function main(): void {
     console.log(`  Total:      ${formatMB(swap.totalMB)}`);
     console.log(`  Used:       ${formatMB(swap.usedMB)}`);
     console.log(`  Free:       ${formatMB(swap.freeMB)}`);
-    console.log(`  Persistent: ${swapPersistent ? 'Yes (in fstab)' : 'No (will not survive reboot)'}`);
+    console.log(
+      `  Persistent: ${swapPersistent ? 'Yes (in fstab)' : 'No (will not survive reboot)'}`,
+    );
   } else {
     console.log('  Status: NOT ACTIVE');
   }
   console.log();
 
-  let warnings: string[] = [];
-  let errors: string[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
 
   if (memory.availableMB < MIN_AVAILABLE_RAM_MB) {
     warnings.push(
-      `Available RAM (${formatMB(memory.availableMB)}) is below recommended minimum (${formatMB(MIN_AVAILABLE_RAM_MB)})`
+      `Available RAM (${formatMB(memory.availableMB)}) is below recommended minimum (${formatMB(MIN_AVAILABLE_RAM_MB)})`,
     );
   }
 
   if (!swap.active) {
-    errors.push('Swap is not active. Frontend builds may fail with OOM errors.');
+    errors.push(
+      'Swap is not active. Frontend builds may fail with OOM errors.',
+    );
   } else if (swap.totalMB < MIN_SWAP_MB) {
     warnings.push(
-      `Swap size (${formatMB(swap.totalMB)}) is below recommended minimum (${formatMB(MIN_SWAP_MB)})`
+      `Swap size (${formatMB(swap.totalMB)}) is below recommended minimum (${formatMB(MIN_SWAP_MB)})`,
     );
   }
 
   if (!swapPersistent && swap.active) {
-    warnings.push('Swap is not configured in /etc/fstab and will not persist after reboot.');
+    warnings.push(
+      'Swap is not configured in /etc/fstab and will not persist after reboot.',
+    );
   }
 
   if (errors.length > 0) {
@@ -163,13 +174,19 @@ function main(): void {
   }
 
   if (errors.length === 0 && warnings.length === 0) {
-    console.log('[OK] Memory and swap configuration meets recommended thresholds.');
+    console.log(
+      '[OK] Memory and swap configuration meets recommended thresholds.',
+    );
     console.log('     Safe to proceed with resource-intensive builds.');
   } else if (errors.length > 0) {
-    console.log('[FAIL] Critical issues detected. Resolve before proceeding with builds.');
+    console.log(
+      '[FAIL] Critical issues detected. Resolve before proceeding with builds.',
+    );
     process.exit(1);
   } else {
-    console.log('[WARN] Some warnings detected. Builds may succeed but consider addressing warnings.');
+    console.log(
+      '[WARN] Some warnings detected. Builds may succeed but consider addressing warnings.',
+    );
   }
 }
 

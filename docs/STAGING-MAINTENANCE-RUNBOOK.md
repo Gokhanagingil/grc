@@ -506,6 +506,8 @@ Without swap, the Linux OOM killer may terminate the build process, causing depl
 
 ### Verify Swap Status
 
+Use these commands to verify swap configuration:
+
 ```bash
 # Check if swap is active
 ssh root@46.224.99.150 "swapon --show"
@@ -518,7 +520,7 @@ ssh root@46.224.99.150 "swapon --show"
 ssh root@46.224.99.150 "free -h"
 
 # Verify swap persistence in fstab
-ssh root@46.224.99.150 "grep swapfile /etc/fstab"
+ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
 
 # Expected output:
 # /swapfile none swap sw 0 0
@@ -531,14 +533,16 @@ ssh root@46.224.99.150 "ls -la /swapfile"
 
 If the server is upgraded with more RAM and swap is no longer required:
 
+**Important:** Follow these steps in order to safely remove swap:
+
 ```bash
-# 1. Disable swap
+# 1. Disable swap (must be done first)
 ssh root@46.224.99.150 "swapoff /swapfile"
 
-# 2. Remove fstab entry
+# 2. Remove fstab entry (prevents swap from being re-enabled on reboot)
 ssh root@46.224.99.150 "sed -i '/swapfile/d' /etc/fstab"
 
-# 3. Delete the swapfile
+# 3. Delete the swapfile (safe to do after swapoff)
 ssh root@46.224.99.150 "rm /swapfile"
 
 # 4. Verify removal
