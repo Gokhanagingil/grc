@@ -491,6 +491,110 @@ These limitations do not affect the core GRC functionality (Dashboard, Governanc
 | `/dashboard/overview` | GET | 200 | Dashboard KPIs (requires auth) |
 | `/itsm/incidents` | GET | 200 | Incident list (requires auth) |
 
+## Swap Configuration for Frontend Builds
+
+The staging server uses a 2GB swap file to prevent out-of-memory (OOM) errors during React frontend builds. Docker builds, especially for the frontend, can consume significant memory during webpack bundling and TypeScript compilation.
+
+### Why Swap Exists
+
+The React frontend build process can spike memory usage beyond the server's 4GB RAM, particularly during:
+- Webpack bundling with source maps
+- TypeScript type checking
+- Node.js garbage collection pressure
+
+Without swap, the Linux OOM killer may terminate the build process, causing deployment failures.
+
+### Verify Swap Status
+
+Use these commands to verify swap configuration:
+
+```bash
+# Check if swap is active
+ssh root@46.224.99.150 "swapon --show"
+
+# Expected output:
+# NAME      TYPE SIZE  USED PRIO
+# /swapfile file   2G    0B   -2
+
+# Check memory and swap usage
+ssh root@46.224.99.150 "free -h"
+
+# Verify swap persistence in fstab
+ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
+
+# Expected output:
+# /swapfile none swap sw 0 0
+
+# Check swapfile permissions (should be 0600, root:root)
+ssh root@46.224.99.150 "ls -la /swapfile"
+```
+
+### Remove Swap (If No Longer Needed)
+
+If the server is upgraded with more RAM and swap is no longer required:
+
+**Important:** Follow these steps in order to safely remove swap:
+
+```bash
+# 1. Disable swap (must be done first)
+ssh root@46.224.99.150 "swapoff /swapfile"
+
+# 2. Remove fstab entry (prevents swap from being re-enabled on reboot)
+ssh root@46.224.99.150 "sed -i '/swapfile/d' /etc/fstab"
+
+# 3. Delete the swapfile (safe to do after swapoff)
+ssh root@46.224.99.150 "rm /swapfile"
+
+# 4. Verify removal
+ssh root@46.224.99.150 "swapon --show && grep swapfile /etc/fstab"
+# Should return empty output
+```
+
+### Resize Swap (Safe Procedure)
+
+To increase or decrease swap size:
+
+```bash
+# 1. Disable current swap
+ssh root@46.224.99.150 "swapoff /swapfile"
+
+# 2. Resize the swapfile (e.g., 4GB)
+ssh root@46.224.99.150 "fallocate -l 4G /swapfile"
+# Or use dd for more reliable allocation:
+# ssh root@46.224.99.150 "dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress"
+
+# 3. Set correct permissions
+ssh root@46.224.99.150 "chmod 600 /swapfile"
+
+# 4. Format as swap
+ssh root@46.224.99.150 "mkswap /swapfile"
+
+# 5. Enable swap
+ssh root@46.224.99.150 "swapon /swapfile"
+
+# 6. Verify new size
+ssh root@46.224.99.150 "swapon --show"
+```
+
+**Note:** The fstab entry does not need to be modified when resizing since it references the file path, not the size.
+
+### Pre-Build Memory Check
+
+Before running resource-intensive builds, verify available memory:
+
+```bash
+ssh root@46.224.99.150 "free -h && swapon --show"
+```
+
+Recommended minimums for frontend build:
+- Available RAM: 1GB+
+- Swap: 2GB configured and active
+
+If swap is not active, enable it before building:
+```bash
+ssh root@46.224.99.150 "swapon /swapfile"
+```
+
 ## Contact
 
 For issues with staging environment, contact the platform team or refer to the main repository documentation.
