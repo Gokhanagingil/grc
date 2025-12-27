@@ -595,6 +595,50 @@ If swap is not active, enable it before building:
 ssh root@46.224.99.150 "swapon /swapfile"
 ```
 
+### Using check-memory Script
+
+The `check-memory` script can be run inside containers to verify memory and swap status before builds.
+
+**Important Note:** When running `check-memory` inside a container, the swap persistence status may show as "Unknown (container fstab)" because container `/etc/fstab` files are typically stub files that don't reflect the host's actual fstab configuration. This is expected behavior and not an error.
+
+#### (A) Container Check
+
+Run the script inside the backend container to verify swap is active (container-level check):
+
+```bash
+# Run inside backend container
+ssh root@46.224.99.150 "docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'node dist/scripts/check-memory.js || true'"
+```
+
+**Expected Output (Container):**
+- Swap Total/Used/Free: Correct values
+- Persistent: Unknown (container fstab) ← This is expected in containers
+- No false warnings about swap persistence
+
+**Test Instructions:**
+1. Verify swap Total/Used/Free are correct
+2. Verify "Persistent: Unknown (container fstab)" is shown (not a warning)
+3. Verify no "Swap is not configured in /etc/fstab..." warning appears
+
+#### (B) Host Persistence Check
+
+To verify swap persistence on the host (where it actually matters), use host-level commands:
+
+```bash
+# Check fstab entry on host
+ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
+
+# Expected output:
+# /swapfile none swap sw 0 0
+
+# Verify swap is active on host
+ssh root@46.224.99.150 "swapon --show"
+```
+
+**Test Instructions:**
+1. Verify fstab entry shows `/swapfile none swap sw 0 0`
+2. Verify `swapon --show` shows active swap
+
 ## Contact
 
 For issues with staging environment, contact the platform team or refer to the main repository documentation.
