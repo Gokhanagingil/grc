@@ -136,16 +136,27 @@ function getSwapInfo(): SwapInfo {
 }
 
 function checkSwapPersistence(): SwapPersistenceStatus {
-  try {
-    // Support override via environment variable (for future host fstab mounting)
-    const fstabPath = process.env.CHECK_MEMORY_FSTAB_PATH || '/etc/fstab';
+  // Support override via environment variable (for future host fstab mounting)
+  const fstabPath = process.env.CHECK_MEMORY_FSTAB_PATH || '/etc/fstab';
 
-    const stats = fs.statSync(fstabPath);
-    const fstab = fs.readFileSync(fstabPath, 'utf8');
+  let fd: number | null = null;
+  try {
+    // Open file descriptor (will throw if file doesn't exist)
+    // Using file descriptor eliminates TOCTOU (Time-of-check-time-of-use) race condition
+    fd = fs.openSync(fstabPath, 'r');
+
+    // Get file stats from file descriptor (safe, no path race condition)
+    const stats = fs.fstatSync(fd);
 
     // Heuristic: If fstab is very small (< 300 bytes), it's likely a container stub
     // that doesn't reflect the host's actual fstab
     const isLikelyContainerStub = stats.size < 300;
+
+    // Read file content using the file descriptor
+    // Allocate buffer based on actual file size from fstat
+    const buffer = Buffer.alloc(stats.size);
+    const bytesRead = fs.readSync(fd, buffer, 0, stats.size, 0);
+    const fstab = buffer.toString('utf8', 0, bytesRead);
 
     // Additional heuristic: Check if fstab contains only container stub content
     // (cdrom/usbdisk entries, or very minimal content unrelated to swap)
@@ -173,6 +184,15 @@ function checkSwapPersistence(): SwapPersistenceStatus {
   } catch {
     // If fstab doesn't exist or is unreadable, cannot determine
     return 'unknown';
+  } finally {
+    // Always close the file descriptor if it was opened
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // Ignore close errors
+      }
+    }
   }
 }
 

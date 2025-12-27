@@ -599,45 +599,47 @@ ssh root@46.224.99.150 "swapon /swapfile"
 
 The `check-memory` script can be run inside containers to verify memory and swap status before builds.
 
-**Important Note:** When running `check-memory` inside a container, the swap persistence status may show as "Unknown (container fstab)" because container `/etc/fstab` files are typically stub files that don't reflect the host's actual fstab configuration. This is expected behavior and not an error.
+**Important:** The script verifies swap exists and memory is adequate, but **swap persistence cannot be reliably validated inside containers** because container `/etc/fstab` files are typically stub files (cdrom/usbdisk entries) that don't reflect the host's actual fstab configuration.
 
-#### (A) Container Check
+#### (A) Container Check (Memory & Swap Status)
 
-Run the script inside the backend container to verify swap is active (container-level check):
+Run the script inside the backend container to verify swap is active and memory is adequate:
 
 ```bash
-# Run inside backend container
-ssh root@46.224.99.150 "docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'node dist/scripts/check-memory.js || true'"
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'node dist/scripts/check-memory.js || true'"
 ```
 
 **Expected Output (Container):**
-- Swap Total/Used/Free: Correct values
-- Persistent: Unknown (container fstab) ← This is expected in containers
+- Memory: Total/Free/Available values
+- Swap: Total/Used/Free values (correct)
+- Persistent: **Unknown (container fstab)** ← Expected in containers, NOT a warning
 - No false warnings about swap persistence
 
-**Test Instructions:**
-1. Verify swap Total/Used/Free are correct
-2. Verify "Persistent: Unknown (container fstab)" is shown (not a warning)
-3. Verify no "Swap is not configured in /etc/fstab..." warning appears
+**What the Container Check Validates:**
+- ✅ Swap is active (Total > 0)
+- ✅ Swap size meets minimum (2GB recommended)
+- ✅ Available RAM meets minimum (1GB recommended)
+- ⚠️ Swap persistence: Shows "Unknown" (cannot validate in container)
 
-#### (B) Host Persistence Check
+#### (B) Host Persistence Check (fstab Validation)
 
-To verify swap persistence on the host (where it actually matters), use host-level commands:
+To verify swap persistence on the **host** (where it actually matters), use host-level commands:
 
 ```bash
-# Check fstab entry on host
-ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
-
-# Expected output:
-# /swapfile none swap sw 0 0
-
 # Verify swap is active on host
 ssh root@46.224.99.150 "swapon --show"
+
+# Check fstab entry on host (where persistence is configured)
+ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
 ```
 
-**Test Instructions:**
-1. Verify fstab entry shows `/swapfile none swap sw 0 0`
-2. Verify `swapon --show` shows active swap
+**Expected Output:**
+- `swapon --show`: Shows `/swapfile` as active swap
+- `grep`: Shows `/swapfile none swap sw 0 0` entry in fstab
+
+**What the Host Check Validates:**
+- ✅ Swap is active (`swapon --show`)
+- ✅ Swap persistence configured (`/etc/fstab` entry exists)
 
 ## Contact
 
