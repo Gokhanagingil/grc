@@ -595,6 +595,52 @@ If swap is not active, enable it before building:
 ssh root@46.224.99.150 "swapon /swapfile"
 ```
 
+### Using check-memory Script
+
+The `check-memory` script can be run inside containers to verify memory and swap status before builds.
+
+**Important:** The script verifies swap exists and memory is adequate, but **swap persistence cannot be reliably validated inside containers** because container `/etc/fstab` files are typically stub files (cdrom/usbdisk entries) that don't reflect the host's actual fstab configuration.
+
+#### (A) Container Check (Memory & Swap Status)
+
+Run the script inside the backend container to verify swap is active and memory is adequate:
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'node dist/scripts/check-memory.js || true'"
+```
+
+**Expected Output (Container):**
+- Memory: Total/Free/Available values
+- Swap: Total/Used/Free values (correct)
+- Persistent: **Unknown (container fstab)** ← Expected in containers, NOT a warning
+- No false warnings about swap persistence
+
+**What the Container Check Validates:**
+- ✅ Swap is active (Total > 0)
+- ✅ Swap size meets minimum (2GB recommended)
+- ✅ Available RAM meets minimum (1GB recommended)
+- ⚠️ Swap persistence: Shows "Unknown" (cannot validate in container)
+
+#### (B) Host Persistence Check (fstab Validation)
+
+To verify swap persistence on the **host** (where it actually matters), use host-level commands:
+
+```bash
+# Verify swap is active on host
+ssh root@46.224.99.150 "swapon --show"
+
+# Check fstab entry on host (where persistence is configured)
+ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
+```
+
+**Expected Output:**
+- `swapon --show`: Shows `/swapfile` as active swap
+- `grep`: Shows `/swapfile none swap sw 0 0` entry in fstab
+
+**What the Host Check Validates:**
+- ✅ Swap is active (`swapon --show`)
+- ✅ Swap persistence configured (`/etc/fstab` entry exists)
+
 ## Contact
 
 For issues with staging environment, contact the platform team or refer to the main repository documentation.

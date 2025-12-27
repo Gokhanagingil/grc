@@ -31,6 +31,8 @@ interface SwapInfo {
   active: boolean;
 }
 
+type SwapPersistenceStatus = 'yes' | 'no' | 'unknown';
+
 const MIN_AVAILABLE_RAM_MB = 1024;
 const MIN_SWAP_MB = 2048;
 
@@ -70,15 +72,54 @@ function getSwapInfo(): SwapInfo {
     let totalBytes = 0;
     let usedBytes = 0;
 
-    // Parse swap entries (format: Filename Type Size Used Priority)
+    // Parse swap entries
+    // Format can be either:
+    // 1. Normal: "Filename Type Size Used Priority" (5 fields)
+    // 2. Merged: "Filename TypeSize Used Priority" (4 fields, TypeSize like "file2097148")
     for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(/\s+/);
-      if (parts.length >= 4) {
-        // Size is in KB, convert to bytes
-        const sizeKB = parseInt(parts[2], 10) || 0;
-        const usedKB = parseInt(parts[3], 10) || 0;
+      const line = lines[i].trim();
+      if (!line) {
+        continue;
+      }
+
+      const tokens = line.split(/\s+/);
+      if (tokens.length < 3) {
+        continue;
+      }
+
+      let sizeKB = 0;
+      let usedKB = 0;
+
+      try {
+        // Check if tokens[1] is merged TypeSize format (e.g., "file2097148")
+        const typeSizeMatch = tokens[1].match(/^([A-Za-z_]+)(\d+)$/);
+        if (typeSizeMatch) {
+          // Merged format: TypeSize is combined
+          // tokens[0] = Filename
+          // tokens[1] = TypeSize (e.g., "file2097148")
+          // tokens[2] = Used
+          // tokens[3] = Priority (optional)
+          sizeKB = parseInt(typeSizeMatch[2], 10) || 0;
+          usedKB = parseInt(tokens[2], 10) || 0;
+        } else {
+          // Normal format: Type and Size are separate
+          // tokens[0] = Filename
+          // tokens[1] = Type
+          // tokens[2] = Size
+          // tokens[3] = Used
+          // tokens[4] = Priority (optional)
+          if (tokens.length >= 4) {
+            sizeKB = parseInt(tokens[2], 10) || 0;
+            usedKB = parseInt(tokens[3], 10) || 0;
+          }
+        }
+
+        // Values are in KiB (from /proc/swaps), convert to bytes
         totalBytes += sizeKB * 1024;
         usedBytes += usedKB * 1024;
+      } catch {
+        // Skip this line if parsing fails, continue with next entry
+        continue;
       }
     }
 
@@ -89,17 +130,69 @@ function getSwapInfo(): SwapInfo {
       active: totalBytes > 0,
     };
   } catch {
-    // If /proc/swaps doesn't exist or is unreadable, return unknown state
+    // If /proc/swaps doesn't exist or is unreadable, return empty state
     return { totalMB: 0, usedMB: 0, freeMB: 0, active: false };
   }
 }
 
-function checkSwapPersistence(): boolean {
+function checkSwapPersistence(): SwapPersistenceStatus {
+  // Support override via environment variable (for future host fstab mounting)
+  const fstabPath = process.env.CHECK_MEMORY_FSTAB_PATH || '/etc/fstab';
+
+  let fd: number | null = null;
   try {
-    const fstab = fs.readFileSync('/etc/fstab', 'utf8');
-    return fstab.includes('swapfile') || fstab.includes('swap');
+    // Open file descriptor (will throw if file doesn't exist)
+    // Using file descriptor eliminates TOCTOU (Time-of-check-time-of-use) race condition
+    fd = fs.openSync(fstabPath, 'r');
+
+    // Get file stats from file descriptor (safe, no path race condition)
+    const stats = fs.fstatSync(fd);
+
+    // Heuristic: If fstab is very small (< 300 bytes), it's likely a container stub
+    // that doesn't reflect the host's actual fstab
+    const isLikelyContainerStub = stats.size < 300;
+
+    // Read file content using the file descriptor
+    // Allocate buffer based on actual file size from fstat
+    const buffer = Buffer.alloc(stats.size);
+    const bytesRead = fs.readSync(fd, buffer, 0, stats.size, 0);
+    const fstab = buffer.toString('utf8', 0, bytesRead);
+
+    // Additional heuristic: Check if fstab contains only container stub content
+    // (cdrom/usbdisk entries, or very minimal content unrelated to swap)
+    const hasOnlyStubContent =
+      (fstab.includes('cdrom') || fstab.includes('usbdisk')) &&
+      !fstab.includes('/swapfile') &&
+      !/^\s*[^#].*\sswap\s/.test(fstab);
+
+    // Check if fstab contains swap-related entries
+    const hasSwapEntry =
+      fstab.includes('/swapfile') || /^\s*[^#].*\sswap\s/.test(fstab);
+
+    // If it looks like a container stub and no swap entry, return 'unknown'
+    if ((isLikelyContainerStub || hasOnlyStubContent) && !hasSwapEntry) {
+      return 'unknown';
+    }
+
+    // Real host fstab: return 'yes' if swap entry exists, 'no' otherwise
+    if (hasSwapEntry) {
+      return 'yes';
+    }
+
+    // Normal-sized fstab without swap entry = not persistent
+    return 'no';
   } catch {
-    return false;
+    // If fstab doesn't exist or is unreadable, cannot determine
+    return 'unknown';
+  } finally {
+    // Always close the file descriptor if it was opened
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // Ignore close errors
+      }
+    }
   }
 }
 
@@ -128,9 +221,13 @@ function main(): void {
     console.log(`  Total:      ${formatMB(swap.totalMB)}`);
     console.log(`  Used:       ${formatMB(swap.usedMB)}`);
     console.log(`  Free:       ${formatMB(swap.freeMB)}`);
-    console.log(
-      `  Persistent: ${swapPersistent ? 'Yes (in fstab)' : 'No (will not survive reboot)'}`,
-    );
+    const persistenceLabel =
+      swapPersistent === 'yes'
+        ? 'Yes (in fstab)'
+        : swapPersistent === 'unknown'
+          ? 'Unknown (container fstab)'
+          : 'No (will not survive reboot)';
+    console.log(`  Persistent: ${persistenceLabel}`);
   } else {
     console.log('  Status: NOT ACTIVE');
   }
@@ -155,7 +252,9 @@ function main(): void {
     );
   }
 
-  if (!swapPersistent && swap.active) {
+  // Only warn if persistence is definitively 'no' (not 'unknown')
+  // Container environments may show 'unknown' and should not trigger warnings
+  if (swapPersistent === 'no' && swap.active) {
     warnings.push(
       'Swap is not configured in /etc/fstab and will not persist after reboot.',
     );
