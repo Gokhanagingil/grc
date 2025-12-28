@@ -294,109 +294,74 @@ health_checks() {
   for endpoint in "${health_endpoints[@]}"; do
     log_info "Checking ${endpoint}..."
 
-    local response_body response_code health_status
-    # Use consistent timeout: connect timeout 5s, max time 10s
-    response_code=$(docker exec "${BACKEND_CONTAINER}" sh -c \
-      "if command -v curl >/dev/null 2>&1; then \
-         curl -sf -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo '000'; \
-       elif command -v wget >/dev/null 2>&1; then \
-         wget -q --spider --timeout=10 --tries=1 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null && echo '200' || echo '000'; \
-       else \
-         node - <<'NODE'
-           const http = require('http');
-           const options = {
-             hostname: 'localhost',
-             port: ${BACKEND_PORT},
-             path: '${endpoint}',
-             method: 'GET',
-             timeout: 10000
-           };
-           const req = http.request(options, (res) => {
-             process.exit(res.statusCode === 200 ? 0 : 1);
-           });
-           req.on('error', () => { process.exit(1); });
-           req.on('timeout', () => { req.destroy(); process.exit(1); });
-           req.setTimeout(10000);
-           req.end();
-         NODE
-         [ \$? -eq 0 ] && echo '200' || echo '000'
-       fi" 2>&1 || echo "000")
+    # Run Node script to check health endpoint
+    # Node script outputs: status_code\nresponse_body (if 200)
+    # Exit code: 0 = HTTP 200, !=0 = failed
+    local node_output node_exit_code
+    node_output=$(docker exec "${BACKEND_CONTAINER}" node -e "
+      const http = require('http');
+      const options = {
+        hostname: 'localhost',
+        port: ${BACKEND_PORT},
+        path: '${endpoint}',
+        method: 'GET',
+        timeout: 10000
+      };
+      const req = http.request(options, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          // Output: status_code\nbody (if 200, else empty body)
+          console.log(res.statusCode);
+          if (res.statusCode === 200 && body) {
+            console.log(body);
+          }
+          process.exit(res.statusCode === 200 ? 0 : 1);
+        });
+      });
+      req.on('error', (err) => {
+        console.log('000');
+        process.exit(1);
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        console.log('000');
+        process.exit(1);
+      });
+      req.setTimeout(10000);
+      req.end();
+    " 2>&1)
+    node_exit_code=$?
 
-    # Get response body only if status code is 200
-    if [ "${response_code}" = "200" ]; then
-      response_body=$(docker exec "${BACKEND_CONTAINER}" sh -c \
-        "if command -v curl >/dev/null 2>&1; then \
-           curl -sf --connect-timeout 5 --max-time 10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo ''; \
-         elif command -v wget >/dev/null 2>&1; then \
-           wget -qO- --timeout=10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo ''; \
-         else \
-           node - <<'NODE'
-             const http = require('http');
-             const options = {
-               hostname: 'localhost',
-               port: ${BACKEND_PORT},
-               path: '${endpoint}',
-               method: 'GET',
-               timeout: 10000
-             };
-             const req = http.request(options, (res) => {
-               let body = '';
-               res.on('data', (chunk) => { body += chunk; });
-               res.on('end', () => {
-                 if (res.statusCode === 200) {
-                   console.log(body);
-                   process.exit(0);
-                 } else {
-                   process.exit(1);
-                 }
-               });
-             });
-             req.on('error', () => { process.exit(1); });
-             req.on('timeout', () => { req.destroy(); process.exit(1); });
-             req.setTimeout(10000);
-             req.end();
-           NODE
-         fi" 2>&1 || echo "")
-    else
-      response_body=""
-    fi
+    # Parse output: first line is status code, rest is body (if present)
+    local response_code response_body
+    response_code=$(echo "${node_output}" | head -n 1)
+    response_body=$(echo "${node_output}" | tail -n +2 | head -c 2048 || echo "")
 
     # Determine health status: HTTP 200 is primary success criterion
-    if [ "${response_code}" = "200" ]; then
-      # If body is parseable, check status field (optional additional validation)
-      if [ -n "${response_body}" ]; then
-        local status_field
-        status_field=$(echo "${response_body}" | grep -ioE '"status":\s*"(ok|healthy)"' || echo "")
-        # HTTP 200 + valid body = OK (status field check is just extra info)
-        health_status="OK"
-        HEALTH_RESULTS+=("${endpoint}: OK")
-        log_info "${endpoint}: OK (HTTP 200)"
-      else
-        # HTTP 200 but empty body - still OK for health check
-        health_status="OK"
-        HEALTH_RESULTS+=("${endpoint}: OK")
-        log_info "${endpoint}: OK (HTTP 200, empty body)"
-      fi
+    local health_status
+    if [ "${node_exit_code}" -eq 0 ] && [ "${response_code}" = "200" ]; then
+      health_status="OK"
+      HEALTH_RESULTS+=("${endpoint}: OK")
+      log_info "${endpoint}: OK (HTTP 200)"
     else
-      # Non-200 or error = FAILED
       health_status="FAILED"
       all_healthy=false
       HEALTH_RESULTS+=("${endpoint}: FAILED (HTTP ${response_code})")
       log_error "Health check failed for ${endpoint} (HTTP ${response_code})"
     fi
 
-    # Store response to raw.log (truncated if needed, but not on failure)
+    # Log to raw.log: status and result lines
+    echo "HEALTH ${endpoint} status=${response_code}" >> "${RAW_LOG}"
+    echo "HEALTH ${endpoint} result=${health_status}" >> "${RAW_LOG}"
+    
+    # Optionally log response body (truncated to 2048 chars)
     if [ "${response_code}" = "200" ] && [ -n "${response_body}" ]; then
       local truncated_body
       truncated_body=$(truncate_text "${response_body}" 2048)
-      echo "=== ${endpoint} (HTTP ${response_code}) ===" >> "${RAW_LOG}"
       echo "${truncated_body}" >> "${RAW_LOG}"
-      echo "" >> "${RAW_LOG}"
-    else
-      echo "=== ${endpoint} (HTTP ${response_code}) ===" >> "${RAW_LOG}"
-      echo "[No response body or error]" >> "${RAW_LOG}"
-      echo "" >> "${RAW_LOG}"
     fi
+    echo "" >> "${RAW_LOG}"
   done
 
   if [ "${all_healthy}" = "false" ]; then
