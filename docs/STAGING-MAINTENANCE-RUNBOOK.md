@@ -641,6 +641,236 @@ ssh root@46.224.99.150 "grep -n '/swapfile' /etc/fstab"
 - ✅ Swap is active (`swapon --show`)
 - ✅ Swap persistence configured (`/etc/fstab` entry exists)
 
+## Deploy & Validate (One Command)
+
+The `ops/staging-deploy-validate.sh` script provides a single-command deployment and validation workflow for staging. It automates the entire process from code pull to evidence generation.
+
+### Quick Start
+
+```bash
+# On staging host
+cd /opt/grc-platform
+
+# Set required environment variables
+export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
+export STAGING_ADMIN_PASSWORD="your-password-here"
+
+# Run deployment and validation
+bash ops/staging-deploy-validate.sh
+```
+
+### What the Script Does
+
+The script executes the following steps in sequence:
+
+1. **Pre-checks**: Validates Linux OS, docker, docker compose, git repository, and working directory
+2. **Update**: Fetches and pulls latest code from origin (fast-forward only)
+3. **Build/Up**: Builds and starts backend and frontend containers (not db)
+4. **Preflight**: Runs memory check script inside backend container
+5. **Health Checks**: Validates all health endpoints (`/health/live`, `/health/db`, `/health/auth`, `/health/ready`)
+6. **Smoke Tests**: Performs login and onboarding context tests
+7. **Evidence Pack**: Generates timestamped evidence directory with summary, logs, and metadata
+
+### Required Environment Variables
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `STAGING_ADMIN_EMAIL` | Admin email for smoke tests | `admin@grc-platform.local` | Yes |
+| `STAGING_ADMIN_PASSWORD` | Admin password for smoke tests | `TestPassword123!` | Yes |
+| `STAGING_TENANT_ID` | Tenant ID for smoke tests (defaults to DEMO_TENANT_ID if not set) | `00000000-0000-0000-0000-000000000001` | No |
+
+**Security Note:** The script never logs passwords or tokens. Credentials are only used in-memory for API calls.
+
+### Exit Codes
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| 0 | Success | All checks passed, deployment successful |
+| 2 | Pre-check failure | Docker/git/repo issues - fix environment |
+| 3 | Git update failure | Fast-forward pull failed - resolve conflicts |
+| 4 | Deploy/build failure | Container build or startup failed |
+| 5 | Preflight failure | Memory check failed - check swap/memory |
+| 6 | Health check failure | Backend health endpoints unhealthy |
+| 7 | Smoke test failure | Login or API tests failed |
+| 8 | Evidence generation failure | Evidence pack creation failed |
+
+### Evidence Pack Structure
+
+After successful execution, the script creates an evidence directory:
+
+```
+evidence/staging-YYYYMMDD-HHMMSS/
+├── summary.md      # Human-readable summary report
+├── raw.log         # Complete command output
+└── meta.json       # Metadata (commit, branch, docker images, etc.)
+```
+
+**Evidence Directory Location:** `evidence/` (root of repository)  
+**Git Ignore:** Evidence directories are excluded from git (see `.gitignore`)
+
+### Example Usage
+
+#### Standard Deployment
+
+```bash
+# SSH to staging
+ssh root@46.224.99.150
+
+# Navigate to repo
+cd /opt/grc-platform
+
+# Set credentials (from secure storage - avoid using .env in production)
+export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
+export STAGING_ADMIN_PASSWORD="your-secure-password"
+
+# Optional: Set tenant ID (defaults to DEMO_TENANT_ID if not set)
+export STAGING_TENANT_ID="00000000-0000-0000-0000-000000000001"
+
+# Run deployment
+bash ops/staging-deploy-validate.sh
+```
+
+#### Checking Evidence After Deployment
+
+```bash
+# List latest evidence
+ls -lt evidence/ | head -5
+
+# View latest summary
+cat "$(ls -td evidence/staging-* | head -1)/summary.md"
+
+# Check exit code from last run
+echo $?
+```
+
+### Container vs Host Execution
+
+**Important:** The script is designed to run on the **staging host** (not inside containers). It uses `docker exec` to run commands inside containers when needed (e.g., health checks, memory checks).
+
+- **Host-level operations:** Git pull, docker compose commands, evidence generation
+- **Container-level operations:** Health checks, memory checks, smoke tests (via `docker exec`)
+
+### Troubleshooting
+
+#### Script Fails at Preflight (Exit 5)
+
+Memory check detected errors. Check swap configuration:
+
+```bash
+# On host
+swapon --show
+free -h
+
+# Check memory check output in evidence
+cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -A 20 "Preflight"
+```
+
+#### Script Fails at Health Checks (Exit 6)
+
+Backend health endpoints are not responding correctly:
+
+```bash
+# Check backend logs
+docker logs grc-staging-backend --tail 50
+
+# Manually test health endpoint
+docker exec grc-staging-backend curl -s http://localhost:3002/health/ready
+
+# Check evidence for specific endpoint failure
+cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -B 5 -A 10 "FAILED"
+```
+
+#### Script Fails at Smoke Tests (Exit 7)
+
+Login or API tests failed:
+
+```bash
+# Verify credentials
+echo "Email: ${STAGING_ADMIN_EMAIL}"
+# (Don't echo password)
+
+# Test login manually
+docker exec grc-staging-backend node -e "
+  const http = require('http');
+  const data = JSON.stringify({
+    email: '${STAGING_ADMIN_EMAIL}',
+    password: 'your-password'
+  });
+  const req = http.request({
+    hostname: 'localhost',
+    port: 3002,
+    path: '/auth/login',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': data.length }
+  }, (res) => {
+    console.log('Status:', res.statusCode);
+    res.on('data', (d) => process.stdout.write(d));
+  });
+  req.write(data);
+  req.end();
+"
+```
+
+#### Git Pull Fails (Fast-Forward Only)
+
+If local changes prevent fast-forward pull:
+
+```bash
+# Option 1: Allow dirty working tree (not recommended)
+export ALLOW_DIRTY=1
+bash ops/staging-deploy-validate.sh
+
+# Option 2: Stash changes
+git stash
+bash ops/staging-deploy-validate.sh
+git stash pop
+
+# Option 3: Reset to origin (destructive)
+git fetch origin
+git reset --hard origin/main
+bash ops/staging-deploy-validate.sh
+```
+
+### Integration with CI/CD
+
+The script is designed for manual execution on the staging host. For CI/CD integration:
+
+1. **SSH to staging host** from CI runner
+2. **Set environment variables** (from CI secrets)
+3. **Run script** and capture exit code
+4. **Upload evidence** to CI artifacts (optional)
+
+Example CI step:
+
+```yaml
+# Example GitHub Actions step
+- name: Deploy and Validate Staging
+  run: |
+    ssh root@46.224.99.150 << 'EOF'
+      cd /opt/grc-platform
+      export STAGING_ADMIN_EMAIL="${{ secrets.STAGING_ADMIN_EMAIL }}"
+      export STAGING_ADMIN_PASSWORD="${{ secrets.STAGING_ADMIN_PASSWORD }}"
+      bash ops/staging-deploy-validate.sh
+    EOF
+```
+
+### Script Idempotency
+
+The script is **idempotent** - it can be run multiple times safely:
+
+- Git pull uses `--ff-only` (fails gracefully if conflicts)
+- Docker compose `up -d --build` is idempotent
+- Evidence directories are timestamped (no overwrites)
+- Containers are restarted if needed
+
+### Best Practices
+
+1. **Always check exit code** after running the script
+2. **Review evidence summary** after each deployment
+3. **Keep evidence directories** for audit trail (they're git-ignored)
+4. **Use environment variables** for credentials (never hardcode)
+5. **Run script from repo root** or ensure correct working directory
+
 ## Contact
 
 For issues with staging environment, contact the platform team or refer to the main repository documentation.

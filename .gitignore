@@ -108,3 +108,6 @@ AUDIT_LOGS_FIX_VALIDATION_REPORT.md
 # Playwright artifacts
 frontend/playwright-report/
 frontend/test-results/
+
+# Evidence packs (deployment validation artifacts)
+evidence/
