@@ -227,7 +227,7 @@ build_and_up() {
     if docker exec "${BACKEND_CONTAINER}" sh -c \
       "command -v curl >/dev/null 2>&1 && curl -sf http://localhost:${BACKEND_PORT}/health/ready >/dev/null 2>&1 || \
        (command -v wget >/dev/null 2>&1 && wget -q --spider http://localhost:${BACKEND_PORT}/health/ready >/dev/null 2>&1) || \
-       node -e \"const http=require('http');const r=http.get('http://localhost:${BACKEND_PORT}/health/ready',{timeout:5000},(res)=>{process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.on('timeout',()=>{r.destroy();process.exit(1)});\" 2>/dev/null"; then
+       node -e \"const http=require('http');const r=http.get('http://localhost:${BACKEND_PORT}/health/ready',{timeout:10000},(res)=>{process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.on('timeout',()=>{r.destroy();process.exit(1)});\" 2>/dev/null"; then
       backend_ready=true
       break
     fi
@@ -294,109 +294,80 @@ health_checks() {
   for endpoint in "${health_endpoints[@]}"; do
     log_info "Checking ${endpoint}..."
 
-    local response_body response_code health_status
-    # Use consistent timeout: connect timeout 5s, max time 10s
-    response_code=$(docker exec "${BACKEND_CONTAINER}" sh -c \
-      "if command -v curl >/dev/null 2>&1; then \
-         curl -sf -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo '000'; \
-       elif command -v wget >/dev/null 2>&1; then \
-         wget -q --spider --timeout=10 --tries=1 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null && echo '200' || echo '000'; \
-       else \
-         node - <<'NODE'
-           const http = require('http');
-           const options = {
-             hostname: 'localhost',
-             port: ${BACKEND_PORT},
-             path: '${endpoint}',
-             method: 'GET',
-             timeout: 10000
-           };
-           const req = http.request(options, (res) => {
-             process.exit(res.statusCode === 200 ? 0 : 1);
-           });
-           req.on('error', () => { process.exit(1); });
-           req.on('timeout', () => { req.destroy(); process.exit(1); });
-           req.setTimeout(10000);
-           req.end();
-         NODE
-         [ \$? -eq 0 ] && echo '200' || echo '000'
-       fi" 2>&1 || echo "000")
+    # Run Node script to check health endpoint
+    # Node script outputs: status_code\nresponse_body (if 200)
+    # Exit code: 0 = HTTP 200, !=0 = failed
+    local node_output node_exit_code
+    set +e
+    node_output=$(docker exec "${BACKEND_CONTAINER}" node -e "
+      const http = require('http');
+      const options = {
+        hostname: 'localhost',
+        port: ${BACKEND_PORT},
+        path: '${endpoint}',
+        method: 'GET',
+        timeout: 10000
+      };
+      const req = http.request(options, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          // Output: status_code\nbody (if 200, else empty body)
+          console.log(res.statusCode);
+          if (res.statusCode === 200 && body) {
+            console.log(body);
+          }
+          process.exit(res.statusCode === 200 ? 0 : 1);
+        });
+      });
+      req.on('error', (err) => {
+        console.log('000');
+        process.exit(1);
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        console.log('000');
+        process.exit(1);
+      });
+      req.setTimeout(10000);
+      req.end();
+    " 2>&1)
+    node_exit_code=$?
+    set -e
 
-    # Get response body only if status code is 200
-    if [ "${response_code}" = "200" ]; then
-      response_body=$(docker exec "${BACKEND_CONTAINER}" sh -c \
-        "if command -v curl >/dev/null 2>&1; then \
-           curl -sf --connect-timeout 5 --max-time 10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo ''; \
-         elif command -v wget >/dev/null 2>&1; then \
-           wget -qO- --timeout=10 http://localhost:${BACKEND_PORT}${endpoint} 2>/dev/null || echo ''; \
-         else \
-           node - <<'NODE'
-             const http = require('http');
-             const options = {
-               hostname: 'localhost',
-               port: ${BACKEND_PORT},
-               path: '${endpoint}',
-               method: 'GET',
-               timeout: 10000
-             };
-             const req = http.request(options, (res) => {
-               let body = '';
-               res.on('data', (chunk) => { body += chunk; });
-               res.on('end', () => {
-                 if (res.statusCode === 200) {
-                   console.log(body);
-                   process.exit(0);
-                 } else {
-                   process.exit(1);
-                 }
-               });
-             });
-             req.on('error', () => { process.exit(1); });
-             req.on('timeout', () => { req.destroy(); process.exit(1); });
-             req.setTimeout(10000);
-             req.end();
-           NODE
-         fi" 2>&1 || echo "")
-    else
-      response_body=""
+    # Parse output: first line is status code, rest is body (if present)
+    local response_code response_body
+    response_code=$(echo "${node_output}" | head -n 1)
+    # Ensure response_code is numeric, default to "000" if not
+    if ! [[ "${response_code}" =~ ^[0-9]+$ ]]; then
+      response_code="000"
     fi
+    response_body=$(echo "${node_output}" | tail -n +2 | head -c 2048 || echo "")
 
     # Determine health status: HTTP 200 is primary success criterion
-    if [ "${response_code}" = "200" ]; then
-      # If body is parseable, check status field (optional additional validation)
-      if [ -n "${response_body}" ]; then
-        local status_field
-        status_field=$(echo "${response_body}" | grep -ioE '"status":\s*"(ok|healthy)"' || echo "")
-        # HTTP 200 + valid body = OK (status field check is just extra info)
-        health_status="OK"
-        HEALTH_RESULTS+=("${endpoint}: OK")
-        log_info "${endpoint}: OK (HTTP 200)"
-      else
-        # HTTP 200 but empty body - still OK for health check
-        health_status="OK"
-        HEALTH_RESULTS+=("${endpoint}: OK")
-        log_info "${endpoint}: OK (HTTP 200, empty body)"
-      fi
+    local health_status
+    if [ "${node_exit_code}" -eq 0 ] && [ "${response_code}" = "200" ]; then
+      health_status="OK"
+      HEALTH_RESULTS+=("${endpoint}: OK")
+      log_info "${endpoint}: OK (HTTP 200)"
     else
-      # Non-200 or error = FAILED
       health_status="FAILED"
       all_healthy=false
       HEALTH_RESULTS+=("${endpoint}: FAILED (HTTP ${response_code})")
       log_error "Health check failed for ${endpoint} (HTTP ${response_code})"
     fi
 
-    # Store response to raw.log (truncated if needed, but not on failure)
+    # Log to raw.log: status and result lines
+    echo "HEALTH ${endpoint} status=${response_code}" >> "${RAW_LOG}"
+    echo "HEALTH ${endpoint} result=${health_status}" >> "${RAW_LOG}"
+    
+    # Optionally log response body (truncated to 2048 chars)
     if [ "${response_code}" = "200" ] && [ -n "${response_body}" ]; then
       local truncated_body
       truncated_body=$(truncate_text "${response_body}" 2048)
-      echo "=== ${endpoint} (HTTP ${response_code}) ===" >> "${RAW_LOG}"
       echo "${truncated_body}" >> "${RAW_LOG}"
-      echo "" >> "${RAW_LOG}"
-    else
-      echo "=== ${endpoint} (HTTP ${response_code}) ===" >> "${RAW_LOG}"
-      echo "[No response body or error]" >> "${RAW_LOG}"
-      echo "" >> "${RAW_LOG}"
     fi
+    echo "" >> "${RAW_LOG}"
   done
 
   if [ "${all_healthy}" = "false" ]; then
@@ -419,14 +390,18 @@ smoke_tests() {
     exit 7
   fi
 
-  # Login test
+  # Login test (token must never be logged - use temp file in container)
   log_info "Testing login..."
-  local login_response login_token
-  login_response=$(docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
+  local token_file_in_container="/tmp/login_token_$$"
+  local login_status
+  
+  # Run login: write token to file in container, status messages to stderr (logged)
+  login_status=$(docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
     -e ADMIN_PASSWORD="${STAGING_ADMIN_PASSWORD}" \
     "${BACKEND_CONTAINER}" sh -c \
     'node - <<NODE
       const http = require("http");
+      const fs = require("fs");
       const data = JSON.stringify({
         email: process.env.ADMIN_EMAIL,
         password: process.env.ADMIN_PASSWORD
@@ -449,25 +424,109 @@ smoke_tests() {
           if (res.statusCode === 200) {
             try {
               const json = JSON.parse(body);
-              if (json.accessToken || (json.data && json.data.accessToken)) {
-                const token = json.accessToken || json.data.accessToken;
-                console.log("TOKEN_OK:" + token);
+              const token = json.accessToken || (json.data && json.data.accessToken);
+              if (token) {
+                // Write token to file (not stdout/stderr - security)
+                fs.writeFileSync("'"${token_file_in_container}"'", token, "utf8");
+                process.stderr.write("LOGIN_OK\n");
                 process.exit(0);
               } else {
-                console.error("ERROR: No accessToken in response");
+                process.stderr.write("ERROR: No accessToken in response\n");
                 process.exit(1);
               }
             } catch (e) {
-              console.error("ERROR: Invalid JSON response");
+              process.stderr.write("ERROR: Invalid JSON response\n");
               process.exit(1);
             }
           } else {
-            console.error("ERROR: Login failed with status " + res.statusCode);
+            process.stderr.write("ERROR: Login failed with status " + res.statusCode + "\n");
             process.exit(1);
           }
         });
       });
-      req.on("error", (e) => {
+      req.on("error", () => {
+        process.stderr.write("ERROR: Request error\n");
+        process.exit(1);
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        process.stderr.write("ERROR: Request timeout\n");
+        process.exit(1);
+      });
+      req.write(data);
+      req.end();
+NODE
+' 2>&1)
+  
+  # Check login status
+  if ! echo "${login_status}" | grep -q "LOGIN_OK"; then
+    local error_msg
+    error_msg=$(echo "${login_status}" | grep "ERROR:" | head -1 || echo "Login request failed")
+    docker exec "${BACKEND_CONTAINER}" rm -f "${token_file_in_container}" 2>/dev/null || true
+    log_error "Login test failed: ${error_msg}"
+    exit 7
+  fi
+  
+  # Extract token from container file (not logged)
+  local login_token
+  login_token=$(docker exec "${BACKEND_CONTAINER}" cat "${token_file_in_container}" 2>/dev/null || echo "")
+  docker exec "${BACKEND_CONTAINER}" rm -f "${token_file_in_container}" 2>/dev/null || true
+  
+  if [ -z "${login_token}" ]; then
+    log_error "Login test failed (token is empty)"
+    exit 7
+  fi
+  
+  log_info "Login successful (token obtained, not logged)"
+
+  # Test onboarding/context endpoint (requires x-tenant-id header)
+  log_info "Testing /onboarding/context with tenant ID: ${STAGING_TENANT_ID}..."
+  local context_response context_status
+  context_status=$(docker exec -e AUTH_TOKEN="${login_token}" \
+    -e TENANT_ID="${STAGING_TENANT_ID}" \
+    "${BACKEND_CONTAINER}" sh -c \
+    'node - <<NODE
+      const http = require("http");
+      const token = process.env.AUTH_TOKEN;
+      const tenantId = process.env.TENANT_ID;
+      const options = {
+        hostname: "localhost",
+        port: '"${BACKEND_PORT}"',
+        path: "/onboarding/context",
+        method: "GET",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "x-tenant-id": tenantId
+        },
+        timeout: 10000
+      };
+      const req = http.request(options, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(body);
+              // Check if response has context (with or without data envelope)
+              const context = json.context || (json.data && json.data.context);
+              if (context) {
+                console.log("OK");
+                process.exit(0);
+              } else {
+                console.error("ERROR: No context in response (HTTP 200)");
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error("ERROR: Invalid JSON (HTTP 200)");
+              process.exit(1);
+            }
+          } else {
+            console.error("ERROR: HTTP " + res.statusCode);
+            process.exit(1);
+          }
+        });
+      });
+      req.on("error", () => {
         console.error("ERROR: Request error");
         process.exit(1);
       });
@@ -476,83 +535,9 @@ smoke_tests() {
         console.error("ERROR: Request timeout");
         process.exit(1);
       });
-      req.write(data);
       req.end();
 NODE
 ' 2>&1 || echo "ERROR")
-
-  if [[ ! "${login_response}" =~ ^TOKEN_OK: ]]; then
-    local error_msg
-    if [[ "${login_response}" =~ ^ERROR: ]]; then
-      error_msg="${login_response#ERROR: }"
-    else
-      error_msg="Login request failed"
-    fi
-    log_error "Login test failed: ${error_msg}"
-    exit 7
-  fi
-
-  # Extract token by removing TOKEN_OK: prefix (never log the token itself)
-  login_token="${login_response#TOKEN_OK:}"
-  log_info "Login successful (token obtained, not logged)"
-
-  # Test onboarding/context endpoint (requires x-tenant-id header)
-  log_info "Testing /onboarding/context with tenant ID: ${STAGING_TENANT_ID}..."
-  local context_response context_status
-  context_status=$(docker exec "${BACKEND_CONTAINER}" sh -c \
-    "node - <<NODE
-      const http = require('http');
-      const token = '${login_token}';
-      const tenantId = '${STAGING_TENANT_ID}';
-      const options = {
-        hostname: 'localhost',
-        port: ${BACKEND_PORT},
-        path: '/onboarding/context',
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'x-tenant-id': tenantId
-        },
-        timeout: 10000
-      };
-      const req = http.request(options, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            try {
-              const json = JSON.parse(body);
-              // Check if response has context (with or without data envelope)
-              const context = json.context || (json.data && json.data.context);
-              if (context) {
-                console.log('OK');
-                process.exit(0);
-              } else {
-                console.error('ERROR: No context in response (HTTP 200)');
-                process.exit(1);
-              }
-            } catch (e) {
-              console.error('ERROR: Invalid JSON (HTTP 200)');
-              process.exit(1);
-            }
-          } else {
-            console.error('ERROR: HTTP ' + res.statusCode);
-            process.exit(1);
-          }
-        });
-      });
-      req.on('error', (e) => {
-        console.error('ERROR: Request error');
-        process.exit(1);
-      });
-      req.on('timeout', () => {
-        req.destroy();
-        console.error('ERROR: Request timeout');
-        process.exit(1);
-      });
-      req.end();
-NODE
-" 2>&1 || echo "ERROR")
 
   if [ "${context_status}" != "OK" ]; then
     local error_msg
@@ -574,42 +559,16 @@ NODE
 generate_evidence() {
   log_info "=== Generating Evidence Pack ==="
 
-  # Get container status with JSON validation
-  local container_status container_json_valid container_text_output
-  container_text_output=""
-  container_status=$(docker compose -f "${COMPOSE_FILE}" ps --format json 2>&1 || echo "")
-  
-  # Validate JSON format
-  container_json_valid=false
-  if [ -n "${container_status}" ]; then
-    # Try to validate with jq if available
-    if command -v jq &> /dev/null; then
-      if echo "${container_status}" | jq empty 2>/dev/null; then
-        container_json_valid=true
-      fi
-    else
-      # Basic validation: check if it looks like JSON array (starts with [)
-      if [[ "${container_status}" =~ ^\[ ]]; then
-        # Additional check: ends with ] and passes basic syntax check
-        if [[ "${container_status}" =~ \]$ ]]; then
-          container_json_valid=true
-        fi
-      fi
-    fi
-  fi
-  
-  # If invalid JSON, get text output as fallback and set containers to empty array
-  if [ "${container_json_valid}" = "false" ]; then
-    container_text_output=$(docker compose -f "${COMPOSE_FILE}" ps 2>&1 || echo "")
-    container_status="[]"
-  fi
+  # Get container status as text (store as string - avoid forcing JSON parsing across compose versions)
+  local container_status_text
+  container_status_text=$(docker compose -f "${COMPOSE_FILE}" ps 2>&1 || echo "")
 
   # Get docker image IDs
   local backend_image frontend_image
   backend_image=$(docker inspect "${BACKEND_CONTAINER}" --format '{{.Image}}' 2>/dev/null || echo "unknown")
   frontend_image=$(docker inspect "${FRONTEND_CONTAINER}" --format '{{.Image}}' 2>/dev/null || echo "unknown")
 
-  # Read metadata (with fallback if jq not available)
+  # Read metadata and add container info (with fallback if jq not available)
   local git_commit git_branch timestamp git_dirty
   if command -v jq &> /dev/null; then
     git_commit=$(jq -r '.git_commit' "${META_JSON}" 2>/dev/null || echo "unknown")
@@ -617,41 +576,15 @@ generate_evidence() {
     timestamp=$(jq -r '.timestamp' "${META_JSON}" 2>/dev/null || echo "unknown")
     git_dirty=$(jq -r '.git_dirty' "${META_JSON}" 2>/dev/null || echo "false")
     
-    # Parse container_status as JSON array using --argjson
-    local containers_json
-    if [ "${container_json_valid}" = "true" ]; then
-      # Use --argjson to properly parse JSON array
-      jq --arg backend_img "${backend_image}" \
-         --arg frontend_img "${frontend_image}" \
-         --argjson containers "${container_status}" \
-         '. + {
-           backend_image: $backend_img,
-           frontend_image: $frontend_img,
-           containers: $containers
-         }' "${META_JSON}" > "${META_JSON}.tmp" && mv "${META_JSON}.tmp" "${META_JSON}"
-      
-      # If text fallback exists, add it as containers_text
-      if [ -n "${container_text_output}" ]; then
-        jq --arg containers_text "${container_text_output}" \
-           '. + {containers_text: $containers_text}' "${META_JSON}" > "${META_JSON}.tmp" && mv "${META_JSON}.tmp" "${META_JSON}"
-      fi
-    else
-      # Invalid JSON, use empty array
-      jq --arg backend_img "${backend_image}" \
-         --arg frontend_img "${frontend_image}" \
-         --argjson containers "[]" \
-         '. + {
-           backend_image: $backend_img,
-           frontend_image: $frontend_img,
-           containers: $containers
-         }' "${META_JSON}" > "${META_JSON}.tmp" && mv "${META_JSON}.tmp" "${META_JSON}"
-      
-      # Add text output as containers_text if available
-      if [ -n "${container_text_output}" ]; then
-        jq --arg containers_text "${container_text_output}" \
-           '. + {containers_text: $containers_text}' "${META_JSON}" > "${META_JSON}.tmp" && mv "${META_JSON}.tmp" "${META_JSON}"
-      fi
-    fi
+    # Store container status as string (not JSON array - safer across compose versions)
+    jq --arg backend_img "${backend_image}" \
+       --arg frontend_img "${frontend_image}" \
+       --arg containers_text "${container_status_text}" \
+       '. + {
+         backend_image: $backend_img,
+         frontend_image: $frontend_img,
+         containers: $containers_text
+       }' "${META_JSON}" > "${META_JSON}.tmp" && mv "${META_JSON}.tmp" "${META_JSON}"
   else
     # Fallback: parse JSON manually (basic)
     git_commit=$(grep -o '"git_commit":\s*"[^"]*"' "${META_JSON}" | cut -d'"' -f4 || echo "unknown")
@@ -659,33 +592,18 @@ generate_evidence() {
     timestamp=$(grep -o '"timestamp":\s*"[^"]*"' "${META_JSON}" | cut -d'"' -f4 || echo "unknown")
     git_dirty=$(grep -o '"git_dirty":\s*\(true\|false\)' "${META_JSON}" | grep -o 'true\|false' || echo "false")
     
-    # Update meta.json with additional info (remove closing brace, add new fields)
-    # Use safe JSON: if container_status is invalid, use []
-    local safe_containers_json
-    if [ "${container_json_valid}" = "true" ]; then
-      safe_containers_json="${container_status}"
-    else
-      safe_containers_json="[]"
-    fi
+    # Escape JSON special characters in container status text
+    local escaped_text
+    escaped_text=$(printf '%s' "${container_status_text}" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')
+    escaped_text="${escaped_text%\\n}"
     
-    # If docker compose ps --format json failed, add containers_text field
-    local container_text_field
-    container_text_field=""
-    if [ -n "${container_text_output}" ]; then
-      # Escape JSON special characters in text output (escape backslashes first, then quotes, newlines)
-      local escaped_text
-      escaped_text=$(echo "${container_text_output}" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')
-      # Remove trailing \n
-      escaped_text="${escaped_text%\\n}"
-      container_text_field=",\n  \"containers_text\": \"${escaped_text}\""
-    fi
-    
+    # Update meta.json: remove closing brace, add new fields
     sed -i 's/}$//' "${META_JSON}" 2>/dev/null || sed -i '' 's/}$//' "${META_JSON}"
     cat >> "${META_JSON}" <<EOF
 ,
   "backend_image": "${backend_image}",
   "frontend_image": "${frontend_image}",
-  "containers": ${safe_containers_json}${container_text_field}
+  "containers": "${escaped_text}"
 }
 EOF
   fi
@@ -799,4 +717,5 @@ main() {
 
 # Run main
 main "$@"
+
 

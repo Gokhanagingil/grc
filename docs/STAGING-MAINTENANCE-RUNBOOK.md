@@ -769,12 +769,14 @@ cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -A 20 "Preflight"
 
 Backend health endpoints are not responding correctly:
 
+**Note:** Health checks now run via Node inside backend container; curl/wget not required.
+
 ```bash
 # Check backend logs
 docker logs grc-staging-backend --tail 50
 
-# Manually test health endpoint
-docker exec grc-staging-backend curl -s http://localhost:3002/health/ready
+# Manually test health endpoint (Node-based, same as script)
+docker exec grc-staging-backend node -e "const http=require('http');const r=http.get('http://localhost:3002/health/ready',{timeout:10000},(res)=>{console.log('Status:',res.statusCode);process.exit(res.statusCode===200?0:1)});r.on('error',()=>{console.log('Error');process.exit(1)});r.on('timeout',()=>{r.destroy();console.log('Timeout');process.exit(1)});"
 
 # Check evidence for specific endpoint failure
 cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -B 5 -A 10 "FAILED"
