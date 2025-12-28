@@ -383,33 +383,51 @@ health_checks() {
 # =============================================================================
 
 # Retry helper function with exponential backoff
-# Usage: retry max_attempts initial_sleep_seconds "function_name" [args...]
+# Usage: retry max_attempts initial_sleep_seconds "function_name" "test_name" [args...]
 # Returns: last exit code from function
 # Note: Functions should set RETRY_SHOULD_SKIP=1 if retry should be skipped (e.g., 4xx errors)
+#       Functions should set RETRY_HTTP_CODE with the HTTP status code
 retry() {
   local max_attempts="$1"
   local initial_sleep="$2"
   local func_name="$3"
-  shift 3
+  local test_name="$4"
+  shift 4
   local func_args=("$@")
   local attempt=1
   local current_sleep="${initial_sleep}"
   local last_exit_code=1
+  local http_code="000"
   
   while [ ${attempt} -le ${max_attempts} ]; do
-    # Reset skip flag
+    # Reset skip flag and HTTP code
     RETRY_SHOULD_SKIP=0
+    RETRY_HTTP_CODE="000"
     
     # Call function with attempt number as first argument
     if "${func_name}" ${attempt} "${func_args[@]}"; then
+      http_code="${RETRY_HTTP_CODE:-200}"
+      echo "SMOKE ${test_name} attempt=${attempt} http=${http_code} retry=NO reason=success" >> "${RAW_LOG}"
       return 0
     fi
     last_exit_code=$?
+    http_code="${RETRY_HTTP_CODE:-000}"
     
-    # Check if retry should be skipped (e.g., 4xx errors)
+    # Check if retry should be skipped (e.g., 4xx client errors)
     if [ "${RETRY_SHOULD_SKIP:-0}" = "1" ]; then
+      echo "SMOKE ${test_name} attempt=${attempt} http=${http_code} retry=NO reason=client_error_4xx" >> "${RAW_LOG}"
       return ${last_exit_code}
     fi
+    
+    # Determine retry decision
+    local retry_decision="YES"
+    local retry_reason="retryable_error"
+    if [ ${attempt} -ge ${max_attempts} ]; then
+      retry_decision="NO"
+      retry_reason="max_attempts_reached"
+    fi
+    
+    echo "SMOKE ${test_name} attempt=${attempt} http=${http_code} retry=${retry_decision} reason=${retry_reason}" >> "${RAW_LOG}"
     
     if [ ${attempt} -lt ${max_attempts} ]; then
       sleep ${current_sleep}
@@ -440,6 +458,7 @@ sanitize_response_body() {
 # Login test helper function (called by retry)
 # Usage: _login_test attempt_number
 # Sets: login_token (in parent scope)
+# Sets: RETRY_HTTP_CODE with HTTP status code
 # Sets: RETRY_SHOULD_SKIP=1 if 4xx error (should not retry)
 # Returns: 0 on success, 1 on failure
 _login_test() {
@@ -518,7 +537,7 @@ _login_test() {
       req.on("timeout", () => {
         req.destroy();
         process.stderr.write("ERROR: Request timeout\n");
-        process.stderr.write("HTTP_000\n");
+        process.stderr.write("HTTP_408\n");
         process.exit(1);
       });
       req.write(data);
@@ -533,6 +552,7 @@ NODE
   if ! [[ "${login_http_code}" =~ ^[0-9]+$ ]]; then
     login_http_code="000"
   fi
+  RETRY_HTTP_CODE="${login_http_code}"
   
   # Extract response body (between BODY_START and BODY_END)
   if echo "${login_status}" | grep -q "BODY_START"; then
@@ -545,33 +565,56 @@ NODE
     login_token=$(docker exec "${BACKEND_CONTAINER}" cat "${token_file_in_container}" 2>/dev/null || echo "")
     
     if [ -n "${login_token}" ]; then
-      echo "SMOKE login attempt=${attempt} result=OK" >> "${RAW_LOG}"
+      RETRY_HTTP_CODE="200"
       return 0
     fi
   fi
   
-  # Determine if this is a 4xx error (client error - should not retry)
-  local is_4xx=false
-  if [[ "${login_http_code}" =~ ^[4][0-9]{2}$ ]]; then
-    is_4xx=true
+  # Determine retry policy based on HTTP status code:
+  # 400/401/403/404 => client error (no retry)
+  # 429 => rate limit (retryable)
+  # 408/5xx => server error/timeout (retryable)
+  # 000 => network error (retryable)
+  local is_client_error=false
+  if [ "${login_http_code}" = "400" ] || [ "${login_http_code}" = "401" ] || [ "${login_http_code}" = "403" ] || [ "${login_http_code}" = "404" ]; then
+    # Specifically 400, 401, 403, 404 are client errors (no retry)
+    is_client_error=true
     RETRY_SHOULD_SKIP=1
+  elif [ "${login_http_code}" = "429" ]; then
+    # Rate limit - retryable
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
+  elif [[ "${login_http_code}" =~ ^[5][0-9]{2}$ ]] || [ "${login_http_code}" = "408" ] || [ "${login_http_code}" = "000" ]; then
+    # Server errors, timeout, network errors - retryable
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
+  elif [[ "${login_http_code}" =~ ^[4][0-9]{2}$ ]]; then
+    # Other 4xx - treat as client error (no retry)
+    is_client_error=true
+    RETRY_SHOULD_SKIP=1
+  else
+    # Unknown - retryable by default
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
   fi
   
-  # Sanitize and log response body
+  # Sanitize and log response body (always sanitize before logging)
   local sanitized_body=""
   if [ -n "${login_response_body}" ]; then
     sanitized_body=$(sanitize_response_body "${login_response_body}")
-    sanitized_body=$(truncate_text "${sanitized_body}" 2048)
+    sanitized_body=$(truncate_text "${sanitized_body}" 500)  # Max 500 chars for console
   fi
   
-  # Log failure attempt with sanitized response body
-  echo "SMOKE login attempt=${attempt} status=${login_http_code} result=FAILED" >> "${RAW_LOG}"
-  if [ -n "${sanitized_body}" ]; then
-    echo "SMOKE login response_body=<SANITIZED_TRUNCATED>${sanitized_body}</SANITIZED_TRUNCATED>" >> "${RAW_LOG}"
+  # Always log sanitized response body to raw.log (full sanitized version)
+  if [ -n "${login_response_body}" ]; then
+    local sanitized_body_full
+    sanitized_body_full=$(sanitize_response_body "${login_response_body}")
+    sanitized_body_full=$(truncate_text "${sanitized_body_full}" 2048)
+    echo "SMOKE login response_body=<${sanitized_body_full}>" >> "${RAW_LOG}"
   fi
   
   # Log to console with appropriate level
-  if [ "${is_4xx}" = "true" ]; then
+  if [ "${is_client_error}" = "true" ]; then
     log_error "Login attempt ${attempt} failed with HTTP ${login_http_code} (client error - no retry)"
     if [ -n "${sanitized_body}" ]; then
       log_error "Response: ${sanitized_body}"
@@ -580,6 +623,9 @@ NODE
     if [ ${attempt} -lt 3 ]; then
       local backoff_seconds=$((2 ** (attempt - 1)))
       log_warn "Login attempt ${attempt}/3 failed (HTTP ${login_http_code}), retrying in ${backoff_seconds}s..."
+      if [ -n "${sanitized_body}" ]; then
+        log_warn "Response: ${sanitized_body}"
+      fi
     else
       log_error "Login attempt ${attempt} failed with HTTP ${login_http_code}"
       if [ -n "${sanitized_body}" ]; then
@@ -594,12 +640,15 @@ NODE
 # Context test helper function (called by retry)
 # Usage: _context_test attempt_number
 # Uses: login_token (from parent scope)
+# Sets: RETRY_HTTP_CODE with HTTP status code
+# Sets: RETRY_SHOULD_SKIP=1 if 4xx error (should not retry)
 # Returns: 0 on success, 1 on failure
 _context_test() {
   local attempt="$1"
-  local context_status context_http_code
+  local context_status context_http_code context_response_body
   context_status=""
   context_http_code="000"
+  context_response_body=""
   
   set +e
   context_status=$(docker exec -e AUTH_TOKEN="${login_token}" \
@@ -635,16 +684,25 @@ _context_test() {
               } else {
                 console.error("ERROR: No context in response (HTTP 200)");
                 process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.stderr.write("BODY_START\n");
+                process.stderr.write(body.substring(0, 2048) + "\n");
+                process.stderr.write("BODY_END\n");
                 process.exit(1);
               }
             } catch (e) {
               console.error("ERROR: Invalid JSON (HTTP 200)");
               process.stderr.write("HTTP_" + res.statusCode + "\n");
+              process.stderr.write("BODY_START\n");
+              process.stderr.write(body.substring(0, 2048) + "\n");
+              process.stderr.write("BODY_END\n");
               process.exit(1);
             }
           } else {
             console.error("ERROR: HTTP " + res.statusCode);
             process.stderr.write("HTTP_" + res.statusCode + "\n");
+            process.stderr.write("BODY_START\n");
+            process.stderr.write(body.substring(0, 2048) + "\n");
+            process.stderr.write("BODY_END\n");
             process.exit(1);
           }
         });
@@ -657,7 +715,7 @@ _context_test() {
       req.on("timeout", () => {
         req.destroy();
         console.error("ERROR: Request timeout");
-        process.stderr.write("HTTP_000\n");
+        process.stderr.write("HTTP_408\n");
         process.exit(1);
       });
       req.end();
@@ -671,31 +729,79 @@ NODE
   if ! [[ "${context_http_code}" =~ ^[0-9]+$ ]]; then
     context_http_code="000"
   fi
+  RETRY_HTTP_CODE="${context_http_code}"
+  
+  # Extract response body (between BODY_START and BODY_END)
+  if echo "${context_status}" | grep -q "BODY_START"; then
+    context_response_body=$(echo "${context_status}" | sed -n '/BODY_START/,/BODY_END/p' | sed '1d;$d' | head -c 2048 || echo "")
+  fi
   
   if echo "${context_status}" | grep -q "^OK$"; then
-    echo "SMOKE context attempt=${attempt} result=OK" >> "${RAW_LOG}"
+    RETRY_HTTP_CODE="200"
     return 0
   fi
   
-  # Determine if this is a 4xx error (client error - should not retry)
-  local is_4xx=false
-  if [[ "${context_http_code}" =~ ^[4][0-9]{2}$ ]]; then
-    is_4xx=true
+  # Determine retry policy based on HTTP status code:
+  # 400/401/403/404 => client error (no retry)
+  # 429 => rate limit (retryable)
+  # 408/5xx => server error/timeout (retryable)
+  # 000 => network error (retryable)
+  local is_client_error=false
+  if [ "${context_http_code}" = "400" ] || [ "${context_http_code}" = "401" ] || [ "${context_http_code}" = "403" ] || [ "${context_http_code}" = "404" ]; then
+    # Specifically 400, 401, 403, 404 are client errors
+    is_client_error=true
     RETRY_SHOULD_SKIP=1
+  elif [ "${context_http_code}" = "429" ]; then
+    # Rate limit - retryable
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
+  elif [[ "${context_http_code}" =~ ^[5][0-9]{2}$ ]] || [ "${context_http_code}" = "408" ] || [ "${context_http_code}" = "000" ]; then
+    # Server errors, timeout, network errors - retryable
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
+  elif [[ "${context_http_code}" =~ ^[4][0-9]{2}$ ]]; then
+    # Other 4xx - treat as client error (no retry)
+    is_client_error=true
+    RETRY_SHOULD_SKIP=1
+  else
+    # Unknown - retryable by default
+    is_client_error=false
+    RETRY_SHOULD_SKIP=0
   fi
   
-  # Log failure attempt
-  echo "SMOKE context attempt=${attempt} status=${context_http_code} result=FAILED" >> "${RAW_LOG}"
+  # Sanitize and log response body (always sanitize before logging)
+  local sanitized_body=""
+  if [ -n "${context_response_body}" ]; then
+    sanitized_body=$(sanitize_response_body "${context_response_body}")
+    sanitized_body=$(truncate_text "${sanitized_body}" 500)  # Max 500 chars for console
+  fi
+  
+  # Always log sanitized response body to raw.log (full sanitized version)
+  if [ -n "${context_response_body}" ]; then
+    local sanitized_body_full
+    sanitized_body_full=$(sanitize_response_body "${context_response_body}")
+    sanitized_body_full=$(truncate_text "${sanitized_body_full}" 2048)
+    echo "SMOKE context response_body=<${sanitized_body_full}>" >> "${RAW_LOG}"
+  fi
   
   # Log to console with appropriate level
-  if [ "${is_4xx}" = "true" ]; then
+  if [ "${is_client_error}" = "true" ]; then
     log_error "Context test attempt ${attempt} failed with HTTP ${context_http_code} (client error - no retry)"
+    if [ -n "${sanitized_body}" ]; then
+      log_error "Response: ${sanitized_body}"
+    fi
   else
     if [ ${attempt} -lt 3 ]; then
       local backoff_seconds=$((2 ** (attempt - 1)))
       log_warn "Context test attempt ${attempt}/3 failed (HTTP ${context_http_code}), retrying in ${backoff_seconds}s..."
+      if [ -n "${sanitized_body}" ]; then
+        log_warn "Response: ${sanitized_body}"
+      fi
     else
       log_error "Context test attempt ${attempt} failed with HTTP ${context_http_code}"
+      if [ -n "${sanitized_body}" ]; then
+        log_error "Response: ${sanitized_body}"
+      fi
     fi
   fi
   
@@ -711,6 +817,25 @@ smoke_tests() {
     exit 7
   fi
 
+  # Credential guard: validate password is not placeholder/too short
+  local password_len="${#STAGING_ADMIN_PASSWORD}"
+  if [ "${password_len}" -lt 8 ] || [ "${STAGING_ADMIN_PASSWORD}" = "***" ] || [ "${STAGING_ADMIN_PASSWORD}" = "********" ]; then
+    log_error "Credential seems placeholder/too short; aborting smoke test to avoid misleading retries."
+    log_error "Password length: ${password_len} (minimum 8 required, and must not be placeholder)"
+    echo "SMOKE credential_guard result=FAILED reason=password_too_short_or_placeholder" >> "${RAW_LOG}"
+    exit 7
+  fi
+
+  # Credential guard: validate email format (basic check: contains @ and .)
+  if ! echo "${STAGING_ADMIN_EMAIL}" | grep -qE '[^@]+@[^@]+\.[^@]+'; then
+    log_error "Credential guard failed: email format invalid (must contain @ and .)"
+    echo "SMOKE credential_guard result=FAILED reason=invalid_email_format" >> "${RAW_LOG}"
+    exit 7
+  fi
+
+  log_info "Credential guard passed (password length: ${password_len}, email format: valid)"
+  echo "SMOKE credential_guard result=OK" >> "${RAW_LOG}"
+
   # Login test with retry (token must never be logged - use temp file in container)
   log_info "Testing login..."
   token_file_in_container="/tmp/grc_smoke_token_$$"
@@ -724,7 +849,7 @@ smoke_tests() {
   trap cleanup_token EXIT
   
   # Use retry helper for login (3 attempts, 2s initial backoff: 2, 4, 8)
-  if ! retry 3 2 _login_test; then
+  if ! retry 3 2 _login_test "login"; then
     cleanup_token
     trap - EXIT
     log_error "Login test failed after 3 attempts"
@@ -751,7 +876,7 @@ smoke_tests() {
   log_info "Testing /onboarding/context with tenant ID: ${STAGING_TENANT_ID}..."
   
   # Use retry helper for context (3 attempts, 2s initial backoff: 2, 4, 8)
-  if ! retry 3 2 _context_test; then
+  if ! retry 3 2 _context_test "context"; then
     log_error "Onboarding context test failed after 3 attempts"
     exit 7
   fi
@@ -770,7 +895,8 @@ generate_evidence() {
   # Evidence integrity check: scan raw.log for token-like patterns
   log_info "Checking evidence integrity (scanning for token leaks)..."
   set +e
-  if grep -qE "eyJ[a-zA-Z0-9_-]{10,}\.|Bearer [A-Za-z0-9._-]{10,}" "${RAW_LOG}" 2>/dev/null; then
+  # Check for JWT tokens (eyJ...), Bearer tokens, and accessToken/token fields with long values
+  if grep -qE "eyJ[a-zA-Z0-9_-]{10,}\.|Bearer [A-Za-z0-9._-]{10,}|\"accessToken\"\s*:\s*\"[^\"]{20,}\"|\"token\"\s*:\s*\"[^\"]{20,}\"" "${RAW_LOG}" 2>/dev/null; then
     log_error "Evidence integrity check FAILED: Token-like patterns detected in raw.log"
     log_error "This indicates a security issue - tokens must never appear in logs"
     set -e
