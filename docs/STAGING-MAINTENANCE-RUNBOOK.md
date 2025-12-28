@@ -659,6 +659,57 @@ export STAGING_ADMIN_PASSWORD="your-password-here"
 bash ops/staging-deploy-validate.sh
 ```
 
+### Run in tmux (Recommended)
+
+To avoid losing logs if SSH connection drops, run the script inside a tmux session:
+
+```bash
+# Start a new tmux session
+tmux new -s deploy
+
+# Inside tmux, run the deployment script
+cd /opt/grc-platform
+export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
+export STAGING_ADMIN_PASSWORD="your-password-here"
+export STAGING_TENANT_ID="00000000-0000-0000-0000-000000000001"  # Optional
+bash ops/staging-deploy-validate.sh
+```
+
+**Detach from tmux:** Press `Ctrl+B`, then `D`  
+**Reattach to tmux:** `tmux attach -t deploy`  
+**List tmux sessions:** `tmux ls`
+
+### If SSH Disconnects
+
+If your SSH connection closes during deployment:
+
+1. **Check if script is still running:**
+   ```bash
+   ps aux | grep staging-deploy-validate
+   ```
+
+2. **Reattach to tmux session (if used):**
+   ```bash
+   tmux attach -t deploy
+   ```
+
+3. **Locate latest evidence directory:**
+   ```bash
+   ls -td evidence/staging-* | head -1
+   ```
+
+4. **Read logs from latest evidence:**
+   ```bash
+   LATEST=$(ls -td evidence/staging-* | head -1)
+   tail -n 200 "$LATEST/raw.log"
+   cat "$LATEST/summary.md"
+   ```
+
+5. **Check script exit code (if completed):**
+   ```bash
+   echo $?
+   ```
+
 ### What the Script Does
 
 The script executes the following steps in sequence:
@@ -784,33 +835,156 @@ cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -B 5 -A 10 "FAILED"
 
 #### Script Fails at Smoke Tests (Exit 7)
 
-Login or API tests failed:
+Login or API tests failed. Use manual verification commands below to debug.
+
+### Manual Smoke Verification (Node-based)
+
+Use these commands to manually verify smoke tests without running the full script. These commands use Node.js inside the backend container (same as the script) and never log tokens.
+
+#### Manual Login Test
 
 ```bash
-# Verify credentials
-echo "Email: ${STAGING_ADMIN_EMAIL}"
-# (Don't echo password)
+# Set credentials (same as script requires)
+export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
+export STAGING_ADMIN_PASSWORD="your-password-here"
 
-# Test login manually
-docker exec grc-staging-backend node -e "
-  const http = require('http');
-  const data = JSON.stringify({
-    email: '${STAGING_ADMIN_EMAIL}',
-    password: 'your-password'
-  });
-  const req = http.request({
-    hostname: 'localhost',
-    port: 3002,
-    path: '/auth/login',
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': data.length }
-  }, (res) => {
-    console.log('Status:', res.statusCode);
-    res.on('data', (d) => process.stdout.write(d));
-  });
-  req.write(data);
-  req.end();
-"
+# Test login and save token to temp file (never printed)
+docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
+  -e ADMIN_PASSWORD="${STAGING_ADMIN_PASSWORD}" \
+  grc-staging-backend sh -c 'node - <<NODE
+      const http = require("http");
+      const fs = require("fs");
+      const data = JSON.stringify({
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD
+      });
+      const req = http.request({
+        hostname: "localhost",
+        port: 3002,
+        path: "/auth/login",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": data.length
+        },
+        timeout: 10000
+      }, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(body);
+              const token = json.accessToken || (json.data && json.data.accessToken);
+              if (token) {
+                fs.writeFileSync("/tmp/manual_token.txt", token, "utf8");
+                console.log("Login OK - Status:", res.statusCode);
+                process.exit(0);
+              } else {
+                console.error("ERROR: No accessToken in response");
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error("ERROR: Invalid JSON");
+              process.exit(1);
+            }
+          } else {
+            console.error("ERROR: HTTP", res.statusCode);
+            process.exit(1);
+          }
+        });
+      });
+      req.on("error", () => {
+        console.error("ERROR: Request error");
+        process.exit(1);
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        console.error("ERROR: Request timeout");
+        process.exit(1);
+      });
+      req.write(data);
+      req.end();
+NODE
+    if [ -f /tmp/manual_token.txt ]; then
+      echo "Login successful (token obtained, not printed)"
+    else
+      echo "Login failed"
+      exit 1
+    fi
+  '
+
+# Token is now in container at /tmp/manual_token.txt (use for next test)
+# Note: Token is never printed to stdout/stderr
+```
+
+#### Manual Onboarding/Context Test
+
+```bash
+# Use token from login test above, or set STAGING_TENANT_ID
+export STAGING_TENANT_ID="${STAGING_TENANT_ID:-00000000-0000-0000-0000-000000000001}"
+
+# Test onboarding/context endpoint
+docker exec -e TENANT_ID="${STAGING_TENANT_ID}" \
+  grc-staging-backend sh -c '
+    TOKEN=$(cat /tmp/manual_token.txt 2>/dev/null || echo "")
+    if [ -z "$TOKEN" ]; then
+      echo "ERROR: Token file not found - run login test first"
+      exit 1
+    fi
+    node - <<NODE
+      const http = require("http");
+      const fs = require("fs");
+      const token = fs.readFileSync("/tmp/manual_token.txt", "utf8").trim();
+      const tenantId = process.env.TENANT_ID;
+      const req = http.request({
+        hostname: "localhost",
+        port: 3002,
+        path: "/onboarding/context",
+        method: "GET",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "x-tenant-id": tenantId
+        },
+        timeout: 10000
+      }, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(body);
+              const context = json.context || (json.data && json.data.context);
+              if (context) {
+                console.log("Context test OK - Status:", res.statusCode);
+                process.exit(0);
+              } else {
+                console.error("ERROR: No context in response");
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error("ERROR: Invalid JSON");
+              process.exit(1);
+            }
+          } else {
+            console.error("ERROR: HTTP", res.statusCode);
+            process.exit(1);
+          }
+        });
+      });
+      req.on("error", () => {
+        console.error("ERROR: Request error");
+        process.exit(1);
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        console.error("ERROR: Request timeout");
+        process.exit(1);
+      });
+      req.end();
+NODE
+    rm -f /tmp/manual_token.txt
+  '
 ```
 
 #### Git Pull Fails (Fast-Forward Only)
