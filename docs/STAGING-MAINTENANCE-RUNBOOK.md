@@ -837,6 +837,26 @@ cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -B 5 -A 10 "FAILED"
 
 Login or API tests failed. Use manual verification commands below to debug.
 
+**Common Causes:**
+- **HTTP 400 (Bad Request)**: Usually indicates DTO/payload mismatch or invalid credentials
+  - Check if backend expects `email` (not `username`) in login payload
+  - Verify credentials are correct: `STAGING_ADMIN_EMAIL` and `STAGING_ADMIN_PASSWORD`
+  - Check backend logs for validation errors: `docker logs grc-staging-backend --tail 50 | grep -i "validation\|login"`
+  - Note: Script does NOT retry on 4xx errors (client errors) - only retries on 5xx/timeout
+- **HTTP 401 (Unauthorized)**: Invalid credentials or user not found
+  - Verify user exists: `docker exec grc-staging-db psql -U grc_staging -d grc_staging -c "SELECT email FROM nest_users;"`
+  - Check password hash is valid (should start with `$2b$10$`)
+  - Re-run seed script if needed
+- **HTTP 429 (Too Many Requests)**: Rate limiting triggered
+  - Wait a few minutes and retry
+  - Check brute force protection logs in backend
+
+**Debugging Steps:**
+1. Check script evidence logs: `cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -A 5 "SMOKE login"`
+2. Review sanitized response body in logs (tokens are automatically masked)
+3. Use manual login test below to verify credentials independently
+4. Check backend container logs for detailed error messages
+
 ### Manual Smoke Verification (Node-based)
 
 Use these commands to manually verify smoke tests without running the full script. These commands use Node.js inside the backend container (same as the script) and never log tokens.
@@ -886,10 +906,25 @@ docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
               }
             } catch (e) {
               console.error("ERROR: Invalid JSON");
+              if (body) {
+                let sanitized = body
+                  .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[JWT_MASKED]')
+                  .replace(/Bearer [A-Za-z0-9._-]{10,}/g, 'Bearer [TOKEN_MASKED]')
+                  .replace(/"accessToken"\s*:\s*"[^"]{10,}"/g, '"accessToken":"[MASKED]"');
+                console.error("Response:", sanitized.substring(0, 500));
+              }
               process.exit(1);
             }
           } else {
             console.error("ERROR: HTTP", res.statusCode);
+            // Output sanitized response body for debugging (tokens masked)
+            if (body) {
+              let sanitized = body
+                .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[JWT_MASKED]')
+                .replace(/Bearer [A-Za-z0-9._-]{10,}/g, 'Bearer [TOKEN_MASKED]')
+                .replace(/"accessToken"\s*:\s*"[^"]{10,}"/g, '"accessToken":"[MASKED]"');
+              console.error("Response:", sanitized.substring(0, 500));
+            }
             process.exit(1);
           }
         });

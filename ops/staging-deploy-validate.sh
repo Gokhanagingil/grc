@@ -385,6 +385,7 @@ health_checks() {
 # Retry helper function with exponential backoff
 # Usage: retry max_attempts initial_sleep_seconds "function_name" [args...]
 # Returns: last exit code from function
+# Note: Functions should set RETRY_SHOULD_SKIP=1 if retry should be skipped (e.g., 4xx errors)
 retry() {
   local max_attempts="$1"
   local initial_sleep="$2"
@@ -396,11 +397,19 @@ retry() {
   local last_exit_code=1
   
   while [ ${attempt} -le ${max_attempts} ]; do
+    # Reset skip flag
+    RETRY_SHOULD_SKIP=0
+    
     # Call function with attempt number as first argument
     if "${func_name}" ${attempt} "${func_args[@]}"; then
       return 0
     fi
     last_exit_code=$?
+    
+    # Check if retry should be skipped (e.g., 4xx errors)
+    if [ "${RETRY_SHOULD_SKIP:-0}" = "1" ]; then
+      return ${last_exit_code}
+    fi
     
     if [ ${attempt} -lt ${max_attempts} ]; then
       sleep ${current_sleep}
@@ -413,15 +422,32 @@ retry() {
   return ${last_exit_code}
 }
 
+# Sanitize response body: mask JWT tokens and Bearer tokens
+# Usage: sanitize_response_body "response_body"
+sanitize_response_body() {
+  local body="$1"
+  # Mask JWT tokens (eyJ...)
+  body=$(echo "${body}" | sed -E 's/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/[JWT_MASKED]/g')
+  # Mask Bearer tokens
+  body=$(echo "${body}" | sed -E 's/Bearer [A-Za-z0-9._-]{10,}/Bearer [TOKEN_MASKED]/g')
+  # Mask accessToken values
+  body=$(echo "${body}" | sed -E 's/"accessToken"\s*:\s*"[^"]{10,}"/"accessToken":"[MASKED]"/g')
+  # Mask any token-like values
+  body=$(echo "${body}" | sed -E 's/"token"\s*:\s*"[^"]{10,}"/"token":"[MASKED]"/g')
+  echo "${body}"
+}
+
 # Login test helper function (called by retry)
 # Usage: _login_test attempt_number
 # Sets: login_token (in parent scope)
+# Sets: RETRY_SHOULD_SKIP=1 if 4xx error (should not retry)
 # Returns: 0 on success, 1 on failure
 _login_test() {
   local attempt="$1"
-  local login_status login_http_code
+  local login_status login_http_code login_response_body
   login_status=""
   login_http_code="000"
+  login_response_body=""
   
   set +e
   login_status=$(docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
@@ -461,16 +487,25 @@ _login_test() {
               } else {
                 process.stderr.write("ERROR: No accessToken in response\n");
                 process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.stderr.write("BODY_START\n");
+                process.stderr.write(body.substring(0, 2048) + "\n");
+                process.stderr.write("BODY_END\n");
                 process.exit(1);
               }
             } catch (e) {
               process.stderr.write("ERROR: Invalid JSON response\n");
               process.stderr.write("HTTP_" + res.statusCode + "\n");
+              process.stderr.write("BODY_START\n");
+              process.stderr.write(body.substring(0, 2048) + "\n");
+              process.stderr.write("BODY_END\n");
               process.exit(1);
             }
           } else {
             process.stderr.write("ERROR: Login failed with status " + res.statusCode + "\n");
             process.stderr.write("HTTP_" + res.statusCode + "\n");
+            process.stderr.write("BODY_START\n");
+            process.stderr.write(body.substring(0, 2048) + "\n");
+            process.stderr.write("BODY_END\n");
             process.exit(1);
           }
         });
@@ -499,6 +534,11 @@ NODE
     login_http_code="000"
   fi
   
+  # Extract response body (between BODY_START and BODY_END)
+  if echo "${login_status}" | grep -q "BODY_START"; then
+    login_response_body=$(echo "${login_status}" | sed -n '/BODY_START/,/BODY_END/p' | sed '1d;$d' | head -c 2048 || echo "")
+  fi
+  
   # Check login status
   if echo "${login_status}" | grep -q "LOGIN_OK"; then
     # Extract token from container file (not logged) and set in parent scope
@@ -510,12 +550,44 @@ NODE
     fi
   fi
   
-  # Log failure attempt
-  echo "SMOKE login attempt=${attempt} result=FAILED status=${login_http_code}" >> "${RAW_LOG}"
-  if [ ${attempt} -lt 3 ]; then
-    local backoff_seconds=$((2 ** (attempt - 1)))
-    log_warn "Login attempt ${attempt}/3 failed (HTTP ${login_http_code}), retrying in ${backoff_seconds}s..."
+  # Determine if this is a 4xx error (client error - should not retry)
+  local is_4xx=false
+  if [[ "${login_http_code}" =~ ^[4][0-9]{2}$ ]]; then
+    is_4xx=true
+    RETRY_SHOULD_SKIP=1
   fi
+  
+  # Sanitize and log response body
+  local sanitized_body=""
+  if [ -n "${login_response_body}" ]; then
+    sanitized_body=$(sanitize_response_body "${login_response_body}")
+    sanitized_body=$(truncate_text "${sanitized_body}" 2048)
+  fi
+  
+  # Log failure attempt with sanitized response body
+  echo "SMOKE login attempt=${attempt} status=${login_http_code} result=FAILED" >> "${RAW_LOG}"
+  if [ -n "${sanitized_body}" ]; then
+    echo "SMOKE login response_body=<SANITIZED_TRUNCATED>${sanitized_body}</SANITIZED_TRUNCATED>" >> "${RAW_LOG}"
+  fi
+  
+  # Log to console with appropriate level
+  if [ "${is_4xx}" = "true" ]; then
+    log_error "Login attempt ${attempt} failed with HTTP ${login_http_code} (client error - no retry)"
+    if [ -n "${sanitized_body}" ]; then
+      log_error "Response: ${sanitized_body}"
+    fi
+  else
+    if [ ${attempt} -lt 3 ]; then
+      local backoff_seconds=$((2 ** (attempt - 1)))
+      log_warn "Login attempt ${attempt}/3 failed (HTTP ${login_http_code}), retrying in ${backoff_seconds}s..."
+    else
+      log_error "Login attempt ${attempt} failed with HTTP ${login_http_code}"
+      if [ -n "${sanitized_body}" ]; then
+        log_error "Response: ${sanitized_body}"
+      fi
+    fi
+  fi
+  
   return 1
 }
 
@@ -605,12 +677,28 @@ NODE
     return 0
   fi
   
-  # Log failure attempt
-  echo "SMOKE context attempt=${attempt} result=FAILED status=${context_http_code}" >> "${RAW_LOG}"
-  if [ ${attempt} -lt 3 ]; then
-    local backoff_seconds=$((2 ** (attempt - 1)))
-    log_warn "Context test attempt ${attempt}/3 failed (HTTP ${context_http_code}), retrying in ${backoff_seconds}s..."
+  # Determine if this is a 4xx error (client error - should not retry)
+  local is_4xx=false
+  if [[ "${context_http_code}" =~ ^[4][0-9]{2}$ ]]; then
+    is_4xx=true
+    RETRY_SHOULD_SKIP=1
   fi
+  
+  # Log failure attempt
+  echo "SMOKE context attempt=${attempt} status=${context_http_code} result=FAILED" >> "${RAW_LOG}"
+  
+  # Log to console with appropriate level
+  if [ "${is_4xx}" = "true" ]; then
+    log_error "Context test attempt ${attempt} failed with HTTP ${context_http_code} (client error - no retry)"
+  else
+    if [ ${attempt} -lt 3 ]; then
+      local backoff_seconds=$((2 ** (attempt - 1)))
+      log_warn "Context test attempt ${attempt}/3 failed (HTTP ${context_http_code}), retrying in ${backoff_seconds}s..."
+    else
+      log_error "Context test attempt ${attempt} failed with HTTP ${context_http_code}"
+    fi
+  fi
+  
   return 1
 }
 
