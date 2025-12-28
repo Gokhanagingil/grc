@@ -673,10 +673,11 @@ The script executes the following steps in sequence:
 
 ### Required Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `STAGING_ADMIN_EMAIL` | Admin email for smoke tests | `admin@grc-platform.local` |
-| `STAGING_ADMIN_PASSWORD` | Admin password for smoke tests | `TestPassword123!` |
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `STAGING_ADMIN_EMAIL` | Admin email for smoke tests | `admin@grc-platform.local` | Yes |
+| `STAGING_ADMIN_PASSWORD` | Admin password for smoke tests | `TestPassword123!` | Yes |
+| `STAGING_TENANT_ID` | Tenant ID for smoke tests (defaults to DEMO_TENANT_ID if not set) | `00000000-0000-0000-0000-000000000001` | No |
 
 **Security Note:** The script never logs passwords or tokens. Credentials are only used in-memory for API calls.
 
@@ -718,9 +719,12 @@ ssh root@46.224.99.150
 # Navigate to repo
 cd /opt/grc-platform
 
-# Set credentials (from .env or secure storage)
+# Set credentials (from secure storage - avoid using .env in production)
 export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
-export STAGING_ADMIN_PASSWORD="$(grep DEMO_ADMIN_PASSWORD .env | cut -d'=' -f2)"
+export STAGING_ADMIN_PASSWORD="your-secure-password"
+
+# Optional: Set tenant ID (defaults to DEMO_TENANT_ID if not set)
+export STAGING_TENANT_ID="00000000-0000-0000-0000-000000000001"
 
 # Run deployment
 bash ops/staging-deploy-validate.sh
