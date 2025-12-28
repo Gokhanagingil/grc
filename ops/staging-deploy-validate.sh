@@ -383,29 +383,234 @@ health_checks() {
 # =============================================================================
 
 # Retry helper function with exponential backoff
-# Usage: retry max_attempts sleep_seconds "command"
+# Usage: retry max_attempts initial_sleep_seconds "function_name" [args...]
+# Returns: last exit code from function
 retry() {
   local max_attempts="$1"
-  local sleep_seconds="$2"
-  shift 2
-  local command="$*"
+  local initial_sleep="$2"
+  local func_name="$3"
+  shift 3
+  local func_args=("$@")
   local attempt=1
-  local current_sleep="${sleep_seconds}"
+  local current_sleep="${initial_sleep}"
+  local last_exit_code=1
   
   while [ ${attempt} -le ${max_attempts} ]; do
-    if eval "${command}"; then
+    # Call function with attempt number as first argument
+    if "${func_name}" ${attempt} "${func_args[@]}"; then
       return 0
     fi
+    last_exit_code=$?
     
     if [ ${attempt} -lt ${max_attempts} ]; then
-      log_warn "Attempt ${attempt}/${max_attempts} failed, retrying in ${current_sleep}s..."
       sleep ${current_sleep}
-      current_sleep=$((current_sleep * 2))  # Exponential backoff
+      current_sleep=$((current_sleep * 2))  # Exponential backoff (2, 4, 8)
     fi
     
     attempt=$((attempt + 1))
   done
   
+  return ${last_exit_code}
+}
+
+# Login test helper function (called by retry)
+# Usage: _login_test attempt_number
+# Sets: login_token (in parent scope)
+# Returns: 0 on success, 1 on failure
+_login_test() {
+  local attempt="$1"
+  local login_status login_http_code
+  login_status=""
+  login_http_code="000"
+  
+  set +e
+  login_status=$(docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
+    -e ADMIN_PASSWORD="${STAGING_ADMIN_PASSWORD}" \
+    "${BACKEND_CONTAINER}" sh -c \
+    'node - <<NODE
+      const http = require("http");
+      const fs = require("fs");
+      const data = JSON.stringify({
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD
+      });
+      const options = {
+        hostname: "localhost",
+        port: '"${BACKEND_PORT}"',
+        path: "/auth/login",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": data.length
+        },
+        timeout: 10000
+      };
+      const req = http.request(options, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(body);
+              const token = json.accessToken || (json.data && json.data.accessToken);
+              if (token) {
+                fs.writeFileSync("'"${token_file_in_container}"'", token, "utf8");
+                process.stderr.write("LOGIN_OK\n");
+                process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.exit(0);
+              } else {
+                process.stderr.write("ERROR: No accessToken in response\n");
+                process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.exit(1);
+              }
+            } catch (e) {
+              process.stderr.write("ERROR: Invalid JSON response\n");
+              process.stderr.write("HTTP_" + res.statusCode + "\n");
+              process.exit(1);
+            }
+          } else {
+            process.stderr.write("ERROR: Login failed with status " + res.statusCode + "\n");
+            process.stderr.write("HTTP_" + res.statusCode + "\n");
+            process.exit(1);
+          }
+        });
+      });
+      req.on("error", () => {
+        process.stderr.write("ERROR: Request error\n");
+        process.stderr.write("HTTP_000\n");
+        process.exit(1);
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        process.stderr.write("ERROR: Request timeout\n");
+        process.stderr.write("HTTP_000\n");
+        process.exit(1);
+      });
+      req.write(data);
+      req.end();
+NODE
+' 2>&1)
+  local login_exit_code=$?
+  set -e
+  
+  # Extract HTTP code
+  login_http_code=$(echo "${login_status}" | grep "^HTTP_" | head -1 | cut -d'_' -f2 || echo "000")
+  if ! [[ "${login_http_code}" =~ ^[0-9]+$ ]]; then
+    login_http_code="000"
+  fi
+  
+  # Check login status
+  if echo "${login_status}" | grep -q "LOGIN_OK"; then
+    # Extract token from container file (not logged) and set in parent scope
+    login_token=$(docker exec "${BACKEND_CONTAINER}" cat "${token_file_in_container}" 2>/dev/null || echo "")
+    
+    if [ -n "${login_token}" ]; then
+      echo "SMOKE login attempt=${attempt} result=OK" >> "${RAW_LOG}"
+      return 0
+    fi
+  fi
+  
+  # Log failure attempt
+  echo "SMOKE login attempt=${attempt} result=FAILED status=${login_http_code}" >> "${RAW_LOG}"
+  if [ ${attempt} -lt 3 ]; then
+    local backoff_seconds=$((2 ** (attempt - 1)))
+    log_warn "Login attempt ${attempt}/3 failed (HTTP ${login_http_code}), retrying in ${backoff_seconds}s..."
+  fi
+  return 1
+}
+
+# Context test helper function (called by retry)
+# Usage: _context_test attempt_number
+# Uses: login_token (from parent scope)
+# Returns: 0 on success, 1 on failure
+_context_test() {
+  local attempt="$1"
+  local context_status context_http_code
+  context_status=""
+  context_http_code="000"
+  
+  set +e
+  context_status=$(docker exec -e AUTH_TOKEN="${login_token}" \
+    -e TENANT_ID="${STAGING_TENANT_ID}" \
+    "${BACKEND_CONTAINER}" sh -c \
+    'node - <<NODE
+      const http = require("http");
+      const token = process.env.AUTH_TOKEN;
+      const tenantId = process.env.TENANT_ID;
+      const options = {
+        hostname: "localhost",
+        port: '"${BACKEND_PORT}"',
+        path: "/onboarding/context",
+        method: "GET",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "x-tenant-id": tenantId
+        },
+        timeout: 10000
+      };
+      const req = http.request(options, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(body);
+              const context = json.context || (json.data && json.data.context);
+              if (context) {
+                console.log("OK");
+                process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.exit(0);
+              } else {
+                console.error("ERROR: No context in response (HTTP 200)");
+                process.stderr.write("HTTP_" + res.statusCode + "\n");
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error("ERROR: Invalid JSON (HTTP 200)");
+              process.stderr.write("HTTP_" + res.statusCode + "\n");
+              process.exit(1);
+            }
+          } else {
+            console.error("ERROR: HTTP " + res.statusCode);
+            process.stderr.write("HTTP_" + res.statusCode + "\n");
+            process.exit(1);
+          }
+        });
+      });
+      req.on("error", () => {
+        console.error("ERROR: Request error");
+        process.stderr.write("HTTP_000\n");
+        process.exit(1);
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        console.error("ERROR: Request timeout");
+        process.stderr.write("HTTP_000\n");
+        process.exit(1);
+      });
+      req.end();
+NODE
+' 2>&1)
+  local context_exit_code=$?
+  set -e
+  
+  # Extract HTTP code
+  context_http_code=$(echo "${context_status}" | grep "^HTTP_" | head -1 | cut -d'_' -f2 || echo "000")
+  if ! [[ "${context_http_code}" =~ ^[0-9]+$ ]]; then
+    context_http_code="000"
+  fi
+  
+  if echo "${context_status}" | grep -q "^OK$"; then
+    echo "SMOKE context attempt=${attempt} result=OK" >> "${RAW_LOG}"
+    return 0
+  fi
+  
+  # Log failure attempt
+  echo "SMOKE context attempt=${attempt} result=FAILED status=${context_http_code}" >> "${RAW_LOG}"
+  if [ ${attempt} -lt 3 ]; then
+    local backoff_seconds=$((2 ** (attempt - 1)))
+    log_warn "Context test attempt ${attempt}/3 failed (HTTP ${context_http_code}), retrying in ${backoff_seconds}s..."
+  fi
   return 1
 }
 
@@ -420,11 +625,8 @@ smoke_tests() {
 
   # Login test with retry (token must never be logged - use temp file in container)
   log_info "Testing login..."
-  local token_file_in_container="/tmp/grc_smoke_token_$$"
-  local login_token=""
-  local login_attempt=1
-  local login_max_attempts=3
-  local login_success=false
+  token_file_in_container="/tmp/grc_smoke_token_$$"
+  login_token=""
   
   # Cleanup function for token file
   local cleanup_token
@@ -433,234 +635,40 @@ smoke_tests() {
   }
   trap cleanup_token EXIT
   
-  while [ ${login_attempt} -le ${login_max_attempts} ]; do
-    local login_status login_http_code
-    login_status=""
-    login_http_code="000"
-    
-    set +e
-    login_status=$(docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
-      -e ADMIN_PASSWORD="${STAGING_ADMIN_PASSWORD}" \
-      "${BACKEND_CONTAINER}" sh -c \
-      'node - <<NODE
-        const http = require("http");
-        const fs = require("fs");
-        const data = JSON.stringify({
-          email: process.env.ADMIN_EMAIL,
-          password: process.env.ADMIN_PASSWORD
-        });
-        const options = {
-          hostname: "localhost",
-          port: '"${BACKEND_PORT}"',
-          path: "/auth/login",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": data.length
-          },
-          timeout: 10000
-        };
-        const req = http.request(options, (res) => {
-          let body = "";
-          res.on("data", (chunk) => { body += chunk; });
-          res.on("end", () => {
-            if (res.statusCode === 200) {
-              try {
-                const json = JSON.parse(body);
-                const token = json.accessToken || (json.data && json.data.accessToken);
-                if (token) {
-                  fs.writeFileSync("'"${token_file_in_container}"'", token, "utf8");
-                  process.stderr.write("LOGIN_OK\n");
-                  process.stderr.write("HTTP_" + res.statusCode + "\n");
-                  process.exit(0);
-                } else {
-                  process.stderr.write("ERROR: No accessToken in response\n");
-                  process.stderr.write("HTTP_" + res.statusCode + "\n");
-                  process.exit(1);
-                }
-              } catch (e) {
-                process.stderr.write("ERROR: Invalid JSON response\n");
-                process.stderr.write("HTTP_" + res.statusCode + "\n");
-                process.exit(1);
-              }
-            } else {
-              process.stderr.write("ERROR: Login failed with status " + res.statusCode + "\n");
-              process.stderr.write("HTTP_" + res.statusCode + "\n");
-              process.exit(1);
-            }
-          });
-        });
-        req.on("error", () => {
-          process.stderr.write("ERROR: Request error\n");
-          process.stderr.write("HTTP_000\n");
-          process.exit(1);
-        });
-        req.on("timeout", () => {
-          req.destroy();
-          process.stderr.write("ERROR: Request timeout\n");
-          process.stderr.write("HTTP_000\n");
-          process.exit(1);
-        });
-        req.write(data);
-        req.end();
-NODE
-' 2>&1)
-    local login_exit_code=$?
-    set -e
-    
-    # Extract HTTP code (second line from stderr)
-    login_http_code=$(echo "${login_status}" | grep "^HTTP_" | head -1 | cut -d'_' -f2 || echo "000")
-    if ! [[ "${login_http_code}" =~ ^[0-9]+$ ]]; then
-      login_http_code="000"
-    fi
-    
-    # Check login status
-    if echo "${login_status}" | grep -q "LOGIN_OK"; then
-      # Extract token from container file (not logged)
-      login_token=$(docker exec "${BACKEND_CONTAINER}" cat "${token_file_in_container}" 2>/dev/null || echo "")
-      
-      if [ -n "${login_token}" ]; then
-        login_success=true
-        echo "SMOKE login attempt=${login_attempt} result=OK" >> "${RAW_LOG}"
-        log_info "Login successful (attempt ${login_attempt}/${login_max_attempts})"
-        break
-      fi
-    fi
-    
-    # Log failure attempt
-    local error_msg
-    error_msg=$(echo "${login_status}" | grep "ERROR:" | head -1 || echo "Login request failed")
-    echo "SMOKE login attempt=${login_attempt} result=FAILED status=${login_http_code}" >> "${RAW_LOG}"
-    
-    if [ ${login_attempt} -lt ${login_max_attempts} ]; then
-      local backoff_seconds=$((2 ** (login_attempt - 1)))
-      log_warn "Login attempt ${login_attempt}/${login_max_attempts} failed (HTTP ${login_http_code}), retrying in ${backoff_seconds}s..."
-      sleep ${backoff_seconds}
-    fi
-    
-    login_attempt=$((login_attempt + 1))
-  done
+  # Use retry helper for login (3 attempts, 2s initial backoff: 2, 4, 8)
+  if ! retry 3 2 _login_test; then
+    cleanup_token
+    trap - EXIT
+    log_error "Login test failed after 3 attempts"
+    exit 7
+  fi
+  
+  # Extract token from container file (not logged)
+  login_token=$(docker exec "${BACKEND_CONTAINER}" cat "${token_file_in_container}" 2>/dev/null || echo "")
+  
+  if [ -z "${login_token}" ]; then
+    cleanup_token
+    trap - EXIT
+    log_error "Login test failed (token is empty)"
+    exit 7
+  fi
+  
+  log_info "Login successful (token obtained, not logged)"
   
   # Cleanup token file
   cleanup_token
   trap - EXIT
-  
-  if [ "${login_success}" != "true" ] || [ -z "${login_token}" ]; then
-    log_error "Login test failed after ${login_max_attempts} attempts"
-    exit 7
-  fi
 
   # Test onboarding/context endpoint with retry (requires x-tenant-id header)
   log_info "Testing /onboarding/context with tenant ID: ${STAGING_TENANT_ID}..."
-  local context_attempt=1
-  local context_max_attempts=3
-  local context_success=false
   
-  while [ ${context_attempt} -le ${context_max_attempts} ]; do
-    local context_status context_http_code
-    context_status=""
-    context_http_code="000"
-    
-    set +e
-    context_status=$(docker exec -e AUTH_TOKEN="${login_token}" \
-      -e TENANT_ID="${STAGING_TENANT_ID}" \
-      "${BACKEND_CONTAINER}" sh -c \
-      'node - <<NODE
-        const http = require("http");
-        const token = process.env.AUTH_TOKEN;
-        const tenantId = process.env.TENANT_ID;
-        const options = {
-          hostname: "localhost",
-          port: '"${BACKEND_PORT}"',
-          path: "/onboarding/context",
-          method: "GET",
-          headers: {
-            "Authorization": "Bearer " + token,
-            "x-tenant-id": tenantId
-          },
-          timeout: 10000
-        };
-        const req = http.request(options, (res) => {
-          let body = "";
-          res.on("data", (chunk) => { body += chunk; });
-          res.on("end", () => {
-            if (res.statusCode === 200) {
-              try {
-                const json = JSON.parse(body);
-                const context = json.context || (json.data && json.data.context);
-                if (context) {
-                  console.log("OK");
-                  process.stderr.write("HTTP_" + res.statusCode + "\n");
-                  process.exit(0);
-                } else {
-                  console.error("ERROR: No context in response (HTTP 200)");
-                  process.stderr.write("HTTP_" + res.statusCode + "\n");
-                  process.exit(1);
-                }
-              } catch (e) {
-                console.error("ERROR: Invalid JSON (HTTP 200)");
-                process.stderr.write("HTTP_" + res.statusCode + "\n");
-                process.exit(1);
-              }
-            } else {
-              console.error("ERROR: HTTP " + res.statusCode);
-              process.stderr.write("HTTP_" + res.statusCode + "\n");
-              process.exit(1);
-            }
-          });
-        });
-        req.on("error", () => {
-          console.error("ERROR: Request error");
-          process.stderr.write("HTTP_000\n");
-          process.exit(1);
-        });
-        req.on("timeout", () => {
-          req.destroy();
-          console.error("ERROR: Request timeout");
-          process.stderr.write("HTTP_000\n");
-          process.exit(1);
-        });
-        req.end();
-NODE
-' 2>&1)
-    local context_exit_code=$?
-    set -e
-    
-    # Extract HTTP code
-    context_http_code=$(echo "${context_status}" | grep "^HTTP_" | head -1 | cut -d'_' -f2 || echo "000")
-    if ! [[ "${context_http_code}" =~ ^[0-9]+$ ]]; then
-      context_http_code="000"
-    fi
-    
-    if echo "${context_status}" | grep -q "^OK$"; then
-      context_success=true
-      echo "SMOKE context attempt=${context_attempt} result=OK" >> "${RAW_LOG}"
-      log_info "Onboarding context test successful (attempt ${context_attempt}/${context_max_attempts})"
-      break
-    fi
-    
-    # Log failure attempt
-    local error_msg
-    if [[ "${context_status}" =~ ^ERROR: ]]; then
-      error_msg="${context_status#ERROR: }"
-    else
-      error_msg="Context request failed"
-    fi
-    echo "SMOKE context attempt=${context_attempt} result=FAILED status=${context_http_code}" >> "${RAW_LOG}"
-    
-    if [ ${context_attempt} -lt ${context_max_attempts} ]; then
-      local backoff_seconds=$((2 ** (context_attempt - 1)))
-      log_warn "Context test attempt ${context_attempt}/${context_max_attempts} failed (HTTP ${context_http_code}), retrying in ${backoff_seconds}s..."
-      sleep ${backoff_seconds}
-    fi
-    
-    context_attempt=$((context_attempt + 1))
-  done
-  
-  if [ "${context_success}" != "true" ]; then
-    log_error "Onboarding context test failed after ${context_max_attempts} attempts"
+  # Use retry helper for context (3 attempts, 2s initial backoff: 2, 4, 8)
+  if ! retry 3 2 _context_test; then
+    log_error "Onboarding context test failed after 3 attempts"
     exit 7
   fi
+  
+  log_info "Onboarding context test successful"
 
   log_info "All smoke tests passed"
 }
