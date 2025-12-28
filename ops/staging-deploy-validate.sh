@@ -298,6 +298,7 @@ health_checks() {
     # Node script outputs: status_code\nresponse_body (if 200)
     # Exit code: 0 = HTTP 200, !=0 = failed
     local node_output node_exit_code
+    set +e
     node_output=$(docker exec "${BACKEND_CONTAINER}" node -e "
       const http = require('http');
       const options = {
@@ -332,10 +333,15 @@ health_checks() {
       req.end();
     " 2>&1)
     node_exit_code=$?
+    set -e
 
     # Parse output: first line is status code, rest is body (if present)
     local response_code response_body
     response_code=$(echo "${node_output}" | head -n 1)
+    # Ensure response_code is numeric, default to "000" if not
+    if ! [[ "${response_code}" =~ ^[0-9]+$ ]]; then
+      response_code="000"
+    fi
     response_body=$(echo "${node_output}" | tail -n +2 | head -c 2048 || echo "")
 
     # Determine health status: HTTP 200 is primary success criterion
