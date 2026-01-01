@@ -17,6 +17,8 @@ export default async function globalSetup(): Promise<void> {
   config({ path: path.resolve(__dirname, '../.env.test.local') });
   
   // Set test environment
+  // Note: data-source.ts automatically detects test environment (NODE_ENV === 'test' OR JEST_WORKER_ID)
+  // and forces 'src' mode, so we don't need to set TYPEORM_MIGRATIONS_MODE manually
   process.env.NODE_ENV = 'test';
   
   // Set database defaults (matching setup.ts to ensure consistency)
@@ -26,9 +28,6 @@ export default async function globalSetup(): Promise<void> {
   process.env.DB_USER = process.env.DB_USER || 'postgres';
   process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
   process.env.DB_NAME = process.env.DB_NAME || 'grc_platform_test';
-  
-  // Force "src" mode for tests (we're running TypeScript, not compiled JS)
-  process.env.TYPEORM_MIGRATIONS_MODE = 'src';
   
   try {
     console.log('[E2E GlobalSetup] Initializing database connection...');
