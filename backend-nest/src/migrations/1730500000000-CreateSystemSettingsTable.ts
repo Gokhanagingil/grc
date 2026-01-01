@@ -22,10 +22,16 @@ export class CreateSystemSettingsTable1730500000000 implements MigrationInterfac
         tenant_id uuid NULL,
         key varchar(255) NOT NULL,
         value jsonb NULL,
+        description text NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (tenant_id, key)
       )
+    `);
+
+    // Defensive ALTER for existing installs
+    await queryRunner.query(`
+      ALTER TABLE "nest_system_settings" ADD COLUMN IF NOT EXISTS "description" text;
     `);
 
     // Add index on tenant_id for efficient tenant-specific queries
