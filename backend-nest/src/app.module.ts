@@ -68,8 +68,35 @@ import { StructuredLoggerService } from './common/logger';
         const dbUser = configService.get<string>('db.user', 'postgres');
         const dbPassword = configService.get<string>('db.password', 'postgres');
         const dbName = configService.get<string>('db.name', 'grc_platform');
-        const dbSync = configService.get<boolean>('db.synchronize', false);
         const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+
+        // KILL SWITCH: DB_SYNC is banned in production/staging
+        // Check if DB_SYNC env var is explicitly set to 'true' in production/staging
+        const dbSyncEnv = process.env.DB_SYNC;
+        const isProductionEnv =
+          nodeEnv === 'production' || nodeEnv === 'staging';
+        if (isProductionEnv && dbSyncEnv === 'true') {
+          console.error(
+            '\n============================================================',
+          );
+          console.error('FATAL: DB_SYNC=true is BANNED in production/staging!');
+          console.error('============================================================');
+          console.error(
+            `Environment: ${nodeEnv}`,
+          );
+          console.error('DB_SYNC=true would enable TypeORM auto-sync, which is');
+          console.error('dangerous and non-deterministic in production.');
+          console.error('');
+          console.error('SOLUTION:');
+          console.error('  1. Set DB_SYNC=false (or remove the env var)');
+          console.error('  2. Use migrations instead: npm run migration:run:prod');
+          console.error('============================================================\n');
+          process.exit(1);
+        }
+
+        // synchronize is ALWAYS false - never inferred from ambiguous flags
+        // configuration.ts already sets it to false, but we enforce it here too
+        const synchronize = false;
 
         return {
           type: 'postgres',
@@ -79,9 +106,8 @@ import { StructuredLoggerService } from './common/logger';
           password: dbPassword,
           database: dbName,
           autoLoadEntities: true,
-          // WARNING: synchronize should be false in production!
-          // It auto-creates/updates tables based on entities.
-          synchronize: dbSync,
+          // synchronize is ALWAYS false - use migrations instead
+          synchronize,
           logging: nodeEnv === 'development',
         };
       },

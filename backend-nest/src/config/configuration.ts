@@ -29,9 +29,10 @@ export default () => {
       user: process.env.DB_USER ?? 'postgres',
       password: process.env.DB_PASSWORD ?? 'postgres',
       name: process.env.DB_NAME ?? 'grc_platform',
-      // Only enable synchronize in development - NEVER in production
-      // This allows TypeORM to auto-create tables for the Nest entities
-      synchronize: process.env.DB_SYNC === 'true',
+      // synchronize MUST be false by default and never inferred
+      // It is explicitly set to false here to prevent accidental auto-sync
+      // The kill switch in app.module.ts will exit(1) if DB_SYNC=true in production/staging
+      synchronize: false,
     },
     cors: {
       origins:

@@ -7,6 +7,59 @@ import * as path from 'path';
 config();
 
 /**
+ * Resolve migration mode from environment variable or auto-detect
+ *
+ * Migration mode determines whether to load migrations from:
+ * - "dist": dist/migrations/*.js (production/staging)
+ * - "src": src/migrations/*.ts (development)
+ *
+ * Priority:
+ * 1. TYPEORM_MIGRATIONS_MODE env var (explicit override)
+ * 2. Auto-detect based on runtime environment (dist vs src)
+ * 3. Default based on NODE_ENV: "dist" for production/staging, "src" for development
+ *
+ * Production/staging environments MUST use "dist" mode.
+ */
+function resolveMigrationMode(): 'dist' | 'src' {
+  // Explicit mode override via environment variable
+  const explicitMode = process.env.TYPEORM_MIGRATIONS_MODE;
+  if (explicitMode === 'dist' || explicitMode === 'src') {
+    console.log(
+      `[TypeORM] Migration mode: ${explicitMode} (explicit via TYPEORM_MIGRATIONS_MODE)`,
+    );
+    return explicitMode;
+  }
+
+  // Auto-detect based on runtime environment
+  const isDist = isDistEnvironment();
+  
+  // For production/staging, default to "dist" even if auto-detection fails
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isProductionEnv = nodeEnv === 'production' || nodeEnv === 'staging';
+  
+  let mode: 'dist' | 'src';
+  if (isDist) {
+    mode = 'dist';
+  } else if (isProductionEnv) {
+    // Production/staging must use "dist" mode
+    mode = 'dist';
+    console.log(
+      `[TypeORM] Migration mode: ${mode} (forced for ${nodeEnv} environment)`,
+    );
+  } else {
+    mode = 'src';
+  }
+  
+  if (!isProductionEnv || isDist) {
+    console.log(
+      `[TypeORM] Migration mode: ${mode} (auto-detected from runtime environment)`,
+    );
+  }
+  
+  return mode;
+}
+
+/**
  * Detect if we're running from the compiled dist directory
  *
  * Uses __dirname (which is available in CommonJS) to determine if we're
@@ -91,17 +144,19 @@ function isDistEnvironment(): boolean {
  *
  * Migration loading strategy:
  * - Uses glob patterns to load migration files directly
- * - In dev: loads from src/migrations/*.ts (excludes index.ts via pattern)
- * - In dist: loads from dist/migrations/*.js (excludes index.js via pattern)
+ * - In "src" mode: loads from src/migrations/*.ts (excludes index.ts via pattern)
+ * - In "dist" mode: loads from dist/migrations/*.js (excludes index.js via pattern)
  * - IMPORTANT: We must NOT have dist/migrations/index.js to avoid duplicate migrations
  *
  * Usage:
- *   npm run migration:run    - Run pending migrations (dev)
- *   npx typeorm migration:show -d dist/data-source.js (staging/prod)
- *   npx typeorm migration:run -d dist/data-source.js (staging/prod)
- *   npm run migration:revert - Revert the last migration
+ *   npm run migration:status  - Check pending migrations (dev)
+ *   npm run migration:run     - Run pending migrations (dev)
+ *   npm run migration:status:prod - Check pending migrations (staging/prod)
+ *   npm run migration:run:prod    - Run pending migrations (staging/prod)
+ *   npm run migration:revert  - Revert the last migration
  *
  * Environment variables:
+ *   TYPEORM_MIGRATIONS_MODE - Explicit mode: "dist" | "src" (default: auto-detect)
  *   DB_HOST     - Database host (default: localhost)
  *   DB_PORT     - Database port (default: 5432)
  *   DB_USER     - Database user (default: postgres)
@@ -109,7 +164,7 @@ function isDistEnvironment(): boolean {
  *   DB_NAME     - Database name (default: grc_platform)
  *   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB (fallbacks)
  */
-const isDist = isDistEnvironment();
+const migrationMode = resolveMigrationMode();
 
 const AppDataSource = new DataSource({
   type: 'postgres',
@@ -122,9 +177,15 @@ const AppDataSource = new DataSource({
   password:
     process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
   database: process.env.DB_NAME || process.env.POSTGRES_DB || 'grc_platform',
-  entities: isDist ? ['dist/**/*.entity.js'] : ['src/**/*.entity.ts'],
-  migrations: isDist ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
-  synchronize: false,
+  entities:
+    migrationMode === 'dist'
+      ? ['dist/**/*.entity.js']
+      : ['src/**/*.entity.ts'],
+  migrations:
+    migrationMode === 'dist'
+      ? ['dist/migrations/*.js']
+      : ['src/migrations/*.ts'],
+  synchronize: false, // NEVER enable synchronize - always use migrations
   logging: process.env.NODE_ENV === 'development',
 });
 
