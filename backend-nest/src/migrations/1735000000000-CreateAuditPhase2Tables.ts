@@ -16,6 +16,66 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
   name = 'CreateAuditPhase2Tables1735000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create grc_audits table first (required by audit_scope_standards and audit_scope_clauses)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "grc_audits" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "tenant_id" uuid NOT NULL,
+        "name" varchar(255) NOT NULL,
+        "description" text,
+        "audit_type" varchar(50) NOT NULL DEFAULT 'internal',
+        "status" varchar(50) NOT NULL DEFAULT 'planned',
+        "risk_level" varchar(50) NOT NULL DEFAULT 'medium',
+        "department" varchar(255),
+        "owner_user_id" uuid,
+        "lead_auditor_id" uuid,
+        "planned_start_date" date,
+        "planned_end_date" date,
+        "actual_start_date" date,
+        "actual_end_date" date,
+        "scope" text,
+        "objectives" text,
+        "methodology" text,
+        "findings_summary" text,
+        "recommendations" text,
+        "conclusion" text,
+        "metadata" jsonb,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "created_by" uuid,
+        "updated_by" uuid,
+        "is_deleted" boolean NOT NULL DEFAULT false,
+        CONSTRAINT "PK_grc_audits" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_grc_audits_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE
+      )
+    `);
+
+    // Create indexes for grc_audits
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_tenant_id" ON "grc_audits" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_tenant_status" ON "grc_audits" ("tenant_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_tenant_audit_type" ON "grc_audits" ("tenant_id", "audit_type")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_tenant_department" ON "grc_audits" ("tenant_id", "department")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_tenant_status_created_at" ON "grc_audits" ("tenant_id", "status", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_created_at" ON "grc_audits" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_updated_at" ON "grc_audits" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_grc_audits_is_deleted" ON "grc_audits" ("is_deleted")`,
+    );
+
     // Create standards table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "standards" (
@@ -255,6 +315,7 @@ export class CreateAuditPhase2Tables1735000000000 implements MigrationInterface 
     await queryRunner.query(`DROP TABLE IF EXISTS "grc_issue_clauses"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "audit_scope_clauses"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "audit_scope_standards"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "grc_audits"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "standard_clauses"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "standards"`);
   }
