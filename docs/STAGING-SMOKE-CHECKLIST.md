@@ -1,20 +1,47 @@
 # Staging Smoke Test Checklist
 
 **Environment:** Staging (http://46.224.99.150)  
-**Sprint:** UI Recovery Sprint (UI-1)  
-**Date:** 2024-12-19
+**Last Updated:** 2026-01-01
 
 ## Purpose
 
-This checklist is used to verify that all UI routes are functional and accessible in the staging environment after the UI Recovery Sprint. It focuses on ensuring no white screens, proper error handling, and basic functionality.
+This checklist provides both automated and manual verification steps for the GRC Platform staging environment. Use the automated script for deployment verification, then follow the manual UI checks for comprehensive validation.
 
 ---
 
-## Pre-Test Setup
+## Automated Verification (Required First)
 
+Before manual testing, run the automated verification script:
+
+```bash
+cd /opt/grc-platform && ./scripts/staging-verify.sh
+```
+
+The script performs these checks automatically:
+
+| Check | Description | Pass Criteria |
+|-------|-------------|---------------|
+| Repository State | On main branch, no uncommitted changes | Clean git status |
+| Docker Build | Containers built and started | All containers running |
+| Health Check | Backend responds to /health/ready | HTTP 200 within 120s |
+| Migration Status | Show pending migrations | Output shows [X] or [ ] format |
+| Migration Run | Execute pending migrations | No errors, all applied |
+| Seed Scripts | Run standards seed | Completes without error |
+| Platform Validation | npm run platform:validate | All checks pass |
+| Smoke Tests | Health, auth, GRC endpoints | Expected HTTP codes |
+
+**Expected Result:** `ALL CHECKS PASSED` with exit code 0.
+
+If the automated script fails, do not proceed with manual testing until issues are resolved.
+
+---
+
+## Pre-Test Setup (Manual Testing)
+
+- [ ] Automated verification script passed (`ALL CHECKS PASSED`)
 - [ ] Clear browser cache and cookies
 - [ ] Use a fresh browser session or incognito mode
-- [ ] Have admin credentials ready
+- [ ] Have admin credentials ready (from password manager)
 - [ ] Have regular user credentials ready
 - [ ] Verify staging backend is running and accessible
 
