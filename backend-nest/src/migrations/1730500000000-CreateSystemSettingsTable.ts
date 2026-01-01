@@ -22,8 +22,8 @@ export class CreateSystemSettingsTable1730500000000 implements MigrationInterfac
     // - value: text NOT NULL
     // - description: text NULL
     // - category: varchar(100) NULL
-    // - createdAt: timestamptz NOT NULL DEFAULT now() (CreateDateColumn)
-    // - updatedAt: timestamptz NOT NULL DEFAULT now() (UpdateDateColumn)
+    // - createdAt: timestamptz NOT NULL DEFAULT now() (CreateDateColumn) - camelCase!
+    // - updatedAt: timestamptz NOT NULL DEFAULT now() (UpdateDateColumn) - camelCase!
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS nest_system_settings (
         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -31,17 +31,60 @@ export class CreateSystemSettingsTable1730500000000 implements MigrationInterfac
         value text NOT NULL,
         description text NULL,
         category varchar(100) NULL,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
+        "createdAt" timestamptz NOT NULL DEFAULT now(),
+        "updatedAt" timestamptz NOT NULL DEFAULT now()
       )
     `);
 
     // Defensive ALTER for existing installs - add columns that may be missing
+    // Using exact column names as entity expects (camelCase for createdAt/updatedAt)
     await queryRunner.query(`
       ALTER TABLE "nest_system_settings" ADD COLUMN IF NOT EXISTS "description" text;
     `);
     await queryRunner.query(`
       ALTER TABLE "nest_system_settings" ADD COLUMN IF NOT EXISTS "category" varchar(100);
+    `);
+    await queryRunner.query(`
+      ALTER TABLE "nest_system_settings" ADD COLUMN IF NOT EXISTS "createdAt" timestamptz NOT NULL DEFAULT now();
+    `);
+    await queryRunner.query(`
+      ALTER TABLE "nest_system_settings" ADD COLUMN IF NOT EXISTS "updatedAt" timestamptz NOT NULL DEFAULT now();
+    `);
+
+    // Rename snake_case columns to camelCase if they exist (fix for existing DBs)
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        -- Rename created_at to createdAt if it exists and createdAt doesn't
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = current_schema()
+          AND table_name = 'nest_system_settings' 
+          AND column_name = 'created_at'
+        ) AND NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = current_schema()
+          AND table_name = 'nest_system_settings' 
+          AND column_name = 'createdAt'
+        ) THEN
+          ALTER TABLE "nest_system_settings" RENAME COLUMN "created_at" TO "createdAt";
+        END IF;
+
+        -- Rename updated_at to updatedAt if it exists and updatedAt doesn't
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = current_schema()
+          AND table_name = 'nest_system_settings' 
+          AND column_name = 'updated_at'
+        ) AND NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = current_schema()
+          AND table_name = 'nest_system_settings' 
+          AND column_name = 'updatedAt'
+        ) THEN
+          ALTER TABLE "nest_system_settings" RENAME COLUMN "updated_at" TO "updatedAt";
+        END IF;
+      END $$;
     `);
 
     // Fix value column type if it exists as jsonb (should be text NOT NULL)
