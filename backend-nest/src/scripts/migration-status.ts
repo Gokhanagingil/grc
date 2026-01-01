@@ -16,6 +16,41 @@
 
 import { AppDataSource } from '../data-source';
 
+interface CountRow {
+  count: string | number;
+}
+
+interface MigrationRow {
+  name: string;
+}
+
+function isCountRow(row: unknown): row is CountRow {
+  return (
+    typeof row === 'object' &&
+    row !== null &&
+    'count' in row &&
+    (typeof (row as { count: unknown }).count === 'string' ||
+      typeof (row as { count: unknown }).count === 'number')
+  );
+}
+
+function isMigrationRow(row: unknown): row is MigrationRow {
+  return (
+    typeof row === 'object' &&
+    row !== null &&
+    'name' in row &&
+    typeof (row as { name: unknown }).name === 'string'
+  );
+}
+
+function parseCount(count: string | number): number {
+  if (typeof count === 'number') {
+    return count;
+  }
+  const parsed = parseInt(count, 10);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 async function checkMigrationStatus() {
   try {
     console.log('Connecting to database...');
@@ -28,27 +63,26 @@ async function checkMigrationStatus() {
     let executedCount = 0;
     let pendingMigrationsList: string[] = [];
     try {
-      const executedMigrations = await AppDataSource.query(
+      const executedMigrations: unknown = await AppDataSource.query(
         `SELECT COUNT(*) as count FROM migrations`,
       );
-      executedCount =
-        typeof executedMigrations[0]?.count === 'string'
-          ? parseInt(executedMigrations[0].count, 10)
-          : typeof executedMigrations[0]?.count === 'number'
-            ? executedMigrations[0].count
-            : 0;
+      if (
+        Array.isArray(executedMigrations) &&
+        executedMigrations.length > 0 &&
+        isCountRow(executedMigrations[0])
+      ) {
+        executedCount = parseCount(executedMigrations[0].count);
+      }
 
       // Get list of all migration files and compare with executed ones
       if (hasPendingMigrations) {
         const allMigrations = AppDataSource.migrations || [];
-        const executedMigrationNames = await AppDataSource.query(
+        const executedMigrationNames: unknown = await AppDataSource.query(
           `SELECT name FROM migrations`,
         );
-        const executedNames = (
-          Array.isArray(executedMigrationNames)
-            ? executedMigrationNames
-            : []
-        ).map((m: { name: string }) => m.name);
+        const executedNames = Array.isArray(executedMigrationNames)
+          ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)
+          : [];
         pendingMigrationsList = allMigrations
           .filter((m) => !executedNames.includes(m.name))
           .map((m) => m.name);
@@ -106,9 +140,7 @@ async function checkMigrationStatus() {
 }
 
 // Run the script
-checkMigrationStatus()
-  .catch((error) => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
-
+checkMigrationStatus().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});

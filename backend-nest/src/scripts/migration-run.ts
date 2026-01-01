@@ -16,6 +16,19 @@
 
 import { AppDataSource } from '../data-source';
 
+interface MigrationRow {
+  name: string;
+}
+
+function isMigrationRow(row: unknown): row is MigrationRow {
+  return (
+    typeof row === 'object' &&
+    row !== null &&
+    'name' in row &&
+    typeof (row as { name: unknown }).name === 'string'
+  );
+}
+
 async function runMigrations() {
   try {
     console.log('Connecting to database...');
@@ -33,14 +46,12 @@ async function runMigrations() {
     let pendingMigrationsList: string[] = [];
     try {
       const allMigrations = AppDataSource.migrations || [];
-      const executedMigrationNames = await AppDataSource.query(
+      const executedMigrationNames: unknown = await AppDataSource.query(
         `SELECT name FROM migrations`,
       );
-      const executedNames = (
-        Array.isArray(executedMigrationNames)
-          ? executedMigrationNames
-          : []
-      ).map((m: { name: string }) => m.name);
+      const executedNames = Array.isArray(executedMigrationNames)
+        ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)
+        : [];
       pendingMigrationsList = allMigrations
         .filter((m) => !executedNames.includes(m.name))
         .map((m) => m.name);
@@ -99,4 +110,3 @@ runMigrations().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-
