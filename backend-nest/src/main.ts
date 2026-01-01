@@ -51,9 +51,18 @@ async function bootstrap() {
 
   // Log startup information using structured logger
   const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+  
+  // Log migration mode (for TypeORM migrations)
+  const migrationMode =
+    process.env.TYPEORM_MIGRATIONS_MODE === 'dist' ||
+    process.env.TYPEORM_MIGRATIONS_MODE === 'src'
+      ? process.env.TYPEORM_MIGRATIONS_MODE
+      : 'auto-detect';
+  
   logger.log('Application started', {
     environment: nodeEnv,
     port,
+    migrationMode,
     healthCheck: `http://localhost:${port}/health/live`,
     metrics: `http://localhost:${port}/metrics`,
     apiDocs: `http://localhost:${port}/`,
