@@ -84,8 +84,12 @@ async function checkMigrationStatus() {
           ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)
           : [];
         pendingMigrationsList = allMigrations
-          .filter((m) => !executedNames.includes(m.name))
-          .map((m) => m.name);
+          .map((m) => m.name)
+          .filter(
+            (name): name is string =>
+              typeof name === 'string' && name.length > 0,
+          )
+          .filter((name) => !executedNames.includes(name));
       }
     } catch (queryError) {
       // If migrations table doesn't exist, all migrations are pending
@@ -94,7 +98,12 @@ async function checkMigrationStatus() {
         queryError.message.includes('does not exist')
       ) {
         const allMigrations = AppDataSource.migrations || [];
-        pendingMigrationsList = allMigrations.map((m) => m.name);
+        pendingMigrationsList = allMigrations
+          .map((m) => m.name)
+          .filter(
+            (name): name is string =>
+              typeof name === 'string' && name.length > 0,
+          );
         executedCount = 0;
       } else {
         throw queryError;

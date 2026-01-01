@@ -53,12 +53,19 @@ async function runMigrations() {
         ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)
         : [];
       pendingMigrationsList = allMigrations
-        .filter((m) => !executedNames.includes(m.name))
-        .map((m) => m.name);
+        .map((m) => m.name)
+        .filter(
+          (name): name is string => typeof name === 'string' && name.length > 0,
+        )
+        .filter((name) => !executedNames.includes(name));
     } catch {
       // If migrations table doesn't exist, all migrations are pending
       const allMigrations = AppDataSource.migrations || [];
-      pendingMigrationsList = allMigrations.map((m) => m.name);
+      pendingMigrationsList = allMigrations
+        .map((m) => m.name)
+        .filter(
+          (name): name is string => typeof name === 'string' && name.length > 0,
+        );
     }
 
     if (pendingMigrationsList.length > 0) {
