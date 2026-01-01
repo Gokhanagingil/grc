@@ -48,6 +48,51 @@ export default async function globalSetup(): Promise<void> {
       }
     }
 
+    // Verify audit tables exist after migrations
+    console.log('[E2E GlobalSetup] Verifying audit tables exist...');
+    const grcAuditsResult = await AppDataSource.manager.query(
+      `SELECT to_regclass('public.grc_audits') as grc_audits;`,
+    );
+    const grcAuditResult = await AppDataSource.manager.query(
+      `SELECT to_regclass('public.grc_audit') as grc_audit;`,
+    );
+
+    const grcAuditsExists = grcAuditsResult[0]?.grc_audits !== null;
+    const grcAuditExists = grcAuditResult[0]?.grc_audit !== null;
+
+    console.log(
+      `[E2E GlobalSetup] Audit table check: grc_audits=${grcAuditsExists ? 'EXISTS' : 'MISSING'}, grc_audit=${grcAuditExists ? 'EXISTS' : 'MISSING'}`,
+    );
+
+    if (!grcAuditsExists && !grcAuditExists) {
+      const errorMessage =
+        'Audit tables missing after migrations. Migrations set likely incomplete or wrong mode/glob.';
+      console.error(`[E2E GlobalSetup] ✗ ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+
+    // Optionally log executed migrations from migrations table
+    try {
+      const migrationsTableResult = await AppDataSource.manager.query(
+        `SELECT * FROM migrations ORDER BY timestamp DESC LIMIT 10;`,
+      );
+      if (migrationsTableResult.length > 0) {
+        console.log(
+          `[E2E GlobalSetup] Recent migrations from migrations table (${migrationsTableResult.length}):`,
+        );
+        for (const migration of migrationsTableResult) {
+          console.log(
+            `[E2E GlobalSetup]   - ${migration.name} (timestamp: ${migration.timestamp})`,
+          );
+        }
+      }
+    } catch (error) {
+      // If migrations table query fails, it's not critical - just log and continue
+      console.log(
+        '[E2E GlobalSetup] Could not query migrations table (this is optional)',
+      );
+    }
+
     console.log('[E2E GlobalSetup] Closing database connection...');
     await AppDataSource.destroy();
     console.log('[E2E GlobalSetup] ✓ Setup complete');
