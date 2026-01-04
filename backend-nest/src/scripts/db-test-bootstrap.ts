@@ -35,7 +35,7 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppDataSource } from '../data-source';
-import { runSchemaContractCheck } from './schema-contract';
+import { runSchemaContractCheckWithDataSource } from './schema-contract';
 import {
   getDatabaseConnectionConfig,
   formatConnectionConfigForLogging,
@@ -211,6 +211,8 @@ async function printDiagnostics(): Promise<void> {
 /**
  * Reset database schema by dropping and recreating public schema
  * Only runs in test environment or when DB_TEST_RESET=true
+ *
+ * FAIL-FAST: Any error during DROP/CREATE will cause process.exit(1)
  */
 async function resetDatabaseSchema(): Promise<void> {
   const nodeEnv = process.env.NODE_ENV || 'development';
@@ -226,16 +228,28 @@ async function resetDatabaseSchema(): Promise<void> {
 
   console.log('[DB Bootstrap] Resetting database schema...');
 
-  // Drop and recreate public schema (CASCADE removes all objects)
-  await AppDataSource.manager.query('DROP SCHEMA IF EXISTS public CASCADE;');
-  await AppDataSource.manager.query('CREATE SCHEMA public;');
+  try {
+    // Drop and recreate public schema (CASCADE removes all objects)
+    await AppDataSource.manager.query('DROP SCHEMA IF EXISTS public CASCADE;');
+    await AppDataSource.manager.query('CREATE SCHEMA public;');
 
-  // Ensure extensions are available (needed for UUID generation)
-  await AppDataSource.manager.query(
-    'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
-  );
+    // Ensure extensions are available (needed for UUID generation)
+    await AppDataSource.manager.query(
+      'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
+    );
 
-  console.log('[DB Bootstrap] ✓ Database schema reset complete');
+    console.log('[DB Bootstrap] ✓ Database schema reset complete');
+  } catch (error) {
+    console.error('[DB Bootstrap] ✗ Schema reset FAILED');
+    console.error(
+      '[DB Bootstrap] Error details:',
+      error instanceof Error ? error.message : String(error),
+    );
+    if (error instanceof Error && error.stack) {
+      console.error('[DB Bootstrap] Stack trace:', error.stack);
+    }
+    process.exit(1);
+  }
 }
 
 /**
@@ -452,15 +466,31 @@ async function runMigrations(): Promise<void> {
 
 /**
  * Validate schema contract (fail-fast if tables are missing)
+ *
+ * FAIL-FAST: If Expected Tables Total is 0, bootstrap fails immediately.
+ * This indicates entity metadata is empty (wrong DataSource/entities glob).
  */
 async function validateSchemaContract(): Promise<void> {
   console.log('[DB Bootstrap] Validating schema contract...');
 
-  const result = await runSchemaContractCheck(
+  const result = await runSchemaContractCheckWithDataSource(
     AppDataSource,
-    true,
     '[DB Bootstrap]',
   );
+
+  // FAIL-FAST: Expected tables must not be empty
+  if (result.expectedTables.length === 0) {
+    console.error('[DB Bootstrap] ========================================');
+    console.error('[DB Bootstrap] FATAL: Expected Tables Total is 0!');
+    console.error('[DB Bootstrap] ========================================');
+    console.error('[DB Bootstrap] This indicates entity metadata is empty.');
+    console.error('[DB Bootstrap] Possible causes:');
+    console.error('  - Wrong DataSource configuration (entities glob pattern)');
+    console.error('  - Entity files not found/compiled');
+    console.error('  - DataSource not properly initialized');
+    console.error('[DB Bootstrap] ========================================');
+    process.exit(1);
+  }
 
   if (!result.success) {
     console.error('[DB Bootstrap] ✗ Schema contract validation FAILED');

@@ -205,6 +205,7 @@ const AppDataSource = new DataSource({
   entities:
     migrationMode === 'dist' ? ['dist/**/*.entity.js'] : ['src/**/*.entity.ts'],
   migrations: migrationsGlob,
+  migrationsTableName: 'typeorm_migrations', // Explicit table name to prevent collisions
   logging: process.env.NODE_ENV === 'development',
 });
 
