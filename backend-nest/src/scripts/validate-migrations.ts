@@ -59,6 +59,7 @@ interface ValidationResult {
     nestTenantsExists: boolean;
     nestUsersExists: boolean;
     nestAuditLogsExists: boolean;
+    grcRisksExists: boolean;
   };
   errors: string[];
   warnings: string[];
@@ -192,6 +193,7 @@ async function validateMigrations(): Promise<ValidationResult> {
       nestTenantsExists: false,
       nestUsersExists: false,
       nestAuditLogsExists: false,
+      grcRisksExists: false,
     },
     errors,
     warnings,
@@ -565,6 +567,11 @@ async function validateMigrations(): Promise<ValidationResult> {
       >("SELECT to_regclass('public.nest_audit_logs') as table_name");
       result.checks.nestAuditLogsExists =
         nestAuditLogsResult[0]?.table_name !== null;
+
+      const grcRisksResult = await AppDataSource.manager.query<
+        Array<{ table_name: string | null }>
+      >("SELECT to_regclass('public.grc_risks') as table_name");
+      result.checks.grcRisksExists = grcRisksResult[0]?.table_name !== null;
     } catch (tableCheckError: unknown) {
       const errorMsg =
         tableCheckError instanceof Error
@@ -592,6 +599,12 @@ async function validateMigrations(): Promise<ValidationResult> {
       );
     }
 
+    if (!result.checks.grcRisksExists) {
+      errors.push(
+        "Required table 'public.grc_risks' does not exist. Migrations may have failed.",
+      );
+    }
+
     // Success if:
     // - No critical errors (migrations table query failures, runMigrations failures)
     // - Required tables exist
@@ -601,7 +614,8 @@ async function validateMigrations(): Promise<ValidationResult> {
       errors.length === 0 &&
       result.checks.nestTenantsExists &&
       result.checks.nestUsersExists &&
-      result.checks.nestAuditLogsExists,
+      result.checks.nestAuditLogsExists &&
+      result.checks.grcRisksExists,
     );
   } catch (error) {
     const errorMessage =
@@ -675,6 +689,11 @@ function printHumanReadable(result: ValidationResult): void {
     : '[FAIL]';
   console.log(
     `${nestAuditLogsIcon} Table nest_audit_logs: ${result.checks.nestAuditLogsExists ? 'EXISTS' : 'MISSING'}`,
+  );
+
+  const grcRisksIcon = result.checks.grcRisksExists ? '[OK]' : '[FAIL]';
+  console.log(
+    `${grcRisksIcon} Table grc_risks: ${result.checks.grcRisksExists ? 'EXISTS' : 'MISSING'}`,
   );
   console.log('');
 
