@@ -62,6 +62,20 @@ interface ValidationResult {
   warnings: string[];
 }
 
+/**
+ * Safely format a date value to ISO string
+ * Returns "N/A" if the value is falsy or results in an invalid Date
+ */
+function safeDate(value: unknown): string {
+  if (!value) {
+    return 'N/A';
+  }
+  // Ensure numeric timestamps are treated as numbers
+  const numValue = typeof value === 'string' ? Number(value) : value;
+  const d = new Date(numValue as number);
+  return Number.isNaN(d.getTime()) ? 'N/A' : d.toISOString();
+}
+
 function isDistEnvironment(): boolean {
   try {
     const filename = __filename || '';
@@ -167,7 +181,46 @@ async function validateMigrations(): Promise<ValidationResult> {
 
   try {
     // Use AppDataSource from data-source.ts (canonical connection)
-    await AppDataSource.initialize();
+    // Add retry logic for connection readiness (max 45 seconds)
+    const maxRetries = 9; // 9 retries * 5 seconds = 45 seconds max
+    const retryDelay = 5000; // 5 seconds between retries
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await AppDataSource.initialize();
+        lastError = null;
+        break; // Success, exit retry loop
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries) {
+          const errorMessage = lastError.message.toLowerCase();
+          // Only retry on connection/readiness errors
+          if (
+            errorMessage.includes('connect') ||
+            errorMessage.includes('connection') ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('econnrefused') ||
+            errorMessage.includes('getaddrinfo')
+          ) {
+            console.log(
+              `[validate-migrations] Connection attempt ${attempt + 1}/${maxRetries + 1} failed, retrying in ${retryDelay / 1000}s...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            continue;
+          }
+          // For other errors, don't retry
+          throw lastError;
+        } else {
+          // Last attempt failed, throw the error
+          throw lastError;
+        }
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
 
     // Run diagnostics: get database name, schema, search_path
     try {
@@ -244,9 +297,7 @@ async function validateMigrations(): Promise<ValidationResult> {
     if (executedMigrations.length > 0) {
       const lastMigration = executedMigrations[0];
       result.migrations.lastExecuted = lastMigration.name;
-      result.migrations.lastExecutedAt = new Date(
-        lastMigration.timestamp,
-      ).toISOString();
+      result.migrations.lastExecutedAt = safeDate(lastMigration.timestamp);
     }
 
     // Calculate pending migrations
