@@ -15,12 +15,12 @@ export default async function globalSetup(): Promise<void> {
   // Load .env.test file for local development (CI sets env vars directly)
   config({ path: path.resolve(__dirname, '../.env.test') });
   config({ path: path.resolve(__dirname, '../.env.test.local') });
-  
+
   // Set test environment
   // Note: data-source.ts automatically detects test environment (NODE_ENV === 'test' OR JEST_WORKER_ID)
   // and forces 'src' mode, so we don't need to set TYPEORM_MIGRATIONS_MODE manually
   process.env.NODE_ENV = 'test';
-  
+
   // Set database defaults (matching setup.ts to ensure consistency)
   // CI sets these via workflow env vars, so dotenv won't override them
   process.env.DB_HOST = process.env.DB_HOST || 'localhost';
@@ -28,7 +28,7 @@ export default async function globalSetup(): Promise<void> {
   process.env.DB_USER = process.env.DB_USER || 'postgres';
   process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
   process.env.DB_NAME = process.env.DB_NAME || 'grc_platform_test';
-  
+
   try {
     console.log('[E2E GlobalSetup] Initializing database connection...');
     await AppDataSource.initialize();
@@ -37,7 +37,9 @@ export default async function globalSetup(): Promise<void> {
     const executedMigrations = await AppDataSource.runMigrations();
 
     if (executedMigrations.length === 0) {
-      console.log('[E2E GlobalSetup] ✓ Database is up to date (no migrations executed)');
+      console.log(
+        '[E2E GlobalSetup] ✓ Database is up to date (no migrations executed)',
+      );
     } else {
       console.log(
         `[E2E GlobalSetup] ✓ Executed ${executedMigrations.length} migration(s):`,
@@ -85,7 +87,7 @@ export default async function globalSetup(): Promise<void> {
           );
         }
       }
-    } catch (error) {
+    } catch {
       // If migrations table query fails, it's not critical - just log and continue
       console.log(
         '[E2E GlobalSetup] Could not query migrations table (this is optional)',
@@ -105,14 +107,13 @@ export default async function globalSetup(): Promise<void> {
     } else {
       console.error('[E2E GlobalSetup]   Unknown error:', error);
     }
-    
+
     // Clean up connection if it was initialized
     if (AppDataSource.isInitialized) {
       await AppDataSource.destroy();
     }
-    
+
     // Re-throw to fail the test run
     throw error;
   }
 }
-
