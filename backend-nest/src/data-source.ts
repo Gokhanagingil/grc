@@ -71,6 +71,65 @@ function resolveMigrationMode(): 'dist' | 'src' {
 }
 
 /**
+ * Resolve entities mode from environment variable or auto-detect
+ *
+ * Entities mode determines whether to load entities from:
+ * - "dist": dist directory with .entity.js files (production/staging)
+ * - "src": src directory with .entity.ts files (development/test)
+ *
+ * Priority (test safety first):
+ * 1. Test environment (NODE_ENV === 'test' OR JEST_WORKER_ID is set) → ALWAYS 'src'
+ * 2. Production/staging (NODE_ENV === 'production' || 'staging') → ALWAYS 'dist'
+ * 3. TYPEORM_ENTITIES_MODE env var (explicit override, but NOT in test)
+ * 4. Auto-detect based on runtime environment (dist vs src)
+ * 5. Default: 'src' for development
+ *
+ * Production/staging environments MUST use "dist" mode.
+ * Test environments MUST use "src" mode (cannot be overridden).
+ */
+function resolveEntitiesMode(): 'dist' | 'src' {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isJestWorker = !!process.env.JEST_WORKER_ID;
+  const isTestEnv = nodeEnv === 'test' || isJestWorker;
+  const isProductionEnv = nodeEnv === 'production' || nodeEnv === 'staging';
+
+  // TEST SAFETY: Test environment MUST always use 'src' mode
+  // This cannot be overridden by TYPEORM_ENTITIES_MODE
+  if (isTestEnv) {
+    console.log(
+      `[TypeORM] Entities mode: src (forced for test environment - NODE_ENV=${nodeEnv}${isJestWorker ? ', JEST_WORKER_ID set' : ''})`,
+    );
+    return 'src';
+  }
+
+  // Production/staging MUST use 'dist' mode
+  if (isProductionEnv) {
+    console.log(
+      `[TypeORM] Entities mode: dist (forced for ${nodeEnv} environment)`,
+    );
+    return 'dist';
+  }
+
+  // Explicit mode override via environment variable (only if not in test)
+  const explicitMode = process.env.TYPEORM_ENTITIES_MODE;
+  if (explicitMode === 'dist' || explicitMode === 'src') {
+    console.log(
+      `[TypeORM] Entities mode: ${explicitMode} (explicit via TYPEORM_ENTITIES_MODE)`,
+    );
+    return explicitMode;
+  }
+
+  // Auto-detect based on runtime environment
+  const isDist = isDistEnvironment();
+  const mode = isDist ? 'dist' : 'src';
+  console.log(
+    `[TypeORM] Entities mode: ${mode} (auto-detected from runtime environment)`,
+  );
+
+  return mode;
+}
+
+/**
  * Detect if we're running from the compiled dist directory
  *
  * Uses __dirname (which is available in CommonJS) to determine if we're
@@ -176,6 +235,7 @@ function isDistEnvironment(): boolean {
  *   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB (fallbacks)
  */
 const migrationMode = resolveMigrationMode();
+const entitiesMode = resolveEntitiesMode();
 
 // Resolve migrations glob pattern based on mode using ABSOLUTE paths
 // This ensures migrations are found regardless of process.cwd()
@@ -184,12 +244,23 @@ const migrationsDir = path.join(__dirname, 'migrations');
 const migrationsExtension = migrationMode === 'dist' ? '*.js' : '*.ts';
 const migrationsGlob = [path.join(migrationsDir, migrationsExtension)];
 
+// Resolve entities glob pattern based on mode using ABSOLUTE paths
+// This ensures entities are found regardless of process.cwd()
+const entitiesExtension =
+  entitiesMode === 'dist' ? '*.entity.js' : '*.entity.ts';
+const entitiesGlob = [path.join(__dirname, '**', entitiesExtension)];
+
 // Log resolved migrations glob (safe, no secrets)
 console.log(
   `[TypeORM] Resolved migrations glob: ${JSON.stringify(migrationsGlob)}`,
 );
 console.log(
   `[TypeORM] Migration discovery: __dirname=${__dirname}, process.cwd()=${process.cwd()}`,
+);
+
+// Log resolved entities glob (safe, no secrets)
+console.log(
+  `[TypeORM] Resolved entities glob: ${JSON.stringify(entitiesGlob)}`,
 );
 
 // Use canonical database connection config builder
@@ -202,8 +273,7 @@ console.log(
 
 const AppDataSource = new DataSource({
   ...baseDataSourceOptions,
-  entities:
-    migrationMode === 'dist' ? ['dist/**/*.entity.js'] : ['src/**/*.entity.ts'],
+  entities: entitiesGlob,
   migrations: migrationsGlob,
   migrationsTableName: 'typeorm_migrations', // Explicit table name to prevent collisions
   logging: process.env.NODE_ENV === 'development',

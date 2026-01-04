@@ -20,11 +20,7 @@
  *   1 - Missing tables or columns detected
  */
 
-import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
-import { AppDataSource } from '../data-source';
-
-config();
 
 /**
  * Schema Contract Result Interface
@@ -181,8 +177,7 @@ export async function runSchemaContractCheckWithDataSource(
   const entityMetadatas = dataSource.entityMetadatas;
   if (entityMetadatas.length === 0) {
     throw new Error(
-      'Entity metadata empty - wrong DataSource/entities glob. ' +
-        'Expected tables cannot be determined from empty entity metadata.',
+      'Schema contract: entity metadata is empty. Entity discovery is broken (check AppDataSource.options.entities).',
     );
   }
 
@@ -237,165 +232,18 @@ export async function runSchemaContractCheckWithDataSource(
  * Validate schema contract (legacy function - kept for backward compatibility)
  * Can be called with an already-initialized DataSource
  *
- * @deprecated Use runSchemaContractCheckWithDataSource instead - this function includes migration logic that should be handled separately
+ * @deprecated Use runSchemaContractCheckWithDataSource instead - migrations must be run separately before schema contract check
  * @param dataSource - TypeORM DataSource (must be initialized)
- * @param skipMigrations - If true, skip running migrations (assumes they're already run)
+ * @param skipMigrations - DEPRECATED: Always true. Migrations must be run separately.
  * @param logPrefix - Prefix for log messages (default: '[schema-contract]')
  */
 export async function runSchemaContractCheck(
   dataSource: DataSource,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skipMigrations = true,
   logPrefix = '[schema-contract]',
 ): Promise<SchemaContractResult> {
-  try {
-    if (!dataSource.isInitialized) {
-      throw new Error(
-        'DataSource must be initialized before running schema contract check',
-      );
-    }
-
-    // Run migrations idempotently (unless skipped - default is now true)
-    if (!skipMigrations) {
-      console.log(`${logPrefix} Running migrations (idempotent)...`);
-      const pendingMigrations = await dataSource.showMigrations();
-      if (pendingMigrations) {
-        const executedMigrations = await dataSource.runMigrations();
-        if (executedMigrations.length > 0) {
-          console.log(
-            `${logPrefix} ✓ Executed ${executedMigrations.length} pending migration(s)`,
-          );
-        }
-      } else {
-        console.log(`${logPrefix} ✓ No pending migrations`);
-      }
-    }
-
-    // Use the core function for validation
-    return await runSchemaContractCheckWithDataSource(dataSource, logPrefix);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const result: SchemaContractResult = {
-      success: false,
-      timestamp: new Date().toISOString(),
-      expectedTables: [],
-      actualTables: [],
-      missingTables: [],
-      missingColumns: [],
-      errors: [`Schema contract validation failed: ${errorMessage}`],
-    };
-    if (error instanceof Error && error.stack) {
-      console.error(`${logPrefix} Stack trace:`, error.stack);
-    }
-    return result;
-  }
+  // NOTE: This function no longer runs migrations. Migrations must be run separately.
+  // This ensures deterministic behavior and prevents duplicate migration execution in CI/test bootstrap flows.
+  return await runSchemaContractCheckWithDataSource(dataSource, logPrefix);
 }
-
-/**
- * Validate schema contract (CLI wrapper - initializes and destroys DataSource)
- *
- * NOTE: This CLI wrapper does NOT run migrations. Migrations should be run separately
- * before calling schema contract validation. This ensures deterministic behavior
- * and prevents double initialization issues in CI/test bootstrap flows.
- */
-async function validateSchemaContract(): Promise<SchemaContractResult> {
-  try {
-    // Initialize AppDataSource
-    console.log('[schema-contract] Initializing AppDataSource...');
-    await AppDataSource.initialize();
-
-    // Run schema contract check (WITHOUT migrations - migrations should be run separately)
-    const result = await runSchemaContractCheckWithDataSource(
-      AppDataSource,
-      '[schema-contract]',
-    );
-
-    return result;
-  } finally {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-    }
-  }
-}
-
-/**
- * Print human-readable output
- */
-function printResult(result: SchemaContractResult): void {
-  console.log('');
-  console.log('========================================');
-  console.log('Schema Contract Validation');
-  console.log('========================================');
-  console.log(`Timestamp: ${result.timestamp}`);
-  console.log('');
-
-  console.log('--- Expected Tables ---');
-  console.log(`Total: ${result.expectedTables.length}`);
-  if (result.expectedTables.length > 0) {
-    for (const table of result.expectedTables) {
-      console.log(`  ✓ ${table}`);
-    }
-  }
-  console.log('');
-
-  if (result.missingTables.length > 0) {
-    console.log('--- MISSING TABLES ---');
-    for (const table of result.missingTables) {
-      console.log(`  ✗ ${table}`);
-    }
-    console.log('');
-  }
-
-  if (result.missingColumns.length > 0) {
-    console.log('--- MISSING COLUMNS ---');
-    for (const missing of result.missingColumns) {
-      console.log(`  ✗ ${missing.table}:`);
-      for (const column of missing.columns) {
-        console.log(`      - ${column}`);
-      }
-    }
-    console.log('');
-  }
-
-  if (result.errors.length > 0) {
-    console.log('--- ERRORS ---');
-    for (const error of result.errors) {
-      console.log(`  ✗ ${error}`);
-    }
-    console.log('');
-  }
-
-  console.log('========================================');
-  if (result.success) {
-    console.log('[SUCCESS] Schema contract validation passed');
-    console.log(`All ${result.expectedTables.length} expected table(s) exist`);
-  } else {
-    console.log('[FAILED] Schema contract validation failed');
-    if (result.missingTables.length > 0) {
-      console.log(`Missing ${result.missingTables.length} table(s):`);
-      for (const table of result.missingTables) {
-        console.log(`  - ${table}`);
-      }
-    }
-    if (result.missingColumns.length > 0) {
-      console.log(
-        `Missing columns in ${result.missingColumns.length} table(s)`,
-      );
-    }
-  }
-  console.log('========================================');
-  console.log('');
-}
-
-/**
- * Main function
- */
-async function main(): Promise<void> {
-  const result = await validateSchemaContract();
-  printResult(result);
-  process.exit(result.success ? 0 : 1);
-}
-
-main().catch((error: unknown) => {
-  console.error('[schema-contract] Unexpected error:', error);
-  process.exit(1);
-});
