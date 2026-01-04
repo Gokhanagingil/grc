@@ -251,6 +251,19 @@ jobs:
           DB_PASSWORD: postgres
           DB_NAME: grc_platform_test
       
+      - name: Validate migrations and schema
+        run: npm run validate:migrations
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+      
       - name: Run e2e tests
         run: npm run test:e2e -- --passWithNoTests
         env:
@@ -261,7 +274,8 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           DB_NAME: grc_platform_test
-          DB_SYNC: 'true'
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
           DEMO_ADMIN_EMAIL: admin@grc-platform.local
           DEMO_ADMIN_PASSWORD: TestPassword123!
 
@@ -403,6 +417,30 @@ jobs:
       - name: Build application
         run: npm run build
       
+      - name: Run migrations
+        run: npm run migration:run
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+      
+      - name: Validate migrations and schema
+        run: npm run validate:migrations
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+      
       - name: Start backend server
         run: |
           npm run start:prod &
@@ -419,7 +457,8 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           DB_NAME: grc_platform_acceptance
-          DB_SYNC: 'true'
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
           DEMO_ADMIN_EMAIL: admin@grc-platform.local
           DEMO_ADMIN_PASSWORD: TestPassword123!
       
@@ -432,7 +471,8 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           DB_NAME: grc_platform_acceptance
-          DB_SYNC: 'true'
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
           DEMO_ADMIN_EMAIL: admin@grc-platform.local
           DEMO_ADMIN_PASSWORD: TestPassword123!
       
