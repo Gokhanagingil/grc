@@ -17,6 +17,7 @@
 import { config } from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
+import type { Migration } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import {
   getDatabaseConnectionConfig,
@@ -74,6 +75,40 @@ function safeDate(value: unknown): string {
   const numValue = typeof value === 'string' ? Number(value) : value;
   const d = new Date(numValue as number);
   return Number.isNaN(d.getTime()) ? 'N/A' : d.toISOString();
+}
+
+/**
+ * Safely extract migration name from a Migration object
+ */
+function getMigrationName(migration: Migration): string {
+  // TypeORM Migration has a 'name' property
+  if (
+    migration &&
+    typeof migration === 'object' &&
+    'name' in migration &&
+    typeof migration.name === 'string'
+  ) {
+    return migration.name;
+  }
+  return 'unknown';
+}
+
+/**
+ * Safely extract migration timestamp from a Migration object
+ */
+function getMigrationTimestamp(migration: Migration): number {
+  // TypeORM Migration has a 'timestamp' property
+  if (migration && typeof migration === 'object' && 'timestamp' in migration) {
+    const ts = migration.timestamp;
+    if (typeof ts === 'number') {
+      return ts;
+    }
+    if (typeof ts === 'string') {
+      const num = Number(ts);
+      return Number.isNaN(num) ? 0 : num;
+    }
+  }
+  return 0;
 }
 
 function isDistEnvironment(): boolean {
@@ -223,26 +258,34 @@ async function validateMigrations(): Promise<ValidationResult> {
     }
 
     // Get migrations table name from TypeORM options (defaults to 'migrations')
+    // Safely access options with type narrowing
     const migrationsTableName =
       AppDataSource.options.migrationsTableName || 'migrations';
+    // TypeORM doesn't have migrationsTableSchema option - migrations table is always in 'public' schema
+    // But we check for it in case of custom implementations
     const migrationsTableSchema =
-      AppDataSource.options.migrationsTableSchema || 'public';
+      'migrationsTableSchema' in AppDataSource.options &&
+      typeof AppDataSource.options.migrationsTableSchema === 'string'
+        ? AppDataSource.options.migrationsTableSchema
+        : 'public';
 
     // Log migrations table configuration
     console.log(
       `[validate-migrations] Migrations table: ${migrationsTableSchema}.${migrationsTableName}`,
     );
+    // Safely extract options for logging (using type assertion for union type)
+    const opts = AppDataSource.options as unknown as Record<string, unknown>;
     console.log(
       `[validate-migrations] TypeORM options (sanitized):`,
       JSON.stringify(
         {
-          type: AppDataSource.options.type,
-          host: AppDataSource.options.host,
-          port: AppDataSource.options.port,
-          database: AppDataSource.options.database,
-          migrationsTableName: AppDataSource.options.migrationsTableName,
-          migrationsTableSchema: AppDataSource.options.migrationsTableSchema,
-          migrations: AppDataSource.options.migrations,
+          type: opts.type,
+          host: 'host' in opts ? opts.host : undefined,
+          port: 'port' in opts ? opts.port : undefined,
+          database: 'database' in opts ? opts.database : undefined,
+          migrationsTableName: migrationsTableName,
+          migrationsTableSchema: migrationsTableSchema,
+          migrations: opts.migrations,
         },
         null,
         2,
@@ -276,13 +319,16 @@ async function validateMigrations(): Promise<ValidationResult> {
 
     // Check if migrations table exists (using detected table name and schema)
     const tableExistsResult: Array<{ exists: boolean }> =
-      await AppDataSource.query(`
+      await AppDataSource.query(
+        `
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = $1
         AND table_name = $2
       );
-    `, [migrationsTableSchema, migrationsTableName]);
+    `,
+        [migrationsTableSchema, migrationsTableName],
+      );
     result.checks.migrationsTableExists = tableExistsResult[0]?.exists || false;
 
     // Get migration class names by checking what TypeORM would load
@@ -331,7 +377,7 @@ async function validateMigrations(): Promise<ValidationResult> {
         // Use proper PostgreSQL identifier quoting
         const schemaQuoted = `"${migrationsTableSchema}"`;
         const tableQuoted = `"${migrationsTableName}"`;
-        executedMigrationsBefore = await AppDataSource.query(
+        executedMigrationsBefore = await AppDataSource.query<MigrationRecord[]>(
           `SELECT id, timestamp, name 
            FROM ${schemaQuoted}.${tableQuoted}
            ORDER BY timestamp DESC`,
@@ -342,7 +388,14 @@ async function validateMigrations(): Promise<ValidationResult> {
         );
         if (countBefore > 0) {
           console.log(
-            `[validate-migrations] Executed migrations (before): ${JSON.stringify(executedMigrationsBefore.map((m) => ({ name: m.name, timestamp: m.timestamp })), null, 2)}`,
+            `[validate-migrations] Executed migrations (before): ${JSON.stringify(
+              executedMigrationsBefore.map((m) => ({
+                name: m.name,
+                timestamp: m.timestamp,
+              })),
+              null,
+              2,
+            )}`,
           );
         }
       } catch (queryError) {
@@ -354,7 +407,7 @@ async function validateMigrations(): Promise<ValidationResult> {
 
     // Run migrations if needed (idempotent)
     let migrationsRun = 0;
-    let executedMigrationsResult: any[] = [];
+    let executedMigrationsResult: Migration[] = [];
     if (result.checks.migrationsTableExists) {
       // Check for pending migrations and run them
       const hasPendingMigrations = await AppDataSource.showMigrations();
@@ -365,7 +418,14 @@ async function validateMigrations(): Promise<ValidationResult> {
         if (migrationsRun > 0) {
           console.log(`✓ Successfully executed ${migrationsRun} migration(s)`);
           console.log(
-            `[validate-migrations] Migrations returned by runMigrations(): ${JSON.stringify(executedMigrationsResult.map((m) => ({ name: m.name, timestamp: m.timestamp })), null, 2)}`,
+            `[validate-migrations] Migrations returned by runMigrations(): ${JSON.stringify(
+              executedMigrationsResult.map((m) => ({
+                name: getMigrationName(m),
+                timestamp: getMigrationTimestamp(m),
+              })),
+              null,
+              2,
+            )}`,
           );
         }
       }
@@ -377,7 +437,14 @@ async function validateMigrations(): Promise<ValidationResult> {
       if (migrationsRun > 0) {
         console.log(`✓ Successfully executed ${migrationsRun} migration(s)`);
         console.log(
-          `[validate-migrations] Migrations returned by runMigrations(): ${JSON.stringify(executedMigrationsResult.map((m) => ({ name: m.name, timestamp: m.timestamp })), null, 2)}`,
+          `[validate-migrations] Migrations returned by runMigrations(): ${JSON.stringify(
+            executedMigrationsResult.map((m) => ({
+              name: m.name,
+              timestamp: m.timestamp,
+            })),
+            null,
+            2,
+          )}`,
         );
       }
       result.checks.migrationsTableExists = true;
@@ -391,7 +458,7 @@ async function validateMigrations(): Promise<ValidationResult> {
       // Use proper PostgreSQL identifier quoting
       const schemaQuoted = `"${migrationsTableSchema}"`;
       const tableQuoted = `"${migrationsTableName}"`;
-      executedMigrations = await AppDataSource.query(
+      executedMigrations = await AppDataSource.query<MigrationRecord[]>(
         `SELECT id, timestamp, name 
          FROM ${schemaQuoted}.${tableQuoted}
          ORDER BY timestamp DESC`,
@@ -402,7 +469,14 @@ async function validateMigrations(): Promise<ValidationResult> {
       );
       if (countAfter > 0) {
         console.log(
-          `[validate-migrations] Executed migrations (after): ${JSON.stringify(executedMigrations.map((m) => ({ name: m.name, timestamp: m.timestamp })), null, 2)}`,
+          `[validate-migrations] Executed migrations (after): ${JSON.stringify(
+            executedMigrations.map((m) => ({
+              name: m.name,
+              timestamp: m.timestamp,
+            })),
+            null,
+            2,
+          )}`,
         );
       }
     } catch (queryError) {
@@ -452,7 +526,7 @@ async function validateMigrations(): Promise<ValidationResult> {
     if (pendingMigrations.length > 0) {
       // Check if runMigrations() actually returned migrations that should have been recorded
       const runMigrationsNames = new Set(
-        executedMigrationsResult.map((m) => m.name),
+        executedMigrationsResult.map((m) => getMigrationName(m)),
       );
       const missingFromDb = pendingMigrations.filter((name) =>
         runMigrationsNames.has(name),
@@ -483,14 +557,12 @@ async function validateMigrations(): Promise<ValidationResult> {
       >("SELECT to_regclass('public.nest_audit_logs') as table_name");
       result.checks.nestAuditLogsExists =
         nestAuditLogsResult[0]?.table_name !== null;
-    } catch (tableCheckError) {
-      errors.push(
-        `Failed to check table existence: ${
-          tableCheckError instanceof Error
-            ? tableCheckError.message
-            : 'Unknown error'
-        }`,
-      );
+    } catch (tableCheckError: unknown) {
+      const errorMsg =
+        tableCheckError instanceof Error
+          ? tableCheckError.message
+          : 'Unknown error';
+      errors.push(`Failed to check table existence: ${errorMsg}`);
     }
 
     // Fail if required tables are missing
