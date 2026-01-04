@@ -240,22 +240,46 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Run migrations
-        run: npm run migration:run
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d grc_platform_test; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready within 60 seconds"
+          exit 1
         env:
-          NODE_ENV: test
-          TYPEORM_MIGRATIONS_MODE: src
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: grc_platform_test
+          PGPASSWORD: postgres
       
-      - name: Validate migrations and schema
-        run: npm run validate:migrations
+      - name: Debug - Environment and file structure
+        run: |
+          echo "=== Debug: Environment and file structure ==="
+          echo "Current directory (pwd):"
+          pwd
+          echo ""
+          echo "Working directory contents (ls -la):"
+          ls -la
+          echo ""
+          echo "Migrations directory (ls -la src/migrations | head -50):"
+          ls -la src/migrations | head -50 || echo "Migrations directory not found"
+          echo ""
+          echo "Git commit SHA:"
+          git rev-parse HEAD
+          echo "=== End Debug ==="
+      
+      - name: Bootstrap test database (reset+migrate+contract+seed)
+        # SINGLE SOURCE OF TRUTH: This step runs BEFORE e2e tests to ensure
+        # deterministic database state. It resets schema, runs migrations,
+        # validates schema contract, and seeds minimum data.
+        # The bootstrap script is the only place allowed to reset schema for CI tests.
+        run: npm run db:test:bootstrap
         env:
           NODE_ENV: test
-          TYPEORM_MIGRATIONS_MODE: src
           DB_HOST: localhost
           DB_PORT: 5432
           DB_USER: postgres
@@ -263,8 +287,16 @@ jobs:
           DB_NAME: grc_platform_test
           # DB_SYNC=false ensures migrations are the source of truth
           DB_SYNC: 'false'
+          # TYPEORM_MIGRATIONS_MODE=src ensures migrations are loaded from src/migrations/*.ts
+          # (data-source.ts auto-detects test env and uses src mode, but explicit is safer)
+          TYPEORM_MIGRATIONS_MODE: src
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
       
       - name: Run e2e tests
+        # NOTE: DB bootstrap is handled by the previous step (db:test:bootstrap).
+        # globalSetup.ts should NOT reset/migrate again - it can remain for env setup only.
+        # Runtime diagnostics in main.ts will verify tables exist and fail-fast if missing.
         run: npm run test:e2e -- --passWithNoTests
         env:
           NODE_ENV: test
@@ -276,6 +308,9 @@ jobs:
           DB_NAME: grc_platform_test
           # DB_SYNC=false ensures migrations are the source of truth
           DB_SYNC: 'false'
+          # TYPEORM_MIGRATIONS_MODE=src ensures migrations are loaded from src/migrations/*.ts
+          # (data-source.ts auto-detects test env and uses src mode, but explicit is safer)
+          TYPEORM_MIGRATIONS_MODE: src
           DEMO_ADMIN_EMAIL: admin@grc-platform.local
           DEMO_ADMIN_PASSWORD: TestPassword123!
 
@@ -430,6 +465,19 @@ jobs:
       
       - name: Validate migrations and schema
         run: npm run validate:migrations
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+      
+      - name: Validate schema contract
+        run: npm run schema:contract
         env:
           NODE_ENV: test
           TYPEORM_MIGRATIONS_MODE: src

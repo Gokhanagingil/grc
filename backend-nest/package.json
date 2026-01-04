@@ -36,8 +36,10 @@
         "validate:env": "ts-node -r tsconfig-paths/register src/scripts/validate-env.ts",
         "validate:db": "ts-node -r tsconfig-paths/register src/scripts/validate-db.ts",
         "validate:migrations": "ts-node -r tsconfig-paths/register src/scripts/validate-migrations.ts",
+        "schema:contract": "ts-node -r tsconfig-paths/register src/scripts/schema-contract.ts",
         "smoke:auth-onboarding": "ts-node -r tsconfig-paths/register src/scripts/smoke-auth-onboarding.ts",
-        "platform:validate": "ts-node -r tsconfig-paths/register src/scripts/platform-validate.ts"
+        "platform:validate": "ts-node -r tsconfig-paths/register src/scripts/platform-validate.ts",
+        "db:test:bootstrap": "ts-node -r tsconfig-paths/register src/scripts/db-test-bootstrap.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.10",

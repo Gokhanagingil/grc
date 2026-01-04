@@ -177,13 +177,19 @@ function isDistEnvironment(): boolean {
  */
 const migrationMode = resolveMigrationMode();
 
-// Resolve migrations glob pattern based on mode
-const migrationsGlob =
-  migrationMode === 'dist' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'];
+// Resolve migrations glob pattern based on mode using ABSOLUTE paths
+// This ensures migrations are found regardless of process.cwd()
+// __dirname is: backend-nest/src when running from src, backend-nest/dist when running from dist
+const migrationsDir = path.join(__dirname, 'migrations');
+const migrationsExtension = migrationMode === 'dist' ? '*.js' : '*.ts';
+const migrationsGlob = [path.join(migrationsDir, migrationsExtension)];
 
 // Log resolved migrations glob (safe, no secrets)
 console.log(
   `[TypeORM] Resolved migrations glob: ${JSON.stringify(migrationsGlob)}`,
+);
+console.log(
+  `[TypeORM] Migration discovery: __dirname=${__dirname}, process.cwd()=${process.cwd()}`,
 );
 
 // Use canonical database connection config builder
