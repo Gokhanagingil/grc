@@ -56,6 +56,7 @@ interface ValidationResult {
     migrationsTableExists: boolean;
     migrationFilesFound: number;
     syncMode: boolean;
+    nestTenantsExists: boolean;
     nestUsersExists: boolean;
     nestAuditLogsExists: boolean;
   };
@@ -188,6 +189,7 @@ async function validateMigrations(): Promise<ValidationResult> {
       migrationsTableExists: false,
       migrationFilesFound: 0,
       syncMode: process.env.DB_SYNC === 'true',
+      nestTenantsExists: false,
       nestUsersExists: false,
       nestAuditLogsExists: false,
     },
@@ -547,6 +549,12 @@ async function validateMigrations(): Promise<ValidationResult> {
 
     // Assert required tables exist using to_regclass
     try {
+      const nestTenantsResult = await AppDataSource.manager.query<
+        Array<{ table_name: string | null }>
+      >("SELECT to_regclass('public.nest_tenants') as table_name");
+      result.checks.nestTenantsExists =
+        nestTenantsResult[0]?.table_name !== null;
+
       const nestUsersResult = await AppDataSource.manager.query<
         Array<{ table_name: string | null }>
       >("SELECT to_regclass('public.nest_users') as table_name");
@@ -566,6 +574,12 @@ async function validateMigrations(): Promise<ValidationResult> {
     }
 
     // Fail if required tables are missing
+    if (!result.checks.nestTenantsExists) {
+      errors.push(
+        "Required table 'public.nest_tenants' does not exist. Migrations may have failed.",
+      );
+    }
+
     if (!result.checks.nestUsersExists) {
       errors.push(
         "Required table 'public.nest_users' does not exist. Migrations may have failed.",
@@ -583,10 +597,12 @@ async function validateMigrations(): Promise<ValidationResult> {
     // - Required tables exist
     // - Don't fail on pending count alone (might be calculation bug)
     // Only fail if runMigrations() threw OR required tables missing OR migrations were run but not recorded
-    result.success =
+    result.success = Boolean(
       errors.length === 0 &&
+      result.checks.nestTenantsExists &&
       result.checks.nestUsersExists &&
-      result.checks.nestAuditLogsExists;
+      result.checks.nestAuditLogsExists,
+    );
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
@@ -643,6 +659,11 @@ function printHumanReadable(result: ValidationResult): void {
   console.log(`Migration files found: ${result.checks.migrationFilesFound}`);
   const syncIcon = result.checks.syncMode ? '[WARN]' : '[OK]';
   console.log(`${syncIcon} Sync mode: ${result.checks.syncMode}`);
+
+  const nestTenantsIcon = result.checks.nestTenantsExists ? '[OK]' : '[FAIL]';
+  console.log(
+    `${nestTenantsIcon} Table nest_tenants: ${result.checks.nestTenantsExists ? 'EXISTS' : 'MISSING'}`,
+  );
 
   const nestUsersIcon = result.checks.nestUsersExists ? '[OK]' : '[FAIL]';
   console.log(
@@ -709,7 +730,7 @@ async function main(): Promise<void> {
   process.exit(result.success ? 0 : 1);
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error('Unexpected error:', error);
   process.exit(1);
 });
