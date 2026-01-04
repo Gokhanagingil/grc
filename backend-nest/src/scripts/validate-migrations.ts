@@ -2,21 +2,26 @@
  * Migration Validation Script
  *
  * Validates database migration status, checks for pending migrations,
- * and reports on executed migrations. Supports JSON output for CI.
+ * runs migrations if needed, and asserts that required tables exist.
+ * Supports JSON output for CI.
  *
  * Usage:
  *   npm run validate:migrations           - Human-readable output
  *   npm run validate:migrations -- --json - JSON output for CI
  *
  * Exit codes:
- *   0 - All migrations are applied (no pending)
- *   1 - Pending migrations exist or error occurred
+ *   0 - All migrations are applied and required tables exist
+ *   1 - Pending migrations exist, tables missing, or error occurred
  */
 
-import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
+import { AppDataSource } from '../data-source';
+import {
+  getDatabaseConnectionConfig,
+  formatConnectionConfigForLogging,
+} from '../config/database-config';
 
 config();
 
@@ -30,6 +35,13 @@ interface ValidationResult {
   success: boolean;
   timestamp: string;
   environment: string;
+  diagnostics: {
+    configSource: string;
+    currentDatabase: string | null;
+    currentSchema: string | null;
+    searchPath: string | null;
+    connectionString: string;
+  };
   migrations: {
     executed: number;
     pending: number;
@@ -37,11 +49,14 @@ interface ValidationResult {
     lastExecutedAt: string | null;
     pendingList: string[];
     executedList: string[];
+    migrationsRun: number;
   };
   checks: {
     migrationsTableExists: boolean;
     migrationFilesFound: number;
     syncMode: boolean;
+    nestUsersExists: boolean;
+    nestAuditLogsExists: boolean;
   };
   errors: string[];
   warnings: string[];
@@ -96,10 +111,21 @@ async function validateMigrations(): Promise<ValidationResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // Get database connection config for diagnostics
+  const dbConfig = getDatabaseConnectionConfig();
+  const connectionString = formatConnectionConfigForLogging(dbConfig);
+
   const result: ValidationResult = {
     success: false,
     timestamp,
     environment,
+    diagnostics: {
+      configSource: dbConfig.source,
+      currentDatabase: null,
+      currentSchema: null,
+      searchPath: null,
+      connectionString,
+    },
     migrations: {
       executed: 0,
       pending: 0,
@@ -107,11 +133,14 @@ async function validateMigrations(): Promise<ValidationResult> {
       lastExecutedAt: null,
       pendingList: [],
       executedList: [],
+      migrationsRun: 0,
     },
     checks: {
       migrationsTableExists: false,
       migrationFilesFound: 0,
       syncMode: process.env.DB_SYNC === 'true',
+      nestUsersExists: false,
+      nestAuditLogsExists: false,
     },
     errors,
     warnings,
@@ -136,26 +165,38 @@ async function validateMigrations(): Promise<ValidationResult> {
     warnings.push('No migration files found in migrations directory.');
   }
 
-  const dataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.DB_HOST || process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(
-      process.env.DB_PORT || process.env.POSTGRES_PORT || '5432',
-      10,
-    ),
-    username: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
-    password:
-      process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || process.env.POSTGRES_DB || 'grc_platform',
-    connectTimeoutMS: 10000,
-  });
-
   try {
-    await dataSource.initialize();
+    // Use AppDataSource from data-source.ts (canonical connection)
+    await AppDataSource.initialize();
+
+    // Run diagnostics: get database name, schema, search_path
+    try {
+      const dbResult = await AppDataSource.manager.query<Array<{ db: string }>>(
+        'SELECT current_database() as db',
+      );
+      result.diagnostics.currentDatabase = dbResult[0]?.db || null;
+
+      const schemaResult = await AppDataSource.manager.query<
+        Array<{ schema: string }>
+      >('SELECT current_schema() as schema');
+      result.diagnostics.currentSchema = schemaResult[0]?.schema || null;
+
+      const searchPathResult =
+        await AppDataSource.manager.query<Array<{ search_path: string }>>(
+          'SHOW search_path',
+        );
+      result.diagnostics.searchPath = searchPathResult[0]?.search_path || null;
+    } catch (diagError) {
+      warnings.push(
+        `Failed to get database diagnostics: ${
+          diagError instanceof Error ? diagError.message : 'Unknown error'
+        }`,
+      );
+    }
 
     // Check if migrations table exists
     const tableExistsResult: Array<{ exists: boolean }> =
-      await dataSource.query(`
+      await AppDataSource.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -164,16 +205,34 @@ async function validateMigrations(): Promise<ValidationResult> {
     `);
     result.checks.migrationsTableExists = tableExistsResult[0]?.exists || false;
 
-    if (!result.checks.migrationsTableExists) {
-      warnings.push(
-        'Migrations table does not exist. Run migrations first: npm run migration:run',
-      );
-      result.success = migrationFiles.length === 0; // Success if no migrations needed
-      return result;
+    // Run migrations if needed (idempotent)
+    let migrationsRun = 0;
+    if (result.checks.migrationsTableExists) {
+      // Check for pending migrations and run them
+      const hasPendingMigrations = await AppDataSource.showMigrations();
+      if (hasPendingMigrations) {
+        console.log('Running pending migrations...');
+        const executedMigrations = await AppDataSource.runMigrations();
+        migrationsRun = executedMigrations.length;
+        if (migrationsRun > 0) {
+          console.log(`✓ Successfully executed ${migrationsRun} migration(s)`);
+        }
+      }
+    } else {
+      // Migrations table doesn't exist, run migrations to create it
+      console.log('Migrations table does not exist. Running migrations...');
+      const executedMigrations = await AppDataSource.runMigrations();
+      migrationsRun = executedMigrations.length;
+      if (migrationsRun > 0) {
+        console.log(`✓ Successfully executed ${migrationsRun} migration(s)`);
+      }
+      result.checks.migrationsTableExists = true;
     }
 
+    result.migrations.migrationsRun = migrationsRun;
+
     // Get executed migrations
-    const executedMigrations: MigrationRecord[] = await dataSource.query(`
+    const executedMigrations: MigrationRecord[] = await AppDataSource.query(`
       SELECT id, timestamp, name 
       FROM migrations 
       ORDER BY timestamp DESC
@@ -200,21 +259,62 @@ async function validateMigrations(): Promise<ValidationResult> {
     result.migrations.pendingList = pendingMigrations;
 
     if (pendingMigrations.length > 0) {
-      warnings.push(
-        `${pendingMigrations.length} pending migration(s) found. Run: npm run migration:run`,
+      errors.push(
+        `${pendingMigrations.length} pending migration(s) still remain after running migrations.`,
       );
     }
 
-    // Success if no pending migrations (or sync mode is on)
+    // Assert required tables exist using to_regclass
+    try {
+      const nestUsersResult = await AppDataSource.manager.query<
+        Array<{ table_name: string | null }>
+      >("SELECT to_regclass('public.nest_users') as table_name");
+      result.checks.nestUsersExists = nestUsersResult[0]?.table_name !== null;
+
+      const nestAuditLogsResult = await AppDataSource.manager.query<
+        Array<{ table_name: string | null }>
+      >("SELECT to_regclass('public.nest_audit_logs') as table_name");
+      result.checks.nestAuditLogsExists =
+        nestAuditLogsResult[0]?.table_name !== null;
+    } catch (tableCheckError) {
+      errors.push(
+        `Failed to check table existence: ${
+          tableCheckError instanceof Error
+            ? tableCheckError.message
+            : 'Unknown error'
+        }`,
+      );
+    }
+
+    // Fail if required tables are missing
+    if (!result.checks.nestUsersExists) {
+      errors.push(
+        "Required table 'public.nest_users' does not exist. Migrations may have failed.",
+      );
+    }
+
+    if (!result.checks.nestAuditLogsExists) {
+      errors.push(
+        "Required table 'public.nest_audit_logs' does not exist. Migrations may have failed.",
+      );
+    }
+
+    // Success if no errors and no pending migrations
     result.success =
-      pendingMigrations.length === 0 || result.checks.syncMode === true;
+      errors.length === 0 &&
+      pendingMigrations.length === 0 &&
+      result.checks.nestUsersExists &&
+      result.checks.nestAuditLogsExists;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
     errors.push(`Migration validation failed: ${errorMessage}`);
+    if (error instanceof Error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
   } finally {
-    if (dataSource.isInitialized) {
-      await dataSource.destroy();
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
     }
   }
 
@@ -229,9 +329,24 @@ function printHumanReadable(result: ValidationResult): void {
   console.log(`Environment: ${result.environment}`);
   console.log('');
 
+  console.log('--- Database Diagnostics ---');
+  console.log(`Connection: ${result.diagnostics.connectionString}`);
+  console.log(`Config Source: ${result.diagnostics.configSource}`);
+  console.log(
+    `Current Database: ${result.diagnostics.currentDatabase ?? 'UNKNOWN'}`,
+  );
+  console.log(
+    `Current Schema: ${result.diagnostics.currentSchema ?? 'UNKNOWN'}`,
+  );
+  console.log(`Search Path: ${result.diagnostics.searchPath ?? 'UNKNOWN'}`);
+  console.log('');
+
   console.log('--- Migration Status ---');
   console.log(`Executed: ${result.migrations.executed}`);
   console.log(`Pending: ${result.migrations.pending}`);
+  if (result.migrations.migrationsRun > 0) {
+    console.log(`Migrations Run: ${result.migrations.migrationsRun}`);
+  }
   if (result.migrations.lastExecuted) {
     console.log(`Last Executed: ${result.migrations.lastExecuted}`);
     console.log(`Last Executed At: ${result.migrations.lastExecutedAt}`);
@@ -239,11 +354,25 @@ function printHumanReadable(result: ValidationResult): void {
   console.log('');
 
   console.log('--- Checks ---');
-  const tableIcon = result.checks.migrationsTableExists ? '[OK]' : '[WARN]';
-  console.log(`${tableIcon} Migrations table exists`);
+  const migrationsTableIcon = result.checks.migrationsTableExists
+    ? '[OK]'
+    : '[FAIL]';
+  console.log(`${migrationsTableIcon} Migrations table exists`);
   console.log(`Migration files found: ${result.checks.migrationFilesFound}`);
   const syncIcon = result.checks.syncMode ? '[WARN]' : '[OK]';
   console.log(`${syncIcon} Sync mode: ${result.checks.syncMode}`);
+
+  const nestUsersIcon = result.checks.nestUsersExists ? '[OK]' : '[FAIL]';
+  console.log(
+    `${nestUsersIcon} Table nest_users: ${result.checks.nestUsersExists ? 'EXISTS' : 'MISSING'}`,
+  );
+
+  const nestAuditLogsIcon = result.checks.nestAuditLogsExists
+    ? '[OK]'
+    : '[FAIL]';
+  console.log(
+    `${nestAuditLogsIcon} Table nest_audit_logs: ${result.checks.nestAuditLogsExists ? 'EXISTS' : 'MISSING'}`,
+  );
   console.log('');
 
   if (result.migrations.pendingList.length > 0) {

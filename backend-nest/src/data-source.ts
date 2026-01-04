@@ -2,6 +2,11 @@ import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  buildTypeORMDataSourceOptions,
+  getDatabaseConnectionConfig,
+  formatConnectionConfigForLogging,
+} from './config/database-config';
 
 // Load environment variables from .env file
 config();
@@ -181,21 +186,19 @@ console.log(
   `[TypeORM] Resolved migrations glob: ${JSON.stringify(migrationsGlob)}`,
 );
 
+// Use canonical database connection config builder
+const dbConfig = getDatabaseConnectionConfig();
+const baseDataSourceOptions = buildTypeORMDataSourceOptions();
+
+console.log(
+  `[TypeORM] Database connection: ${formatConnectionConfigForLogging(dbConfig)}`,
+);
+
 const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(
-    process.env.DB_PORT || process.env.POSTGRES_PORT || '5432',
-    10,
-  ),
-  username: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
-  password:
-    process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || process.env.POSTGRES_DB || 'grc_platform',
+  ...baseDataSourceOptions,
   entities:
     migrationMode === 'dist' ? ['dist/**/*.entity.js'] : ['src/**/*.entity.ts'],
   migrations: migrationsGlob,
-  synchronize: false, // NEVER enable synchronize - always use migrations
   logging: process.env.NODE_ENV === 'development',
 });
 
