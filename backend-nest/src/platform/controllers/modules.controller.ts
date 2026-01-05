@@ -13,6 +13,105 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../../common/types';
 
 /**
+ * Menu item status types for capability-based navigation
+ * - active: Feature is available and functional
+ * - coming_soon: Feature is planned but not yet implemented
+ * - gated: Feature exists but requires configuration (e.g., framework setup)
+ * - hidden: Feature should not be shown in menu
+ */
+type MenuItemStatus = 'active' | 'coming_soon' | 'gated' | 'hidden';
+
+/**
+ * Status reason codes for gated items
+ */
+type StatusReasonCode =
+  | 'FRAMEWORK_REQUIRED'
+  | 'MATURITY_REQUIRED'
+  | 'MODULE_DISABLED'
+  | 'ADMIN_ONLY'
+  | 'ROUTE_NOT_FOUND';
+
+interface MenuStatusReason {
+  code: StatusReasonCode;
+  message: string;
+  actionLabel?: string;
+  actionPath?: string;
+}
+
+interface NestedMenuChild {
+  key: string;
+  title: string;
+  route: string;
+  status: MenuItemStatus;
+  statusReason?: MenuStatusReason;
+}
+
+interface NestedMenuItem {
+  key: string;
+  title: string;
+  icon: string;
+  route: string;
+  moduleKey: string;
+  children: NestedMenuChild[];
+  gateConditions?: {
+    requiresFramework?: boolean;
+    requiresMaturity?: string;
+    adminOnly?: boolean;
+  };
+}
+
+interface NestedMenuSuite {
+  key: string;
+  title: string;
+  icon: string;
+  items: NestedMenuItem[];
+}
+
+/**
+ * Known routes in the frontend application
+ * Used to determine if a route exists
+ */
+const KNOWN_ROUTES = new Set([
+  '/dashboard',
+  '/todos',
+  '/risk',
+  '/governance',
+  '/compliance',
+  '/audits',
+  '/findings',
+  '/incidents',
+  '/processes',
+  '/violations',
+  '/users',
+  '/admin',
+  '/admin/users',
+  '/admin/roles',
+  '/admin/settings',
+  '/admin/frameworks',
+  '/admin/tenants',
+  '/admin/audit-logs',
+  '/admin/system',
+  '/admin/data-model',
+  '/dotwalking',
+  '/profile',
+  '/standards',
+  '/dashboards/audit',
+  '/dashboards/compliance',
+  '/dashboards/grc-health',
+  // Coming soon routes (exist but show placeholder)
+  '/risk-assessments',
+  '/risk-treatments',
+  '/policy-templates',
+  '/policy-reviews',
+  '/controls',
+  '/control-testing',
+  '/audit-reports',
+  '/sla-dashboard',
+  '/problems',
+  '/changes',
+]);
+
+/**
  * Modules Controller (Stub)
  *
  * Provides minimal stub endpoints for platform module management.
@@ -211,7 +310,15 @@ export class ModulesController {
 
   /**
    * Get nested menu structure for capability-based navigation
-   * Returns suites with nested items and sub-items
+   * Returns suites with nested items and sub-items, with status resolution
+   *
+   * Status resolution priority:
+   * 1. Route exists (frontend route registry)
+   * 2. Module enabled (enabledModules)
+   * 3. Gate conditions (framework required, maturity required)
+   * 4. RBAC (admin-only)
+   *
+   * Status values: active | coming_soon | gated | hidden
    */
   @Get('menu/nested')
   getNestedMenu(
@@ -219,207 +326,351 @@ export class ModulesController {
     @Headers('x-tenant-id') tenantId?: string,
   ) {
     const effectiveTenantId = tenantId || req.tenantId || 'default';
+    const userRole = req.user?.role || 'user';
+
+    // For now, all modules are enabled by default (stub behavior)
+    // In production, this would come from tenant configuration
+    const enabledModules = new Set([
+      'grc',
+      'itsm',
+      'audit',
+      'risk',
+      'compliance',
+      'policy',
+    ]);
+
+    // Helper to resolve child item status
+    const resolveChildStatus = (
+      child: { route: string; baseStatus: MenuItemStatus },
+      parentModuleKey: string,
+      gateConditions?: NestedMenuItem['gateConditions'],
+    ): NestedMenuChild => {
+      // Priority 1: Check if route exists
+      if (!KNOWN_ROUTES.has(child.route)) {
+        return {
+          key: '',
+          title: '',
+          route: child.route,
+          status: 'hidden',
+          statusReason: {
+            code: 'ROUTE_NOT_FOUND',
+            message: 'This page is not yet available',
+          },
+        };
+      }
+
+      // Priority 2: Check if module is enabled
+      if (!enabledModules.has(parentModuleKey)) {
+        return {
+          key: '',
+          title: '',
+          route: child.route,
+          status: 'hidden',
+          statusReason: {
+            code: 'MODULE_DISABLED',
+            message: `The ${parentModuleKey} module is not enabled for your organization`,
+          },
+        };
+      }
+
+      // Priority 3: Check gate conditions (framework required)
+      if (gateConditions?.requiresFramework) {
+        // For audit module, framework is required
+        // In production, this would check actual tenant configuration
+        // For now, we return 'active' but include the gate info for frontend to use
+        return {
+          key: '',
+          title: '',
+          route: child.route,
+          status: child.baseStatus,
+          // Note: Frontend will check actual framework status and may override to 'gated'
+        };
+      }
+
+      // Priority 4: Check RBAC (admin-only)
+      if (gateConditions?.adminOnly && userRole !== 'admin') {
+        return {
+          key: '',
+          title: '',
+          route: child.route,
+          status: 'hidden',
+          statusReason: {
+            code: 'ADMIN_ONLY',
+            message: 'This feature requires administrator access',
+          },
+        };
+      }
+
+      // Default: use base status
+      return {
+        key: '',
+        title: '',
+        route: child.route,
+        status: child.baseStatus,
+      };
+    };
+
+    // Build menu structure with status resolution
+    const suites: NestedMenuSuite[] = [
+      {
+        key: 'GRC_SUITE',
+        title: 'GRC',
+        icon: 'Folder',
+        items: [
+          {
+            key: 'risk',
+            title: 'Risk',
+            icon: 'Security',
+            route: '/risk',
+            moduleKey: 'risk',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/risk', baseStatus: 'active' },
+                  'risk',
+                ),
+                key: 'risk_register',
+                title: 'Risk Register',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/risk-assessments', baseStatus: 'coming_soon' },
+                  'risk',
+                ),
+                key: 'risk_assessments',
+                title: 'Assessments',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/risk-treatments', baseStatus: 'coming_soon' },
+                  'risk',
+                ),
+                key: 'risk_treatments',
+                title: 'Treatments',
+              },
+            ],
+          },
+          {
+            key: 'policy',
+            title: 'Policy',
+            icon: 'AccountBalance',
+            route: '/governance',
+            moduleKey: 'policy',
+            gateConditions: { requiresFramework: true },
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/governance', baseStatus: 'active' },
+                  'policy',
+                  { requiresFramework: true },
+                ),
+                key: 'policy_list',
+                title: 'Policy List',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/policy-templates', baseStatus: 'coming_soon' },
+                  'policy',
+                  { requiresFramework: true },
+                ),
+                key: 'policy_templates',
+                title: 'Templates',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/policy-reviews', baseStatus: 'coming_soon' },
+                  'policy',
+                  { requiresFramework: true },
+                ),
+                key: 'policy_reviews',
+                title: 'Reviews',
+              },
+            ],
+          },
+          {
+            key: 'control',
+            title: 'Control',
+            icon: 'VerifiedUser',
+            route: '/compliance',
+            moduleKey: 'compliance',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/compliance', baseStatus: 'active' },
+                  'compliance',
+                ),
+                key: 'requirements',
+                title: 'Requirements',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/controls', baseStatus: 'coming_soon' },
+                  'compliance',
+                ),
+                key: 'control_library',
+                title: 'Control Library',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/control-testing', baseStatus: 'coming_soon' },
+                  'compliance',
+                ),
+                key: 'control_testing',
+                title: 'Testing',
+              },
+            ],
+          },
+          {
+            key: 'audit',
+            title: 'Audit',
+            icon: 'FactCheck',
+            route: '/audits',
+            moduleKey: 'audit',
+            gateConditions: { requiresFramework: true },
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/audits', baseStatus: 'active' },
+                  'audit',
+                  { requiresFramework: true },
+                ),
+                key: 'audit_list',
+                title: 'Audit List',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/findings', baseStatus: 'active' },
+                  'audit',
+                  { requiresFramework: true },
+                ),
+                key: 'audit_findings',
+                title: 'Findings',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/audit-reports', baseStatus: 'coming_soon' },
+                  'audit',
+                  { requiresFramework: true },
+                ),
+                key: 'audit_reports',
+                title: 'Reports',
+              },
+            ],
+          },
+          {
+            key: 'process',
+            title: 'Process',
+            icon: 'AccountTree',
+            route: '/processes',
+            moduleKey: 'grc',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/processes', baseStatus: 'active' },
+                  'grc',
+                ),
+                key: 'process_list',
+                title: 'Process List',
+              },
+            ],
+          },
+          {
+            key: 'violations',
+            title: 'Violations',
+            icon: 'Warning',
+            route: '/violations',
+            moduleKey: 'grc',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/violations', baseStatus: 'active' },
+                  'grc',
+                ),
+                key: 'violations_list',
+                title: 'Violations List',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        key: 'ITSM_SUITE',
+        title: 'ITSM',
+        icon: 'Build',
+        items: [
+          {
+            key: 'incidents',
+            title: 'Incidents',
+            icon: 'ReportProblem',
+            route: '/incidents',
+            moduleKey: 'itsm',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/incidents', baseStatus: 'active' },
+                  'itsm',
+                ),
+                key: 'incident_list',
+                title: 'Incident List',
+              },
+              {
+                ...resolveChildStatus(
+                  { route: '/sla-dashboard', baseStatus: 'coming_soon' },
+                  'itsm',
+                ),
+                key: 'sla_dashboard',
+                title: 'SLA Dashboard',
+              },
+            ],
+          },
+          {
+            key: 'problems',
+            title: 'Problems',
+            icon: 'BugReport',
+            route: '/problems',
+            moduleKey: 'itsm',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/problems', baseStatus: 'coming_soon' },
+                  'itsm',
+                ),
+                key: 'problem_list',
+                title: 'Problem List',
+              },
+            ],
+          },
+          {
+            key: 'changes',
+            title: 'Changes',
+            icon: 'SwapHoriz',
+            route: '/changes',
+            moduleKey: 'itsm',
+            children: [
+              {
+                ...resolveChildStatus(
+                  { route: '/changes', baseStatus: 'coming_soon' },
+                  'itsm',
+                ),
+                key: 'change_list',
+                title: 'Change List',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
     return {
       tenantId: effectiveTenantId,
-      suites: [
-        {
-          key: 'GRC_SUITE',
-          title: 'GRC',
-          icon: 'Folder',
-          items: [
-            {
-              key: 'risk',
-              title: 'Risk',
-              icon: 'Security',
-              route: '/risk',
-              moduleKey: 'risk',
-              children: [
-                {
-                  key: 'risk_register',
-                  title: 'Risk Register',
-                  route: '/risk',
-                  status: 'active',
-                },
-                {
-                  key: 'risk_assessments',
-                  title: 'Assessments',
-                  route: '/risk-assessments',
-                  status: 'coming_soon',
-                },
-                {
-                  key: 'risk_treatments',
-                  title: 'Treatments',
-                  route: '/risk-treatments',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'policy',
-              title: 'Policy',
-              icon: 'AccountBalance',
-              route: '/governance',
-              moduleKey: 'policy',
-              children: [
-                {
-                  key: 'policy_list',
-                  title: 'Policy List',
-                  route: '/governance',
-                  status: 'active',
-                },
-                {
-                  key: 'policy_templates',
-                  title: 'Templates',
-                  route: '/policy-templates',
-                  status: 'coming_soon',
-                },
-                {
-                  key: 'policy_reviews',
-                  title: 'Reviews',
-                  route: '/policy-reviews',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'control',
-              title: 'Control',
-              icon: 'VerifiedUser',
-              route: '/controls',
-              moduleKey: 'compliance',
-              children: [
-                {
-                  key: 'control_library',
-                  title: 'Control Library',
-                  route: '/controls',
-                  status: 'coming_soon',
-                },
-                {
-                  key: 'control_testing',
-                  title: 'Testing',
-                  route: '/control-testing',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'audit',
-              title: 'Audit',
-              icon: 'FactCheck',
-              route: '/audits',
-              moduleKey: 'audit',
-              children: [
-                {
-                  key: 'audit_list',
-                  title: 'Audit List',
-                  route: '/audits',
-                  status: 'active',
-                },
-                {
-                  key: 'audit_findings',
-                  title: 'Findings',
-                  route: '/findings',
-                  status: 'active',
-                },
-                {
-                  key: 'audit_reports',
-                  title: 'Reports',
-                  route: '/audit-reports',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'process',
-              title: 'Process',
-              icon: 'AccountTree',
-              route: '/processes',
-              moduleKey: 'grc',
-              children: [
-                {
-                  key: 'process_list',
-                  title: 'Process List',
-                  route: '/processes',
-                  status: 'active',
-                },
-              ],
-            },
-            {
-              key: 'violations',
-              title: 'Violations',
-              icon: 'Warning',
-              route: '/violations',
-              moduleKey: 'grc',
-              children: [
-                {
-                  key: 'violations_list',
-                  title: 'Violations List',
-                  route: '/violations',
-                  status: 'active',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          key: 'ITSM_SUITE',
-          title: 'ITSM',
-          icon: 'Build',
-          items: [
-            {
-              key: 'incidents',
-              title: 'Incidents',
-              icon: 'ReportProblem',
-              route: '/incidents',
-              moduleKey: 'itsm',
-              children: [
-                {
-                  key: 'incident_list',
-                  title: 'Incident List',
-                  route: '/incidents',
-                  status: 'active',
-                },
-                {
-                  key: 'sla_dashboard',
-                  title: 'SLA Dashboard',
-                  route: '/sla-dashboard',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'problems',
-              title: 'Problems',
-              icon: 'BugReport',
-              route: '/problems',
-              moduleKey: 'itsm',
-              children: [
-                {
-                  key: 'problem_list',
-                  title: 'Problem List',
-                  route: '/problems',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-            {
-              key: 'changes',
-              title: 'Changes',
-              icon: 'SwapHoriz',
-              route: '/changes',
-              moduleKey: 'itsm',
-              children: [
-                {
-                  key: 'change_list',
-                  title: 'Change List',
-                  route: '/changes',
-                  status: 'coming_soon',
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      suites,
+      // Include metadata for frontend decision making
+      meta: {
+        enabledModules: Array.from(enabledModules),
+        userRole,
+        // Recommended frameworks for gating messages
+        recommendedFrameworks: ['ISO27001', 'SOC2', 'NIST', 'GDPR'],
+      },
     };
   }
 
