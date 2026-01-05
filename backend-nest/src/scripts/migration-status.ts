@@ -15,6 +15,7 @@
  */
 
 import { AppDataSource } from '../data-source';
+import { getMigrationsTableNameFromConfig } from '../config/migrations-table-resolver';
 
 interface CountRow {
   count: string | number;
@@ -56,6 +57,10 @@ async function checkMigrationStatus() {
     console.log('Connecting to database...');
     await AppDataSource.initialize();
 
+    // Get the migrations table name from DataSource config
+    const migrationsTableName = getMigrationsTableNameFromConfig(AppDataSource);
+    console.log(`Using migrations table: "${migrationsTableName}"`);
+
     // Check if there are pending migrations using TypeORM API
     const hasPendingMigrations = await AppDataSource.showMigrations();
 
@@ -64,7 +69,7 @@ async function checkMigrationStatus() {
     let pendingMigrationsList: string[] = [];
     try {
       const executedMigrations: unknown = await AppDataSource.query(
-        `SELECT COUNT(*) as count FROM migrations`,
+        `SELECT COUNT(*) as count FROM "${migrationsTableName}"`,
       );
       if (
         Array.isArray(executedMigrations) &&
@@ -78,7 +83,7 @@ async function checkMigrationStatus() {
       if (hasPendingMigrations) {
         const allMigrations = AppDataSource.migrations || [];
         const executedMigrationNames: unknown = await AppDataSource.query(
-          `SELECT name FROM migrations`,
+          `SELECT name FROM "${migrationsTableName}"`,
         );
         const executedNames = Array.isArray(executedMigrationNames)
           ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)

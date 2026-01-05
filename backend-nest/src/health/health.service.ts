@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveMigrationsTableName } from '../config/migrations-table-resolver';
 
 export interface HealthCheckResult {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -59,8 +60,12 @@ export class HealthService {
       const connected = true;
       const responseTimeMs = Date.now() - startTime;
 
+      // Resolve the correct migrations table name
+      const resolution = await resolveMigrationsTableName(this.dataSource);
+      const migrationsTableName = resolution.tableName;
+
       const migrationsResult: unknown = await this.dataSource
-        .query('SELECT * FROM migrations ORDER BY timestamp DESC')
+        .query(`SELECT * FROM "${migrationsTableName}" ORDER BY timestamp DESC`)
         .catch(() => []);
       const migrations = (
         Array.isArray(migrationsResult) ? migrationsResult : []
