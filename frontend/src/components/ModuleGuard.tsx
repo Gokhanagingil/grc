@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Box, Typography, Paper, Button } from '@mui/material';
 import { Block as BlockIcon } from '@mui/icons-material';
 import { useModules } from '../hooks/useModules';
@@ -54,6 +54,7 @@ interface ModuleDisabledMessageProps {
 }
 
 const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey }) => {
+  const navigate = useNavigate();
   const moduleNames: Record<string, string> = {
     risk: 'Risk Management',
     policy: 'Policy Management',
@@ -70,6 +71,10 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey
   };
 
   const moduleName = moduleNames[moduleKey] || moduleKey;
+
+  const handleReturnToDashboard = () => {
+    navigate('/dashboard');
+  };
 
   return (
     <Box
@@ -98,7 +103,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey
         <Typography variant="body2" color="text.secondary" paragraph>
           Please contact your administrator to enable this module or upgrade your subscription.
         </Typography>
-        <Button variant="contained" href="/dashboard">
+        <Button variant="contained" onClick={handleReturnToDashboard}>
           Return to Dashboard
         </Button>
       </Paper>

@@ -123,11 +123,17 @@ export const AdminPanel: React.FC = () => {
 
   const fetchSystemStatus = useCallback(async () => {
     try {
-      const response = await api.get('/health/detailed');
+      // Use /health/live and /health/db endpoints instead of non-existent /health/detailed
+      const [liveResponse, dbResponse] = await Promise.all([
+        api.get('/health/live').catch(() => ({ data: null })),
+        api.get('/health/db').catch(() => ({ data: null })),
+      ]);
+      const liveData = liveResponse.data?.data || liveResponse.data;
+      const dbData = dbResponse.data?.data || dbResponse.data;
       setSystemStatus({
-        backend: response.data.status,
-        database: response.data.checks?.database?.status || 'Unknown',
-        uptime: response.data.uptime || 0,
+        backend: liveData?.status === 'ok' ? 'OK' : (liveData ? 'Degraded' : 'Error'),
+        database: dbData?.details?.connected ? 'OK' : 'Unknown',
+        uptime: liveData?.uptime || 0,
       });
     } catch (err) {
       setSystemStatus({

@@ -20,6 +20,7 @@ import { PlatformModule } from './platform/platform.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
+import { TodosModule } from './todos/todos.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -152,6 +153,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,
+
+    // Todos Module (in-memory demo implementation)
+    TodosModule,
 
     // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests
