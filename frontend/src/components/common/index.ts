@@ -5,3 +5,5 @@ export { ResponsiveTable } from './ResponsiveTable';
 export { TableToolbar } from './TableToolbar';
 export type { FilterOption, ColumnConfig, TableToolbarProps } from './TableToolbar';
 export { ErrorBoundary } from './ErrorBoundary';
+export { ComingSoonPage } from './ComingSoonPage';
+export type { ComingSoonPageProps } from './ComingSoonPage';

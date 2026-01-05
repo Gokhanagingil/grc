@@ -26,6 +26,7 @@ import {
   MonitorHeart as SystemIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 const drawerWidth = 260;
 
@@ -293,7 +294,9 @@ export const AdminLayout: React.FC = () => {
           minHeight: '100vh',
         }}
       >
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </Box>
     </Box>
   );

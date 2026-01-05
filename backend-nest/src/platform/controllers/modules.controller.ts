@@ -158,7 +158,7 @@ export class ModulesController {
 
   /**
    * Get menu items for enabled modules
-   * Returns default menu structure
+   * Returns default menu structure (flat format for backward compatibility)
    */
   @Get('menu')
   getMenu(
@@ -204,6 +204,220 @@ export class ModulesController {
           path: '/incidents',
           icon: 'BugReport',
           label: 'Incidents',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Get nested menu structure for capability-based navigation
+   * Returns suites with nested items and sub-items
+   */
+  @Get('menu/nested')
+  getNestedMenu(
+    @Request() req: RequestWithUser,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    const effectiveTenantId = tenantId || req.tenantId || 'default';
+    return {
+      tenantId: effectiveTenantId,
+      suites: [
+        {
+          key: 'GRC_SUITE',
+          title: 'GRC',
+          icon: 'Folder',
+          items: [
+            {
+              key: 'risk',
+              title: 'Risk',
+              icon: 'Security',
+              route: '/risk',
+              moduleKey: 'risk',
+              children: [
+                {
+                  key: 'risk_register',
+                  title: 'Risk Register',
+                  route: '/risk',
+                  status: 'active',
+                },
+                {
+                  key: 'risk_assessments',
+                  title: 'Assessments',
+                  route: '/risk-assessments',
+                  status: 'coming_soon',
+                },
+                {
+                  key: 'risk_treatments',
+                  title: 'Treatments',
+                  route: '/risk-treatments',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'policy',
+              title: 'Policy',
+              icon: 'AccountBalance',
+              route: '/governance',
+              moduleKey: 'policy',
+              children: [
+                {
+                  key: 'policy_list',
+                  title: 'Policy List',
+                  route: '/governance',
+                  status: 'active',
+                },
+                {
+                  key: 'policy_templates',
+                  title: 'Templates',
+                  route: '/policy-templates',
+                  status: 'coming_soon',
+                },
+                {
+                  key: 'policy_reviews',
+                  title: 'Reviews',
+                  route: '/policy-reviews',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'control',
+              title: 'Control',
+              icon: 'VerifiedUser',
+              route: '/controls',
+              moduleKey: 'compliance',
+              children: [
+                {
+                  key: 'control_library',
+                  title: 'Control Library',
+                  route: '/controls',
+                  status: 'coming_soon',
+                },
+                {
+                  key: 'control_testing',
+                  title: 'Testing',
+                  route: '/control-testing',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'audit',
+              title: 'Audit',
+              icon: 'FactCheck',
+              route: '/audits',
+              moduleKey: 'audit',
+              children: [
+                {
+                  key: 'audit_list',
+                  title: 'Audit List',
+                  route: '/audits',
+                  status: 'active',
+                },
+                {
+                  key: 'audit_findings',
+                  title: 'Findings',
+                  route: '/findings',
+                  status: 'active',
+                },
+                {
+                  key: 'audit_reports',
+                  title: 'Reports',
+                  route: '/audit-reports',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'process',
+              title: 'Process',
+              icon: 'AccountTree',
+              route: '/processes',
+              moduleKey: 'grc',
+              children: [
+                {
+                  key: 'process_list',
+                  title: 'Process List',
+                  route: '/processes',
+                  status: 'active',
+                },
+              ],
+            },
+            {
+              key: 'violations',
+              title: 'Violations',
+              icon: 'Warning',
+              route: '/violations',
+              moduleKey: 'grc',
+              children: [
+                {
+                  key: 'violations_list',
+                  title: 'Violations List',
+                  route: '/violations',
+                  status: 'active',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'ITSM_SUITE',
+          title: 'ITSM',
+          icon: 'Build',
+          items: [
+            {
+              key: 'incidents',
+              title: 'Incidents',
+              icon: 'ReportProblem',
+              route: '/incidents',
+              moduleKey: 'itsm',
+              children: [
+                {
+                  key: 'incident_list',
+                  title: 'Incident List',
+                  route: '/incidents',
+                  status: 'active',
+                },
+                {
+                  key: 'sla_dashboard',
+                  title: 'SLA Dashboard',
+                  route: '/sla-dashboard',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'problems',
+              title: 'Problems',
+              icon: 'BugReport',
+              route: '/problems',
+              moduleKey: 'itsm',
+              children: [
+                {
+                  key: 'problem_list',
+                  title: 'Problem List',
+                  route: '/problems',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+            {
+              key: 'changes',
+              title: 'Changes',
+              icon: 'SwapHoriz',
+              route: '/changes',
+              moduleKey: 'itsm',
+              children: [
+                {
+                  key: 'change_list',
+                  title: 'Change List',
+                  route: '/changes',
+                  status: 'coming_soon',
+                },
+              ],
+            },
+          ],
         },
       ],
     };

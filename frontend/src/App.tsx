@@ -32,6 +32,7 @@ import { Profile } from './pages/Profile';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
+import { ComingSoonPage } from './components/common/ComingSoonPage';
 
 const theme = createTheme({
   palette: {
@@ -85,6 +86,80 @@ function App() {
                   <Route path="processes" element={<ProcessManagement />} />
                   <Route path="violations" element={<ProcessViolations />} />
                   <Route path="profile" element={<Profile />} />
+                  
+                  {/* Coming Soon Pages - GRC Suite */}
+                  <Route path="risk-assessments" element={
+                    <ComingSoonPage 
+                      title="Risk Assessments" 
+                      description="Comprehensive risk assessment tools with automated scoring and reporting."
+                      moduleName="Risk Management"
+                    />
+                  } />
+                  <Route path="risk-treatments" element={
+                    <ComingSoonPage 
+                      title="Risk Treatments" 
+                      description="Track and manage risk treatment plans with progress monitoring."
+                      moduleName="Risk Management"
+                    />
+                  } />
+                  <Route path="policy-templates" element={
+                    <ComingSoonPage 
+                      title="Policy Templates" 
+                      description="Pre-built policy templates for common compliance frameworks."
+                      moduleName="Policy Management"
+                    />
+                  } />
+                  <Route path="policy-reviews" element={
+                    <ComingSoonPage 
+                      title="Policy Reviews" 
+                      description="Scheduled policy review workflows with approval tracking."
+                      moduleName="Policy Management"
+                    />
+                  } />
+                  <Route path="controls" element={
+                    <ComingSoonPage 
+                      title="Control Library" 
+                      description="Centralized control library mapped to compliance frameworks."
+                      moduleName="Control Management"
+                    />
+                  } />
+                  <Route path="control-testing" element={
+                    <ComingSoonPage 
+                      title="Control Testing" 
+                      description="Automated and manual control testing with evidence collection."
+                      moduleName="Control Management"
+                    />
+                  } />
+                  <Route path="audit-reports" element={
+                    <ComingSoonPage 
+                      title="Audit Reports" 
+                      description="Generate comprehensive audit reports with findings and recommendations."
+                      moduleName="Audit Management"
+                    />
+                  } />
+                  
+                  {/* Coming Soon Pages - ITSM Suite */}
+                  <Route path="sla-dashboard" element={
+                    <ComingSoonPage 
+                      title="SLA Dashboard" 
+                      description="Monitor service level agreements with real-time metrics and alerts."
+                      moduleName="ITSM"
+                    />
+                  } />
+                  <Route path="problems" element={
+                    <ComingSoonPage 
+                      title="Problem Management" 
+                      description="Root cause analysis and problem resolution tracking."
+                      moduleName="ITSM"
+                    />
+                  } />
+                  <Route path="changes" element={
+                    <ComingSoonPage 
+                      title="Change Management" 
+                      description="Change request workflow with approval and implementation tracking."
+                      moduleName="ITSM"
+                    />
+                  } />
                   <Route path="audits" element={<AuditList />} />
                   <Route path="audits/new" element={<AuditDetail />} />
                   <Route path="audits/:id" element={<AuditDetail />} />
