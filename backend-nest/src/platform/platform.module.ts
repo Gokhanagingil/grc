@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ModulesController } from './controllers/modules.controller';
 import { FormLayoutsController } from './controllers/form-layouts.controller';
 import { UiPoliciesController } from './controllers/ui-policies.controller';
 import { TenantsModule } from '../tenants/tenants.module';
+import { AuthModule } from '../auth/auth.module';
 
 /**
  * Platform Module
@@ -21,7 +22,7 @@ import { TenantsModule } from '../tenants/tenants.module';
  * - /platform/ui-policies/* - UI policy stubs
  */
 @Module({
-  imports: [TenantsModule],
+  imports: [TenantsModule, forwardRef(() => AuthModule)],
   controllers: [ModulesController, FormLayoutsController, UiPoliciesController],
   providers: [],
 })
