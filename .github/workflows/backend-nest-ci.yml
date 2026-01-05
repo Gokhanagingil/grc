@@ -573,7 +573,7 @@ jobs:
           REFRESH_TOKEN_SECRET=${{ secrets.SMOKE_REFRESH_SECRET || 'ci-ephemeral-refresh-secret-64chars-min' }}
           REFRESH_TOKEN_EXPIRES_IN=7d
           DEMO_ADMIN_EMAIL=${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          DEMO_ADMIN_PASSWORD=${{ secrets.SMOKE_ADMIN_PASSWORD || 'CiTestPwd123' }}
+          DEMO_ADMIN_PASSWORD=${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
           APP_PORT=3002
           EOF
       
@@ -638,12 +638,26 @@ jobs:
       
       - name: Run migrations in container
         run: |
-          docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run migration:run' || true
+          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run migration:run'; then
+            echo "FAIL: Migration failed. Dumping logs for debugging..."
+            echo "=== Backend logs ==="
+            docker compose -f docker-compose.smoke.yml logs backend
+            echo "=== Database logs ==="
+            docker compose -f docker-compose.smoke.yml logs db
+            exit 1
+          fi
           sleep 5
       
       - name: Seed demo data
         run: |
-          docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run seed:onboarding' || true
+          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run seed:onboarding'; then
+            echo "FAIL: Seeding failed. Dumping logs for debugging..."
+            echo "=== Backend logs ==="
+            docker compose -f docker-compose.smoke.yml logs backend
+            echo "=== Database logs ==="
+            docker compose -f docker-compose.smoke.yml logs db
+            exit 1
+          fi
           sleep 5
       
       - name: "Smoke Test 1: GET /health/live = 200"
@@ -668,13 +682,30 @@ jobs:
             exit 1
           fi
           
-          echo "PASS: /health/ready returned 200"
-          echo "Response: $RESPONSE"
+          # Verify migration status: executed >= 13 and pending == 0
+          executed=$(echo "$RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.executed // 0')
+          pending=$(echo "$RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.pending // 999')
+          
+          echo "Migration status: executed=$executed, pending=$pending"
+          
+          if [ "$pending" != "0" ]; then
+            echo "FAIL: There are $pending pending migrations (expected 0)"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          if [ "$executed" -lt 13 ]; then
+            echo "FAIL: Only $executed migrations executed (expected >= 13)"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "PASS: /health/ready returned 200 with $executed migrations executed and 0 pending"
       
       - name: "Smoke Test 3: Login + GET /onboarding/context = 200"
         env:
           SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'CiTestPwd123' }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
         run: |
           echo "Testing login and /onboarding/context..."
           
@@ -710,7 +741,7 @@ jobs:
       - name: "Smoke Test 4: Login + GET /platform/modules/menu/nested = 200"
         env:
           SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'CiTestPwd123' }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
         run: |
           echo "Testing /platform/modules/menu/nested..."
           
@@ -745,7 +776,7 @@ jobs:
           fi
           
           # Verify response has suites array
-          SUITES_COUNT=$(echo "$MENU_RESPONSE" | jq '.suites | length // .data.suites | length // 0')
+          SUITES_COUNT=$(echo "$MENU_RESPONSE" | jq '(.data.suites // .suites // []) | length')
           if [ "$SUITES_COUNT" -lt 1 ]; then
             echo "FAIL: /platform/modules/menu/nested returned no suites"
             echo "Response: $MENU_RESPONSE"
