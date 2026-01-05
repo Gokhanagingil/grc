@@ -3,19 +3,27 @@
  * 
  * Provides module visibility protection for routes and components.
  * Renders children only if the specified module is enabled.
+ * Supports coming-soon pages and actionable gating messages.
  */
 
 import React from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Box, Typography, Paper, Button } from '@mui/material';
-import { Block as BlockIcon } from '@mui/icons-material';
+import { Box, Typography, Paper, Button, Alert, AlertTitle } from '@mui/material';
+import { 
+  Block as BlockIcon,
+  Settings as SettingsIcon,
+  ArrowBack as ArrowBackIcon,
+} from '@mui/icons-material';
 import { useModules } from '../hooks/useModules';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import { FrameworkType } from '../services/grcClient';
 
 export interface ModuleGuardProps {
   moduleKey: string;
   children: React.ReactNode;
   fallback?: React.ReactNode;
   redirectTo?: string;
+  showActionableMessage?: boolean;
 }
 
 export const ModuleGuard: React.FC<ModuleGuardProps> = ({
@@ -23,6 +31,7 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
   children,
   fallback,
   redirectTo,
+  showActionableMessage = true,
 }) => {
   const { isModuleEnabled, isLoading } = useModules();
 
@@ -43,7 +52,7 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
       return <>{fallback}</>;
     }
 
-    return <ModuleDisabledMessage moduleKey={moduleKey} />;
+    return <ModuleDisabledMessage moduleKey={moduleKey} showActionableMessage={showActionableMessage} />;
   }
 
   return <>{children}</>;
@@ -51,10 +60,23 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
 
 interface ModuleDisabledMessageProps {
   moduleKey: string;
+  showActionableMessage?: boolean;
 }
 
-const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey }) => {
+interface ActionableMessage {
+  title: string;
+  description: string;
+  actionLabel?: string;
+  actionPath?: string;
+}
+
+const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ 
+  moduleKey,
+  showActionableMessage = true,
+}) => {
   const navigate = useNavigate();
+  const { getWarningsForTarget, isFrameworkActive } = useOnboarding();
+  
   const moduleNames: Record<string, string> = {
     risk: 'Risk Management',
     policy: 'Policy Management',
@@ -76,6 +98,64 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey
     navigate('/dashboard');
   };
 
+  const getActionableMessages = (): ActionableMessage[] => {
+    const messages: ActionableMessage[] = [];
+    
+    if (!showActionableMessage) {
+      return messages;
+    }
+    
+    const warnings = getWarningsForTarget(moduleKey);
+    
+    if (moduleKey === 'audit') {
+      const hasActiveFramework = isFrameworkActive(FrameworkType.ISO27001) || 
+                                  isFrameworkActive(FrameworkType.SOC2) || 
+                                  isFrameworkActive(FrameworkType.NIST) ||
+                                  isFrameworkActive(FrameworkType.GDPR);
+      
+      if (!hasActiveFramework) {
+        messages.push({
+          title: 'Framework Required',
+          description: 'Enable at least one compliance framework to use the Audit module.',
+          actionLabel: 'Go to Frameworks',
+          actionPath: '/admin/settings',
+        });
+      }
+      
+      if (warnings.some(w => w.code === 'FRAMEWORK_REQUIRED')) {
+        messages.push({
+          title: 'Framework Configuration Needed',
+          description: 'Configure your compliance frameworks to enable audit functionality.',
+          actionLabel: 'Configure Frameworks',
+          actionPath: '/admin/settings',
+        });
+      }
+      
+    }
+    
+    if (moduleKey === 'policy' && warnings.some(w => w.code === 'FRAMEWORK_REQUIRED')) {
+      messages.push({
+        title: 'Framework Required',
+        description: 'Enable at least one compliance framework to create policies.',
+        actionLabel: 'Go to Frameworks',
+        actionPath: '/admin/settings',
+      });
+    }
+    
+    if (moduleKey === 'compliance' && warnings.some(w => w.code === 'FRAMEWORK_REQUIRED')) {
+      messages.push({
+        title: 'Framework Required',
+        description: 'Enable at least one compliance framework to manage requirements.',
+        actionLabel: 'Go to Frameworks',
+        actionPath: '/admin/settings',
+      });
+    }
+    
+    return messages;
+  };
+
+  const actionableMessages = getActionableMessages();
+
   return (
     <Box
       sx={{
@@ -90,7 +170,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey
         sx={{
           p: 4,
           textAlign: 'center',
-          maxWidth: 500,
+          maxWidth: 550,
         }}
       >
         <BlockIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -100,10 +180,45 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({ moduleKey
         <Typography variant="body1" color="text.secondary" paragraph>
           The <strong>{moduleName}</strong> module is not enabled for your organization.
         </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
-          Please contact your administrator to enable this module or upgrade your subscription.
-        </Typography>
-        <Button variant="contained" onClick={handleReturnToDashboard}>
+        
+        {actionableMessages.length > 0 && (
+          <Box sx={{ mb: 3, textAlign: 'left' }}>
+            {actionableMessages.map((msg, index) => (
+              <Alert 
+                key={index} 
+                severity="info" 
+                sx={{ mb: 1 }}
+                action={
+                  msg.actionPath && msg.actionLabel ? (
+                    <Button 
+                      color="inherit" 
+                      size="small"
+                      startIcon={<SettingsIcon />}
+                      onClick={() => navigate(msg.actionPath!)}
+                    >
+                      {msg.actionLabel}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <AlertTitle>{msg.title}</AlertTitle>
+                {msg.description}
+              </Alert>
+            ))}
+          </Box>
+        )}
+        
+        {actionableMessages.length === 0 && (
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Please contact your administrator to enable this module or upgrade your subscription.
+          </Typography>
+        )}
+        
+        <Button 
+          variant="contained" 
+          startIcon={<ArrowBackIcon />}
+          onClick={handleReturnToDashboard}
+        >
           Return to Dashboard
         </Button>
       </Paper>

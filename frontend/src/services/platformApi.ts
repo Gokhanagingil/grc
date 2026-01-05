@@ -116,6 +116,35 @@ export interface MenuItem {
   label: string;
 }
 
+// Types for Nested Menu (Capability-based navigation)
+export interface NestedMenuChild {
+  key: string;
+  title: string;
+  route: string;
+  status: 'active' | 'coming_soon';
+}
+
+export interface NestedMenuItem {
+  key: string;
+  title: string;
+  icon: string;
+  route: string;
+  moduleKey: string;
+  children: NestedMenuChild[];
+}
+
+export interface NestedMenuSuite {
+  key: string;
+  title: string;
+  icon: string;
+  items: NestedMenuItem[];
+}
+
+export interface NestedMenuResponse {
+  tenantId: string;
+  suites: NestedMenuSuite[];
+}
+
 // Types for Search/DSL
 export interface SearchFilter {
   field?: string;
@@ -264,6 +293,8 @@ export const moduleApi = {
     ),
   
   getMenu: () => api.get<{ tenantId: string; menuItems: MenuItem[] }>('/platform/modules/menu'),
+  
+  getNestedMenu: () => api.get<NestedMenuResponse>('/platform/modules/menu/nested'),
   
   getByCategory: (category: string) =>
     api.get<{ category: string; modules: ModuleDefinition[] }>(`/platform/modules/category/${category}`),
