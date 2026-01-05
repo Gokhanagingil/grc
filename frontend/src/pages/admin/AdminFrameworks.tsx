@@ -109,8 +109,9 @@ export const AdminFrameworks: React.FC = () => {
 
   const hasChanges = () => {
     if (selectedKeys.size !== initialKeys.size) return true;
-    for (const key of selectedKeys) {
-      if (!initialKeys.has(key)) return true;
+    const selectedArray = Array.from(selectedKeys);
+    for (let i = 0; i < selectedArray.length; i++) {
+      if (!initialKeys.has(selectedArray[i])) return true;
     }
     return false;
   };
