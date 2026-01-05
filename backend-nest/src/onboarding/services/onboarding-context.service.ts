@@ -13,6 +13,7 @@ import {
   MaturityLevel,
 } from '../entities';
 import { getDefaultModulesForSuite } from '../config';
+import { GrcTenantFramework } from '../../grc/entities/grc-tenant-framework.entity';
 
 export interface OnboardingContext {
   status: 'active' | 'pending' | 'suspended';
@@ -60,6 +61,8 @@ export class OnboardingContextService {
     private readonly activeFrameworkRepository: Repository<TenantActiveFramework>,
     @InjectRepository(TenantMaturityProfile)
     private readonly maturityProfileRepository: Repository<TenantMaturityProfile>,
+    @InjectRepository(GrcTenantFramework)
+    private readonly grcTenantFrameworkRepository: Repository<GrcTenantFramework>,
   ) {}
 
   /**
@@ -78,6 +81,7 @@ export class OnboardingContextService {
         enabledModules,
         activeFrameworks,
         maturityProfile,
+        grcTenantFrameworks,
       ] = await Promise.all([
         this.initProfileRepository.findOne({
           where: { tenantId, isDeleted: false },
@@ -94,12 +98,21 @@ export class OnboardingContextService {
         this.maturityProfileRepository.findOne({
           where: { tenantId, isDeleted: false },
         }),
+        this.grcTenantFrameworkRepository.find({
+          where: { tenantId },
+          relations: ['framework'],
+        }),
       ]);
+
+      const grcFrameworkKeys = grcTenantFrameworks
+        .filter((tf) => tf.framework && tf.framework.isActive)
+        .map((tf) => tf.framework.key as FrameworkType);
 
       if (
         !initProfile &&
         activeSuites.length === 0 &&
         activeFrameworks.length === 0 &&
+        grcFrameworkKeys.length === 0 &&
         !maturityProfile
       ) {
         this.logger.debug(
@@ -136,7 +149,12 @@ export class OnboardingContextService {
         policySetVersion: initProfile?.policySetVersion ?? null,
         activeSuites: activeSuiteTypes,
         enabledModules: enabledModulesMap,
-        activeFrameworks: activeFrameworks.map((f) => f.frameworkType),
+        activeFrameworks: [
+          ...new Set([
+            ...activeFrameworks.map((f) => f.frameworkType),
+            ...grcFrameworkKeys,
+          ]),
+        ].sort(),
         maturity: maturityProfile?.maturityLevel ?? MaturityLevel.FOUNDATIONAL,
         metadata: {
           initializedAt: initProfile?.initializedAt ?? null,
