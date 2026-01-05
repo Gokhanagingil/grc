@@ -144,79 +144,108 @@ jobs:
             # =============================================================================
             echo "=== Security Smoke Tests ==="
             
-            # Get auth token for security tests
-            # Uses DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD from staging .env
-            echo "Authenticating for security tests..."
-            DEMO_EMAIL="${DEMO_ADMIN_EMAIL:-admin@demo.local}"
-            DEMO_PASS="${DEMO_ADMIN_PASSWORD:-}"
+            # Track test status for final summary
+            SECURITY_TESTS_STATUS="SKIPPED"
+            SECURITY_TESTS_REASON=""
             
-            if [ -z "$DEMO_PASS" ]; then
-              echo "WARNING: DEMO_ADMIN_PASSWORD not set, skipping security smoke tests"
-              AUTH_RESPONSE=""
+            # Check if jq is available (required for reliable JSON parsing)
+            if ! command -v jq &> /dev/null; then
+              echo "WARNING: jq is not installed, skipping security smoke tests"
+              echo "  (GitHub Actions ubuntu runners should have jq pre-installed)"
+              SECURITY_TESTS_REASON="jq not available"
             else
-              AUTH_RESPONSE=$(curl -sf -X POST http://localhost:3002/auth/login \
-                -H "Content-Type: application/json" \
-                -d "{\"email\":\"$DEMO_EMAIL\",\"password\":\"$DEMO_PASS\"}" 2>/dev/null) || {
-                echo "WARNING: Could not authenticate for security tests (demo admin may not exist)"
-                echo "Skipping security smoke tests..."
-                AUTH_RESPONSE=""
-              }
+              # Get auth token for security tests
+              # Uses DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD from staging .env
+              echo "Authenticating for security tests..."
+              DEMO_EMAIL="${DEMO_ADMIN_EMAIL:-admin@demo.local}"
+              DEMO_PASS="${DEMO_ADMIN_PASSWORD:-}"
+              
+              if [ -z "$DEMO_PASS" ]; then
+                echo "WARNING: DEMO_ADMIN_PASSWORD not set, skipping security smoke tests"
+                SECURITY_TESTS_REASON="DEMO_ADMIN_PASSWORD not set"
+              else
+                AUTH_RESPONSE=$(curl -sf -X POST http://localhost:3002/auth/login \
+                  -H "Content-Type: application/json" \
+                  -d "{\"email\":\"$DEMO_EMAIL\",\"password\":\"$DEMO_PASS\"}" 2>/dev/null) || {
+                  echo "WARNING: Could not authenticate for security tests (demo admin may not exist)"
+                  SECURITY_TESTS_REASON="authentication failed"
+                  AUTH_RESPONSE=""
+                }
+                
+                if [ -n "$AUTH_RESPONSE" ]; then
+                  # Parse token and tenant ID using jq (handles both envelope and non-envelope responses)
+                  # Envelope format: {"success": true, "data": {"accessToken": "...", "tenantId": "..."}}
+                  # Non-envelope format: {"accessToken": "...", "tenantId": "..."}
+                  TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty' 2>/dev/null)
+                  TENANT_ID=$(echo "$AUTH_RESPONSE" | jq -r '.data.tenantId // .tenantId // empty' 2>/dev/null)
+                  
+                  if [ -z "$TOKEN" ] || [ -z "$TENANT_ID" ]; then
+                    echo "WARNING: Could not extract token or tenant ID from auth response"
+                    # Print safe redacted snippet for debugging (no secrets)
+                    echo "  Response structure (redacted): $(echo "$AUTH_RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'invalid JSON')"
+                    if echo "$AUTH_RESPONSE" | jq -e '.data' &>/dev/null; then
+                      echo "  Data keys: $(echo "$AUTH_RESPONSE" | jq -r '.data | keys | join(", ")' 2>/dev/null || echo 'none')"
+                    fi
+                    SECURITY_TESTS_REASON="token/tenant extraction failed"
+                  else
+                    SECURITY_TESTS_STATUS="RUNNING"
+                    echo "Authentication successful. Running security tests..."
+                    
+                    # Test 1: Missing x-tenant-id header should return 400
+                    echo "Test 1: /platform/modules/menu/nested without x-tenant-id..."
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      http://localhost:3002/platform/modules/menu/nested)
+                    if [ "$HTTP_CODE" = "400" ]; then
+                      echo "  PASS: Missing tenant header returns 400"
+                    else
+                      echo "  FAIL: Expected 400, got $HTTP_CODE"
+                      docker compose -f docker-compose.staging.yml logs backend db
+                      exit 1
+                    fi
+                    
+                    # Test 2: Spoof tenant ID should return 403
+                    echo "Test 2: /platform/modules/menu/nested with spoof tenant ID..."
+                    SPOOF_TENANT="00000000-0000-0000-0000-000000000099"
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      -H "x-tenant-id: $SPOOF_TENANT" \
+                      http://localhost:3002/platform/modules/menu/nested)
+                    if [ "$HTTP_CODE" = "403" ]; then
+                      echo "  PASS: Spoof tenant ID returns 403"
+                    else
+                      echo "  FAIL: Expected 403, got $HTTP_CODE"
+                      docker compose -f docker-compose.staging.yml logs backend db
+                      exit 1
+                    fi
+                    
+                    # Test 3: /onboarding/context with correct headers should return 200
+                    echo "Test 3: /onboarding/context with valid headers..."
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      -H "x-tenant-id: $TENANT_ID" \
+                      http://localhost:3002/onboarding/context)
+                    if [ "$HTTP_CODE" = "200" ]; then
+                      echo "  PASS: Valid request returns 200"
+                    else
+                      echo "  FAIL: Expected 200, got $HTTP_CODE"
+                      docker compose -f docker-compose.staging.yml logs backend db
+                      exit 1
+                    fi
+                    
+                    echo "All security smoke tests passed!"
+                  fi
+                fi
+              fi
             fi
             
-            if [ -n "$AUTH_RESPONSE" ]; then
-              TOKEN=$(echo "$AUTH_RESPONSE" | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
-              TENANT_ID=$(echo "$AUTH_RESPONSE" | grep -o '"tenantId":"[^"]*"' | cut -d'"' -f4)
-              
-              if [ -n "$TOKEN" ] && [ -n "$TENANT_ID" ]; then
-                echo "Authentication successful. Running security tests..."
-                
-                # Test 1: Missing x-tenant-id header should return 400
-                echo "Test 1: /platform/modules/menu/nested without x-tenant-id..."
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                  -H "Authorization: Bearer $TOKEN" \
-                  http://localhost:3002/platform/modules/menu/nested)
-                if [ "$HTTP_CODE" = "400" ]; then
-                  echo "  PASS: Missing tenant header returns 400"
-                else
-                  echo "  FAIL: Expected 400, got $HTTP_CODE"
-                  docker compose -f docker-compose.staging.yml logs backend db
-                  exit 1
-                fi
-                
-                # Test 2: Spoof tenant ID should return 403
-                echo "Test 2: /platform/modules/menu/nested with spoof tenant ID..."
-                SPOOF_TENANT="00000000-0000-0000-0000-000000000099"
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                  -H "Authorization: Bearer $TOKEN" \
-                  -H "x-tenant-id: $SPOOF_TENANT" \
-                  http://localhost:3002/platform/modules/menu/nested)
-                if [ "$HTTP_CODE" = "403" ]; then
-                  echo "  PASS: Spoof tenant ID returns 403"
-                else
-                  echo "  FAIL: Expected 403, got $HTTP_CODE"
-                  docker compose -f docker-compose.staging.yml logs backend db
-                  exit 1
-                fi
-                
-                # Test 3: /onboarding/context with correct headers should return 200
-                echo "Test 3: /onboarding/context with valid headers..."
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                  -H "Authorization: Bearer $TOKEN" \
-                  -H "x-tenant-id: $TENANT_ID" \
-                  http://localhost:3002/onboarding/context)
-                if [ "$HTTP_CODE" = "200" ]; then
-                  echo "  PASS: Valid request returns 200"
-                else
-                  echo "  FAIL: Expected 200, got $HTTP_CODE"
-                  docker compose -f docker-compose.staging.yml logs backend db
-                  exit 1
-                fi
-                
-                echo "All security smoke tests passed!"
-              else
-                echo "WARNING: Could not extract token or tenant ID from auth response"
-                echo "Skipping security smoke tests..."
-              fi
+            # Final status summary for workflow output
+            echo ""
+            echo "=== Security Smoke Tests Status ==="
+            if [ "$SECURITY_TESTS_STATUS" = "RUNNING" ]; then
+              echo "SECURITY_SMOKE_TESTS: RUNNING - All tests executed and passed"
+            else
+              echo "SECURITY_SMOKE_TESTS: SKIPPED - Reason: ${SECURITY_TESTS_REASON:-unknown}"
             fi
             
             echo "=== Deployment Complete ==="
