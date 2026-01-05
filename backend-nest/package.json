@@ -38,6 +38,7 @@
         "validate:migrations": "ts-node -r tsconfig-paths/register src/scripts/validate-migrations.ts",
         "schema:contract": "ts-node -r tsconfig-paths/register src/scripts/schema-contract.cli.ts",
         "smoke:auth-onboarding": "ts-node -r tsconfig-paths/register src/scripts/smoke-auth-onboarding.ts",
+        "smoke:security": "ts-node -r tsconfig-paths/register src/scripts/smoke-security.ts",
         "platform:validate": "ts-node -r tsconfig-paths/register src/scripts/platform-validate.ts",
         "db:test:bootstrap": "ts-node -r tsconfig-paths/register src/scripts/db-test-bootstrap.ts"
   },

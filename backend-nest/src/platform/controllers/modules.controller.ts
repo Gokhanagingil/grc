@@ -8,8 +8,13 @@ import {
   UseGuards,
   Request,
   Headers,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../tenants/guards/tenant.guard';
+import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
+import { Permission } from '../../auth/permissions/permission.enum';
 import { RequestWithUser } from '../../common/types';
 
 /**
@@ -116,9 +121,14 @@ const KNOWN_ROUTES = new Set([
  *
  * Provides minimal stub endpoints for platform module management.
  * Returns safe defaults to prevent 404 errors on staging.
+ *
+ * Security:
+ * - All routes require JWT authentication (JwtAuthGuard)
+ * - All routes require valid tenant access (TenantGuard validates x-tenant-id header)
+ * - Write operations require ADMIN_SETTINGS_WRITE permission
  */
 @Controller('platform/modules')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ModulesController {
   /**
    * Get available modules
@@ -776,18 +786,23 @@ export class ModulesController {
 
   /**
    * Enable a module (stub - no-op, returns success)
+   * Requires ADMIN_SETTINGS_WRITE permission
    */
   @Post(':moduleKey/enable')
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
   enableModule(
     @Param('moduleKey') moduleKey: string,
     @Body() body: { config?: Record<string, unknown> },
     @Request() req: RequestWithUser,
-    @Headers('x-tenant-id') tenantId?: string,
   ) {
-    const effectiveTenantId = tenantId || req.tenantId || 'default';
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
     return {
       message: `Module ${moduleKey} enabled`,
-      tenantId: effectiveTenantId,
+      tenantId,
       moduleKey,
       config: body.config || null,
     };
@@ -795,35 +810,45 @@ export class ModulesController {
 
   /**
    * Disable a module (stub - no-op, returns success)
+   * Requires ADMIN_SETTINGS_WRITE permission
    */
   @Post(':moduleKey/disable')
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
   disableModule(
     @Param('moduleKey') moduleKey: string,
     @Request() req: RequestWithUser,
-    @Headers('x-tenant-id') tenantId?: string,
   ) {
-    const effectiveTenantId = tenantId || req.tenantId || 'default';
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
     return {
       message: `Module ${moduleKey} disabled`,
-      tenantId: effectiveTenantId,
+      tenantId,
       moduleKey,
     };
   }
 
   /**
    * Update module config (stub - no-op, returns success)
+   * Requires ADMIN_SETTINGS_WRITE permission
    */
   @Put(':moduleKey/config')
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
   updateConfig(
     @Param('moduleKey') moduleKey: string,
     @Body() body: { config: Record<string, unknown> },
     @Request() req: RequestWithUser,
-    @Headers('x-tenant-id') tenantId?: string,
   ) {
-    const effectiveTenantId = tenantId || req.tenantId || 'default';
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
     return {
       message: `Module ${moduleKey} config updated`,
-      tenantId: effectiveTenantId,
+      tenantId,
       moduleKey,
       config: body.config,
     };
@@ -831,12 +856,22 @@ export class ModulesController {
 
   /**
    * Initialize modules for tenant (stub - no-op, returns success)
+   * Requires ADMIN_SETTINGS_WRITE permission
    */
   @Post('initialize')
-  initialize(@Body() body: { tenantId: string; enabledModules?: string[] }) {
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  initialize(
+    @Request() req: RequestWithUser,
+    @Body() body: { enabledModules?: string[] },
+  ) {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
     return {
       message: 'Modules initialized',
-      tenantId: body.tenantId,
+      tenantId,
       enabledModules: body.enabledModules || [
         'grc',
         'itsm',

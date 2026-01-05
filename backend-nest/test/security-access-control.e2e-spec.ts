@@ -556,4 +556,234 @@ describe('Security & Access Control (e2e)', () => {
       expect(response.headers['x-correlation-id']).toBe(customCorrelationId);
     });
   });
+
+  // ==================== PLATFORM MODULE SECURITY TESTS ====================
+  describe('Platform Module Security', () => {
+    describe('/platform/modules/menu/nested', () => {
+      it('should return 401 without authentication', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/modules/menu/nested')
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected || !adminToken) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/modules/menu/nested')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+
+      it('should return 200 with valid token and tenant header', async () => {
+        if (!dbConnected || !adminToken || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/platform/modules/menu/nested')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toBeDefined();
+      });
+    });
+
+    describe('/platform/ui-policies', () => {
+      it('should return 401 without authentication', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/ui-policies')
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected || !adminToken) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/ui-policies')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+
+      it('should return 200 with valid token and tenant header', async () => {
+        if (!dbConnected || !adminToken || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/platform/ui-policies')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toBeDefined();
+      });
+    });
+
+    describe('/platform/form-layouts', () => {
+      it('should return 401 without authentication', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/form-layouts')
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected || !adminToken) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/platform/form-layouts')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+
+      it('should return 200 with valid token and tenant header', async () => {
+        if (!dbConnected || !adminToken || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/platform/form-layouts')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toBeDefined();
+      });
+    });
+  });
+
+  // ==================== TODOS SECURITY TESTS ====================
+  describe('Todos Security', () => {
+    it('should return 401 for /todos without authentication', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer()).get('/todos').expect(401);
+    });
+
+    it('should return 400 for /todos without x-tenant-id header', async () => {
+      if (!dbConnected || !adminToken) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .get('/todos')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('should return 200 for /todos with valid token and tenant header', async () => {
+      if (!dbConnected || !adminToken || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/todos')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toBeDefined();
+    });
+  });
+
+  // ==================== ONBOARDING CONTEXT SECURITY TESTS ====================
+  describe('Onboarding Context Security', () => {
+    it('should return 401 for /onboarding/context without authentication', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer()).get('/onboarding/context').expect(401);
+    });
+
+    it('should return 400 for /onboarding/context without x-tenant-id header', async () => {
+      if (!dbConnected || !adminToken) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .get('/onboarding/context')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('should return 200 for /onboarding/context with valid token and tenant header', async () => {
+      if (!dbConnected || !adminToken || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/onboarding/context')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toBeDefined();
+    });
+  });
+
+  // ==================== TENANTS ADMIN-ONLY TESTS ====================
+  describe('Tenants Admin-Only Access', () => {
+    it('should return 401 for /tenants list without authentication', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer()).get('/tenants').expect(401);
+    });
+
+    it('should return 200 for /tenants list with admin token', async () => {
+      if (!dbConnected || !adminToken) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/tenants')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(response.body).toBeDefined();
+      // Response should have tenants array
+      const data = response.body.data ?? response.body;
+      expect(data).toHaveProperty('tenants');
+    });
+  });
 });
