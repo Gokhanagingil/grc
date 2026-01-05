@@ -127,7 +127,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
           title: 'Framework Required',
           description: 'Enable at least one compliance framework to use the Audit module.',
           actionLabel: 'Go to Frameworks',
-          actionPath: '/admin/settings',
+          actionPath: '/admin/frameworks',
         });
       }
       
@@ -136,7 +136,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
           title: 'Framework Configuration Needed',
           description: 'Configure your compliance frameworks to enable audit functionality.',
           actionLabel: 'Configure Frameworks',
-          actionPath: '/admin/settings',
+          actionPath: '/admin/frameworks',
         });
       }
       
@@ -147,7 +147,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
         title: 'Framework Required',
         description: 'Enable at least one compliance framework to create policies.',
         actionLabel: 'Go to Frameworks',
-        actionPath: '/admin/settings',
+        actionPath: '/admin/frameworks',
       });
     }
     
@@ -156,7 +156,7 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
         title: 'Framework Required',
         description: 'Enable at least one compliance framework to manage requirements.',
         actionLabel: 'Go to Frameworks',
-        actionPath: '/admin/settings',
+        actionPath: '/admin/frameworks',
       });
     }
     
@@ -273,7 +273,7 @@ const ModuleGatedMessage: React.FC<ModuleGatedMessageProps> = ({
   };
 
   const handleGoToFrameworks = () => {
-    navigate(gatingMessage.actionPath || '/admin/settings');
+    navigate(gatingMessage.actionPath || '/admin/frameworks');
   };
 
   return (

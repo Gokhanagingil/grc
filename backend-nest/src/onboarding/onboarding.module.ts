@@ -12,6 +12,8 @@ import {
   OnboardingDecision,
 } from './entities';
 
+import { GrcTenantFramework } from '../grc/entities/grc-tenant-framework.entity';
+
 import { OnboardingContextService, PolicyEvaluatorService } from './services';
 
 import { OnboardingController } from './controllers';
@@ -25,6 +27,7 @@ import { OnboardingController } from './controllers';
       TenantActiveFramework,
       TenantMaturityProfile,
       OnboardingDecision,
+      GrcTenantFramework,
     ]),
     AuthModule,
     TenantsModule,

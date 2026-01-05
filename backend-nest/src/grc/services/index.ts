@@ -63,3 +63,6 @@ export {
   DotWalkSegment,
   DotWalkPath,
 } from './data-model-dictionary.service';
+
+// Framework Activation Services
+export { GrcFrameworksService, FrameworkDto } from './grc-frameworks.service';

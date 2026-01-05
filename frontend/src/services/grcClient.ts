@@ -265,6 +265,17 @@ export const API_PATHS = {
     CONTEXT: '/onboarding/context',
   },
 
+  // Framework Activation endpoints (Tenant-level compliance frameworks)
+  GRC_FRAMEWORKS: {
+    LIST: '/grc/frameworks',
+  },
+
+  // Tenant Frameworks endpoints
+  TENANT_FRAMEWORKS: {
+    GET: '/tenants/me/frameworks',
+    UPDATE: '/tenants/me/frameworks',
+  },
+
   // Standards Library endpoints (Audit Phase 2 - NestJS backend)
   STANDARDS_LIBRARY: {
     LIST: '/grc/standards',
@@ -1486,6 +1497,40 @@ export const DEFAULT_POLICY_RESULT: PolicyResult = {
 export const onboardingApi = {
   getContext: (tenantId: string) =>
     api.get(API_PATHS.ONBOARDING.CONTEXT, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// Framework Activation API (Tenant-level compliance frameworks)
+// ============================================================================
+
+export interface GrcFrameworkData {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantFrameworksResponse {
+  activeKeys: string[];
+}
+
+export const grcFrameworksApi = {
+  list: () => api.get<{ frameworks: GrcFrameworkData[] }>(API_PATHS.GRC_FRAMEWORKS.LIST),
+};
+
+export const tenantFrameworksApi = {
+  get: (tenantId: string) =>
+    api.get<TenantFrameworksResponse>(API_PATHS.TENANT_FRAMEWORKS.GET, withTenantId(tenantId)),
+
+  update: (tenantId: string, activeKeys: string[]) =>
+    api.put<TenantFrameworksResponse>(
+      API_PATHS.TENANT_FRAMEWORKS.UPDATE,
+      { activeKeys },
+      withTenantId(tenantId)
+    ),
 };
 
 // ============================================================================

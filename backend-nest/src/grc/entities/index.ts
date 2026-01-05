@@ -68,3 +68,7 @@ export {
   ClauseScopeStatus,
 } from './audit-scope-clause.entity';
 export { GrcIssueClause } from './grc-issue-clause.entity';
+
+// Framework Activation Entities
+export { GrcFramework } from './grc-framework.entity';
+export { GrcTenantFramework } from './grc-tenant-framework.entity';

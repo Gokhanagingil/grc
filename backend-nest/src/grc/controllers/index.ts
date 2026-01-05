@@ -39,3 +39,9 @@ export {
 
 // Data Model Dictionary Controllers (Admin Studio FAZ 2)
 export { DataModelDictionaryController } from './data-model-dictionary.controller';
+
+// Framework Activation Controllers
+export {
+  GrcFrameworksController,
+  TenantFrameworksController,
+} from './grc-frameworks.controller';

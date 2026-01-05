@@ -16,6 +16,7 @@ import {
   FrameworkType,
   MaturityLevel,
 } from '../entities';
+import { GrcTenantFramework } from '../../grc/entities/grc-tenant-framework.entity';
 
 describe('OnboardingContextService', () => {
   let service: OnboardingContextService;
@@ -26,6 +27,7 @@ describe('OnboardingContextService', () => {
   let enabledModuleRepository: jest.Mocked<Repository<TenantEnabledModule>>;
   let activeFrameworkRepository: jest.Mocked<Repository<TenantActiveFramework>>;
   let maturityProfileRepository: jest.Mocked<Repository<TenantMaturityProfile>>;
+  let grcTenantFrameworkRepository: jest.Mocked<Repository<GrcTenantFramework>>;
 
   const mockTenantId = '00000000-0000-0000-0000-000000000001';
 
@@ -48,6 +50,10 @@ describe('OnboardingContextService', () => {
 
     const mockMaturityProfileRepository = {
       findOne: jest.fn(),
+    };
+
+    const mockGrcTenantFrameworkRepository = {
+      find: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -73,6 +79,10 @@ describe('OnboardingContextService', () => {
           provide: getRepositoryToken(TenantMaturityProfile),
           useValue: mockMaturityProfileRepository,
         },
+        {
+          provide: getRepositoryToken(GrcTenantFramework),
+          useValue: mockGrcTenantFrameworkRepository,
+        },
       ],
     }).compile();
 
@@ -89,6 +99,9 @@ describe('OnboardingContextService', () => {
     );
     maturityProfileRepository = module.get(
       getRepositoryToken(TenantMaturityProfile),
+    );
+    grcTenantFrameworkRepository = module.get(
+      getRepositoryToken(GrcTenantFramework),
     );
   });
 
@@ -108,6 +121,7 @@ describe('OnboardingContextService', () => {
         enabledModuleRepository.find.mockResolvedValue([]);
         activeFrameworkRepository.find.mockResolvedValue([]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -142,6 +156,7 @@ describe('OnboardingContextService', () => {
         enabledModuleRepository.find.mockResolvedValue([]);
         activeFrameworkRepository.find.mockResolvedValue([]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -171,6 +186,7 @@ describe('OnboardingContextService', () => {
         enabledModuleRepository.find.mockResolvedValue([]);
         activeFrameworkRepository.find.mockResolvedValue([]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -192,6 +208,7 @@ describe('OnboardingContextService', () => {
         enabledModuleRepository.find.mockResolvedValue([]);
         activeFrameworkRepository.find.mockResolvedValue([]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -240,6 +257,7 @@ describe('OnboardingContextService', () => {
         ]);
         activeFrameworkRepository.find.mockResolvedValue([]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -272,6 +290,7 @@ describe('OnboardingContextService', () => {
           } as TenantActiveFramework,
         ]);
         maturityProfileRepository.findOne.mockResolvedValue(null);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 
@@ -298,6 +317,7 @@ describe('OnboardingContextService', () => {
           maturityLevel: MaturityLevel.ADVANCED,
           isDeleted: false,
         } as TenantMaturityProfile);
+        grcTenantFrameworkRepository.find.mockResolvedValue([]);
 
         const result = await service.getOnboardingContext(mockTenantId);
 

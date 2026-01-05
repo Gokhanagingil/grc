@@ -44,6 +44,9 @@ import {
   AuditScopeStandard,
   AuditScopeClause,
   GrcIssueClause,
+  // Framework Activation entities
+  GrcFramework,
+  GrcTenantFramework,
 } from './entities';
 
 // Services
@@ -68,6 +71,8 @@ import {
   StandardsService,
   // Admin Studio FAZ 2 - Data Model Dictionary services
   DataModelDictionaryService,
+  // Framework Activation services
+  GrcFrameworksService,
 } from './services';
 
 // Controllers
@@ -94,6 +99,9 @@ import {
   AuditScopeController,
   // Admin Studio FAZ 2 - Data Model Dictionary controllers
   DataModelDictionaryController,
+  // Framework Activation controllers
+  GrcFrameworksController,
+  TenantFrameworksController,
 } from './controllers';
 
 /**
@@ -156,6 +164,9 @@ import {
       AuditScopeStandard,
       AuditScopeClause,
       GrcIssueClause,
+      // Framework Activation entities
+      GrcFramework,
+      GrcTenantFramework,
     ]),
     AuditModule,
     AuthModule,
@@ -183,6 +194,8 @@ import {
     StandardsService,
     // Admin Studio FAZ 2 - Data Model Dictionary services
     DataModelDictionaryService,
+    // Framework Activation services
+    GrcFrameworksService,
   ],
   controllers: [
     // Core controllers
@@ -208,6 +221,9 @@ import {
     AuditScopeController,
     // Admin Studio FAZ 2 - Data Model Dictionary controllers
     DataModelDictionaryController,
+    // Framework Activation controllers
+    GrcFrameworksController,
+    TenantFrameworksController,
   ],
   exports: [
     // Core services
@@ -231,6 +247,8 @@ import {
     StandardsService,
     // Admin Studio FAZ 2 - Data Model Dictionary services
     DataModelDictionaryService,
+    // Framework Activation services
+    GrcFrameworksService,
   ],
 })
 export class GrcModule {}
