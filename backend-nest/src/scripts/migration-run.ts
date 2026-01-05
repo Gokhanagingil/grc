@@ -15,6 +15,7 @@
  */
 
 import { AppDataSource } from '../data-source';
+import { getMigrationsTableNameFromConfig } from '../config/migrations-table-resolver';
 
 interface MigrationRow {
   name: string;
@@ -34,6 +35,10 @@ async function runMigrations() {
     console.log('Connecting to database...');
     await AppDataSource.initialize();
 
+    // Get the migrations table name from DataSource config
+    const migrationsTableName = getMigrationsTableNameFromConfig(AppDataSource);
+    console.log(`Using migrations table: "${migrationsTableName}"`);
+
     // Check pending migrations first
     const hasPendingMigrations = await AppDataSource.showMigrations();
 
@@ -47,7 +52,7 @@ async function runMigrations() {
     try {
       const allMigrations = AppDataSource.migrations || [];
       const executedMigrationNames: unknown = await AppDataSource.query(
-        `SELECT name FROM migrations`,
+        `SELECT name FROM "${migrationsTableName}"`,
       );
       const executedNames = Array.isArray(executedMigrationNames)
         ? executedMigrationNames.filter(isMigrationRow).map((m) => m.name)
