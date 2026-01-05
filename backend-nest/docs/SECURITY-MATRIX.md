@@ -120,6 +120,14 @@ This document provides a comprehensive security matrix for all backend API endpo
 | /grc/audits/:id | PUT | GrcAuditController | JwtAuthGuard, TenantGuard, PermissionsGuard | GRC_AUDIT_WRITE | Yes | Tenant | Low |
 | /grc/audits/:id | DELETE | GrcAuditController | JwtAuthGuard, TenantGuard, PermissionsGuard | GRC_AUDIT_DELETE | Yes | Tenant | Low |
 
+### GRC Framework Management Endpoints
+
+| Endpoint | Method | Controller | Guards | Roles/Perms | Tenant Header | Data Scope | Risk |
+|----------|--------|------------|--------|-------------|---------------|------------|------|
+| /grc/frameworks | GET | GrcFrameworksController | JwtAuthGuard | - | No | System | Low |
+| /tenants/me/frameworks | GET | TenantFrameworksController | JwtAuthGuard, TenantGuard | - | Yes | Tenant | Low |
+| /tenants/me/frameworks | PUT | TenantFrameworksController | JwtAuthGuard, TenantGuard, PermissionsGuard | ADMIN_SETTINGS_WRITE | Yes | Tenant | Low |
+
 ### ITSM Incident Management Endpoints
 
 | Endpoint | Method | Controller | Guards | Roles/Perms | Tenant Header | Data Scope | Risk |
@@ -247,6 +255,13 @@ This document provides a comprehensive security matrix for all backend API endpo
 **After:** `JwtAuthGuard` + `TenantGuard` for all endpoints, plus `PermissionsGuard` with `ADMIN_SETTINGS_WRITE` for write operations
 
 **Risk Closed:** Authenticated users could create/modify/delete form layouts for any tenant.
+
+### 4. Tenant Framework Activation (`PUT /tenants/me/frameworks`)
+
+**Before:** `JwtAuthGuard` + `TenantGuard` - no permission check
+**After:** `JwtAuthGuard` + `TenantGuard` + `PermissionsGuard` with `ADMIN_SETTINGS_WRITE`
+
+**Risk Closed:** Any authenticated tenant member could modify framework activation settings. Now requires admin permissions.
 
 ## Known Public Endpoints (Intentional)
 
