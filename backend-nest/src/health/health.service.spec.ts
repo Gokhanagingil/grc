@@ -9,6 +9,9 @@ describe('HealthService', () => {
   const mockDataSource = {
     query: jest.fn(),
     showMigrations: jest.fn(),
+    options: {
+      migrationsTableName: 'typeorm_migrations',
+    },
   };
 
   const mockConfigService = {
