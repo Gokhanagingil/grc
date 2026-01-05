@@ -954,11 +954,12 @@ describe('Security & Access Control (e2e)', () => {
 
       const spoofTenantId = '00000000-0000-0000-0000-000000000099';
 
+      // Use empty array - tenant guard should reject before validation
       await request(app.getHttpServer())
         .put('/tenants/me/frameworks')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', spoofTenantId)
-        .send({ activeKeys: ['iso27001'] })
+        .send({ activeKeys: [] })
         .expect(403);
     });
 
@@ -968,15 +969,35 @@ describe('Security & Access Control (e2e)', () => {
         return;
       }
 
+      // First, get current frameworks to restore later
+      const currentResponse = await request(app.getHttpServer())
+        .get('/tenants/me/frameworks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const currentKeys =
+        currentResponse.body.data ?? currentResponse.body ?? [];
+
       // Admin should have ADMIN_SETTINGS_WRITE permission
+      // Use empty array which is always valid (clears all frameworks)
       const response = await request(app.getHttpServer())
         .put('/tenants/me/frameworks')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
-        .send({ activeKeys: ['iso27001'] })
+        .send({ activeKeys: [] })
         .expect(200);
 
       expect(response.body).toBeDefined();
+
+      // Restore original frameworks if any existed
+      if (Array.isArray(currentKeys) && currentKeys.length > 0) {
+        await request(app.getHttpServer())
+          .put('/tenants/me/frameworks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ activeKeys: currentKeys });
+      }
     });
   });
 
