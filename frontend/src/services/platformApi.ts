@@ -117,11 +117,39 @@ export interface MenuItem {
 }
 
 // Types for Nested Menu (Capability-based navigation)
+
+/**
+ * Menu item status types for capability-based navigation
+ * - active: Feature is available and functional
+ * - coming_soon: Feature is planned but not yet implemented
+ * - gated: Feature exists but requires configuration (e.g., framework setup)
+ * - hidden: Feature should not be shown in menu
+ */
+export type MenuItemStatus = 'active' | 'coming_soon' | 'gated' | 'hidden';
+
+/**
+ * Status reason codes for gated items
+ */
+export type StatusReasonCode =
+  | 'FRAMEWORK_REQUIRED'
+  | 'MATURITY_REQUIRED'
+  | 'MODULE_DISABLED'
+  | 'ADMIN_ONLY'
+  | 'ROUTE_NOT_FOUND';
+
+export interface MenuStatusReason {
+  code: StatusReasonCode;
+  message: string;
+  actionLabel?: string;
+  actionPath?: string;
+}
+
 export interface NestedMenuChild {
   key: string;
   title: string;
   route: string;
-  status: 'active' | 'coming_soon';
+  status: MenuItemStatus;
+  statusReason?: MenuStatusReason;
 }
 
 export interface NestedMenuItem {
@@ -131,6 +159,11 @@ export interface NestedMenuItem {
   route: string;
   moduleKey: string;
   children: NestedMenuChild[];
+  gateConditions?: {
+    requiresFramework?: boolean;
+    requiresMaturity?: string;
+    adminOnly?: boolean;
+  };
 }
 
 export interface NestedMenuSuite {
@@ -140,9 +173,16 @@ export interface NestedMenuSuite {
   items: NestedMenuItem[];
 }
 
+export interface NestedMenuMeta {
+  enabledModules: string[];
+  userRole: string;
+  recommendedFrameworks: string[];
+}
+
 export interface NestedMenuResponse {
   tenantId: string;
   suites: NestedMenuSuite[];
+  meta?: NestedMenuMeta;
 }
 
 // Types for Search/DSL

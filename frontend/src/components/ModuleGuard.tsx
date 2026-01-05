@@ -2,19 +2,21 @@
  * ModuleGuard Component
  * 
  * Provides module visibility protection for routes and components.
- * Renders children only if the specified module is enabled.
+ * Renders children only if the specified module is enabled and not gated.
+ * Uses useMenuDecision hook for consistent decision making with sidebar.
  * Supports coming-soon pages and actionable gating messages.
  */
 
 import React from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Box, Typography, Paper, Button, Alert, AlertTitle } from '@mui/material';
+import { Box, Typography, Paper, Button, Alert, AlertTitle, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { 
   Block as BlockIcon,
   Settings as SettingsIcon,
   ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { useModules } from '../hooks/useModules';
+import { useMenuDecision, RECOMMENDED_FRAMEWORKS } from '../hooks/useMenuDecision';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { FrameworkType } from '../services/grcClient';
 
@@ -33,7 +35,7 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
   redirectTo,
   showActionableMessage = true,
 }) => {
-  const { isModuleEnabled, isLoading } = useModules();
+  const { isModuleEnabled, isLoading, getGatingMessage, hasActiveFramework } = useMenuDecision();
 
   if (isLoading) {
     return (
@@ -43,6 +45,7 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
     );
   }
 
+  // Check if module is enabled
   if (!isModuleEnabled(moduleKey)) {
     if (redirectTo) {
       return <Navigate to={redirectTo} replace />;
@@ -53,6 +56,12 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({
     }
 
     return <ModuleDisabledMessage moduleKey={moduleKey} showActionableMessage={showActionableMessage} />;
+  }
+
+  // Check if module is gated (e.g., requires framework)
+  const gatingMessage = getGatingMessage(moduleKey);
+  if (gatingMessage && !hasActiveFramework) {
+    return <ModuleGatedMessage moduleKey={moduleKey} gatingMessage={gatingMessage} />;
   }
 
   return <>{children}</>;
@@ -226,6 +235,124 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
   );
 };
 
+interface ModuleGatedMessageProps {
+  moduleKey: string;
+  gatingMessage: {
+    code: string;
+    message: string;
+    actionLabel?: string;
+    actionPath?: string;
+  };
+}
+
+const ModuleGatedMessage: React.FC<ModuleGatedMessageProps> = ({ 
+  moduleKey,
+  gatingMessage,
+}) => {
+  const navigate = useNavigate();
+  
+  const moduleNames: Record<string, string> = {
+    risk: 'Risk Management',
+    policy: 'Policy Management',
+    compliance: 'Compliance Management',
+    audit: 'Audit Management',
+    'itsm.incident': 'Incident Management',
+    'itsm.cmdb': 'CMDB',
+    'itsm.change': 'Change Management',
+    'itsm.problem': 'Problem Management',
+    'itsm.request': 'Service Request',
+    'platform.admin': 'Platform Administration',
+    'platform.reporting': 'Reporting & Analytics',
+    'platform.integration': 'Integrations',
+  };
+
+  const moduleName = moduleNames[moduleKey] || moduleKey;
+
+  const handleReturnToDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  const handleGoToFrameworks = () => {
+    navigate(gatingMessage.actionPath || '/admin/settings');
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '60vh',
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          textAlign: 'center',
+          maxWidth: 600,
+        }}
+      >
+        <SettingsIcon sx={{ fontSize: 64, color: 'warning.main', mb: 2 }} />
+        <Typography variant="h5" gutterBottom>
+          {gatingMessage.message}
+        </Typography>
+        <Typography variant="body1" color="text.secondary" paragraph>
+          The <strong>{moduleName}</strong> module requires a compliance framework to be configured.
+        </Typography>
+        
+        <Alert severity="warning" sx={{ mb: 3, textAlign: 'left' }}>
+          <AlertTitle>Action Required</AlertTitle>
+          Enable at least one compliance framework to use this module. 
+          Go to Admin Settings to configure your frameworks.
+        </Alert>
+
+        <Box sx={{ mb: 3, textAlign: 'left' }}>
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+            Recommended Frameworks:
+          </Typography>
+          <List dense>
+            {RECOMMENDED_FRAMEWORKS.map((framework) => (
+              <ListItem key={framework} sx={{ py: 0.5 }}>
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <CheckCircleIcon color="success" fontSize="small" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={framework}
+                  secondary={
+                    framework === 'ISO27001' ? 'Information Security Management' :
+                    framework === 'SOC2' ? 'Service Organization Controls' :
+                    framework === 'NIST' ? 'Cybersecurity Framework' :
+                    framework === 'GDPR' ? 'Data Protection Regulation' : ''
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+        
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <Button 
+            variant="contained" 
+            color="primary"
+            startIcon={<SettingsIcon />}
+            onClick={handleGoToFrameworks}
+          >
+            {gatingMessage.actionLabel || 'Go to Admin → Frameworks'}
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<ArrowBackIcon />}
+            onClick={handleReturnToDashboard}
+          >
+            Return to Dashboard
+          </Button>
+        </Box>
+      </Paper>
+    </Box>
+  );
+};
+
 export interface RequireModulesProps {
   modules: string[];
   requireAll?: boolean;
@@ -239,7 +366,7 @@ export const RequireModules: React.FC<RequireModulesProps> = ({
   children,
   fallback,
 }) => {
-  const { isModuleEnabled, isLoading } = useModules();
+  const { isModuleEnabled, isLoading } = useMenuDecision();
 
   if (isLoading) {
     return (
