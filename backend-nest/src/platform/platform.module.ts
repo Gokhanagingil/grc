@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ModulesController } from './controllers/modules.controller';
 import { FormLayoutsController } from './controllers/form-layouts.controller';
 import { UiPoliciesController } from './controllers/ui-policies.controller';
+import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Platform Module
@@ -9,12 +10,18 @@ import { UiPoliciesController } from './controllers/ui-policies.controller';
  * Provides stub endpoints for Platform Core features to prevent 404 errors.
  * These are minimal implementations that return safe defaults.
  *
+ * Security:
+ * - All routes require JWT authentication (JwtAuthGuard)
+ * - All routes require valid tenant access (TenantGuard validates x-tenant-id header)
+ * - Write operations require ADMIN_SETTINGS_WRITE permission
+ *
  * Endpoints:
  * - /platform/modules/* - Module management stubs
  * - /platform/form-layouts/* - Form layout stubs
  * - /platform/ui-policies/* - UI policy stubs
  */
 @Module({
+  imports: [TenantsModule],
   controllers: [ModulesController, FormLayoutsController, UiPoliciesController],
   providers: [],
 })
