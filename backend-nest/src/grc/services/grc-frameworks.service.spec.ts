@@ -107,7 +107,6 @@ describe('GrcFrameworksService', () => {
     tenantFrameworkRepository = module.get(
       getRepositoryToken(GrcTenantFramework),
     );
-    dataSource = module.get(DataSource);
   });
 
   afterEach(() => {
