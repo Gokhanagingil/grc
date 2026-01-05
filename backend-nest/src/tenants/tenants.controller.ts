@@ -1,8 +1,11 @@
 import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TenantGuard } from './guards/tenant.guard';
 import { RequestWithUser } from '../common/types';
+import { UserRole } from '../users/user.entity';
 
 interface ListTenantsQuery {
   page?: string;
@@ -31,20 +34,21 @@ export class TenantsController {
    * List all tenants (admin only)
    *
    * Returns a paginated list of all tenants.
-   * Requires authentication.
+   * Requires authentication and admin role.
    */
-  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   async listTenants(@Query() query: ListTenantsQuery) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '10', 10);
     const tenants = await this.tenantsService.findAll();
-    
+
     // Simple pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedTenants = tenants.slice(startIndex, endIndex);
-    
+
     return {
       tenants: paginatedTenants.map((tenant) => ({
         id: tenant.id,
