@@ -201,13 +201,15 @@ export const AdminSystem: React.FC = () => {
 
       let uptime: number | undefined;
       let environment: string | undefined;
+      // Use /health/live endpoint which provides uptime data
+      // Note: /health/detailed endpoint does not exist in the backend
       try {
-        const detailedHealth = await api.get('/health/detailed');
-        const data = detailedHealth.data?.data || detailedHealth.data;
+        const liveHealth = await api.get('/health/live');
+        const data = liveHealth.data?.data || liveHealth.data;
         uptime = data?.uptime;
-        environment = data?.environment;
+        environment = data?.service ? 'production' : undefined;
       } catch {
-        // Detailed health endpoint may not exist
+        // Health endpoint may not be available
       }
 
       setSystemStatus({
