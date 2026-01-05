@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TodosController } from './todos.controller';
+import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Todos Module
@@ -9,6 +10,7 @@ import { TodosController } from './todos.controller';
  * Data is stored in memory and resets on server restart.
  */
 @Module({
+  imports: [TenantsModule],
   controllers: [TodosController],
 })
 export class TodosModule {}
