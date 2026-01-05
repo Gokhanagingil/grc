@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useModules } from '../hooks/useModules';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { FrameworkType } from '../services/grcClient';
 
 export interface ModuleGuardProps {
   moduleKey: string;
@@ -107,10 +108,10 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
     const warnings = getWarningsForTarget(moduleKey);
     
     if (moduleKey === 'audit') {
-      const hasActiveFramework = isFrameworkActive('ISO27001') || 
-                                  isFrameworkActive('SOC2') || 
-                                  isFrameworkActive('NIST') ||
-                                  isFrameworkActive('GDPR');
+      const hasActiveFramework = isFrameworkActive(FrameworkType.ISO27001) || 
+                                  isFrameworkActive(FrameworkType.SOC2) || 
+                                  isFrameworkActive(FrameworkType.NIST) ||
+                                  isFrameworkActive(FrameworkType.GDPR);
       
       if (!hasActiveFramework) {
         messages.push({
@@ -130,14 +131,6 @@ const ModuleDisabledMessage: React.FC<ModuleDisabledMessageProps> = ({
         });
       }
       
-      if (warnings.some(w => w.code === 'MATURITY_LEVEL_LOW')) {
-        messages.push({
-          title: 'Maturity Level',
-          description: 'Your organization maturity level may need to be increased for full audit capabilities.',
-          actionLabel: 'Review Settings',
-          actionPath: '/admin/settings',
-        });
-      }
     }
     
     if (moduleKey === 'policy' && warnings.some(w => w.code === 'FRAMEWORK_REQUIRED')) {
