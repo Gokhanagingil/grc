@@ -6,11 +6,15 @@ import {
   Delete,
   Body,
   Param,
-  Headers,
+  Request,
   HttpCode,
   HttpStatus,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../tenants/guards/tenant.guard';
+import { RequestWithUser } from '../common/types';
 
 interface Todo {
   id: number;
@@ -55,8 +59,14 @@ interface UpdateTodoDto {
  * Provides a minimal in-memory todo list for demo purposes.
  * Data is stored per-tenant in memory and resets on server restart.
  * This is intentionally simple to avoid database migrations.
+ *
+ * Security:
+ * - All routes require JWT authentication (JwtAuthGuard)
+ * - All routes require valid tenant access (TenantGuard validates x-tenant-id header
+ *   and ensures user belongs to the requested tenant)
  */
 @Controller('todos')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class TodosController {
   private todosByTenant: Map<string, Todo[]> = new Map();
   private nextIdByTenant: Map<string, number> = new Map();
@@ -75,19 +85,15 @@ export class TodosController {
   }
 
   @Get()
-  list(@Headers('x-tenant-id') tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+  list(@Request() req: RequestWithUser) {
+    const tenantId = req.tenantId!;
     const todos = this.getTodos(tenantId);
     return { todos };
   }
 
   @Get('stats/summary')
-  getStats(@Headers('x-tenant-id') tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+  getStats(@Request() req: RequestWithUser) {
+    const tenantId = req.tenantId!;
     const todos = this.getTodos(tenantId);
     const now = new Date();
     return {
@@ -97,22 +103,15 @@ export class TodosController {
       in_progress: todos.filter((t) => t.status === 'in_progress').length,
       overdue: todos.filter(
         (t) =>
-          t.due_date &&
-          new Date(t.due_date) < now &&
-          t.status !== 'completed',
+          t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
       ).length,
     };
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(
-    @Headers('x-tenant-id') tenantId: string,
-    @Body() createDto: CreateTodoDto,
-  ) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+  create(@Request() req: RequestWithUser, @Body() createDto: CreateTodoDto) {
+    const tenantId = req.tenantId!;
     if (!createDto.title) {
       throw new BadRequestException('title is required');
     }
@@ -142,13 +141,8 @@ export class TodosController {
   }
 
   @Get(':id')
-  findOne(
-    @Headers('x-tenant-id') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+  findOne(@Request() req: RequestWithUser, @Param('id') id: string) {
+    const tenantId = req.tenantId!;
     const todos = this.getTodos(tenantId);
     const todo = todos.find((t) => t.id === parseInt(id, 10));
     if (!todo) {
@@ -159,13 +153,11 @@ export class TodosController {
 
   @Put(':id')
   update(
-    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateDto: UpdateTodoDto,
   ) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+    const tenantId = req.tenantId!;
     const todos = this.getTodos(tenantId);
     const todoIndex = todos.findIndex((t) => t.id === parseInt(id, 10));
     if (todoIndex === -1) {
@@ -191,13 +183,8 @@ export class TodosController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @Headers('x-tenant-id') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
+  remove(@Request() req: RequestWithUser, @Param('id') id: string) {
+    const tenantId = req.tenantId!;
     const todos = this.getTodos(tenantId);
     const todoIndex = todos.findIndex((t) => t.id === parseInt(id, 10));
     if (todoIndex === -1) {
