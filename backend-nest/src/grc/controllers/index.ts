@@ -40,6 +40,9 @@ export {
 // Data Model Dictionary Controllers (Admin Studio FAZ 2)
 export { DataModelDictionaryController } from './data-model-dictionary.controller';
 
+// Dotwalking Query Builder Controllers
+export { DotWalkingController } from './dotwalking.controller';
+
 // Framework Activation Controllers
 export {
   GrcFrameworksController,

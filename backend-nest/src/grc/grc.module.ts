@@ -99,6 +99,8 @@ import {
   AuditScopeController,
   // Admin Studio FAZ 2 - Data Model Dictionary controllers
   DataModelDictionaryController,
+  // Dotwalking Query Builder controllers
+  DotWalkingController,
   // Framework Activation controllers
   GrcFrameworksController,
   TenantFrameworksController,
@@ -221,6 +223,8 @@ import {
     AuditScopeController,
     // Admin Studio FAZ 2 - Data Model Dictionary controllers
     DataModelDictionaryController,
+    // Dotwalking Query Builder controllers
+    DotWalkingController,
     // Framework Activation controllers
     GrcFrameworksController,
     TenantFrameworksController,

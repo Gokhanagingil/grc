@@ -79,7 +79,7 @@ export const DotWalkingBuilder: React.FC = () => {
 
   const fetchSchema = useCallback(async () => {
     try {
-      const response = await api.get('/dotwalking/schema');
+      const response = await api.get('/admin/data-model/dotwalking/schema');
       const schemaData = unwrapApiResponse<Schema | null>(response);
       if (schemaData) {
         setSchema({
@@ -100,7 +100,7 @@ export const DotWalkingBuilder: React.FC = () => {
 
   const fetchSuggestions = useCallback(async (currentPath: string) => {
     try {
-      const response = await api.get(`/dotwalking/suggestions?path=${encodeURIComponent(currentPath)}`);
+      const response = await api.get(`/admin/data-model/dotwalking/suggestions?path=${encodeURIComponent(currentPath)}`);
       const data = unwrapApiResponse<{ suggestions?: string[] } | string[] | null>(response);
       const suggestionsList = Array.isArray(data) 
         ? data 
@@ -117,7 +117,7 @@ export const DotWalkingBuilder: React.FC = () => {
       return;
     }
     try {
-      const response = await api.post('/dotwalking/validate', { path: currentPath });
+      const response = await api.post('/admin/data-model/dotwalking/validate', { path: currentPath });
       const data = unwrapApiResponse<ParseResult | null>(response);
       if (data) {
         setParseResult({
@@ -162,7 +162,7 @@ export const DotWalkingBuilder: React.FC = () => {
     setLoading(true);
     setTestResult(null);
     try {
-      const response = await api.post('/dotwalking/test', { path });
+      const response = await api.post('/admin/data-model/dotwalking/test', { path });
       const data = unwrapApiResponse<TestResult | null>(response);
       if (data) {
         setTestResult({

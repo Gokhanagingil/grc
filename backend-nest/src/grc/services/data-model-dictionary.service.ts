@@ -530,4 +530,333 @@ export class DataModelDictionaryService {
     this.initialized = false;
     this.initialize();
   }
+
+  /**
+   * Get schema for dot-walking query builder
+   * Returns entities, fields, and relationships in a format suitable for the frontend
+   */
+  getDotWalkingSchema(): {
+    entities: string[];
+    fields: Record<string, string[]>;
+    relationships: Record<
+      string,
+      Record<string, { entity: string; foreignKey: string; type: string }>
+    >;
+  } {
+    this.initialize();
+
+    const entities: string[] = [];
+    const fields: Record<string, string[]> = {};
+    const relationships: Record<
+      string,
+      Record<string, { entity: string; foreignKey: string; type: string }>
+    > = {};
+
+    for (const table of this.tableCache.values()) {
+      // Use lowercase entity name for consistency with frontend
+      const entityName = table.name.toLowerCase().replace('grc', '');
+      entities.push(entityName);
+
+      // Get field names for this entity
+      fields[entityName] = table.fields.map((f) => f.name);
+
+      // Get relationships for this entity
+      relationships[entityName] = {};
+      for (const rel of table.relationships) {
+        const targetName = rel.targetTable.toLowerCase().replace('grc', '');
+        relationships[entityName][rel.name] = {
+          entity: targetName,
+          foreignKey: rel.sourceField,
+          type: rel.type,
+        };
+      }
+    }
+
+    return { entities, fields, relationships };
+  }
+
+  /**
+   * Get suggestions for dot-walking path completion
+   */
+  getDotWalkingSuggestions(currentPath: string): string[] {
+    this.initialize();
+
+    if (!currentPath) {
+      // Return all entity names as suggestions
+      return Array.from(this.tableCache.values()).map((t) =>
+        t.name.toLowerCase().replace('grc', ''),
+      );
+    }
+
+    const parts = currentPath.split('.');
+    const lastPart = parts[parts.length - 1] || '';
+    const basePath = parts.slice(0, -1).join('.');
+
+    // Find the current entity based on the path
+    let currentEntity: string | null = null;
+
+    if (basePath) {
+      // Navigate through the path to find the current entity
+      const pathParts = basePath.split('.');
+      let entity = this.findEntityByName(pathParts[0]);
+
+      for (let i = 1; i < pathParts.length && entity; i++) {
+        const rel = entity.relationships.find(
+          (r) => r.name.toLowerCase() === pathParts[i].toLowerCase(),
+        );
+        if (rel) {
+          entity = this.tableCache.get(rel.targetTable) || null;
+        } else {
+          entity = null;
+        }
+      }
+
+      if (entity) {
+        currentEntity = entity.name;
+      }
+    } else if (parts.length === 1) {
+      // First part - suggest entities or fields of first entity
+      const entity = this.findEntityByName(lastPart);
+      if (entity) {
+        currentEntity = entity.name;
+      }
+    }
+
+    const suggestions: string[] = [];
+
+    if (currentEntity) {
+      const entity = this.tableCache.get(currentEntity);
+      if (entity) {
+        // Suggest fields
+        for (const field of entity.fields) {
+          if (field.name.toLowerCase().startsWith(lastPart.toLowerCase())) {
+            suggestions.push(field.name);
+          }
+        }
+        // Suggest relationships
+        for (const rel of entity.relationships) {
+          if (rel.name.toLowerCase().startsWith(lastPart.toLowerCase())) {
+            suggestions.push(rel.name);
+          }
+        }
+      }
+    } else {
+      // Suggest entities
+      for (const table of this.tableCache.values()) {
+        const entityName = table.name.toLowerCase().replace('grc', '');
+        if (entityName.startsWith(lastPart.toLowerCase())) {
+          suggestions.push(entityName);
+        }
+      }
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Find entity by name (case-insensitive, handles 'grc' prefix)
+   */
+  private findEntityByName(name: string): DictionaryTable | null {
+    const normalizedName = name.toLowerCase();
+
+    for (const table of this.tableCache.values()) {
+      const tableName = table.name.toLowerCase();
+      const shortName = tableName.replace('grc', '');
+
+      if (tableName === normalizedName || shortName === normalizedName) {
+        return table;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Validate a dot-walking path
+   */
+  validateDotWalkingPath(path: string): {
+    valid: boolean;
+    error: string | null;
+    segments: Array<{
+      type: string;
+      value: string;
+      entity?: string;
+      targetEntity?: string;
+      relationshipType?: string;
+    }>;
+    depth: number;
+  } {
+    this.initialize();
+
+    if (!path || path.trim() === '') {
+      return {
+        valid: false,
+        error: 'Path cannot be empty',
+        segments: [],
+        depth: 0,
+      };
+    }
+
+    const parts = path.split('.');
+    const segments: Array<{
+      type: string;
+      value: string;
+      entity?: string;
+      targetEntity?: string;
+      relationshipType?: string;
+    }> = [];
+
+    // First part should be an entity
+    const rootEntity = this.findEntityByName(parts[0]);
+    if (!rootEntity) {
+      return {
+        valid: false,
+        error: `Unknown entity: ${parts[0]}`,
+        segments: [],
+        depth: 0,
+      };
+    }
+
+    segments.push({
+      type: 'entity',
+      value: parts[0],
+      entity: rootEntity.name,
+    });
+
+    let currentEntity = rootEntity;
+    let depth = 0;
+
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+
+      // Check if it's a relationship
+      const rel = currentEntity.relationships.find(
+        (r) => r.name.toLowerCase() === part.toLowerCase(),
+      );
+
+      if (rel) {
+        depth++;
+        const targetEntity = this.tableCache.get(rel.targetTable);
+        if (!targetEntity) {
+          return {
+            valid: false,
+            error: `Target entity not found for relationship: ${part}`,
+            segments,
+            depth,
+          };
+        }
+
+        segments.push({
+          type: 'relationship',
+          value: part,
+          entity: currentEntity.name,
+          targetEntity: targetEntity.name,
+          relationshipType: rel.type,
+        });
+
+        currentEntity = targetEntity;
+        continue;
+      }
+
+      // Check if it's a field
+      const field = currentEntity.fields.find(
+        (f) => f.name.toLowerCase() === part.toLowerCase(),
+      );
+
+      if (field) {
+        segments.push({
+          type: 'field',
+          value: part,
+          entity: currentEntity.name,
+        });
+        continue;
+      }
+
+      // Unknown part
+      return {
+        valid: false,
+        error: `Unknown field or relationship '${part}' on entity '${currentEntity.name}'`,
+        segments,
+        depth,
+      };
+    }
+
+    return {
+      valid: true,
+      error: null,
+      segments,
+      depth,
+    };
+  }
+
+  /**
+   * Test a dot-walking path (returns sample data structure, not actual data)
+   */
+  testDotWalkingPath(path: string): {
+    valid: boolean;
+    error?: string;
+    path?: string;
+    depth?: number;
+    sampleData?: Array<Record<string, unknown>>;
+    sampleCount?: number;
+    suggestions?: string[];
+  } {
+    const validation = this.validateDotWalkingPath(path);
+
+    if (!validation.valid) {
+      // Get suggestions for the last valid segment
+      const parts = path.split('.');
+      const suggestions = this.getDotWalkingSuggestions(
+        parts.slice(0, -1).join('.'),
+      );
+
+      return {
+        valid: false,
+        error: validation.error || 'Invalid path',
+        suggestions: suggestions.slice(0, 5),
+      };
+    }
+
+    // Generate sample data structure based on the path
+    const sampleData: Array<Record<string, unknown>> = [];
+    const lastSegment = validation.segments[validation.segments.length - 1];
+
+    if (lastSegment) {
+      // Create sample records
+      for (let i = 0; i < 3; i++) {
+        const record: Record<string, unknown> = {};
+
+        if (lastSegment.type === 'field') {
+          record[lastSegment.value] = `Sample value ${i + 1}`;
+        } else if (
+          lastSegment.type === 'relationship' &&
+          lastSegment.targetEntity
+        ) {
+          const targetTable = this.tableCache.get(lastSegment.targetEntity);
+          if (targetTable) {
+            for (const field of targetTable.fields.slice(0, 3)) {
+              record[field.name] = `Sample ${field.name} ${i + 1}`;
+            }
+          }
+        } else if (lastSegment.type === 'entity' && lastSegment.entity) {
+          const entityTable = this.tableCache.get(lastSegment.entity);
+          if (entityTable) {
+            for (const field of entityTable.fields.slice(0, 3)) {
+              record[field.name] = `Sample ${field.name} ${i + 1}`;
+            }
+          }
+        }
+
+        sampleData.push(record);
+      }
+    }
+
+    return {
+      valid: true,
+      path,
+      depth: validation.depth,
+      sampleData,
+      sampleCount: sampleData.length,
+    };
+  }
 }
