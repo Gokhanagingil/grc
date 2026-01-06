@@ -22,7 +22,11 @@ export interface UseUiPolicyResult {
   refreshPolicies: () => Promise<void>;
 }
 
-const defaultActions: UiPolicyActions = {
+/**
+ * Default actions object - single source of truth for safe defaults.
+ * All field arrays default to empty arrays to prevent "cannot read property of undefined" errors.
+ */
+const DEFAULT_ACTIONS: UiPolicyActions = {
   hiddenFields: [],
   shownFields: [],
   readonlyFields: [],
@@ -32,10 +36,29 @@ const defaultActions: UiPolicyActions = {
   disabledFields: [],
 };
 
+/**
+ * Safely merges partial actions with defaults to ensure all fields are defined.
+ * Handles undefined, null, or partial action objects from API responses.
+ */
+function getSafeActions(actions: UiPolicyActions | undefined | null): UiPolicyActions {
+  if (!actions) {
+    return DEFAULT_ACTIONS;
+  }
+  return {
+    hiddenFields: actions.hiddenFields ?? [],
+    shownFields: actions.shownFields ?? [],
+    readonlyFields: actions.readonlyFields ?? [],
+    editableFields: actions.editableFields ?? [],
+    mandatoryFields: actions.mandatoryFields ?? [],
+    optionalFields: actions.optionalFields ?? [],
+    disabledFields: actions.disabledFields ?? [],
+  };
+}
+
 export function useUiPolicy(tableName: string, initialFormData?: Record<string, unknown>): UseUiPolicyResult {
   useAuth();
   const [policies, setPolicies] = useState<UiPolicy[]>([]);
-  const [actions, setActions] = useState<UiPolicyActions>(defaultActions);
+  const [actions, setActions] = useState<UiPolicyActions>(DEFAULT_ACTIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +86,8 @@ export function useUiPolicy(tableName: string, initialFormData?: Record<string, 
 
       try {
         const response = await uiPolicyApi.evaluate(tableName, formData);
-        setActions(response.data.actions);
+        // Safely merge API response with defaults to handle undefined/partial responses
+        setActions(getSafeActions(response.data?.actions));
       } catch (err) {
         console.error('Error evaluating UI policies:', err);
         // Keep current actions on error
@@ -82,51 +106,55 @@ export function useUiPolicy(tableName: string, initialFormData?: Record<string, 
     }
   }, [initialFormData, policies.length, evaluatePolicies]);
 
+  // Create a safe actions object that guarantees all fields are defined arrays.
+  // This is the single source of truth for all field checks below.
+  const safeActions = useMemo(() => getSafeActions(actions), [actions]);
+
   const hiddenFieldsSet = useMemo(
-    () => new Set(actions.hiddenFields),
-    [actions.hiddenFields]
+    () => new Set(safeActions.hiddenFields),
+    [safeActions.hiddenFields]
   );
 
   const readonlyFieldsSet = useMemo(
-    () => new Set(actions.readonlyFields),
-    [actions.readonlyFields]
+    () => new Set(safeActions.readonlyFields),
+    [safeActions.readonlyFields]
   );
 
   const mandatoryFieldsSet = useMemo(
-    () => new Set(actions.mandatoryFields),
-    [actions.mandatoryFields]
+    () => new Set(safeActions.mandatoryFields),
+    [safeActions.mandatoryFields]
   );
 
   const disabledFieldsSet = useMemo(
-    () => new Set(actions.disabledFields),
-    [actions.disabledFields]
+    () => new Set(safeActions.disabledFields),
+    [safeActions.disabledFields]
   );
 
   const isFieldHidden = useCallback(
     (fieldName: string): boolean => {
       // Hidden unless explicitly shown
-      if (actions.shownFields.includes(fieldName)) return false;
+      if (safeActions.shownFields.includes(fieldName)) return false;
       return hiddenFieldsSet.has(fieldName);
     },
-    [hiddenFieldsSet, actions.shownFields]
+    [hiddenFieldsSet, safeActions.shownFields]
   );
 
   const isFieldReadonly = useCallback(
     (fieldName: string): boolean => {
       // Readonly unless explicitly editable
-      if (actions.editableFields.includes(fieldName)) return false;
+      if (safeActions.editableFields.includes(fieldName)) return false;
       return readonlyFieldsSet.has(fieldName);
     },
-    [readonlyFieldsSet, actions.editableFields]
+    [readonlyFieldsSet, safeActions.editableFields]
   );
 
   const isFieldMandatory = useCallback(
     (fieldName: string): boolean => {
       // Mandatory unless explicitly optional
-      if (actions.optionalFields.includes(fieldName)) return false;
+      if (safeActions.optionalFields.includes(fieldName)) return false;
       return mandatoryFieldsSet.has(fieldName);
     },
-    [mandatoryFieldsSet, actions.optionalFields]
+    [mandatoryFieldsSet, safeActions.optionalFields]
   );
 
   const isFieldDisabled = useCallback(
