@@ -160,6 +160,8 @@ function App() {
                       moduleName="ITSM"
                     />
                   } />
+                  {/* Redirect /audit to /audits to prevent white screen */}
+                  <Route path="audit" element={<Navigate to="/audits" replace />} />
                   <Route path="audits" element={<AuditList />} />
                   <Route path="audits/new" element={<AuditDetail />} />
                   <Route path="audits/:id" element={<AuditDetail />} />

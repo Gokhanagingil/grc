@@ -33,6 +33,7 @@ const KNOWN_ROUTES = new Set([
   '/risk',
   '/governance',
   '/compliance',
+  '/audit',
   '/audits',
   '/findings',
   '/incidents',
@@ -120,20 +121,32 @@ export interface UseMenuDecisionResult {
 
 export function useMenuDecision(): UseMenuDecisionResult {
   const { isModuleEnabled, isLoading: modulesLoading } = useModules();
-  const { isFrameworkActive } = useOnboardingSafe();
+  const { isFrameworkActive, loading: onboardingLoading, context } = useOnboardingSafe();
   const { user } = useAuth();
 
   const userRole = user?.role || 'user';
 
   // Check if any framework is active
+  // Also check context.activeFrameworks directly to handle cases where
+  // isFrameworkActive might return false during loading or initialization
   const hasActiveFramework = useMemo(() => {
-    return (
+    // First check via the isFrameworkActive helper
+    const hasViaHelper = (
       isFrameworkActive(FrameworkType.ISO27001) ||
       isFrameworkActive(FrameworkType.SOC2) ||
       isFrameworkActive(FrameworkType.NIST) ||
-      isFrameworkActive(FrameworkType.GDPR)
+      isFrameworkActive(FrameworkType.GDPR) ||
+      isFrameworkActive(FrameworkType.HIPAA) ||
+      isFrameworkActive(FrameworkType.PCI_DSS)
     );
-  }, [isFrameworkActive]);
+    
+    // Also check the raw context.activeFrameworks array as a fallback
+    // This handles cases where the context has frameworks but isFrameworkActive
+    // returns false due to timing or initialization issues
+    const hasViaContext = context.activeFrameworks && context.activeFrameworks.length > 0;
+    
+    return hasViaHelper || hasViaContext;
+  }, [isFrameworkActive, context.activeFrameworks]);
 
   /**
    * Get gating message for a module that requires framework
@@ -249,7 +262,7 @@ export function useMenuDecision(): UseMenuDecisionResult {
     getItemStatus,
     hasActiveFramework,
     isModuleEnabled,
-    isLoading: modulesLoading,
+    isLoading: modulesLoading || onboardingLoading,
     getGatingMessage,
   };
 }
