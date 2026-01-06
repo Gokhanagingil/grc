@@ -161,6 +161,25 @@ jobs:
         env:
           PGPASSWORD: postgres
 
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations inside container..."
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=production \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_preflight \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-preflight-jwt-secret-for-testing-purposes-only-64chars-minimum \
+            -e REFRESH_TOKEN_SECRET=ci-preflight-refresh-secret-for-testing-purposes-only \
+            grc-backend:preflight \
+            node dist/scripts/migration-run.js
+          
+          echo "Migrations completed successfully"
+
       - name: Run backend container
         run: |
           docker run -d \
@@ -173,7 +192,7 @@ jobs:
             -e DB_USER=postgres \
             -e DB_PASSWORD=postgres \
             -e DB_NAME=grc_preflight \
-            -e DB_SYNC=true \
+            -e DB_SYNC=false \
             -e JWT_SECRET=ci-preflight-jwt-secret-for-testing-purposes-only-64chars-minimum \
             -e REFRESH_TOKEN_SECRET=ci-preflight-refresh-secret-for-testing-purposes-only \
             grc-backend:preflight
