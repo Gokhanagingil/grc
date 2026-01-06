@@ -49,8 +49,8 @@ env:
   DB_USER: preflight_user
   DB_PASSWORD: preflight_pass_ci_only
   DB_NAME: preflight_db
-  # Application config
-  NODE_ENV: staging
+  # Application config (use 'production' to pass validation and use dist mode)
+  NODE_ENV: production
   DB_SYNC: 'false'
   JWT_SECRET: ci-preflight-jwt-secret-for-testing-only-64chars-minimum-length
   REFRESH_TOKEN_SECRET: ci-preflight-refresh-secret-64chars-minimum-length
@@ -178,8 +178,8 @@ jobs:
           set -o pipefail
           
           # seed:grc creates tenant + admin + GRC data
-          # Use ts-node since seed scripts may not be compiled to dist
-          npm run seed:grc 2>&1 | tee seed_grc_output.log
+          # Use compiled dist script (matches staging behavior, avoids ts-node in production mode)
+          node dist/scripts/seed-grc.js 2>&1 | tee seed_grc_output.log
           SEED_EXIT=$?
           
           # Check for relation errors
@@ -206,7 +206,8 @@ jobs:
           echo "=== Running seed:onboarding ==="
           set -o pipefail
           
-          npm run seed:onboarding 2>&1 | tee seed_onboarding_output.log
+          # Use compiled dist script (matches staging behavior)
+          node dist/scripts/seed-onboarding.js 2>&1 | tee seed_onboarding_output.log
           SEED_EXIT=$?
           
           if grep -qi "relation.*does not exist" seed_onboarding_output.log; then
