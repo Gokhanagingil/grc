@@ -48,11 +48,19 @@ export const AdminFrameworks: React.FC = () => {
         tenantFrameworksApi.get(user.tenantId),
       ]);
 
-      const frameworksData = unwrapResponse<{ frameworks: GrcFrameworkData[] }>(frameworksResponse);
-      const tenantData = unwrapResponse<{ activeKeys: string[] }>(tenantFrameworksResponse);
+      const frameworksData = unwrapResponse<GrcFrameworkData[] | { frameworks: GrcFrameworkData[] }>(frameworksResponse);
+      const tenantData = unwrapResponse<string[] | { activeKeys: string[] }>(tenantFrameworksResponse);
 
-      setFrameworks(frameworksData.frameworks || []);
-      const activeKeys = new Set(tenantData.activeKeys || []);
+      const frameworksList = Array.isArray(frameworksData) 
+        ? frameworksData 
+        : (frameworksData?.frameworks ?? []);
+      
+      const activeKeysList = Array.isArray(tenantData)
+        ? tenantData
+        : (tenantData?.activeKeys ?? []);
+
+      setFrameworks(frameworksList);
+      const activeKeys = new Set(activeKeysList);
       setSelectedKeys(activeKeys);
       setInitialKeys(activeKeys);
     } catch (err: unknown) {
