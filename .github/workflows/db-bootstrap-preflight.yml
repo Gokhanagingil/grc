@@ -95,7 +95,9 @@ jobs:
           cache-dependency-path: backend-nest/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
+        # Note: --include=dev is needed because NODE_ENV=production causes npm ci
+        # to skip devDependencies, but we need @nestjs/cli for the build step
 
       - name: Build application
         run: npm run build
