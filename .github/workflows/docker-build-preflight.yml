@@ -1,0 +1,295 @@
+# =============================================================================
+# GRC Platform - Docker Build Preflight
+# =============================================================================
+# CI-local validation that Docker images build correctly (same as staging deploy).
+# Runs on PRs that modify Dockerfiles, docker-compose*, backend-nest, frontend,
+# or ops scripts.
+#
+# This workflow:
+#   - Builds backend Docker image (no push, with cache)
+#   - Builds frontend Docker image (no push, with cache)
+#   - Runs backend container with CI-local env and hits /health/ready
+#
+# This workflow does NOT:
+#   - Push images to any registry
+#   - Deploy to staging/production
+#   - Access secrets or SSH to remote servers
+# =============================================================================
+
+name: Docker Build Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'backend-nest/Dockerfile'
+      - 'backend-nest/package*.json'
+      - 'backend-nest/src/**'
+      - 'frontend/Dockerfile'
+      - 'frontend/package*.json'
+      - 'frontend/src/**'
+      - 'frontend/nginx.conf'
+      - 'docker-compose*.yml'
+      - 'ops/**'
+      - '.github/workflows/docker-build-preflight.yml'
+
+concurrency:
+  group: docker-preflight-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build Backend Docker Image
+  # ---------------------------------------------------------------------------
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend-nest
+          file: ./backend-nest/Dockerfile
+          push: false
+          tags: grc-backend:preflight
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          load: true
+
+      - name: Export backend image for smoke test
+        run: |
+          docker save grc-backend:preflight -o /tmp/backend-image.tar
+
+      - name: Upload backend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp/backend-image.tar
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Build Frontend Docker Image
+  # ---------------------------------------------------------------------------
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: grc-frontend:preflight
+          build-args: |
+            REACT_APP_API_URL=
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ---------------------------------------------------------------------------
+  # Backend Container Smoke Test
+  # ---------------------------------------------------------------------------
+  # Runs the backend container with CI-local environment and validates
+  # the /health/ready endpoint responds correctly.
+  # ---------------------------------------------------------------------------
+  backend-smoke-test:
+    name: Backend Smoke Test
+    runs-on: ubuntu-latest
+    needs: build-backend
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_preflight
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_preflight"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download backend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp
+
+      - name: Load backend image
+        run: |
+          docker load -i /tmp/backend-image.tar
+
+      - name: Wait for PostgreSQL
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d grc_preflight 2>/dev/null; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready"
+          exit 1
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations inside container..."
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=production \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_preflight \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-preflight-jwt-secret-for-testing-purposes-only-64chars-minimum \
+            -e REFRESH_TOKEN_SECRET=ci-preflight-refresh-secret-for-testing-purposes-only \
+            grc-backend:preflight \
+            node dist/scripts/migration-run.js
+          
+          echo "Migrations completed successfully"
+
+      - name: Run backend container
+        run: |
+          docker run -d \
+            --name grc-backend-preflight \
+            --network host \
+            -e NODE_ENV=production \
+            -e PORT=3002 \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_preflight \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-preflight-jwt-secret-for-testing-purposes-only-64chars-minimum \
+            -e REFRESH_TOKEN_SECRET=ci-preflight-refresh-secret-for-testing-purposes-only \
+            grc-backend:preflight
+
+          echo "Backend container started, waiting for it to be ready..."
+
+      - name: Wait for backend health
+        run: |
+          echo "Waiting for backend /health/ready endpoint..."
+          MAX_WAIT=60
+          INTERVAL=3
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/ready 2>/dev/null || echo "000")
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Backend is ready! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            
+            echo "Attempt $((ELAPSED/INTERVAL + 1)): HTTP $HTTP_CODE, waiting..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "ERROR: Backend did not become ready within ${MAX_WAIT}s"
+          echo "=== Container logs ==="
+          docker logs grc-backend-preflight 2>&1 | tail -100
+          exit 1
+
+      - name: Validate health endpoints
+        run: |
+          echo "=== Validating health endpoints ==="
+          
+          # Test /health/live
+          echo "Testing /health/live..."
+          LIVE_RESPONSE=$(curl -s http://localhost:3002/health/live)
+          LIVE_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/live)
+          echo "  Status: $LIVE_CODE"
+          
+          if [ "$LIVE_CODE" != "200" ]; then
+            echo "ERROR: /health/live returned $LIVE_CODE"
+            exit 1
+          fi
+          
+          # Test /health/ready
+          echo "Testing /health/ready..."
+          READY_RESPONSE=$(curl -s http://localhost:3002/health/ready)
+          READY_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/ready)
+          echo "  Status: $READY_CODE"
+          
+          if [ "$READY_CODE" != "200" ]; then
+            echo "ERROR: /health/ready returned $READY_CODE"
+            exit 1
+          fi
+          
+          echo ""
+          echo "=== Docker Build Preflight: PASSED ==="
+          echo "Backend container started successfully and health endpoints are responding."
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop grc-backend-preflight 2>/dev/null || true
+          docker rm grc-backend-preflight 2>/dev/null || true
+
+  # ---------------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------------
+  preflight-summary:
+    name: Preflight Summary
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend, backend-smoke-test]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Check job results
+        run: |
+          echo "=========================================="
+          echo "  DOCKER BUILD PREFLIGHT SUMMARY"
+          echo "=========================================="
+          echo ""
+          echo "Backend Build:      ${{ needs.build-backend.result }}"
+          echo "Frontend Build:     ${{ needs.build-frontend.result }}"
+          echo "Backend Smoke Test: ${{ needs.backend-smoke-test.result }}"
+          echo ""
+          
+          if [ "${{ needs.build-backend.result }}" != "success" ] || \
+             [ "${{ needs.build-frontend.result }}" != "success" ] || \
+             [ "${{ needs.backend-smoke-test.result }}" != "success" ]; then
+            echo "PREFLIGHT FAILED: One or more checks did not pass"
+            exit 1
+          fi
+          
+          echo "PREFLIGHT PASSED: All Docker builds and smoke tests succeeded"
+          echo ""
+          echo "This PR is safe to merge from a Docker build perspective."
+          echo "Images build correctly and backend container starts successfully."
