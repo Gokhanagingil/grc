@@ -24,6 +24,9 @@ import {
   ArrowBack as BackIcon,
   History as AuditLogsIcon,
   MonitorHeart as SystemIcon,
+  Policy as FrameworksIcon,
+  Schema as DataModelIcon,
+  Build as QueryBuilderIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -84,6 +87,24 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'System Settings',
     icon: <SettingsIcon />,
     path: '/admin/settings',
+  },
+  {
+    id: 'data-model',
+    text: 'Data Model',
+    icon: <DataModelIcon />,
+    path: '/admin/data-model',
+  },
+  {
+    id: 'frameworks',
+    text: 'Frameworks',
+    icon: <FrameworksIcon />,
+    path: '/admin/frameworks',
+  },
+  {
+    id: 'query-builder',
+    text: 'Query Builder',
+    icon: <QueryBuilderIcon />,
+    path: '/dotwalking',
   },
 ];
 

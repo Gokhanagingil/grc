@@ -54,12 +54,21 @@ export function getExpressApiUrl(): string {
  * Get the NestJS API base URL from environment variables.
  * Falls back to REACT_APP_API_URL (without /api suffix) for production compatibility.
  * 
+ * If REACT_APP_API_URL is explicitly set to empty string (''), return empty string
+ * to use relative URLs (for nginx reverse proxy in staging/production).
+ * 
  * @returns The NestJS API base URL
  */
 export function getNestApiUrl(): string {
   // First check for explicit NestJS URL
   if (process.env.REACT_APP_NEST_API_URL) {
     return process.env.REACT_APP_NEST_API_URL;
+  }
+  
+  // If REACT_APP_API_URL is explicitly set to empty string, use relative URL
+  // This is for staging/production where nginx reverse proxy handles routing
+  if (process.env.REACT_APP_API_URL === '') {
+    return '';
   }
   
   // Fall back to main API URL (remove /api suffix if present) for production
