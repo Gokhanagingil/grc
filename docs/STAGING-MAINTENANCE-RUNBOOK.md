@@ -286,6 +286,74 @@ If the frontend still shows old behavior after rebuild:
 
 ## Troubleshooting
 
+### Debugging Minified JavaScript Crashes (Sourcemap Tracing)
+
+When the frontend crashes with an error like `TypeError: Cannot read properties of undefined (reading 'length')` and the stack trace points to minified code (e.g., `main.abc123.js:2:1690087`), use the sourcemap tracing tool to find the original source location.
+
+**Prerequisites:**
+- Python 3.6+ on the staging host (no Node.js required)
+- The `ops/sourcemap_trace.py` script in the repository
+
+**Step 1: Extract the sourcemap from the frontend container**
+
+```bash
+# SSH to staging server
+ssh root@46.224.99.150
+
+# Find the current bundle hash
+docker exec grc-staging-frontend ls /usr/share/nginx/html/static/js/ | grep 'main.*\.js$'
+# Example output: main.1c58c782.js
+
+# Extract the sourcemap (replace <hash> with actual hash)
+docker compose -f docker-compose.staging.yml exec -T frontend \
+  sh -lc 'cat /usr/share/nginx/html/static/js/main.<hash>.js.map' > /tmp/main.<hash>.js.map
+
+# Verify the file is valid JSON (should show file size > 0)
+ls -la /tmp/main.<hash>.js.map
+head -c 1 /tmp/main.<hash>.js.map  # Should show '{'
+```
+
+**Step 2: Run the sourcemap tracer**
+
+```bash
+# From the repo directory on staging
+cd /opt/grc-platform
+
+# Trace the crash location (replace <hash>, <line>, <column> with actual values)
+python3 ops/sourcemap_trace.py /tmp/main.<hash>.js.map <line> <column>
+
+# Example:
+python3 ops/sourcemap_trace.py /tmp/main.1c58c782.js.map 2 1690087
+```
+
+**Expected output:**
+```
+Loading sourcemap: /tmp/main.1c58c782.js.map
+File size: 8,465,398 bytes
+Sources: 1494 files
+Names: 14563 identifiers
+Parsing mappings...
+Total mappings: 356,127
+
+Looking up generated position: line 2, column 1690087
+
+============================================================
+ORIGINAL SOURCE LOCATION:
+============================================================
+  File:   hooks/useUiPolicy.ts
+  Line:   99
+  Column: 3
+  Name:   useEffect
+============================================================
+```
+
+**Troubleshooting sourcemap extraction:**
+
+If the sourcemap file is empty or invalid:
+1. Verify the container is running: `docker ps | grep frontend`
+2. Check the file exists in container: `docker exec grc-staging-frontend ls -la /usr/share/nginx/html/static/js/`
+3. Ensure GENERATE_SOURCEMAP=true was set during build (check Dockerfile or docker-compose.staging.yml)
+
 ### Container Won't Start
 
 1. Check logs: `docker logs grc-staging-backend`

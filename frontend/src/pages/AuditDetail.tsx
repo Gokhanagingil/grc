@@ -666,7 +666,7 @@ export const AuditDetail: React.FC = () => {
   };
 
   const isFieldHidden = (fieldName: string): boolean => {
-    if (permissions?.maskedFields.includes(fieldName)) return true;
+    if (permissions?.maskedFields?.includes(fieldName)) return true;
     if (uiPolicyHidden(fieldName)) return true;
     if (layout?.hiddenFields?.includes(fieldName)) return true;
     return false;
@@ -675,7 +675,7 @@ export const AuditDetail: React.FC = () => {
   const isFieldReadonly = (fieldName: string): boolean => {
     if (!isEditMode) return true;
     if (!permissions?.write) return true;
-    if (permissions?.deniedFields.includes(fieldName)) return true;
+    if (permissions?.deniedFields?.includes(fieldName)) return true;
     if (uiPolicyReadonly(fieldName)) return true;
     if (layout?.readonlyFields?.includes(fieldName)) return true;
     return false;
@@ -1422,8 +1422,8 @@ export const AuditDetail: React.FC = () => {
               {permissions.read && ' Read'}
               {permissions.write && ' | Write'}
               {permissions.delete && ' | Delete'}
-              {permissions.maskedFields.length > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
-              {permissions.deniedFields.length > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
+              {(permissions.maskedFields?.length ?? 0) > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
+              {(permissions.deniedFields?.length ?? 0) > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
             </Typography>
           </Paper>
         )}

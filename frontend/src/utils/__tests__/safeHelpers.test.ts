@@ -234,4 +234,126 @@ describe('safeHelpers', () => {
       expect(result.tags).toEqual([]);
     });
   });
+
+  describe('Permissions object crash regression tests', () => {
+    interface AuditPermissions {
+      read: boolean;
+      write: boolean;
+      delete: boolean;
+      maskedFields?: string[];
+      deniedFields?: string[];
+    }
+
+    it('handles permissions with undefined maskedFields - no crash on .length access', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: true,
+        delete: false,
+      };
+      
+      // This pattern caused the crash: permissions.maskedFields.length
+      // Fixed pattern: (permissions.maskedFields?.length ?? 0)
+      expect(() => {
+        const length = permissions.maskedFields?.length ?? 0;
+        return length > 0;
+      }).not.toThrow();
+      
+      expect(permissions.maskedFields?.length ?? 0).toBe(0);
+    });
+
+    it('handles permissions with undefined deniedFields - no crash on .length access', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: false,
+        delete: false,
+      };
+      
+      // This pattern caused the crash: permissions.deniedFields.length
+      // Fixed pattern: (permissions.deniedFields?.length ?? 0)
+      expect(() => {
+        const length = permissions.deniedFields?.length ?? 0;
+        return length > 0;
+      }).not.toThrow();
+      
+      expect(permissions.deniedFields?.length ?? 0).toBe(0);
+    });
+
+    it('handles permissions with undefined maskedFields - no crash on .includes access', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: true,
+        delete: false,
+      };
+      
+      // This pattern caused the crash: permissions?.maskedFields.includes(fieldName)
+      // Fixed pattern: permissions?.maskedFields?.includes(fieldName)
+      expect(() => {
+        const isHidden = permissions?.maskedFields?.includes('someField');
+        return isHidden;
+      }).not.toThrow();
+      
+      expect(permissions?.maskedFields?.includes('someField')).toBe(undefined);
+    });
+
+    it('handles permissions with undefined deniedFields - no crash on .includes access', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: false,
+        delete: false,
+      };
+      
+      // This pattern caused the crash: permissions?.deniedFields.includes(fieldName)
+      // Fixed pattern: permissions?.deniedFields?.includes(fieldName)
+      expect(() => {
+        const isDenied = permissions?.deniedFields?.includes('someField');
+        return isDenied;
+      }).not.toThrow();
+      
+      expect(permissions?.deniedFields?.includes('someField')).toBe(undefined);
+    });
+
+    it('handles permissions with empty arrays correctly', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: true,
+        delete: false,
+        maskedFields: [],
+        deniedFields: [],
+      };
+      
+      expect(permissions.maskedFields?.length ?? 0).toBe(0);
+      expect(permissions.deniedFields?.length ?? 0).toBe(0);
+      expect(permissions.maskedFields?.includes('someField')).toBe(false);
+      expect(permissions.deniedFields?.includes('someField')).toBe(false);
+    });
+
+    it('handles permissions with populated arrays correctly', () => {
+      const permissions: AuditPermissions = {
+        read: true,
+        write: true,
+        delete: false,
+        maskedFields: ['field1', 'field2'],
+        deniedFields: ['field3'],
+      };
+      
+      expect(permissions.maskedFields?.length ?? 0).toBe(2);
+      expect(permissions.deniedFields?.length ?? 0).toBe(1);
+      expect(permissions.maskedFields?.includes('field1')).toBe(true);
+      expect(permissions.maskedFields?.includes('unknown')).toBe(false);
+      expect(permissions.deniedFields?.includes('field3')).toBe(true);
+    });
+
+    it('handles null permissions object correctly', () => {
+      const permissions: AuditPermissions | null = null;
+      
+      // This pattern is safe: permissions?.maskedFields?.includes(fieldName)
+      expect(() => {
+        const isHidden = permissions?.maskedFields?.includes('someField');
+        return isHidden;
+      }).not.toThrow();
+      
+      expect(permissions?.maskedFields?.includes('someField')).toBe(undefined);
+      expect(permissions?.maskedFields?.length ?? 0).toBe(0);
+    });
+  });
 });
