@@ -135,3 +135,76 @@ export function normalizeArrayFields<T extends Record<string, unknown>>(
   }
   return normalized;
 }
+
+/**
+ * Ensures the input is always an array, handling various API response shapes.
+ * This is a more robust version of safeArray that also handles:
+ * - Envelope responses: {success: true, data: [...]}
+ * - Nested data: {success: true, data: {items: [...]}}
+ * - Axios responses: response.data patterns
+ * - Objects that should be arrays but aren't
+ * 
+ * @param value - The value to ensure is an array (may be envelope, object, null, undefined)
+ * @returns An array, or empty array if input cannot be converted to array
+ */
+export function ensureArray<T>(value: unknown): T[] {
+  // Already an array
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+  
+  // Null or undefined
+  if (value === null || value === undefined) {
+    return [];
+  }
+  
+  // Not an object - can't extract array
+  if (typeof value !== 'object') {
+    return [];
+  }
+  
+  const obj = value as Record<string, unknown>;
+  
+  // Handle envelope response: {success: true/false, data: ...}
+  if ('success' in obj && 'data' in obj) {
+    // If success is false, return empty array
+    if (obj.success === false) {
+      return [];
+    }
+    // Recursively handle the data field
+    return ensureArray<T>(obj.data);
+  }
+  
+  // Handle {data: ...} pattern (axios response)
+  if ('data' in obj && Object.keys(obj).length <= 3) {
+    return ensureArray<T>(obj.data);
+  }
+  
+  // Handle {items: [...]} pattern
+  if ('items' in obj && Array.isArray(obj.items)) {
+    return obj.items as T[];
+  }
+  
+  // Handle {users: [...]} pattern (specific to users endpoint)
+  if ('users' in obj && Array.isArray(obj.users)) {
+    return obj.users as T[];
+  }
+  
+  // Handle {findings: [...]} pattern
+  if ('findings' in obj && Array.isArray(obj.findings)) {
+    return obj.findings as T[];
+  }
+  
+  // Handle {requirements: [...]} pattern
+  if ('requirements' in obj && Array.isArray(obj.requirements)) {
+    return obj.requirements as T[];
+  }
+  
+  // Handle {reports: [...]} pattern
+  if ('reports' in obj && Array.isArray(obj.reports)) {
+    return obj.reports as T[];
+  }
+  
+  // Object is not array-like, return empty array
+  return [];
+}

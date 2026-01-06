@@ -57,6 +57,7 @@ import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
 import { useOnboardingSafe } from '../contexts/OnboardingContext';
+import { safeArray, ensureArray } from '../utils/safeHelpers';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
@@ -319,7 +320,8 @@ export const AuditDetail: React.FC = () => {
     const fetchUsers = useCallback(async () => {
       try {
         const response = await api.get('/api/users');
-        setUsers(response.data.users || response.data || []);
+        // Use ensureArray to safely extract users array from any response shape
+        setUsers(ensureArray<User>(response.data));
       } catch {
         setUsers([]);
       }
@@ -522,7 +524,7 @@ export const AuditDetail: React.FC = () => {
         };
 
                 const getUniqueFrameworks = (): string[] => {
-                  const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
+                  const frameworks = safeArray(auditRequirements).map(r => r.framework || r.requirement?.framework);
                   const unique: string[] = [];
                   for (const f of frameworks) {
                     if (!f) continue;
@@ -537,7 +539,7 @@ export const AuditDetail: React.FC = () => {
                 };
 
         const getUniqueDomains = (): string[] => {
-          const domains = auditRequirements
+          const domains = safeArray(auditRequirements)
             .filter(r => !frameworkFilter || (r.framework || r.requirement?.framework) === frameworkFilter)
             .map(r => {
               const code = r.referenceCode || r.requirement?.referenceCode || '';
@@ -554,7 +556,7 @@ export const AuditDetail: React.FC = () => {
         };
 
         const getFilteredRequirements = (): AuditRequirement[] => {
-          return auditRequirements.filter(r => {
+          return safeArray(auditRequirements).filter(r => {
             const framework = r.framework || r.requirement?.framework;
             const referenceCode = r.referenceCode || r.requirement?.referenceCode || '';
             const title = r.title || r.requirement?.title || '';
@@ -865,7 +867,7 @@ export const AuditDetail: React.FC = () => {
                       onChange={(e) => handleFieldChange('lead_auditor_id', e.target.value || null)}
                     >
                       <MenuItem value="">None</MenuItem>
-                      {users.map(u => (
+                      {safeArray(users).map(u => (
                         <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</MenuItem>
                       ))}
                     </Select>
@@ -1225,7 +1227,7 @@ export const AuditDetail: React.FC = () => {
                                                 </TableRow>
                                               </TableHead>
                                               <TableBody>
-                                                {findings.map((finding) => (
+                                                {safeArray(findings).map((finding) => (
                                                   <TableRow key={finding.id} hover>
                                                     <TableCell>
                                                       <Typography variant="body2" fontWeight="medium">
@@ -1345,7 +1347,7 @@ export const AuditDetail: React.FC = () => {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {reports.map((report) => (
+                                {safeArray(reports).map((report) => (
                                   <TableRow key={report.id}>
                                     <TableCell>v{report.version}</TableCell>
                                     <TableCell>
@@ -1451,7 +1453,7 @@ export const AuditDetail: React.FC = () => {
                           checked={selectedRequirementIds.length === availableRequirements.length}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedRequirementIds(availableRequirements.map(r => r.id));
+                              setSelectedRequirementIds(safeArray(availableRequirements).map(r => r.id));
                             } else {
                               setSelectedRequirementIds([]);
                             }
@@ -1464,9 +1466,9 @@ export const AuditDetail: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {availableRequirements.map((req) => {
+                    {safeArray(availableRequirements).map((req) => {
                       const isSelected = selectedRequirementIds.includes(req.id);
-                      const isAlreadyInScope = auditRequirements.some(ar => ar.requirementId === req.id);
+                      const isAlreadyInScope = safeArray(auditRequirements).some(ar => ar.requirementId === req.id);
                       return (
                         <TableRow 
                           key={req.id} 
@@ -1589,7 +1591,7 @@ export const AuditDetail: React.FC = () => {
                     onChange={(e) => setFindingFormData(prev => ({ ...prev, ownerUserId: e.target.value }))}
                   >
                     <MenuItem value="">None</MenuItem>
-                    {users.map(u => (
+                    {safeArray(users).map(u => (
                       <MenuItem key={u.id} value={String(u.id)}>{u.first_name} {u.last_name}</MenuItem>
                     ))}
                   </Select>
@@ -1629,7 +1631,7 @@ export const AuditDetail: React.FC = () => {
                         </Box>
                       )}
                     >
-                      {auditRequirements.map((ar) => (
+                      {safeArray(auditRequirements).map((ar) => (
                         <MenuItem key={ar.requirementId} value={ar.requirementId}>
                           <Checkbox checked={findingFormData.requirementIds.includes(ar.requirementId)} />
                           <ListItemText 
