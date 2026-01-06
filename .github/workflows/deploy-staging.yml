@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            set -e
+            set -euo pipefail
             
             echo "=== Starting Staging Deployment ==="
             echo "Deploy path: ${{ env.DEPLOY_PATH }}"
