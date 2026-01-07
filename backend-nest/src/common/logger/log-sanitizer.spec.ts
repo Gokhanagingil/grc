@@ -28,8 +28,10 @@ describe('LogSanitizer', () => {
 
       it('should redact multiple JWT tokens in a string', () => {
         // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
-        const jwt1 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_001';
-        const jwt2 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.FAKE_SIG_FOR_TESTING_002';
+        const jwt1 =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_001';
+        const jwt2 =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.FAKE_SIG_FOR_TESTING_002';
         const result = sanitizeString(`First: ${jwt1}, Second: ${jwt2}`);
         expect(result).toBe('First: [JWT_REDACTED], Second: [JWT_REDACTED]');
       });
@@ -178,7 +180,8 @@ describe('LogSanitizer', () => {
       it('should sanitize authorization key', () => {
         // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const data = {
-          authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_005',
+          authorization:
+            'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_005',
         };
         const result = sanitizeLogData(data);
         expect(result.authorization).toMatch(/\[REDACTED\]/);
@@ -438,6 +441,219 @@ describe('LogSanitizer', () => {
       expect(result.body).toBeUndefined();
       expect(result.query).toBeUndefined();
       expect(result.params).toBeUndefined();
+    });
+  });
+
+  describe('Security: ReDoS Prevention', () => {
+    it('should sanitize very long strings starting with eyJ quickly (no regex backtracking)', () => {
+      // This test verifies that the O(n) JWT scanning function handles
+      // pathological inputs without exponential backtracking
+      const maliciousInput = 'eyJ' + 'a'.repeat(10000);
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete in under 500ms (O(n) complexity) - allowing for CI variability
+      expect(endTime - startTime).toBeLessThan(500);
+      // Should not be redacted since it's not a valid JWT (no dots)
+      expect(result).toContain('eyJ');
+    });
+
+    it('should handle repeated eyJ patterns quickly', () => {
+      // Multiple potential JWT starts that could cause backtracking
+      const maliciousInput = 'eyJ'.repeat(1000) + '.payload.signature';
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly
+      expect(endTime - startTime).toBeLessThan(100);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle strings with many percent signs quickly', () => {
+      // Percent-encoded patterns that could cause backtracking in naive regex
+      const maliciousInput = '%'.repeat(5000) + 'normal text';
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly
+      expect(endTime - startTime).toBeLessThan(100);
+      expect(result).toBeDefined();
+    });
+
+    it('should truncate very long inputs to prevent DoS', () => {
+      const veryLongInput = 'a'.repeat(20000);
+      const result = sanitizeString(veryLongInput);
+
+      // Should be truncated to MAX_INPUT_LENGTH (10000) + [TRUNCATED] marker
+      expect(result.length).toBeLessThan(veryLongInput.length);
+      expect(result).toContain('[TRUNCATED]');
+    });
+
+    it('should handle JWT-like patterns with many dots quickly', () => {
+      // Pattern that could cause backtracking: many dots with base64-like chars
+      const maliciousInput = 'eyJhbGciOiJIUzI1NiJ9' + '.abc'.repeat(1000);
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly
+      expect(endTime - startTime).toBeLessThan(100);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('Security: Prototype Pollution Prevention', () => {
+    it('should not write __proto__ key to sanitized objects', () => {
+      // Create object with __proto__ as own property using Object.defineProperty
+      const maliciousData: Record<string, unknown> = { name: 'test' };
+      Object.defineProperty(maliciousData, '__proto__', {
+        value: { polluted: true },
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+
+      const result = sanitizeLogData(maliciousData);
+
+      // The __proto__ key should be skipped and marker should be set
+      expect(result['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+      // The __proto__ key should not be in the result
+      expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(
+        false,
+      );
+      // Verify prototype is not polluted
+      const emptyObj: Record<string, unknown> = {};
+      expect(emptyObj['polluted']).toBeUndefined();
+    });
+
+    it('should not write constructor key to sanitized objects', () => {
+      const maliciousData = {
+        name: 'test',
+        constructor: { polluted: true },
+      };
+
+      const result = sanitizeLogData(maliciousData);
+
+      // The constructor key should be skipped
+      expect(result['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+      expect(result['constructor']).toBeUndefined();
+    });
+
+    it('should not write prototype key to sanitized objects', () => {
+      const maliciousData = {
+        name: 'test',
+        prototype: { polluted: true },
+      };
+
+      const result = sanitizeLogData(maliciousData);
+
+      // The prototype key should be skipped
+      expect(result['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+      expect(result['prototype']).toBeUndefined();
+    });
+
+    it('should handle nested objects with dangerous keys', () => {
+      // Create nested object with __proto__ as own property
+      const nestedObj: Record<string, unknown> = { name: 'John' };
+      Object.defineProperty(nestedObj, '__proto__', {
+        value: { admin: true },
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+      const maliciousData = { user: nestedObj };
+
+      const result = sanitizeLogData(maliciousData);
+
+      // Should sanitize nested object and skip dangerous key
+      expect(result.user.name).toBe('John');
+      expect(result.user['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+    });
+
+    it('should reject keys with invalid characters', () => {
+      const maliciousData = {
+        normal_key: 'value1',
+        'key with spaces': 'value2',
+        'key<script>': 'value3',
+      };
+
+      const result = sanitizeLogData(maliciousData);
+
+      // Valid key should be preserved
+      expect(result['normal_key']).toBe('value1');
+      // Invalid keys should be skipped
+      expect(result['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+      expect(result['key with spaces']).toBeUndefined();
+      expect(result['key<script>']).toBeUndefined();
+    });
+
+    it('should reject keys longer than 80 characters', () => {
+      const longKey = 'a'.repeat(100);
+      const maliciousData = {
+        [longKey]: 'value',
+        normalKey: 'normalValue',
+      };
+
+      const result = sanitizeLogData(maliciousData);
+
+      // Long key should be skipped
+      expect(result['[UNSAFE_KEY_SKIPPED]']).toBe(true);
+      expect(result[longKey]).toBeUndefined();
+      // Normal key should be preserved
+      expect(result['normalKey']).toBe('normalValue');
+    });
+
+    it('should use Object.create(null) to prevent prototype chain access', () => {
+      const data = { name: 'test' };
+      const result = sanitizeLogData(data);
+
+      // Result should not have Object.prototype methods accessible via hasOwnProperty check
+      // This verifies Object.create(null) was used
+      expect(Object.getPrototypeOf(result)).toBeNull();
+    });
+
+    it('should handle sanitizeHeaders with dangerous keys', () => {
+      const maliciousHeaders = {
+        'Content-Type': 'application/json',
+        __proto__: 'malicious',
+        constructor: 'malicious',
+      };
+
+      const result = sanitizeHeaders(maliciousHeaders);
+
+      // Valid header should be preserved
+      expect(result['Content-Type']).toBe('application/json');
+      // Dangerous keys should be skipped
+      expect(result['__proto__']).toBeUndefined();
+      expect(result['constructor']).toBeUndefined();
+    });
+  });
+
+  describe('Security: Resource Limits', () => {
+    it('should limit array processing to prevent memory bombs', () => {
+      // Create a large array
+      const largeArray = Array(2000).fill({ name: 'test' });
+      const result = sanitizeLogData(largeArray);
+
+      // Should be truncated and include marker
+      expect(result.length).toBeLessThanOrEqual(1001); // MAX_OBJECT_KEYS + 1 for marker
+      expect(result[result.length - 1]).toBe('[ARRAY_TRUNCATED]');
+    });
+
+    it('should limit object keys to prevent memory bombs', () => {
+      // Create an object with many keys
+      const largeObject: Record<string, string> = {};
+      for (let i = 0; i < 2000; i++) {
+        largeObject[`key${i}`] = 'value';
+      }
+
+      const result = sanitizeLogData(largeObject);
+
+      // Should have truncation marker
+      expect(result['[KEYS_TRUNCATED]']).toBe(true);
     });
   });
 });

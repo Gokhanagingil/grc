@@ -13,6 +13,13 @@
  * - API keys and secrets
  * - Password fields
  *
+ * Security Notes:
+ * - Uses O(n) scanning functions instead of regex for JWT detection to prevent ReDoS
+ * - Input strings are truncated to MAX_INPUT_LENGTH (10k chars) before processing
+ * - Object sanitization uses Object.create(null) to prevent prototype pollution
+ * - Dangerous keys (__proto__, prototype, constructor) are blocked
+ * - Recursion depth is limited to prevent CPU/memory bombs
+ *
  * Usage:
  *   import { sanitizeLogData, sanitizeString } from './log-sanitizer';
  *   const safeData = sanitizeLogData(sensitiveObject);
@@ -20,17 +27,40 @@
  */
 
 /**
- * Patterns for sensitive data detection
+ * Maximum input length to process (prevents DoS via large inputs)
+ */
+const MAX_INPUT_LENGTH = 10000;
+
+/**
+ * Maximum recursion depth for object sanitization
+ */
+const MAX_DEPTH = 10;
+
+/**
+ * Maximum number of keys to process in a single object
+ */
+const MAX_OBJECT_KEYS = 1000;
+
+/**
+ * Dangerous keys that should never be assigned to objects
+ */
+const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+/**
+ * Valid key pattern for object sanitization
+ */
+const VALID_KEY_PATTERN = /^[a-zA-Z0-9_.-]{1,80}$/;
+
+/**
+ * Patterns for sensitive data detection (non-ReDoS vulnerable patterns)
+ * Note: JWT detection uses O(n) scanning function instead of regex
  */
 const SENSITIVE_PATTERNS = {
-  // Authorization header values (Bearer, Basic, etc.)
-  authHeader: /Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/gi,
+  // Authorization header values - simple patterns without nested quantifiers
+  authHeader: /Bearer\s+\S+/gi,
   basicAuth: /Basic\s+[A-Za-z0-9+/=]+/gi,
 
-  // JWT tokens (three base64 segments separated by dots)
-  jwt: /eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g,
-
-  // Email addresses
+  // Email addresses - simplified pattern to avoid backtracking
   email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
 
   // API keys (common patterns: 32+ character alphanumeric strings)
@@ -39,9 +69,6 @@ const SENSITIVE_PATTERNS = {
 
   // Password values in JSON or query strings
   password: /(?:password|passwd|pwd)['":\s]*[=:]\s*['"]?([^'"\s&]+)['"]?/gi,
-
-  // Generic long tokens (40+ chars that look like secrets)
-  longToken: /(?<![A-Za-z0-9])[A-Za-z0-9]{40,}(?![A-Za-z0-9])/g,
 };
 
 /**
@@ -73,6 +100,101 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 /**
+ * Base64URL character set for JWT validation
+ */
+const BASE64URL_CHARS = new Set(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'.split(''),
+);
+
+/**
+ * Check if a character is a valid base64url character
+ */
+function isBase64UrlChar(char: string): boolean {
+  return BASE64URL_CHARS.has(char);
+}
+
+/**
+ * O(n) JWT detection and redaction function
+ * Scans for 'eyJ' prefix and validates JWT structure without regex backtracking
+ *
+ * JWT format: header.payload.signature where each part is base64url encoded
+ * Header always starts with 'eyJ' (base64 for '{"')
+ */
+function redactJWTs(input: string): string {
+  const result: string[] = [];
+  let i = 0;
+  const len = input.length;
+
+  while (i < len) {
+    // Look for JWT header prefix 'eyJ'
+    if (
+      i + 2 < len &&
+      input[i] === 'e' &&
+      input[i + 1] === 'y' &&
+      input[i + 2] === 'J'
+    ) {
+      // Potential JWT found, try to parse it
+      let partCount = 0;
+      let currentPartLen = 0;
+      let j = i;
+
+      // Scan through the potential JWT
+      while (j < len) {
+        const char = input[j];
+
+        if (char === '.') {
+          // Found a dot separator
+          if (currentPartLen === 0) {
+            // Empty part, not a valid JWT
+            break;
+          }
+          partCount++;
+          currentPartLen = 0;
+          j++;
+
+          // JWT has exactly 2 dots (3 parts)
+          if (partCount > 2) {
+            break;
+          }
+        } else if (isBase64UrlChar(char)) {
+          currentPartLen++;
+          j++;
+        } else {
+          // Non-base64url character, end of potential JWT
+          break;
+        }
+      }
+
+      // Valid JWT has exactly 3 parts (2 dots) and the last part has content
+      if (partCount === 2 && currentPartLen > 0) {
+        // This is a valid JWT structure, redact it
+        result.push('[JWT_REDACTED]');
+        i = j;
+      } else {
+        // Not a valid JWT, keep the character
+        result.push(input[i]);
+        i++;
+      }
+    } else {
+      result.push(input[i]);
+      i++;
+    }
+  }
+
+  return result.join('');
+}
+
+/**
+ * Truncate input to maximum length for bounded processing time
+ */
+function truncateInput(input: string): string {
+  if (input.length <= MAX_INPUT_LENGTH) {
+    return input;
+  }
+  return input.substring(0, MAX_INPUT_LENGTH) + '[TRUNCATED]';
+}
+
+/**
  * Mask a sensitive string value
  */
 function maskValue(value: string, visibleChars = 4): string {
@@ -86,22 +208,27 @@ function maskValue(value: string, visibleChars = 4): string {
 
 /**
  * Sanitize a string by replacing sensitive patterns
+ * Uses O(n) scanning for JWT detection to prevent ReDoS
  */
 export function sanitizeString(input: string): string {
   if (!input || typeof input !== 'string') {
     return input;
   }
 
-  let result = input;
+  // Truncate input to prevent DoS via large strings
+  let result = truncateInput(input);
 
-  // Replace JWT tokens
-  result = result.replace(SENSITIVE_PATTERNS.jwt, '[JWT_REDACTED]');
+  // Replace JWT tokens using O(n) scanning function (not regex)
+  result = redactJWTs(result);
 
-  // Replace Authorization headers
-  result = result.replace(
-    SENSITIVE_PATTERNS.authHeader,
-    'Bearer [TOKEN_REDACTED]',
-  );
+  // Replace Authorization headers (simple patterns, no backtracking risk)
+  result = result.replace(SENSITIVE_PATTERNS.authHeader, (match) => {
+    // If the token part was already redacted as JWT, keep it
+    if (match.includes('[JWT_REDACTED]')) {
+      return match;
+    }
+    return 'Bearer [TOKEN_REDACTED]';
+  });
   result = result.replace(
     SENSITIVE_PATTERNS.basicAuth,
     'Basic [CREDENTIALS_REDACTED]',
@@ -148,11 +275,29 @@ function isSensitiveKey(key: string): boolean {
 }
 
 /**
+ * Check if a key is safe to use (not a dangerous prototype key)
+ */
+function isSafeKey(key: string): boolean {
+  // Block dangerous keys that could cause prototype pollution
+  if (DANGEROUS_KEYS.has(key)) {
+    return false;
+  }
+
+  // Validate key format (alphanumeric, underscore, dot, hyphen, max 80 chars)
+  if (!VALID_KEY_PATTERN.test(key)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Recursively sanitize an object, masking sensitive values
+ * Uses Object.create(null) to prevent prototype pollution
  */
 export function sanitizeLogData<T>(data: T, depth = 0): T {
   // Prevent infinite recursion
-  if (depth > 10) {
+  if (depth > MAX_DEPTH) {
     return '[MAX_DEPTH_EXCEEDED]' as unknown as T;
   }
 
@@ -169,9 +314,15 @@ export function sanitizeLogData<T>(data: T, depth = 0): T {
   }
 
   if (Array.isArray(data)) {
-    const sanitizedArray = data.map((item: unknown) =>
-      sanitizeLogData(item, depth + 1),
-    );
+    // Limit array size to prevent memory bombs
+    const maxItems = Math.min(data.length, MAX_OBJECT_KEYS);
+    const sanitizedArray: unknown[] = [];
+    for (let i = 0; i < maxItems; i++) {
+      sanitizedArray.push(sanitizeLogData(data[i] as unknown, depth + 1));
+    }
+    if (data.length > MAX_OBJECT_KEYS) {
+      sanitizedArray.push('[ARRAY_TRUNCATED]');
+    }
     return sanitizedArray as unknown as T;
   }
 
@@ -184,9 +335,32 @@ export function sanitizeLogData<T>(data: T, depth = 0): T {
     } as unknown as T;
   }
 
-  // Handle plain objects
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
+  // Handle plain objects using Object.create(null) to prevent prototype pollution
+  const result: Record<string, unknown> = Object.create(null) as Record<
+    string,
+    unknown
+  >;
+  const entries = Object.entries(data);
+
+  // Limit number of keys to prevent memory bombs
+  const maxEntries = Math.min(entries.length, MAX_OBJECT_KEYS);
+  let processedCount = 0;
+
+  for (const [key, value] of entries) {
+    if (processedCount >= maxEntries) {
+      result['[KEYS_TRUNCATED]'] = true;
+      break;
+    }
+
+    // Skip dangerous keys to prevent prototype pollution
+    if (!isSafeKey(key)) {
+      // Log that we skipped a dangerous key (but don't include the key value)
+      result['[UNSAFE_KEY_SKIPPED]'] = true;
+      continue;
+    }
+
+    processedCount++;
+
     if (isSensitiveKey(key)) {
       // Mask the entire value for sensitive keys
       if (typeof value === 'string') {
@@ -210,13 +384,30 @@ export function sanitizeLogData<T>(data: T, depth = 0): T {
 
 /**
  * Sanitize HTTP headers object
+ * Uses Object.create(null) to prevent prototype pollution
  */
 export function sanitizeHeaders(
   headers: Record<string, string | string[] | undefined>,
 ): Record<string, string | string[] | undefined> {
-  const result: Record<string, string | string[] | undefined> = {};
+  const result: Record<string, string | string[] | undefined> = Object.create(
+    null,
+  ) as Record<string, string | string[] | undefined>;
 
-  for (const [key, value] of Object.entries(headers)) {
+  const entries = Object.entries(headers);
+  const maxEntries = Math.min(entries.length, MAX_OBJECT_KEYS);
+  let processedCount = 0;
+
+  for (const [key, value] of entries) {
+    if (processedCount >= maxEntries) {
+      break;
+    }
+
+    // Skip dangerous keys
+    if (!isSafeKey(key)) {
+      continue;
+    }
+
+    processedCount++;
     const lowerKey = key.toLowerCase();
 
     if (
