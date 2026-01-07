@@ -1,5 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { login } from './helpers';
+
+/**
+ * Smoke test helper: Collects console errors during test execution
+ */
+async function collectConsoleErrors(page: Page): Promise<string[]> {
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      errors.push(msg.text());
+    }
+  });
+  return errors;
+}
 
 test.describe('Audit Module', () => {
   test.beforeEach(async ({ page }) => {
@@ -116,6 +129,114 @@ test.describe('Audit Module', () => {
       test.info().annotations.push({
         type: 'note',
         description: 'Create Audit functionality not available yet - button is disabled or not present',
+      });
+    }
+  });
+
+  /**
+   * Smoke Test: Audit List -> Audit Detail Navigation
+   * 
+   * This test verifies that navigating from the audit list to an audit detail page
+   * does NOT trigger the ErrorBoundary ("Something went wrong" crash).
+   * 
+   * The test specifically validates the fix for crashes caused by missing/undefined
+   * arrays in API payloads (auditRequirements, findings, reports, permissions.maskedFields, etc.)
+   */
+  test('Smoke: Audit list to detail navigation does not crash (normalization regression)', async ({ page }) => {
+    // Collect console errors during test
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    // Navigate to audit list
+    await page.goto('/audits');
+    await page.waitForURL('/audits');
+    
+    // Wait for page to load
+    await Promise.race([
+      page.getByTestId('page-audit-list-title').waitFor({ timeout: 10000 }),
+      page.locator('text=/Audit Management/i').waitFor({ timeout: 10000 }),
+    ]).catch(() => {
+      // Page may have different structure
+    });
+
+    // Look for an audit row to click (table row or list item)
+    // The mock API returns one audit, so we should find it
+    const auditRow = page.locator('tr').filter({ hasText: /Mock Audit|Audit/i }).first();
+    const auditLink = page.locator('a[href*="/audits/"]').first();
+    const auditClickable = page.locator('[data-testid*="audit-row"], [data-testid*="audit-item"]').first();
+    
+    // Try to find and click an audit to navigate to detail
+    let navigatedToDetail = false;
+    
+    // Try clicking a link first
+    if (await auditLink.count() > 0) {
+      await auditLink.click();
+      navigatedToDetail = true;
+    } else if (await auditRow.count() > 0) {
+      await auditRow.click();
+      navigatedToDetail = true;
+    } else if (await auditClickable.count() > 0) {
+      await auditClickable.click();
+      navigatedToDetail = true;
+    }
+
+    if (navigatedToDetail) {
+      // Wait for navigation to detail page
+      await page.waitForURL(/\/audits\/[^/]+/, { timeout: 5000 }).catch(() => {
+        // URL may not change if using modal
+      });
+
+      // Wait for detail page to load
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+        // Network may not be idle in mock mode
+      });
+
+      // CRITICAL ASSERTION: "Something went wrong" should NOT be visible
+      // This is the main regression test for the normalization fix
+      const errorBoundary = page.locator('text=/Something went wrong/i');
+      const errorBoundaryCount = await errorBoundary.count();
+      expect(errorBoundaryCount).toBe(0);
+
+      // Verify we're on a detail page by checking for expected content
+      // Look for audit name, back button, or detail-specific elements
+      const detailIndicators = [
+        page.locator('text=/Back to Audits/i'),
+        page.locator('text=/Mock Audit/i'),
+        page.locator('text=/Basic Information/i'),
+        page.locator('text=/Audit Information/i'),
+        page.getByRole('button', { name: /back/i }),
+      ];
+
+      let foundDetailIndicator = false;
+      for (const indicator of detailIndicators) {
+        if (await indicator.count() > 0) {
+          foundDetailIndicator = true;
+          break;
+        }
+      }
+
+      // If we navigated, we should see some detail content
+      if (page.url().includes('/audits/')) {
+        expect(foundDetailIndicator).toBeTruthy();
+      }
+
+      // Check for TypeError in console (common crash symptom)
+      const typeErrors = consoleErrors.filter(e => 
+        e.includes('TypeError') || 
+        e.includes('Cannot read properties of undefined') ||
+        e.includes('Cannot read properties of null')
+      );
+      expect(typeErrors).toHaveLength(0);
+    } else {
+      // No audit found to click - this is acceptable in empty state
+      // Document that no audits were available to test
+      test.info().annotations.push({
+        type: 'note',
+        description: 'No audits available in list to test detail navigation',
       });
     }
   });
