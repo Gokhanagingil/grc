@@ -16,6 +16,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
+import { sendErrorTelemetry } from '../../services/telemetryService';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -58,6 +59,9 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
       error,
       errorInfo,
     });
+
+    // Send sanitized error telemetry to backend (fire-and-forget)
+    sendErrorTelemetry(error, errorInfo);
   }
 
   handleReload = () => {

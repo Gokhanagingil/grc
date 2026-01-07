@@ -21,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { TodosModule } from './todos/todos.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -81,17 +82,23 @@ import { StructuredLoggerService } from './common/logger';
             '\n============================================================',
           );
           console.error('FATAL: DB_SYNC=true is BANNED in production/staging!');
-          console.error('============================================================');
           console.error(
-            `Environment: ${nodeEnv}`,
+            '============================================================',
           );
-          console.error('DB_SYNC=true would enable TypeORM auto-sync, which is');
+          console.error(`Environment: ${nodeEnv}`);
+          console.error(
+            'DB_SYNC=true would enable TypeORM auto-sync, which is',
+          );
           console.error('dangerous and non-deterministic in production.');
           console.error('');
           console.error('SOLUTION:');
           console.error('  1. Set DB_SYNC=false (or remove the env var)');
-          console.error('  2. Use migrations instead: npm run migration:run:prod');
-          console.error('============================================================\n');
+          console.error(
+            '  2. Use migrations instead: npm run migration:run:prod',
+          );
+          console.error(
+            '============================================================\n',
+          );
           process.exit(1);
         }
 
@@ -156,6 +163,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Todos Module (in-memory demo implementation)
     TodosModule,
+
+    // Telemetry Module (frontend crash reporting)
+    TelemetryModule,
 
     // Rate limiting- default: 100 requests per 60 seconds
     // In test environment, use very high limits to avoid blocking E2E tests

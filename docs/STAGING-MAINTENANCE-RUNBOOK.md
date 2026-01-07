@@ -286,6 +286,37 @@ If the frontend still shows old behavior after rebuild:
 
 ## Troubleshooting
 
+### Frontend Error Telemetry
+
+The frontend automatically sends sanitized crash reports to the backend when ErrorBoundary components catch errors. These reports are logged with correlation IDs for debugging.
+
+**Viewing frontend error telemetry in backend logs:**
+
+```bash
+# View recent frontend crash reports
+ssh root@46.224.99.150 "docker logs grc-staging-backend 2>&1 | grep 'Frontend crash reported' | tail -20"
+
+# Filter by correlation ID
+ssh root@46.224.99.150 "docker logs grc-staging-backend 2>&1 | grep '<correlation-id>'"
+```
+
+**Telemetry payload includes:**
+- `timestamp` - When the error occurred
+- `pathname` - The route where the crash happened
+- `error.name` - Error type (e.g., TypeError, ReferenceError)
+- `error.message` - Sanitized error message (PII/tokens removed)
+- `error.stack` - Sanitized stack trace (truncated to 2000 chars)
+- `error.componentStack` - React component hierarchy
+- `lastApiEndpoint` - Last API call before the crash (useful for debugging)
+- `correlationId` - For correlating with backend logs
+
+**Security notes:**
+- All sensitive data (JWTs, emails, passwords, API keys) is stripped before transmission
+- Stack traces are truncated to prevent excessive data
+- No authentication required (errors may occur before login)
+
+Once you have the minified stack trace from telemetry, use the sourcemap tracer below to find the original source location.
+
 ### Debugging Minified JavaScript Crashes (Sourcemap Tracing)
 
 When the frontend crashes with an error like `TypeError: Cannot read properties of undefined (reading 'length')` and the stack trace points to minified code (e.g., `main.abc123.js:2:1690087`), use the sourcemap tracing tool to find the original source location.
