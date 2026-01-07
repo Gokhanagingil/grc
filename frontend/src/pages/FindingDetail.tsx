@@ -348,7 +348,7 @@ export const FindingDetail: React.FC = () => {
     const isFieldReadonly = (fieldName: string): boolean => {
       if (!isEditMode) return true;
       if (!permissions?.write) return true;
-      if (permissions?.deniedFields.includes(fieldName)) return true;
+      if (permissions?.deniedFields?.includes(fieldName)) return true;
       return false;
     };
 
@@ -1011,8 +1011,8 @@ export const FindingDetail: React.FC = () => {
               {permissions.read && ' Read'}
               {permissions.write && ' | Write'}
               {permissions.delete && ' | Delete'}
-              {permissions.maskedFields.length > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
-              {permissions.deniedFields.length > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
+              {(permissions.maskedFields?.length ?? 0) > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
+              {(permissions.deniedFields?.length ?? 0) > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
             </Typography>
           </Paper>
         )}
