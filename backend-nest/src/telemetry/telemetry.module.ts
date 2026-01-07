@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { TelemetryController } from './telemetry.controller';
+import {
+  TelemetryController,
+  ApiTelemetryController,
+} from './telemetry.controller';
 import { TelemetryService } from './telemetry.service';
 
 /**
@@ -18,9 +21,10 @@ import { TelemetryService } from './telemetry.service';
  *
  * Endpoints:
  * - POST /telemetry/frontend-error - Receive frontend error telemetry
+ * - POST /api/telemetry/frontend-error - Same endpoint for nginx proxy path
  */
 @Module({
-  controllers: [TelemetryController],
+  controllers: [TelemetryController, ApiTelemetryController],
   providers: [TelemetryService],
   exports: [TelemetryService],
 })

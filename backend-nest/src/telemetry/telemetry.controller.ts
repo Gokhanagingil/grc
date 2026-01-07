@@ -2,6 +2,7 @@ import { Controller, Post, Body, Headers } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { TelemetryService } from './telemetry.service';
 import { FrontendErrorDto } from './dto';
+import { Public } from '../auth/decorators';
 
 /**
  * Telemetry Controller
@@ -17,6 +18,7 @@ import { FrontendErrorDto } from './dto';
  */
 @Controller('telemetry')
 @SkipThrottle()
+@Public()
 export class TelemetryController {
   constructor(private readonly telemetryService: TelemetryService) {}
 
@@ -48,6 +50,34 @@ export class TelemetryController {
     );
 
     // Always return success to avoid blocking the frontend
+    return { received: true };
+  }
+}
+
+/**
+ * API Telemetry Controller
+ *
+ * Duplicate controller to handle /api/telemetry/* routes.
+ * This is needed because nginx proxies /api/* to the backend,
+ * so the frontend posts to /api/telemetry/frontend-error.
+ */
+@Controller('api/telemetry')
+@SkipThrottle()
+@Public()
+export class ApiTelemetryController {
+  constructor(private readonly telemetryService: TelemetryService) {}
+
+  @Post('frontend-error')
+  reportFrontendError(
+    @Body() errorPayload: FrontendErrorDto,
+    @Headers('x-correlation-id') correlationId?: string,
+    @Headers('x-tenant-id') tenantId?: string,
+  ): { received: boolean } {
+    this.telemetryService.logFrontendError(
+      errorPayload,
+      correlationId,
+      tenantId,
+    );
     return { received: true };
   }
 }

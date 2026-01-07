@@ -45,7 +45,7 @@ import {
   Search as SearchIcon,
   FilterList as FilterIcon,
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
@@ -187,9 +187,24 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+// Map tab names to indices for URL search params
+const TAB_NAMES = ['scope', 'standards', 'findings', 'reports'] as const;
+type TabName = typeof TAB_NAMES[number];
+
+const getTabIndex = (tabName: string | null): number => {
+  if (!tabName) return 0;
+  const index = TAB_NAMES.indexOf(tabName as TabName);
+  return index >= 0 ? index : 0;
+};
+
+const getTabName = (index: number): TabName => {
+  return TAB_NAMES[index] || 'scope';
+};
+
 export const AuditDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   useAuth();
   const { context: onboardingContext } = useOnboardingSafe();
   // Check for create mode: either no id (from /audits/new route) or id === 'new' (from /audits/:id route)
@@ -204,7 +219,12 @@ export const AuditDetail: React.FC = () => {
     const [permissions, setPermissions] = useState<AuditPermissions | null>(null);
     const [users, setUsers] = useState<User[]>([]);
   
-                const [activeTab, setActiveTab] = useState(0);
+                // Tab state managed via URL search params (?tab=scope|standards|findings|reports)
+                const activeTab = getTabIndex(searchParams.get('tab'));
+                const setActiveTab = (index: number) => {
+                  const tabName = getTabName(index);
+                  setSearchParams({ tab: tabName }, { replace: true });
+                };
                 const [findings, setFindings] = useState<Finding[]>([]);
                 const [auditRequirements, setAuditRequirements] = useState<AuditRequirement[]>([]);
                 const [reports, setReports] = useState<AuditReport[]>([]);
