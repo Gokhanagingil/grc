@@ -140,18 +140,67 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Handle grc/audits - GET (list, can/create, distinct/department)
+    // Handle grc/audits - GET (list, detail, can/create, distinct/department, findings, requirements, reports, permissions)
     if (url.includes('/grc/audits') && method === 'GET') {
       logMock(method, url, true);
+      
+      // Mock audit for detail page tests
+      const mockAudit = {
+        id: 'mock-audit-1',
+        name: 'Mock Audit for E2E Testing',
+        description: 'This is a mock audit for smoke testing',
+        auditType: 'internal',
+        status: 'in_progress',
+        riskLevel: 'medium',
+        department: 'IT',
+        ownerUserId: '1',
+        leadAuditorId: '1',
+        plannedStartDate: '2024-01-01',
+        plannedEndDate: '2024-12-31',
+        actualStartDate: null,
+        actualEndDate: null,
+        scope: 'Test scope',
+        objectives: 'Test objectives',
+        methodology: 'Test methodology',
+        findingsSummary: null,
+        recommendations: null,
+        conclusion: null,
+        owner: { firstName: 'Admin', lastName: 'User', email: 'admin@test.com' },
+        leadAuditor: { firstName: 'Admin', lastName: 'User', email: 'admin@test.com' },
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      };
+
       if (url.includes('/can/create')) {
         await route.fulfill(successResponse({ allowed: true }));
       } else if (url.includes('/distinct/department')) {
         await route.fulfill(successResponse([]));
-      } else {
-        // List endpoint
+      } else if (url.includes('/permissions')) {
+        // Audit permissions endpoint - ensure arrays are present
         await route.fulfill(successResponse({
-          audits: [],
-          pagination: { total: 0, page: 1, pageSize: 10, totalPages: 0 },
+          read: true,
+          write: true,
+          delete: false,
+          maskedFields: [],
+          deniedFields: [],
+        }));
+      } else if (url.includes('/findings')) {
+        // Audit findings endpoint
+        await route.fulfill(successResponse([]));
+      } else if (url.includes('/requirements')) {
+        // Audit requirements endpoint
+        await route.fulfill(successResponse([]));
+      } else if (url.includes('/reports')) {
+        // Audit reports endpoint
+        await route.fulfill(successResponse([]));
+      } else if (url.match(/\/grc\/audits\/[^/]+$/)) {
+        // Single audit detail endpoint (e.g., /grc/audits/mock-audit-1)
+        await route.fulfill(successResponse(mockAudit));
+      } else {
+        // List endpoint - include mock audit for smoke test
+        await route.fulfill(successResponse({
+          audits: [mockAudit],
+          pagination: { total: 1, page: 1, pageSize: 10, totalPages: 1 },
         }));
       }
       return;

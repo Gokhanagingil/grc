@@ -58,6 +58,13 @@ import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
 import { useOnboardingSafe } from '../contexts/OnboardingContext';
 import { safeArray, ensureArray } from '../utils/safeHelpers';
+import {
+  normalizeAuditPermissions,
+  normalizeFindings,
+  normalizeAuditRequirements,
+  normalizeAuditReports,
+  normalizeAvailableRequirements,
+} from '../api/normalizers/audit';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
@@ -311,9 +318,10 @@ export const AuditDetail: React.FC = () => {
     try {
       const response = await api.get(`/grc/audits/${id}/permissions`);
       const permissionsData = unwrapResponse<AuditPermissions>(response);
-      setPermissions(permissionsData || { read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
+      // Normalize permissions to ensure array fields are always arrays
+      setPermissions(normalizeAuditPermissions(permissionsData));
     } catch {
-      setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
+      setPermissions(normalizeAuditPermissions(null));
     }
   }, [id, isNew]);
 
@@ -337,9 +345,11 @@ export const AuditDetail: React.FC = () => {
                       api.get(`/grc/audits/${id}/requirements`),
                       api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
                     ]);
-                    setFindings(unwrapResponse<Finding[]>(findingsRes) || []);
-                    setAuditRequirements(unwrapResponse<AuditRequirement[]>(requirementsRes) || []);
-                    setReports(unwrapResponse<AuditReport[]>(reportsRes) || []);
+                    // Normalize all responses to ensure array fields are always arrays
+                    // This prevents crashes from malformed API responses
+                    setFindings(normalizeFindings(unwrapResponse<Finding[]>(findingsRes)));
+                    setAuditRequirements(normalizeAuditRequirements(unwrapResponse<AuditRequirement[]>(requirementsRes)));
+                    setReports(normalizeAuditReports(unwrapResponse<AuditReport[]>(reportsRes)));
                   } catch {
                     setFindings([]);
                     setAuditRequirements([]);
@@ -361,7 +371,7 @@ export const AuditDetail: React.FC = () => {
           setTimeout(() => navigate(`/audits/${id}/reports/${newReportId}`), 1500);
         } else {
           const reportsRes = await api.get(`/grc/audits/${id}/reports`);
-          setReports(reportsRes.data || []);
+          setReports(normalizeAuditReports(unwrapResponse(reportsRes)));
         }
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
@@ -379,7 +389,7 @@ export const AuditDetail: React.FC = () => {
         await api.patch(`/grc/audits/${id}/reports/${reportId}/status`, { status: newStatus });
         setSuccess(`Report status updated to ${newStatus.replace(/_/g, ' ')}`);
         const reportsRes = await api.get(`/grc/audits/${id}/reports`);
-        setReports(reportsRes.data || []);
+        setReports(normalizeAuditReports(unwrapResponse(reportsRes)));
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
         setError(error.response?.data?.message || 'Failed to update report status');
@@ -402,7 +412,8 @@ export const AuditDetail: React.FC = () => {
           try {
             const response = await api.get('/grc/requirements');
             const data = unwrapResponse<Array<{ id: string; framework: string; referenceCode: string; title: string }>>(response);
-            setAvailableRequirements(data || []);
+            // Normalize to ensure we always have an array
+            setAvailableRequirements(normalizeAvailableRequirements(data));
           } catch {
             setAvailableRequirements([]);
           }
