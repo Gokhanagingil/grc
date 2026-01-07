@@ -12,6 +12,7 @@ import {
   sanitizeLogData,
   sanitizeHeaders,
   sanitizeRequestMetadata,
+  SanitizedObject,
 } from './log-sanitizer';
 
 describe('LogSanitizer', () => {
@@ -28,8 +29,10 @@ describe('LogSanitizer', () => {
 
       it('should redact multiple JWT tokens in a string', () => {
         // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
-        const jwt1 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_001';
-        const jwt2 = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.FAKE_SIG_FOR_TESTING_002';
+        const jwt1 =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_001';
+        const jwt2 =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyIn0.FAKE_SIG_FOR_TESTING_002';
         const result = sanitizeString(`First: ${jwt1}, Second: ${jwt2}`);
         expect(result).toBe('First: [JWT_REDACTED], Second: [JWT_REDACTED]');
       });
@@ -178,7 +181,8 @@ describe('LogSanitizer', () => {
       it('should sanitize authorization key', () => {
         // Using FAKE_SIG_FOR_TESTING marker to identify test fixtures
         const data = {
-          authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_005',
+          authorization:
+            'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.FAKE_SIG_FOR_TESTING_005',
         };
         const result = sanitizeLogData(data);
         expect(result.authorization).toMatch(/\[REDACTED\]/);
@@ -228,23 +232,31 @@ describe('LogSanitizer', () => {
           },
         };
         const result = sanitizeLogData(data);
-        expect(result.user.name).toBe('John');
+        // Cast nested objects since they are typed as unknown in SanitizedObject
+        const user = result.user as SanitizedObject;
+        expect(user?.name).toBe('John');
         // Password key is sensitive, so it gets redacted
-        expect(result.user.login.password).toMatch(/\[REDACTED\]/);
+        const login = user?.login as SanitizedObject;
+        expect(login?.password).toMatch(/\[REDACTED\]/);
       });
 
       it('should handle deeply nested structures', () => {
+        // Use keys that are in the allowlist for proper nesting
         const data = {
-          level1: {
-            level2: {
-              level3: {
+          user: {
+            data: {
+              config: {
                 password: 'deep_secret',
               },
             },
           },
         };
         const result = sanitizeLogData(data);
-        expect(result.level1.level2.level3.password).toMatch(/\[REDACTED\]/);
+        // Cast nested objects since they are typed as unknown in SanitizedObject
+        const user = result.user as SanitizedObject;
+        const userData = user?.data as SanitizedObject;
+        const config = userData?.config as SanitizedObject;
+        expect(config?.password).toMatch(/\[REDACTED\]/);
       });
 
       it('should prevent infinite recursion with max depth', () => {
@@ -326,8 +338,9 @@ describe('LogSanitizer', () => {
         Authorization: 'Bearer abc123',
       };
       const result = sanitizeHeaders(headers);
-      expect(result['Content-Type']).toBe('application/json');
-      expect(result['Authorization']).toBe('[REDACTED]');
+      // Headers are stored with lowercase keys in the new model
+      expect(result['content-type']).toBe('application/json');
+      expect(result.authorization).toBe('[REDACTED]');
     });
 
     it('should redact cookie header', () => {
@@ -335,7 +348,7 @@ describe('LogSanitizer', () => {
         Cookie: 'session=abc123; token=xyz789',
       };
       const result = sanitizeHeaders(headers);
-      expect(result['Cookie']).toBe('[REDACTED]');
+      expect(result.cookie).toBe('[REDACTED]');
     });
 
     it('should redact x-api-key header', () => {
@@ -343,7 +356,7 @@ describe('LogSanitizer', () => {
         'X-API-Key': 'sk_live_123456789',
       };
       const result = sanitizeHeaders(headers);
-      expect(result['X-API-Key']).toBe('[REDACTED]');
+      expect(result['x-api-key']).toBe('[REDACTED]');
     });
 
     it('should handle case-insensitive header names', () => {
@@ -352,16 +365,22 @@ describe('LogSanitizer', () => {
         COOKIE: 'session=123',
       };
       const result = sanitizeHeaders(headers);
-      expect(result['authorization']).toBe('[REDACTED]');
-      expect(result['COOKIE']).toBe('[REDACTED]');
+      expect(result.authorization).toBe('[REDACTED]');
+      expect(result.cookie).toBe('[REDACTED]');
     });
 
-    it('should sanitize string values in other headers', () => {
+    it('should sanitize string values in other headers and put unknown headers in extraHeaders', () => {
       const headers = {
         'X-Custom': 'user@example.com',
       };
       const result = sanitizeHeaders(headers);
-      expect(result['X-Custom']).toBe('[EMAIL_REDACTED]@example.com');
+      // Unknown headers go to extraHeaders array
+      expect(result.extraHeaders).toBeDefined();
+      expect(result.extraHeaders?.length).toBe(1);
+      expect(result.extraHeaders?.[0].key).toBe('X-Custom');
+      expect(result.extraHeaders?.[0].value).toBe(
+        '[EMAIL_REDACTED]@example.com',
+      );
     });
 
     it('should handle array header values', () => {
@@ -369,20 +388,23 @@ describe('LogSanitizer', () => {
         'X-Forwarded-For': ['192.168.1.1', 'user@test.com'],
       };
       const result = sanitizeHeaders(headers);
-      expect(result['X-Forwarded-For']).toEqual([
+      expect(result['x-forwarded-for']).toEqual([
         '192.168.1.1',
         '[EMAIL_REDACTED]@test.com',
       ]);
     });
 
-    it('should handle undefined header values', () => {
+    it('should handle undefined header values for unknown headers', () => {
       const headers = {
         'Content-Type': 'application/json',
         'X-Optional': undefined,
       };
       const result = sanitizeHeaders(headers);
-      expect(result['Content-Type']).toBe('application/json');
-      expect(result['X-Optional']).toBeUndefined();
+      expect(result['content-type']).toBe('application/json');
+      // Unknown headers with undefined values go to extraHeaders
+      expect(
+        result.extraHeaders?.find((h) => h.key === 'X-Optional')?.value,
+      ).toBeUndefined();
     });
   });
 
@@ -407,16 +429,17 @@ describe('LogSanitizer', () => {
 
       const result = sanitizeRequestMetadata(metadata);
 
-      expect(result.headers?.['Authorization']).toBe('[REDACTED]');
-      expect(result.headers?.['Content-Type']).toBe('application/json');
-      expect((result.body as Record<string, unknown>)?.username).toBe('john');
-      expect((result.body as Record<string, unknown>)?.password).toMatch(
+      // Headers use lowercase keys in the new model
+      expect(result.headers?.authorization).toBe('[REDACTED]');
+      expect(result.headers?.['content-type']).toBe('application/json');
+      expect((result.body as SanitizedObject)?.username).toBe('john');
+      expect((result.body as SanitizedObject)?.password).toMatch(
         /\[REDACTED\]/,
       );
-      expect((result.query as Record<string, unknown>)?.email).toBe(
+      expect((result.query as SanitizedObject)?.email).toBe(
         '[EMAIL_REDACTED]@test.com',
       );
-      expect((result.params as Record<string, unknown>)?.id).toBe('123');
+      expect((result.params as SanitizedObject)?.id).toBe('123');
     });
 
     it('should handle missing metadata fields', () => {
@@ -438,6 +461,256 @@ describe('LogSanitizer', () => {
       expect(result.body).toBeUndefined();
       expect(result.query).toBeUndefined();
       expect(result.params).toBeUndefined();
+    });
+  });
+
+  describe('Security: ReDoS Prevention', () => {
+    it('should sanitize very long strings starting with eyJ quickly (no regex backtracking)', () => {
+      // This test verifies that the O(n) JWT scanning function handles
+      // pathological inputs without exponential backtracking
+      const maliciousInput = 'eyJ' + 'a'.repeat(10000);
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete in under 500ms (O(n) complexity) - allowing for CI variability
+      expect(endTime - startTime).toBeLessThan(500);
+      // Should not be redacted since it's not a valid JWT (no dots)
+      expect(result).toContain('eyJ');
+    });
+
+    it('should handle repeated eyJ patterns quickly', () => {
+      // Multiple potential JWT starts that could cause backtracking
+      const maliciousInput = 'eyJ'.repeat(1000) + '.payload.signature';
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly
+      expect(endTime - startTime).toBeLessThan(100);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle strings with many percent signs quickly', () => {
+      // Percent-encoded patterns that could cause backtracking in naive regex
+      const maliciousInput = '%'.repeat(5000) + 'normal text';
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly (200ms threshold to account for CI environment variability)
+      expect(endTime - startTime).toBeLessThan(200);
+      expect(result).toBeDefined();
+    });
+
+    it('should truncate very long inputs to prevent DoS', () => {
+      const veryLongInput = 'a'.repeat(20000);
+      const result = sanitizeString(veryLongInput);
+
+      // Should be truncated to MAX_INPUT_LENGTH (10000) + [TRUNCATED] marker
+      expect(result.length).toBeLessThan(veryLongInput.length);
+      expect(result).toContain('[TRUNCATED]');
+    });
+
+    it('should handle JWT-like patterns with many dots quickly', () => {
+      // Pattern that could cause backtracking: many dots with base64-like chars
+      const maliciousInput = 'eyJhbGciOiJIUzI1NiJ9' + '.abc'.repeat(1000);
+      const startTime = Date.now();
+      const result = sanitizeString(maliciousInput);
+      const endTime = Date.now();
+
+      // Should complete quickly
+      expect(endTime - startTime).toBeLessThan(100);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('Security: Prototype Pollution Prevention', () => {
+    it('should not write __proto__ key to sanitized objects', () => {
+      // Create object with __proto__ as own property using Object.defineProperty
+      const maliciousData: Record<string, unknown> = { name: 'test' };
+      Object.defineProperty(maliciousData, '__proto__', {
+        value: { polluted: true },
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // The __proto__ key should be skipped and marker should be set
+      expect(result._unsafeKeySkipped).toBe(true);
+      // The __proto__ key should not be in the result
+      expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(
+        false,
+      );
+      // Verify prototype is not polluted
+      const emptyObj: Record<string, unknown> = {};
+      expect(emptyObj['polluted']).toBeUndefined();
+    });
+
+    it('should not write constructor key to sanitized objects', () => {
+      const maliciousData = {
+        name: 'test',
+        constructor: { polluted: true },
+      };
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // The constructor key should be skipped
+      expect(result._unsafeKeySkipped).toBe(true);
+      // constructor is not in the result (it's a dangerous key)
+      expect(Object.prototype.hasOwnProperty.call(result, 'constructor')).toBe(
+        false,
+      );
+    });
+
+    it('should not write prototype key to sanitized objects', () => {
+      const maliciousData = {
+        name: 'test',
+        prototype: { polluted: true },
+      };
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // The prototype key should be skipped
+      expect(result._unsafeKeySkipped).toBe(true);
+      // prototype is not in the result (it's a dangerous key)
+      expect(Object.prototype.hasOwnProperty.call(result, 'prototype')).toBe(
+        false,
+      );
+    });
+
+    it('should handle nested objects with dangerous keys', () => {
+      // Create nested object with __proto__ as own property
+      const nestedObj: Record<string, unknown> = { name: 'John' };
+      Object.defineProperty(nestedObj, '__proto__', {
+        value: { admin: true },
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+      const maliciousData = { user: nestedObj };
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // Should sanitize nested object and skip dangerous key
+      const userResult = result.user as SanitizedObject;
+      expect(userResult.name).toBe('John');
+      expect(userResult._unsafeKeySkipped).toBe(true);
+    });
+
+    it('should reject keys with invalid characters and put valid unknown keys in extraFields', () => {
+      const maliciousData = {
+        name: 'value1', // 'name' is in allowlist
+        'key with spaces': 'value2',
+        'key<script>': 'value3',
+      };
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // Valid key in allowlist should be preserved as static property
+      expect(result.name).toBe('value1');
+      // Invalid keys should be skipped
+      expect(result._unsafeKeySkipped).toBe(true);
+      // Invalid keys should not be in extraFields either
+      expect(
+        result.extraFields?.find((f) => f.key === 'key with spaces'),
+      ).toBeUndefined();
+      expect(
+        result.extraFields?.find((f) => f.key === 'key<script>'),
+      ).toBeUndefined();
+    });
+
+    it('should reject keys longer than 80 characters', () => {
+      const longKey = 'a'.repeat(100);
+      const maliciousData = {
+        [longKey]: 'value',
+        name: 'normalValue', // 'name' is in allowlist
+      };
+
+      const result = sanitizeLogData(maliciousData) as SanitizedObject;
+
+      // Long key should be skipped
+      expect(result._unsafeKeySkipped).toBe(true);
+      // Long key should not be in extraFields
+      expect(
+        result.extraFields?.find((f) => f.key === longKey),
+      ).toBeUndefined();
+      // Normal key in allowlist should be preserved
+      expect(result.name).toBe('normalValue');
+    });
+
+    it('should put unknown keys in extraFields array', () => {
+      const data = {
+        name: 'test', // in allowlist
+        customField: 'customValue', // not in allowlist
+      };
+      const result = sanitizeLogData(data) as SanitizedObject;
+
+      // Known key should be a static property
+      expect(result.name).toBe('test');
+      // Unknown key should be in extraFields
+      expect(result.extraFields).toBeDefined();
+      expect(result.extraFields?.length).toBe(1);
+      expect(result.extraFields?.[0].key).toBe('customField');
+      expect(result.extraFields?.[0].value).toBe('customValue');
+    });
+
+    it('should handle sanitizeHeaders with dangerous keys', () => {
+      // Test that dangerous keys are filtered out by sanitizeHeaders
+      // Note: We test with 'constructor' and 'prototype' keys which are blocked
+      // by the isSafeKey function. The __proto__ key behavior is already tested
+      // in sanitizeLogData tests above.
+      const maliciousHeaders: Record<string, string | string[] | undefined> = {
+        'Content-Type': 'application/json',
+        constructor: 'malicious',
+        prototype: 'malicious',
+      };
+
+      const result = sanitizeHeaders(maliciousHeaders);
+
+      // Valid header should be preserved (lowercase key in new model)
+      expect(result['content-type']).toBe('application/json');
+      // Dangerous keys should be skipped (constructor and prototype are blocked by isSafeKey)
+      expect(
+        Object.prototype.hasOwnProperty.call(result, 'constructor'),
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(result, 'prototype'),
+      ).toBeFalsy();
+      // Dangerous keys should not be in extraHeaders either
+      expect(
+        result.extraHeaders?.find((h) => h.key === 'constructor'),
+      ).toBeUndefined();
+      expect(
+        result.extraHeaders?.find((h) => h.key === 'prototype'),
+      ).toBeUndefined();
+    });
+  });
+
+  describe('Security: Resource Limits', () => {
+    it('should limit array processing to prevent memory bombs', () => {
+      // Create a large array
+      const largeArray = Array(2000).fill({ name: 'test' });
+      const result = sanitizeLogData(largeArray) as unknown[];
+
+      // Should be truncated and include marker
+      expect(result.length).toBeLessThanOrEqual(1001); // MAX_OBJECT_KEYS + 1 for marker
+      expect(result[result.length - 1]).toBe('[ARRAY_TRUNCATED]');
+    });
+
+    it('should limit object keys to prevent memory bombs', () => {
+      // Create an object with many keys
+      const largeObject: Record<string, string> = {};
+      for (let i = 0; i < 2000; i++) {
+        largeObject[`key${i}`] = 'value';
+      }
+
+      const result = sanitizeLogData(largeObject) as SanitizedObject;
+
+      // Should have truncation marker (new property name)
+      expect(result._keysTruncated).toBe(true);
     });
   });
 });

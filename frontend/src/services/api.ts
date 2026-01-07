@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getApiBaseUrl } from '../config';
+import { recordApiCall } from './telemetryService';
 
 // Use Cursor's config helper for API base URL (environmental correctness)
 const API_BASE_URL = getApiBaseUrl();
@@ -117,7 +118,13 @@ api.interceptors.request.use(
 
 // Response interceptor to handle standard error envelope and auth errors with token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Record successful API calls for telemetry context
+    const endpoint = response.config.url || 'unknown';
+    const correlationId = response.headers['x-correlation-id'];
+    recordApiCall(endpoint, correlationId);
+    return response;
+  },
   async (error: AxiosError<ApiErrorResponse>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

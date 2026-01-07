@@ -16,6 +16,7 @@ import {
   Settings as SettingsIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
+import { sendErrorTelemetry } from '../../services/telemetryService';
 
 // Safe home routes in order of preference
 const SAFE_HOME_ROUTES = ['/profile', '/admin/system', '/login'];
@@ -84,6 +85,9 @@ class InitializationErrorBoundaryClass extends Component<
       error,
       errorInfo,
     });
+
+    // Send sanitized error telemetry to backend (fire-and-forget)
+    sendErrorTelemetry(error, errorInfo);
   }
 
   handleReload = () => {

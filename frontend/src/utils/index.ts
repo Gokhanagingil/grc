@@ -5,3 +5,4 @@
  */
 
 export * from './safeHelpers';
+export * from './errorSanitizer';
