@@ -1263,7 +1263,7 @@ export const AuditDetail: React.FC = () => {
                                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                                         {finding.issueRequirements && finding.issueRequirements.length > 0 ? (
                                                           finding.issueRequirements.map((ir) => {
-                                                            const matchingAuditReq = auditRequirements.find(
+                                                            const matchingAuditReq = safeArray(auditRequirements).find(
                                                               ar => ar.requirementId === ir.requirementId
                                                             );
                                                             const referenceCode = matchingAuditReq?.referenceCode || matchingAuditReq?.requirement?.referenceCode || 'Req';
@@ -1619,7 +1619,7 @@ export const AuditDetail: React.FC = () => {
                       renderValue={(selected) => (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                           {(selected as string[]).map((value) => {
-                            const ar = auditRequirements.find(r => r.requirementId === value);
+                            const ar = safeArray(auditRequirements).find(r => r.requirementId === value);
                             return (
                               <Chip 
                                 key={value} 
