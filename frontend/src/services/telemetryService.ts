@@ -89,7 +89,7 @@ export function clearTelemetryContext(): void {
  */
 export async function sendErrorTelemetry(
   error: Error,
-  errorInfo?: { componentStack?: string }
+  errorInfo?: { componentStack?: string | null }
 ): Promise<void> {
   try {
     const sanitizedError = createSanitizedErrorPayload(error, errorInfo);

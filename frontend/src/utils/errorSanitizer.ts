@@ -233,7 +233,7 @@ export function sanitizeComponentStack(
  */
 export function createSanitizedErrorPayload(
   error: Error,
-  errorInfo?: { componentStack?: string }
+  errorInfo?: { componentStack?: string | null }
 ): {
   name: string;
   message: string;
