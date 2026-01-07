@@ -356,4 +356,128 @@ describe('safeHelpers', () => {
       expect(permissions?.maskedFields?.length ?? 0).toBe(0);
     });
   });
+
+  describe('AuditDetail array .length access regression tests', () => {
+    // These tests verify that safeArray properly guards against undefined arrays
+    // when accessing .length in AuditDetail component JSX
+
+    it('handles undefined auditRequirements array - no crash on .length access', () => {
+      const auditRequirements: unknown[] | undefined = undefined;
+      
+      // This pattern caused the crash: auditRequirements.length
+      // Fixed pattern: safeArray(auditRequirements).length
+      expect(() => {
+        const length = safeArray(auditRequirements).length;
+        return length;
+      }).not.toThrow();
+      
+      expect(safeArray(auditRequirements).length).toBe(0);
+    });
+
+    it('handles undefined findings array - no crash on .length access', () => {
+      const findings: unknown[] | undefined = undefined;
+      
+      expect(() => {
+        const length = safeArray(findings).length;
+        return length;
+      }).not.toThrow();
+      
+      expect(safeArray(findings).length).toBe(0);
+    });
+
+    it('handles undefined reports array - no crash on .length access', () => {
+      const reports: unknown[] | undefined = undefined;
+      
+      expect(() => {
+        const length = safeArray(reports).length;
+        return length;
+      }).not.toThrow();
+      
+      expect(safeArray(reports).length).toBe(0);
+    });
+
+    it('handles undefined availableRequirements array - no crash on .length access', () => {
+      const availableRequirements: unknown[] | undefined = undefined;
+      
+      expect(() => {
+        const length = safeArray(availableRequirements).length;
+        return length;
+      }).not.toThrow();
+      
+      expect(safeArray(availableRequirements).length).toBe(0);
+    });
+
+    it('handles null arrays - no crash on .length access', () => {
+      const nullArray: unknown[] | null = null;
+      
+      expect(() => {
+        const length = safeArray(nullArray).length;
+        return length;
+      }).not.toThrow();
+      
+      expect(safeArray(nullArray).length).toBe(0);
+    });
+
+    it('handles empty arrays correctly', () => {
+      const emptyArray: unknown[] = [];
+      
+      expect(safeArray(emptyArray).length).toBe(0);
+      expect(safeArray(emptyArray).length === 0).toBe(true);
+      expect(safeArray(emptyArray).length > 0).toBe(false);
+    });
+
+    it('handles populated arrays correctly', () => {
+      const populatedArray = [{ id: '1' }, { id: '2' }, { id: '3' }];
+      
+      expect(safeArray(populatedArray).length).toBe(3);
+      expect(safeArray(populatedArray).length === 0).toBe(false);
+      expect(safeArray(populatedArray).length > 0).toBe(true);
+    });
+
+    it('handles Tab label template string with undefined array', () => {
+      const auditRequirements: unknown[] | undefined = undefined;
+      
+      // This is the exact pattern used in AuditDetail.tsx Tab labels
+      expect(() => {
+        const label = `Scope & Standards (${safeArray(auditRequirements).length})`;
+        return label;
+      }).not.toThrow();
+      
+      expect(`Scope & Standards (${safeArray(auditRequirements).length})`).toBe('Scope & Standards (0)');
+    });
+
+    it('handles conditional rendering with undefined array', () => {
+      const auditRequirements: unknown[] | undefined = undefined;
+      
+      // This is the exact pattern used in AuditDetail.tsx conditional rendering
+      expect(() => {
+        const isEmpty = safeArray(auditRequirements).length === 0;
+        const hasItems = safeArray(auditRequirements).length > 0;
+        return { isEmpty, hasItems };
+      }).not.toThrow();
+      
+      expect(safeArray(auditRequirements).length === 0).toBe(true);
+      expect(safeArray(auditRequirements).length > 0).toBe(false);
+    });
+
+    it('handles checkbox indeterminate logic with undefined array', () => {
+      const availableRequirements: unknown[] | undefined = undefined;
+      const selectedRequirementIds: string[] = ['1', '2'];
+      
+      // This is the exact pattern used in AuditDetail.tsx checkbox logic
+      expect(() => {
+        const indeterminate = selectedRequirementIds.length > 0 && 
+          selectedRequirementIds.length < safeArray(availableRequirements).length;
+        const checked = selectedRequirementIds.length === safeArray(availableRequirements).length;
+        return { indeterminate, checked };
+      }).not.toThrow();
+      
+      // With undefined availableRequirements (length 0), indeterminate should be false
+      // because selectedRequirementIds.length (2) is NOT less than 0
+      expect(selectedRequirementIds.length > 0 && 
+        selectedRequirementIds.length < safeArray(availableRequirements).length).toBe(false);
+      // checked should be false because 2 !== 0
+      expect(selectedRequirementIds.length === safeArray(availableRequirements).length).toBe(false);
+    });
+  });
 });

@@ -1002,10 +1002,10 @@ export const AuditDetail: React.FC = () => {
                                     <CardContent>
                                       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-                                          <Tab label={`Scope & Standards (${auditRequirements.length})`} />
+                                          <Tab label={`Scope & Standards (${safeArray(auditRequirements).length})`} />
                                           <Tab label="Standards Library" />
-                                          <Tab label={`Findings & CAPA (${findings.length})`} />
-                                          <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
+                                          <Tab label={`Findings & CAPA (${safeArray(findings).length})`} />
+                                          <Tab label={`Reports (${safeArray(reports).length})`} icon={<ReportIcon />} iconPosition="start" />
                                         </Tabs>
                                       </Box>
 
@@ -1027,7 +1027,7 @@ export const AuditDetail: React.FC = () => {
                                           <Box display="flex" justifyContent="center" p={3}>
                                             <CircularProgress />
                                           </Box>
-                                        ) : auditRequirements.length === 0 ? (
+                                        ) : safeArray(auditRequirements).length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No requirements in audit scope. Click "Add Requirements" to add standards/requirements to this audit.</Typography>
                                         ) : (
                                           <Grid container spacing={2}>
@@ -1211,7 +1211,7 @@ export const AuditDetail: React.FC = () => {
                                           <Box display="flex" justifyContent="center" p={3}>
                                             <CircularProgress />
                                           </Box>
-                                        ) : findings.length === 0 ? (
+                                        ) : safeArray(findings).length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit. Click "Add Finding" to create a new finding.</Typography>
                                         ) : (
                                           <TableContainer component={Paper} variant="outlined">
@@ -1332,7 +1332,7 @@ export const AuditDetail: React.FC = () => {
                           <Box display="flex" justifyContent="center" p={3}>
                             <CircularProgress />
                           </Box>
-                        ) : reports.length === 0 ? (
+                        ) : safeArray(reports).length === 0 ? (
                           <Typography color="textSecondary" sx={{ p: 2 }}>No reports generated for this audit yet. Click "Generate Report" to create one.</Typography>
                         ) : (
                           <TableContainer>
@@ -1440,7 +1440,7 @@ export const AuditDetail: React.FC = () => {
             <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
               Select requirements to add to this audit's scope. Requirements already in scope will be skipped.
             </Typography>
-            {availableRequirements.length === 0 ? (
+            {safeArray(availableRequirements).length === 0 ? (
               <Typography color="textSecondary">No requirements available.</Typography>
             ) : (
               <TableContainer sx={{ maxHeight: 400 }}>
@@ -1449,8 +1449,8 @@ export const AuditDetail: React.FC = () => {
                     <TableRow>
                       <TableCell padding="checkbox">
                         <Checkbox
-                          indeterminate={selectedRequirementIds.length > 0 && selectedRequirementIds.length < availableRequirements.length}
-                          checked={selectedRequirementIds.length === availableRequirements.length}
+                          indeterminate={selectedRequirementIds.length > 0 && selectedRequirementIds.length < safeArray(availableRequirements).length}
+                          checked={selectedRequirementIds.length === safeArray(availableRequirements).length}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setSelectedRequirementIds(safeArray(availableRequirements).map(r => r.id));
@@ -1607,7 +1607,7 @@ export const AuditDetail: React.FC = () => {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              {auditRequirements.length > 0 && (
+              {safeArray(auditRequirements).length > 0 && (
                 <Grid item xs={12}>
                   <FormControl fullWidth>
                     <InputLabel>Link to Requirements</InputLabel>
