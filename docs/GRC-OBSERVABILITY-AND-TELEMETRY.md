@@ -362,7 +362,169 @@ ORDER BY created_at;
 - Error details (JSON viewer)
 - Performance breakdown (flame graph)
 
-## 10. Next Steps
+## 10. Frontend Error Telemetry
+
+The `/api/telemetry/frontend-error` endpoint receives error reports from the frontend ErrorBoundary components. It is designed to be robust and backward-compatible, accepting multiple payload formats.
+
+### Supported Payload Formats
+
+The endpoint accepts three payload formats:
+
+1. **Legacy format** (backward compatibility):
+```json
+{
+  "message": "Error message",
+  "stack": "Error stack trace"
+}
+```
+
+2. **New format** (structured error object):
+```json
+{
+  "error": {
+    "name": "TypeError",
+    "message": "Error message",
+    "stack": "Error stack trace"
+  }
+}
+```
+
+3. **Full format** (all fields):
+```json
+{
+  "timestamp": "2026-01-07T20:00:00.000Z",
+  "pathname": "/page-where-error-occurred",
+  "userAgent": "Mozilla/5.0...",
+  "error": {
+    "name": "TypeError",
+    "message": "Error message",
+    "stack": "Error stack trace",
+    "componentStack": "React component stack"
+  },
+  "metadata": {
+    "customKey": "customValue"
+  }
+}
+```
+
+### Endpoint Behavior
+
+- **Always returns HTTP 200 OK** - Telemetry must never fail the client
+- **No authentication required** - Errors may occur before auth
+- **Rate limiting skipped** - To avoid blocking error reports
+- **Normalizes all payloads** - Missing fields get defaults
+- **Sanitizes metadata** - Prevents prototype pollution attacks
+- **Truncates long strings** - Prevents abuse (10k char limit)
+
+### Testing Locally
+
+```bash
+# Legacy payload
+curl -i -X POST "http://localhost:3002/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"message":"legacy test","stack":"dummy"}'
+
+# Minimal new payload
+curl -i -X POST "http://localhost:3002/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"error":{"message":"min test","stack":"dummy"}}'
+
+# Full payload
+curl -i -X POST "http://localhost:3002/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"timestamp":"2026-01-07T20:00:00.000Z","pathname":"/test","userAgent":"curl","error":{"name":"Error","message":"full test","stack":"dummy"}}'
+
+# Empty payload (all defaults applied)
+curl -i -X POST "http://localhost:3002/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{}'
+```
+
+### Testing on Staging
+
+Replace `localhost:3002` with `46.224.99.150`:
+
+```bash
+# Legacy payload
+curl -i -X POST "http://46.224.99.150/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"message":"legacy test","stack":"dummy"}'
+
+# Minimal new payload
+curl -i -X POST "http://46.224.99.150/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"error":{"message":"min test","stack":"dummy"}}'
+
+# Full payload
+curl -i -X POST "http://46.224.99.150/api/telemetry/frontend-error" \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --data-binary '{"timestamp":"2026-01-07T20:00:00.000Z","pathname":"/manual-telemetry-test","userAgent":"curl","error":{"name":"Error","message":"full test","stack":"dummy"}}'
+```
+
+### PowerShell Testing (Windows)
+
+PowerShell requires different quoting. Use these commands:
+
+```powershell
+# Legacy payload
+Invoke-WebRequest -Uri "http://46.224.99.150/api/telemetry/frontend-error" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{"x-tenant-id"="00000000-0000-0000-0000-000000000001"} `
+  -Body '{"message":"legacy test","stack":"dummy"}'
+
+# Minimal new payload
+Invoke-WebRequest -Uri "http://46.224.99.150/api/telemetry/frontend-error" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{"x-tenant-id"="00000000-0000-0000-0000-000000000001"} `
+  -Body '{"error":{"message":"min test","stack":"dummy"}}'
+
+# Full payload
+$body = @{
+  timestamp = "2026-01-07T20:00:00.000Z"
+  pathname = "/manual-telemetry-test"
+  userAgent = "PowerShell"
+  error = @{
+    name = "Error"
+    message = "full test"
+    stack = "dummy"
+  }
+} | ConvertTo-Json -Depth 3
+
+Invoke-WebRequest -Uri "http://46.224.99.150/api/telemetry/frontend-error" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{"x-tenant-id"="00000000-0000-0000-0000-000000000001"} `
+  -Body $body
+```
+
+### Expected Response
+
+All requests should return HTTP 200 with:
+
+```json
+{
+  "success": true,
+  "message": "Error reported successfully"
+}
+```
+
+### Security Considerations
+
+- **Prototype pollution prevention**: Dangerous keys (`__proto__`, `constructor`, `prototype`) are stripped from metadata
+- **String truncation**: Long strings are truncated to prevent abuse (10k chars for stack, 500 for pathname/userAgent)
+- **No sensitive data storage**: Telemetry is logged but not persisted to database
+- **Double sanitization**: Data is sanitized both by the DTO validation and the log sanitizer
+
+## 11. Next Steps
 
 1. **Distributed Tracing**: Integrate with OpenTelemetry for cross-service tracing
 2. **Alerting**: Set up alerts for error rate spikes and latency degradation
