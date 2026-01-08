@@ -47,6 +47,12 @@ import {
   // Framework Activation entities
   GrcFramework,
   GrcTenantFramework,
+  // Golden Flow Phase 1 entities
+  GrcControlTest,
+  GrcTestResult,
+  GrcCapaTask,
+  GrcControlEvidence,
+  GrcStatusHistory,
 } from './entities';
 
 // Services
@@ -74,6 +80,13 @@ import {
   // Framework Activation services
   GrcFrameworksService,
 } from './services';
+
+// Golden Flow Phase 1 services
+import { GrcControlTestService } from './services/grc-control-test.service';
+import { GrcTestResultService } from './services/grc-test-result.service';
+import { GrcCapaTaskService } from './services/grc-capa-task.service';
+import { GrcControlEvidenceService } from './services/grc-control-evidence.service';
+import { GrcStatusHistoryService } from './services/grc-status-history.service';
 
 // Controllers
 import {
@@ -105,6 +118,13 @@ import {
   GrcFrameworksController,
   TenantFrameworksController,
 } from './controllers';
+
+// Golden Flow Phase 1 controllers
+import { GrcControlTestController } from './controllers/grc-control-test.controller';
+import { GrcTestResultController } from './controllers/grc-test-result.controller';
+import { GrcCapaTaskController } from './controllers/grc-capa-task.controller';
+import { GrcControlEvidenceController } from './controllers/grc-control-evidence.controller';
+import { GrcStatusHistoryController } from './controllers/grc-status-history.controller';
 
 /**
  * GRC Module
@@ -169,6 +189,12 @@ import {
       // Framework Activation entities
       GrcFramework,
       GrcTenantFramework,
+      // Golden Flow Phase 1 entities
+      GrcControlTest,
+      GrcTestResult,
+      GrcCapaTask,
+      GrcControlEvidence,
+      GrcStatusHistory,
     ]),
     AuditModule,
     AuthModule,
@@ -198,6 +224,12 @@ import {
     DataModelDictionaryService,
     // Framework Activation services
     GrcFrameworksService,
+    // Golden Flow Phase 1 services
+    GrcControlTestService,
+    GrcTestResultService,
+    GrcCapaTaskService,
+    GrcControlEvidenceService,
+    GrcStatusHistoryService,
   ],
   controllers: [
     // Core controllers
@@ -228,6 +260,12 @@ import {
     // Framework Activation controllers
     GrcFrameworksController,
     TenantFrameworksController,
+    // Golden Flow Phase 1 controllers
+    GrcControlTestController,
+    GrcTestResultController,
+    GrcCapaTaskController,
+    GrcControlEvidenceController,
+    GrcStatusHistoryController,
   ],
   exports: [
     // Core services
@@ -253,6 +291,12 @@ import {
     DataModelDictionaryService,
     // Framework Activation services
     GrcFrameworksService,
+    // Golden Flow Phase 1 services
+    GrcControlTestService,
+    GrcTestResultService,
+    GrcCapaTaskService,
+    GrcControlEvidenceService,
+    GrcStatusHistoryService,
   ],
 })
 export class GrcModule {}

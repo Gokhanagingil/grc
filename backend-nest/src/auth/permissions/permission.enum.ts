@@ -28,6 +28,21 @@ export enum Permission {
   GRC_CONTROL_WRITE = 'grc:control:write',
   GRC_CONTROL_DELETE = 'grc:control:delete',
 
+  // Evidence permissions
+  GRC_EVIDENCE_READ = 'grc:evidence:read',
+  GRC_EVIDENCE_WRITE = 'grc:evidence:write',
+
+  // Issue permissions
+  GRC_ISSUE_READ = 'grc:issue:read',
+  GRC_ISSUE_WRITE = 'grc:issue:write',
+  GRC_ISSUE_CLOSE = 'grc:issue:close',
+
+  // CAPA permissions
+  GRC_CAPA_READ = 'grc:capa:read',
+  GRC_CAPA_WRITE = 'grc:capa:write',
+  GRC_CAPA_VERIFY = 'grc:capa:verify',
+  GRC_CAPA_CLOSE = 'grc:capa:close',
+
   // Process permissions (Sprint 5)
   GRC_PROCESS_READ = 'grc:process:read',
   GRC_PROCESS_WRITE = 'grc:process:write',
@@ -73,6 +88,15 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_CONTROL_READ]: 'View controls and control details',
   [Permission.GRC_CONTROL_WRITE]: 'Create and update controls',
   [Permission.GRC_CONTROL_DELETE]: 'Delete controls',
+  [Permission.GRC_EVIDENCE_READ]: 'View evidence and evidence details',
+  [Permission.GRC_EVIDENCE_WRITE]: 'Create, update, and delete evidence',
+  [Permission.GRC_ISSUE_READ]: 'View issues and issue details',
+  [Permission.GRC_ISSUE_WRITE]: 'Create and update issues',
+  [Permission.GRC_ISSUE_CLOSE]: 'Close issues',
+  [Permission.GRC_CAPA_READ]: 'View CAPAs and CAPA details',
+  [Permission.GRC_CAPA_WRITE]: 'Create and update CAPAs',
+  [Permission.GRC_CAPA_VERIFY]: 'Verify CAPAs',
+  [Permission.GRC_CAPA_CLOSE]: 'Close CAPAs',
   [Permission.GRC_PROCESS_READ]:
     'View processes, controls, results, and violations',
   [Permission.GRC_PROCESS_WRITE]:

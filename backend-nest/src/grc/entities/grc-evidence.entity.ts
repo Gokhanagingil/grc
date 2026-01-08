@@ -11,6 +11,7 @@ import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { EvidenceType } from '../enums';
 import { GrcIssueEvidence } from './grc-issue-evidence.entity';
+import { GrcControlEvidence } from './grc-control-evidence.entity';
 
 /**
  * GRC Evidence Entity
@@ -71,4 +72,8 @@ export class GrcEvidence extends BaseEntity {
 
   @OneToMany(() => GrcIssueEvidence, (ie) => ie.evidence)
   issueEvidence: GrcIssueEvidence[];
+
+  // Golden Flow Phase 1 - Control Evidence relationship
+  @OneToMany(() => GrcControlEvidence, (ce) => ce.evidence)
+  controlEvidence: GrcControlEvidence[];
 }

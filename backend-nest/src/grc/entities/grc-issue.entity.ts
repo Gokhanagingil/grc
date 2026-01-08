@@ -17,6 +17,7 @@ import { GrcIssueEvidence } from './grc-issue-evidence.entity';
 import { GrcAudit } from './grc-audit.entity';
 import { GrcIssueRequirement } from './grc-issue-requirement.entity';
 import { GrcIssueClause } from './grc-issue-clause.entity';
+import { GrcTestResult } from './grc-test-result.entity';
 
 /**
  * GRC Issue Entity
@@ -115,6 +116,34 @@ export class GrcIssue extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  // Golden Flow Phase 1 - New Fields
+  @Column({ name: 'test_result_id', type: 'uuid', nullable: true })
+  testResultId: string | null;
+
+  @ManyToOne(() => GrcTestResult, { nullable: true })
+  @JoinColumn({ name: 'test_result_id' })
+  testResult: GrcTestResult | null;
+
+  @Column({ name: 'closure_notes', type: 'text', nullable: true })
+  closureNotes: string | null;
+
+  @Column({ name: 'closed_by_user_id', type: 'uuid', nullable: true })
+  closedByUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'closed_by_user_id' })
+  closedBy: User | null;
+
+  @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
+  closedAt: Date | null;
+
+  @Column({ name: 'reopened_count', type: 'int', default: 0 })
+  reopenedCount: number;
+
+  @Column({ name: 'last_reopened_at', type: 'timestamp', nullable: true })
+  lastReopenedAt: Date | null;
+
+  // Relationships
   @OneToMany(() => GrcCapa, (capa) => capa.issue)
   capas: GrcCapa[];
 
