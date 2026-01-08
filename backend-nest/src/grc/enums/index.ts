@@ -394,69 +394,76 @@ export enum ViolationStatus {
 
 /**
  * ControlTestType - Type of control test execution
+ * Values match PostgreSQL enum: grc_control_tests_test_type_enum
  */
 export enum ControlTestType {
-  MANUAL = 'manual',
-  AUTOMATED = 'automated',
-  HYBRID = 'hybrid',
+  MANUAL = 'MANUAL',
+  AUTOMATED = 'AUTOMATED',
+  HYBRID = 'HYBRID',
 }
 
 /**
  * ControlTestStatus - Status of a control test
+ * Values match PostgreSQL enum: grc_control_tests_status_enum
  */
 export enum ControlTestStatus {
-  PLANNED = 'planned',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  PLANNED = 'PLANNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 /**
  * TestResultOutcome - Outcome of a test result
+ * Values match PostgreSQL enum: grc_test_results_result_enum
  */
 export enum TestResultOutcome {
-  PASS = 'pass',
-  FAIL = 'fail',
-  INCONCLUSIVE = 'inconclusive',
-  NOT_APPLICABLE = 'not_applicable',
+  PASS = 'PASS',
+  FAIL = 'FAIL',
+  INCONCLUSIVE = 'INCONCLUSIVE',
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
 }
 
 /**
  * EffectivenessRating - Rating of control effectiveness
+ * Values match PostgreSQL enum: grc_test_results_effectiveness_rating_enum
  */
 export enum EffectivenessRating {
-  EFFECTIVE = 'effective',
-  PARTIALLY_EFFECTIVE = 'partially_effective',
-  INEFFECTIVE = 'ineffective',
+  EFFECTIVE = 'EFFECTIVE',
+  PARTIALLY_EFFECTIVE = 'PARTIALLY_EFFECTIVE',
+  INEFFECTIVE = 'INEFFECTIVE',
 }
 
 /**
  * CAPATaskStatus - Status of a CAPA task
+ * Values match PostgreSQL enum: grc_capa_tasks_status_enum
  */
 export enum CAPATaskStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 /**
  * ControlEvidenceType - Type of evidence linked to a control
+ * Values match PostgreSQL enum: grc_control_evidence_evidence_type_enum
  */
 export enum ControlEvidenceType {
-  BASELINE = 'baseline',
-  TEST = 'test',
-  PERIODIC = 'periodic',
+  BASELINE = 'BASELINE',
+  TEST = 'TEST',
+  PERIODIC = 'PERIODIC',
 }
 
 /**
  * CAPAPriority - Priority level for CAPA
+ * Values match PostgreSQL enum: grc_capas_priority_enum
  */
 export enum CAPAPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
 }
 
 /**
