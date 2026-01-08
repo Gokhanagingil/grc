@@ -50,7 +50,7 @@ import { Perf } from '../../common/decorators';
  * - dueDateFrom/dueDateTo: Filter by due date range
  * - search: Search in title, description, and reference code
  */
-@Controller('api/grc/requirements')
+@Controller('grc/requirements')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcRequirementController {
   constructor(private readonly requirementService: GrcRequirementService) {}

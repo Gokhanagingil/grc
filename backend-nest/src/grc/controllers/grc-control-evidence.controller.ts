@@ -26,7 +26,7 @@ import {
   ControlEvidenceFilterDto,
 } from '../dto/control-evidence.dto';
 
-@Controller('api/grc/control-evidence')
+@Controller('grc/control-evidence')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcControlEvidenceController {
   constructor(

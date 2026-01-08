@@ -29,7 +29,7 @@ import {
   CapaTaskFilterDto,
 } from '../dto/capa-task.dto';
 
-@Controller('api/grc/capa-tasks')
+@Controller('grc/capa-tasks')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcCapaTaskController {
   constructor(private readonly capaTaskService: GrcCapaTaskService) {}

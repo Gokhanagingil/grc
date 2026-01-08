@@ -31,7 +31,7 @@ import { Perf } from '../../common/decorators';
  * Read operations require GRC_ISSUE_READ permission.
  * Write operations require GRC_AUDIT_WRITE permission.
  */
-@Controller('api/grc/issues')
+@Controller('grc/issues')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcIssueController {
   private readonly allowedSortFields: Set<string> = new Set([
@@ -49,7 +49,7 @@ export class GrcIssueController {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
-   * GET /api/grc/issues
+   * GET /grc/issues
    * List all issues for the current tenant with pagination and filtering
    */
   @Get()
@@ -130,7 +130,7 @@ export class GrcIssueController {
   }
 
   /**
-   * GET /api/grc/issues/:id
+   * GET /grc/issues/:id
    * Get a specific issue by ID
    */
   @Get(':id')

@@ -24,7 +24,7 @@ import { Perf } from '../../common/decorators';
  * All endpoints require JWT authentication and tenant context.
  * Read operations require GRC_EVIDENCE_READ permission.
  */
-@Controller('api/grc/evidence')
+@Controller('grc/evidence')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcEvidenceController {
   private readonly allowedSortFields: Set<string> = new Set([
@@ -39,7 +39,7 @@ export class GrcEvidenceController {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
-   * GET /api/grc/evidence
+   * GET /grc/evidence
    * List all evidence for the current tenant with pagination and filtering
    */
   @Get()
@@ -97,7 +97,7 @@ export class GrcEvidenceController {
   }
 
   /**
-   * GET /api/grc/evidence/:id
+   * GET /grc/evidence/:id
    * Get a specific evidence by ID
    */
   @Get(':id')

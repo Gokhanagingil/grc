@@ -24,7 +24,7 @@ import { Perf } from '../../common/decorators';
  * All endpoints require JWT authentication and tenant context.
  * Read operations require GRC_CAPA_READ permission.
  */
-@Controller('api/grc/capas')
+@Controller('grc/capas')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcCapaController {
   private readonly allowedSortFields: Set<string> = new Set([
@@ -42,7 +42,7 @@ export class GrcCapaController {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
-   * GET /api/grc/capas
+   * GET /grc/capas
    * List all CAPAs for the current tenant with pagination and filtering
    */
   @Get()
@@ -118,7 +118,7 @@ export class GrcCapaController {
   }
 
   /**
-   * GET /api/grc/capas/:id
+   * GET /grc/capas/:id
    * Get a specific CAPA by ID
    */
   @Get(':id')

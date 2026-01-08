@@ -24,7 +24,7 @@ import { Perf } from '../../common/decorators';
  * All endpoints require JWT authentication and tenant context.
  * Read operations require GRC_CONTROL_READ permission.
  */
-@Controller('api/grc/controls')
+@Controller('grc/controls')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcControlController {
   private readonly allowedSortFields: Set<string> = new Set([
@@ -42,7 +42,7 @@ export class GrcControlController {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
-   * GET /api/grc/controls
+   * GET /grc/controls
    * List all controls for the current tenant with pagination and filtering
    */
   @Get()
@@ -105,7 +105,7 @@ export class GrcControlController {
   }
 
   /**
-   * GET /api/grc/controls/:id
+   * GET /grc/controls/:id
    * Get a specific control by ID
    */
   @Get(':id')
