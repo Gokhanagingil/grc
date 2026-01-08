@@ -414,4 +414,232 @@ describe('useUiPolicy hook - Safety Hardening', () => {
       expect(Array.isArray(result.current.actions.disabledFields)).toBe(true);
     });
   });
+
+  describe('Regression: Wrapped API response handling', () => {
+    it('should handle double-wrapped envelope response for policies', async () => {
+      // Scenario: API returns {success: true, data: {success: true, data: {policies: [...]}}}
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { success: true, data: { policies: [{ id: 1, name: 'test' }] } }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits'));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should extract policies from double-wrapped response
+      expect(result.current.policies).toHaveLength(1);
+      expect(result.current.policies[0]).toEqual({ id: 1, name: 'test' });
+    });
+
+    it('should handle wrapped envelope response for actions', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      // Scenario: API returns {success: true, data: {actions: {...}}}
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { success: true, data: { actions: { hiddenFields: ['secret'] } } }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should extract actions from wrapped response
+      expect(result.current.isFieldHidden('secret')).toBe(true);
+    });
+
+    it('should handle response with missing policies field', async () => {
+      // Scenario: API returns {tableName: 'audits'} without policies
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { tableName: 'audits' }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits'));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should default to empty array
+      expect(result.current.policies).toEqual([]);
+      expect(() => result.current.policies.length).not.toThrow();
+    });
+
+    it('should handle response with missing actions field', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      // Scenario: API returns {tableName: 'audits'} without actions
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { tableName: 'audits' }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should default to empty arrays for all action fields
+      expect(result.current.actions.hiddenFields).toEqual([]);
+      expect(result.current.actions.readonlyFields).toEqual([]);
+      expect(() => result.current.isFieldHidden('anyField')).not.toThrow();
+    });
+  });
+
+  describe('Regression: isFieldHidden .includes guard', () => {
+    it('should not crash when shownFields is missing from actions', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      // Scenario: API returns actions without shownFields
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { 
+          tableName: 'audits', 
+          actions: {
+            hiddenFields: ['secret'],
+            // shownFields is missing!
+          }
+        }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // This should NOT crash with "Cannot read properties of undefined (reading 'includes')"
+      expect(() => result.current.isFieldHidden('secret')).not.toThrow();
+      expect(() => result.current.isFieldHidden('other')).not.toThrow();
+      
+      // Should still work correctly
+      expect(result.current.isFieldHidden('secret')).toBe(true);
+      expect(result.current.isFieldHidden('other')).toBe(false);
+    });
+
+    it('should not crash when editableFields is missing from actions', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { 
+          tableName: 'audits', 
+          actions: {
+            readonlyFields: ['status'],
+            // editableFields is missing!
+          }
+        }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // This should NOT crash
+      expect(() => result.current.isFieldReadonly('status')).not.toThrow();
+      expect(result.current.isFieldReadonly('status')).toBe(true);
+    });
+
+    it('should not crash when optionalFields is missing from actions', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { 
+          tableName: 'audits', 
+          actions: {
+            mandatoryFields: ['name'],
+            // optionalFields is missing!
+          }
+        }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // This should NOT crash
+      expect(() => result.current.isFieldMandatory('name')).not.toThrow();
+      expect(result.current.isFieldMandatory('name')).toBe(true);
+    });
+  });
+
+  describe('Regression: Non-array field values', () => {
+    it('should handle string instead of array for hiddenFields', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      // Scenario: API returns string instead of array
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { 
+          tableName: 'audits', 
+          actions: {
+            hiddenFields: 'singleField',  // String instead of array
+            shownFields: [],
+            readonlyFields: [],
+            editableFields: [],
+            mandatoryFields: [],
+            optionalFields: [],
+            disabledFields: [],
+          }
+        }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should normalize string to array and work correctly
+      expect(() => result.current.isFieldHidden('singleField')).not.toThrow();
+      expect(result.current.isFieldHidden('singleField')).toBe(true);
+    });
+
+    it('should handle null instead of array for readonlyFields', async () => {
+      mockUiPolicyApi.getForTable.mockResolvedValue({
+        data: { policies: [{ id: 1, name: 'test' }] }
+      });
+      
+      mockUiPolicyApi.evaluate.mockResolvedValue({
+        data: { 
+          tableName: 'audits', 
+          actions: {
+            hiddenFields: [],
+            shownFields: [],
+            readonlyFields: null,  // null instead of array
+            editableFields: [],
+            mandatoryFields: [],
+            optionalFields: [],
+            disabledFields: [],
+          }
+        }
+      });
+
+      const { result } = renderHook(() => useUiPolicy('audits', { status: 'open' }));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should normalize null to empty array
+      expect(() => result.current.isFieldReadonly('anyField')).not.toThrow();
+      expect(result.current.isFieldReadonly('anyField')).toBe(false);
+    });
+  });
 });

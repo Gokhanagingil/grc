@@ -1,4 +1,4 @@
-import { safeArray, ensureArray, safeMap, safeFilter, safeSome, normalizeArrayFields } from '../safeHelpers';
+import { safeArray, ensureArray, safeMap, safeFilter, safeSome, normalizeArrayFields, toStringArray, unwrapApiEnvelope, extractPoliciesArray, extractActionsObject } from '../safeHelpers';
 
 describe('safeHelpers', () => {
   describe('safeArray', () => {
@@ -478,6 +478,299 @@ describe('safeHelpers', () => {
         selectedRequirementIds.length < safeArray(availableRequirements).length).toBe(false);
       // checked should be false because 2 !== 0
       expect(selectedRequirementIds.length === safeArray(availableRequirements).length).toBe(false);
+    });
+  });
+
+  describe('toStringArray', () => {
+    describe('null/undefined handling', () => {
+      it('returns empty array for null', () => {
+        expect(toStringArray(null)).toEqual([]);
+      });
+
+      it('returns empty array for undefined', () => {
+        expect(toStringArray(undefined)).toEqual([]);
+      });
+    });
+
+    describe('array input handling', () => {
+      it('returns array of strings from string array', () => {
+        expect(toStringArray(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
+      });
+
+      it('filters out non-string values from array', () => {
+        expect(toStringArray(['a', 123, 'b', null, 'c', undefined])).toEqual(['a', 'b', 'c']);
+      });
+
+      it('trims whitespace from strings', () => {
+        expect(toStringArray(['  a  ', ' b ', 'c'])).toEqual(['a', 'b', 'c']);
+      });
+
+      it('removes empty strings after trim', () => {
+        expect(toStringArray(['a', '', '  ', 'b'])).toEqual(['a', 'b']);
+      });
+
+      it('handles mixed array with all edge cases', () => {
+        expect(toStringArray(['valid', '', '  ', 123, null, '  trimmed  ', undefined, 'end'])).toEqual(['valid', 'trimmed', 'end']);
+      });
+    });
+
+    describe('string input handling', () => {
+      it('returns single-element array for non-empty string', () => {
+        expect(toStringArray('fieldName')).toEqual(['fieldName']);
+      });
+
+      it('trims and returns single-element array', () => {
+        expect(toStringArray('  fieldName  ')).toEqual(['fieldName']);
+      });
+
+      it('returns empty array for empty string', () => {
+        expect(toStringArray('')).toEqual([]);
+      });
+
+      it('returns empty array for whitespace-only string', () => {
+        expect(toStringArray('   ')).toEqual([]);
+      });
+    });
+
+    describe('other types handling', () => {
+      it('returns empty array for number', () => {
+        expect(toStringArray(123)).toEqual([]);
+      });
+
+      it('returns empty array for boolean', () => {
+        expect(toStringArray(true)).toEqual([]);
+      });
+
+      it('returns empty array for object', () => {
+        expect(toStringArray({ field: 'value' })).toEqual([]);
+      });
+    });
+
+    describe('UiPolicy field normalization scenarios', () => {
+      it('normalizes undefined hiddenFields to empty array', () => {
+        const actions = { hiddenFields: undefined };
+        expect(toStringArray(actions.hiddenFields)).toEqual([]);
+      });
+
+      it('normalizes null readonlyFields to empty array', () => {
+        const actions = { readonlyFields: null };
+        expect(toStringArray(actions.readonlyFields)).toEqual([]);
+      });
+
+      it('normalizes string instead of array to single-element array', () => {
+        const actions = { mandatoryFields: 'singleField' };
+        expect(toStringArray(actions.mandatoryFields)).toEqual(['singleField']);
+      });
+
+      it('preserves valid string array', () => {
+        const actions = { disabledFields: ['field1', 'field2'] };
+        expect(toStringArray(actions.disabledFields)).toEqual(['field1', 'field2']);
+      });
+    });
+  });
+
+  describe('unwrapApiEnvelope', () => {
+    describe('null/undefined handling', () => {
+      it('returns null for null input', () => {
+        expect(unwrapApiEnvelope(null)).toBeNull();
+      });
+
+      it('returns undefined for undefined input', () => {
+        expect(unwrapApiEnvelope(undefined)).toBeUndefined();
+      });
+    });
+
+    describe('primitive handling', () => {
+      it('returns string as-is', () => {
+        expect(unwrapApiEnvelope('test')).toBe('test');
+      });
+
+      it('returns number as-is', () => {
+        expect(unwrapApiEnvelope(123)).toBe(123);
+      });
+
+      it('returns boolean as-is', () => {
+        expect(unwrapApiEnvelope(true)).toBe(true);
+      });
+    });
+
+    describe('success envelope handling', () => {
+      it('unwraps {success: true, data: X} envelope', () => {
+        const input = { success: true, data: { policies: [] } };
+        expect(unwrapApiEnvelope(input)).toEqual({ policies: [] });
+      });
+
+      it('returns error envelope as-is when success is false', () => {
+        const input = { success: false, error: { message: 'Error' } };
+        expect(unwrapApiEnvelope(input)).toEqual(input);
+      });
+
+      it('unwraps double-wrapped envelope', () => {
+        const input = { success: true, data: { success: true, data: { policies: [] } } };
+        expect(unwrapApiEnvelope(input)).toEqual({ policies: [] });
+      });
+    });
+
+    describe('axios response pattern handling', () => {
+      it('unwraps simple {data: X} wrapper', () => {
+        const input = { data: { policies: [] } };
+        expect(unwrapApiEnvelope(input)).toEqual({ policies: [] });
+      });
+
+      it('unwraps axios-like response with status', () => {
+        const input = { data: { policies: [] }, status: 200, headers: {} };
+        expect(unwrapApiEnvelope(input)).toEqual({ policies: [] });
+      });
+    });
+
+    describe('non-wrapper object handling', () => {
+      it('returns object with policies as-is (not a wrapper)', () => {
+        const input = { policies: [{ id: 1 }], tableName: 'audits' };
+        expect(unwrapApiEnvelope(input)).toEqual(input);
+      });
+
+      it('returns object with actions as-is (not a wrapper)', () => {
+        const input = { actions: { hiddenFields: [] }, tableName: 'audits' };
+        expect(unwrapApiEnvelope(input)).toEqual(input);
+      });
+    });
+  });
+
+  describe('extractPoliciesArray', () => {
+    describe('null/undefined handling', () => {
+      it('returns empty array for null', () => {
+        expect(extractPoliciesArray(null)).toEqual([]);
+      });
+
+      it('returns empty array for undefined', () => {
+        expect(extractPoliciesArray(undefined)).toEqual([]);
+      });
+    });
+
+    describe('direct array handling', () => {
+      it('returns array as-is', () => {
+        const policies = [{ id: 1 }, { id: 2 }];
+        expect(extractPoliciesArray(policies)).toEqual(policies);
+      });
+    });
+
+    describe('object with policies field', () => {
+      it('extracts policies from {policies: [...]}', () => {
+        const input = { policies: [{ id: 1 }], tableName: 'audits' };
+        expect(extractPoliciesArray(input)).toEqual([{ id: 1 }]);
+      });
+
+      it('returns empty array when policies is not an array', () => {
+        const input = { policies: 'not an array', tableName: 'audits' };
+        expect(extractPoliciesArray(input)).toEqual([]);
+      });
+    });
+
+    describe('envelope handling', () => {
+      it('extracts policies from {success: true, data: {policies: [...]}}', () => {
+        const input = { success: true, data: { policies: [{ id: 1 }], tableName: 'audits' } };
+        expect(extractPoliciesArray(input)).toEqual([{ id: 1 }]);
+      });
+
+      it('extracts policies from double-wrapped envelope', () => {
+        const input = { success: true, data: { success: true, data: { policies: [{ id: 1 }] } } };
+        expect(extractPoliciesArray(input)).toEqual([{ id: 1 }]);
+      });
+
+      it('returns empty array for error envelope', () => {
+        const input = { success: false, error: { message: 'Error' } };
+        expect(extractPoliciesArray(input)).toEqual([]);
+      });
+    });
+
+    describe('useUiPolicy crash scenarios', () => {
+      it('handles response.data being undefined - no crash', () => {
+        // Scenario: API returns undefined data
+        expect(() => extractPoliciesArray(undefined)).not.toThrow();
+        expect(extractPoliciesArray(undefined)).toEqual([]);
+      });
+
+      it('handles response.data.policies being undefined - no crash', () => {
+        // Scenario: API returns {tableName: 'audits'} without policies
+        const input = { tableName: 'audits' };
+        expect(() => extractPoliciesArray(input)).not.toThrow();
+        expect(extractPoliciesArray(input)).toEqual([]);
+      });
+
+      it('handles wrapped response without policies - no crash', () => {
+        // Scenario: API returns {success: true, data: {tableName: 'audits'}}
+        const input = { success: true, data: { tableName: 'audits' } };
+        expect(() => extractPoliciesArray(input)).not.toThrow();
+        expect(extractPoliciesArray(input)).toEqual([]);
+      });
+    });
+  });
+
+  describe('extractActionsObject', () => {
+    describe('null/undefined handling', () => {
+      it('returns undefined for null', () => {
+        expect(extractActionsObject(null)).toBeUndefined();
+      });
+
+      it('returns undefined for undefined', () => {
+        expect(extractActionsObject(undefined)).toBeUndefined();
+      });
+    });
+
+    describe('object with actions field', () => {
+      it('extracts actions from {actions: {...}}', () => {
+        const actions = { hiddenFields: ['field1'], readonlyFields: [] };
+        const input = { actions, tableName: 'audits' };
+        expect(extractActionsObject(input)).toEqual(actions);
+      });
+
+      it('returns undefined when actions is null', () => {
+        const input = { actions: null, tableName: 'audits' };
+        expect(extractActionsObject(input)).toBeUndefined();
+      });
+
+      it('returns undefined when actions is not an object', () => {
+        const input = { actions: 'not an object', tableName: 'audits' };
+        expect(extractActionsObject(input)).toBeUndefined();
+      });
+    });
+
+    describe('envelope handling', () => {
+      it('extracts actions from {success: true, data: {actions: {...}}}', () => {
+        const actions = { hiddenFields: ['field1'] };
+        const input = { success: true, data: { actions, tableName: 'audits' } };
+        expect(extractActionsObject(input)).toEqual(actions);
+      });
+
+      it('extracts actions from double-wrapped envelope', () => {
+        const actions = { hiddenFields: ['field1'] };
+        const input = { success: true, data: { success: true, data: { actions } } };
+        expect(extractActionsObject(input)).toEqual(actions);
+      });
+
+      it('returns undefined for error envelope', () => {
+        const input = { success: false, error: { message: 'Error' } };
+        expect(extractActionsObject(input)).toBeUndefined();
+      });
+    });
+
+    describe('useUiPolicy crash scenarios', () => {
+      it('handles response.data being undefined - no crash', () => {
+        expect(() => extractActionsObject(undefined)).not.toThrow();
+        expect(extractActionsObject(undefined)).toBeUndefined();
+      });
+
+      it('handles response.data.actions being undefined - no crash', () => {
+        const input = { tableName: 'audits' };
+        expect(() => extractActionsObject(input)).not.toThrow();
+        expect(extractActionsObject(input)).toBeUndefined();
+      });
+
+      it('handles wrapped response without actions - no crash', () => {
+        const input = { success: true, data: { tableName: 'audits' } };
+        expect(() => extractActionsObject(input)).not.toThrow();
+        expect(extractActionsObject(input)).toBeUndefined();
+      });
     });
   });
 });

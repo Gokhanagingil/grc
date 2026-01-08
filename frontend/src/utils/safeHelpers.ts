@@ -208,3 +208,181 @@ export function ensureArray<T>(value: unknown): T[] {
   // Object is not array-like, return empty array
   return [];
 }
+
+/**
+ * Converts any value to an array of strings.
+ * Handles various input types:
+ * - Array: filters to only strings, trims whitespace, removes empty strings
+ * - String: returns [value] if non-empty after trim, else []
+ * - null/undefined: returns []
+ * - Other: returns []
+ * 
+ * This is useful for normalizing API responses where field arrays
+ * may be undefined, null, or contain non-string values.
+ * 
+ * @param value - The value to convert to string array
+ * @returns An array of non-empty trimmed strings
+ */
+export function toStringArray(value: unknown): string[] {
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return [];
+  }
+  
+  // Handle arrays - filter to strings only, trim, remove empty
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+  
+  // Handle single string - return as array if non-empty
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? [trimmed] : [];
+  }
+  
+  // Other types - return empty array
+  return [];
+}
+
+/**
+ * Unwraps API response envelopes to extract the actual data.
+ * Handles various response shapes:
+ * - {data: X} - axios response wrapper
+ * - {success: true, data: X} - NestJS envelope
+ * - {success: true, data: {success: true, data: X}} - double-wrapped envelope
+ * - Direct data (no wrapper)
+ * 
+ * This is useful for handling inconsistent API response formats
+ * where the same endpoint may return different envelope structures.
+ * 
+ * @param response - The API response to unwrap
+ * @returns The unwrapped data, or the original response if not wrapped
+ */
+export function unwrapApiEnvelope<T = unknown>(response: unknown): T {
+  // Handle null/undefined
+  if (response === null || response === undefined) {
+    return response as T;
+  }
+  
+  // Not an object - return as-is
+  if (typeof response !== 'object') {
+    return response as T;
+  }
+  
+  const obj = response as Record<string, unknown>;
+  
+  // Handle {success: true/false, data: ...} envelope
+  if ('success' in obj && 'data' in obj) {
+    // If success is false, return the response as-is (error case)
+    if (obj.success === false) {
+      return response as T;
+    }
+    // Recursively unwrap the data field (handles double-wrapping)
+    return unwrapApiEnvelope<T>(obj.data);
+  }
+  
+  // Handle {data: ...} pattern (axios response) - only if it looks like a wrapper
+  // Check that it's a simple wrapper (has data and maybe a few other fields like status, headers)
+  if ('data' in obj) {
+    const keys = Object.keys(obj);
+    // If it looks like an axios response wrapper (has data, status, headers, etc.)
+    // or a simple {data: X} wrapper
+    const isAxiosLike = keys.some(k => ['status', 'statusText', 'headers', 'config'].includes(k));
+    const isSimpleWrapper = keys.length === 1 && keys[0] === 'data';
+    if (isAxiosLike || isSimpleWrapper) {
+      return unwrapApiEnvelope<T>(obj.data);
+    }
+  }
+  
+  // Not a wrapper - return as-is
+  return response as T;
+}
+
+/**
+ * Safely extracts a policies array from an API response.
+ * Handles various response shapes:
+ * - {policies: [...]}
+ * - {data: {policies: [...]}}
+ * - {success: true, data: {policies: [...]}}
+ * - Direct array
+ * 
+ * @param response - The API response to extract policies from
+ * @returns An array of policies, or empty array if not found
+ */
+export function extractPoliciesArray<T = unknown>(response: unknown): T[] {
+  // Handle null/undefined
+  if (response === null || response === undefined) {
+    return [];
+  }
+  
+  // Already an array
+  if (Array.isArray(response)) {
+    return response as T[];
+  }
+  
+  // Not an object
+  if (typeof response !== 'object') {
+    return [];
+  }
+  
+  const obj = response as Record<string, unknown>;
+  
+  // Direct {policies: [...]} pattern
+  if ('policies' in obj && Array.isArray(obj.policies)) {
+    return obj.policies as T[];
+  }
+  
+  // Unwrap envelope and try again
+  const unwrapped = unwrapApiEnvelope(response);
+  if (unwrapped !== response && typeof unwrapped === 'object' && unwrapped !== null) {
+    const unwrappedObj = unwrapped as Record<string, unknown>;
+    if ('policies' in unwrappedObj && Array.isArray(unwrappedObj.policies)) {
+      return unwrappedObj.policies as T[];
+    }
+  }
+  
+  return [];
+}
+
+/**
+ * Safely extracts an actions object from an API response.
+ * Handles various response shapes:
+ * - {actions: {...}}
+ * - {data: {actions: {...}}}
+ * - {success: true, data: {actions: {...}}}
+ * 
+ * @param response - The API response to extract actions from
+ * @returns The actions object, or undefined if not found
+ */
+export function extractActionsObject<T = unknown>(response: unknown): T | undefined {
+  // Handle null/undefined
+  if (response === null || response === undefined) {
+    return undefined;
+  }
+  
+  // Not an object
+  if (typeof response !== 'object') {
+    return undefined;
+  }
+  
+  const obj = response as Record<string, unknown>;
+  
+  // Direct {actions: {...}} pattern
+  if ('actions' in obj && obj.actions !== null && typeof obj.actions === 'object') {
+    return obj.actions as T;
+  }
+  
+  // Unwrap envelope and try again
+  const unwrapped = unwrapApiEnvelope(response);
+  if (unwrapped !== response && typeof unwrapped === 'object' && unwrapped !== null) {
+    const unwrappedObj = unwrapped as Record<string, unknown>;
+    if ('actions' in unwrappedObj && unwrappedObj.actions !== null && typeof unwrappedObj.actions === 'object') {
+      return unwrappedObj.actions as T;
+    }
+  }
+  
+  return undefined;
+}
