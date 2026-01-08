@@ -38,8 +38,9 @@ import {
   CapaStatus,
   CAPATaskStatus,
   EvidenceType,
-  RelationshipType,
+  ControlEvidenceType,
   StatusHistoryEntityType,
+  EffectivenessRating,
 } from '../grc/enums';
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -141,11 +142,9 @@ async function seedGoldenFlowData() {
         code: `${GOLDEN_FLOW_PREFIX}CTL-001`,
         description:
           'Implement and maintain role-based access control (RBAC) for all critical systems. Access rights must be reviewed quarterly.',
-        category: 'Access Management',
         status: ControlStatus.IMPLEMENTED,
         ownerUserId: DEMO_ADMIN_ID,
         testFrequency: ControlFrequency.QUARTERLY,
-        testType: ControlTestType.MANUAL,
       });
       await controlRepo.save(control);
       console.log(`   Created control: ${control.code} - ${control.name}`);
@@ -191,7 +190,7 @@ async function seedGoldenFlowData() {
         description:
           'Documented access control policy including RBAC matrix and approval workflows.',
         type: EvidenceType.DOCUMENT,
-        status: 'Active',
+        location: '/documents/policies/access-control-policy-v2.pdf',
         collectedAt: new Date(),
         collectedByUserId: DEMO_ADMIN_ID,
         metadata: {
@@ -218,9 +217,8 @@ async function seedGoldenFlowData() {
         tenantId: DEMO_TENANT_ID,
         controlId: control.id,
         evidenceId: evidence.id,
-        relationType: RelationshipType.PRIMARY,
-        note: 'Primary policy document supporting RBAC implementation',
-        createdBy: DEMO_ADMIN_ID,
+        evidenceType: ControlEvidenceType.BASELINE,
+        notes: 'Primary policy document supporting RBAC implementation',
       });
       await controlEvidenceRepo.save(controlEvidence);
       console.log('   Linked evidence to control');
@@ -242,20 +240,17 @@ async function seedGoldenFlowData() {
     if (!controlTest) {
       const scheduledDate = new Date();
       scheduledDate.setDate(scheduledDate.getDate() - 7); // Scheduled 7 days ago
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() - 1); // Due yesterday
 
       controlTest = controlTestRepo.create({
         tenantId: DEMO_TENANT_ID,
         controlId: control.id,
+        name: 'Q4 2025 Access Control Review',
+        description: 'Quarterly access control review for Q4 2025',
         testType: ControlTestType.MANUAL,
-        testFrequency: ControlFrequency.QUARTERLY,
         scheduledDate,
-        dueDate,
         testerUserId: DEMO_ADMIN_ID,
         status: ControlTestStatus.COMPLETED,
-        notes: 'Q4 2025 quarterly access control review',
-        createdBy: DEMO_ADMIN_ID,
+        completedAt: new Date(),
       });
       await controlTestRepo.save(controlTest);
       console.log(`   Created control test: ${controlTest.id}`);
@@ -267,10 +262,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.CONTROL_TEST,
           entityId: controlTest.id,
-          fromStatus: null,
-          toStatus: ControlTestStatus.PLANNED,
+          previousStatus: null,
+          newStatus: ControlTestStatus.PLANNED,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'Control test scheduled',
+          changeReason: 'Control test scheduled',
         }),
       );
       await statusHistoryRepo.save(
@@ -278,10 +273,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.CONTROL_TEST,
           entityId: controlTest.id,
-          fromStatus: ControlTestStatus.PLANNED,
-          toStatus: ControlTestStatus.IN_PROGRESS,
+          previousStatus: ControlTestStatus.PLANNED,
+          newStatus: ControlTestStatus.IN_PROGRESS,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'Test execution started',
+          changeReason: 'Test execution started',
         }),
       );
       await statusHistoryRepo.save(
@@ -289,10 +284,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.CONTROL_TEST,
           entityId: controlTest.id,
-          fromStatus: ControlTestStatus.IN_PROGRESS,
-          toStatus: ControlTestStatus.COMPLETED,
+          previousStatus: ControlTestStatus.IN_PROGRESS,
+          newStatus: ControlTestStatus.COMPLETED,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'Test execution completed',
+          changeReason: 'Test execution completed',
         }),
       );
     } else {
@@ -311,20 +306,18 @@ async function seedGoldenFlowData() {
         tenantId: DEMO_TENANT_ID,
         controlTestId: controlTest.id,
         result: TestResultOutcome.FAIL,
-        effectivenessRating: 2,
-        notes:
+        effectivenessRating: EffectivenessRating.PARTIALLY_EFFECTIVE,
+        resultDetails:
           'Access control review identified several issues: 1) 15 dormant accounts with active access, 2) 3 users with excessive privileges, 3) Missing documentation for 2 service accounts.',
-        executedAt: new Date(),
-        executedByUserId: DEMO_ADMIN_ID,
-        remediationRecommendation:
+        recommendations:
           'Immediate remediation required: disable dormant accounts, review and reduce excessive privileges, document all service accounts.',
-        createdBy: DEMO_ADMIN_ID,
+        exceptionsCount: 20,
       });
       await testResultRepo.save(testResult);
       console.log(`   Created test result: ${testResult.id} (FAIL)`);
 
       // Update control with last test result
-      control.lastTestResultId = testResult.id;
+      control.lastTestResult = TestResultOutcome.FAIL;
       control.lastTestedDate = new Date();
       await controlRepo.save(control);
     } else {
@@ -348,17 +341,13 @@ async function seedGoldenFlowData() {
         description:
           'Quarterly access control review identified multiple deficiencies requiring immediate remediation.',
         severity: IssueSeverity.HIGH,
-        priority: 'high',
         status: IssueStatus.IN_PROGRESS,
         rootCause:
           'Lack of automated access review process and incomplete offboarding procedures.',
-        remediation:
-          'Implement automated access review tool, update offboarding checklist, establish service account governance.',
-        relatedControlId: control.id,
-        relatedTestResultId: testResult.id,
+        controlId: control.id,
+        testResultId: testResult.id,
         ownerUserId: DEMO_ADMIN_ID,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        createdBy: DEMO_ADMIN_ID,
       });
       await issueRepo.save(issue);
       console.log(`   Created issue: ${issue.title}`);
@@ -370,10 +359,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.ISSUE,
           entityId: issue.id,
-          fromStatus: null,
-          toStatus: IssueStatus.OPEN,
+          previousStatus: null,
+          newStatus: IssueStatus.OPEN,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'Issue created from failing test result',
+          changeReason: 'Issue created from failing test result',
         }),
       );
       await statusHistoryRepo.save(
@@ -381,10 +370,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.ISSUE,
           entityId: issue.id,
-          fromStatus: IssueStatus.OPEN,
-          toStatus: IssueStatus.IN_PROGRESS,
+          previousStatus: IssueStatus.OPEN,
+          newStatus: IssueStatus.IN_PROGRESS,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'Remediation work started',
+          changeReason: 'Remediation work started',
         }),
       );
     } else {
@@ -410,12 +399,11 @@ async function seedGoldenFlowData() {
         actionPlan:
           '1. Disable all dormant accounts within 5 business days\n2. Review and remediate excessive privileges within 10 business days\n3. Document all service accounts within 15 business days\n4. Implement automated access review tool within 30 days\n5. Update offboarding procedures within 20 days',
         status: CapaStatus.IN_PROGRESS,
-        relatedIssueId: issue.id,
+        issueId: issue.id,
         ownerUserId: DEMO_ADMIN_ID,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        verificationPlan:
+        verificationMethod:
           'Verify all remediation tasks are complete, conduct follow-up access review to confirm no dormant accounts or excessive privileges remain.',
-        createdBy: DEMO_ADMIN_ID,
       });
       await capaRepo.save(capa);
       console.log(`   Created CAPA: ${capa.title}`);
@@ -427,10 +415,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.CAPA,
           entityId: capa.id,
-          fromStatus: null,
-          toStatus: CapaStatus.PLANNED,
+          previousStatus: null,
+          newStatus: CapaStatus.PLANNED,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'CAPA created from issue',
+          changeReason: 'CAPA created from issue',
         }),
       );
       await statusHistoryRepo.save(
@@ -438,10 +426,10 @@ async function seedGoldenFlowData() {
           tenantId: DEMO_TENANT_ID,
           entityType: StatusHistoryEntityType.CAPA,
           entityId: capa.id,
-          fromStatus: CapaStatus.PLANNED,
-          toStatus: CapaStatus.IN_PROGRESS,
+          previousStatus: CapaStatus.PLANNED,
+          newStatus: CapaStatus.IN_PROGRESS,
           changedByUserId: DEMO_ADMIN_ID,
-          reason: 'CAPA implementation started',
+          changeReason: 'CAPA implementation started',
         }),
       );
     } else {
@@ -464,7 +452,7 @@ async function seedGoldenFlowData() {
         sequenceOrder: 1,
         dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days
         completedAt: new Date(),
-        completionNotes:
+        notes:
           'Disabled 15 dormant accounts. Notified account owners via email.',
       },
       {
@@ -485,7 +473,6 @@ async function seedGoldenFlowData() {
           capaId: capa.id,
           ...taskData,
           assigneeUserId: DEMO_ADMIN_ID,
-          createdBy: DEMO_ADMIN_ID,
         });
         await capaTaskRepo.save(task);
         console.log(`   Created CAPA task: ${task.title}`);
@@ -497,10 +484,10 @@ async function seedGoldenFlowData() {
             tenantId: DEMO_TENANT_ID,
             entityType: StatusHistoryEntityType.CAPA_TASK,
             entityId: task.id,
-            fromStatus: null,
-            toStatus: CAPATaskStatus.PENDING,
+            previousStatus: null,
+            newStatus: CAPATaskStatus.PENDING,
             changedByUserId: DEMO_ADMIN_ID,
-            reason: 'Task created',
+            changeReason: 'Task created',
           }),
         );
 
@@ -510,10 +497,10 @@ async function seedGoldenFlowData() {
               tenantId: DEMO_TENANT_ID,
               entityType: StatusHistoryEntityType.CAPA_TASK,
               entityId: task.id,
-              fromStatus: CAPATaskStatus.PENDING,
-              toStatus: CAPATaskStatus.IN_PROGRESS,
+              previousStatus: CAPATaskStatus.PENDING,
+              newStatus: CAPATaskStatus.IN_PROGRESS,
               changedByUserId: DEMO_ADMIN_ID,
-              reason: 'Task started',
+              changeReason: 'Task started',
             }),
           );
         } else if (taskData.status === CAPATaskStatus.COMPLETED) {
@@ -522,10 +509,10 @@ async function seedGoldenFlowData() {
               tenantId: DEMO_TENANT_ID,
               entityType: StatusHistoryEntityType.CAPA_TASK,
               entityId: task.id,
-              fromStatus: CAPATaskStatus.PENDING,
-              toStatus: CAPATaskStatus.IN_PROGRESS,
+              previousStatus: CAPATaskStatus.PENDING,
+              newStatus: CAPATaskStatus.IN_PROGRESS,
               changedByUserId: DEMO_ADMIN_ID,
-              reason: 'Task started',
+              changeReason: 'Task started',
             }),
           );
           await statusHistoryRepo.save(
@@ -533,10 +520,10 @@ async function seedGoldenFlowData() {
               tenantId: DEMO_TENANT_ID,
               entityType: StatusHistoryEntityType.CAPA_TASK,
               entityId: task.id,
-              fromStatus: CAPATaskStatus.IN_PROGRESS,
-              toStatus: CAPATaskStatus.COMPLETED,
+              previousStatus: CAPATaskStatus.IN_PROGRESS,
+              newStatus: CAPATaskStatus.COMPLETED,
               changedByUserId: DEMO_ADMIN_ID,
-              reason: 'Task completed',
+              changeReason: 'Task completed',
             }),
           );
         }
