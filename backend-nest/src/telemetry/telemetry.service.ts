@@ -58,8 +58,26 @@ function truncateString(
 }
 
 /**
+ * Safely set a property on an object using Object.defineProperty
+ * This prevents prototype pollution by using explicit property descriptors
+ */
+function safeSetProperty(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  Object.defineProperty(target, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
  * Sanitize metadata object to prevent prototype pollution
  * Removes dangerous keys and recursively sanitizes nested objects
+ * Uses Object.create(null) and Object.defineProperty for safe property assignment
  */
 function sanitizeMetadata(
   obj: unknown,
@@ -78,7 +96,9 @@ function sanitizeMetadata(
     return null;
   }
 
-  const result: Record<string, unknown> = {};
+  // Create a prototype-less object to prevent prototype pollution
+  const result = Object.create(null) as Record<string, unknown>;
+  let hasProperties = false;
 
   for (const key of Object.keys(obj as Record<string, unknown>)) {
     // Skip dangerous keys
@@ -86,17 +106,24 @@ function sanitizeMetadata(
       continue;
     }
 
+    // Additional validation: only allow alphanumeric keys with underscores/hyphens
+    if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
+      continue;
+    }
+
     const value = (obj as Record<string, unknown>)[key];
 
     // Recursively sanitize nested objects
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      result[key] = sanitizeMetadata(value, depth + 1);
+      safeSetProperty(result, key, sanitizeMetadata(value, depth + 1));
+      hasProperties = true;
     } else if (typeof value === 'string') {
       // Truncate long strings
-      result[key] = truncateString(value, MAX_STRING_LENGTH);
+      safeSetProperty(result, key, truncateString(value, MAX_STRING_LENGTH));
+      hasProperties = true;
     } else if (Array.isArray(value)) {
       // Sanitize arrays (limit size and sanitize elements)
-      result[key] = value.slice(0, 100).map((item: unknown) => {
+      const sanitizedArray = value.slice(0, 100).map((item: unknown) => {
         if (typeof item === 'string') {
           return truncateString(item, 1000);
         }
@@ -106,13 +133,21 @@ function sanitizeMetadata(
         // Return primitives (number, boolean, null, undefined) as-is
         return item as string | number | boolean | null | undefined;
       });
-    } else {
-      // Keep primitives as-is
-      result[key] = value;
+      safeSetProperty(result, key, sanitizedArray);
+      hasProperties = true;
+    } else if (
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      value === null
+    ) {
+      // Keep safe primitives as-is
+      safeSetProperty(result, key, value);
+      hasProperties = true;
     }
+    // Skip any other types (functions, symbols, etc.)
   }
 
-  return Object.keys(result).length > 0 ? result : null;
+  return hasProperties ? result : null;
 }
 
 /**
