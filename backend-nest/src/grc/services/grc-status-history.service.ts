@@ -6,6 +6,15 @@ import { StatusHistoryFilterDto } from '../dto/status-history.dto';
 
 @Injectable()
 export class GrcStatusHistoryService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private readonly allowedSortFields: Set<string> = new Set([
+    'createdAt',
+    'entityType',
+    'entityId',
+    'previousStatus',
+    'newStatus',
+  ]);
+
   constructor(
     @InjectRepository(GrcStatusHistory)
     private readonly statusHistoryRepository: Repository<GrcStatusHistory>,
@@ -45,8 +54,13 @@ export class GrcStatusHistoryService {
       );
     }
 
+    // Validate sortBy to prevent SQL injection
+    const safeSortBy = this.allowedSortFields.has(sortBy)
+      ? sortBy
+      : 'createdAt';
+
     const [items, total] = await queryBuilder
-      .orderBy(`statusHistory.${sortBy}`, sortOrder)
+      .orderBy(`statusHistory.${safeSortBy}`, sortOrder)
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();

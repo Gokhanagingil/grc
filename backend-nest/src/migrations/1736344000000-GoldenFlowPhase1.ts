@@ -290,7 +290,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     // Add foreign key constraints for grc_control_tests
     await queryRunner.query(`
       ALTER TABLE "grc_control_tests" 
-      ADD CONSTRAINT "FK_grc_control_tests_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_control_tests_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_control_tests" 
@@ -308,7 +308,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     // Add foreign key constraints for grc_test_results
     await queryRunner.query(`
       ALTER TABLE "grc_test_results" 
-      ADD CONSTRAINT "FK_grc_test_results_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_test_results_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_test_results" 
@@ -322,7 +322,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     // Add foreign key constraints for grc_capa_tasks
     await queryRunner.query(`
       ALTER TABLE "grc_capa_tasks" 
-      ADD CONSTRAINT "FK_grc_capa_tasks_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_capa_tasks_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_capa_tasks" 
@@ -350,7 +350,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     // Add foreign key constraints for grc_status_history
     await queryRunner.query(`
       ALTER TABLE "grc_status_history" 
-      ADD CONSTRAINT "FK_grc_status_history_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_status_history_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_status_history" 

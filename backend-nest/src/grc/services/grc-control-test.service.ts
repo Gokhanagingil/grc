@@ -17,6 +17,18 @@ import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class GrcControlTestService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private readonly allowedSortFields: Set<string> = new Set([
+    'createdAt',
+    'updatedAt',
+    'scheduledDate',
+    'startedAt',
+    'completedAt',
+    'status',
+    'name',
+    'testType',
+  ]);
+
   private readonly validTransitions: Map<
     ControlTestStatus,
     ControlTestStatus[]
@@ -147,8 +159,13 @@ export class GrcControlTestService {
       });
     }
 
+    // Validate sortBy to prevent SQL injection
+    const safeSortBy = this.allowedSortFields.has(sortBy)
+      ? sortBy
+      : 'createdAt';
+
     const [items, total] = await queryBuilder
-      .orderBy(`controlTest.${sortBy}`, sortOrder)
+      .orderBy(`controlTest.${safeSortBy}`, sortOrder)
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();

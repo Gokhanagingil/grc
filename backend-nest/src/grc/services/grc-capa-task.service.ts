@@ -18,6 +18,17 @@ import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class GrcCapaTaskService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private readonly allowedSortFields: Set<string> = new Set([
+    'sequenceOrder',
+    'createdAt',
+    'updatedAt',
+    'dueDate',
+    'status',
+    'title',
+    'completedAt',
+  ]);
+
   private readonly validTransitions: Map<CAPATaskStatus, CAPATaskStatus[]> =
     new Map([
       [
@@ -132,8 +143,13 @@ export class GrcCapaTaskService {
       queryBuilder.andWhere('capaTask.dueDate <= :dueDateTo', { dueDateTo });
     }
 
+    // Validate sortBy to prevent SQL injection
+    const safeSortBy = this.allowedSortFields.has(sortBy)
+      ? sortBy
+      : 'sequenceOrder';
+
     const [items, total] = await queryBuilder
-      .orderBy(`capaTask.${sortBy}`, sortOrder)
+      .orderBy(`capaTask.${safeSortBy}`, sortOrder)
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();

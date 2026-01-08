@@ -22,6 +22,15 @@ import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class GrcTestResultService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private readonly allowedSortFields: Set<string> = new Set([
+    'createdAt',
+    'updatedAt',
+    'result',
+    'effectivenessRating',
+    'reviewedAt',
+  ]);
+
   constructor(
     @InjectRepository(GrcTestResult)
     private readonly testResultRepository: Repository<GrcTestResult>,
@@ -144,8 +153,13 @@ export class GrcTestResultService {
       );
     }
 
+    // Validate sortBy to prevent SQL injection
+    const safeSortBy = this.allowedSortFields.has(sortBy)
+      ? sortBy
+      : 'createdAt';
+
     const [items, total] = await queryBuilder
-      .orderBy(`testResult.${sortBy}`, sortOrder)
+      .orderBy(`testResult.${safeSortBy}`, sortOrder)
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();

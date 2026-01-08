@@ -15,6 +15,15 @@ import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class GrcControlEvidenceService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private readonly allowedSortFields: Set<string> = new Set([
+    'createdAt',
+    'updatedAt',
+    'evidenceType',
+    'validFrom',
+    'validUntil',
+  ]);
+
   constructor(
     @InjectRepository(GrcControlEvidence)
     private readonly controlEvidenceRepository: Repository<GrcControlEvidence>,
@@ -115,8 +124,13 @@ export class GrcControlEvidenceService {
       });
     }
 
+    // Validate sortBy to prevent SQL injection
+    const safeSortBy = this.allowedSortFields.has(sortBy)
+      ? sortBy
+      : 'createdAt';
+
     const [items, total] = await queryBuilder
-      .orderBy(`controlEvidence.${sortBy}`, sortOrder)
+      .orderBy(`controlEvidence.${safeSortBy}`, sortOrder)
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
