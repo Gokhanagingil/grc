@@ -61,6 +61,15 @@ export class GoldenFlowPhase11736344000000 implements MigrationInterface {
       END $$;
     `);
 
+    // Create grc_controls_frequency_enum for test_frequency column on grc_controls
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."grc_controls_frequency_enum" AS ENUM('continuous', 'daily', 'weekly', 'monthly', 'quarterly', 'annual');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
     // Create grc_control_tests table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "grc_control_tests" (
@@ -545,6 +554,9 @@ export class GoldenFlowPhase11736344000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "grc_control_tests"`);
 
     // Drop enum types
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."grc_controls_frequency_enum"`,
+    );
     await queryRunner.query(
       `DROP TYPE IF EXISTS "public"."grc_capas_priority_enum"`,
     );
