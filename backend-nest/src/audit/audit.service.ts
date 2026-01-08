@@ -178,23 +178,44 @@ export class AuditService {
     const result: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(entity)) {
-      if (sensitiveFields.includes(key)) {
-        result[key] = '[REDACTED]';
-      } else if (value instanceof Date) {
-        result[key] = value.toISOString();
-      } else if (typeof value === 'object' && value !== null) {
-        if (
-          'id' in value &&
-          typeof (value as { id: unknown }).id === 'string'
-        ) {
-          result[key] = { id: (value as { id: string }).id };
-        }
-      } else {
-        result[key] = value;
+      const sanitizedValue = this.sanitizeValue(key, value, sensitiveFields);
+      if (sanitizedValue !== undefined) {
+        Object.defineProperty(result, key, {
+          value: sanitizedValue,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
       }
     }
 
     return result;
+  }
+
+  /**
+   * Sanitize a single value for audit logging
+   * Returns undefined if the value should be skipped
+   */
+  private sanitizeValue(
+    key: string,
+    value: unknown,
+    sensitiveFields: string[],
+  ): unknown {
+    if (sensitiveFields.includes(key)) {
+      return '[REDACTED]';
+    } else if (value instanceof Date) {
+      return value.toISOString();
+    } else if (typeof value === 'object' && value !== null) {
+      if (
+        'id' in value &&
+        typeof (value as { id: unknown }).id === 'string'
+      ) {
+        return { id: (value as { id: string }).id };
+      }
+      return undefined;
+    } else {
+      return value;
+    }
   }
 
   /**
