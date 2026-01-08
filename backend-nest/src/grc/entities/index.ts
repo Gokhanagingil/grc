@@ -72,3 +72,10 @@ export { GrcIssueClause } from './grc-issue-clause.entity';
 // Framework Activation Entities
 export { GrcFramework } from './grc-framework.entity';
 export { GrcTenantFramework } from './grc-tenant-framework.entity';
+
+// Golden Flow Phase 1 Entities
+export { GrcControlTest } from './grc-control-test.entity';
+export { GrcTestResult } from './grc-test-result.entity';
+export { GrcCapaTask } from './grc-capa-task.entity';
+export { GrcControlEvidence } from './grc-control-evidence.entity';
+export { GrcStatusHistory } from './grc-status-history.entity';

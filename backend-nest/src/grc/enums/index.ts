@@ -387,3 +387,84 @@ export enum ViolationStatus {
   IN_PROGRESS = 'in_progress',
   RESOLVED = 'resolved',
 }
+
+// ============================================================================
+// Golden Flow Enums (Phase 1)
+// ============================================================================
+
+/**
+ * ControlTestType - Type of control test execution
+ */
+export enum ControlTestType {
+  MANUAL = 'manual',
+  AUTOMATED = 'automated',
+  HYBRID = 'hybrid',
+}
+
+/**
+ * ControlTestStatus - Status of a control test
+ */
+export enum ControlTestStatus {
+  PLANNED = 'planned',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+/**
+ * TestResultOutcome - Outcome of a test result
+ */
+export enum TestResultOutcome {
+  PASS = 'pass',
+  FAIL = 'fail',
+  INCONCLUSIVE = 'inconclusive',
+  NOT_APPLICABLE = 'not_applicable',
+}
+
+/**
+ * EffectivenessRating - Rating of control effectiveness
+ */
+export enum EffectivenessRating {
+  EFFECTIVE = 'effective',
+  PARTIALLY_EFFECTIVE = 'partially_effective',
+  INEFFECTIVE = 'ineffective',
+}
+
+/**
+ * CAPATaskStatus - Status of a CAPA task
+ */
+export enum CAPATaskStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+/**
+ * ControlEvidenceType - Type of evidence linked to a control
+ */
+export enum ControlEvidenceType {
+  BASELINE = 'baseline',
+  TEST = 'test',
+  PERIODIC = 'periodic',
+}
+
+/**
+ * CAPAPriority - Priority level for CAPA
+ */
+export enum CAPAPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+/**
+ * StatusHistoryEntityType - Entity types tracked in status history
+ */
+export enum StatusHistoryEntityType {
+  ISSUE = 'issue',
+  CAPA = 'capa',
+  CONTROL_TEST = 'control_test',
+  CAPA_TASK = 'capa_task',
+}

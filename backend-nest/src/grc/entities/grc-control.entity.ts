@@ -14,11 +14,14 @@ import {
   ControlImplementationType,
   ControlStatus,
   ControlFrequency,
+  TestResultOutcome,
 } from '../enums';
 import { GrcRiskControl } from './grc-risk-control.entity';
 import { GrcPolicyControl } from './grc-policy-control.entity';
 import { GrcRequirementControl } from './grc-requirement-control.entity';
 import { GrcIssue } from './grc-issue.entity';
+import { GrcControlTest } from './grc-control-test.entity';
+import { GrcControlEvidence } from './grc-control-evidence.entity';
 
 /**
  * GRC Control Entity
@@ -91,6 +94,30 @@ export class GrcControl extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  // Golden Flow Phase 1 - Test Strategy Fields
+  @Column({
+    name: 'test_frequency',
+    type: 'enum',
+    enum: ControlFrequency,
+    nullable: true,
+  })
+  testFrequency: ControlFrequency | null;
+
+  @Column({ name: 'next_test_date', type: 'date', nullable: true })
+  nextTestDate: Date | null;
+
+  @Column({
+    name: 'last_test_result',
+    type: 'enum',
+    enum: TestResultOutcome,
+    nullable: true,
+  })
+  lastTestResult: TestResultOutcome | null;
+
+  @Column({ name: 'evidence_requirements', type: 'text', nullable: true })
+  evidenceRequirements: string | null;
+
+  // Relationships
   @OneToMany(() => GrcRiskControl, (rc) => rc.control)
   riskControls: GrcRiskControl[];
 
@@ -102,4 +129,11 @@ export class GrcControl extends BaseEntity {
 
   @OneToMany(() => GrcIssue, (issue) => issue.control)
   issues: GrcIssue[];
+
+  // Golden Flow Phase 1 - Control Tests and Evidence
+  @OneToMany(() => GrcControlTest, (test) => test.control)
+  controlTests: GrcControlTest[];
+
+  @OneToMany(() => GrcControlEvidence, (ce) => ce.control)
+  controlEvidence: GrcControlEvidence[];
 }
