@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class GoldenFlowPhase11736344000000 implements MigrationInterface {
-  name = 'GoldenFlowPhase11736344000000';
+export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
+  name = 'GoldenFlowPhaseOne1736344000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enum types for Golden Flow Phase 1
