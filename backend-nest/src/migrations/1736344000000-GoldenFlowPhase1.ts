@@ -298,11 +298,11 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_control_tests" 
-      ADD CONSTRAINT "FK_grc_control_tests_tester" FOREIGN KEY ("tester_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_control_tests_tester" FOREIGN KEY ("tester_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_control_tests" 
-      ADD CONSTRAINT "FK_grc_control_tests_reviewer" FOREIGN KEY ("reviewer_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_control_tests_reviewer" FOREIGN KEY ("reviewer_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
 
     // Add foreign key constraints for grc_test_results
@@ -316,7 +316,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_test_results" 
-      ADD CONSTRAINT "FK_grc_test_results_reviewed_by" FOREIGN KEY ("reviewed_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_test_results_reviewed_by" FOREIGN KEY ("reviewed_by_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
 
     // Add foreign key constraints for grc_capa_tasks
@@ -330,11 +330,11 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_capa_tasks" 
-      ADD CONSTRAINT "FK_grc_capa_tasks_assignee" FOREIGN KEY ("assignee_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_capa_tasks_assignee" FOREIGN KEY ("assignee_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_capa_tasks" 
-      ADD CONSTRAINT "FK_grc_capa_tasks_completed_by" FOREIGN KEY ("completed_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_capa_tasks_completed_by" FOREIGN KEY ("completed_by_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
 
     // Add foreign key constraints for grc_control_evidence
@@ -354,7 +354,7 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_status_history" 
-      ADD CONSTRAINT "FK_grc_status_history_changed_by" FOREIGN KEY ("changed_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_status_history_changed_by" FOREIGN KEY ("changed_by_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
 
     // Add foreign key constraints for new columns in grc_issues
@@ -364,13 +364,13 @@ export class GoldenFlowPhaseOne1736344000000 implements MigrationInterface {
     `);
     await queryRunner.query(`
       ALTER TABLE "grc_issues" 
-      ADD CONSTRAINT "FK_grc_issues_closed_by" FOREIGN KEY ("closed_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_issues_closed_by" FOREIGN KEY ("closed_by_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
 
     // Add foreign key constraints for new columns in grc_capas
     await queryRunner.query(`
       ALTER TABLE "grc_capas" 
-      ADD CONSTRAINT "FK_grc_capas_closed_by" FOREIGN KEY ("closed_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      ADD CONSTRAINT "FK_grc_capas_closed_by" FOREIGN KEY ("closed_by_user_id") REFERENCES "nest_users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
   }
 
