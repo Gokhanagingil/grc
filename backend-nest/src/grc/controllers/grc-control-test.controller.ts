@@ -28,7 +28,7 @@ import {
   ControlTestFilterDto,
 } from '../dto/control-test.dto';
 
-@Controller('api/grc/control-tests')
+@Controller('grc/control-tests')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcControlTestController {
   constructor(private readonly controlTestService: GrcControlTestService) {}

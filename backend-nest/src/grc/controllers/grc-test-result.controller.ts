@@ -28,7 +28,7 @@ import {
   TestResultFilterDto,
 } from '../dto/test-result.dto';
 
-@Controller('api/grc/test-results')
+@Controller('grc/test-results')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcTestResultController {
   constructor(private readonly testResultService: GrcTestResultService) {}

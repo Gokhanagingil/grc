@@ -15,7 +15,7 @@ import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcStatusHistoryService } from '../services/grc-status-history.service';
 import { StatusHistoryFilterDto } from '../dto/status-history.dto';
 
-@Controller('api/grc/status-history')
+@Controller('grc/status-history')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcStatusHistoryController {
   constructor(private readonly statusHistoryService: GrcStatusHistoryService) {}

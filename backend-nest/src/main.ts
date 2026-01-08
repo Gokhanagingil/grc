@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { StructuredLoggerService } from './common/logger';
 import {
@@ -205,6 +206,26 @@ async function bootstrap() {
   app.enableCors({
     origin: corsOrigins.split(',').map((origin) => origin.trim()),
     credentials: true,
+  });
+
+  // Swagger API documentation setup
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('GRC Platform API')
+    .setDescription(
+      'API documentation for the GRC (Governance, Risk, and Compliance) Platform. ' +
+        'Provides endpoints for managing risks, policies, requirements, controls, ' +
+        'audits, issues, CAPAs, and evidence.',
+    )
+    .setVersion('1.0')
+    .addBearerAuth()
+    .addApiKey(
+      { type: 'apiKey', name: 'x-tenant-id', in: 'header' },
+      'tenant-id',
+    )
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    jsonDocumentUrl: 'api/docs-json',
   });
 
   // Get port from config (default 3002 to avoid conflict with Express on 3001)

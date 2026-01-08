@@ -94,6 +94,9 @@ import {
   GrcPolicyController,
   GrcRequirementController,
   GrcAuditController,
+  GrcControlController,
+  GrcEvidenceController,
+  GrcCapaController,
   // Platform Core Phase 1 controllers
   GrcPolicyVersionController,
   AuditReportTemplateController,
@@ -237,6 +240,9 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcPolicyController,
     GrcRequirementController,
     GrcAuditController,
+    GrcControlController,
+    GrcEvidenceController,
+    GrcCapaController,
     // Platform Core Phase 1 controllers
     GrcPolicyVersionController,
     AuditReportTemplateController,
