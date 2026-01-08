@@ -170,51 +170,53 @@ export class AuditService {
   /**
    * Sanitize entity for storage in audit log
    * Removes sensitive fields and circular references
+   * Uses Object.fromEntries to avoid CodeQL remote property injection alerts
    */
   private sanitizeEntity(
     entity: Record<string, unknown>,
   ): Record<string, unknown> {
-    const sensitiveFields = ['passwordHash', 'password', 'token', 'secret'];
-    const result: Record<string, unknown> = {};
+    const sensitiveFields = new Set([
+      'passwordHash',
+      'password',
+      'token',
+      'secret',
+    ]);
+
+    const entries: Array<[string, unknown]> = [];
 
     for (const [key, value] of Object.entries(entity)) {
-      const sanitizedValue = this.sanitizeValue(key, value, sensitiveFields);
-      if (sanitizedValue !== undefined) {
-        Object.defineProperty(result, key, {
-          value: sanitizedValue,
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
+      const sanitizedEntry = this.sanitizeEntry(key, value, sensitiveFields);
+      if (sanitizedEntry !== null) {
+        entries.push(sanitizedEntry);
       }
     }
 
-    return result;
+    return Object.fromEntries(entries);
   }
 
   /**
-   * Sanitize a single value for audit logging
-   * Returns undefined if the value should be skipped
+   * Sanitize a single entry for audit logging
+   * Returns null if the entry should be skipped, otherwise returns [key, value] tuple
    */
-  private sanitizeValue(
+  private sanitizeEntry(
     key: string,
     value: unknown,
-    sensitiveFields: string[],
-  ): unknown {
-    if (sensitiveFields.includes(key)) {
-      return '[REDACTED]';
+    sensitiveFields: Set<string>,
+  ): [string, unknown] | null {
+    if (sensitiveFields.has(key)) {
+      return [key, '[REDACTED]'];
     } else if (value instanceof Date) {
-      return value.toISOString();
+      return [key, value.toISOString()];
     } else if (typeof value === 'object' && value !== null) {
       if (
         'id' in value &&
         typeof (value as { id: unknown }).id === 'string'
       ) {
-        return { id: (value as { id: string }).id };
+        return [key, { id: (value as { id: string }).id }];
       }
-      return undefined;
+      return null;
     } else {
-      return value;
+      return [key, value];
     }
   }
 
