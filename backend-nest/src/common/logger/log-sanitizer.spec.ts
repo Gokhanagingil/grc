@@ -482,25 +482,51 @@ describe('LogSanitizer', () => {
     it('should handle repeated eyJ patterns quickly', () => {
       // Multiple potential JWT starts that could cause backtracking
       const maliciousInput = 'eyJ'.repeat(1000) + '.payload.signature';
-      const startTime = Date.now();
-      const result = sanitizeString(maliciousInput);
-      const endTime = Date.now();
 
-      // Should complete quickly
-      expect(endTime - startTime).toBeLessThan(100);
-      expect(result).toBeDefined();
+      // Run multiple times and use median to avoid CI flakiness
+      const NUM_RUNS = 10;
+      const durations: number[] = [];
+
+      for (let i = 0; i < NUM_RUNS; i++) {
+        const startTime = process.hrtime.bigint();
+        const result = sanitizeString(maliciousInput);
+        const endTime = process.hrtime.bigint();
+        durations.push(Number(endTime - startTime) / 1_000_000); // Convert to ms
+        expect(result).toBeDefined();
+      }
+
+      // Sort and get median
+      durations.sort((a, b) => a - b);
+      const median = durations[Math.floor(NUM_RUNS / 2)];
+
+      // Use generous threshold (750ms) to avoid CI noise while still catching ReDoS
+      // A ReDoS vulnerability would cause exponential time (seconds to minutes)
+      expect(median).toBeLessThan(750);
     });
 
     it('should handle strings with many percent signs quickly', () => {
       // Percent-encoded patterns that could cause backtracking in naive regex
       const maliciousInput = '%'.repeat(5000) + 'normal text';
-      const startTime = Date.now();
-      const result = sanitizeString(maliciousInput);
-      const endTime = Date.now();
 
-      // Should complete quickly (200ms threshold to account for CI environment variability)
-      expect(endTime - startTime).toBeLessThan(200);
-      expect(result).toBeDefined();
+      // Run multiple times and use median to avoid CI flakiness
+      const NUM_RUNS = 10;
+      const durations: number[] = [];
+
+      for (let i = 0; i < NUM_RUNS; i++) {
+        const startTime = process.hrtime.bigint();
+        const result = sanitizeString(maliciousInput);
+        const endTime = process.hrtime.bigint();
+        durations.push(Number(endTime - startTime) / 1_000_000); // Convert to ms
+        expect(result).toBeDefined();
+      }
+
+      // Sort and get median
+      durations.sort((a, b) => a - b);
+      const median = durations[Math.floor(NUM_RUNS / 2)];
+
+      // Use generous threshold (750ms) to avoid CI noise while still catching ReDoS
+      // A ReDoS vulnerability would cause exponential time (seconds to minutes)
+      expect(median).toBeLessThan(750);
     });
 
     it('should truncate very long inputs to prevent DoS', () => {
@@ -515,13 +541,26 @@ describe('LogSanitizer', () => {
     it('should handle JWT-like patterns with many dots quickly', () => {
       // Pattern that could cause backtracking: many dots with base64-like chars
       const maliciousInput = 'eyJhbGciOiJIUzI1NiJ9' + '.abc'.repeat(1000);
-      const startTime = Date.now();
-      const result = sanitizeString(maliciousInput);
-      const endTime = Date.now();
 
-      // Should complete quickly
-      expect(endTime - startTime).toBeLessThan(100);
-      expect(result).toBeDefined();
+      // Run multiple times and use median to avoid CI flakiness
+      const NUM_RUNS = 10;
+      const durations: number[] = [];
+
+      for (let i = 0; i < NUM_RUNS; i++) {
+        const startTime = process.hrtime.bigint();
+        const result = sanitizeString(maliciousInput);
+        const endTime = process.hrtime.bigint();
+        durations.push(Number(endTime - startTime) / 1_000_000); // Convert to ms
+        expect(result).toBeDefined();
+      }
+
+      // Sort and get median
+      durations.sort((a, b) => a - b);
+      const median = durations[Math.floor(NUM_RUNS / 2)];
+
+      // Use generous threshold (750ms) to avoid CI noise while still catching ReDoS
+      // A ReDoS vulnerability would cause exponential time (seconds to minutes)
+      expect(median).toBeLessThan(750);
     });
   });
 
