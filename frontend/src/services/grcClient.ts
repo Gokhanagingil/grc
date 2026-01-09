@@ -318,6 +318,14 @@ export const API_PATHS = {
     UNLINK_FINDING: (auditId: string, clauseId: string, issueId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings/${issueId}`,
   },
 
+  // GRC Status History endpoints (Control Detail History tab)
+  GRC_STATUS_HISTORY: {
+    LIST: '/grc/status-history',
+    GET: (id: string) => `/grc/status-history/${id}`,
+    BY_ENTITY: (entityType: string, entityId: string) => `/grc/status-history/by-entity/${entityType}/${entityId}`,
+    TIMELINE: (entityType: string, entityId: string) => `/grc/status-history/timeline/${entityType}/${entityId}`,
+  },
+
   // Admin Studio Data Model Dictionary endpoints (FAZ 2)
   DATA_MODEL: {
     TABLES: '/admin/data-model/tables',
@@ -1488,6 +1496,64 @@ export const coverageApi = {
 
   getProcessCoverage: (tenantId: string) =>
     api.get<ProcessCoverageResponse>(API_PATHS.GRC_COVERAGE.PROCESSES, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Status History Types and API (Control Detail History tab)
+// ============================================================================
+
+export interface StatusHistoryItem {
+  id: string;
+  tenantId: string;
+  entityType: string;
+  entityId: string;
+  previousStatus: string | null;
+  newStatus: string;
+  changedByUserId: string | null;
+  changedBy: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+  changeReason: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface StatusHistoryFilterParams {
+  entityType?: string;
+  entityId?: string;
+  changedByUserId?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface StatusTimelineResponse {
+  timeline: StatusHistoryItem[];
+  currentStatus: string | null;
+  totalTransitions: number;
+  firstTransitionAt: string | null;
+  lastTransitionAt: string | null;
+}
+
+export const statusHistoryApi = {
+  list: (tenantId: string, params?: StatusHistoryFilterParams) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.GET(id), withTenantId(tenantId)),
+
+  getByEntity: (tenantId: string, entityType: string, entityId: string) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.BY_ENTITY(entityType, entityId), withTenantId(tenantId)),
+
+  getTimeline: (tenantId: string, entityType: string, entityId: string) =>
+    api.get<StatusTimelineResponse>(API_PATHS.GRC_STATUS_HISTORY.TIMELINE(entityType, entityId), withTenantId(tenantId)),
 };
 
 // ============================================================================
