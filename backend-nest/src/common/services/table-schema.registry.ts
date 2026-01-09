@@ -310,10 +310,15 @@ const RISKS_SCHEMA: TableSchema = {
 
 /**
  * Central registry of all table schemas
+ *
+ * Note: Both short names (controls, risks) and full database table names
+ * (grc_controls, grc_risks) are supported for convenience.
  */
 export const TABLE_SCHEMAS: Record<string, TableSchema> = {
   controls: CONTROLS_SCHEMA,
+  grc_controls: CONTROLS_SCHEMA,
   risks: RISKS_SCHEMA,
+  grc_risks: RISKS_SCHEMA,
 };
 
 /**
