@@ -10,6 +10,7 @@ import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { ProcessControl } from './process-control.entity';
+import { GrcControlProcess } from './grc-control-process.entity';
 
 /**
  * Process Entity
@@ -53,4 +54,8 @@ export class Process extends BaseEntity {
 
   @OneToMany(() => ProcessControl, (control) => control.process)
   controls: ProcessControl[];
+
+  // GRC Control-Process links (for unified control library)
+  @OneToMany(() => GrcControlProcess, (cp) => cp.process)
+  controlProcesses: GrcControlProcess[];
 }

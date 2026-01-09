@@ -12,6 +12,7 @@ export { GrcAuditController } from './grc-audit.controller';
 export { GrcControlController } from './grc-control.controller';
 export { GrcEvidenceController } from './grc-evidence.controller';
 export { GrcCapaController } from './grc-capa.controller';
+export { GrcCoverageController } from './grc-coverage.controller';
 
 // Policy Versioning Controllers
 export { GrcPolicyVersionController } from './grc-policy-version.controller';

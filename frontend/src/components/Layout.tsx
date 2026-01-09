@@ -116,14 +116,78 @@ const menuGroups: NavMenuGroup[] = [
         ],
       },
       { 
-        text: 'Control', 
+        text: 'Controls', 
+        icon: <ComplianceIcon />, 
+        path: '/controls', 
+        moduleKey: 'compliance',
+        children: [
+          { text: 'Control Library', path: '/controls', status: 'active' },
+          { text: 'Testing', path: '/control-testing', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Requirements', 
         icon: <ComplianceIcon />, 
         path: '/compliance', 
         moduleKey: 'compliance',
         children: [
-          { text: 'Requirements', path: '/compliance', status: 'active' },
-          { text: 'Control Library', path: '/controls', status: 'coming_soon' },
-          { text: 'Testing', path: '/control-testing', status: 'coming_soon' },
+          { text: 'Requirements List', path: '/compliance', status: 'active' },
+        ],
+      },
+      { 
+        text: 'Process', 
+        icon: <ProcessIcon />, 
+        path: '/processes',
+        children: [
+          { text: 'Process List', path: '/processes', status: 'active' },
+        ],
+      },
+      { 
+        text: 'Evidence', 
+        icon: <AuditIcon />, 
+        path: '/evidence',
+        children: [
+          { text: 'Evidence List', path: '/evidence', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Tests/Results', 
+        icon: <AuditIcon />, 
+        path: '/test-results',
+        children: [
+          { text: 'Test Results', path: '/test-results', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Issues', 
+        icon: <ViolationIcon />, 
+        path: '/issues',
+        children: [
+          { text: 'Issues List', path: '/issues', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'CAPA', 
+        icon: <ViolationIcon />, 
+        path: '/capa',
+        children: [
+          { text: 'CAPA List', path: '/capa', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Status History', 
+        icon: <AuditIcon />, 
+        path: '/status-history',
+        children: [
+          { text: 'Status History', path: '/status-history', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Coverage', 
+        icon: <ComplianceDashboardIcon />, 
+        path: '/coverage',
+        children: [
+          { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
         ],
       },
       { 
@@ -135,14 +199,6 @@ const menuGroups: NavMenuGroup[] = [
           { text: 'Audit List', path: '/audits', status: 'active' },
           { text: 'Findings', path: '/findings', status: 'active' },
           { text: 'Reports', path: '/audit-reports', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Process', 
-        icon: <ProcessIcon />, 
-        path: '/processes',
-        children: [
-          { text: 'Process List', path: '/processes', status: 'active' },
         ],
       },
       { 

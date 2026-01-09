@@ -17,6 +17,7 @@ import {
   GrcRiskControl,
   GrcPolicyControl,
   GrcRequirementControl,
+  GrcControlProcess,
   GrcIssueEvidence,
   GrcRiskPolicy,
   GrcRiskRequirement,
@@ -98,6 +99,7 @@ import {
   GrcControlController,
   GrcEvidenceController,
   GrcCapaController,
+  GrcCoverageController,
   // Platform Core Phase 1 controllers
   GrcPolicyVersionController,
   AuditReportTemplateController,
@@ -162,6 +164,7 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
       GrcRiskControl,
       GrcPolicyControl,
       GrcRequirementControl,
+      GrcControlProcess,
       GrcIssueEvidence,
       GrcRiskPolicy,
       GrcRiskRequirement,
@@ -246,6 +249,7 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcControlController,
     GrcEvidenceController,
     GrcCapaController,
+    GrcCoverageController,
     // Platform Core Phase 1 controllers
     GrcPolicyVersionController,
     AuditReportTemplateController,
