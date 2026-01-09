@@ -555,7 +555,8 @@ export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items
   
   // Legacy format with meta (backward compatibility)
   if ('success' in data && data.success && 'data' in data && 'meta' in data) {
-    const legacyData = data as { success: boolean; data: T[]; meta: { total: number; page: number; pageSize: number } };
+    // Cast through unknown since we're doing runtime type checking
+    const legacyData = data as unknown as { success: boolean; data: T[]; meta: { total: number; page: number; pageSize: number } };
     return {
       items: legacyData.data,
       total: legacyData.meta.total,
