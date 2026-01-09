@@ -9,3 +9,5 @@ export { ComingSoonPage } from './ComingSoonPage';
 export type { ComingSoonPageProps } from './ComingSoonPage';
 export { GenericListPage } from './GenericListPage';
 export type { GenericListPageProps, ColumnDefinition } from './GenericListPage';
+export { ColumnPickerDialog } from './ColumnPickerDialog';
+export { ColumnFilterRow } from './ColumnFilterRow';

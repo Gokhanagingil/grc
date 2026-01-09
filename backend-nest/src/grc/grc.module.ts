@@ -4,6 +4,8 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UniversalListService } from '../common/services/universal-list.service';
+import { ViewPreferenceService } from '../common/services/view-preference.service';
+import { UserViewPreference } from '../common/entities/user-view-preference.entity';
 
 // Entities
 import {
@@ -124,6 +126,8 @@ import {
   // Framework Activation controllers
   GrcFrameworksController,
   TenantFrameworksController,
+  // Platform Controllers (Universal Views)
+  PlatformController,
 } from './controllers';
 
 // Golden Flow Phase 1 controllers
@@ -203,6 +207,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
       GrcCapaTask,
       GrcControlEvidence,
       GrcStatusHistory,
+      // Universal Views entities
+      UserViewPreference,
     ]),
     AuditModule,
     AuthModule,
@@ -242,6 +248,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcStatusHistoryService,
     // Closure Loop MVP service
     ClosureLoopService,
+    // Universal Views services
+    ViewPreferenceService,
   ],
   controllers: [
     // Core controllers
@@ -276,6 +284,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     // Framework Activation controllers
     GrcFrameworksController,
     TenantFrameworksController,
+    // Universal Views controllers
+    PlatformController,
     // Golden Flow Phase 1 controllers
     GrcControlTestController,
     GrcTestResultController,
@@ -317,6 +327,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcStatusHistoryService,
     // Closure Loop MVP service
     ClosureLoopService,
+    // Universal Views services
+    ViewPreferenceService,
   ],
 })
 export class GrcModule {}

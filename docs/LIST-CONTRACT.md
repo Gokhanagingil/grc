@@ -273,6 +273,132 @@ When creating a new list endpoint:
 4. Document allowed filter values in the endpoint's JSDoc comments
 5. Add the endpoint to this document's "Compliant Endpoints" section
 
+## Column Filters and Views (Universal Views v1)
+
+The List Contract has been extended to support per-column filters and user view preferences. This enables dynamic column selection, reordering, and type-aware filtering across all list pages.
+
+### Column Filter DSL
+
+Column filters use a DSL (Domain-Specific Language) with type-aware operators:
+
+**String fields:**
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Exact match | `{ op: 'eq', value: 'exact' }` |
+| `ilike` | Case-insensitive contains | `{ op: 'ilike', value: 'search' }` |
+| `startsWith` | Starts with | `{ op: 'startsWith', value: 'prefix' }` |
+| `endsWith` | Ends with | `{ op: 'endsWith', value: 'suffix' }` |
+| `in` | In list | `{ op: 'in', value: ['a', 'b'] }` |
+| `isNull` | Is null | `{ op: 'isNull', value: true }` |
+| `isNotNull` | Is not null | `{ op: 'isNotNull', value: true }` |
+
+**Number fields:**
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Equals | `{ op: 'eq', value: 100 }` |
+| `gte` | Greater than or equal | `{ op: 'gte', value: 50 }` |
+| `lte` | Less than or equal | `{ op: 'lte', value: 200 }` |
+| `between` | Between range | `{ op: 'between', value: 50, valueTo: 200 }` |
+| `in` | In list | `{ op: 'in', value: [1, 2, 3] }` |
+
+**Date fields:**
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `gte` | After date | `{ op: 'gte', value: '2024-01-01' }` |
+| `lte` | Before date | `{ op: 'lte', value: '2024-12-31' }` |
+| `between` | Date range | `{ op: 'between', value: '2024-01-01', valueTo: '2024-12-31' }` |
+
+**Enum fields:**
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Exact match | `{ op: 'eq', value: 'draft' }` |
+| `in` | In list | `{ op: 'in', value: ['draft', 'implemented'] }` |
+
+**Boolean fields:**
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Equals | `{ op: 'eq', value: true }` |
+
+### View Preferences API
+
+User view preferences are persisted per (tenantId, userId, tableName):
+
+**Get table schema:**
+```
+GET /api/grc/platform/tables/:tableName/schema
+```
+
+Returns field metadata for list rendering:
+```json
+{
+  "success": true,
+  "data": {
+    "tableName": "controls",
+    "fields": [
+      {
+        "name": "name",
+        "label": "Name",
+        "dataType": "string",
+        "searchable": true,
+        "filterable": true,
+        "sortable": true,
+        "defaultVisible": true
+      },
+      {
+        "name": "status",
+        "label": "Status",
+        "dataType": "enum",
+        "enumValues": ["draft", "in_design", "implemented", "inoperative", "retired"],
+        "filterable": true,
+        "sortable": true,
+        "defaultVisible": true
+      }
+    ]
+  }
+}
+```
+
+**Get saved view preference:**
+```
+GET /api/grc/platform/views/:tableName
+```
+
+**Save view preference:**
+```
+PUT /api/grc/platform/views/:tableName
+```
+
+Request body:
+```json
+{
+  "visibleColumns": ["name", "status", "createdAt"],
+  "columnOrder": ["name", "status", "createdAt"],
+  "filters": {
+    "status": { "op": "eq", "value": "implemented" }
+  },
+  "sort": { "field": "createdAt", "direction": "DESC" },
+  "pageSize": 20
+}
+```
+
+### Allowlist Enforcement
+
+All filterable and sortable fields are validated against an allowlist per table. This prevents:
+- SQL injection via field names
+- Performance issues from filtering on non-indexed columns
+- Exposure of sensitive fields
+
+If a non-allowlisted field is used, the API returns HTTP 400:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "BAD_REQUEST",
+    "message": "Field 'password' is not filterable for table 'users'"
+  }
+}
+```
+
 ## Compliant Endpoints
 
 | Endpoint | Status | Notes |
@@ -281,6 +407,9 @@ When creating a new list endpoint:
 | `GET /grc/risks` | Compliant | Full List Contract support |
 | `GET /grc/policies` | Compliant | Full List Contract support |
 | `GET /grc/requirements` | Compliant | Full List Contract support |
+| `GET /grc/platform/tables/:tableName/schema` | Universal Views | Table schema metadata |
+| `GET /grc/platform/views/:tableName` | Universal Views | User view preferences |
+| `PUT /grc/platform/views/:tableName` | Universal Views | Save view preferences |
 
 ## Backend Framework
 

@@ -6,6 +6,7 @@ import {
   SortableField,
   FilterConfig,
 } from '../dto/list-query.dto';
+import { ColumnFilter } from '../dto/table-schema.dto';
 
 describe('UniversalListService', () => {
   let service: UniversalListService;
@@ -381,6 +382,204 @@ describe('UniversalListService', () => {
       );
 
       expect(mockQb.andWhere).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('applyColumnFilters', () => {
+    it('should skip filters with no op', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: '', value: 'test' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for non-filterable field', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        nonExistentField: { op: 'eq', value: 'test' },
+      };
+
+      expect(() => {
+        service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      }).toThrow(BadRequestException);
+    });
+
+    it('should apply string ilike filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'ilike', value: 'test' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.name ILIKE :cf_name_0',
+        { cf_name_0: '%test%' },
+      );
+    });
+
+    it('should apply string eq filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'eq', value: 'exact' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.name = :cf_name_0',
+        { cf_name_0: 'exact' },
+      );
+    });
+
+    it('should apply string startsWith filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'startsWith', value: 'prefix' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.name ILIKE :cf_name_0',
+        { cf_name_0: 'prefix%' },
+      );
+    });
+
+    it('should apply string endsWith filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'endsWith', value: 'suffix' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.name ILIKE :cf_name_0',
+        { cf_name_0: '%suffix' },
+      );
+    });
+
+    it('should apply string isNull filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'isNull', value: true },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith('entity.name IS NULL');
+    });
+
+    it('should apply string isNotNull filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        name: { op: 'isNotNull', value: true },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith('entity.name IS NOT NULL');
+    });
+
+    it('should apply enum eq filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        status: { op: 'eq', value: 'draft' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.status = :cf_status_0',
+        { cf_status_0: 'draft' },
+      );
+    });
+
+    it('should apply enum in filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        status: { op: 'in', value: ['draft', 'implemented'] },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.status IN (:...cf_status_0)',
+        { cf_status_0: ['draft', 'implemented'] },
+      );
+    });
+
+    it('should apply date gte filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        createdAt: { op: 'gte', value: '2024-01-01' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.createdAt >= :cf_createdAt_0',
+        { cf_createdAt_0: '2024-01-01' },
+      );
+    });
+
+    it('should apply date lte filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        createdAt: { op: 'lte', value: '2024-12-31' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.createdAt <= :cf_createdAt_0',
+        { cf_createdAt_0: '2024-12-31' },
+      );
+    });
+
+    it('should apply date between filter', () => {
+      const mockQb = {
+        andWhere: jest.fn(),
+      };
+      const columnFilters: Record<string, ColumnFilter> = {
+        createdAt: { op: 'between', value: '2024-01-01', valueTo: '2024-12-31' },
+      };
+
+      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'entity.createdAt BETWEEN :cf_createdAt_0From AND :cf_createdAt_0To',
+        { cf_createdAt_0From: '2024-01-01', cf_createdAt_0To: '2024-12-31' },
+      );
     });
   });
 });
