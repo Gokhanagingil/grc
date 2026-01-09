@@ -77,10 +77,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope: { success, data, meta }
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -268,9 +269,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body;
-        const deletedRisk = data.find(
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedRisk = items.find(
           (r: { id: string }) => r.id === createdRiskId,
         );
         expect(deletedRisk).toBeUndefined();
@@ -331,10 +333,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope: { success, data, meta }
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
     });
 
@@ -449,9 +452,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body;
-        const deletedPolicy = data.find(
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedPolicy = items.find(
           (p: { id: string }) => p.id === createdPolicyId,
         );
         expect(deletedPolicy).toBeUndefined();
@@ -476,10 +480,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope: { success, data, meta }
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
     });
 
@@ -595,9 +600,10 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body;
-        const deletedRequirement = data.find(
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedRequirement = items.find(
           (r: { id: string }) => r.id === createdRequirementId,
         );
         expect(deletedRequirement).toBeUndefined();
@@ -912,10 +918,11 @@ describe('GRC CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope: { success, data, meta }
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -957,7 +964,8 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
 
       it('should filter violations by severity (lowercase)', async () => {
@@ -975,7 +983,8 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
       });
     });
 

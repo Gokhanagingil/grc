@@ -168,9 +168,13 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body.items ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, ... } }
+        const items =
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
+        expect(Array.isArray(items)).toBe(true);
       });
 
       it('should return 200 for /grc/policies with valid admin token', async () => {
@@ -185,9 +189,13 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body.items ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, ... } }
+        const items =
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
+        expect(Array.isArray(items)).toBe(true);
       });
 
       it('should return 200 for /grc/requirements with valid admin token', async () => {
@@ -202,9 +210,13 @@ describe('Security & Access Control (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body.items ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, ... } }
+        const items =
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
+        expect(Array.isArray(items)).toBe(true);
       });
     });
   });
