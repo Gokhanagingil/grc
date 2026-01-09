@@ -39,8 +39,8 @@ test.describe('Controls List Page', () => {
   test('should display control library header', async ({ page }) => {
     await page.goto('/controls');
     
-    // Wait for page to load
-    await expect(page.locator('text=Control Library')).toBeVisible({ timeout: 10000 });
+    // Wait for page to load - use .first() since "Control Library" may appear in multiple places (header, breadcrumb, etc.)
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should show search input by default', async ({ page }) => {
@@ -53,8 +53,8 @@ test.describe('Controls List Page', () => {
   test('should filter controls by search query', async ({ page }) => {
     await page.goto('/controls');
     
-    // Wait for initial load
-    await expect(page.locator('text=Control Library')).toBeVisible({ timeout: 10000 });
+    // Wait for initial load - use .first() since "Control Library" may appear in multiple places
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 10000 });
     
     // Type in search box
     const searchInput = page.locator('input[placeholder="Search controls..."]');
@@ -72,8 +72,8 @@ test.describe('Controls List Page', () => {
   test('should show status filter dropdown', async ({ page }) => {
     await page.goto('/controls');
     
-    // Wait for page to load
-    await expect(page.locator('text=Control Library')).toBeVisible({ timeout: 10000 });
+    // Wait for page to load - use .first() since "Control Library" may appear in multiple places
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 10000 });
     
     // Verify status filter is present
     await expect(page.locator('label:has-text("Status")')).toBeVisible();
@@ -82,8 +82,8 @@ test.describe('Controls List Page', () => {
   test('should show type filter dropdown', async ({ page }) => {
     await page.goto('/controls');
     
-    // Wait for page to load
-    await expect(page.locator('text=Control Library')).toBeVisible({ timeout: 10000 });
+    // Wait for page to load - use .first() since "Control Library" may appear in multiple places
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 10000 });
     
     // Verify type filter is present
     await expect(page.locator('label:has-text("Type")')).toBeVisible();
