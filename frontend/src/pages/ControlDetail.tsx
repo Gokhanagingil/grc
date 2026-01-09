@@ -240,7 +240,9 @@ export const ControlDetail: React.FC = () => {
     if (!tenantId) return;
 
     try {
-      const response = await processApi.list(tenantId, { pageSize: 100 });
+      const params = new URLSearchParams();
+      params.set('pageSize', '100');
+      const response = await processApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<Process>(response);
       setAllProcesses(result.items);
     } catch (err) {
