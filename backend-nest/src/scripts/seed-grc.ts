@@ -28,6 +28,8 @@ import {
   RiskStatus,
   PolicyStatus,
   ControlStatus,
+  ControlType,
+  ControlImplementationType,
   ComplianceFramework,
   ProcessControlMethod,
   ProcessControlFrequency,
@@ -1063,7 +1065,8 @@ async function seedGrcData() {
         code: 'CTL-SALES-001',
         description:
           'Ensures all sales orders above threshold require manager approval before processing',
-        category: 'Sales Operations',
+        type: ControlType.PREVENTIVE,
+        implementationType: ControlImplementationType.MANUAL,
         status: ControlStatus.IMPLEMENTED,
         ownerUserId: DEMO_ADMIN_ID,
         tenantId: DEMO_TENANT_ID,
