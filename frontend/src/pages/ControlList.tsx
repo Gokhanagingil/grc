@@ -95,7 +95,7 @@ interface ControlListResponse {
 }
 
 export const ControlList: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -119,6 +119,11 @@ export const ControlList: React.FC = () => {
   const tenantId = user?.tenantId || '';
 
   const fetchControls = useCallback(async () => {
+    // Wait for auth to be ready before making API calls
+    if (authLoading || !tenantId) {
+      return;
+    }
+    
     try {
       setLoading(true);
       setError('');
@@ -137,7 +142,7 @@ export const ControlList: React.FC = () => {
         params.type = typeFilter;
       }
       if (searchQuery) {
-        params.q = searchQuery;
+        params.search = searchQuery;
       }
       if (unlinkedFilter) {
         params.unlinked = 'true';
@@ -178,7 +183,7 @@ export const ControlList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, typeFilter, searchQuery, unlinkedFilter, processId, requirementId]);
+  }, [authLoading, tenantId, page, rowsPerPage, statusFilter, typeFilter, searchQuery, unlinkedFilter, processId, requirementId]);
 
   useEffect(() => {
     fetchControls();
@@ -280,7 +285,8 @@ export const ControlList: React.FC = () => {
     setPage(0);
   };
 
-  if (loading && controls.length === 0) {
+  // Show loading state while auth is initializing or controls are loading
+  if ((authLoading || loading) && controls.length === 0) {
     return <LoadingState message="Loading controls..." />;
   }
 
