@@ -1447,8 +1447,8 @@ export interface CoverageSummary {
 
 export interface RequirementCoverageItem {
   id: string;
-  name: string;
-  code: string;
+  title: string;
+  referenceCode: string;
   status: string;
   controlCount: number;
   isCovered: boolean;
@@ -1466,7 +1466,7 @@ export interface ProcessCoverageItem {
   id: string;
   name: string;
   code: string;
-  status: string;
+  isActive: boolean;
   controlCount: number;
   isCovered: boolean;
 }

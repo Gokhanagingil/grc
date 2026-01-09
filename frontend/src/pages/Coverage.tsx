@@ -249,10 +249,10 @@ export const Coverage: React.FC = () => {
                   <TableRow key={req.id}>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
-                        {req.code}
+                        {req.referenceCode}
                       </Typography>
                     </TableCell>
-                    <TableCell>{req.name}</TableCell>
+                    <TableCell>{req.title}</TableCell>
                     <TableCell>
                       <Chip label={req.status} size="small" variant="outlined" />
                     </TableCell>
@@ -313,7 +313,12 @@ export const Coverage: React.FC = () => {
                     </TableCell>
                     <TableCell>{proc.name}</TableCell>
                     <TableCell>
-                      <Chip label={proc.status} size="small" variant="outlined" />
+                      <Chip 
+                        label={proc.isActive ? 'Active' : 'Inactive'} 
+                        size="small" 
+                        variant="outlined"
+                        color={proc.isActive ? 'success' : 'default'}
+                      />
                     </TableCell>
                     <TableCell align="center">{proc.controlCount}</TableCell>
                     <TableCell align="center">
