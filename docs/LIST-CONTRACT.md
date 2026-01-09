@@ -299,6 +299,30 @@ The frontend provides reusable components for consuming LIST-CONTRACT endpoints:
 - `useUniversalList` hook: Manages list state, pagination, search, and sorting with URL sync
 - `GenericListPage` component: Reusable list page with search, pagination, and table rendering
 
+## Quick Enable Checklist
+
+When adding a new list page with Universal Search, follow these steps:
+
+### Backend (3 steps)
+
+1. **Define UniversalListConfig** - Create a config object with `searchableColumns`, `sortableFields`, `filters`, and `defaultSort`
+2. **Use UniversalListService** - Inject the service and call `executeListQuery()` with tenant isolation and soft-delete filters
+3. **Return LIST-CONTRACT format** - Ensure response is `{ success: true, data: { items, total, page, pageSize, totalPages } }`
+
+### Frontend (3 steps)
+
+1. **Use useUniversalList hook** - Pass `fetchFn`, `enabled: !!tenantId`, and `syncToUrl: true`
+2. **Use GenericListPage component** - Pass all list state from the hook plus column definitions
+3. **Handle filters via URL** - Read filters from `useSearchParams()` and pass as `additionalFilters` to the hook
+
+### Validation
+
+- `GET /api/grc/{entity}` returns 200 with LIST-CONTRACT format
+- `GET /api/grc/{entity}?status=INVALID` returns 400 with allowed values
+- Unauthenticated request returns 401 (not 404)
+- Search box visible by default on the list page
+- URL sync works (refresh preserves filters/search/pagination)
+
 ---
 
 *Last updated: January 2026*
