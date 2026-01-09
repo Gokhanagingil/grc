@@ -7,3 +7,5 @@ export type { FilterOption, ColumnConfig, TableToolbarProps } from './TableToolb
 export { ErrorBoundary } from './ErrorBoundary';
 export { ComingSoonPage } from './ComingSoonPage';
 export type { ComingSoonPageProps } from './ComingSoonPage';
+export { GenericListPage } from './GenericListPage';
+export type { GenericListPageProps, ColumnDefinition } from './GenericListPage';

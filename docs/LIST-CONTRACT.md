@@ -277,7 +277,27 @@ When creating a new list endpoint:
 
 | Endpoint | Status | Notes |
 |----------|--------|-------|
-| `GET /grc/controls` | Reference Implementation | Full List Contract support |
+| `GET /grc/controls` | Reference Implementation | Full List Contract support with UniversalListService |
+| `GET /grc/risks` | Compliant | Full List Contract support |
+| `GET /grc/policies` | Compliant | Full List Contract support |
+| `GET /grc/requirements` | Compliant | Full List Contract support |
+
+## Backend Framework
+
+The List Contract is implemented using the `UniversalListService` and `ListQueryDto` classes in the backend:
+
+- `ListQueryDto`: Shared DTO for parsing and validating list query parameters
+- `UniversalListService`: Shared service for applying search, pagination, sorting, filtering, tenant isolation, and soft-delete exclusion
+- `createListResponse()`: Helper function to create LIST-CONTRACT compliant responses
+
+See `docs/UNIVERSAL-SEARCH.md` for details on how to enable search for new entities.
+
+## Frontend Framework
+
+The frontend provides reusable components for consuming LIST-CONTRACT endpoints:
+
+- `useUniversalList` hook: Manages list state, pagination, search, and sorting with URL sync
+- `GenericListPage` component: Reusable list page with search, pagination, and table rendering
 
 ---
 
