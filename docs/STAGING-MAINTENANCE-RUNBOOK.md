@@ -590,6 +590,59 @@ These limitations do not affect the core GRC functionality (Dashboard, Governanc
 | `/dashboard/overview` | GET | 200 | Dashboard KPIs (requires auth) |
 | `/itsm/incidents` | GET | 200 | Incident list (requires auth) |
 
+## Nginx Routing Configuration
+
+The frontend nginx container acts as a reverse proxy, routing API requests to the backend while serving static files for the SPA.
+
+### Understanding the /api/ Prefix Stripping
+
+Backend routes are mounted at `/grc/*`, `/auth/*`, `/health/*`, etc. (no `/api/` prefix). However, the frontend may call these routes via `/api/*` for namespacing. The nginx `/api/` location block strips this prefix before forwarding to the backend.
+
+The critical configuration in `frontend/nginx.conf`:
+
+```nginx
+location ^~ /api/ {
+    proxy_pass http://backend/;  # TRAILING SLASH IS CRITICAL
+    ...
+}
+```
+
+The trailing slash on `proxy_pass http://backend/;` is essential:
+- **With trailing slash**: `/api/grc/control-tests` becomes `/grc/control-tests` (correct)
+- **Without trailing slash**: `/api/grc/control-tests` stays as `/api/grc/control-tests` (404 error)
+
+### Validating Nginx Routing on Staging
+
+To verify the nginx config has the correct proxy_pass directive:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T frontend sh -lc "nginx -T | grep -nE 'location \\^~ /api/|proxy_pass http://backend' | head -20"
+```
+
+Expected output should show `proxy_pass http://backend/;` (with trailing slash) in the `/api/` location block.
+
+To test that routing works correctly:
+
+```bash
+curl -i http://localhost/api/grc/control-tests -H "x-tenant-id: 00000000-0000-0000-0000-000000000001"
+```
+
+The response should NOT be:
+```json
+{"success":false,"error":{"code":"NOT_FOUND","message":"Cannot GET /api/grc/control-tests"}}
+```
+
+A 401/403 (auth required) or 200 response indicates routing is working correctly. The key is that the path `/api/grc/...` should not appear in the error message.
+
+### CI Guardrail
+
+A Jest config-lint test (`backend-nest/src/config/nginx-config-lint.spec.ts`) validates the nginx configuration in CI. This test:
+- Verifies the `/api/` location block exists
+- Asserts `proxy_pass http://backend/;` has the trailing slash
+- Fails if the trailing slash is missing
+
+This prevents accidental regressions where the trailing slash is removed.
+
 ## Swap Configuration for Frontend Builds
 
 The staging server uses a 2GB swap file to prevent out-of-memory (OOM) errors during React frontend builds. Docker builds, especially for the frontend, can consume significant memory during webpack bundling and TypeScript compilation.
