@@ -63,22 +63,22 @@ export function ColumnPickerDialog({
     });
   }, []);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, fieldName: string) => {
-      setDraggedItem(fieldName);
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', fieldName);
-    },
-    [],
-  );
+    const handleDragStart = useCallback(
+      (e: React.DragEvent<HTMLElement>, fieldName: string) => {
+        setDraggedItem(fieldName);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', fieldName);
+      },
+      [],
+    );
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
+    const handleDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, targetFieldName: string) => {
+    const handleDrop = useCallback(
+      (e: React.DragEvent<HTMLElement>, targetFieldName: string) => {
       e.preventDefault();
       if (!draggedItem || draggedItem === targetFieldName) {
         setDraggedItem(null);
