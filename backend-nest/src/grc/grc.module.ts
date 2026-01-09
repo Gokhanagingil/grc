@@ -87,6 +87,7 @@ import { GrcTestResultService } from './services/grc-test-result.service';
 import { GrcCapaTaskService } from './services/grc-capa-task.service';
 import { GrcControlEvidenceService } from './services/grc-control-evidence.service';
 import { GrcStatusHistoryService } from './services/grc-status-history.service';
+import { ClosureLoopService } from './services/closure-loop.service';
 
 // Controllers
 import {
@@ -233,6 +234,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcCapaTaskService,
     GrcControlEvidenceService,
     GrcStatusHistoryService,
+    // Closure Loop MVP service
+    ClosureLoopService,
   ],
   controllers: [
     // Core controllers
@@ -303,6 +306,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcCapaTaskService,
     GrcControlEvidenceService,
     GrcStatusHistoryService,
+    // Closure Loop MVP service
+    ClosureLoopService,
   ],
 })
 export class GrcModule {}

@@ -2,16 +2,25 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Query,
   Body,
   UseGuards,
   Headers,
+  Request,
   BadRequestException,
   NotFoundException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
@@ -22,6 +31,8 @@ import { GrcIssue } from '../entities/grc-issue.entity';
 import { StandardClause } from '../entities/standard-clause.entity';
 import { GrcIssueClause } from '../entities/grc-issue-clause.entity';
 import { Perf } from '../../common/decorators';
+import { ClosureLoopService } from '../services/closure-loop.service';
+import { UpdateIssueStatusDto } from '../dto/closure-loop.dto';
 
 /**
  * GRC Issue Controller
@@ -31,6 +42,9 @@ import { Perf } from '../../common/decorators';
  * Read operations require GRC_ISSUE_READ permission.
  * Write operations require GRC_AUDIT_WRITE permission.
  */
+@ApiTags('GRC Issues')
+@ApiBearerAuth()
+@ApiHeader({ name: 'x-tenant-id', description: 'Tenant ID', required: true })
 @Controller('grc/issues')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcIssueController {
@@ -46,7 +60,10 @@ export class GrcIssueController {
     'resolvedDate',
   ]);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly closureLoopService: ClosureLoopService,
+  ) {}
 
   /**
    * GET /grc/issues
@@ -256,5 +273,44 @@ export class GrcIssueController {
     await issueClauseRepo.save(issueClause);
 
     return issueClause;
+  }
+
+  /**
+   * PATCH /grc/issues/:id/status
+   * Update the status of an Issue with validation
+   */
+  @Patch(':id/status')
+  @ApiOperation({
+    summary: 'Update Issue status',
+    description:
+      'Updates the status of an Issue with transition validation. ' +
+      'Status transitions are validated against allowed transitions.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Issue status updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid status transition' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @Perf()
+  async updateStatus(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateIssueStatusDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const result = await this.closureLoopService.updateIssueStatus(
+      tenantId,
+      id,
+      dto,
+      req.user.id,
+    );
+
+    return { success: true, data: result };
   }
 }

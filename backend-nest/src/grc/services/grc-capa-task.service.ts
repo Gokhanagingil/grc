@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,6 +17,7 @@ import {
   CapaTaskFilterDto,
 } from '../dto/capa-task.dto';
 import { AuditService } from '../../audit/audit.service';
+import { ClosureLoopService } from './closure-loop.service';
 
 @Injectable()
 export class GrcCapaTaskService {
@@ -55,6 +58,8 @@ export class GrcCapaTaskService {
     @InjectRepository(GrcStatusHistory)
     private readonly statusHistoryRepository: Repository<GrcStatusHistory>,
     private readonly auditService: AuditService,
+    @Inject(forwardRef(() => ClosureLoopService))
+    private readonly closureLoopService: ClosureLoopService,
   ) {}
 
   async create(
@@ -250,6 +255,17 @@ export class GrcCapaTaskService {
       tenantId,
     );
 
+    if (
+      dto.status === CAPATaskStatus.COMPLETED ||
+      dto.status === CAPATaskStatus.CANCELLED
+    ) {
+      await this.closureLoopService.checkAndCascadeCapaClose(
+        tenantId,
+        capaTask.capaId,
+        userId,
+      );
+    }
+
     return saved;
   }
 
@@ -297,6 +313,12 @@ export class GrcCapaTaskService {
       { status: CAPATaskStatus.COMPLETED },
       userId,
       tenantId,
+    );
+
+    await this.closureLoopService.checkAndCascadeCapaClose(
+      tenantId,
+      capaTask.capaId,
+      userId,
     );
 
     return saved;
