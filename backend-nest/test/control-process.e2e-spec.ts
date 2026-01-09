@@ -72,7 +72,9 @@ describe('Control-Process Link Operations (e2e)', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+      // LIST-CONTRACT format: data contains { items: [...], page, pageSize, total, totalPages }
+      const items = response.body.data?.items ?? response.body.data;
+      expect(Array.isArray(items)).toBe(true);
     });
 
     it('should return 401 without token', async () => {
@@ -115,7 +117,9 @@ describe('Control-Process Link Operations (e2e)', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+      // LIST-CONTRACT format: data contains { items: [...], page, pageSize, total, totalPages }
+      const items = response.body.data?.items ?? response.body.data;
+      expect(Array.isArray(items)).toBe(true);
     });
 
     it('should filter controls by processId', async () => {
@@ -129,7 +133,8 @@ describe('Control-Process Link Operations (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId);
 
-      const processes = processesResponse.body.data ?? [];
+      const processes =
+        processesResponse.body.data?.items ?? processesResponse.body.data ?? [];
       if (processes.length === 0) {
         console.log('Skipping test: no processes available');
         return;
@@ -144,7 +149,9 @@ describe('Control-Process Link Operations (e2e)', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+      // LIST-CONTRACT format: data contains { items: [...], page, pageSize, total, totalPages }
+      const items = response.body.data?.items ?? response.body.data;
+      expect(Array.isArray(items)).toBe(true);
     });
 
     it('should filter controls by unlinked=true', async () => {
@@ -161,7 +168,9 @@ describe('Control-Process Link Operations (e2e)', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+      // LIST-CONTRACT format: data contains { items: [...], page, pageSize, total, totalPages }
+      const items = response.body.data?.items ?? response.body.data;
+      expect(Array.isArray(items)).toBe(true);
     });
   });
 
@@ -177,7 +186,8 @@ describe('Control-Process Link Operations (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId);
 
-      const controls = controlsResponse.body.data ?? [];
+      const controls =
+        controlsResponse.body.data?.items ?? controlsResponse.body.data ?? [];
       if (controls.length > 0) {
         testControlId = controls[0].id;
       }
@@ -187,7 +197,8 @@ describe('Control-Process Link Operations (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId);
 
-      const processes = processesResponse.body.data ?? [];
+      const processes =
+        processesResponse.body.data?.items ?? processesResponse.body.data ?? [];
       if (processes.length > 0) {
         testProcessId = processes[0].id;
       }
@@ -352,7 +363,8 @@ describe('Control-Process Link Operations (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId);
 
-      const controls = controlsResponse.body.data ?? [];
+      const controls =
+        controlsResponse.body.data?.items ?? controlsResponse.body.data ?? [];
       if (controls.length === 0) {
         console.log('Skipping test: no controls available');
         return;
@@ -363,7 +375,8 @@ describe('Control-Process Link Operations (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId);
 
-      const processes = processesResponse.body.data ?? [];
+      const processes =
+        processesResponse.body.data?.items ?? processesResponse.body.data ?? [];
       if (processes.length === 0) {
         console.log('Skipping test: no processes available');
         return;
