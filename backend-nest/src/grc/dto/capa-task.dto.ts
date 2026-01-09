@@ -9,6 +9,7 @@ import {
   MaxLength,
   IsObject,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CAPATaskStatus } from '../enums';
 
 export class CreateCapaTaskDto {
@@ -78,11 +79,22 @@ export class UpdateCapaTaskDto {
 }
 
 export class UpdateCapaTaskStatusDto {
+  @ApiProperty({
+    enum: CAPATaskStatus,
+    description: 'Target status for the CAPA task',
+    example: 'IN_PROGRESS',
+  })
   @IsEnum(CAPATaskStatus)
   status: CAPATaskStatus;
 
+  @ApiPropertyOptional({
+    description: 'Optional reason explaining the status change',
+    example: 'Starting work on this task',
+    maxLength: 1000,
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   reason?: string;
 }
 

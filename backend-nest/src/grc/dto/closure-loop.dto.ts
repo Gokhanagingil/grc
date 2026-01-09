@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CapaStatus, IssueStatus } from '../enums';
 
@@ -15,12 +15,14 @@ export class UpdateCapaStatusDto {
   status: CapaStatus;
 
   @ApiPropertyOptional({
-    description: 'Optional comment explaining the status change',
+    description: 'Optional reason explaining the status change',
     example: 'Moving to in_progress after initial review',
+    maxLength: 1000,
   })
   @IsOptional()
   @IsString()
-  comment?: string;
+  @MaxLength(1000)
+  reason?: string;
 }
 
 /**
@@ -36,10 +38,12 @@ export class UpdateIssueStatusDto {
   status: IssueStatus;
 
   @ApiPropertyOptional({
-    description: 'Optional comment explaining the status change',
+    description: 'Optional reason explaining the status change',
     example: 'Starting investigation',
+    maxLength: 1000,
   })
   @IsOptional()
   @IsString()
-  comment?: string;
+  @MaxLength(1000)
+  reason?: string;
 }
