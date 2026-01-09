@@ -59,6 +59,79 @@ describe('ListQueryDto', () => {
       const dto = new ListQueryDto();
       expect(dto.getEffectiveSearch()).toBeUndefined();
     });
+
+    it('should trim whitespace from search term', () => {
+      const dto = new ListQueryDto();
+      dto.search = '  test query  ';
+      expect(dto.getEffectiveSearch()).toBe('test query');
+    });
+
+    it('should collapse multiple spaces to single space', () => {
+      const dto = new ListQueryDto();
+      dto.search = 'test    multiple   spaces';
+      expect(dto.getEffectiveSearch()).toBe('test multiple spaces');
+    });
+
+    it('should truncate search term exceeding max length', () => {
+      const dto = new ListQueryDto();
+      dto.search = 'a'.repeat(300);
+      const result = dto.getEffectiveSearch();
+      expect(result?.length).toBe(ListQueryDto.MAX_SEARCH_LENGTH);
+    });
+
+    it('should return undefined for whitespace-only search', () => {
+      const dto = new ListQueryDto();
+      dto.search = '   ';
+      expect(dto.getEffectiveSearch()).toBeUndefined();
+    });
+  });
+
+  describe('normalizeSearchTerm', () => {
+    it('should return undefined for empty string', () => {
+      expect(ListQueryDto.normalizeSearchTerm('')).toBeUndefined();
+    });
+
+    it('should return undefined for undefined', () => {
+      expect(ListQueryDto.normalizeSearchTerm(undefined)).toBeUndefined();
+    });
+
+    it('should trim and collapse spaces', () => {
+      expect(ListQueryDto.normalizeSearchTerm('  hello   world  ')).toBe(
+        'hello world',
+      );
+    });
+
+    it('should enforce max length', () => {
+      const longString = 'x'.repeat(250);
+      const result = ListQueryDto.normalizeSearchTerm(longString);
+      expect(result?.length).toBe(ListQueryDto.MAX_SEARCH_LENGTH);
+    });
+  });
+
+  describe('isSearchTermValid', () => {
+    it('should return true when no search term', () => {
+      const dto = new ListQueryDto();
+      expect(dto.isSearchTermValid()).toBe(true);
+    });
+
+    it('should return true when search term meets minimum length', () => {
+      const dto = new ListQueryDto();
+      dto.search = 'ab';
+      expect(dto.isSearchTermValid()).toBe(true);
+    });
+
+    it('should return false when search term is too short', () => {
+      const dto = new ListQueryDto();
+      dto.search = 'a';
+      expect(dto.isSearchTermValid()).toBe(false);
+    });
+
+    it('should allow custom minimum length', () => {
+      const dto = new ListQueryDto();
+      dto.search = 'abc';
+      expect(dto.isSearchTermValid(3)).toBe(true);
+      expect(dto.isSearchTermValid(4)).toBe(false);
+    });
   });
 
   describe('getEffectiveSort', () => {

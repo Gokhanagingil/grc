@@ -6,6 +6,49 @@ This document explains how to enable Universal Search for new entities and table
 
 Universal Search is a platform-level feature that provides consistent search functionality across all list endpoints. It uses case-insensitive ILIKE queries to search across configured columns for each entity.
 
+## Entity Config Pattern
+
+The recommended approach is to keep all list configuration (searchableFields, sortableFields, filterableFields) in a single config object per entity. This makes it easy to maintain and ensures consistency.
+
+### Example: Complete Entity Config
+
+```typescript
+import { UniversalListConfig } from '../../common';
+
+export const CONTROL_LIST_CONFIG: UniversalListConfig = {
+  searchableColumns: [
+    { column: 'name' },
+    { column: 'code' },
+    { column: 'description' },
+  ],
+  sortableFields: [
+    { field: 'createdAt' },
+    { field: 'updatedAt' },
+    { field: 'name' },
+    { field: 'code' },
+    { field: 'status' },
+  ],
+  filters: [
+    {
+      field: 'status',
+      type: 'enum',
+      enumValues: ['draft', 'in_design', 'implemented', 'inoperative', 'retired'],
+      caseInsensitive: true,
+    },
+    {
+      field: 'type',
+      type: 'enum',
+      enumValues: ['preventive', 'detective', 'corrective'],
+      caseInsensitive: true,
+    },
+    { field: 'ownerId', type: 'uuid' },
+  ],
+  defaultSort: { field: 'createdAt', direction: 'DESC' },
+};
+```
+
+This config is then used by both the service and controller, ensuring a single source of truth.
+
 ## Backend Implementation
 
 ### Step 1: Define the List Configuration

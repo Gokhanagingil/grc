@@ -51,7 +51,10 @@ export class ListQueryDto {
 
   @IsOptional()
   @IsString()
-  q?: string; // Legacy alias for search
+  q?: string;
+
+  static readonly MAX_SEARCH_LENGTH = 200;
+  static readonly MIN_SEARCH_LENGTH = 2;
 
   @IsOptional()
   @IsString()
@@ -84,10 +87,36 @@ export class ListQueryDto {
   }
 
   /**
+   * Normalize search term: trim, collapse multiple spaces, enforce length limit
+   */
+  static normalizeSearchTerm(term: string | undefined): string | undefined {
+    if (!term) return undefined;
+    let normalized = term.trim().replace(/\s+/g, ' ');
+    if (normalized.length > ListQueryDto.MAX_SEARCH_LENGTH) {
+      normalized = normalized.substring(0, ListQueryDto.MAX_SEARCH_LENGTH);
+    }
+    return normalized || undefined;
+  }
+
+  /**
    * Get effective search term (search or legacy q param)
+   * Applies normalization: trim, space collapse, length limit
    */
   getEffectiveSearch(): string | undefined {
-    return this.search || this.q;
+    const raw = this.search || this.q;
+    return ListQueryDto.normalizeSearchTerm(raw);
+  }
+
+  /**
+   * Check if search term meets minimum length requirement
+   * Returns true if no search term or if term meets minimum length
+   */
+  isSearchTermValid(
+    minLength: number = ListQueryDto.MIN_SEARCH_LENGTH,
+  ): boolean {
+    const search = this.getEffectiveSearch();
+    if (!search) return true;
+    return search.length >= minLength;
   }
 
   /**

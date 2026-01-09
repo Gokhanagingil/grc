@@ -4,6 +4,60 @@ import * as request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 
+interface ListContractResponse {
+  success: boolean;
+  data: {
+    items: unknown[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+}
+
+function assertListContract(
+  response: { body: unknown },
+  options?: { expectItems?: boolean },
+): asserts response is { body: ListContractResponse } {
+  const body = response.body as Record<string, unknown>;
+  if (typeof body !== 'object' || body === null) {
+    throw new Error('LIST-CONTRACT: Response body must be an object');
+  }
+  if (body.success !== true) {
+    throw new Error('LIST-CONTRACT: Response must have success: true');
+  }
+  if (typeof body.data !== 'object' || body.data === null) {
+    throw new Error('LIST-CONTRACT: Response must have data object');
+  }
+  if (Array.isArray(body.data)) {
+    throw new Error(
+      'LIST-CONTRACT: data must be an object, not an array (old format)',
+    );
+  }
+  const data = body.data as Record<string, unknown>;
+  if (!Array.isArray(data.items)) {
+    throw new Error('LIST-CONTRACT: data.items must be an array');
+  }
+  if (typeof data.total !== 'number') {
+    throw new Error('LIST-CONTRACT: data.total must be a number');
+  }
+  if (typeof data.page !== 'number') {
+    throw new Error('LIST-CONTRACT: data.page must be a number');
+  }
+  if (typeof data.pageSize !== 'number') {
+    throw new Error('LIST-CONTRACT: data.pageSize must be a number');
+  }
+  if (typeof data.totalPages !== 'number') {
+    throw new Error('LIST-CONTRACT: data.totalPages must be a number');
+  }
+  if ('meta' in body) {
+    throw new Error('LIST-CONTRACT: Response must not have meta field');
+  }
+  if (options?.expectItems && data.items.length === 0 && data.total > 0) {
+    throw new Error('LIST-CONTRACT: Expected items but got empty array');
+  }
+}
+
 /**
  * LIST-CONTRACT E2E Tests
  *
@@ -90,29 +144,7 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      // Verify LIST-CONTRACT compliance
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-
-      // data should be an object, NOT an array
-      expect(Array.isArray(response.body.data)).toBe(false);
-      expect(typeof response.body.data).toBe('object');
-
-      // data should contain items array
-      expect(response.body.data).toHaveProperty('items');
-      expect(Array.isArray(response.body.data.items)).toBe(true);
-
-      // data should contain pagination fields
-      expect(response.body.data).toHaveProperty('total');
-      expect(response.body.data).toHaveProperty('page');
-      expect(response.body.data).toHaveProperty('pageSize');
-      expect(response.body.data).toHaveProperty('totalPages');
-
-      // Verify types
-      expect(typeof response.body.data.total).toBe('number');
-      expect(typeof response.body.data.page).toBe('number');
-      expect(typeof response.body.data.pageSize).toBe('number');
-      expect(typeof response.body.data.totalPages).toBe('number');
+      assertListContract(response);
     });
 
     it('GET /grc/controls should NOT have meta field (LIST-CONTRACT)', async () => {
