@@ -24,8 +24,8 @@ interface CountResult {
 
 interface RequirementRawResult {
   req_id: string;
-  req_name: string;
-  req_code: string;
+  req_title: string;
+  req_referenceCode: string;
   req_status: string;
   controlCount: string;
 }
@@ -34,7 +34,7 @@ interface ProcessRawResult {
   proc_id: string;
   proc_name: string;
   proc_code: string;
-  proc_status: string;
+  proc_isActive: string;
   controlCount: string;
 }
 
@@ -174,16 +174,16 @@ export class GrcCoverageController {
       .leftJoin('req.requirementControls', 'rc')
       .select([
         'req.id',
-        'req.name',
-        'req.code',
+        'req.title',
+        'req.referenceCode',
         'req.status',
         'COUNT(rc.id) as controlCount',
       ])
       .where('req.tenantId = :tenantId', { tenantId })
       .andWhere('req.isDeleted = :isDeleted', { isDeleted: false })
       .groupBy('req.id')
-      .addGroupBy('req.name')
-      .addGroupBy('req.code')
+      .addGroupBy('req.title')
+      .addGroupBy('req.referenceCode')
       .addGroupBy('req.status')
       .getRawMany<RequirementRawResult>();
 
@@ -204,8 +204,8 @@ export class GrcCoverageController {
           : 0,
       requirements: requirements.map((r: RequirementRawResult) => ({
         id: r.req_id,
-        name: r.req_name,
-        code: r.req_code,
+        title: r.req_title,
+        referenceCode: r.req_referenceCode,
         status: r.req_status,
         controlCount: parseInt(r.controlCount, 10),
         isCovered: parseInt(r.controlCount, 10) > 0,
@@ -235,7 +235,7 @@ export class GrcCoverageController {
         'proc.id',
         'proc.name',
         'proc.code',
-        'proc.status',
+        'proc.isActive',
         'COUNT(cp.id) as controlCount',
       ])
       .where('proc.tenantId = :tenantId', { tenantId })
@@ -243,7 +243,7 @@ export class GrcCoverageController {
       .groupBy('proc.id')
       .addGroupBy('proc.name')
       .addGroupBy('proc.code')
-      .addGroupBy('proc.status')
+      .addGroupBy('proc.isActive')
       .getRawMany<ProcessRawResult>();
 
     const covered = processes.filter(
@@ -265,7 +265,7 @@ export class GrcCoverageController {
         id: p.proc_id,
         name: p.proc_name,
         code: p.proc_code,
-        status: p.proc_status,
+        isActive: p.proc_isActive === 'true' || p.proc_isActive === '1',
         controlCount: parseInt(p.controlCount, 10),
         isCovered: parseInt(p.controlCount, 10) > 0,
       })),
