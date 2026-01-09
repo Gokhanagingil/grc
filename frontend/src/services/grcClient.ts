@@ -344,12 +344,24 @@ export const API_PATHS = {
 // ============================================================================
 
 /**
- * Standard paginated response from NestJS backend
+ * Standard paginated response from NestJS backend (LIST-CONTRACT compliant)
+ *
+ * Response shape:
+ * {
+ *   success: true,
+ *   data: {
+ *     items: [...],
+ *     total: 100,
+ *     page: 1,
+ *     pageSize: 20,
+ *     totalPages: 5
+ *   }
+ * }
  */
 export interface PaginatedResponse<T> {
   success: boolean;
-  data: T[];
-  meta: {
+  data: {
+    items: T[];
     total: number;
     page: number;
     pageSize: number;
@@ -517,27 +529,48 @@ function transformRequirementResponse<T extends Record<string, unknown>>(require
 }
 
 /**
- * Unwrap paginated NestJS response
+ * Unwrap paginated NestJS response (LIST-CONTRACT compliant)
+ *
+ * Expected response shape:
+ * {
+ *   success: true,
+ *   data: { items: [...], total, page, pageSize, totalPages }
+ * }
  */
 export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items: T[]; total: number; page: number; pageSize: number } {
-  const data = response.data as PaginatedResponse<T> | { items: T[]; total: number };
+  const data = response.data as PaginatedResponse<T> | { items: T[]; total: number; page?: number; pageSize?: number };
   
+  // LIST-CONTRACT compliant format: { success: true, data: { items, total, page, pageSize, totalPages } }
+  if ('success' in data && data.success && 'data' in data) {
+    const paginatedData = (data as PaginatedResponse<T>).data;
+    if (paginatedData && 'items' in paginatedData) {
+      return {
+        items: paginatedData.items,
+        total: paginatedData.total,
+        page: paginatedData.page,
+        pageSize: paginatedData.pageSize,
+      };
+    }
+  }
+  
+  // Legacy format with meta (backward compatibility)
   if ('success' in data && data.success && 'data' in data && 'meta' in data) {
+    const legacyData = data as { success: boolean; data: T[]; meta: { total: number; page: number; pageSize: number } };
     return {
-      items: data.data,
-      total: data.meta.total,
-      page: data.meta.page,
-      pageSize: data.meta.pageSize,
+      items: legacyData.data,
+      total: legacyData.meta.total,
+      page: legacyData.meta.page,
+      pageSize: legacyData.meta.pageSize,
     };
   }
   
-  // Legacy format
+  // Direct paginated object format
   if ('items' in data) {
     return {
       items: data.items,
       total: data.total,
-      page: 1,
-      pageSize: data.items.length,
+      page: data.page || 1,
+      pageSize: data.pageSize || data.items.length,
     };
   }
   
