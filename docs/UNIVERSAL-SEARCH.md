@@ -324,6 +324,32 @@ To migrate an existing list endpoint to use Universal Search:
 5. Ensure the response follows LIST-CONTRACT format
 6. Add E2E tests for search functionality
 
+## Quick Enable Checklist
+
+Follow these steps to add Universal Search to a new entity list:
+
+### Backend (3 steps)
+
+1. **Create UniversalListConfig** - Define searchable columns (name, code, description), sortable fields, enum filters with allowed values, and default sort order
+2. **Inject UniversalListService** - Add to your controller/service constructor, then call `applyTenantFilter()`, `applySoftDeleteFilter()`, and `executeListQuery()`
+3. **Validate filters** - Use `type: 'enum'` with `enumValues` array and `caseInsensitive: true` for automatic 400 responses on invalid values
+
+### Frontend (3 steps)
+
+1. **Use useUniversalList hook** - Configure with `fetchFn`, `enabled: !authLoading && !!tenantId`, `syncToUrl: true`, and `additionalFilters` for entity-specific filters
+2. **Use GenericListPage component** - Pass items, columns, pagination state, search, error, and filter chips from the hook
+3. **Sync filters to URL** - Read filters from `useSearchParams()`, update via `setSearchParams()`, and pass to hook as `additionalFilters`
+
+### Verification Checklist
+
+- Search box appears by default on the list page
+- Typing in search filters results (case-insensitive ILIKE)
+- Invalid filter values return 400 with "Allowed values: ..." message
+- Pagination, sorting, and filters persist in URL
+- Page refresh restores the same list state
+- 401 errors show "Session expired" message (not "No items found")
+- 403 errors show "Permission denied" message
+
 ---
 
 *Last updated: January 2026*
