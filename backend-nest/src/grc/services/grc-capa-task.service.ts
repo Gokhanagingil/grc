@@ -92,6 +92,7 @@ export class GrcCapaTaskService {
       CAPATaskStatus.PENDING,
       userId,
       'CAPA task created',
+      { source: 'SYSTEM' },
     );
 
     await this.auditService.recordCreate(
@@ -243,7 +244,8 @@ export class GrcCapaTaskService {
       previousStatus,
       dto.status,
       userId,
-      dto.reason,
+      dto.reason ?? 'Manual status change',
+      { source: 'MANUAL' },
     );
 
     await this.auditService.recordUpdate(
@@ -304,6 +306,7 @@ export class GrcCapaTaskService {
       CAPATaskStatus.COMPLETED,
       userId,
       dto.completionNotes || 'Task completed',
+      { source: 'MANUAL' },
     );
 
     await this.auditService.recordUpdate(
@@ -386,9 +389,13 @@ export class GrcCapaTaskService {
     const allowedTransitions = this.validTransitions.get(currentStatus) || [];
 
     if (!allowedTransitions.includes(newStatus)) {
+      const allowedList =
+        allowedTransitions.length > 0
+          ? `[${allowedTransitions.join(', ')}]`
+          : '[]';
       throw new BadRequestException(
         `Invalid status transition from ${currentStatus} to ${newStatus}. ` +
-          `Allowed transitions: ${allowedTransitions.join(', ') || 'none'}`,
+          `Allowed next statuses from ${currentStatus}: ${allowedList}`,
       );
     }
   }
@@ -400,6 +407,7 @@ export class GrcCapaTaskService {
     newStatus: string,
     userId: string,
     reason?: string,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const history = this.statusHistoryRepository.create({
       tenantId,
@@ -409,6 +417,7 @@ export class GrcCapaTaskService {
       newStatus,
       changedByUserId: userId,
       changeReason: reason,
+      metadata,
     });
 
     await this.statusHistoryRepository.save(history);

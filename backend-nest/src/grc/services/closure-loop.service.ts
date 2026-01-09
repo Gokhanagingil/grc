@@ -115,7 +115,8 @@ export class ClosureLoopService {
         previousStatus,
         dto.status,
         userId,
-        dto.comment,
+        dto.reason ?? 'Manual status change',
+        { source: 'MANUAL' },
       );
 
       if (dto.status === CapaStatus.CLOSED && capa.issueId) {
@@ -203,7 +204,8 @@ export class ClosureLoopService {
         previousStatus,
         dto.status,
         userId,
-        dto.comment,
+        dto.reason ?? 'Manual status change',
+        { source: 'MANUAL' },
       );
 
       await queryRunner.commitTransaction();
@@ -285,6 +287,7 @@ export class ClosureLoopService {
         CapaStatus.CLOSED,
         userId,
         'Auto-closed: all tasks completed',
+        { source: 'SYSTEM' },
       );
 
       if (capa.issueId) {
@@ -358,6 +361,7 @@ export class ClosureLoopService {
       IssueStatus.CLOSED,
       userId,
       'Auto-closed: all CAPAs completed',
+      { source: 'SYSTEM' },
     );
   }
 
@@ -369,9 +373,13 @@ export class ClosureLoopService {
       this.capaValidTransitions.get(currentStatus) || [];
 
     if (!allowedTransitions.includes(newStatus)) {
+      const allowedList =
+        allowedTransitions.length > 0
+          ? `[${allowedTransitions.join(', ')}]`
+          : '[]';
       throw new BadRequestException(
-        `Invalid CAPA status transition from ${currentStatus} to ${newStatus}. ` +
-          `Allowed transitions: ${allowedTransitions.join(', ') || 'none'}`,
+        `Invalid status transition from ${currentStatus} to ${newStatus}. ` +
+          `Allowed next statuses from ${currentStatus}: ${allowedList}`,
       );
     }
   }
@@ -384,9 +392,13 @@ export class ClosureLoopService {
       this.issueValidTransitions.get(currentStatus) || [];
 
     if (!allowedTransitions.includes(newStatus)) {
+      const allowedList =
+        allowedTransitions.length > 0
+          ? `[${allowedTransitions.join(', ')}]`
+          : '[]';
       throw new BadRequestException(
-        `Invalid Issue status transition from ${currentStatus} to ${newStatus}. ` +
-          `Allowed transitions: ${allowedTransitions.join(', ') || 'none'}`,
+        `Invalid status transition from ${currentStatus} to ${newStatus}. ` +
+          `Allowed next statuses from ${currentStatus}: ${allowedList}`,
       );
     }
   }
@@ -400,6 +412,7 @@ export class ClosureLoopService {
     newStatus: string,
     userId: string,
     reason?: string,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const history = queryRunner.manager.create(GrcStatusHistory, {
       tenantId,
@@ -409,6 +422,7 @@ export class ClosureLoopService {
       newStatus,
       changedByUserId: userId,
       changeReason: reason,
+      metadata,
     });
 
     await queryRunner.manager.save(history);

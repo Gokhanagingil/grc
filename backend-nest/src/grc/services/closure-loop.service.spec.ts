@@ -216,7 +216,7 @@ describe('ClosureLoopService', () => {
       const result = await service.updateCapaStatus(
         mockTenantId,
         'capa-123',
-        { status: CapaStatus.IN_PROGRESS, comment: 'Starting work' },
+        { status: CapaStatus.IN_PROGRESS, reason: 'Starting work' },
         mockUserId,
       );
 
@@ -224,6 +224,29 @@ describe('ClosureLoopService', () => {
       expect(mockQueryRunner.manager.save).toHaveBeenCalled();
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(result.status).toBe(CapaStatus.IN_PROGRESS);
+    });
+
+    it('should include allowed statuses in error message for invalid transition', async () => {
+      // Use a fresh mock for this test to ensure clean state
+      const freshMockCapa = {
+        id: 'capa-456',
+        tenantId: mockTenantId,
+        status: CapaStatus.PLANNED,
+        issueId: 'issue-123',
+        isDeleted: false,
+      } as GrcCapa;
+      capaRepository.findOne.mockResolvedValue(freshMockCapa);
+
+      await expect(
+        service.updateCapaStatus(
+          mockTenantId,
+          'capa-456',
+          { status: CapaStatus.CLOSED },
+          mockUserId,
+        ),
+      ).rejects.toThrow(
+        /Allowed next statuses from planned: \[in_progress, rejected\]/,
+      );
     });
   });
 
@@ -290,7 +313,7 @@ describe('ClosureLoopService', () => {
       const result = await service.updateIssueStatus(
         mockTenantId,
         'issue-123',
-        { status: IssueStatus.IN_PROGRESS, comment: 'Starting investigation' },
+        { status: IssueStatus.IN_PROGRESS, reason: 'Starting investigation' },
         mockUserId,
       );
 
@@ -298,6 +321,28 @@ describe('ClosureLoopService', () => {
       expect(mockQueryRunner.manager.save).toHaveBeenCalled();
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(result.status).toBe(IssueStatus.IN_PROGRESS);
+    });
+
+    it('should include allowed statuses in error message for invalid Issue transition', async () => {
+      // Use a fresh mock for this test to ensure clean state
+      const freshMockIssue = {
+        id: 'issue-456',
+        tenantId: mockTenantId,
+        status: IssueStatus.OPEN,
+        isDeleted: false,
+      } as GrcIssue;
+      issueRepository.findOne.mockResolvedValue(freshMockIssue);
+
+      await expect(
+        service.updateIssueStatus(
+          mockTenantId,
+          'issue-456',
+          { status: IssueStatus.CLOSED },
+          mockUserId,
+        ),
+      ).rejects.toThrow(
+        /Allowed next statuses from open: \[in_progress, rejected\]/,
+      );
     });
   });
 
@@ -382,6 +427,44 @@ describe('ClosureLoopService', () => {
       expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(result?.status).toBe(CapaStatus.CLOSED);
+    });
+
+    it('should create history with SYSTEM source for auto-closure', async () => {
+      const mockCapaInProgress = {
+        id: 'capa-123',
+        tenantId: mockTenantId,
+        status: CapaStatus.IN_PROGRESS,
+        issueId: null,
+        isDeleted: false,
+      } as unknown as GrcCapa;
+
+      capaTaskRepository.find.mockResolvedValue([
+        { status: CAPATaskStatus.COMPLETED } as GrcCapaTask,
+      ]);
+      capaRepository.findOne
+        .mockResolvedValueOnce(mockCapaInProgress)
+        .mockResolvedValueOnce({
+          ...mockCapaInProgress,
+          status: CapaStatus.CLOSED,
+        } as unknown as GrcCapa);
+      mockQueryRunner.manager.save.mockResolvedValue({
+        ...mockCapaInProgress,
+        status: CapaStatus.CLOSED,
+      });
+
+      await service.checkAndCascadeCapaClose(
+        mockTenantId,
+        'capa-123',
+        mockUserId,
+      );
+
+      expect(mockQueryRunner.manager.create).toHaveBeenCalledWith(
+        GrcStatusHistory,
+        expect.objectContaining({
+          changeReason: 'Auto-closed: all tasks completed',
+          metadata: { source: 'SYSTEM' },
+        }),
+      );
     });
   });
 });
