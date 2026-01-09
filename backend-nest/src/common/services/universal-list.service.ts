@@ -9,6 +9,8 @@ import {
   SortableField,
   FilterConfig,
 } from '../dto/list-query.dto';
+import { ColumnFilter } from '../dto/table-schema.dto';
+import { isFieldFilterable, getFieldSchema } from './table-schema.registry';
 
 /**
  * Universal List Service
@@ -347,5 +349,307 @@ export class UniversalListService {
    */
   getAllowedSortFieldsSet(sortableFields: SortableField[]): Set<string> {
     return new Set(sortableFields.map((f) => f.field));
+  }
+
+  /**
+   * Apply column filters using the filter DSL
+   *
+   * Filter DSL format:
+   * filters[field] = { op: string, value: unknown, valueTo?: unknown }
+   *
+   * Supported operations by type:
+   * - string: eq, ilike, startsWith, endsWith, in, isNull, isNotNull
+   * - number: eq, gte, lte, between, in
+   * - date: between, gte, lte
+   * - enum: eq, in
+   * - boolean: eq
+   *
+   * @param qb - TypeORM QueryBuilder
+   * @param tableName - Table name for allowlist validation
+   * @param columnFilters - Map of field name to filter definition
+   * @param alias - Entity alias used in the query builder
+   */
+  applyColumnFilters<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    tableName: string,
+    columnFilters: Record<string, ColumnFilter>,
+    alias: string,
+  ): void {
+    let paramIndex = 0;
+
+    for (const [fieldName, filter] of Object.entries(columnFilters)) {
+      if (!filter || !filter.op) {
+        continue;
+      }
+
+      // Validate field is filterable (allowlist enforcement)
+      if (!isFieldFilterable(tableName, fieldName)) {
+        throw new BadRequestException(
+          `Field '${fieldName}' is not filterable for table '${tableName}'`,
+        );
+      }
+
+      const fieldSchema = getFieldSchema(tableName, fieldName);
+      if (!fieldSchema) {
+        continue;
+      }
+
+      const columnRef = `${alias}.${fieldName}`;
+      const paramName = `cf_${fieldName}_${paramIndex++}`;
+
+      this.applyColumnFilterByType(
+        qb,
+        columnRef,
+        paramName,
+        filter,
+        fieldSchema.dataType,
+      );
+    }
+  }
+
+  /**
+   * Apply a single column filter based on field type
+   */
+  private applyColumnFilterByType<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    filter: ColumnFilter,
+    dataType: string,
+  ): void {
+    const { op, value, valueTo } = filter;
+
+    switch (dataType) {
+      case 'string':
+        this.applyStringColumnFilter(qb, columnRef, paramName, op, value);
+        break;
+      case 'number':
+        this.applyNumberColumnFilter(
+          qb,
+          columnRef,
+          paramName,
+          op,
+          value,
+          valueTo,
+        );
+        break;
+      case 'date':
+        this.applyDateColumnFilter(
+          qb,
+          columnRef,
+          paramName,
+          op,
+          value,
+          valueTo,
+        );
+        break;
+      case 'enum':
+        this.applyEnumColumnFilter(qb, columnRef, paramName, op, value);
+        break;
+      case 'boolean':
+        this.applyBooleanColumnFilter(qb, columnRef, paramName, op, value);
+        break;
+      case 'uuid':
+      case 'relation':
+        this.applyUuidColumnFilter(qb, columnRef, paramName, op, value);
+        break;
+    }
+  }
+
+  /**
+   * Apply string column filter
+   * Ops: eq, ilike, startsWith, endsWith, in, isNull, isNotNull
+   */
+  private applyStringColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+  ): void {
+    switch (op) {
+      case 'eq':
+        qb.andWhere(`${columnRef} = :${paramName}`, {
+          [paramName]: String(value),
+        });
+        break;
+      case 'ilike':
+        qb.andWhere(`${columnRef} ILIKE :${paramName}`, {
+          [paramName]: `%${String(value)}%`,
+        });
+        break;
+      case 'startsWith':
+        qb.andWhere(`${columnRef} ILIKE :${paramName}`, {
+          [paramName]: `${String(value)}%`,
+        });
+        break;
+      case 'endsWith':
+        qb.andWhere(`${columnRef} ILIKE :${paramName}`, {
+          [paramName]: `%${String(value)}`,
+        });
+        break;
+      case 'in':
+        if (Array.isArray(value)) {
+          qb.andWhere(`${columnRef} IN (:...${paramName})`, {
+            [paramName]: value.map(String),
+          });
+        }
+        break;
+      case 'isNull':
+        qb.andWhere(`${columnRef} IS NULL`);
+        break;
+      case 'isNotNull':
+        qb.andWhere(`${columnRef} IS NOT NULL`);
+        break;
+    }
+  }
+
+  /**
+   * Apply number column filter
+   * Ops: eq, gte, lte, between, in
+   */
+  private applyNumberColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+    valueTo?: unknown,
+  ): void {
+    switch (op) {
+      case 'eq':
+        qb.andWhere(`${columnRef} = :${paramName}`, {
+          [paramName]: Number(value),
+        });
+        break;
+      case 'gte':
+        qb.andWhere(`${columnRef} >= :${paramName}`, {
+          [paramName]: Number(value),
+        });
+        break;
+      case 'lte':
+        qb.andWhere(`${columnRef} <= :${paramName}`, {
+          [paramName]: Number(value),
+        });
+        break;
+      case 'between':
+        qb.andWhere(
+          `${columnRef} BETWEEN :${paramName}From AND :${paramName}To`,
+          {
+            [`${paramName}From`]: Number(value),
+            [`${paramName}To`]: Number(valueTo),
+          },
+        );
+        break;
+      case 'in':
+        if (Array.isArray(value)) {
+          qb.andWhere(`${columnRef} IN (:...${paramName})`, {
+            [paramName]: value.map(Number),
+          });
+        }
+        break;
+    }
+  }
+
+  /**
+   * Apply date column filter
+   * Ops: between, gte, lte
+   */
+  private applyDateColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+    valueTo?: unknown,
+  ): void {
+    switch (op) {
+      case 'gte':
+        qb.andWhere(`${columnRef} >= :${paramName}`, { [paramName]: value });
+        break;
+      case 'lte':
+        qb.andWhere(`${columnRef} <= :${paramName}`, { [paramName]: value });
+        break;
+      case 'between':
+        qb.andWhere(
+          `${columnRef} BETWEEN :${paramName}From AND :${paramName}To`,
+          {
+            [`${paramName}From`]: value,
+            [`${paramName}To`]: valueTo,
+          },
+        );
+        break;
+    }
+  }
+
+  /**
+   * Apply enum column filter
+   * Ops: eq, in
+   */
+  private applyEnumColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+  ): void {
+    switch (op) {
+      case 'eq':
+        qb.andWhere(`${columnRef} = :${paramName}`, {
+          [paramName]: String(value),
+        });
+        break;
+      case 'in':
+        if (Array.isArray(value)) {
+          qb.andWhere(`${columnRef} IN (:...${paramName})`, {
+            [paramName]: value.map(String),
+          });
+        }
+        break;
+    }
+  }
+
+  /**
+   * Apply boolean column filter
+   * Ops: eq
+   */
+  private applyBooleanColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+  ): void {
+    if (op === 'eq') {
+      const boolValue = value === 'true' || value === true;
+      qb.andWhere(`${columnRef} = :${paramName}`, { [paramName]: boolValue });
+    }
+  }
+
+  /**
+   * Apply UUID/relation column filter
+   * Ops: eq, in
+   */
+  private applyUuidColumnFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    columnRef: string,
+    paramName: string,
+    op: string,
+    value: unknown,
+  ): void {
+    switch (op) {
+      case 'eq':
+        qb.andWhere(`${columnRef} = :${paramName}`, {
+          [paramName]: String(value),
+        });
+        break;
+      case 'in':
+        if (Array.isArray(value)) {
+          qb.andWhere(`${columnRef} IN (:...${paramName})`, {
+            [paramName]: value.map(String),
+          });
+        }
+        break;
+    }
   }
 }

@@ -52,3 +52,6 @@ export {
   GrcFrameworksController,
   TenantFrameworksController,
 } from './grc-frameworks.controller';
+
+// Platform Controllers (Universal Views)
+export { PlatformController } from './platform.controller';

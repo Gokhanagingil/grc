@@ -337,6 +337,14 @@ export const API_PATHS = {
     GRAPH: '/admin/data-model/graph',
     REFRESH: '/admin/data-model/refresh',
   },
+
+  // Platform Universal Views endpoints
+  PLATFORM: {
+    TABLES: '/grc/platform/tables',
+    TABLE_SCHEMA: (tableName: string) => `/grc/platform/tables/${tableName}/schema`,
+    VIEWS: '/grc/platform/views',
+    VIEW: (tableName: string) => `/grc/platform/views/${tableName}`,
+  },
 } as const;
 
 // ============================================================================
@@ -2083,4 +2091,101 @@ export const dataModelApi = {
   getGraph: () => api.get(API_PATHS.DATA_MODEL.GRAPH),
 
   refreshCache: () => api.get(API_PATHS.DATA_MODEL.REFRESH),
+};
+
+// ============================================================================
+// Platform Universal Views Types
+// ============================================================================
+
+export type SchemaDataType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'enum'
+  | 'uuid'
+  | 'relation';
+
+export interface FieldSchema {
+  name: string;
+  label: string;
+  dataType: SchemaDataType;
+  enumValues?: string[];
+  searchable: boolean;
+  filterable: boolean;
+  sortable: boolean;
+  defaultVisible: boolean;
+  width?: number;
+  relationTable?: string;
+  relationLabelField?: string;
+}
+
+export interface TableSchema {
+  tableName: string;
+  displayName: string;
+  fields: FieldSchema[];
+}
+
+export interface ColumnFilter {
+  op: string;
+  value: unknown;
+  valueTo?: unknown;
+}
+
+export interface ViewPreference {
+  visibleColumns: string[];
+  columnOrder: string[];
+  columnWidths?: Record<string, number>;
+  sort?: {
+    field: string;
+    direction: 'ASC' | 'DESC';
+  };
+  filters?: Record<string, ColumnFilter>;
+  pageSize?: number;
+}
+
+export interface ViewPreferenceResponse {
+  tableName: string;
+  userId: string;
+  tenantId: string;
+  preference: ViewPreference;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveViewPreferenceDto {
+  visibleColumns?: string[];
+  columnOrder?: string[];
+  columnWidths?: Record<string, number>;
+  sort?: {
+    field: string;
+    direction: 'ASC' | 'DESC';
+  };
+  filters?: Record<string, ColumnFilter>;
+  pageSize?: number;
+}
+
+// ============================================================================
+// Platform Universal Views API
+// ============================================================================
+
+export const platformViewsApi = {
+  listTables: (tenantId: string) =>
+    api.get(API_PATHS.PLATFORM.TABLES, withTenantId(tenantId)),
+
+  getTableSchema: (tenantId: string, tableName: string) =>
+    api.get(API_PATHS.PLATFORM.TABLE_SCHEMA(tableName), withTenantId(tenantId)),
+
+  getViewPreference: (tenantId: string, tableName: string) =>
+    api.get(API_PATHS.PLATFORM.VIEW(tableName), withTenantId(tenantId)),
+
+  saveViewPreference: (
+    tenantId: string,
+    tableName: string,
+    preference: SaveViewPreferenceDto,
+  ) =>
+    api.put(API_PATHS.PLATFORM.VIEW(tableName), preference, withTenantId(tenantId)),
+
+  getAllViewPreferences: (tenantId: string) =>
+    api.get(API_PATHS.PLATFORM.VIEWS, withTenantId(tenantId)),
 };
