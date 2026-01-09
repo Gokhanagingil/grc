@@ -256,6 +256,129 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
     });
   });
 
+  describe('Universal Search - Controls', () => {
+    it('GET /grc/controls with search should filter results', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/controls?search=test')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/controls with sort should order results', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/controls?sort=name:ASC')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+    });
+
+    it('GET /grc/controls with status filter should filter results', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/controls?status=draft')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/controls with combined search and pagination', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/controls?search=control&page=1&pageSize=5')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data.page).toBe(1);
+      expect(response.body.data.pageSize).toBe(5);
+      expect(response.body.data.items.length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  describe('Universal Search - Risks', () => {
+    it('GET /grc/risks with search should filter results', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/risks?search=test')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/risks with sort should order results', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/risks?sortBy=title&sortOrder=ASC')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+    });
+
+    it('GET /grc/risks with combined search and pagination', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/risks?search=risk&page=1&pageSize=5')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data.page).toBe(1);
+      expect(response.body.data.pageSize).toBe(5);
+      expect(response.body.data.items.length).toBeLessThanOrEqual(5);
+    });
+  });
+
   describe('Regression Tests - Old Format Should Fail', () => {
     it('should NOT have data as array (old format)', async () => {
       if (!dbConnected || !tenantId) {

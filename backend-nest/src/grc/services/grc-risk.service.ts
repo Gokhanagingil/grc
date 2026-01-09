@@ -22,6 +22,7 @@ import {
   createPaginatedResponse,
 } from '../dto';
 import { AuditService } from '../../audit/audit.service';
+import { UniversalListService } from '../../common';
 
 /**
  * GRC Risk Service
@@ -31,6 +32,7 @@ import { AuditService } from '../../audit/audit.service';
  * Implements soft delete - deleted records are marked with isDeleted=true.
  * Integrates with AuditService for entity-level audit logging.
  */
+
 @Injectable()
 export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   constructor(
@@ -48,6 +50,7 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     private readonly requirementRepository: Repository<GrcRequirement>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly universalListService?: UniversalListService,
   ) {
     super(repository);
   }

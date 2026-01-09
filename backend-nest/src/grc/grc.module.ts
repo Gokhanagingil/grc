@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { UniversalListService } from '../common/services/universal-list.service';
 
 // Entities
 import {
@@ -208,6 +209,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     TenantsModule,
   ],
   providers: [
+    // Universal List Service (platform-level)
+    UniversalListService,
     // Core services
     GrcRiskService,
     GrcPolicyService,
@@ -281,6 +284,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcStatusHistoryController,
   ],
   exports: [
+    // Universal List Service (platform-level)
+    UniversalListService,
     // Core services
     GrcRiskService,
     GrcPolicyService,

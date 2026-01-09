@@ -25,6 +25,12 @@ import { GrcControlProcess } from '../entities/grc-control-process.entity';
 import { Process } from '../entities/process.entity';
 import { Perf } from '../../common/decorators';
 import { ControlStatus, ControlType } from '../enums';
+import {
+  UniversalListService,
+  ListQueryDto,
+  UniversalListConfig,
+  ListResponse,
+} from '../../common';
 
 /**
  * GRC Control Controller
@@ -33,6 +39,50 @@ import { ControlStatus, ControlType } from '../enums';
  * All endpoints require JWT authentication and tenant context.
  * Read operations require GRC_CONTROL_READ permission.
  */
+/**
+ * Universal List Configuration for Controls
+ * Defines searchable columns, sortable fields, and filters
+ */
+const CONTROL_LIST_CONFIG: UniversalListConfig = {
+  searchableColumns: [
+    { column: 'name' },
+    { column: 'code' },
+    { column: 'description' },
+  ],
+  sortableFields: [
+    { field: 'createdAt' },
+    { field: 'updatedAt' },
+    { field: 'name' },
+    { field: 'code' },
+    { field: 'status' },
+    { field: 'type' },
+    { field: 'frequency' },
+    { field: 'lastTestedDate' },
+    { field: 'nextTestDate' },
+  ],
+  filters: [
+    {
+      field: 'status',
+      type: 'enum',
+      enumValues: [
+        'draft',
+        'in_design',
+        'implemented',
+        'inoperative',
+        'retired',
+      ],
+      caseInsensitive: true,
+    },
+    {
+      field: 'type',
+      type: 'enum',
+      enumValues: ['preventive', 'detective', 'corrective'],
+      caseInsensitive: true,
+    },
+  ],
+  defaultSort: { field: 'createdAt', direction: 'DESC' },
+};
+
 @Controller('grc/controls')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcControlController {
@@ -48,7 +98,10 @@ export class GrcControlController {
     'nextTestDate',
   ]);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly universalListService: UniversalListService,
+  ) {}
 
   /**
    * Normalize and validate control status filter (case-insensitive)
@@ -96,7 +149,7 @@ export class GrcControlController {
    * GET /grc/controls
    * List all controls for the current tenant with pagination and filtering
    *
-   * List Contract compliant endpoint:
+   * List Contract compliant endpoint using UniversalListService:
    * - page, limit (or pageSize): pagination
    * - sort: field:dir format (e.g., createdAt:DESC)
    * - search: text search in name, code, description
@@ -124,60 +177,33 @@ export class GrcControlController {
     @Query('requirementId') requirementId?: string,
     @Query('processId') processId?: string,
     @Query('unlinked') unlinked?: string,
-  ) {
+  ): Promise<ListResponse<GrcControl>> {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Support both 'limit' and 'pageSize' for List Contract compatibility
-    const effectivePageSize = limit ?? pageSize;
-
-    // Support 'sort' param in field:dir format (List Contract)
-    let effectiveSortBy = sortBy;
-    let effectiveSortOrder = sortOrder;
-    if (sort) {
-      const [field, dir] = sort.split(':');
-      if (field) effectiveSortBy = field;
-      if (
-        dir &&
-        (dir.toUpperCase() === 'ASC' || dir.toUpperCase() === 'DESC')
-      ) {
-        effectiveSortOrder = dir.toUpperCase() as 'ASC' | 'DESC';
-      }
-    }
-
-    // Support both 'search' and legacy 'q' param
-    const searchTerm = search || legacySearch;
+    const listQuery = new ListQueryDto();
+    listQuery.page = Number(page);
+    listQuery.pageSize = Number(pageSize);
+    listQuery.limit = limit ? Number(limit) : undefined;
+    listQuery.search = search;
+    listQuery.q = legacySearch;
+    listQuery.sort = sort;
+    listQuery.sortBy = sortBy;
+    listQuery.sortOrder = sortOrder;
 
     const controlRepo = this.dataSource.getRepository(GrcControl);
     const queryBuilder = controlRepo
       .createQueryBuilder('control')
-      .leftJoinAndSelect('control.owner', 'owner')
-      .where('control.tenantId = :tenantId', { tenantId })
-      .andWhere('control.isDeleted = :isDeleted', { isDeleted: false });
+      .leftJoinAndSelect('control.owner', 'owner');
 
-    // Validate and normalize status filter (case-insensitive)
-    if (status) {
-      const normalizedStatus = this.normalizeStatus(status);
-      queryBuilder.andWhere('control.status = :status', {
-        status: normalizedStatus,
-      });
-    }
+    this.universalListService.applyTenantFilter(
+      queryBuilder,
+      tenantId,
+      'control',
+    );
+    this.universalListService.applySoftDeleteFilter(queryBuilder, 'control');
 
-    // Validate and normalize type filter (case-insensitive)
-    if (type) {
-      const normalizedType = this.normalizeType(type);
-      queryBuilder.andWhere('control.type = :type', { type: normalizedType });
-    }
-
-    if (searchTerm) {
-      queryBuilder.andWhere(
-        '(control.name ILIKE :search OR control.code ILIKE :search OR control.description ILIKE :search)',
-        { search: `%${searchTerm}%` },
-      );
-    }
-
-    // Filter by requirementId - controls linked to a specific requirement
     if (requirementId) {
       queryBuilder.andWhere(
         `control.id IN (
@@ -188,7 +214,6 @@ export class GrcControlController {
       );
     }
 
-    // Filter by processId - controls linked to a specific process
     if (processId) {
       queryBuilder.andWhere(
         `control.id IN (
@@ -199,7 +224,6 @@ export class GrcControlController {
       );
     }
 
-    // Filter unlinked controls - no requirement links AND no process links
     if (unlinked === 'true') {
       queryBuilder.andWhere(
         `control.id NOT IN (
@@ -217,25 +241,13 @@ export class GrcControlController {
       );
     }
 
-    const safeSortBy = this.allowedSortFields.has(effectiveSortBy)
-      ? effectiveSortBy
-      : 'createdAt';
-    const safeSortOrder =
-      effectiveSortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-    const [items, total] = await queryBuilder
-      .orderBy(`control.${safeSortBy}`, safeSortOrder)
-      .skip((Number(page) - 1) * Number(effectivePageSize))
-      .take(Number(effectivePageSize))
-      .getManyAndCount();
-
-    return {
-      items,
-      total,
-      page: Number(page),
-      pageSize: Number(effectivePageSize),
-      totalPages: Math.ceil(total / Number(effectivePageSize)),
-    };
+    return this.universalListService.executeListQuery(
+      queryBuilder,
+      listQuery,
+      CONTROL_LIST_CONFIG,
+      'control',
+      { status, type },
+    );
   }
 
   /**
