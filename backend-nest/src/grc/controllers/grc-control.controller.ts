@@ -24,6 +24,7 @@ import { GrcControl } from '../entities/grc-control.entity';
 import { GrcControlProcess } from '../entities/grc-control-process.entity';
 import { Process } from '../entities/process.entity';
 import { Perf } from '../../common/decorators';
+import { ControlStatus, ControlType } from '../enums';
 
 /**
  * GRC Control Controller
@@ -50,13 +51,57 @@ export class GrcControlController {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
+   * Normalize and validate control status filter (case-insensitive)
+   */
+  private normalizeStatus(status: string): ControlStatus {
+    const normalized = status.toLowerCase();
+    const statusMap: Record<string, ControlStatus> = {
+      draft: ControlStatus.DRAFT,
+      in_design: ControlStatus.IN_DESIGN,
+      implemented: ControlStatus.IMPLEMENTED,
+      inoperative: ControlStatus.INOPERATIVE,
+      retired: ControlStatus.RETIRED,
+    };
+    const result = statusMap[normalized];
+    if (!result) {
+      const allowedValues = Object.keys(statusMap).join(', ');
+      throw new BadRequestException(
+        `Invalid status value: '${status}'. Allowed values: ${allowedValues}`,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Normalize and validate control type filter (case-insensitive)
+   */
+  private normalizeType(type: string): ControlType {
+    const normalized = type.toLowerCase();
+    const typeMap: Record<string, ControlType> = {
+      preventive: ControlType.PREVENTIVE,
+      detective: ControlType.DETECTIVE,
+      corrective: ControlType.CORRECTIVE,
+    };
+    const result = typeMap[normalized];
+    if (!result) {
+      const allowedValues = Object.keys(typeMap).join(', ');
+      throw new BadRequestException(
+        `Invalid type value: '${type}'. Allowed values: ${allowedValues}`,
+      );
+    }
+    return result;
+  }
+
+  /**
    * GET /grc/controls
    * List all controls for the current tenant with pagination and filtering
    *
-   * Filters:
-   * - status: filter by control status
-   * - type: filter by control type
-   * - q: search in name, code, description
+   * List Contract compliant endpoint:
+   * - page, limit (or pageSize): pagination
+   * - sort: field:dir format (e.g., createdAt:DESC)
+   * - search: text search in name, code, description
+   * - status: filter by control status (case-insensitive)
+   * - type: filter by control type (case-insensitive)
    * - requirementId: filter controls linked to a specific requirement
    * - processId: filter controls linked to a specific process
    * - unlinked: if 'true', return controls with no requirement AND no process links
@@ -68,11 +113,14 @@ export class GrcControlController {
     @Headers('x-tenant-id') tenantId: string,
     @Query('page') page = 1,
     @Query('pageSize') pageSize = 20,
+    @Query('limit') limit?: number,
     @Query('sortBy') sortBy = 'createdAt',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
+    @Query('sort') sort?: string,
     @Query('status') status?: string,
     @Query('type') type?: string,
-    @Query('q') search?: string,
+    @Query('search') search?: string,
+    @Query('q') legacySearch?: string,
     @Query('requirementId') requirementId?: string,
     @Query('processId') processId?: string,
     @Query('unlinked') unlinked?: string,
@@ -81,6 +129,26 @@ export class GrcControlController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
+    // Support both 'limit' and 'pageSize' for List Contract compatibility
+    const effectivePageSize = limit ?? pageSize;
+
+    // Support 'sort' param in field:dir format (List Contract)
+    let effectiveSortBy = sortBy;
+    let effectiveSortOrder = sortOrder;
+    if (sort) {
+      const [field, dir] = sort.split(':');
+      if (field) effectiveSortBy = field;
+      if (
+        dir &&
+        (dir.toUpperCase() === 'ASC' || dir.toUpperCase() === 'DESC')
+      ) {
+        effectiveSortOrder = dir.toUpperCase() as 'ASC' | 'DESC';
+      }
+    }
+
+    // Support both 'search' and legacy 'q' param
+    const searchTerm = search || legacySearch;
+
     const controlRepo = this.dataSource.getRepository(GrcControl);
     const queryBuilder = controlRepo
       .createQueryBuilder('control')
@@ -88,18 +156,24 @@ export class GrcControlController {
       .where('control.tenantId = :tenantId', { tenantId })
       .andWhere('control.isDeleted = :isDeleted', { isDeleted: false });
 
+    // Validate and normalize status filter (case-insensitive)
     if (status) {
-      queryBuilder.andWhere('control.status = :status', { status });
+      const normalizedStatus = this.normalizeStatus(status);
+      queryBuilder.andWhere('control.status = :status', {
+        status: normalizedStatus,
+      });
     }
 
+    // Validate and normalize type filter (case-insensitive)
     if (type) {
-      queryBuilder.andWhere('control.type = :type', { type });
+      const normalizedType = this.normalizeType(type);
+      queryBuilder.andWhere('control.type = :type', { type: normalizedType });
     }
 
-    if (search) {
+    if (searchTerm) {
       queryBuilder.andWhere(
         '(control.name ILIKE :search OR control.code ILIKE :search OR control.description ILIKE :search)',
-        { search: `%${search}%` },
+        { search: `%${searchTerm}%` },
       );
     }
 
@@ -143,23 +217,24 @@ export class GrcControlController {
       );
     }
 
-    const safeSortBy = this.allowedSortFields.has(sortBy)
-      ? sortBy
+    const safeSortBy = this.allowedSortFields.has(effectiveSortBy)
+      ? effectiveSortBy
       : 'createdAt';
-    const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const safeSortOrder =
+      effectiveSortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const [items, total] = await queryBuilder
       .orderBy(`control.${safeSortBy}`, safeSortOrder)
-      .skip((Number(page) - 1) * Number(pageSize))
-      .take(Number(pageSize))
+      .skip((Number(page) - 1) * Number(effectivePageSize))
+      .take(Number(effectivePageSize))
       .getManyAndCount();
 
     return {
       items,
       total,
       page: Number(page),
-      pageSize: Number(pageSize),
-      totalPages: Math.ceil(total / Number(pageSize)),
+      pageSize: Number(effectivePageSize),
+      totalPages: Math.ceil(total / Number(effectivePageSize)),
     };
   }
 

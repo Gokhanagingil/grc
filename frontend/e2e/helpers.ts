@@ -140,6 +140,70 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/controls - GET (list)
+    if (url.includes('/grc/controls') && method === 'GET') {
+      logMock(method, url, true);
+      
+      // Mock controls for list page tests
+      const mockControls = [
+        {
+          id: 'mock-control-1',
+          tenantId: 'test-tenant-id',
+          name: 'Access Control Review',
+          code: 'CTRL-001',
+          description: 'Quarterly review of access controls',
+          type: 'detective',
+          implementationType: 'manual',
+          status: 'implemented',
+          frequency: 'quarterly',
+          ownerUserId: '1',
+          owner: { id: '1', email: 'admin@test.com', firstName: 'Admin', lastName: 'User' },
+          effectiveDate: '2024-01-01',
+          lastTestedDate: '2024-10-15',
+          nextTestDate: '2025-01-15',
+          lastTestResult: 'PASS',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-10-15T00:00:00Z',
+          isDeleted: false,
+        },
+        {
+          id: 'mock-control-2',
+          tenantId: 'test-tenant-id',
+          name: 'GF Security Policy Enforcement',
+          code: 'CTRL-002',
+          description: 'Automated enforcement of security policies',
+          type: 'preventive',
+          implementationType: 'automated',
+          status: 'implemented',
+          frequency: 'continuous',
+          ownerUserId: '1',
+          owner: { id: '1', email: 'admin@test.com', firstName: 'Admin', lastName: 'User' },
+          effectiveDate: '2024-01-01',
+          lastTestedDate: '2024-11-01',
+          nextTestDate: '2025-02-01',
+          lastTestResult: 'PASS',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-11-01T00:00:00Z',
+          isDeleted: false,
+        },
+      ];
+
+      // Check if this is a detail endpoint (e.g., /grc/controls/mock-control-1)
+      if (url.match(/\/grc\/controls\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockControls[0]));
+      } else {
+        // List endpoint
+        await route.fulfill(successResponse({
+          items: mockControls,
+          total: mockControls.length,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
     // Handle grc/audits - GET (list, detail, can/create, distinct/department, findings, requirements, reports, permissions)
     if (url.includes('/grc/audits') && method === 'GET') {
       logMock(method, url, true);
