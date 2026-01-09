@@ -30,6 +30,8 @@ import { ProcessManagement } from './pages/ProcessManagement';
 import { ProcessViolations } from './pages/ProcessViolations';
 import { Profile } from './pages/Profile';
 import { Coverage } from './pages/Coverage';
+import { ControlList } from './pages/ControlList';
+import { ControlDetail } from './pages/ControlDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -118,13 +120,8 @@ function App() {
                       moduleName="Policy Management"
                     />
                   } />
-                  <Route path="controls" element={
-                    <ComingSoonPage 
-                      title="Control Library" 
-                      description="Centralized control library mapped to compliance frameworks."
-                      moduleName="Control Management"
-                    />
-                  } />
+                  <Route path="controls" element={<ControlList />} />
+                  <Route path="controls/:id" element={<ControlDetail />} />
                   <Route path="control-testing" element={
                     <ComingSoonPage 
                       title="Control Testing" 
