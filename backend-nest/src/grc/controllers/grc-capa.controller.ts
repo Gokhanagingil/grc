@@ -1,13 +1,23 @@
 import {
   Controller,
   Get,
+  Patch,
   Param,
   Query,
+  Body,
   Headers,
+  Request,
   UseGuards,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
@@ -16,6 +26,8 @@ import { Permission } from '../../auth/permissions/permission.enum';
 import { DataSource, FindOptionsWhere } from 'typeorm';
 import { GrcCapa } from '../entities/grc-capa.entity';
 import { Perf } from '../../common/decorators';
+import { ClosureLoopService } from '../services/closure-loop.service';
+import { UpdateCapaStatusDto } from '../dto/closure-loop.dto';
 
 /**
  * GRC CAPA Controller
@@ -24,6 +36,9 @@ import { Perf } from '../../common/decorators';
  * All endpoints require JWT authentication and tenant context.
  * Read operations require GRC_CAPA_READ permission.
  */
+@ApiTags('GRC CAPAs')
+@ApiBearerAuth()
+@ApiHeader({ name: 'x-tenant-id', description: 'Tenant ID', required: true })
 @Controller('grc/capas')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcCapaController {
@@ -39,7 +54,10 @@ export class GrcCapaController {
     'closedAt',
   ]);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly closureLoopService: ClosureLoopService,
+  ) {}
 
   /**
    * GET /grc/capas
@@ -147,5 +165,42 @@ export class GrcCapaController {
     }
 
     return capa;
+  }
+
+  /**
+   * PATCH /grc/capas/:id/status
+   * Update the status of a CAPA with validation and cascade logic
+   */
+  @Patch(':id/status')
+  @ApiOperation({
+    summary: 'Update CAPA status',
+    description:
+      'Updates the status of a CAPA with transition validation. ' +
+      'When a CAPA is closed, it may trigger cascade closure of the linked Issue ' +
+      'if all CAPAs for that Issue are closed.',
+  })
+  @ApiResponse({ status: 200, description: 'CAPA status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid status transition' })
+  @ApiResponse({ status: 404, description: 'CAPA not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @Perf()
+  async updateStatus(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCapaStatusDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const result = await this.closureLoopService.updateCapaStatus(
+      tenantId,
+      id,
+      dto,
+      req.user.id,
+    );
+
+    return { success: true, data: result };
   }
 }
