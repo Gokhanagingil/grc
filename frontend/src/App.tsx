@@ -29,6 +29,7 @@ import { AuditDashboard, ComplianceDashboard, GrcHealthDashboard } from './pages
 import { ProcessManagement } from './pages/ProcessManagement';
 import { ProcessViolations } from './pages/ProcessViolations';
 import { Profile } from './pages/Profile';
+import { Coverage } from './pages/Coverage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -84,8 +85,9 @@ function App() {
                   <Route path="dotwalking" element={<DotWalkingBuilder />} />
                   <Route path="incidents" element={<IncidentManagement />} />
                   <Route path="processes" element={<ProcessManagement />} />
-                  <Route path="violations" element={<ProcessViolations />} />
-                  <Route path="profile" element={<Profile />} />
+                                    <Route path="violations" element={<ProcessViolations />} />
+                                    <Route path="profile" element={<Profile />} />
+                                    <Route path="coverage" element={<Coverage />} />
                   
                   {/* Coming Soon Pages - GRC Suite */}
                   <Route path="risk-assessments" element={

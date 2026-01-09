@@ -130,6 +130,22 @@ export const API_PATHS = {
     RISKS: (id: string) => `/grc/requirements/${id}/risks`,
   },
 
+  // GRC Control endpoints (Unified Control Library)
+  GRC_CONTROLS: {
+    LIST: '/grc/controls',
+    GET: (id: string) => `/grc/controls/${id}`,
+    PROCESSES: (id: string) => `/grc/controls/${id}/processes`,
+    LINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
+    UNLINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
+  },
+
+  // GRC Coverage endpoints (Unified Control Library)
+  GRC_COVERAGE: {
+    SUMMARY: '/grc/coverage',
+    REQUIREMENTS: '/grc/coverage/requirements',
+    PROCESSES: '/grc/coverage/processes',
+  },
+
   // Standards Library endpoints (Phase 7 - Express backend)
   STANDARDS: {
     LIST: '/grc/requirements',
@@ -1381,6 +1397,97 @@ export const processViolationApi = {
       {},
       withTenantId(tenantId),
     ),
+};
+
+// ============================================================================
+// GRC Control API (Unified Control Library)
+// ============================================================================
+
+export const controlApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CONTROLS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CONTROLS.GET(id), withTenantId(tenantId)),
+
+  getProcesses: (tenantId: string, controlId: string) =>
+    api.get(API_PATHS.GRC_CONTROLS.PROCESSES(controlId), withTenantId(tenantId)),
+
+  linkProcess: (tenantId: string, controlId: string, processId: string) =>
+    api.post(
+      API_PATHS.GRC_CONTROLS.LINK_PROCESS(controlId, processId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkProcess: (tenantId: string, controlId: string, processId: string) =>
+    api.delete(
+      API_PATHS.GRC_CONTROLS.UNLINK_PROCESS(controlId, processId),
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC Coverage API (Unified Control Library)
+// ============================================================================
+
+export interface CoverageSummary {
+  requirementCoverage: number;
+  processCoverage: number;
+  unlinkedControlsCount: number;
+  totalRequirements: number;
+  coveredRequirements: number;
+  totalProcesses: number;
+  coveredProcesses: number;
+  totalControls: number;
+}
+
+export interface RequirementCoverageItem {
+  id: string;
+  title: string;
+  referenceCode: string;
+  status: string;
+  controlCount: number;
+  isCovered: boolean;
+}
+
+export interface RequirementCoverageResponse {
+  total: number;
+  covered: number;
+  uncovered: number;
+  coveragePercent: number;
+  requirements: RequirementCoverageItem[];
+}
+
+export interface ProcessCoverageItem {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  controlCount: number;
+  isCovered: boolean;
+}
+
+export interface ProcessCoverageResponse {
+  total: number;
+  covered: number;
+  uncovered: number;
+  coveragePercent: number;
+  processes: ProcessCoverageItem[];
+}
+
+export const coverageApi = {
+  getSummary: (tenantId: string) =>
+    api.get<CoverageSummary>(API_PATHS.GRC_COVERAGE.SUMMARY, withTenantId(tenantId)),
+
+  getRequirementCoverage: (tenantId: string) =>
+    api.get<RequirementCoverageResponse>(API_PATHS.GRC_COVERAGE.REQUIREMENTS, withTenantId(tenantId)),
+
+  getProcessCoverage: (tenantId: string) =>
+    api.get<ProcessCoverageResponse>(API_PATHS.GRC_COVERAGE.PROCESSES, withTenantId(tenantId)),
 };
 
 // ============================================================================

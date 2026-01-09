@@ -28,6 +28,8 @@ import {
   RiskStatus,
   PolicyStatus,
   ControlStatus,
+  ControlType,
+  ControlImplementationType,
   ComplianceFramework,
   ProcessControlMethod,
   ProcessControlFrequency,
@@ -40,6 +42,7 @@ import { Process } from '../grc/entities/process.entity';
 import { ProcessControl } from '../grc/entities/process-control.entity';
 import { ControlResult } from '../grc/entities/control-result.entity';
 import { ProcessViolation } from '../grc/entities/process-violation.entity';
+import { GrcControlProcess } from '../grc/entities/grc-control-process.entity';
 
 // Demo tenant and user IDs (consistent for idempotency)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -1024,6 +1027,81 @@ async function seedGrcData() {
       console.log('   Control results already exist, skipping...');
     }
 
+    // 13. Seed Process-Only Control Example (Unified Control Library)
+    console.log('13. Seeding process-only control example...');
+    const controlProcessRepo = dataSource.getRepository(GrcControlProcess);
+
+    // Create "Sales Order Management" process if it doesn't exist
+    let salesProcess = await processRepo.findOne({
+      where: { code: 'PRC-SALES-001', tenantId: DEMO_TENANT_ID },
+    });
+
+    if (!salesProcess) {
+      salesProcess = processRepo.create({
+        name: 'Sales Order Management',
+        code: 'PRC-SALES-001',
+        description:
+          'End-to-end process for managing sales orders from creation to fulfillment',
+        category: 'Sales',
+        ownerUserId: DEMO_ADMIN_ID,
+        isActive: true,
+        tenantId: DEMO_TENANT_ID,
+        isDeleted: false,
+      });
+      await processRepo.save(salesProcess);
+      console.log('   Created process: PRC-SALES-001 - Sales Order Management');
+    } else {
+      console.log('   Sales Order Management process already exists');
+    }
+
+    // Create "Sales Approval Control" if it doesn't exist
+    let salesControl = await controlRepo.findOne({
+      where: { code: 'CTL-SALES-001', tenantId: DEMO_TENANT_ID },
+    });
+
+    if (!salesControl) {
+      salesControl = controlRepo.create({
+        name: 'Sales Approval Control',
+        code: 'CTL-SALES-001',
+        description:
+          'Ensures all sales orders above threshold require manager approval before processing',
+        type: ControlType.PREVENTIVE,
+        implementationType: ControlImplementationType.MANUAL,
+        status: ControlStatus.IMPLEMENTED,
+        ownerUserId: DEMO_ADMIN_ID,
+        tenantId: DEMO_TENANT_ID,
+      });
+      await controlRepo.save(salesControl);
+      console.log('   Created control: CTL-SALES-001 - Sales Approval Control');
+    } else {
+      console.log('   Sales Approval Control already exists');
+    }
+
+    // Link control to process (process-only control - no requirement link)
+    const existingLink = await controlProcessRepo.findOne({
+      where: {
+        controlId: salesControl.id,
+        processId: salesProcess.id,
+        tenantId: DEMO_TENANT_ID,
+      },
+    });
+
+    if (!existingLink) {
+      const controlProcessLink = controlProcessRepo.create({
+        controlId: salesControl.id,
+        processId: salesProcess.id,
+        tenantId: DEMO_TENANT_ID,
+        notes:
+          'Process-only control example - not linked to any compliance requirement',
+      });
+      await controlProcessRepo.save(controlProcessLink);
+      console.log(
+        '   Linked CTL-SALES-001 to PRC-SALES-001 (process-only control)',
+      );
+    } else {
+      console.log('   Control-process link already exists');
+    }
+
     console.log('\n========================================');
     console.log('GRC Demo Data Seed Complete!');
     console.log('========================================');
@@ -1032,18 +1110,34 @@ async function seedGrcData() {
     console.log(`Admin Password: TestPassword123! (use existing auth)`);
     console.log('');
     console.log('Summary:');
-    console.log(`  - Controls: ${controls.length}`);
+    console.log(
+      `  - Controls: ${controls.length + 1} (includes process-only control)`,
+    );
     console.log(`  - Risks: ${risks.length}`);
     console.log(`  - Policies: ${policies.length}`);
     console.log(`  - Requirements: ${requirements.length}`);
-    console.log(`  - Processes: ${processes.length}`);
+    console.log(
+      `  - Processes: ${processes.length + 1} (includes Sales Order Management)`,
+    );
     console.log(`  - Process Controls: ${processControls.length}`);
+    console.log(`  - Control-Process Links: 1 (process-only control example)`);
+    console.log('');
+    console.log('Process-Only Control Example:');
+    console.log('  - Process: PRC-SALES-001 (Sales Order Management)');
+    console.log('  - Control: CTL-SALES-001 (Sales Approval Control)');
+    console.log(
+      '  - This control is linked to a process but NOT to any requirement',
+    );
     console.log('');
     console.log('To test the API:');
     console.log('  1. Start NestJS: cd backend-nest && npm run start:dev');
     console.log('  2. Login to get JWT token');
     console.log(`  3. Use x-tenant-id: ${DEMO_TENANT_ID} header`);
     console.log('  4. Call GET /grc/risks, /grc/policies, /grc/requirements');
+    console.log(
+      '  5. Call GET /grc/controls?unlinked=true to see unlinked controls',
+    );
+    console.log('  6. Call GET /grc/coverage to see coverage statistics');
     console.log('========================================\n');
   } catch (error) {
     console.error('Error seeding GRC data:', error);

@@ -19,6 +19,7 @@ import {
 import { GrcRiskControl } from './grc-risk-control.entity';
 import { GrcPolicyControl } from './grc-policy-control.entity';
 import { GrcRequirementControl } from './grc-requirement-control.entity';
+import { GrcControlProcess } from './grc-control-process.entity';
 import { GrcIssue } from './grc-issue.entity';
 import { GrcControlTest } from './grc-control-test.entity';
 import { GrcControlEvidence } from './grc-control-evidence.entity';
@@ -126,6 +127,9 @@ export class GrcControl extends BaseEntity {
 
   @OneToMany(() => GrcRequirementControl, (rc) => rc.control)
   requirementControls: GrcRequirementControl[];
+
+  @OneToMany(() => GrcControlProcess, (cp) => cp.control)
+  controlProcesses: GrcControlProcess[];
 
   @OneToMany(() => GrcIssue, (issue) => issue.control)
   issues: GrcIssue[];

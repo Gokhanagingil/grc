@@ -35,6 +35,7 @@ export { GrcFieldMetadataTag } from './grc-field-metadata-tag.entity';
 export { GrcRiskControl } from './grc-risk-control.entity';
 export { GrcPolicyControl } from './grc-policy-control.entity';
 export { GrcRequirementControl } from './grc-requirement-control.entity';
+export { GrcControlProcess } from './grc-control-process.entity';
 export { GrcIssueEvidence } from './grc-issue-evidence.entity';
 export { GrcRiskPolicy } from './grc-risk-policy.entity';
 export { GrcRiskRequirement } from './grc-risk-requirement.entity';
