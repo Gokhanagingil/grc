@@ -193,7 +193,7 @@ describe('Universal Views Platform Controller (e2e)', () => {
       expect(nameField).toHaveProperty('sortable');
     });
 
-    it('GET /grc/platform/tables/grc_controls/schema should return schema (alias support)', async () => {
+    it('GET /grc/platform/tables/grc_controls/schema should return schema with canonical tableName', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
@@ -207,6 +207,59 @@ describe('Universal Views Platform Controller (e2e)', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('tableName', 'controls');
+      expect(response.body.data).toHaveProperty('fields');
+      expect(Array.isArray(response.body.data.fields)).toBe(true);
+    });
+
+    it('GET /grc/platform/tables/grc_risks/schema should return schema with canonical tableName', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/platform/tables/grc_risks/schema')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('tableName', 'risks');
+      expect(response.body.data).toHaveProperty('fields');
+      expect(Array.isArray(response.body.data.fields)).toBe(true);
+    });
+
+    it('GET /grc/platform/tables/GRC_CONTROLS/schema should handle uppercase alias', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/platform/tables/GRC_CONTROLS/schema')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('tableName', 'controls');
+    });
+
+    it('GET /grc/platform/tables/CONTROLS/schema should handle uppercase canonical name', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/platform/tables/CONTROLS/schema')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
       expect(response.body.data).toHaveProperty('tableName', 'controls');
     });
 

@@ -16,6 +16,8 @@ import { ViewPreferenceService } from '../../common/services/view-preference.ser
 import {
   getTableSchema,
   isTableAllowed,
+  resolveCanonicalTableName,
+  isTableAlias,
 } from '../../common/services/table-schema.registry';
 import {
   TableSchema,
@@ -41,6 +43,9 @@ export class PlatformController {
    * GET /grc/platform/tables/:tableName/schema
    * Get table schema for list rendering
    *
+   * Supports table name aliases (e.g., grc_controls -> controls).
+   * Always returns the canonical table name in the response.
+   *
    * Returns field metadata including:
    * - name, label, dataType
    * - enumValues (for enum fields)
@@ -56,13 +61,21 @@ export class PlatformController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
+    const canonicalName = resolveCanonicalTableName(tableName);
+
     if (!isTableAllowed(tableName)) {
-      throw new NotFoundException(`Table '${tableName}' not found`);
+      const wasAlias = isTableAlias(tableName);
+      const resolvedInfo = wasAlias ? ` (resolved as '${canonicalName}')` : '';
+      throw new NotFoundException(
+        `Table '${tableName}' not found${resolvedInfo}`,
+      );
     }
 
     const schema = getTableSchema(tableName);
     if (!schema) {
-      throw new NotFoundException(`Schema for table '${tableName}' not found`);
+      throw new NotFoundException(
+        `Schema for table '${tableName}' not found (resolved as '${canonicalName}')`,
+      );
     }
 
     return { success: true, data: schema };
