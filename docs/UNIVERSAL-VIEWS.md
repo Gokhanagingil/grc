@@ -233,6 +233,42 @@ curl -H "Authorization: Bearer $TOKEN" \
 | `requirements` | Planned | Coming soon |
 | `audits` | Planned | Coming soon |
 
+## Table Name Aliases
+
+The Universal Views system supports table name aliases for convenience. Aliases are automatically resolved to their canonical names during all operations.
+
+### Supported Aliases
+
+| Alias | Canonical Name | Notes |
+|-------|----------------|-------|
+| `grc_controls` | `controls` | Database table name alias |
+| `grc_risks` | `risks` | Database table name alias |
+
+### Alias Resolution Behavior
+
+The system normalizes and resolves table names as follows:
+
+1. **Normalization**: Table names are trimmed, converted to lowercase, and hyphens are replaced with underscores
+2. **Resolution**: Known aliases are mapped to their canonical names
+3. **Response**: All API responses return the canonical table name (e.g., `controls` not `grc_controls`)
+
+Examples:
+- `grc_controls` → `controls`
+- `GRC_CONTROLS` → `controls`
+- `grc-controls` → `controls`
+- ` CONTROLS ` → `controls`
+
+### Recommended Usage
+
+While aliases are supported for backward compatibility, we recommend using canonical table names (`controls`, `risks`) in new code for consistency. The canonical name is always returned in API responses regardless of which name was used in the request.
+
+### View Preference Canonicalization
+
+View preferences are stored using canonical table names. This means:
+- Saving a preference via `/grc/platform/views/grc_controls` stores it under `controls`
+- Retrieving via `/grc/platform/views/controls` or `/grc/platform/views/grc_controls` returns the same preference
+- This prevents preference duplication when using different name variants
+
 ## Security Considerations
 
 1. **Allowlist enforcement**: Only fields registered in the schema can be filtered/sorted

@@ -11,6 +11,7 @@ import {
   isTableAllowed,
   getDefaultVisibleColumns,
   getTableSchema,
+  resolveCanonicalTableName,
 } from './table-schema.registry';
 
 /**
@@ -28,7 +29,8 @@ export class ViewPreferenceService {
 
   /**
    * Get view preference for a user and table
-   * Returns default preference if none exists
+   * Returns default preference if none exists.
+   * Automatically resolves table name aliases to canonical names.
    */
   async getViewPreference(
     tenantId: string,
@@ -40,13 +42,16 @@ export class ViewPreferenceService {
       throw new NotFoundException(`Table '${tableName}' not found`);
     }
 
+    // Resolve to canonical name for consistent DB storage
+    const canonicalTableName = resolveCanonicalTableName(tableName);
+
     const preference = await this.repository.findOne({
-      where: { tenantId, userId, tableName },
+      where: { tenantId, userId, tableName: canonicalTableName },
     });
 
     if (preference) {
       return {
-        tableName,
+        tableName: canonicalTableName,
         userId,
         tenantId,
         preference: preference.toViewPreference(),
@@ -56,8 +61,8 @@ export class ViewPreferenceService {
     }
 
     // Return default preference based on schema
-    const defaultColumns = getDefaultVisibleColumns(tableName);
-    const schema = getTableSchema(tableName);
+    const defaultColumns = getDefaultVisibleColumns(canonicalTableName);
+    const schema = getTableSchema(canonicalTableName);
     const defaultPreference: ViewPreference = {
       visibleColumns: defaultColumns,
       columnOrder: defaultColumns,
@@ -68,7 +73,7 @@ export class ViewPreferenceService {
     };
 
     return {
-      tableName,
+      tableName: canonicalTableName,
       userId,
       tenantId,
       preference: defaultPreference,
@@ -78,7 +83,8 @@ export class ViewPreferenceService {
   }
 
   /**
-   * Save or update view preference for a user and table
+   * Save or update view preference for a user and table.
+   * Automatically resolves table name aliases to canonical names.
    */
   async saveViewPreference(
     tenantId: string,
@@ -91,9 +97,12 @@ export class ViewPreferenceService {
       throw new NotFoundException(`Table '${tableName}' not found`);
     }
 
+    // Resolve to canonical name for consistent DB storage
+    const canonicalTableName = resolveCanonicalTableName(tableName);
+
     // Find existing preference or create new
     let preference = await this.repository.findOne({
-      where: { tenantId, userId, tableName },
+      where: { tenantId, userId, tableName: canonicalTableName },
     });
 
     if (preference) {
@@ -118,12 +127,12 @@ export class ViewPreferenceService {
         preference.pageSize = dto.pageSize;
       }
     } else {
-      // Create new preference
-      const defaultColumns = getDefaultVisibleColumns(tableName);
+      // Create new preference with canonical table name
+      const defaultColumns = getDefaultVisibleColumns(canonicalTableName);
       preference = this.repository.create({
         tenantId,
         userId,
-        tableName,
+        tableName: canonicalTableName,
         visibleColumns: dto.visibleColumns || defaultColumns,
         columnOrder: dto.columnOrder || defaultColumns,
         columnWidths: dto.columnWidths || null,
@@ -137,7 +146,7 @@ export class ViewPreferenceService {
     const saved = await this.repository.save(preference);
 
     return {
-      tableName,
+      tableName: canonicalTableName,
       userId,
       tenantId,
       preference: saved.toViewPreference(),
@@ -147,14 +156,20 @@ export class ViewPreferenceService {
   }
 
   /**
-   * Delete view preference for a user and table
+   * Delete view preference for a user and table.
+   * Automatically resolves table name aliases to canonical names.
    */
   async deleteViewPreference(
     tenantId: string,
     userId: string,
     tableName: string,
   ): Promise<void> {
-    await this.repository.delete({ tenantId, userId, tableName });
+    const canonicalTableName = resolveCanonicalTableName(tableName);
+    await this.repository.delete({
+      tenantId,
+      userId,
+      tableName: canonicalTableName,
+    });
   }
 
   /**

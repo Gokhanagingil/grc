@@ -8,9 +8,74 @@
  * 1. Define the schema with all fields
  * 2. Register it in TABLE_SCHEMAS
  * 3. Add to ALLOWED_TABLES set
+ *
+ * Alias Resolution:
+ * The registry supports table name aliases (e.g., grc_controls -> controls).
+ * All lookups are performed using canonical names after normalization.
+ * See resolveCanonicalTableName() for supported aliases.
  */
 
 import { TableSchema, FieldSchema } from '../dto/table-schema.dto';
+
+/**
+ * Table name alias map
+ * Maps alias names to their canonical names
+ */
+const TABLE_ALIASES: Record<string, string> = {
+  grc_controls: 'controls',
+  grc_risks: 'risks',
+};
+
+/**
+ * Normalize a table name by trimming whitespace, converting to lowercase,
+ * and replacing hyphens with underscores.
+ *
+ * @param name - The raw table name input
+ * @returns Normalized table name
+ *
+ * @example
+ * normalizeTableName('  GRC-Controls  ') // returns 'grc_controls'
+ * normalizeTableName('RISKS') // returns 'risks'
+ */
+export function normalizeTableName(name: string): string {
+  return name.trim().toLowerCase().replace(/-/g, '_');
+}
+
+/**
+ * Resolve a table name to its canonical form.
+ * First normalizes the input, then resolves any aliases.
+ *
+ * @param name - The raw table name input
+ * @returns Canonical table name
+ *
+ * @example
+ * resolveCanonicalTableName('grc_controls') // returns 'controls'
+ * resolveCanonicalTableName('GRC-RISKS') // returns 'risks'
+ * resolveCanonicalTableName('controls') // returns 'controls'
+ * resolveCanonicalTableName(' CONTROLS ') // returns 'controls'
+ */
+export function resolveCanonicalTableName(name: string): string {
+  const normalized = normalizeTableName(name);
+  return TABLE_ALIASES[normalized] || normalized;
+}
+
+/**
+ * Get all supported table aliases
+ * @returns Record of alias -> canonical name mappings
+ */
+export function getTableAliases(): Record<string, string> {
+  return { ...TABLE_ALIASES };
+}
+
+/**
+ * Check if a table name is an alias (not canonical)
+ * @param name - The table name to check
+ * @returns true if the name is an alias
+ */
+export function isTableAlias(name: string): boolean {
+  const normalized = normalizeTableName(name);
+  return normalized in TABLE_ALIASES;
+}
 
 /**
  * Controls table schema
@@ -311,37 +376,46 @@ const RISKS_SCHEMA: TableSchema = {
 /**
  * Central registry of all table schemas
  *
- * Note: Both short names (controls, risks) and full database table names
- * (grc_controls, grc_risks) are supported for convenience.
+ * Note: Only canonical table names are stored in this registry.
+ * Aliases (e.g., grc_controls, grc_risks) are resolved to canonical names
+ * via resolveCanonicalTableName() before lookup.
  */
 export const TABLE_SCHEMAS: Record<string, TableSchema> = {
   controls: CONTROLS_SCHEMA,
-  grc_controls: CONTROLS_SCHEMA,
   risks: RISKS_SCHEMA,
-  grc_risks: RISKS_SCHEMA,
 };
 
 /**
  * Set of allowed table names for security validation
+ * Includes both canonical names and known aliases
  */
-export const ALLOWED_TABLES = new Set(Object.keys(TABLE_SCHEMAS));
+export const ALLOWED_TABLES = new Set([
+  ...Object.keys(TABLE_SCHEMAS),
+  ...Object.keys(TABLE_ALIASES),
+]);
 
 /**
  * Get schema for a table by name
- * @param tableName - The table name to look up
+ * Automatically resolves aliases to canonical names.
+ *
+ * @param tableName - The table name to look up (can be alias or canonical)
  * @returns TableSchema or null if not found
  */
 export function getTableSchema(tableName: string): TableSchema | null {
-  return TABLE_SCHEMAS[tableName] || null;
+  const canonical = resolveCanonicalTableName(tableName);
+  return TABLE_SCHEMAS[canonical] || null;
 }
 
 /**
  * Check if a table is allowed for schema access
- * @param tableName - The table name to check
- * @returns true if the table is in the allowlist
+ * Automatically normalizes and resolves aliases.
+ *
+ * @param tableName - The table name to check (can be alias or canonical)
+ * @returns true if the table resolves to a known canonical name
  */
 export function isTableAllowed(tableName: string): boolean {
-  return ALLOWED_TABLES.has(tableName);
+  const canonical = resolveCanonicalTableName(tableName);
+  return canonical in TABLE_SCHEMAS;
 }
 
 /**
