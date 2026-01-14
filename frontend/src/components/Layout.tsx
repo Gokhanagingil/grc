@@ -186,7 +186,7 @@ const menuGroups: NavMenuGroup[] = [
         icon: <ViolationIcon />, 
         path: '/capa',
         children: [
-          { text: 'CAPA List', path: '/capa', status: 'coming_soon' },
+          { text: 'CAPA List', path: '/capa', status: 'active' },
         ],
       },
     ],

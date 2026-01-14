@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -10,6 +12,8 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,7 +31,9 @@ import { DataSource, FindOptionsWhere } from 'typeorm';
 import { GrcCapa } from '../entities/grc-capa.entity';
 import { Perf } from '../../common/decorators';
 import { ClosureLoopService } from '../services/closure-loop.service';
+import { GrcCapaService } from '../services/grc-capa.service';
 import { UpdateCapaStatusDto } from '../dto/closure-loop.dto';
+import { CreateCapaDto, UpdateCapaDto } from '../dto/capa.dto';
 
 /**
  * GRC CAPA Controller
@@ -57,6 +63,7 @@ export class GrcCapaController {
   constructor(
     private readonly dataSource: DataSource,
     private readonly closureLoopService: ClosureLoopService,
+    private readonly capaService: GrcCapaService,
   ) {}
 
   /**
@@ -202,5 +209,112 @@ export class GrcCapaController {
     );
 
     return { success: true, data: result };
+  }
+
+  /**
+   * POST /grc/capas
+   * Create a new CAPA
+   */
+  @Post()
+  @ApiOperation({
+    summary: 'Create a new CAPA',
+    description: 'Creates a new CAPA linked to an Issue',
+  })
+  @ApiResponse({ status: 201, description: 'CAPA created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async create(
+    @Headers('x-tenant-id') tenantId: string,
+    @Body() dto: CreateCapaDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const capa = await this.capaService.create(tenantId, dto, req.user.id);
+    return { success: true, data: capa };
+  }
+
+  /**
+   * PATCH /grc/capas/:id
+   * Update a CAPA (general fields, not status)
+   */
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a CAPA',
+    description:
+      'Updates CAPA fields (use PATCH /:id/status for status changes)',
+  })
+  @ApiResponse({ status: 200, description: 'CAPA updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'CAPA not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @Perf()
+  async update(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCapaDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const capa = await this.capaService.update(tenantId, id, dto, req.user.id);
+    return { success: true, data: capa };
+  }
+
+  /**
+   * DELETE /grc/capas/:id
+   * Soft delete a CAPA
+   */
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a CAPA',
+    description: 'Soft deletes a CAPA',
+  })
+  @ApiResponse({ status: 204, description: 'CAPA deleted successfully' })
+  @ApiResponse({ status: 404, description: 'CAPA not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async delete(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.capaService.delete(tenantId, id, req.user.id);
+  }
+
+  /**
+   * GET /grc/capas/by-issue/:issueId
+   * Get all CAPAs linked to an Issue
+   */
+  @Get('by-issue/:issueId')
+  @ApiOperation({
+    summary: 'Get CAPAs by Issue',
+    description: 'Returns all CAPAs linked to a specific Issue',
+  })
+  @ApiResponse({ status: 200, description: 'CAPAs retrieved successfully' })
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  async findByIssue(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const capas = await this.capaService.findByIssue(tenantId, issueId);
+    return { success: true, data: capas };
   }
 }

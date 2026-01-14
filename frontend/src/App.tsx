@@ -35,6 +35,8 @@ import { ControlDetail } from './pages/ControlDetail';
 import { EvidenceList } from './pages/EvidenceList';
 import { TestResultList } from './pages/TestResultList';
 import { IssueList } from './pages/IssueList';
+import { CapaList } from './pages/CapaList';
+import { CapaDetail } from './pages/CapaDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -128,6 +130,8 @@ function App() {
                   <Route path="evidence" element={<EvidenceList />} />
                   <Route path="test-results" element={<TestResultList />} />
                   <Route path="issues" element={<IssueList />} />
+                  <Route path="capa" element={<CapaList />} />
+                  <Route path="capa/:id" element={<CapaDetail />} />
                   <Route path="control-testing" element={
                     <ComingSoonPage 
                       title="Control Testing" 

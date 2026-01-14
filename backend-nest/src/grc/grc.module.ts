@@ -99,6 +99,9 @@ import { ClosureLoopService } from './services/closure-loop.service';
 import { GrcEvidenceService } from './services/grc-evidence.service';
 import { GrcIssueService } from './services/grc-issue.service';
 
+// Golden Flow Sprint 1C services
+import { GrcCapaService } from './services/grc-capa.service';
+
 // Controllers
 import {
   GrcRiskController,
@@ -261,6 +264,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     // Golden Flow Sprint 1B services
     GrcEvidenceService,
     GrcIssueService,
+    // Golden Flow Sprint 1C services
+    GrcCapaService,
   ],
   controllers: [
     // Core controllers
@@ -343,6 +348,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     // Golden Flow Sprint 1B services
     GrcEvidenceService,
     GrcIssueService,
+    // Golden Flow Sprint 1C services
+    GrcCapaService,
   ],
 })
 export class GrcModule {}

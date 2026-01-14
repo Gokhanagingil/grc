@@ -319,6 +319,17 @@ export const API_PATHS = {
     EVIDENCE: (id: string) => `/grc/issues/${id}/evidence`,
   },
 
+  // CAPA endpoints (Golden Flow Sprint 1C)
+  GRC_CAPAS: {
+    LIST: '/grc/capas',
+    CREATE: '/grc/capas',
+    GET: (id: string) => `/grc/capas/${id}`,
+    UPDATE: (id: string) => `/grc/capas/${id}`,
+    DELETE: (id: string) => `/grc/capas/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/capas/${id}/status`,
+    BY_ISSUE: (issueId: string) => `/grc/capas/by-issue/${issueId}`,
+  },
+
   // Onboarding Core endpoints
   ONBOARDING: {
     CONTEXT: '/onboarding/context',
@@ -1814,6 +1825,104 @@ export const issueApi = {
 
   getEvidence: (tenantId: string, issueId: string) =>
     api.get(API_PATHS.GRC_ISSUES.EVIDENCE(issueId), withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC CAPA API (Golden Flow Sprint 1C)
+// ============================================================================
+
+export type CapaStatus = 'planned' | 'in_progress' | 'implemented' | 'verified' | 'rejected' | 'closed';
+export type CapaType = 'corrective' | 'preventive' | 'both';
+export type CapaPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface CapaData {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  type: CapaType;
+  status: CapaStatus;
+  priority: CapaPriority;
+  issueId: string;
+  ownerUserId: string | null;
+  dueDate: string | null;
+  completedDate: string | null;
+  rootCauseAnalysis: string | null;
+  actionPlan: string | null;
+  implementationNotes: string | null;
+  verificationMethod: string | null;
+  verificationNotes: string | null;
+  verifiedAt: string | null;
+  verifiedByUserId: string | null;
+  closureNotes: string | null;
+  closedAt: string | null;
+  closedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  issue?: IssueData;
+  owner?: { id: string; firstName: string; lastName: string; email: string };
+  verifiedBy?: { id: string; firstName: string; lastName: string; email: string };
+  closedBy?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface CreateCapaDto {
+  title: string;
+  description?: string;
+  type?: CapaType;
+  status?: CapaStatus;
+  priority?: CapaPriority;
+  issueId: string;
+  ownerUserId?: string;
+  dueDate?: string;
+  rootCauseAnalysis?: string;
+  actionPlan?: string;
+  verificationMethod?: string;
+}
+
+export interface UpdateCapaDto {
+  title?: string;
+  description?: string;
+  type?: CapaType;
+  priority?: CapaPriority;
+  ownerUserId?: string;
+  dueDate?: string;
+  rootCauseAnalysis?: string;
+  actionPlan?: string;
+  implementationNotes?: string;
+  verificationMethod?: string;
+  verificationNotes?: string;
+  closureNotes?: string;
+}
+
+export interface UpdateCapaStatusDto {
+  status: CapaStatus;
+  reason?: string;
+}
+
+export const capaApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CAPAS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CAPAS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateCapaDto) =>
+    api.post(API_PATHS.GRC_CAPAS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateCapaDto) =>
+    api.patch(API_PATHS.GRC_CAPAS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateCapaStatusDto) =>
+    api.patch(API_PATHS.GRC_CAPAS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CAPAS.DELETE(id), withTenantId(tenantId)),
+
+  getByIssue: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.BY_ISSUE(issueId), withTenantId(tenantId)),
 };
 
 // ============================================================================
