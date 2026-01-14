@@ -29,7 +29,8 @@ import { grcInsightsApi, GrcInsightsOverview } from '../services/grcClient';
 
 const GrcInsights: React.FC = () => {
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { user } = useAuth();
+  const tenantId = user?.tenantId || '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<GrcInsightsOverview | null>(null);
