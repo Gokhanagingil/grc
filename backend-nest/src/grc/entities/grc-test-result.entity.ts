@@ -5,12 +5,14 @@ import {
   JoinColumn,
   Index,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { GrcControlTest } from './grc-control-test.entity';
 import { TestResultOutcome, EffectivenessRating } from '../enums';
+import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 
 /**
  * GRC Test Result Entity
@@ -83,4 +85,8 @@ export class GrcTestResult extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  // Golden Flow Sprint 1B - Evidence relationship
+  @OneToMany(() => GrcEvidenceTestResult, (etr) => etr.testResult)
+  evidenceTestResults: GrcEvidenceTestResult[];
 }

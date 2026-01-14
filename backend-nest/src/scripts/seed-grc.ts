@@ -37,12 +37,31 @@ import {
   ControlResultSource,
   ViolationSeverity,
   ViolationStatus,
+  // Golden Flow Sprint 1B enums
+  EvidenceType,
+  EvidenceSourceType,
+  EvidenceStatus,
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+  ControlTestType,
+  ControlTestStatus,
+  TestResultOutcome,
+  EffectivenessRating,
 } from '../grc/enums';
 import { Process } from '../grc/entities/process.entity';
 import { ProcessControl } from '../grc/entities/process-control.entity';
 import { ControlResult } from '../grc/entities/control-result.entity';
 import { ProcessViolation } from '../grc/entities/process-violation.entity';
 import { GrcControlProcess } from '../grc/entities/grc-control-process.entity';
+// Golden Flow Sprint 1B entities
+import { GrcEvidence } from '../grc/entities/grc-evidence.entity';
+import { GrcIssue } from '../grc/entities/grc-issue.entity';
+import { GrcControlTest } from '../grc/entities/grc-control-test.entity';
+import { GrcTestResult } from '../grc/entities/grc-test-result.entity';
+import { GrcControlEvidence } from '../grc/entities/grc-control-evidence.entity';
+import { GrcEvidenceTestResult } from '../grc/entities/grc-evidence-test-result.entity';
+import { GrcIssueEvidence } from '../grc/entities/grc-issue-evidence.entity';
 
 // Demo tenant and user IDs (consistent for idempotency)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -1102,6 +1121,354 @@ async function seedGrcData() {
       console.log('   Control-process link already exists');
     }
 
+    // ============================================
+    // Golden Flow Sprint 1B: Evidence, Tests, Issues
+    // ============================================
+
+    // 12. Seed Evidence
+    console.log('12. Seeding evidence records...');
+    const evidenceRepo = dataSource.getRepository(GrcEvidence);
+    const existingEvidence = await evidenceRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const evidenceData = [
+      {
+        name: 'Access Control Policy Document',
+        description:
+          'Official access control policy document approved by management',
+        type: EvidenceType.DOCUMENT,
+        sourceType: EvidenceSourceType.MANUAL,
+        status: EvidenceStatus.APPROVED,
+        location: '/documents/policies/access-control-policy-v2.pdf',
+        collectedAt: new Date('2024-12-01'),
+        collectedByUserId: DEMO_ADMIN_ID,
+        tags: ['policy', 'access-control', 'approved'],
+      },
+      {
+        name: 'Firewall Configuration Screenshot',
+        description:
+          'Screenshot of firewall rules showing network segmentation',
+        type: EvidenceType.SCREENSHOT,
+        sourceType: EvidenceSourceType.MANUAL,
+        status: EvidenceStatus.APPROVED,
+        location: '/evidence/screenshots/firewall-config-2024-12.png',
+        collectedAt: new Date('2024-12-15'),
+        collectedByUserId: DEMO_ADMIN_ID,
+        tags: ['network', 'firewall', 'screenshot'],
+      },
+      {
+        name: 'Security Training Completion Report',
+        description:
+          'Report showing all employees completed security awareness training',
+        type: EvidenceType.DOCUMENT,
+        sourceType: EvidenceSourceType.SYSTEM,
+        status: EvidenceStatus.APPROVED,
+        location: '/reports/training/security-awareness-2024-q4.pdf',
+        collectedAt: new Date('2024-11-30'),
+        tags: ['training', 'compliance', 'hr'],
+      },
+      {
+        name: 'Vulnerability Scan Results',
+        description: 'Monthly vulnerability scan results from security scanner',
+        type: EvidenceType.LOG,
+        sourceType: EvidenceSourceType.SYSTEM,
+        status: EvidenceStatus.DRAFT,
+        location: '/scans/vulnerability/scan-2024-12.json',
+        externalUrl: 'https://scanner.example.com/reports/2024-12',
+        collectedAt: new Date('2024-12-20'),
+        tags: ['vulnerability', 'scan', 'security'],
+      },
+    ];
+
+    const evidenceRecords: GrcEvidence[] = [];
+    for (const data of evidenceData) {
+      const existing = existingEvidence.find((e) => e.name === data.name);
+      if (existing) {
+        evidenceRecords.push(existing);
+      } else {
+        const evidence = evidenceRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await evidenceRepo.save(evidence);
+        evidenceRecords.push(evidence);
+        console.log(`   Created evidence: ${data.name}`);
+      }
+    }
+
+    // 13. Seed Control Tests and Test Results
+    console.log('13. Seeding control tests and test results...');
+    const controlTestRepo = dataSource.getRepository(GrcControlTest);
+    const testResultRepo = dataSource.getRepository(GrcTestResult);
+    const existingControlTests = await controlTestRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    // Create control tests for the first two controls
+    const controlTestsData = [
+      {
+        name: 'Access Control Policy Test Q4 2024',
+        description: 'Quarterly test of access control policy implementation',
+        controlId: controls[0].id, // Access Control Policy
+        testType: ControlTestType.MANUAL,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-05'),
+        completedAt: new Date('2024-12-10'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Review access control lists, verify least privilege, check access reviews',
+        sampleSize: 50,
+        populationSize: 200,
+      },
+      {
+        name: 'Data Encryption Test Q4 2024',
+        description: 'Quarterly test of data encryption at rest',
+        controlId: controls[1].id, // Data Encryption at Rest
+        testType: ControlTestType.AUTOMATED,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-03'),
+        completedAt: new Date('2024-12-03'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Run automated encryption verification script on all databases',
+        sampleSize: 100,
+        populationSize: 100,
+      },
+      {
+        name: 'Network Segmentation Test Q4 2024',
+        description: 'Quarterly test of network segmentation controls',
+        controlId: controls[2].id, // Network Segmentation
+        testType: ControlTestType.MANUAL,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-08'),
+        completedAt: new Date('2024-12-12'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Review firewall rules, test network isolation, verify VLAN configuration',
+        sampleSize: 25,
+        populationSize: 50,
+      },
+    ];
+
+    const controlTests: GrcControlTest[] = [];
+    const testResults: GrcTestResult[] = [];
+
+    for (const data of controlTestsData) {
+      const existing = existingControlTests.find((ct) => ct.name === data.name);
+      if (existing) {
+        controlTests.push(existing);
+        // Find existing test result
+        const existingResult = await testResultRepo.findOne({
+          where: { controlTestId: existing.id, tenantId: DEMO_TENANT_ID },
+        });
+        if (existingResult) {
+          testResults.push(existingResult);
+        }
+      } else {
+        const controlTest = controlTestRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await controlTestRepo.save(controlTest);
+        controlTests.push(controlTest);
+        console.log(`   Created control test: ${data.name}`);
+
+        // Create test result for completed tests
+        if (data.status === ControlTestStatus.COMPLETED) {
+          // Determine result based on control index (first two pass, third fails)
+          const isPass = controlTestsData.indexOf(data) < 2;
+          const testResult = testResultRepo.create({
+            controlTestId: controlTest.id,
+            tenantId: DEMO_TENANT_ID,
+            result: isPass ? TestResultOutcome.PASS : TestResultOutcome.FAIL,
+            resultDetails: isPass
+              ? 'Control operating effectively with no exceptions noted'
+              : 'Control partially implemented - gaps identified in network segmentation',
+            exceptionsNoted: isPass
+              ? null
+              : 'DMZ not properly isolated from internal network',
+            exceptionsCount: isPass ? 0 : 2,
+            sampleTested: data.sampleSize,
+            samplePassed: isPass
+              ? data.sampleSize
+              : Math.floor(data.sampleSize * 0.8),
+            effectivenessRating: isPass
+              ? EffectivenessRating.EFFECTIVE
+              : EffectivenessRating.PARTIALLY_EFFECTIVE,
+            recommendations: isPass
+              ? 'Continue current control implementation'
+              : 'Implement additional firewall rules to isolate DMZ',
+            reviewedAt: new Date('2024-12-15'),
+            reviewedByUserId: DEMO_ADMIN_ID,
+            isDeleted: false,
+          });
+          await testResultRepo.save(testResult);
+          testResults.push(testResult);
+          console.log(
+            `   Created test result: ${isPass ? 'PASS' : 'FAIL'} for ${data.name}`,
+          );
+        }
+      }
+    }
+
+    // 14. Seed Issues
+    console.log('14. Seeding issues...');
+    const issueRepo = dataSource.getRepository(GrcIssue);
+    const existingIssues = await issueRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const issuesData = [
+      {
+        title: 'Network Segmentation Gap - DMZ Isolation',
+        description:
+          'During Q4 2024 testing, it was identified that the DMZ is not properly isolated from the internal network. This creates a potential attack vector.',
+        type: IssueType.INTERNAL_AUDIT,
+        status: IssueStatus.OPEN,
+        severity: IssueSeverity.HIGH,
+        controlId: controls[2].id, // Network Segmentation
+        testResultId: testResults.length > 2 ? testResults[2].id : null,
+        discoveredDate: new Date('2024-12-12'),
+        dueDate: new Date('2025-01-31'),
+        ownerUserId: DEMO_ADMIN_ID,
+      },
+      {
+        title: 'Outdated Access Review Process',
+        description:
+          'Access reviews are not being conducted on schedule. Last review was 6 months ago instead of quarterly.',
+        type: IssueType.SELF_ASSESSMENT,
+        status: IssueStatus.IN_PROGRESS,
+        severity: IssueSeverity.MEDIUM,
+        controlId: controls[0].id, // Access Control Policy
+        discoveredDate: new Date('2024-11-15'),
+        dueDate: new Date('2025-02-28'),
+        ownerUserId: DEMO_ADMIN_ID,
+      },
+      {
+        title: 'Missing Encryption Key Rotation',
+        description:
+          'Encryption keys have not been rotated in the past 12 months, exceeding the 6-month rotation policy.',
+        type: IssueType.EXTERNAL_AUDIT,
+        status: IssueStatus.OPEN,
+        severity: IssueSeverity.MEDIUM,
+        controlId: controls[1].id, // Data Encryption at Rest
+        discoveredDate: new Date('2024-12-20'),
+        dueDate: new Date('2025-01-15'),
+      },
+    ];
+
+    const issues: GrcIssue[] = [];
+    for (const data of issuesData) {
+      const existing = existingIssues.find((i) => i.title === data.title);
+      if (existing) {
+        issues.push(existing);
+      } else {
+        const issue = issueRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await issueRepo.save(issue);
+        issues.push(issue);
+        console.log(`   Created issue: ${data.title}`);
+      }
+    }
+
+    // 15. Create linkages for Golden Flow
+    console.log('15. Creating Golden Flow linkages...');
+    const controlEvidenceRepo = dataSource.getRepository(GrcControlEvidence);
+    const evidenceTestResultRepo = dataSource.getRepository(
+      GrcEvidenceTestResult,
+    );
+    const issueEvidenceRepo = dataSource.getRepository(GrcIssueEvidence);
+
+    // Link evidence to controls
+    const controlEvidenceLinks = [
+      { controlId: controls[0].id, evidenceId: evidenceRecords[0].id }, // Access Control Policy -> Policy Document
+      { controlId: controls[2].id, evidenceId: evidenceRecords[1].id }, // Network Segmentation -> Firewall Screenshot
+      { controlId: controls[3].id, evidenceId: evidenceRecords[2].id }, // Security Training -> Training Report
+      { controlId: controls[5].id, evidenceId: evidenceRecords[3].id }, // Vulnerability Management -> Scan Results
+    ];
+
+    for (const link of controlEvidenceLinks) {
+      const existing = await controlEvidenceRepo.findOne({
+        where: {
+          controlId: link.controlId,
+          evidenceId: link.evidenceId,
+          tenantId: DEMO_TENANT_ID,
+        },
+      });
+      if (!existing) {
+        const controlEvidence = controlEvidenceRepo.create({
+          ...link,
+          tenantId: DEMO_TENANT_ID,
+        });
+        await controlEvidenceRepo.save(controlEvidence);
+        console.log('   Linked evidence to control');
+      }
+    }
+
+    // Link evidence to test results
+    if (testResults.length > 0 && evidenceRecords.length > 0) {
+      const evidenceTestResultLinks = [
+        { evidenceId: evidenceRecords[0].id, testResultId: testResults[0].id }, // Policy Document -> Access Control Test
+        {
+          evidenceId: evidenceRecords[1].id,
+          testResultId:
+            testResults.length > 2 ? testResults[2].id : testResults[0].id,
+        }, // Firewall Screenshot -> Network Test
+      ];
+
+      for (const link of evidenceTestResultLinks) {
+        const existing = await evidenceTestResultRepo.findOne({
+          where: {
+            evidenceId: link.evidenceId,
+            testResultId: link.testResultId,
+            tenantId: DEMO_TENANT_ID,
+          },
+        });
+        if (!existing) {
+          const evidenceTestResult = evidenceTestResultRepo.create({
+            ...link,
+            tenantId: DEMO_TENANT_ID,
+          });
+          await evidenceTestResultRepo.save(evidenceTestResult);
+          console.log('   Linked evidence to test result');
+        }
+      }
+    }
+
+    // Link evidence to issues
+    if (issues.length > 0 && evidenceRecords.length > 1) {
+      const issueEvidenceLinks = [
+        { issueId: issues[0].id, evidenceId: evidenceRecords[1].id }, // DMZ Issue -> Firewall Screenshot
+      ];
+
+      for (const link of issueEvidenceLinks) {
+        const existing = await issueEvidenceRepo.findOne({
+          where: {
+            issueId: link.issueId,
+            evidenceId: link.evidenceId,
+            tenantId: DEMO_TENANT_ID,
+          },
+        });
+        if (!existing) {
+          const issueEvidence = issueEvidenceRepo.create({
+            ...link,
+            tenantId: DEMO_TENANT_ID,
+          });
+          await issueEvidenceRepo.save(issueEvidence);
+          console.log('   Linked evidence to issue');
+        }
+      }
+    }
+
     console.log('\n========================================');
     console.log('GRC Demo Data Seed Complete!');
     console.log('========================================');
@@ -1122,22 +1489,30 @@ async function seedGrcData() {
     console.log(`  - Process Controls: ${processControls.length}`);
     console.log(`  - Control-Process Links: 1 (process-only control example)`);
     console.log('');
-    console.log('Process-Only Control Example:');
-    console.log('  - Process: PRC-SALES-001 (Sales Order Management)');
-    console.log('  - Control: CTL-SALES-001 (Sales Approval Control)');
-    console.log(
-      '  - This control is linked to a process but NOT to any requirement',
-    );
+    console.log('Golden Flow Sprint 1B Data:');
+    console.log(`  - Evidence: ${evidenceRecords.length}`);
+    console.log(`  - Control Tests: ${controlTests.length}`);
+    console.log(`  - Test Results: ${testResults.length}`);
+    console.log(`  - Issues: ${issues.length}`);
     console.log('');
-    console.log('To test the API:');
+    console.log('Golden Flow Chain Example:');
+    console.log('  Control -> Evidence -> TestResult -> Issue');
+    console.log('  - Control: CTL-003 (Network Segmentation)');
+    console.log('  - Evidence: Firewall Configuration Screenshot');
+    console.log('  - Test Result: Network Segmentation Test Q4 2024 (FAIL)');
+    console.log('  - Issue: Network Segmentation Gap - DMZ Isolation');
+    console.log('');
+    console.log('To test the Golden Flow API:');
     console.log('  1. Start NestJS: cd backend-nest && npm run start:dev');
     console.log('  2. Login to get JWT token');
     console.log(`  3. Use x-tenant-id: ${DEMO_TENANT_ID} header`);
-    console.log('  4. Call GET /grc/risks, /grc/policies, /grc/requirements');
+    console.log('  4. Call GET /grc/evidence, /grc/test-results, /grc/issues');
     console.log(
-      '  5. Call GET /grc/controls?unlinked=true to see unlinked controls',
+      '  5. Call GET /grc/evidence/:id/controls to see linked controls',
     );
-    console.log('  6. Call GET /grc/coverage to see coverage statistics');
+    console.log(
+      '  6. Call GET /grc/issues/:id/evidence to see linked evidence',
+    );
     console.log('========================================\n');
   } catch (error) {
     console.error('Error seeding GRC data:', error);

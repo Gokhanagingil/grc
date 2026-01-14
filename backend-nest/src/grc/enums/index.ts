@@ -189,7 +189,26 @@ export enum EvidenceType {
   LOG = 'log',
   REPORT = 'report',
   CONFIG_EXPORT = 'config_export',
+  LINK = 'link',
   OTHER = 'other',
+}
+
+/**
+ * EvidenceSourceType - How the evidence was collected/sourced
+ */
+export enum EvidenceSourceType {
+  MANUAL = 'manual',
+  URL = 'url',
+  SYSTEM = 'system',
+}
+
+/**
+ * EvidenceStatus - Lifecycle status of evidence
+ */
+export enum EvidenceStatus {
+  DRAFT = 'draft',
+  APPROVED = 'approved',
+  RETIRED = 'retired',
 }
 
 // ============================================================================

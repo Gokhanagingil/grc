@@ -87,25 +87,15 @@ const standaloneItems: NavMenuItem[] = [
 ];
 
 // Grouped navigation items with nested children for 2-level menu
+// GRC Menu reorganized per Golden Flow Sprint 1B IA requirements
 const menuGroups: NavMenuGroup[] = [
   {
-    id: 'grc',
-    text: 'GRC',
+    id: 'grc-library',
+    text: 'GRC > Library',
     icon: <GrcIcon />,
     items: [
       { 
-        text: 'Risk', 
-        icon: <RiskIcon />, 
-        path: '/risk', 
-        moduleKey: 'risk',
-        children: [
-          { text: 'Risk Register', path: '/risk', status: 'active' },
-          { text: 'Assessments', path: '/risk-assessments', status: 'coming_soon' },
-          { text: 'Treatments', path: '/risk-treatments', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Policy', 
+        text: 'Policies', 
         icon: <GovernanceIcon />, 
         path: '/governance', 
         moduleKey: 'policy',
@@ -113,6 +103,15 @@ const menuGroups: NavMenuGroup[] = [
           { text: 'Policy List', path: '/governance', status: 'active' },
           { text: 'Templates', path: '/policy-templates', status: 'coming_soon' },
           { text: 'Reviews', path: '/policy-reviews', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Requirements', 
+        icon: <ComplianceIcon />, 
+        path: '/compliance', 
+        moduleKey: 'compliance',
+        children: [
+          { text: 'Requirements List', path: '/compliance', status: 'active' },
         ],
       },
       { 
@@ -126,72 +125,22 @@ const menuGroups: NavMenuGroup[] = [
         ],
       },
       { 
-        text: 'Requirements', 
-        icon: <ComplianceIcon />, 
-        path: '/compliance', 
-        moduleKey: 'compliance',
-        children: [
-          { text: 'Requirements List', path: '/compliance', status: 'active' },
-        ],
-      },
-      { 
-        text: 'Process', 
+        text: 'Processes', 
         icon: <ProcessIcon />, 
         path: '/processes',
         children: [
           { text: 'Process List', path: '/processes', status: 'active' },
         ],
       },
+    ],
+  },
+  {
+    id: 'grc-assurance',
+    text: 'GRC > Assurance',
+    icon: <AuditIcon />,
+    items: [
       { 
-        text: 'Evidence', 
-        icon: <AuditIcon />, 
-        path: '/evidence',
-        children: [
-          { text: 'Evidence List', path: '/evidence', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Tests/Results', 
-        icon: <AuditIcon />, 
-        path: '/test-results',
-        children: [
-          { text: 'Test Results', path: '/test-results', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Issues', 
-        icon: <ViolationIcon />, 
-        path: '/issues',
-        children: [
-          { text: 'Issues List', path: '/issues', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'CAPA', 
-        icon: <ViolationIcon />, 
-        path: '/capa',
-        children: [
-          { text: 'CAPA List', path: '/capa', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Status History', 
-        icon: <AuditIcon />, 
-        path: '/status-history',
-        children: [
-          { text: 'Status History', path: '/status-history', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Coverage', 
-        icon: <ComplianceDashboardIcon />, 
-        path: '/coverage',
-        children: [
-          { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
-        ],
-      },
-      { 
-        text: 'Audit', 
+        text: 'Audits', 
         icon: <AuditIcon />, 
         path: '/audits', 
         moduleKey: 'audit',
@@ -202,11 +151,83 @@ const menuGroups: NavMenuGroup[] = [
         ],
       },
       { 
+        text: 'Tests / Results', 
+        icon: <AuditIcon />, 
+        path: '/test-results',
+        children: [
+          { text: 'Test Results', path: '/test-results', status: 'active' },
+        ],
+      },
+      { 
+        text: 'Evidence', 
+        icon: <AuditIcon />, 
+        path: '/evidence',
+        children: [
+          { text: 'Evidence List', path: '/evidence', status: 'active' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'grc-findings',
+    text: 'GRC > Findings & Remediation',
+    icon: <ViolationIcon />,
+    items: [
+      { 
+        text: 'Issues', 
+        icon: <ViolationIcon />, 
+        path: '/issues',
+        children: [
+          { text: 'Issues List', path: '/issues', status: 'active' },
+        ],
+      },
+      { 
+        text: 'CAPA', 
+        icon: <ViolationIcon />, 
+        path: '/capa',
+        children: [
+          { text: 'CAPA List', path: '/capa', status: 'coming_soon' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'grc-risk',
+    text: 'GRC > Risk & Exceptions',
+    icon: <RiskIcon />,
+    items: [
+      { 
+        text: 'Risks', 
+        icon: <RiskIcon />, 
+        path: '/risk', 
+        moduleKey: 'risk',
+        children: [
+          { text: 'Risk Register', path: '/risk', status: 'active' },
+          { text: 'Assessments', path: '/risk-assessments', status: 'coming_soon' },
+          { text: 'Treatments', path: '/risk-treatments', status: 'coming_soon' },
+        ],
+      },
+      { 
         text: 'Violations', 
         icon: <ViolationIcon />, 
         path: '/violations',
         children: [
           { text: 'Violations List', path: '/violations', status: 'active' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'grc-insights',
+    text: 'GRC > Insights',
+    icon: <ComplianceDashboardIcon />,
+    items: [
+      { 
+        text: 'Coverage', 
+        icon: <ComplianceDashboardIcon />, 
+        path: '/coverage',
+        children: [
+          { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
         ],
       },
     ],
@@ -278,7 +299,11 @@ export const Layout: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    grc: true,
+    'grc-library': true,
+    'grc-assurance': false,
+    'grc-findings': false,
+    'grc-risk': false,
+    'grc-insights': false,
     itsm: false,
     dashboards: false,
     admin: false,
@@ -581,7 +606,9 @@ export const Layout: React.FC = () => {
 
         {/* Grouped items with 2-level nested menu support */}
         {filteredGroups.map((group) => {
-          const groupTestId = group.id === 'admin' ? 'nav-admin' : group.id === 'grc' && group.items.some(i => i.path === '/audits') ? null : `nav-${group.id}`;
+          // Generate stable test IDs for navigation groups
+          // GRC groups use 'nav-grc-{subgroup}' pattern, others use 'nav-{id}'
+          const groupTestId = group.id === 'admin' ? 'nav-admin' : `nav-group-${group.id}`;
           return (
             <React.Fragment key={group.id}>
               <ListItem disablePadding>
