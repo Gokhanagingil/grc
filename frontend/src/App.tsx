@@ -33,8 +33,11 @@ import { Coverage } from './pages/Coverage';
 import { ControlList } from './pages/ControlList';
 import { ControlDetail } from './pages/ControlDetail';
 import { EvidenceList } from './pages/EvidenceList';
+import { EvidenceDetail } from './pages/EvidenceDetail';
 import { TestResultList } from './pages/TestResultList';
+import { TestResultDetail } from './pages/TestResultDetail';
 import { IssueList } from './pages/IssueList';
+import { IssueDetail } from './pages/IssueDetail';
 import { CapaList } from './pages/CapaList';
 import { CapaDetail } from './pages/CapaDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -128,8 +131,11 @@ function App() {
                   <Route path="controls" element={<ControlList />} />
                   <Route path="controls/:id" element={<ControlDetail />} />
                   <Route path="evidence" element={<EvidenceList />} />
+                  <Route path="evidence/:id" element={<EvidenceDetail />} />
                   <Route path="test-results" element={<TestResultList />} />
+                  <Route path="test-results/:id" element={<TestResultDetail />} />
                   <Route path="issues" element={<IssueList />} />
+                  <Route path="issues/:id" element={<IssueDetail />} />
                   <Route path="capa" element={<CapaList />} />
                   <Route path="capa/:id" element={<CapaDetail />} />
                   <Route path="control-testing" element={
