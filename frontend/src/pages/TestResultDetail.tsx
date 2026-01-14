@@ -472,9 +472,9 @@ export const TestResultDetail: React.FC = () => {
               {historyLoading ? (
                 <Typography>Loading history...</Typography>
               ) : statusHistory.length === 0 ? (
-                <Typography color="text.secondary">No status history available.</Typography>
+                <Typography color="text.secondary" data-testid="status-history-empty">No status history available.</Typography>
               ) : (
-                <Table size="small">
+                <Table size="small" data-testid="status-history-table">
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>
