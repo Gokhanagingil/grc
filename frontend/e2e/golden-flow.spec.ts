@@ -171,9 +171,9 @@ async function setupGoldenFlowMocks(page: import('@playwright/test').Page) {
       return;
     }
 
-    // CAPA endpoints
-    if (url.includes('/grc/capa') && method === 'GET') {
-      if (url.match(/\/grc\/capa\/[^/?]+$/)) {
+    // CAPA endpoints (note: API uses plural 'capas')
+    if (url.includes('/grc/capas') && method === 'GET') {
+      if (url.match(/\/grc\/capas\/[^/?]+$/)) {
         await route.fulfill(successResponse(mockCapa));
       } else {
         await route.fulfill(successResponse({

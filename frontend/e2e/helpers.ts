@@ -537,8 +537,8 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Handle grc/capa - GET (CAPA list and detail pages)
-    if (url.includes('/grc/capa') && method === 'GET') {
+    // Handle grc/capas - GET (CAPA list and detail pages) - note: API uses plural 'capas'
+    if (url.includes('/grc/capas') && method === 'GET') {
       logMock(method, url, true);
       const mockCapa = {
         id: 'mock-capa-001',
@@ -559,7 +559,7 @@ export async function setupMockApi(page: Page) {
         createdAt: '2024-01-22T00:00:00Z',
         updatedAt: '2024-01-22T00:00:00Z',
       };
-      if (url.match(/\/grc\/capa\/[^/?]+$/)) {
+      if (url.match(/\/grc\/capas\/[^/?]+$/)) {
         await route.fulfill(successResponse(mockCapa));
       } else {
         await route.fulfill(successResponse({
