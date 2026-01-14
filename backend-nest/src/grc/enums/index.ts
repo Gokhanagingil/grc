@@ -184,31 +184,31 @@ export enum CapaStatus {
 // ============================================================================
 
 export enum EvidenceType {
-  DOCUMENT = 'document',
-  SCREENSHOT = 'screenshot',
-  LOG = 'log',
-  REPORT = 'report',
-  CONFIG_EXPORT = 'config_export',
-  LINK = 'link',
-  OTHER = 'other',
+  DOCUMENT = 'DOCUMENT',
+  SCREENSHOT = 'SCREENSHOT',
+  LOG = 'LOG',
+  REPORT = 'REPORT',
+  CONFIG_EXPORT = 'CONFIG_EXPORT',
+  LINK = 'LINK',
+  OTHER = 'OTHER',
 }
 
 /**
  * EvidenceSourceType - How the evidence was collected/sourced
  */
 export enum EvidenceSourceType {
-  MANUAL = 'manual',
-  URL = 'url',
-  SYSTEM = 'system',
+  MANUAL = 'MANUAL',
+  URL = 'URL',
+  SYSTEM = 'SYSTEM',
 }
 
 /**
  * EvidenceStatus - Lifecycle status of evidence
  */
 export enum EvidenceStatus {
-  DRAFT = 'draft',
-  APPROVED = 'approved',
-  RETIRED = 'retired',
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  RETIRED = 'RETIRED',
 }
 
 // ============================================================================
