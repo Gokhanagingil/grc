@@ -87,12 +87,13 @@ interface LinkedEvidence {
 
 interface ControlTestInfo {
   id: string;
-  control: {
+  name: string;
+  controlId: string;
+  control?: {
     id: string;
     name: string;
-    code: string | null;
-    status: string;
-  } | null;
+    code?: string;
+  };
 }
 
 const getResultColor = (result: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
@@ -149,7 +150,7 @@ export const TestResultDetail: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
 
-  const [linkedEvidence, setLinkedEvidence] = useState<LinkedEvidence[]>([]);
+  const [linkedEvidence] = useState<LinkedEvidence[]>([]);
   const [controlTest, setControlTest] = useState<ControlTestInfo | null>(null);
   const [linksLoading] = useState(false);
 
@@ -179,10 +180,6 @@ export const TestResultDetail: React.FC = () => {
       
       if (data.controlTest) {
         setControlTest(data.controlTest as ControlTestInfo);
-      }
-      
-      if (data.evidenceLinks) {
-        setLinkedEvidence(data.evidenceLinks as LinkedEvidence[]);
       }
     } catch (err) {
       console.error('Error fetching test result:', err);
@@ -360,8 +357,6 @@ export const TestResultDetail: React.FC = () => {
                     <Grid item xs={8}><Typography>{formatDateTime(testResult.createdAt)}</Typography></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Updated</Typography></Grid>
                     <Grid item xs={8}><Typography>{formatDateTime(testResult.updatedAt)}</Typography></Grid>
-                    <Grid item xs={4}><Typography color="text.secondary">Reviewed At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDateTime(testResult.reviewedAt)}</Typography></Grid>
                   </Grid>
                 </CardContent>
               </Card>
@@ -413,10 +408,12 @@ export const TestResultDetail: React.FC = () => {
                         </Grid>
                         <Grid item xs={2}><Typography color="text.secondary">Name</Typography></Grid>
                         <Grid item xs={10}><Typography>{controlTest.control.name}</Typography></Grid>
-                        <Grid item xs={2}><Typography color="text.secondary">Status</Typography></Grid>
-                        <Grid item xs={10}>
-                          <Chip label={formatStatus(controlTest.control.status)} size="small" />
-                        </Grid>
+                        {controlTest.control.code && (
+                          <>
+                            <Grid item xs={2}><Typography color="text.secondary">Code</Typography></Grid>
+                            <Grid item xs={10}><Typography>{controlTest.control.code}</Typography></Grid>
+                          </>
+                        )}
                       </Grid>
                     ) : (
                       <Typography color="text.secondary">No control linked.</Typography>

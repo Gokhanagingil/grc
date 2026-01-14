@@ -221,9 +221,9 @@ export const EvidenceDetail: React.FC = () => {
     setLinksLoading(true);
     try {
       const [controlsRes, testResultsRes, issuesRes] = await Promise.all([
-        evidenceApi.getLinkedControls(tenantId, id),
-        evidenceApi.getLinkedTestResults(tenantId, id),
-        evidenceApi.getLinkedIssues(tenantId, id),
+        evidenceApi.getControls(tenantId, id),
+        evidenceApi.getTestResults(tenantId, id),
+        evidenceApi.getIssues(tenantId, id),
       ]);
       setLinkedControls(unwrapResponse<LinkedControl[]>(controlsRes) || []);
       setLinkedTestResults(unwrapResponse<LinkedTestResult[]>(testResultsRes) || []);

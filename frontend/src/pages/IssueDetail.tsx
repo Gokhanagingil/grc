@@ -237,21 +237,28 @@ export const IssueDetail: React.FC = () => {
       const response = await issueApi.get(tenantId, id);
       const data = unwrapResponse<IssueData>(response);
       setIssue(data);
-      
-      if (data.controlLinks) {
-        setLinkedControls(data.controlLinks as LinkedControl[]);
-      }
-      if (data.testResultLinks) {
-        setLinkedTestResults(data.testResultLinks as LinkedTestResult[]);
-      }
-      if (data.evidenceLinks) {
-        setLinkedEvidence(data.evidenceLinks as LinkedEvidence[]);
-      }
     } catch (err) {
       console.error('Error fetching issue:', err);
       setError('Failed to load issue details. Please try again.');
     } finally {
       setLoading(false);
+    }
+  }, [id, tenantId]);
+
+  const fetchLinkedEntities = useCallback(async () => {
+    if (!id || !tenantId) return;
+
+    try {
+      const [controlsRes, testResultsRes, evidenceRes] = await Promise.all([
+        issueApi.getControls(tenantId, id),
+        issueApi.getTestResults(tenantId, id),
+        issueApi.getEvidence(tenantId, id),
+      ]);
+      setLinkedControls(unwrapResponse<LinkedControl[]>(controlsRes) || []);
+      setLinkedTestResults(unwrapResponse<LinkedTestResult[]>(testResultsRes) || []);
+      setLinkedEvidence(unwrapResponse<LinkedEvidence[]>(evidenceRes) || []);
+    } catch (err) {
+      console.error('Error fetching linked entities:', err);
     }
   }, [id, tenantId]);
 
@@ -307,12 +314,13 @@ export const IssueDetail: React.FC = () => {
 
   useEffect(() => {
     if (tabValue === 1) {
+      fetchLinkedEntities();
       fetchLinkedCapas();
       fetchAvailableEntities();
     } else if (tabValue === 2) {
       fetchStatusHistory();
     }
-  }, [tabValue, fetchLinkedCapas, fetchAvailableEntities, fetchStatusHistory]);
+  }, [tabValue, fetchLinkedEntities, fetchLinkedCapas, fetchAvailableEntities, fetchStatusHistory]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -562,10 +570,8 @@ export const IssueDetail: React.FC = () => {
                     <Grid item xs={8}><Typography>{formatDateTime(issue.createdAt)}</Typography></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Updated</Typography></Grid>
                     <Grid item xs={8}><Typography>{formatDateTime(issue.updatedAt)}</Typography></Grid>
-                    <Grid item xs={4}><Typography color="text.secondary">Resolved At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDateTime(issue.resolvedAt)}</Typography></Grid>
-                    <Grid item xs={4}><Typography color="text.secondary">Closed At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDateTime(issue.closedAt)}</Typography></Grid>
+                    <Grid item xs={4}><Typography color="text.secondary">Resolved Date</Typography></Grid>
+                    <Grid item xs={8}><Typography>{formatDate(issue.resolvedDate)}</Typography></Grid>
                   </Grid>
                 </CardContent>
               </Card>
@@ -579,28 +585,6 @@ export const IssueDetail: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            {issue.rootCause && (
-              <Grid item xs={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>Root Cause</Typography>
-                    <Divider sx={{ mb: 2 }} />
-                    <Typography sx={{ whiteSpace: 'pre-wrap' }}>{issue.rootCause}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
-            {issue.recommendation && (
-              <Grid item xs={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>Recommendation</Typography>
-                    <Divider sx={{ mb: 2 }} />
-                    <Typography sx={{ whiteSpace: 'pre-wrap' }}>{issue.recommendation}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
           </Grid>
         </TabPanel>
 
