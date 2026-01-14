@@ -1,5 +1,10 @@
 import 'reflect-metadata';
-import { ListQueryDto, createListResponse } from './list-query.dto';
+import {
+  ListQueryDto,
+  createListResponse,
+  parseSortQuery,
+  ParsedSort,
+} from './list-query.dto';
 
 describe('ListQueryDto', () => {
   describe('getEffectivePageSize', () => {
@@ -231,5 +236,159 @@ describe('createListResponse', () => {
     const items = [{ id: '1' }, { id: '2' }];
     const result = createListResponse(items, 2, 1, 20);
     expect(result.totalPages).toBe(1);
+  });
+});
+
+describe('parseSortQuery', () => {
+  const allowedFields = ['createdAt', 'updatedAt', 'name', 'title', 'status'];
+  const defaultSort: ParsedSort = { field: 'createdAt', direction: 'DESC' };
+
+  describe('with sortBy/sortOrder (explicit params)', () => {
+    it('should parse valid sortBy and sortOrder', () => {
+      const result = parseSortQuery(
+        { sortBy: 'name', sortOrder: 'ASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'ASC' });
+    });
+
+    it('should default sortOrder to DESC when not provided', () => {
+      const result = parseSortQuery(
+        { sortBy: 'name' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'DESC' });
+    });
+
+    it('should normalize sortOrder to uppercase', () => {
+      const result = parseSortQuery(
+        { sortBy: 'name', sortOrder: 'asc' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'ASC' });
+    });
+
+    it('should fall back to default for invalid sortBy field', () => {
+      const result = parseSortQuery(
+        { sortBy: 'invalidField', sortOrder: 'ASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should prioritize sortBy/sortOrder over sort param', () => {
+      const result = parseSortQuery(
+        { sortBy: 'name', sortOrder: 'ASC', sort: 'title:DESC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'ASC' });
+    });
+  });
+
+  describe('with sort param (combined format)', () => {
+    it('should parse valid sort param in field:dir format', () => {
+      const result = parseSortQuery(
+        { sort: 'name:ASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'ASC' });
+    });
+
+    it('should normalize direction to uppercase', () => {
+      const result = parseSortQuery(
+        { sort: 'name:asc' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual({ field: 'name', direction: 'ASC' });
+    });
+
+    it('should fall back to default for invalid field in sort param', () => {
+      const result = parseSortQuery(
+        { sort: 'invalidField:ASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should fall back to default for invalid direction in sort param', () => {
+      const result = parseSortQuery(
+        { sort: 'name:INVALID' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should fall back to default for malformed sort param', () => {
+      const result = parseSortQuery(
+        { sort: 'nameASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should fall back to default for sort param with too many colons', () => {
+      const result = parseSortQuery(
+        { sort: 'name:ASC:extra' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+  });
+
+  describe('with no sort params', () => {
+    it('should return default sort when no params provided', () => {
+      const result = parseSortQuery({}, allowedFields, defaultSort);
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should return default sort when params are undefined', () => {
+      const result = parseSortQuery(
+        { sort: undefined, sortBy: undefined, sortOrder: undefined },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+  });
+
+  describe('security: field allowlist validation', () => {
+    it('should reject SQL injection attempts in sortBy', () => {
+      const result = parseSortQuery(
+        { sortBy: 'name; DROP TABLE users;--' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should reject SQL injection attempts in sort param', () => {
+      const result = parseSortQuery(
+        { sort: 'name; DROP TABLE users;--:ASC' },
+        allowedFields,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
+
+    it('should only allow fields in the allowlist', () => {
+      const restrictedAllowlist = ['createdAt'];
+      const result = parseSortQuery(
+        { sortBy: 'name' },
+        restrictedAllowlist,
+        defaultSort,
+      );
+      expect(result).toEqual(defaultSort);
+    });
   });
 });

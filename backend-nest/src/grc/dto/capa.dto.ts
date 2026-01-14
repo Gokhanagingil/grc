@@ -9,6 +9,7 @@ import {
   IsObject,
   MaxLength,
   IsArray,
+  Matches,
 } from 'class-validator';
 import { CapaType, CapaStatus, CAPAPriority } from '../enums';
 
@@ -184,6 +185,13 @@ export class CapaFilterDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z_]+:(ASC|DESC|asc|desc)$/, {
+    message: 'sort must be in format "field:ASC" or "field:DESC"',
+  })
+  sort?: string;
 
   @IsOptional()
   @IsString()

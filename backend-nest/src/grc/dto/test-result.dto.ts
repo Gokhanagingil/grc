@@ -7,6 +7,7 @@ import {
   Min,
   IsArray,
   IsObject,
+  Matches,
 } from 'class-validator';
 import { TestResultOutcome, EffectivenessRating } from '../enums';
 
@@ -132,6 +133,13 @@ export class TestResultFilterDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z_]+:(ASC|DESC|asc|desc)$/, {
+    message: 'sort must be in format "field:ASC" or "field:DESC"',
+  })
+  sort?: string;
 
   @IsOptional()
   @IsString()

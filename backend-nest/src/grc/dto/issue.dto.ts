@@ -8,6 +8,7 @@ import {
   Min,
   IsObject,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { IssueType, IssueStatus, IssueSeverity } from '../enums';
 
@@ -191,6 +192,13 @@ export class IssueFilterDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z_]+:(ASC|DESC|asc|desc)$/, {
+    message: 'sort must be in format "field:ASC" or "field:DESC"',
+  })
+  sort?: string;
 
   @IsOptional()
   @IsString()

@@ -226,3 +226,117 @@ export interface UniversalListConfig {
   filters?: FilterConfig[];
   defaultSort?: { field: string; direction: 'ASC' | 'DESC' };
 }
+
+/**
+ * Sort query parameters interface
+ * Supports both new "field:dir" format and legacy sortBy/sortOrder
+ */
+export interface SortQueryParams {
+  sort?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC' | 'asc' | 'desc';
+}
+
+/**
+ * Parsed sort result
+ */
+export interface ParsedSort {
+  field: string;
+  direction: 'ASC' | 'DESC';
+}
+
+/**
+ * Parse sort query parameters with field allowlist for security
+ *
+ * This utility function:
+ * 1. Accepts both "sort" (field:dir format) and legacy "sortBy/sortOrder" params
+ * 2. Validates the sort field against an allowlist
+ * 3. Falls back to default sort if field is invalid or not provided
+ *
+ * Priority: sortBy/sortOrder (explicit) > sort (legacy combined format)
+ *
+ * @param query - Query parameters containing sort, sortBy, sortOrder
+ * @param allowedFields - Array of allowed field names for sorting
+ * @param defaultSort - Default sort to use if no valid sort is provided
+ * @returns Parsed sort with field and direction
+ *
+ * @example
+ * // With sortBy/sortOrder (preferred)
+ * parseSortQuery({ sortBy: 'createdAt', sortOrder: 'DESC' }, ['createdAt', 'name'], { field: 'createdAt', direction: 'DESC' })
+ * // Returns: { field: 'createdAt', direction: 'DESC' }
+ *
+ * @example
+ * // With sort param (combined format)
+ * parseSortQuery({ sort: 'name:ASC' }, ['createdAt', 'name'], { field: 'createdAt', direction: 'DESC' })
+ * // Returns: { field: 'name', direction: 'ASC' }
+ *
+ * @example
+ * // With invalid field (falls back to default)
+ * parseSortQuery({ sortBy: 'invalidField' }, ['createdAt', 'name'], { field: 'createdAt', direction: 'DESC' })
+ * // Returns: { field: 'createdAt', direction: 'DESC' }
+ */
+export function parseSortQuery(
+  query: SortQueryParams,
+  allowedFields: string[],
+  defaultSort: ParsedSort,
+): ParsedSort {
+  // Priority 1: sortBy/sortOrder (explicit params take precedence)
+  if (query.sortBy) {
+    const field = query.sortBy;
+    const direction =
+      (query.sortOrder?.toUpperCase() as 'ASC' | 'DESC') || 'DESC';
+
+    // Validate field against allowlist
+    if (allowedFields.includes(field)) {
+      return { field, direction };
+    }
+    // Invalid field - fall back to default
+    return defaultSort;
+  }
+
+  // Priority 2: sort param (combined format "field:dir")
+  if (query.sort) {
+    const parts = query.sort.split(':');
+    if (parts.length === 2) {
+      const [field, dir] = parts;
+      const direction = dir.toUpperCase() as 'ASC' | 'DESC';
+
+      // Validate direction
+      if (direction !== 'ASC' && direction !== 'DESC') {
+        return defaultSort;
+      }
+
+      // Validate field against allowlist
+      if (allowedFields.includes(field)) {
+        return { field, direction };
+      }
+    }
+    // Invalid format or field - fall back to default
+    return defaultSort;
+  }
+
+  // No sort params provided - use default
+  return defaultSort;
+}
+
+/**
+ * Common sortable fields used across GRC entities
+ * These are the standard fields that most entities support for sorting
+ */
+export const COMMON_SORTABLE_FIELDS = [
+  'createdAt',
+  'updatedAt',
+  'name',
+  'title',
+  'status',
+] as const;
+
+/**
+ * Extended sortable fields for entities with additional common fields
+ */
+export const EXTENDED_SORTABLE_FIELDS = [
+  ...COMMON_SORTABLE_FIELDS,
+  'dueDate',
+  'priority',
+  'severity',
+] as const;

@@ -411,6 +411,103 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
     });
   });
 
+  describe('Sort Parameter Compatibility - Sprint 1F Regression', () => {
+    it('GET /grc/evidence with sort param should return 200 (not 400)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/grc/evidence?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/test-results with sort param should return 200 (not 400)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/grc/test-results?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/issues with sort param should return 200 (not 400)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/grc/issues?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/capas with sort param should return 200 (not 400)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/grc/capas?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('GET /grc/capa-tasks with sort param should return 200 (not 400)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/grc/capa-tasks?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+  });
+
   describe('Regression Tests - Old Format Should Fail', () => {
     it('should NOT have data as array (old format)', async () => {
       if (!dbConnected || !tenantId) {
