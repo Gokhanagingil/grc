@@ -61,8 +61,7 @@ export class GrcEvidenceService {
     const evidence = this.evidenceRepository.create({
       ...dto,
       tenantId,
-      createdByUserId: userId,
-      updatedByUserId: userId,
+      createdBy: userId,
     });
 
     const saved = await this.evidenceRepository.save(evidence);
@@ -186,7 +185,7 @@ export class GrcEvidenceService {
     const evidence = await this.findOne(tenantId, id);
     const oldValue = { ...evidence };
 
-    Object.assign(evidence, dto, { updatedByUserId: userId });
+    Object.assign(evidence, dto, { updatedBy: userId });
 
     const saved = await this.evidenceRepository.save(evidence);
 
@@ -206,7 +205,7 @@ export class GrcEvidenceService {
     const evidence = await this.findOne(tenantId, id);
 
     evidence.isDeleted = true;
-    evidence.updatedByUserId = userId;
+    evidence.updatedBy = userId;
 
     await this.evidenceRepository.save(evidence);
 

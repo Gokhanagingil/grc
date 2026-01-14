@@ -78,8 +78,7 @@ export class GrcIssueService {
       ...dto,
       tenantId,
       raisedByUserId: userId,
-      createdByUserId: userId,
-      updatedByUserId: userId,
+      createdBy: userId,
     });
 
     const saved = await this.issueRepository.save(issue);
@@ -227,7 +226,7 @@ export class GrcIssueService {
       }
     }
 
-    Object.assign(issue, dto, { updatedByUserId: userId });
+    Object.assign(issue, dto, { updatedBy: userId });
 
     const saved = await this.issueRepository.save(issue);
 
@@ -247,7 +246,7 @@ export class GrcIssueService {
     const issue = await this.findOne(tenantId, id);
 
     issue.isDeleted = true;
-    issue.updatedByUserId = userId;
+    issue.updatedBy = userId;
 
     await this.issueRepository.save(issue);
 
@@ -272,7 +271,7 @@ export class GrcIssueService {
 
     const oldValue = { ...issue };
     issue.controlId = controlId;
-    issue.updatedByUserId = userId;
+    issue.updatedBy = userId;
 
     const saved = await this.issueRepository.save(issue);
 
@@ -304,7 +303,7 @@ export class GrcIssueService {
 
     const oldValue = { ...issue };
     issue.controlId = null;
-    issue.updatedByUserId = userId;
+    issue.updatedBy = userId;
 
     const saved = await this.issueRepository.save(issue);
 
@@ -340,7 +339,7 @@ export class GrcIssueService {
 
     const oldValue = { ...issue };
     issue.testResultId = testResultId;
-    issue.updatedByUserId = userId;
+    issue.updatedBy = userId;
 
     const saved = await this.issueRepository.save(issue);
 
@@ -372,7 +371,7 @@ export class GrcIssueService {
 
     const oldValue = { ...issue };
     issue.testResultId = null;
-    issue.updatedByUserId = userId;
+    issue.updatedBy = userId;
 
     const saved = await this.issueRepository.save(issue);
 
