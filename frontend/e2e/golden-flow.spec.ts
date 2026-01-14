@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi, waitForApiResponse } from './helpers';
+import { login, setupMockApi } from './helpers';
 
 /**
  * Golden Flow E2E Test - Sprint 1E
