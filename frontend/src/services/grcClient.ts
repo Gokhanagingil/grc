@@ -310,6 +310,7 @@ export const API_PATHS = {
     GET: (id: string) => `/grc/issues/${id}`,
     UPDATE: (id: string) => `/grc/issues/${id}`,
     DELETE: (id: string) => `/grc/issues/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/issues/${id}/status`,
     CONTROLS: (id: string) => `/grc/issues/${id}/controls`,
     LINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
     UNLINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
@@ -317,6 +318,8 @@ export const API_PATHS = {
     LINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
     UNLINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
     EVIDENCE: (id: string) => `/grc/issues/${id}/evidence`,
+    LINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
+    UNLINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
   },
 
   // CAPA endpoints (Golden Flow Sprint 1C)
@@ -1825,6 +1828,26 @@ export const issueApi = {
 
   getEvidence: (tenantId: string, issueId: string) =>
     api.get(API_PATHS.GRC_ISSUES.EVIDENCE(issueId), withTenantId(tenantId)),
+
+  linkEvidence: (tenantId: string, issueId: string, evidenceId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_EVIDENCE(issueId, evidenceId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkEvidence: (tenantId: string, issueId: string, evidenceId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_EVIDENCE(issueId, evidenceId),
+      withTenantId(tenantId),
+    ),
+
+  updateStatus: (tenantId: string, issueId: string, data: { status: string; reason?: string }) =>
+    api.patch(
+      API_PATHS.GRC_ISSUES.UPDATE_STATUS(issueId),
+      data,
+      withTenantId(tenantId),
+    ),
 };
 
 // ============================================================================
