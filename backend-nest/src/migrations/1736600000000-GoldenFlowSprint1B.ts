@@ -7,7 +7,7 @@ export class GoldenFlowSprint1B1736600000000 implements MigrationInterface {
     // Create enum types for Evidence source_type and status
     await queryRunner.query(`
       DO $$ BEGIN
-        CREATE TYPE "public"."grc_evidence_source_type_enum" AS ENUM('MANUAL', 'URL', 'SYSTEM');
+        CREATE TYPE "public"."grc_evidence_source_type_enum" AS ENUM('manual', 'url', 'system');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
@@ -15,7 +15,7 @@ export class GoldenFlowSprint1B1736600000000 implements MigrationInterface {
 
     await queryRunner.query(`
       DO $$ BEGIN
-        CREATE TYPE "public"."grc_evidence_status_enum" AS ENUM('DRAFT', 'APPROVED', 'RETIRED');
+        CREATE TYPE "public"."grc_evidence_status_enum" AS ENUM('draft', 'approved', 'retired');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
@@ -24,8 +24,8 @@ export class GoldenFlowSprint1B1736600000000 implements MigrationInterface {
     // Add new columns to grc_evidence table
     await queryRunner.query(`
       ALTER TABLE "grc_evidence" 
-      ADD COLUMN IF NOT EXISTS "source_type" "public"."grc_evidence_source_type_enum" DEFAULT 'MANUAL',
-      ADD COLUMN IF NOT EXISTS "status" "public"."grc_evidence_status_enum" DEFAULT 'DRAFT',
+      ADD COLUMN IF NOT EXISTS "source_type" "public"."grc_evidence_source_type_enum" DEFAULT 'manual',
+      ADD COLUMN IF NOT EXISTS "status" "public"."grc_evidence_status_enum" DEFAULT 'draft',
       ADD COLUMN IF NOT EXISTS "external_url" varchar(1000),
       ADD COLUMN IF NOT EXISTS "tags" text[]
     `);
