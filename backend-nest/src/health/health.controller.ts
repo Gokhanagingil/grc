@@ -85,4 +85,28 @@ export class HealthController {
   checkDotWalking() {
     return this.healthService.checkDotWalking();
   }
+
+  /**
+   * Version endpoint
+   * Returns git commit hash and build info for deployment verification.
+   * Allows checking deployed version without SSH access.
+   *
+   * Environment variables (set at build/deploy time):
+   * - GIT_COMMIT_SHA: Full git commit hash
+   * - GIT_COMMIT_SHORT: Short git commit hash (7 chars)
+   * - BUILD_TIMESTAMP: ISO timestamp of build
+   */
+  @Get('version')
+  getVersion() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: {
+        commitSha: process.env.GIT_COMMIT_SHA || 'unknown',
+        commitShort: process.env.GIT_COMMIT_SHORT || 'unknown',
+        buildTimestamp: process.env.BUILD_TIMESTAMP || 'unknown',
+      },
+      service: 'grc-platform-nest',
+    };
+  }
 }
