@@ -28,6 +28,8 @@
     "seed:frameworks:prod": "node dist/scripts/seed-frameworks.js",
     "seed:golden-flow": "ts-node -r tsconfig-paths/register src/scripts/seed-golden-flow.ts",
     "seed:golden-flow:prod": "node dist/scripts/seed-golden-flow.js",
+    "seed:demo-story": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-story.ts",
+    "seed:demo-story:prod": "node dist/scripts/seed-demo-story.js",
     "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
     "smoke:golden-flow": "ts-node -r tsconfig-paths/register src/scripts/smoke-golden-flow.ts",
     "smoke:golden-flow:prod": "node dist/scripts/smoke-golden-flow.js",

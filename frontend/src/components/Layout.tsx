@@ -217,21 +217,29 @@ const menuGroups: NavMenuGroup[] = [
       },
     ],
   },
-  {
-    id: 'grc-insights',
-    text: 'GRC > Insights',
-    icon: <ComplianceDashboardIcon />,
-    items: [
-      { 
-        text: 'Coverage', 
-        icon: <ComplianceDashboardIcon />, 
-        path: '/coverage',
-        children: [
-          { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
-        ],
-      },
-    ],
-  },
+    {
+      id: 'grc-insights',
+      text: 'GRC > Insights',
+      icon: <ComplianceDashboardIcon />,
+      items: [
+        { 
+          text: 'GRC Insights', 
+          icon: <ComplianceDashboardIcon />, 
+          path: '/insights',
+          children: [
+            { text: 'Insights Overview', path: '/insights', status: 'active' },
+          ],
+        },
+        { 
+          text: 'Coverage', 
+          icon: <ComplianceDashboardIcon />, 
+          path: '/coverage',
+          children: [
+            { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
+          ],
+        },
+      ],
+    },
   {
     id: 'itsm',
     text: 'ITSM',

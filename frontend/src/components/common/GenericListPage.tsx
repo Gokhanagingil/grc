@@ -50,6 +50,8 @@ export interface GenericListPageProps<T> {
   banner?: ReactNode;
   minTableWidth?: number;
   rowsPerPageOptions?: number[];
+  /** data-testid for e2e testing */
+  testId?: string;
 }
 
 export function GenericListPage<T>({
@@ -80,6 +82,7 @@ export function GenericListPage<T>({
   banner,
   minTableWidth = 800,
   rowsPerPageOptions = [5, 10, 25, 50],
+  testId,
 }: GenericListPageProps<T>) {
   const hasFiltersOrSearch = filters.length > 0 || search.length > 0;
 
@@ -105,9 +108,9 @@ export function GenericListPage<T>({
     );
   }
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    return (
+      <Box sx={{ p: 3 }} data-testid={testId}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {icon} {title}
         </Typography>

@@ -55,6 +55,13 @@ const KNOWN_ROUTES = new Set([
   '/dashboards/audit',
   '/dashboards/compliance',
   '/dashboards/grc-health',
+    // Golden Flow routes (fully implemented)
+    '/evidence',
+    '/test-results',
+    '/issues',
+    '/capa',
+    '/coverage',
+    '/insights',
   // Coming soon routes (exist but show placeholder)
   '/risk-assessments',
   '/risk-treatments',

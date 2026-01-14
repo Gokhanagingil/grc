@@ -488,10 +488,10 @@ export const IssueDetail: React.FC = () => {
     return <ErrorState message="Issue not found" />;
   }
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => navigate('/issues')} data-testid="back-button">
+    return (
+      <Box sx={{ p: 3 }} data-testid="issue-detail-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/issues')} data-testid="back-button">
           <BackIcon />
         </IconButton>
         <Box flex={1}>

@@ -414,10 +414,10 @@ export const EvidenceDetail: React.FC = () => {
     return <ErrorState message="Evidence not found" />;
   }
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => navigate('/evidence')} data-testid="back-button">
+    return (
+      <Box sx={{ p: 3 }} data-testid="evidence-detail-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/evidence')} data-testid="back-button">
           <BackIcon />
         </IconButton>
         <Box flex={1}>

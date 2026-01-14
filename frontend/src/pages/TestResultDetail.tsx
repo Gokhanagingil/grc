@@ -270,10 +270,10 @@ export const TestResultDetail: React.FC = () => {
 
   const isFailed = testResult.result?.toUpperCase() === 'FAIL';
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => navigate('/test-results')} data-testid="back-button">
+    return (
+      <Box sx={{ p: 3 }} data-testid="test-result-detail-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/test-results')} data-testid="back-button">
           <BackIcon />
         </IconButton>
         <Box flex={1}>

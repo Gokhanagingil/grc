@@ -373,32 +373,33 @@ export const IssueList: React.FC = () => {
 
   return (
     <>
-      <GenericListPage<IssueData>
-        title="Issues"
-        icon={<IssueIcon />}
-        items={items}
-        columns={columns}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        isLoading={isLoading || authLoading}
-        error={error}
-        search={search}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        onSearchChange={setSearch}
-        onRefresh={refetch}
-        getRowKey={(issue) => issue.id}
-        searchPlaceholder="Search issues..."
-        emptyMessage="No issues found"
-        emptyFilteredMessage="Try adjusting your filters or search query"
-        filters={getActiveFilters()}
-        onFilterRemove={handleFilterRemove}
-        onClearFilters={handleClearFilters}
-        toolbarActions={toolbarActions}
-        banner={<GrcFrameworkWarningBanner />}
-        minTableWidth={1000}
-      />
+            <GenericListPage<IssueData>
+              title="Issues"
+              icon={<IssueIcon />}
+              items={items}
+              columns={columns}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              isLoading={isLoading || authLoading}
+              error={error}
+              search={search}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              onSearchChange={setSearch}
+              onRefresh={refetch}
+              getRowKey={(issue) => issue.id}
+              searchPlaceholder="Search issues..."
+              emptyMessage="No issues found"
+              emptyFilteredMessage="Try adjusting your filters or search query"
+              filters={getActiveFilters()}
+              onFilterRemove={handleFilterRemove}
+              onClearFilters={handleClearFilters}
+              toolbarActions={toolbarActions}
+              banner={<GrcFrameworkWarningBanner />}
+              minTableWidth={1000}
+              testId="issue-list-page"
+            />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Issue</DialogTitle>

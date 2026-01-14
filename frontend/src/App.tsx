@@ -40,6 +40,7 @@ import { IssueList } from './pages/IssueList';
 import { IssueDetail } from './pages/IssueDetail';
 import { CapaList } from './pages/CapaList';
 import { CapaDetail } from './pages/CapaDetail';
+import GrcInsights from './pages/GrcInsights';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -136,9 +137,10 @@ function App() {
                   <Route path="test-results/:id" element={<TestResultDetail />} />
                   <Route path="issues" element={<IssueList />} />
                   <Route path="issues/:id" element={<IssueDetail />} />
-                  <Route path="capa" element={<CapaList />} />
-                  <Route path="capa/:id" element={<CapaDetail />} />
-                  <Route path="control-testing" element={
+                                    <Route path="capa" element={<CapaList />} />
+                                    <Route path="capa/:id" element={<CapaDetail />} />
+                                    <Route path="insights" element={<GrcInsights />} />
+                                    <Route path="control-testing" element={
                     <ComingSoonPage 
                       title="Control Testing" 
                       description="Automated and manual control testing with evidence collection."
