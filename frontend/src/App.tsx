@@ -32,6 +32,9 @@ import { Profile } from './pages/Profile';
 import { Coverage } from './pages/Coverage';
 import { ControlList } from './pages/ControlList';
 import { ControlDetail } from './pages/ControlDetail';
+import { EvidenceList } from './pages/EvidenceList';
+import { TestResultList } from './pages/TestResultList';
+import { IssueList } from './pages/IssueList';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -122,6 +125,9 @@ function App() {
                   } />
                   <Route path="controls" element={<ControlList />} />
                   <Route path="controls/:id" element={<ControlDetail />} />
+                  <Route path="evidence" element={<EvidenceList />} />
+                  <Route path="test-results" element={<TestResultList />} />
+                  <Route path="issues" element={<IssueList />} />
                   <Route path="control-testing" element={
                     <ComingSoonPage 
                       title="Control Testing" 

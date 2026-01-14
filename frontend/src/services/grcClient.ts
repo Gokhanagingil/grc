@@ -276,6 +276,49 @@ export const API_PATHS = {
     UNLINK_RISK: (id: string) => `/grc/process-violations/${id}/unlink-risk`,
   },
 
+  // Evidence endpoints (Golden Flow Sprint 1B)
+  GRC_EVIDENCE: {
+    LIST: '/grc/evidence',
+    CREATE: '/grc/evidence',
+    GET: (id: string) => `/grc/evidence/${id}`,
+    UPDATE: (id: string) => `/grc/evidence/${id}`,
+    DELETE: (id: string) => `/grc/evidence/${id}`,
+    CONTROLS: (id: string) => `/grc/evidence/${id}/controls`,
+    LINK_CONTROL: (evidenceId: string, controlId: string) => `/grc/evidence/${evidenceId}/controls/${controlId}`,
+    UNLINK_CONTROL: (evidenceId: string, controlId: string) => `/grc/evidence/${evidenceId}/controls/${controlId}`,
+    TEST_RESULTS: (id: string) => `/grc/evidence/${id}/test-results`,
+    LINK_TEST_RESULT: (evidenceId: string, testResultId: string) => `/grc/evidence/${evidenceId}/test-results/${testResultId}`,
+    UNLINK_TEST_RESULT: (evidenceId: string, testResultId: string) => `/grc/evidence/${evidenceId}/test-results/${testResultId}`,
+    ISSUES: (id: string) => `/grc/evidence/${id}/issues`,
+    LINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
+    UNLINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
+  },
+
+  // Test Results endpoints (Golden Flow Sprint 1B)
+  GRC_TEST_RESULTS: {
+    LIST: '/grc/test-results',
+    CREATE: '/grc/test-results',
+    GET: (id: string) => `/grc/test-results/${id}`,
+    UPDATE: (id: string) => `/grc/test-results/${id}`,
+    DELETE: (id: string) => `/grc/test-results/${id}`,
+  },
+
+  // Issues endpoints (Golden Flow Sprint 1B)
+  GRC_ISSUES: {
+    LIST: '/grc/issues',
+    CREATE: '/grc/issues',
+    GET: (id: string) => `/grc/issues/${id}`,
+    UPDATE: (id: string) => `/grc/issues/${id}`,
+    DELETE: (id: string) => `/grc/issues/${id}`,
+    CONTROLS: (id: string) => `/grc/issues/${id}/controls`,
+    LINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
+    UNLINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
+    TEST_RESULTS: (id: string) => `/grc/issues/${id}/test-results`,
+    LINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
+    UNLINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
+    EVIDENCE: (id: string) => `/grc/issues/${id}/evidence`,
+  },
+
   // Onboarding Core endpoints
   ONBOARDING: {
     CONTEXT: '/onboarding/context',
@@ -1478,6 +1521,299 @@ export const controlApi = {
       API_PATHS.GRC_CONTROLS.UNLINK_PROCESS(controlId, processId),
       withTenantId(tenantId),
     ),
+};
+
+// ============================================================================
+// GRC Evidence API (Golden Flow Sprint 1B)
+// ============================================================================
+
+export interface EvidenceData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  type: string;
+  sourceType: string;
+  status: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  collectedByUserId?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+
+export interface CreateEvidenceDto {
+  name: string;
+  description?: string;
+  type: string;
+  sourceType?: string;
+  status?: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  tags?: string[];
+}
+
+export interface UpdateEvidenceDto {
+  name?: string;
+  description?: string;
+  type?: string;
+  sourceType?: string;
+  status?: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  tags?: string[];
+}
+
+export const evidenceApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_EVIDENCE.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateEvidenceDto) =>
+    api.post(API_PATHS.GRC_EVIDENCE.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateEvidenceDto) =>
+    api.patch(API_PATHS.GRC_EVIDENCE.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_EVIDENCE.DELETE(id), withTenantId(tenantId)),
+
+  getControls: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.CONTROLS(evidenceId), withTenantId(tenantId)),
+
+  linkControl: (tenantId: string, evidenceId: string, controlId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_CONTROL(evidenceId, controlId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkControl: (tenantId: string, evidenceId: string, controlId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_CONTROL(evidenceId, controlId),
+      withTenantId(tenantId),
+    ),
+
+  getTestResults: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.TEST_RESULTS(evidenceId), withTenantId(tenantId)),
+
+  linkTestResult: (tenantId: string, evidenceId: string, testResultId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_TEST_RESULT(evidenceId, testResultId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkTestResult: (tenantId: string, evidenceId: string, testResultId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_TEST_RESULT(evidenceId, testResultId),
+      withTenantId(tenantId),
+    ),
+
+  getIssues: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.ISSUES(evidenceId), withTenantId(tenantId)),
+
+  linkIssue: (tenantId: string, evidenceId: string, issueId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_ISSUE(evidenceId, issueId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkIssue: (tenantId: string, evidenceId: string, issueId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_ISSUE(evidenceId, issueId),
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC Test Results API (Golden Flow Sprint 1B)
+// ============================================================================
+
+export interface TestResultData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  controlTestId: string;
+  result: string;
+  effectivenessRating?: string;
+  testedAt: string;
+  testedByUserId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  controlTest?: {
+    id: string;
+    name: string;
+    controlId: string;
+    control?: {
+      id: string;
+      name: string;
+      code?: string;
+    };
+  };
+}
+
+export interface CreateTestResultDto {
+  name: string;
+  description?: string;
+  controlTestId: string;
+  result: string;
+  effectivenessRating?: string;
+  testedAt?: string;
+  notes?: string;
+}
+
+export interface UpdateTestResultDto {
+  name?: string;
+  description?: string;
+  result?: string;
+  effectivenessRating?: string;
+  testedAt?: string;
+  notes?: string;
+}
+
+export const testResultApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateTestResultDto) =>
+    api.post(API_PATHS.GRC_TEST_RESULTS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateTestResultDto) =>
+    api.patch(API_PATHS.GRC_TEST_RESULTS.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_TEST_RESULTS.DELETE(id), withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Issues API (Golden Flow Sprint 1B)
+// ============================================================================
+
+export interface IssueData {
+  id: string;
+  tenantId: string;
+  title: string;
+  description?: string;
+  type: string;
+  status: string;
+  severity: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+  resolvedDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+}
+
+export interface CreateIssueDto {
+  title: string;
+  description?: string;
+  type: string;
+  status?: string;
+  severity: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+}
+
+export interface UpdateIssueDto {
+  title?: string;
+  description?: string;
+  type?: string;
+  status?: string;
+  severity?: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+  resolvedDate?: string;
+}
+
+export const issueApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_ISSUES.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_ISSUES.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateIssueDto) =>
+    api.post(API_PATHS.GRC_ISSUES.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateIssueDto) =>
+    api.patch(API_PATHS.GRC_ISSUES.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_ISSUES.DELETE(id), withTenantId(tenantId)),
+
+  getControls: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.CONTROLS(issueId), withTenantId(tenantId)),
+
+  linkControl: (tenantId: string, issueId: string, controlId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_CONTROL(issueId, controlId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkControl: (tenantId: string, issueId: string, controlId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_CONTROL(issueId, controlId),
+      withTenantId(tenantId),
+    ),
+
+  getTestResults: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.TEST_RESULTS(issueId), withTenantId(tenantId)),
+
+  linkTestResult: (tenantId: string, issueId: string, testResultId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_TEST_RESULT(issueId, testResultId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkTestResult: (tenantId: string, issueId: string, testResultId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_TEST_RESULT(issueId, testResultId),
+      withTenantId(tenantId),
+    ),
+
+  getEvidence: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.EVIDENCE(issueId), withTenantId(tenantId)),
 };
 
 // ============================================================================
