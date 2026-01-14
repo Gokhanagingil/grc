@@ -36,6 +36,33 @@ export class GrcInsightsController {
   constructor(private readonly insightsService: GrcInsightsService) {}
 
   /**
+   * GET /grc/insights
+   * Root route - returns the same data as /overview for convenience
+   */
+  @Get()
+  @ApiOperation({
+    summary: 'Get GRC Insights (alias for /overview)',
+    description:
+      'Returns aggregated GRC metrics. This is an alias for /grc/insights/overview.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'GRC insights retrieved successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Tenant ID is required' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getRoot(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const data = await this.insightsService.getOverview(tenantId);
+    return { success: true, data };
+  }
+
+  /**
    * GET /grc/insights/overview
    * Returns aggregated GRC metrics for the tenant
    */

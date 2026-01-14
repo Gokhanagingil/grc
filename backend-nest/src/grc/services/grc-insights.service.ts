@@ -158,7 +158,7 @@ export class GrcInsightsService {
         failResult: TestResultOutcome.FAIL,
       })
       .andWhere('tr.isDeleted = false')
-      .orderBy('tr.testedAt', 'DESC')
+      .orderBy('tr.createdAt', 'DESC')
       .take(limit)
       .getMany();
 
