@@ -57,6 +57,8 @@ import {
   GrcCapaTask,
   GrcControlEvidence,
   GrcStatusHistory,
+  // Golden Flow Sprint 1B entities
+  GrcEvidenceTestResult,
 } from './entities';
 
 // Services
@@ -92,6 +94,10 @@ import { GrcCapaTaskService } from './services/grc-capa-task.service';
 import { GrcControlEvidenceService } from './services/grc-control-evidence.service';
 import { GrcStatusHistoryService } from './services/grc-status-history.service';
 import { ClosureLoopService } from './services/closure-loop.service';
+
+// Golden Flow Sprint 1B services
+import { GrcEvidenceService } from './services/grc-evidence.service';
+import { GrcIssueService } from './services/grc-issue.service';
 
 // Controllers
 import {
@@ -207,6 +213,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
       GrcCapaTask,
       GrcControlEvidence,
       GrcStatusHistory,
+      // Golden Flow Sprint 1B entities
+      GrcEvidenceTestResult,
       // Universal Views entities
       UserViewPreference,
     ]),
@@ -250,6 +258,9 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     ClosureLoopService,
     // Universal Views services
     ViewPreferenceService,
+    // Golden Flow Sprint 1B services
+    GrcEvidenceService,
+    GrcIssueService,
   ],
   controllers: [
     // Core controllers
@@ -329,6 +340,9 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     ClosureLoopService,
     // Universal Views services
     ViewPreferenceService,
+    // Golden Flow Sprint 1B services
+    GrcEvidenceService,
+    GrcIssueService,
   ],
 })
 export class GrcModule {}

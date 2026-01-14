@@ -80,3 +80,6 @@ export { GrcTestResult } from './grc-test-result.entity';
 export { GrcCapaTask } from './grc-capa-task.entity';
 export { GrcControlEvidence } from './grc-control-evidence.entity';
 export { GrcStatusHistory } from './grc-status-history.entity';
+
+// Golden Flow Sprint 1B Entities
+export { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
