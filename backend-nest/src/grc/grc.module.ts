@@ -102,6 +102,9 @@ import { GrcIssueService } from './services/grc-issue.service';
 // Golden Flow Sprint 1C services
 import { GrcCapaService } from './services/grc-capa.service';
 
+// Sprint 1E - Insights service
+import { GrcInsightsService } from './services/grc-insights.service';
+
 // Controllers
 import {
   GrcRiskController,
@@ -145,6 +148,9 @@ import { GrcTestResultController } from './controllers/grc-test-result.controlle
 import { GrcCapaTaskController } from './controllers/grc-capa-task.controller';
 import { GrcControlEvidenceController } from './controllers/grc-control-evidence.controller';
 import { GrcStatusHistoryController } from './controllers/grc-status-history.controller';
+
+// Sprint 1E - Insights controller
+import { GrcInsightsController } from './controllers/grc-insights.controller';
 
 /**
  * GRC Module
@@ -266,6 +272,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcIssueService,
     // Golden Flow Sprint 1C services
     GrcCapaService,
+    // Sprint 1E - Insights service
+    GrcInsightsService,
   ],
   controllers: [
     // Core controllers
@@ -308,6 +316,8 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
     GrcCapaTaskController,
     GrcControlEvidenceController,
     GrcStatusHistoryController,
+    // Sprint 1E - Insights controller
+    GrcInsightsController,
   ],
   exports: [
     // Universal List Service (platform-level)

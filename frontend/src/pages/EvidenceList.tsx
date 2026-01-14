@@ -336,32 +336,33 @@ export const EvidenceList: React.FC = () => {
 
   return (
     <>
-      <GenericListPage<EvidenceData>
-        title="Evidence Library"
-        icon={<EvidenceIcon />}
-        items={items}
-        columns={columns}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        isLoading={isLoading || authLoading}
-        error={error}
-        search={search}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        onSearchChange={setSearch}
-        onRefresh={refetch}
-        getRowKey={(evidence) => evidence.id}
-        searchPlaceholder="Search evidence..."
-        emptyMessage="No evidence found"
-        emptyFilteredMessage="Try adjusting your filters or search query"
-        filters={getActiveFilters()}
-        onFilterRemove={handleFilterRemove}
-        onClearFilters={handleClearFilters}
-        toolbarActions={toolbarActions}
-        banner={<GrcFrameworkWarningBanner />}
-        minTableWidth={900}
-      />
+            <GenericListPage<EvidenceData>
+              title="Evidence Library"
+              icon={<EvidenceIcon />}
+              items={items}
+              columns={columns}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              isLoading={isLoading || authLoading}
+              error={error}
+              search={search}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              onSearchChange={setSearch}
+              onRefresh={refetch}
+              getRowKey={(evidence) => evidence.id}
+              searchPlaceholder="Search evidence..."
+              emptyMessage="No evidence found"
+              emptyFilteredMessage="Try adjusting your filters or search query"
+              filters={getActiveFilters()}
+              onFilterRemove={handleFilterRemove}
+              onClearFilters={handleClearFilters}
+              toolbarActions={toolbarActions}
+              banner={<GrcFrameworkWarningBanner />}
+              minTableWidth={900}
+              testId="evidence-list-page"
+            />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Evidence</DialogTitle>

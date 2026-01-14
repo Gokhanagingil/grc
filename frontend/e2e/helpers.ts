@@ -405,6 +405,174 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/insights/overview - GET (GRC Insights page)
+    if (url.includes('/grc/insights/overview') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        openIssuesBySeverity: { CRITICAL: 0, HIGH: 1, MEDIUM: 0, LOW: 0 },
+        overdueCAPAsCount: 0,
+        recentFailTestResults: [{
+          id: 'mock-test-result-001',
+          name: 'Mock Security Control Test - FAIL',
+          testedAt: '2024-01-20T00:00:00Z',
+          controlTestName: 'Security Control Test',
+        }],
+        evidenceStats: { linked: 1, unlinked: 0, total: 1 },
+        summary: { totalOpenIssues: 1, totalOverdueCAPAs: 0, totalFailedTests: 1 },
+      }));
+      return;
+    }
+
+    // Handle grc/status-history/by-entity - GET (History tabs in detail pages)
+    if (url.includes('/grc/status-history/by-entity') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse([
+        {
+          id: 'sh-001',
+          entityType: 'EVIDENCE',
+          entityId: 'mock-entity-001',
+          previousStatus: null,
+          newStatus: 'ACTIVE',
+          changedAt: '2024-01-15T00:00:00Z',
+          changedBy: 'admin@test.com',
+          reason: 'Initial creation',
+        },
+      ]));
+      return;
+    }
+
+    // Handle grc/evidence - GET (Evidence list and detail pages)
+    if (url.includes('/grc/evidence') && method === 'GET') {
+      logMock(method, url, true);
+      const mockEvidence = {
+        id: 'mock-evidence-001',
+        tenantId: 'test-tenant-id',
+        name: 'Mock Security Audit Evidence',
+        description: 'Evidence for E2E testing',
+        type: 'BASELINE',
+        status: 'ACTIVE',
+        collectionDate: '2024-01-15',
+        expirationDate: '2025-01-15',
+        sourceSystem: 'Manual',
+        controlIds: ['mock-control-1'],
+        createdAt: '2024-01-15T00:00:00Z',
+        updatedAt: '2024-01-15T00:00:00Z',
+      };
+      if (url.match(/\/grc\/evidence\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockEvidence));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockEvidence],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/test-results - GET (Test Results list and detail pages)
+    if (url.includes('/grc/test-results') && method === 'GET') {
+      logMock(method, url, true);
+      const mockTestResult = {
+        id: 'mock-test-result-001',
+        tenantId: 'test-tenant-id',
+        name: 'Mock Security Control Test - FAIL',
+        result: 'FAIL',
+        testedAt: '2024-01-20T00:00:00Z',
+        notes: 'Control failed due to missing documentation',
+        controlTestId: 'mock-control-test-001',
+        controlTest: {
+          id: 'mock-control-test-001',
+          name: 'Security Control Test',
+          controlId: 'mock-control-1',
+        },
+        evidenceIds: ['mock-evidence-001'],
+        createdAt: '2024-01-20T00:00:00Z',
+        updatedAt: '2024-01-20T00:00:00Z',
+      };
+      if (url.match(/\/grc\/test-results\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockTestResult));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockTestResult],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/issues - GET (Issues list and detail pages)
+    if (url.includes('/grc/issues') && method === 'GET') {
+      logMock(method, url, true);
+      const mockIssue = {
+        id: 'mock-issue-001',
+        tenantId: 'test-tenant-id',
+        title: 'Mock Security Control Failure Issue',
+        description: 'Issue created from failed test result',
+        type: 'internal_audit',
+        severity: 'HIGH',
+        status: 'OPEN',
+        dueDate: '2024-02-28',
+        testResultId: 'mock-test-result-001',
+        evidenceId: 'mock-evidence-001',
+        createdAt: '2024-01-21T00:00:00Z',
+        updatedAt: '2024-01-21T00:00:00Z',
+      };
+      if (url.match(/\/grc\/issues\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockIssue));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockIssue],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/capas - GET (CAPA list and detail pages) - note: API uses plural 'capas'
+    if (url.includes('/grc/capas') && method === 'GET') {
+      logMock(method, url, true);
+      const mockCapa = {
+        id: 'mock-capa-001',
+        tenantId: 'test-tenant-id',
+        title: 'Mock Corrective Action Plan',
+        description: 'CAPA to address security control failure',
+        type: 'corrective',
+        status: 'planned',
+        priority: 'high',
+        dueDate: '2024-02-15',
+        issueId: 'mock-issue-001',
+        issue: {
+          id: 'mock-issue-001',
+          title: 'Mock Security Control Failure Issue',
+          status: 'OPEN',
+          severity: 'HIGH',
+        },
+        createdAt: '2024-01-22T00:00:00Z',
+        updatedAt: '2024-01-22T00:00:00Z',
+      };
+      if (url.match(/\/grc\/capas\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockCapa));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockCapa],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
     // Generic fallback for other API endpoints
     if (method === 'GET') {
       logMock(method, url, true);

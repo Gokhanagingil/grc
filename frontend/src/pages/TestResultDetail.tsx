@@ -270,10 +270,10 @@ export const TestResultDetail: React.FC = () => {
 
   const isFailed = testResult.result?.toUpperCase() === 'FAIL';
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => navigate('/test-results')} data-testid="back-button">
+    return (
+      <Box sx={{ p: 3 }} data-testid="test-result-detail-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/test-results')} data-testid="back-button">
           <BackIcon />
         </IconButton>
         <Box flex={1}>
@@ -472,9 +472,9 @@ export const TestResultDetail: React.FC = () => {
               {historyLoading ? (
                 <Typography>Loading history...</Typography>
               ) : statusHistory.length === 0 ? (
-                <Typography color="text.secondary">No status history available.</Typography>
+                <Typography color="text.secondary" data-testid="status-history-empty">No status history available.</Typography>
               ) : (
-                <Table size="small">
+                <Table size="small" data-testid="status-history-table">
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>

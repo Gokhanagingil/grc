@@ -264,32 +264,33 @@ export const TestResultList: React.FC = () => {
   ), [resultFilter, handleResultChange]);
 
   return (
-    <GenericListPage<TestResultData>
-      title="Test Results"
-      icon={<TestResultIcon />}
-      items={items}
-      columns={columns}
-      total={total}
-      page={page}
-      pageSize={pageSize}
-      isLoading={isLoading || authLoading}
-      error={error}
-      search={search}
-      onPageChange={setPage}
-      onPageSizeChange={setPageSize}
-      onSearchChange={setSearch}
-      onRefresh={refetch}
-      getRowKey={(testResult) => testResult.id}
-      searchPlaceholder="Search test results..."
-      emptyMessage="No test results found"
-      emptyFilteredMessage="Try adjusting your filters or search query"
-      filters={getActiveFilters()}
-      onFilterRemove={handleFilterRemove}
-      onClearFilters={handleClearFilters}
-      toolbarActions={toolbarActions}
-      banner={<GrcFrameworkWarningBanner />}
-      minTableWidth={900}
-    />
+        <GenericListPage<TestResultData>
+          title="Test Results"
+          icon={<TestResultIcon />}
+          items={items}
+          columns={columns}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          isLoading={isLoading || authLoading}
+          error={error}
+          search={search}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          onSearchChange={setSearch}
+          onRefresh={refetch}
+          getRowKey={(testResult) => testResult.id}
+          searchPlaceholder="Search test results..."
+          emptyMessage="No test results found"
+          emptyFilteredMessage="Try adjusting your filters or search query"
+          filters={getActiveFilters()}
+          onFilterRemove={handleFilterRemove}
+          onClearFilters={handleClearFilters}
+          toolbarActions={toolbarActions}
+          banner={<GrcFrameworkWarningBanner />}
+          minTableWidth={900}
+          testId="test-result-list-page"
+        />
   );
 };
 

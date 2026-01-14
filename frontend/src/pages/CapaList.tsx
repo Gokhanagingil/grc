@@ -340,32 +340,33 @@ export const CapaList: React.FC = () => {
 
   return (
     <>
-      <GenericListPage<CapaData>
-        title="CAPAs"
-        icon={<CapaIcon />}
-        items={items}
-        columns={columns}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        isLoading={isLoading || authLoading}
-        error={error}
-        search={search}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        onSearchChange={setSearch}
-        onRefresh={refetch}
-        getRowKey={(capa) => capa.id}
-        searchPlaceholder="Search CAPAs..."
-        emptyMessage="No CAPAs found"
-        emptyFilteredMessage="Try adjusting your filters or search query"
-        filters={getActiveFilters()}
-        onFilterRemove={handleFilterRemove}
-        onClearFilters={handleClearFilters}
-        toolbarActions={toolbarActions}
-        banner={<GrcFrameworkWarningBanner />}
-        minTableWidth={1000}
-      />
+            <GenericListPage<CapaData>
+              title="CAPAs"
+              icon={<CapaIcon />}
+              items={items}
+              columns={columns}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              isLoading={isLoading || authLoading}
+              error={error}
+              search={search}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              onSearchChange={setSearch}
+              onRefresh={refetch}
+              getRowKey={(capa) => capa.id}
+              searchPlaceholder="Search CAPAs..."
+              emptyMessage="No CAPAs found"
+              emptyFilteredMessage="Try adjusting your filters or search query"
+              filters={getActiveFilters()}
+              onFilterRemove={handleFilterRemove}
+              onClearFilters={handleClearFilters}
+              toolbarActions={toolbarActions}
+              banner={<GrcFrameworkWarningBanner />}
+              minTableWidth={1000}
+              testId="capa-list-page"
+            />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add New CAPA</DialogTitle>

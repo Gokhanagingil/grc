@@ -402,6 +402,11 @@ export const API_PATHS = {
     VIEWS: '/grc/platform/views',
     VIEW: (tableName: string) => `/grc/platform/views/${tableName}`,
   },
+
+  // GRC Insights endpoints (Sprint 1E)
+  GRC_INSIGHTS: {
+    OVERVIEW: '/grc/insights/overview',
+  },
 } as const;
 
 // ============================================================================
@@ -2656,4 +2661,41 @@ export const platformViewsApi = {
 
   getAllViewPreferences: (tenantId: string) =>
     api.get(API_PATHS.PLATFORM.VIEWS, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Insights API (Sprint 1E)
+// ============================================================================
+
+export interface GrcInsightsOverview {
+  openIssuesBySeverity: {
+    CRITICAL: number;
+    HIGH: number;
+    MEDIUM: number;
+    LOW: number;
+  };
+  overdueCAPAsCount: number;
+  recentFailTestResults: Array<{
+    id: string;
+    name: string;
+    testedAt: string | null;
+    controlTestName: string | null;
+  }>;
+  evidenceStats: {
+    linked: number;
+    unlinked: number;
+    total: number;
+  };
+  summary: {
+    totalOpenIssues: number;
+    totalOverdueCAPAs: number;
+    totalFailedTests: number;
+  };
+}
+
+export const grcInsightsApi = {
+  getOverview: async (tenantId: string): Promise<GrcInsightsOverview> => {
+    const response = await api.get(API_PATHS.GRC_INSIGHTS.OVERVIEW, withTenantId(tenantId));
+    return unwrapResponse<GrcInsightsOverview>(response);
+  },
 };
