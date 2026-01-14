@@ -606,7 +606,9 @@ export const Layout: React.FC = () => {
 
         {/* Grouped items with 2-level nested menu support */}
         {filteredGroups.map((group) => {
-          const groupTestId = group.id === 'admin' ? 'nav-admin' : group.id === 'grc' && group.items.some(i => i.path === '/audits') ? null : `nav-${group.id}`;
+          // Generate stable test IDs for navigation groups
+          // GRC groups use 'nav-grc-{subgroup}' pattern, others use 'nav-{id}'
+          const groupTestId = group.id === 'admin' ? 'nav-admin' : `nav-group-${group.id}`;
           return (
             <React.Fragment key={group.id}>
               <ListItem disablePadding>

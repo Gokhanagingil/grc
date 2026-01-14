@@ -6,18 +6,65 @@ test.describe('Navigation', () => {
     await login(page);
   });
 
-  test('Left menu contains Admin and Audit items', async ({ page }) => {
-    // Navigate to dashboard first
+  test('Left navigation contains Admin and GRC group headings with key items', async ({ page }) => {
     await page.goto('/dashboard');
     
-    // Check for Admin menu item
     // Use .first() because drawer is rendered twice (mobile/desktop) causing duplicate test IDs
-    const adminMenuItem = page.getByTestId('nav-admin').first();
-    await expect(adminMenuItem).toBeVisible();
     
-    // Check for Audit menu item
-    const auditMenuItem = page.getByTestId('nav-audit').first();
-    await expect(auditMenuItem).toBeVisible();
+    // 1. Verify Admin exists as a top-level group
+    const adminGroup = page.getByTestId('nav-admin').first();
+    await expect(adminGroup).toBeVisible();
+    
+    // 2. Verify GRC group headings are present
+    // Library group
+    const libraryGroup = page.getByTestId('nav-group-grc-library').first();
+    await expect(libraryGroup).toBeVisible();
+    
+    // Assurance group
+    const assuranceGroup = page.getByTestId('nav-group-grc-assurance').first();
+    await expect(assuranceGroup).toBeVisible();
+    
+    // Findings & Remediation group
+    const findingsGroup = page.getByTestId('nav-group-grc-findings').first();
+    await expect(findingsGroup).toBeVisible();
+    
+    // Risk & Exceptions group
+    const riskGroup = page.getByTestId('nav-group-grc-risk').first();
+    await expect(riskGroup).toBeVisible();
+    
+    // Insights group
+    const insightsGroup = page.getByTestId('nav-group-grc-insights').first();
+    await expect(insightsGroup).toBeVisible();
+    
+    // 3. Verify representative items within each GRC group
+    // Library group is expanded by default - verify Controls item
+    const controlsItem = page.getByTestId('nav-controls').first();
+    await expect(controlsItem).toBeVisible();
+    
+    // Expand Assurance group and verify Evidence and Tests/Results items
+    await assuranceGroup.click();
+    const evidenceItem = page.getByTestId('nav-evidence').first();
+    await expect(evidenceItem).toBeVisible();
+    const testResultsItem = page.getByTestId('nav-tests-/-results').first();
+    await expect(testResultsItem).toBeVisible();
+    // Also verify Audits item is present
+    const auditsItem = page.getByTestId('nav-audit').first();
+    await expect(auditsItem).toBeVisible();
+    
+    // Expand Findings & Remediation group and verify Issues item
+    await findingsGroup.click();
+    const issuesItem = page.getByTestId('nav-issues').first();
+    await expect(issuesItem).toBeVisible();
+    
+    // Expand Risk & Exceptions group and verify Risks item
+    await riskGroup.click();
+    const risksItem = page.getByTestId('nav-risks').first();
+    await expect(risksItem).toBeVisible();
+    
+    // Expand Insights group and verify Coverage item
+    await insightsGroup.click();
+    const coverageItem = page.getByTestId('nav-coverage').first();
+    await expect(coverageItem).toBeVisible();
   });
 
   test('Clicking Admin -> Users loads Users list page', async ({ page }) => {
