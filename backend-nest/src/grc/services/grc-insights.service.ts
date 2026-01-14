@@ -126,7 +126,7 @@ export class GrcInsightsService {
   private async getOverdueCAPAsCount(tenantId: string): Promise<number> {
     const capaRepo = this.dataSource.getRepository(GrcCapa);
 
-    const closedStatuses = [CapaStatus.CLOSED, CapaStatus.CANCELLED];
+    const closedStatuses = [CapaStatus.CLOSED, CapaStatus.REJECTED];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

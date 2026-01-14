@@ -36,6 +36,7 @@ import {
   EvidenceStatus,
   ControlTestType,
   ControlTestStatus,
+  ControlEvidenceType,
   TestResultOutcome,
   EffectivenessRating,
   IssueType,
@@ -104,7 +105,6 @@ async function seedDemoStory() {
         code: 'DEMO-CTL-001',
         description:
           'Ensure all user passwords meet minimum complexity requirements including length, special characters, and rotation policy.',
-        category: 'Access Management',
         status: ControlStatus.IMPLEMENTED,
         ownerUserId: DEMO_ADMIN_ID,
       });
@@ -162,7 +162,7 @@ async function seedDemoStory() {
         tenantId: DEMO_TENANT_ID,
         controlId: DEMO_STORY_CONTROL_ID,
         evidenceId: DEMO_STORY_EVIDENCE_ID,
-        type: 'BASELINE',
+        evidenceType: ControlEvidenceType.BASELINE,
       });
       await controlEvidenceRepo.save(controlEvidence);
       console.log('   Linked evidence to control');
@@ -188,9 +188,9 @@ async function seedDemoStory() {
           'Quarterly test to verify password complexity requirements are enforced across all systems.',
         testType: ControlTestType.MANUAL,
         status: ControlTestStatus.COMPLETED,
-        frequency: 'quarterly',
-        lastTestedAt: new Date(),
-        nextTestDue: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+        scheduledDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        startedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        completedAt: new Date(),
       });
       await controlTestRepo.save(controlTest);
       console.log(
@@ -213,14 +213,15 @@ async function seedDemoStory() {
         id: DEMO_STORY_TEST_RESULT_ID,
         tenantId: DEMO_TENANT_ID,
         controlTestId: DEMO_STORY_CONTROL_TEST_ID,
-        name: 'Demo: Password Policy Test - FAILED',
-        description:
-          'Test revealed that 15% of legacy system accounts do not meet the minimum password length requirement of 12 characters.',
         result: TestResultOutcome.FAIL,
         effectivenessRating: EffectivenessRating.PARTIALLY_EFFECTIVE,
-        testedAt: new Date(),
-        notes:
+        resultDetails:
+          'Test revealed that 15% of legacy system accounts do not meet the minimum password length requirement of 12 characters.',
+        exceptionsNoted:
           'Finding: Legacy HR system allows 8-character passwords. Recommendation: Update legacy system password policy or migrate to SSO.',
+        exceptionsCount: 15,
+        recommendations:
+          'Update legacy system password policy or migrate to SSO.',
       });
       await testResultRepo.save(testResult);
       console.log('   Created FAIL test result: Password Policy Test - FAILED');
