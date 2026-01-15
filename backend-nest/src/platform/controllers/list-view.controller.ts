@@ -11,6 +11,8 @@ import {
   UseGuards,
   BadRequestException,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -79,7 +81,8 @@ export class ListViewController {
       roleId,
     );
 
-    return { data: result };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return result;
   }
 
   @Get(':id')
@@ -94,7 +97,8 @@ export class ListViewController {
 
     const view = await this.listViewService.getById(tenantId, id);
 
-    return { data: view };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return view;
   }
 
   @Post()
@@ -118,7 +122,8 @@ export class ListViewController {
 
     const view = await this.listViewService.create(tenantId, userId, dto);
 
-    return { data: view };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return view;
   }
 
   @Put(':id')
@@ -135,7 +140,8 @@ export class ListViewController {
 
     const view = await this.listViewService.update(tenantId, userId, id, dto);
 
-    return { data: view };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return view;
   }
 
   @Put(':id/columns')
@@ -161,22 +167,22 @@ export class ListViewController {
       dto.columns,
     );
 
-    return { data: view };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return view;
   }
 
   @Delete(':id')
   @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Headers('x-tenant-id') tenantId: string,
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<void> {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
     await this.listViewService.delete(tenantId, userId, id);
-
-    return { data: { success: true } };
   }
 }

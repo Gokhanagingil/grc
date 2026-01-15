@@ -50,9 +50,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
-      sub: payload.sub,
+      id: payload.sub, // User ID for @CurrentUser('id')
+      sub: payload.sub, // Keep sub for backward compatibility
       email: payload.email,
       role: payload.role,
+      tenantId: user.tenantId, // Include tenantId for tenant-scoped operations
     };
   }
 }

@@ -150,13 +150,17 @@ export class ListViewService {
   ): Promise<ListView> {
     this.validateTableName(data.tableName);
 
+    // Default scope to USER if not provided
+    const scope = data.scope || ListViewScope.USER;
+
     const view = this.listViewRepository.create({
       tenantId,
       tableName: data.tableName,
       name: data.name,
-      scope: data.scope || ListViewScope.USER,
-      ownerUserId: data.scope === ListViewScope.USER ? userId : null,
-      roleId: data.scope === ListViewScope.ROLE ? data.roleId : null,
+      scope,
+      // Set ownerUserId for USER scope (whether explicit or defaulted)
+      ownerUserId: scope === ListViewScope.USER ? userId : null,
+      roleId: scope === ListViewScope.ROLE ? data.roleId : null,
       isDefault: data.isDefault || false,
     });
 

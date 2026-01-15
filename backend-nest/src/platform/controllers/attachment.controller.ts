@@ -13,6 +13,9 @@ import {
   StreamableFile,
   ParseUUIDPipe,
   Res,
+  HttpCode,
+  HttpStatus,
+  SetMetadata,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -23,6 +26,7 @@ import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { CurrentUser } from '../../common/decorators';
 import { AttachmentService } from '../services/attachment.service';
+import { SKIP_TRANSFORM_KEY } from '../../common/interceptors/response-transform.interceptor';
 
 interface UploadedFileInfo {
   originalname: string;
@@ -91,7 +95,8 @@ export class AttachmentController {
       buffer: file.buffer,
     });
 
-    return { data: attachment };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return attachment;
   }
 
   /**
@@ -122,7 +127,8 @@ export class AttachmentController {
       refId,
     );
 
-    return { data: attachments };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return attachments;
   }
 
   /**
@@ -140,7 +146,8 @@ export class AttachmentController {
 
     const attachment = await this.attachmentService.getById(tenantId, id);
 
-    return { data: attachment };
+    // Return directly - ResponseTransformInterceptor will wrap in { success: true, data: ... }
+    return attachment;
   }
 
   /**
@@ -148,6 +155,7 @@ export class AttachmentController {
    */
   @Get(':id/download')
   @Permissions(Permission.GRC_EVIDENCE_READ)
+  @SetMetadata(SKIP_TRANSFORM_KEY, true) // Skip response transformation for streaming file
   async download(
     @Headers('x-tenant-id') tenantId: string,
     @CurrentUser('id') userId: string,
@@ -178,17 +186,16 @@ export class AttachmentController {
    */
   @Delete(':id')
   @Permissions(Permission.GRC_EVIDENCE_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Headers('x-tenant-id') tenantId: string,
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<void> {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
     await this.attachmentService.delete(tenantId, userId, id);
-
-    return { data: { success: true } };
   }
 }
