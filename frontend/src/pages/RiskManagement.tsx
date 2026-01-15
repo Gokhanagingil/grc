@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -38,10 +38,27 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { useSearchParams } from 'react-router-dom';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  ResponsiveTable,
+  FilterOption,
+  ListToolbar,
+  FilterBuilderBasic,
+  FilterConfig,
+  FilterTree,
+} from '../components/common';
 import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 // Policy interface for relationship management
 interface Policy {
@@ -110,23 +127,90 @@ interface Risk {
   isDeleted: boolean;
 }
 
+const RISK_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: Object.values(RiskStatus),
+      enumLabels: {
+        [RiskStatus.DRAFT]: 'Draft',
+        [RiskStatus.IDENTIFIED]: 'Identified',
+        [RiskStatus.ASSESSED]: 'Assessed',
+        [RiskStatus.MITIGATING]: 'Mitigating',
+        [RiskStatus.ACCEPTED]: 'Accepted',
+        [RiskStatus.CLOSED]: 'Closed',
+      },
+    },
+    {
+      name: 'severity',
+      label: 'Severity',
+      type: 'enum',
+      enumValues: Object.values(RiskSeverity),
+      enumLabels: {
+        [RiskSeverity.LOW]: 'Low',
+        [RiskSeverity.MEDIUM]: 'Medium',
+        [RiskSeverity.HIGH]: 'High',
+        [RiskSeverity.CRITICAL]: 'Critical',
+      },
+    },
+    {
+      name: 'likelihood',
+      label: 'Likelihood',
+      type: 'enum',
+      enumValues: Object.values(RiskLikelihood),
+      enumLabels: {
+        [RiskLikelihood.RARE]: 'Rare',
+        [RiskLikelihood.UNLIKELY]: 'Unlikely',
+        [RiskLikelihood.POSSIBLE]: 'Possible',
+        [RiskLikelihood.LIKELY]: 'Likely',
+        [RiskLikelihood.ALMOST_CERTAIN]: 'Almost Certain',
+      },
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated Date',
+      type: 'date',
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 30,
+};
 
 export const RiskManagement: React.FC = () => {
-  const { user } = useAuth();
-  const [risks, setRisks] = useState<Risk[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [viewingRisk, setViewingRisk] = useState<Risk | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>('');
-  const [severityFilter, setSeverityFilter] = useState<RiskSeverity | ''>('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -152,55 +236,55 @@ export const RiskManagement: React.FC = () => {
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
-  const fetchRisks = useCallback(async () => {
-    // Allow fetching even without tenantId - backend will handle authorization
-    try {
-      setLoading(true);
-      setError('');
-      const params = new URLSearchParams({
-        page: String(page + 1), // API uses 1-based pagination
-        pageSize: String(rowsPerPage),
-      });
-      
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (severityFilter) {
-        params.append('severity', severityFilter);
-      }
-      
-      // Use centralized API client - no more /nest/ prefix
-      const response = await riskApi.list(tenantId, params);
-      
-      // Handle NestJS response format using centralized unwrapper
-      const result = unwrapPaginatedResponse<Risk>(response);
-      setRisks(result.items);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
-      const status = error.response?.status;
-      const message = error.response?.data?.error?.message || error.response?.data?.message;
-      
-      if (status === 401) {
-        setError('Session expired. Please login again.');
-      } else if (status === 403) {
-        setError('You do not have permission to view risks.');
-      } else if (status === 404 || status === 502) {
-        // Backend not available - show empty state instead of error
-        setRisks([]);
-        setTotal(0);
-        console.warn('Risk management backend not available');
-      } else {
-        setError(message || 'Failed to fetch risks. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter]);
+  // Parse URL query params for unified list state
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
 
-  useEffect(() => {
-    fetchRisks();
-  }, [fetchRisks]);
+  const statusFilter = searchParams.get('status') || '';
+  const severityFilter = searchParams.get('severity') || '';
+  const advancedFilter = parsedQuery.filterTree;
+
+  // Build additional filters from URL params
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (severityFilter) filters.severity = severityFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, severityFilter, advancedFilter]);
+
+  // Fetch function for useUniversalList
+  const fetchRisks = useCallback((params: Record<string, unknown>) => {
+    return riskApi.list(tenantId, params);
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items: risks,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading: loading,
+    error: listError,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Risk>({
+    fetchFn: fetchRisks,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
 
   // Fetch all policies and requirements for relationship dropdowns
   const fetchAllPoliciesAndRequirements = useCallback(async () => {
@@ -356,25 +440,100 @@ export const RiskManagement: React.FC = () => {
         // Use centralized API client - no more /nest/ prefix
         await riskApi.delete(tenantId, id);
         setSuccess('Risk deleted successfully');
-        fetchRisks();
+        refetch();
         
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);
       } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || 'Failed to delete risk');
+        const errorObj = err as { response?: { data?: { message?: string } } };
+        setError(errorObj.response?.data?.message || 'Failed to delete risk');
       }
     }
   };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
+    setPage(newPage + 1); // useUniversalList uses 1-based pagination
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+    setPageSize(parseInt(event.target.value, 10));
   };
+
+  // URL-based filter handlers
+  const handleStatusFilterChange = useCallback((value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set('status', value);
+    } else {
+      newParams.delete('status');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleSeverityFilterChange = useCallback((value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set('severity', value);
+    } else {
+      newParams.delete('severity');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleClearAllFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: formatStatus(statusFilter as RiskStatus) });
+    }
+    if (severityFilter) {
+      filters.push({ key: 'severity', label: 'Severity', value: formatSeverity(severityFilter as RiskSeverity) });
+    }
+    return filters;
+  }, [statusFilter, severityFilter]);
 
   const getSeverityColor = (severity: RiskSeverity): 'error' | 'warning' | 'info' | 'success' | 'default' => {
     switch (severity) {
@@ -418,16 +577,19 @@ export const RiskManagement: React.FC = () => {
     return likelihood.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  if (loading) {
+  // Combine local error state with list error
+  const displayError = error || listError;
+
+  if (loading && risks.length === 0) {
     return <LoadingState message="Loading risks..." />;
   }
 
-  if (error && risks.length === 0) {
+  if (displayError && risks.length === 0) {
     return (
       <ErrorState
         title="Failed to load risks"
-        message={error}
-        onRetry={fetchRisks}
+        message={displayError}
+        onRetry={refetch}
       />
     );
   }
@@ -448,34 +610,29 @@ export const RiskManagement: React.FC = () => {
         {/* Onboarding Framework Warning Banner */}
         <GrcFrameworkWarningBanner />
 
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {displayError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{displayError}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      {/* Toolbar with Search and Filters */}
-      <TableToolbar
-        searchValue={searchQuery}
-        onSearchChange={(value) => {
-          setSearchQuery(value);
-          setPage(0);
-        }}
+      {/* Toolbar with Search and Filters - Using Unified List Framework */}
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
         searchPlaceholder="Search risks..."
-        filters={[
-          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
-          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: formatSeverity(severityFilter) }] : []),
-        ] as FilterOption[]}
-        onFilterRemove={(key) => {
-          if (key === 'status') setStatusFilter('');
-          if (key === 'severity') setSeverityFilter('');
-          setPage(0);
-        }}
-        onClearFilters={() => {
-          setStatusFilter('');
-          setSeverityFilter('');
-          setSearchQuery('');
-          setPage(0);
-        }}
-        onRefresh={fetchRisks}
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearAllFilters}
+        activeFilterCount={activeAdvancedFilterCount}
+        onRefresh={refetch}
         loading={loading}
+        filterButton={
+          <FilterBuilderBasic
+            config={RISK_FILTER_CONFIG}
+            initialFilter={advancedFilter}
+            onApply={handleAdvancedFilterApply}
+            onClear={handleAdvancedFilterClear}
+            activeFilterCount={activeAdvancedFilterCount}
+          />
+        }
         actions={
           <Box display="flex" gap={1} alignItems="center">
             <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -483,10 +640,7 @@ export const RiskManagement: React.FC = () => {
               <Select
                 value={statusFilter}
                 label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as RiskStatus | '');
-                  setPage(0);
-                }}
+                onChange={(e) => handleStatusFilterChange(String(e.target.value))}
               >
                 <MenuItem value="">All</MenuItem>
                 {Object.values(RiskStatus).map((status) => (
@@ -499,10 +653,7 @@ export const RiskManagement: React.FC = () => {
               <Select
                 value={severityFilter}
                 label="Severity"
-                onChange={(e) => {
-                  setSeverityFilter(e.target.value as RiskSeverity | '');
-                  setPage(0);
-                }}
+                onChange={(e) => handleSeverityFilterChange(String(e.target.value))}
               >
                 <MenuItem value="">All</MenuItem>
                 {Object.values(RiskSeverity).map((severity) => (
@@ -622,7 +773,7 @@ export const RiskManagement: React.FC = () => {
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
             count={total}
-            rowsPerPage={rowsPerPage}
+            rowsPerPage={pageSize}
             page={page}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
