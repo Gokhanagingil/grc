@@ -101,7 +101,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
           <Select
             value={condition.value || ''}
             label="Value"
-            onChange={(e) => handleValueChange(e.target.value)}
+            onChange={(e) => handleValueChange(String(e.target.value))}
           >
             {selectedField.enumValues.map((enumValue) => (
               <MenuItem key={enumValue} value={enumValue}>
@@ -146,7 +146,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
           <Select
             value={condition.value?.toString() || ''}
             label="Value"
-            onChange={(e) => handleValueChange(e.target.value)}
+            onChange={(e) => handleValueChange(String(e.target.value))}
           >
             <MenuItem value="true">Yes</MenuItem>
             <MenuItem value="false">No</MenuItem>
@@ -173,7 +173,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
         <Select
           value={condition.field}
           label="Field"
-          onChange={(e) => handleFieldChange(e.target.value)}
+          onChange={(e) => handleFieldChange(String(e.target.value))}
         >
           {fields.map((field) => (
             <MenuItem key={field.name} value={field.name}>
