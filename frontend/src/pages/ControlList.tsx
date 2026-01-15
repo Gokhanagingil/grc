@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Box,
   Chip,
@@ -17,7 +17,16 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { controlApi } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  AdvancedFilterBuilder,
+  FilterTree,
+  FilterConfig,
+  encodeFilter,
+  countConditions,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
 
@@ -114,10 +123,106 @@ const formatDate = (dateString: string | null): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+const CONTROL_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: Object.values(ControlStatus),
+      enumLabels: {
+        [ControlStatus.DRAFT]: 'Draft',
+        [ControlStatus.IN_DESIGN]: 'In Design',
+        [ControlStatus.IMPLEMENTED]: 'Implemented',
+        [ControlStatus.INOPERATIVE]: 'Inoperative',
+        [ControlStatus.RETIRED]: 'Retired',
+      },
+    },
+    {
+      name: 'type',
+      label: 'Type',
+      type: 'enum',
+      enumValues: Object.values(ControlType),
+      enumLabels: {
+        [ControlType.PREVENTIVE]: 'Preventive',
+        [ControlType.DETECTIVE]: 'Detective',
+        [ControlType.CORRECTIVE]: 'Corrective',
+      },
+    },
+    {
+      name: 'implementationType',
+      label: 'Implementation Type',
+      type: 'enum',
+      enumValues: Object.values(ControlImplementationType),
+      enumLabels: {
+        [ControlImplementationType.MANUAL]: 'Manual',
+        [ControlImplementationType.AUTOMATED]: 'Automated',
+        [ControlImplementationType.IT_DEPENDENT]: 'IT Dependent',
+      },
+    },
+    {
+      name: 'frequency',
+      label: 'Frequency',
+      type: 'enum',
+      enumValues: Object.values(ControlFrequency),
+      enumLabels: {
+        [ControlFrequency.CONTINUOUS]: 'Continuous',
+        [ControlFrequency.DAILY]: 'Daily',
+        [ControlFrequency.WEEKLY]: 'Weekly',
+        [ControlFrequency.MONTHLY]: 'Monthly',
+        [ControlFrequency.QUARTERLY]: 'Quarterly',
+        [ControlFrequency.ANNUAL]: 'Annual',
+      },
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated Date',
+      type: 'date',
+    },
+    {
+      name: 'effectiveDate',
+      label: 'Effective Date',
+      type: 'date',
+    },
+    {
+      name: 'lastTestedDate',
+      label: 'Last Tested Date',
+      type: 'date',
+    },
+    {
+      name: 'nextTestDate',
+      label: 'Next Test Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 30,
+};
+
 export const ControlList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(null);
   
   const tenantId = user?.tenantId || '';
   
@@ -134,8 +239,9 @@ export const ControlList: React.FC = () => {
     if (unlinkedFilter) filters.unlinked = 'true';
     if (processId) filters.processId = processId;
     if (requirementId) filters.requirementId = requirementId;
+    if (advancedFilter) filters.filter = encodeFilter(advancedFilter);
     return filters;
-  }, [statusFilter, typeFilter, unlinkedFilter, processId, requirementId]);
+  }, [statusFilter, typeFilter, unlinkedFilter, processId, requirementId, advancedFilter]);
 
   const fetchControls = useCallback((params: Record<string, unknown>) => {
     return controlApi.list(tenantId, params);
@@ -307,8 +413,31 @@ export const ControlList: React.FC = () => {
     },
   ], [handleViewControl]);
 
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    setAdvancedFilter(filter);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    setAdvancedFilter(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countConditions(advancedFilter) : 0;
+
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <AdvancedFilterBuilder
+        config={CONTROL_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -347,7 +476,7 @@ export const ControlList: React.FC = () => {
         </Select>
       </FormControl>
     </Box>
-  ), [statusFilter, typeFilter, unlinkedFilter, handleStatusChange, handleTypeChange, handleUnlinkedChange]);
+  ), [statusFilter, typeFilter, unlinkedFilter, handleStatusChange, handleTypeChange, handleUnlinkedChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <GenericListPage<Control>

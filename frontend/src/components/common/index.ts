@@ -14,3 +14,5 @@ export { ColumnFilterRow } from './ColumnFilterRow';
 export { AttachmentPanel } from './AttachmentPanel';
 export { ColumnManagementModal } from './ColumnManagementModal';
 export { ExportButton } from './ExportButton';
+export { AdvancedFilterBuilder } from './AdvancedFilter';
+export * from './AdvancedFilter/types';

@@ -30,6 +30,14 @@ import {
   ListQueryDto,
   UniversalListConfig,
   ListResponse,
+  parseFilterJson,
+  validateFilterAgainstAllowlist,
+  applyFilterTree,
+  applyQuickSearch,
+  validateQuickSearch,
+  CONTROL_ALLOWLIST,
+  CONTROL_SEARCHABLE_COLUMNS,
+  resetParamCounter,
 } from '../../common';
 
 /**
@@ -153,11 +161,21 @@ export class GrcControlController {
    * - page, limit (or pageSize): pagination
    * - sort: field:dir format (e.g., createdAt:DESC)
    * - search: text search in name, code, description
-   * - status: filter by control status (case-insensitive)
-   * - type: filter by control type (case-insensitive)
+   * - q: quick search (max 120 chars) - searches name, code, description
+   * - filter: JSON filter tree (URI-encoded) for advanced filtering
+   * - status: filter by control status (case-insensitive) - legacy param
+   * - type: filter by control type (case-insensitive) - legacy param
    * - requirementId: filter controls linked to a specific requirement
    * - processId: filter controls linked to a specific process
    * - unlinked: if 'true', return controls with no requirement AND no process links
+   *
+   * Advanced Filter JSON format:
+   * { "and": [{ "field": "status", "op": "is", "value": "implemented" }] }
+   * { "or": [{ "field": "name", "op": "contains", "value": "access" }] }
+   * Single condition: { "field": "status", "op": "is", "value": "draft" }
+   *
+   * Supported operators: is, is_not, is_empty, is_not_empty, contains, not_contains,
+   *                      after, before, gt, lt, gte, lte
    */
   @Get()
   @Permissions(Permission.GRC_CONTROL_READ)
@@ -173,7 +191,8 @@ export class GrcControlController {
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('search') search?: string,
-    @Query('q') legacySearch?: string,
+    @Query('q') quickSearch?: string,
+    @Query('filter') filterJson?: string,
     @Query('requirementId') requirementId?: string,
     @Query('processId') processId?: string,
     @Query('unlinked') unlinked?: string,
@@ -182,12 +201,14 @@ export class GrcControlController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
+    // Reset param counter for unique parameter names
+    resetParamCounter();
+
     const listQuery = new ListQueryDto();
     listQuery.page = Number(page);
     listQuery.pageSize = Number(pageSize);
     listQuery.limit = limit ? Number(limit) : undefined;
     listQuery.search = search;
-    listQuery.q = legacySearch;
     listQuery.sort = sort;
     listQuery.sortBy = sortBy;
     listQuery.sortOrder = sortOrder;
@@ -204,6 +225,40 @@ export class GrcControlController {
     );
     this.universalListService.applySoftDeleteFilter(queryBuilder, 'control');
 
+    // Apply quick search (q parameter) - searches name, code, description
+    const sanitizedQuickSearch = validateQuickSearch(quickSearch);
+    if (sanitizedQuickSearch) {
+      applyQuickSearch(
+        queryBuilder,
+        sanitizedQuickSearch,
+        CONTROL_SEARCHABLE_COLUMNS,
+        'control',
+      );
+    }
+
+    // Apply advanced filter (filter parameter)
+    if (filterJson) {
+      try {
+        const decodedFilter = decodeURIComponent(filterJson);
+        const parsedFilter = parseFilterJson(decodedFilter);
+        validateFilterAgainstAllowlist(parsedFilter.tree, CONTROL_ALLOWLIST);
+        applyFilterTree(
+          queryBuilder,
+          parsedFilter.tree,
+          CONTROL_ALLOWLIST,
+          'control',
+        );
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException(
+          `Invalid filter: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+      }
+    }
+
+    // Apply legacy filters (status, type) for backward compatibility
     if (requirementId) {
       queryBuilder.andWhere(
         `control.id IN (
