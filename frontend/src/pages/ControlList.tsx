@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Box,
   Chip,
@@ -21,14 +21,17 @@ import {
   GenericListPage,
   ColumnDefinition,
   FilterOption,
-  AdvancedFilterBuilder,
+  FilterBuilderBasic,
   FilterTree,
   FilterConfig,
-  encodeFilter,
-  countConditions,
 } from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 export enum ControlType {
   PREVENTIVE = 'preventive',
@@ -222,7 +225,6 @@ export const ControlList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(null);
   
   const tenantId = user?.tenantId || '';
   
@@ -232,6 +234,13 @@ export const ControlList: React.FC = () => {
   const processId = searchParams.get('processId') || '';
   const requirementId = searchParams.get('requirementId') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (statusFilter) filters.status = statusFilter;
@@ -239,7 +248,10 @@ export const ControlList: React.FC = () => {
     if (unlinkedFilter) filters.unlinked = 'true';
     if (processId) filters.processId = processId;
     if (requirementId) filters.requirementId = requirementId;
-    if (advancedFilter) filters.filter = encodeFilter(advancedFilter);
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
   }, [statusFilter, typeFilter, unlinkedFilter, processId, requirementId, advancedFilter]);
 
@@ -414,24 +426,31 @@ export const ControlList: React.FC = () => {
   ], [handleViewControl]);
 
   const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
-    setAdvancedFilter(filter);
     const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
     newParams.set('page', '1');
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const handleAdvancedFilterClear = useCallback(() => {
-    setAdvancedFilter(null);
     const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
     newParams.set('page', '1');
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const activeAdvancedFilterCount = advancedFilter ? countConditions(advancedFilter) : 0;
+  const activeAdvancedFilterCount= advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
-      <AdvancedFilterBuilder
+      <FilterBuilderBasic
         config={CONTROL_FILTER_CONFIG}
         initialFilter={advancedFilter}
         onApply={handleAdvancedFilterApply}
