@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -58,13 +58,7 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<ListViewData | null>(null);
 
-  useEffect(() => {
-    if (open && tenantId) {
-      loadListView();
-    }
-  }, [open, tenantId, tableName]);
-
-  const loadListView = async () => {
+  const loadListView = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -115,7 +109,13 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, tableName, availableColumns]);
+
+  useEffect(() => {
+    if (open && tenantId) {
+      loadListView();
+    }
+  }, [open, tenantId, loadListView]);
 
   const handleToggleColumn = (columnName: string) => {
     setColumns((prev) =>
