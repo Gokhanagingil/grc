@@ -407,6 +407,30 @@ export const API_PATHS = {
   GRC_INSIGHTS: {
     OVERVIEW: '/grc/insights/overview',
   },
+
+  // Platform Core - Universal Attachments
+  ATTACHMENTS: {
+    LIST: '/grc/attachments',
+    UPLOAD: '/grc/attachments',
+    GET: (id: string) => `/grc/attachments/${id}`,
+    DOWNLOAD: (id: string) => `/grc/attachments/${id}/download`,
+    DELETE: (id: string) => `/grc/attachments/${id}`,
+  },
+
+  // Platform Core - List Views
+  LIST_VIEWS: {
+    LIST: '/grc/list-views',
+    CREATE: '/grc/list-views',
+    GET: (id: string) => `/grc/list-views/${id}`,
+    UPDATE: (id: string) => `/grc/list-views/${id}`,
+    UPDATE_COLUMNS: (id: string) => `/grc/list-views/${id}/columns`,
+    DELETE: (id: string) => `/grc/list-views/${id}`,
+  },
+
+  // Platform Core - Export
+  EXPORT: {
+    CREATE: '/grc/export',
+  },
 } as const;
 
 // ============================================================================
@@ -2697,5 +2721,191 @@ export const grcInsightsApi = {
   getOverview: async (tenantId: string): Promise<GrcInsightsOverview> => {
     const response = await api.get(API_PATHS.GRC_INSIGHTS.OVERVIEW, withTenantId(tenantId));
     return unwrapResponse<GrcInsightsOverview>(response);
+  },
+};
+
+// ============================================================================
+// Platform Core - Universal Attachments
+// ============================================================================
+
+export interface AttachmentData {
+  id: string;
+  tenantId: string;
+  refTable: string;
+  refId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  storageProvider: 'local' | 's3';
+  status: 'uploaded' | 'scanned' | 'blocked' | 'deleted';
+  createdBy: string | null;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export const attachmentApi = {
+  list: async (tenantId: string, refTable: string, refId: string): Promise<AttachmentData[]> => {
+    const response = await api.get(
+      `${API_PATHS.ATTACHMENTS.LIST}?refTable=${encodeURIComponent(refTable)}&refId=${encodeURIComponent(refId)}`,
+      withTenantId(tenantId)
+    );
+    return unwrapResponse<AttachmentData[]>(response);
+  },
+
+  upload: async (tenantId: string, refTable: string, refId: string, file: File): Promise<AttachmentData> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(
+      `${API_PATHS.ATTACHMENTS.UPLOAD}?refTable=${encodeURIComponent(refTable)}&refId=${encodeURIComponent(refId)}`,
+      formData,
+      {
+        ...withTenantId(tenantId),
+        headers: {
+          ...withTenantId(tenantId).headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return unwrapResponse<AttachmentData>(response);
+  },
+
+  get: async (tenantId: string, id: string): Promise<AttachmentData> => {
+    const response = await api.get(API_PATHS.ATTACHMENTS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<AttachmentData>(response);
+  },
+
+  download: async (tenantId: string, id: string): Promise<Blob> => {
+    const response = await api.get(API_PATHS.ATTACHMENTS.DOWNLOAD(id), {
+      ...withTenantId(tenantId),
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
+  delete: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.ATTACHMENTS.DELETE(id), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Platform Core - List Views
+// ============================================================================
+
+export interface ListViewColumnData {
+  id: string;
+  columnName: string;
+  orderIndex: number;
+  visible: boolean;
+  width: number | null;
+  pinned: 'left' | 'right' | null;
+}
+
+export interface ListViewData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  name: string;
+  scope: 'user' | 'role' | 'tenant' | 'system';
+  ownerUserId: string | null;
+  roleId: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  columns: ListViewColumnData[];
+}
+
+export interface ListViewsResponse {
+  views: ListViewData[];
+  defaultView: ListViewData | null;
+}
+
+export interface CreateListViewDto {
+  tableName: string;
+  name: string;
+  scope?: 'user' | 'role' | 'tenant' | 'system';
+  roleId?: string;
+  isDefault?: boolean;
+  columns?: Array<{
+    columnName: string;
+    orderIndex: number;
+    visible?: boolean;
+    width?: number;
+    pinned?: 'left' | 'right';
+  }>;
+}
+
+export interface UpdateListViewDto {
+  name?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateColumnsDto {
+  columns: Array<{
+    columnName: string;
+    orderIndex: number;
+    visible?: boolean;
+    width?: number;
+    pinned?: 'left' | 'right';
+  }>;
+}
+
+export const listViewApi = {
+  list: async (tenantId: string, tableName: string, roleId?: string): Promise<ListViewsResponse> => {
+    let url = `${API_PATHS.LIST_VIEWS.LIST}?tableName=${encodeURIComponent(tableName)}`;
+    if (roleId) {
+      url += `&roleId=${encodeURIComponent(roleId)}`;
+    }
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<ListViewsResponse>(response);
+  },
+
+  get: async (tenantId: string, id: string): Promise<ListViewData> => {
+    const response = await api.get(API_PATHS.LIST_VIEWS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  create: async (tenantId: string, data: CreateListViewDto): Promise<ListViewData> => {
+    const response = await api.post(API_PATHS.LIST_VIEWS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  update: async (tenantId: string, id: string, data: UpdateListViewDto): Promise<ListViewData> => {
+    const response = await api.put(API_PATHS.LIST_VIEWS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  updateColumns: async (tenantId: string, id: string, data: UpdateColumnsDto): Promise<ListViewData> => {
+    const response = await api.put(API_PATHS.LIST_VIEWS.UPDATE_COLUMNS(id), data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  delete: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.LIST_VIEWS.DELETE(id), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Platform Core - Export
+// ============================================================================
+
+export interface ExportRequestDto {
+  tableName: string;
+  viewId?: string;
+  columns?: string[];
+  filters?: Record<string, unknown>;
+  search?: string;
+  sort?: { field: string; order: 'ASC' | 'DESC' };
+  format: 'csv' | 'xlsx';
+}
+
+export const exportApi = {
+  export: async (tenantId: string, data: ExportRequestDto): Promise<Blob> => {
+    const response = await api.post(API_PATHS.EXPORT.CREATE, data, {
+      ...withTenantId(tenantId),
+      responseType: 'blob',
+    });
+    return response.data as Blob;
   },
 };
