@@ -102,11 +102,9 @@ describe('Platform Core Features (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .post('/grc/attachments')
+          .post(`/grc/attachments?refTable=grc_risks&refId=${testRiskId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .field('refTable', 'grc_risks')
-          .field('refId', testRiskId)
           .attach('file', Buffer.from('test file content'), {
             filename: 'test-file.txt',
             contentType: 'text/plain',
@@ -130,11 +128,9 @@ describe('Platform Core Features (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .post('/grc/attachments')
+          .post(`/grc/attachments?refTable=invalid_table&refId=${testRiskId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .field('refTable', 'invalid_table')
-          .field('refId', testRiskId)
           .attach('file', Buffer.from('test'), {
             filename: 'test.txt',
             contentType: 'text/plain',
@@ -149,11 +145,9 @@ describe('Platform Core Features (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .post('/grc/attachments')
+          .post(`/grc/attachments?refTable=grc_risks&refId=${testRiskId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .field('refTable', 'grc_risks')
-          .field('refId', testRiskId)
           .attach('file', Buffer.from('test'), {
             filename: 'test.exe',
             contentType: 'application/x-msdownload',
@@ -168,10 +162,8 @@ describe('Platform Core Features (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .post('/grc/attachments')
+          .post('/grc/attachments?refTable=grc_risks&refId=some-id')
           .set('x-tenant-id', tenantId)
-          .field('refTable', 'grc_risks')
-          .field('refId', 'some-id')
           .attach('file', Buffer.from('test'), {
             filename: 'test.txt',
             contentType: 'text/plain',
