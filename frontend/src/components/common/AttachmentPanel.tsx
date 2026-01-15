@@ -25,7 +25,7 @@ import {
   PictureAsPdf as PdfIcon,
   Description as DocIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthProvider';
+import { useAuth } from '../../contexts/AuthContext';
 import { attachmentApi, AttachmentData } from '../../services/grcClient';
 
 interface AttachmentPanelProps {

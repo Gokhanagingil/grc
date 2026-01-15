@@ -20,7 +20,7 @@ import {
   DragIndicator as DragIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthProvider';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   listViewApi,
   ListViewData,

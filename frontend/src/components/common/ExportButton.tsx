@@ -11,7 +11,7 @@ import {
   FileDownload as ExportIcon,
   TableChart as CsvIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthProvider';
+import { useAuth } from '../../contexts/AuthContext';
 import { exportApi, ExportRequestDto } from '../../services/grcClient';
 
 interface ExportButtonProps {
