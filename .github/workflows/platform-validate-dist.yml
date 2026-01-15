@@ -1,0 +1,307 @@
+# =============================================================================
+# GRC Platform - Platform Validate Dist CI Gate
+# =============================================================================
+# Validates that platform-validate.js works correctly in production/staging
+# environment (dist mode) without ts-node or .ts file references.
+#
+# This workflow:
+#   - Builds backend Docker image
+#   - Runs migrations inside container
+#   - Runs node dist/scripts/platform-validate.js --skip-smoke
+#   - Validates no "Cannot find module" or ".ts" errors occur
+#
+# This is a REQUIRED check to prevent staging deployment failures where
+# compiled JS scripts try to reference .ts files that don't exist.
+# =============================================================================
+
+name: Platform Validate Dist
+
+on:
+  pull_request:
+    paths:
+      - 'backend-nest/src/scripts/**'
+      - 'backend-nest/Dockerfile'
+      - 'backend-nest/package*.json'
+      - '.github/workflows/platform-validate-dist.yml'
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'backend-nest/src/scripts/**'
+      - 'backend-nest/Dockerfile'
+      - 'backend-nest/package*.json'
+      - '.github/workflows/platform-validate-dist.yml'
+
+concurrency:
+  group: platform-validate-dist-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build Backend Docker Image
+  # ---------------------------------------------------------------------------
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend-nest
+          file: ./backend-nest/Dockerfile
+          push: false
+          tags: grc-backend:platform-validate
+          cache-from: type=gha,scope=platform-validate
+          cache-to: type=gha,mode=max,scope=platform-validate
+          load: true
+
+      - name: Export backend image
+        run: |
+          docker save grc-backend:platform-validate -o /tmp/backend-image.tar
+
+      - name: Upload backend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image-platform-validate
+          path: /tmp/backend-image.tar
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Platform Validate Dist Test
+  # ---------------------------------------------------------------------------
+  # Runs platform-validate.js inside the Docker container to ensure:
+  #   1. The script runs without ts-node
+  #   2. No "Cannot find module" errors for .ts files
+  #   3. All sub-scripts (validate-env, validate-db, etc.) resolve correctly
+  # ---------------------------------------------------------------------------
+  platform-validate-dist:
+    name: Platform Validate Dist
+    runs-on: ubuntu-latest
+    needs: build-backend
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_validate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform_validate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download backend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-image-platform-validate
+          path: /tmp
+
+      - name: Load backend image
+        run: |
+          docker load -i /tmp/backend-image.tar
+
+      - name: Wait for PostgreSQL
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d grc_platform_validate 2>/dev/null; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready"
+          exit 1
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations inside container..."
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=production \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_platform_validate \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-platform-validate-jwt-secret-for-testing-purposes-only-64chars \
+            -e REFRESH_TOKEN_SECRET=ci-platform-validate-refresh-secret-for-testing-purposes \
+            grc-backend:platform-validate \
+            node dist/scripts/migration-run.js
+          
+          echo "Migrations completed successfully"
+
+      - name: Verify dist scripts exist
+        run: |
+          echo "=== Verifying dist scripts exist in container ==="
+          docker run --rm grc-backend:platform-validate sh -c '
+            echo "Checking dist/scripts directory..."
+            ls -la /app/dist/scripts/ || { echo "ERROR: dist/scripts not found"; exit 1; }
+            
+            echo ""
+            echo "Checking for required .js scripts..."
+            for script in platform-validate validate-env validate-db validate-migrations; do
+              if [ -f "/app/dist/scripts/${script}.js" ]; then
+                echo "  [OK] ${script}.js exists"
+              else
+                echo "  [FAIL] ${script}.js NOT FOUND"
+                exit 1
+              fi
+            done
+            
+            echo ""
+            echo "Verifying NO .ts source files in dist/scripts..."
+            echo "  (Note: .d.ts declaration files are expected and allowed)"
+            # Exclude .d.ts files - they are TypeScript declaration files generated by tsc
+            TS_COUNT=$(find /app/dist/scripts -name "*.ts" ! -name "*.d.ts" 2>/dev/null | wc -l)
+            if [ "$TS_COUNT" -gt 0 ]; then
+              echo "  [FAIL] Found .ts source files in dist/scripts:"
+              find /app/dist/scripts -name "*.ts" ! -name "*.d.ts"
+              exit 1
+            fi
+            echo "  [OK] No .ts source files in dist/scripts (only .d.ts declarations)"
+            
+            echo ""
+            echo "Verifying /app/src does NOT exist (production container)..."
+            if [ -d "/app/src" ]; then
+              echo "  [WARN] /app/src exists - this is unexpected in production"
+            else
+              echo "  [OK] /app/src does not exist (correct for production)"
+            fi
+          '
+
+      - name: Run platform-validate.js in dist mode
+        run: |
+          echo "=== Running platform-validate.js in dist mode ==="
+          echo "This validates that the script works without ts-node or .ts files"
+          echo ""
+          
+          # Run platform-validate with --skip-smoke to avoid needing full app startup
+          # Capture both stdout and stderr to check for errors
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=production \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_platform_validate \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-platform-validate-jwt-secret-for-testing-purposes-only-64chars \
+            -e REFRESH_TOKEN_SECRET=ci-platform-validate-refresh-secret-for-testing-purposes \
+            grc-backend:platform-validate \
+            node dist/scripts/platform-validate.js --skip-smoke 2>&1 | tee /tmp/platform-validate-output.txt
+          
+          EXIT_CODE=${PIPESTATUS[0]}
+          
+          echo ""
+          echo "=== Checking for common dist-mode errors ==="
+          
+          # Check for "Cannot find module" errors (indicates .ts file reference)
+          if grep -i "Cannot find module" /tmp/platform-validate-output.txt; then
+            echo "[FAIL] Found 'Cannot find module' error - likely .ts file reference"
+            exit 1
+          fi
+          echo "[OK] No 'Cannot find module' errors"
+          
+          # Check for ts-node references (should not be used in dist mode)
+          if grep -i "ts-node" /tmp/platform-validate-output.txt; then
+            echo "[WARN] Found 'ts-node' reference in output - verify this is expected"
+          fi
+          
+          # Check for .ts file references in error messages
+          if grep -E "\.ts['\"]?\s*(not found|does not exist)" /tmp/platform-validate-output.txt; then
+            echo "[FAIL] Found .ts file reference error"
+            exit 1
+          fi
+          echo "[OK] No .ts file reference errors"
+          
+          echo ""
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "=== Platform Validate Dist: PASSED ==="
+            echo "The platform-validate.js script runs correctly in dist mode"
+          else
+            echo "=== Platform Validate Dist: FAILED (exit code: $EXIT_CODE) ==="
+            echo "Review the output above for details"
+            exit $EXIT_CODE
+          fi
+
+      - name: Run migration-status.js in dist mode
+        run: |
+          echo "=== Running migration-status.js in dist mode ==="
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=production \
+            -e DB_HOST=localhost \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=grc_platform_validate \
+            -e DB_SYNC=false \
+            -e JWT_SECRET=ci-platform-validate-jwt-secret-for-testing-purposes-only-64chars \
+            -e REFRESH_TOKEN_SECRET=ci-platform-validate-refresh-secret-for-testing-purposes \
+            grc-backend:platform-validate \
+            node dist/scripts/migration-status.js 2>&1 || true
+          
+          echo ""
+          echo "[OK] migration-status.js executed (exit code may vary based on migration state)"
+
+  # ---------------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------------
+  platform-validate-summary:
+    name: Platform Validate Summary
+    runs-on: ubuntu-latest
+    needs: [build-backend, platform-validate-dist]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Check job results
+        run: |
+          echo "=========================================="
+          echo "  PLATFORM VALIDATE DIST SUMMARY"
+          echo "=========================================="
+          echo ""
+          echo "Backend Build:         ${{ needs.build-backend.result }}"
+          echo "Platform Validate:     ${{ needs.platform-validate-dist.result }}"
+          echo ""
+          
+          if [ "${{ needs.build-backend.result }}" != "success" ] || \
+             [ "${{ needs.platform-validate-dist.result }}" != "success" ]; then
+            echo "PLATFORM VALIDATE DIST: FAILED"
+            echo ""
+            echo "One or more checks did not pass. This PR may cause staging"
+            echo "deployment failures due to dist-mode script issues."
+            exit 1
+          fi
+          
+          echo "PLATFORM VALIDATE DIST: PASSED"
+          echo ""
+          echo "The platform-validate.js script and related scripts work"
+          echo "correctly in production/staging dist mode without ts-node."

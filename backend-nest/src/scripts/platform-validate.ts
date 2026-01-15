@@ -16,13 +16,143 @@
  * Exit codes:
  *   0 - All validations passed
  *   1 - One or more validations failed
+ *
+ * Runtime Detection:
+ *   - In production/staging (dist), runs compiled .js scripts with Node
+ *   - In development (src), runs .ts scripts with ts-node
+ *   - Auto-detects based on __dirname containing '/dist/' or '\dist\'
  */
 
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import { config } from 'dotenv';
 
 config();
+
+/**
+ * Detect if we're running from the compiled dist directory
+ *
+ * Uses __dirname to determine if we're running from the compiled dist directory.
+ * This is robust across Linux/macOS/Windows path separators.
+ *
+ * When running from dist/scripts/platform-validate.js:
+ *   __dirname will be: /app/dist/scripts (Docker) or <project>/backend-nest/dist/scripts (local)
+ *
+ * When running from src/scripts/platform-validate.ts (dev):
+ *   __dirname will be: <project>/backend-nest/src/scripts
+ */
+export function isDistRuntime(): boolean {
+  try {
+    // Normalize path separators for cross-platform compatibility
+    const normalizedDirname = __dirname.replace(/\\/g, '/');
+    const normalizedFilename = (__filename || '').replace(/\\/g, '/');
+
+    // Check if __dirname contains '/dist/' or ends with '/dist'
+    if (
+      normalizedDirname.includes('/dist/') ||
+      normalizedDirname.endsWith('/dist')
+    ) {
+      return true;
+    }
+
+    // Check if __filename ends with .js and contains '/dist/'
+    if (
+      normalizedFilename.endsWith('.js') &&
+      normalizedFilename.includes('/dist/')
+    ) {
+      return true;
+    }
+
+    // Check if __filename ends with .ts (definitely in src mode)
+    if (normalizedFilename.endsWith('.ts')) {
+      return false;
+    }
+
+    // Check if __dirname contains '/src/' or ends with '/src'
+    if (
+      normalizedDirname.includes('/src/') ||
+      normalizedDirname.endsWith('/src')
+    ) {
+      return false;
+    }
+
+    // Default to src mode for safety (dev-friendly)
+    return false;
+  } catch {
+    // If all checks fail, default to src mode for safety
+    return false;
+  }
+}
+
+/**
+ * Resolve script path based on runtime environment
+ *
+ * @param scriptBaseName - Base name of the script without extension (e.g., 'validate-env')
+ * @returns Absolute path to the script file (.js in dist, .ts in src)
+ */
+export function resolveScript(scriptBaseName: string): string {
+  const extension = isDistRuntime() ? '.js' : '.ts';
+  return path.join(__dirname, `${scriptBaseName}${extension}`);
+}
+
+/**
+ * Get the repository root directory
+ *
+ * In dist mode: __dirname is dist/scripts, so go up 2 levels
+ * In src mode: __dirname is src/scripts, so go up 2 levels
+ */
+function getRepoRoot(): string {
+  return path.join(__dirname, '..', '..');
+}
+
+/**
+ * Spawn a Node.js process to run a compiled JS script
+ *
+ * @param scriptAbsPath - Absolute path to the .js script
+ * @param args - Arguments to pass to the script
+ * @returns ChildProcess
+ */
+function spawnNode(scriptAbsPath: string, args: string[] = []): ChildProcess {
+  return spawn(process.execPath, [scriptAbsPath, ...args], {
+    cwd: getRepoRoot(),
+    env: process.env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+/**
+ * Spawn a ts-node process to run a TypeScript script (dev only)
+ *
+ * @param scriptAbsPath - Absolute path to the .ts script
+ * @param args - Arguments to pass to the script
+ * @returns ChildProcess
+ */
+function spawnTsNode(scriptAbsPath: string, args: string[] = []): ChildProcess {
+  return spawn(
+    'npx',
+    ['ts-node', '-r', 'tsconfig-paths/register', scriptAbsPath, ...args],
+    {
+      cwd: getRepoRoot(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+}
+
+/**
+ * Spawn the appropriate runtime for a script based on environment
+ *
+ * @param scriptAbsPath - Absolute path to the script
+ * @param args - Arguments to pass to the script
+ * @returns ChildProcess
+ */
+function spawnScript(scriptAbsPath: string, args: string[] = []): ChildProcess {
+  if (isDistRuntime()) {
+    return spawnNode(scriptAbsPath, args);
+  } else {
+    return spawnTsNode(scriptAbsPath, args);
+  }
+}
 
 interface ScriptResult {
   name: string;
@@ -54,21 +184,14 @@ function runScript(
     const startTime = Date.now();
     let output = '';
 
-    const child = spawn(
-      'npx',
-      ['ts-node', '-r', 'tsconfig-paths/register', scriptPath, ...args],
-      {
-        cwd: path.join(__dirname, '..', '..'),
-        env: process.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
+    // Use spawnScript which auto-detects dist vs src runtime
+    const child = spawnScript(scriptPath, args);
 
-    child.stdout.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       output += data.toString();
     });
 
-    child.stderr.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       output += data.toString();
     });
 
@@ -113,10 +236,7 @@ async function runValidation(
 
   // 1. Environment Validation
   console.log('Running environment validation...');
-  const envResult = await runScript(
-    path.join(__dirname, 'validate-env.ts'),
-    scriptArgs,
-  );
+  const envResult = await runScript(resolveScript('validate-env'), scriptArgs);
   scripts.push({
     name: 'Environment Validation',
     status: envResult.exitCode === 0 ? 'passed' : 'failed',
@@ -127,10 +247,7 @@ async function runValidation(
 
   // 2. Database Validation
   console.log('Running database validation...');
-  const dbResult = await runScript(
-    path.join(__dirname, 'validate-db.ts'),
-    scriptArgs,
-  );
+  const dbResult = await runScript(resolveScript('validate-db'), scriptArgs);
   scripts.push({
     name: 'Database Validation',
     status: dbResult.exitCode === 0 ? 'passed' : 'failed',
@@ -142,7 +259,7 @@ async function runValidation(
   // 3. Migration Validation
   console.log('Running migration validation...');
   const migrationResult = await runScript(
-    path.join(__dirname, 'validate-migrations.ts'),
+    resolveScript('validate-migrations'),
     scriptArgs,
   );
   scripts.push({
@@ -157,7 +274,7 @@ async function runValidation(
   if (!skipSmoke) {
     console.log('Running auth & onboarding smoke tests...');
     const smokeResult = await runScript(
-      path.join(__dirname, 'smoke-auth-onboarding.ts'),
+      resolveScript('smoke-auth-onboarding'),
       scriptArgs,
     );
     scripts.push({
