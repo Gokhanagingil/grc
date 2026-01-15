@@ -64,16 +64,16 @@ describe('listQueryUtils', () => {
       expect(result).toEqual(filter);
     });
 
-    it('should return null for empty AND group', () => {
+    it('should return empty AND group as-is', () => {
       const filter: FilterTree = { and: [] };
       const result = normalizeFilter(filter);
-      expect(result).toBeNull();
+      expect(result).toEqual(filter);
     });
 
-    it('should return null for empty OR group', () => {
+    it('should return empty OR group as-is', () => {
       const filter: FilterTree = { or: [] };
       const result = normalizeFilter(filter);
-      expect(result).toBeNull();
+      expect(result).toEqual(filter);
     });
   });
 
@@ -353,7 +353,7 @@ describe('listQueryUtils', () => {
       expect(result.page).toBe(2);
       expect(result.pageSize).toBe(25);
       expect(result.search).toBe('test');
-      expect(result.sortField).toBe('name');
+      expect(result.sortBy).toBe('name');
       expect(result.sortOrder).toBe('ASC');
     });
 

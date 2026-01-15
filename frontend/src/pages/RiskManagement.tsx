@@ -259,8 +259,15 @@ export const RiskManagement: React.FC = () => {
   }, [statusFilter, severityFilter, advancedFilter]);
 
   // Fetch function for useUniversalList
+  // Note: riskApi.list expects URLSearchParams, so we convert the params object
   const fetchRisks = useCallback((params: Record<string, unknown>) => {
-    return riskApi.list(tenantId, params);
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.set(key, String(value));
+      }
+    });
+    return riskApi.list(tenantId, searchParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -424,7 +431,7 @@ export const RiskManagement: React.FC = () => {
 
       setOpenDialog(false);
       setError('');
-      fetchRisks();
+      refetch();
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
