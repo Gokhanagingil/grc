@@ -50,7 +50,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState } from '../components/common';
+import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { AuditScopeCard, RequirementDetailDrawer, StandardsScopeTab } from '../components/audit';
 import { useFormLayout } from '../hooks/useFormLayout';
@@ -188,7 +188,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 // Map tab names to indices for URL search params
-const TAB_NAMES = ['scope', 'standards', 'findings', 'reports'] as const;
+const TAB_NAMES = ['scope', 'standards', 'findings', 'reports', 'attachments'] as const;
 type TabName = typeof TAB_NAMES[number];
 
 const getTabIndex = (tabName: string | null): number => {
@@ -1037,6 +1037,7 @@ export const AuditDetail: React.FC = () => {
                                           <Tab label="Standards Library" />
                                           <Tab label={`Findings & CAPA (${safeArray(findings).length})`} />
                                           <Tab label={`Reports (${safeArray(reports).length})`} icon={<ReportIcon />} iconPosition="start" />
+                                          <Tab label="Attachments" />
                                         </Tabs>
                                       </Box>
 
@@ -1441,6 +1442,11 @@ export const AuditDetail: React.FC = () => {
                             </Table>
                           </TableContainer>
                         )}
+                      </TabPanel>
+
+                      {/* Attachments Tab */}
+                      <TabPanel value={activeTab} index={4}>
+                        <AttachmentPanel refTable="grc_audits" refId={audit.id} />
                       </TabPanel>
                     </CardContent>
                   </Card>

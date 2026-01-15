@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Readable } from 'stream';
 import { ListView, ListViewColumn } from '../entities/list-view.entity';
@@ -21,20 +22,25 @@ interface ExportResult {
   contentType: string;
 }
 
+const DEFAULT_ALLOWED_TABLES = [
+  'grc_risks',
+  'grc_policies',
+  'grc_requirements',
+  'grc_controls',
+  'grc_audits',
+  'grc_issues',
+  'grc_capas',
+  'grc_evidence',
+  'grc_processes',
+  'grc_process_violations',
+];
+
+const BATCH_SIZE = 1000;
+
 @Injectable()
 export class ExportService {
-  private readonly allowedTables = new Set([
-    'grc_risks',
-    'grc_policies',
-    'grc_requirements',
-    'grc_controls',
-    'grc_audits',
-    'grc_issues',
-    'grc_capas',
-    'grc_evidence',
-    'grc_processes',
-    'grc_process_violations',
-  ]);
+  private readonly logger = new Logger(ExportService.name);
+  private readonly allowedTables: Set<string>;
 
   private readonly tableColumnMap: Record<string, string[]> = {
     grc_risks: [
@@ -172,8 +178,20 @@ export class ExportService {
   constructor(
     @InjectRepository(ListView)
     private readonly listViewRepository: Repository<ListView>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    const configuredTables = this.configService.get<string>(
+      'EXPORT_ALLOWED_TABLES',
+    );
+    this.allowedTables = new Set(
+      configuredTables
+        ? configuredTables.split(',').map((t) => t.trim())
+        : DEFAULT_ALLOWED_TABLES,
+    );
+  }
 
   private validateTableName(tableName: string): void {
     if (!this.allowedTables.has(tableName)) {
@@ -238,7 +256,14 @@ export class ExportService {
     const timeStr = now.toISOString().slice(11, 16).replace(':', '');
     const filename = `${options.tableName}_${dateStr}_${timeStr}.csv`;
 
-    const stream = this.generateCsvStream(columns);
+    const stream = this.generateCsvStream(
+      tenantId,
+      options.tableName,
+      columns,
+      options.filters,
+      options.search,
+      options.sort,
+    );
 
     this.eventEmitter.emit('export.created', {
       tenantId,
@@ -256,9 +281,35 @@ export class ExportService {
     };
   }
 
-  private generateCsvStream(columns: string[]): Readable {
-    const sanitizedColumns = columns.map((c) => this.sanitizeColumnName(c));
+  private escapeCsvValue(value: unknown): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    let str: string;
+    if (typeof value === 'object') {
+      str = JSON.stringify(value);
+    } else if (typeof value === 'string') {
+      str = value;
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      str = value.toString();
+    } else {
+      str = '';
+    }
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
 
+  private generateCsvStream(
+    tenantId: string,
+    tableName: string,
+    columns: string[],
+    filters?: Record<string, unknown>,
+    search?: string,
+    sort?: { field: string; order: 'ASC' | 'DESC' },
+  ): Readable {
+    const sanitizedColumns = columns.map((c) => this.sanitizeColumnName(c));
     const headerRow = sanitizedColumns.join(',') + '\n';
 
     const readable = new Readable({
@@ -267,9 +318,87 @@ export class ExportService {
 
     readable.push(headerRow);
 
-    setTimeout(() => {
-      readable.push(null);
-    }, 100);
+    const fetchAndStreamData = async () => {
+      try {
+        let offset = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const queryBuilder = this.dataSource
+            .createQueryBuilder()
+            .select(sanitizedColumns.map((col) => `t.${col}`))
+            .from(tableName, 't')
+            .where('t.tenant_id = :tenantId', { tenantId })
+            .andWhere('t.is_deleted = :isDeleted', { isDeleted: false })
+            .offset(offset)
+            .limit(BATCH_SIZE);
+
+          if (sort && sanitizedColumns.includes(sort.field)) {
+            queryBuilder.orderBy(`t.${sort.field}`, sort.order);
+          } else {
+            queryBuilder.orderBy('t.created_at', 'DESC');
+          }
+
+          if (filters) {
+            Object.entries(filters).forEach(([key, value]) => {
+              const sanitizedKey = this.sanitizeColumnName(key);
+              if (
+                sanitizedColumns.includes(sanitizedKey) &&
+                value !== undefined
+              ) {
+                queryBuilder.andWhere(`t.${sanitizedKey} = :${sanitizedKey}`, {
+                  [sanitizedKey]: value,
+                });
+              }
+            });
+          }
+
+          if (search) {
+            const searchableColumns = sanitizedColumns.filter((col) =>
+              ['title', 'name', 'description', 'number'].includes(col),
+            );
+            if (searchableColumns.length > 0) {
+              const searchConditions = searchableColumns
+                .map((col) => `t.${col} ILIKE :search`)
+                .join(' OR ');
+              queryBuilder.andWhere(`(${searchConditions})`, {
+                search: `%${search}%`,
+              });
+            }
+          }
+
+          const rows = await queryBuilder.getRawMany();
+
+          if (rows.length === 0) {
+            hasMore = false;
+          } else {
+            for (const row of rows) {
+              const typedRow = row as Record<string, unknown>;
+              const csvRow =
+                sanitizedColumns
+                  .map((col) => {
+                    const key = `t_${col}`;
+                    return this.escapeCsvValue(typedRow[key]);
+                  })
+                  .join(',') + '\n';
+              readable.push(csvRow);
+            }
+
+            offset += BATCH_SIZE;
+            hasMore = rows.length === BATCH_SIZE;
+          }
+        }
+
+        readable.push(null);
+      } catch (error) {
+        this.logger.error(`Export streaming error: ${error}`);
+        readable.destroy(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    };
+
+    void fetchAndStreamData();
 
     return readable;
   }

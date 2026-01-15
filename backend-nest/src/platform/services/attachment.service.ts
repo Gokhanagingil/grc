@@ -46,10 +46,11 @@ export interface AttachmentResponse {
 }
 
 /**
- * Allowed tables for attachments
+ * Default allowed tables for attachments
  * Security: Only these tables can have attachments
+ * Can be overridden via ATTACHMENT_ALLOWED_TABLES env var (comma-separated)
  */
-const ALLOWED_REF_TABLES = new Set([
+const DEFAULT_ALLOWED_REF_TABLES = [
   'grc_risks',
   'grc_policies',
   'grc_requirements',
@@ -60,7 +61,7 @@ const ALLOWED_REF_TABLES = new Set([
   'grc_evidence',
   'grc_processes',
   'grc_process_violations',
-]);
+];
 
 /**
  * Default allowed MIME types
@@ -104,6 +105,7 @@ const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 @Injectable()
 export class AttachmentService {
   private readonly logger = new Logger(AttachmentService.name);
+  private readonly allowedRefTables: Set<string>;
   private readonly allowedMimeTypes: Set<string>;
   private readonly maxFileSize: number;
 
@@ -115,6 +117,15 @@ export class AttachmentService {
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
   ) {
+    const configuredTables = this.configService.get<string>(
+      'ATTACHMENT_ALLOWED_TABLES',
+    );
+    this.allowedRefTables = new Set(
+      configuredTables
+        ? configuredTables.split(',').map((t) => t.trim())
+        : DEFAULT_ALLOWED_REF_TABLES,
+    );
+
     const configuredMimeTypes = this.configService.get<string>(
       'ATTACHMENT_ALLOWED_MIME_TYPES',
     );
@@ -134,7 +145,7 @@ export class AttachmentService {
    * Validate ref_table against allowlist
    */
   private validateRefTable(refTable: string): void {
-    if (!ALLOWED_REF_TABLES.has(refTable)) {
+    if (!this.allowedRefTables.has(refTable)) {
       throw new BadRequestException(
         `Invalid ref_table: '${refTable}'. Attachments are not supported for this table.`,
       );
