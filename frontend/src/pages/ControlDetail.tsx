@@ -41,6 +41,7 @@ import {
   AccountTree as ProcessIcon,
   Info as InfoIcon,
   Add as AddIcon,
+  AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -52,7 +53,7 @@ import {
   StatusHistoryItem,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState } from '../components/common';
+import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 
 // Control enums matching backend
 export enum ControlType {
@@ -422,6 +423,7 @@ export const ControlDetail: React.FC = () => {
           <Tab icon={<TestIcon />} label="Tests" iconPosition="start" />
           <Tab icon={<IssueIcon />} label="Issues/CAPA" iconPosition="start" />
           <Tab icon={<HistoryIcon />} label="History" iconPosition="start" />
+          <Tab icon={<AttachmentIcon />} label="Attachments" iconPosition="start" />
         </Tabs>
 
         {/* Overview Tab */}
@@ -811,6 +813,11 @@ export const ControlDetail: React.FC = () => {
           ) : (
             <Alert severity="info">No status history available for this control.</Alert>
           )}
+        </TabPanel>
+
+        {/* Attachments Tab */}
+        <TabPanel value={tabValue} index={6}>
+          <AttachmentPanel refTable="grc_controls" refId={control.id} />
         </TabPanel>
       </Paper>
 
