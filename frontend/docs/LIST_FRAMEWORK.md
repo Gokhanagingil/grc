@@ -252,18 +252,53 @@ The framework ensures URL query parameters are the single source of truth:
 2. **Writing State**: Update URL params directly using `setSearchParams()` from react-router-dom
 3. **Backward Compatibility**: `parseListQuery()` handles both single and double-encoded filters
 
-### Important: Single Encoding
+### Canonical URL Encoding Rule (Single Encoding)
 
-The framework ensures filters are encoded exactly once via URLSearchParams. The `buildListQueryParams()` function handles this automatically. Never manually encode the filter JSON before passing it to URLSearchParams.
+The framework ensures filters are encoded **exactly once** via URLSearchParams. This is critical to avoid double-encoding issues (e.g., `%257B` instead of `%7B`).
+
+**The Rule**: Never call `encodeURIComponent()` on the JSON string before passing it to URLSearchParams. Let URLSearchParams handle the encoding automatically.
 
 ```typescript
 // CORRECT: Let URLSearchParams handle encoding
 const params = buildListQueryParams({ filterTree: myFilter });
 
-// WRONG: Don't double-encode
+// ALSO CORRECT: Manual approach with raw JSON
+const params = new URLSearchParams();
+params.set('filter', JSON.stringify(myFilter)); // URLSearchParams encodes once
+
+// WRONG: Don't double-encode!
 const params = new URLSearchParams();
 params.set('filter', encodeURIComponent(JSON.stringify(myFilter))); // DON'T DO THIS
 ```
+
+**Why this matters**: When you call `encodeURIComponent()` before `URLSearchParams.set()`, the value gets encoded twice:
+- First by your `encodeURIComponent()` call: `{` becomes `%7B`
+- Then by URLSearchParams: `%7B` becomes `%257B`
+
+This results in URLs like `filter=%257B%2522and%2522...` instead of the correct `filter=%7B%22and%22...`.
+
+### Filter Parsing Tolerance for Legacy URLs
+
+The `parseListQuery()` function implements a progressive decoding strategy to tolerate legacy double-encoded URLs while preferring the canonical single-encoded format:
+
+1. **Try JSON.parse directly** - The canonical case where URLSearchParams already decoded once
+2. **Try decodeURIComponent once, then JSON.parse** - Handles double-encoded URLs
+3. **Try decodeURIComponent twice, then JSON.parse** - Handles rare triple-encoded legacy URLs
+4. **Return null with warning** - If all strategies fail, log a non-fatal warning
+
+This ensures backward compatibility: users with bookmarked legacy URLs will still have working filters, and after any interaction (page change, filter update, etc.), the URL will be rewritten in canonical single-encoded form.
+
+### Canonical Sort Parameter
+
+The framework uses a single canonical sort parameter format: `sort=field:direction`
+
+```
+sort=createdAt:DESC
+sort=name:ASC
+sort=updatedAt:DESC
+```
+
+The `buildApiParams()` function also includes `sortBy` and `sortOrder` for backend compatibility, but the URL only contains the canonical `sort` parameter.
 
 ## Saved Views Integration
 

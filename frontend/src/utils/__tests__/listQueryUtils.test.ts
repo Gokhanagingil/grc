@@ -75,6 +75,38 @@ describe('listQueryUtils', () => {
       const result = normalizeFilter(filter);
       expect(result).toEqual(filter);
     });
+
+    it('should return null for invalid condition (empty field)', () => {
+      const condition = { field: '', op: 'contains', value: 'test' } as FilterCondition;
+      const result = normalizeFilter(condition);
+      expect(result).toBeNull();
+    });
+
+    it('should filter out invalid conditions from AND group', () => {
+      const filter: FilterTree = {
+        and: [
+          { field: 'name', op: 'contains', value: 'test' },
+          { field: '', op: 'is', value: 'invalid' }, // Invalid - empty field
+        ],
+      };
+      const result = normalizeFilter(filter);
+      expect(result).toEqual({
+        and: [{ field: 'name', op: 'contains', value: 'test' }],
+      });
+    });
+
+    it('should filter out invalid conditions from OR group', () => {
+      const filter: FilterTree = {
+        or: [
+          { field: '', op: 'contains', value: 'invalid' }, // Invalid - empty field
+          { field: 'status', op: 'is', value: 'active' },
+        ],
+      };
+      const result = normalizeFilter(filter);
+      expect(result).toEqual({
+        or: [{ field: 'status', op: 'is', value: 'active' }],
+      });
+    });
   });
 
   describe('buildListQueryParams', () => {
@@ -190,6 +222,19 @@ describe('listQueryUtils', () => {
       expect(result.filterTree).toEqual(filter);
     });
 
+    it('should handle triple-encoded filter for legacy tolerance', () => {
+      const filter: FilterTree = {
+        and: [{ field: 'status', op: 'is', value: 'active' }],
+      };
+      // Simulate triple-encoding (very rare legacy case)
+      const tripleEncoded = encodeURIComponent(encodeURIComponent(JSON.stringify(filter)));
+      const params = new URLSearchParams({
+        filter: tripleEncoded,
+      });
+      const result = parseListQuery(params);
+      expect(result.filterTree).toEqual(filter);
+    });
+
     it('should use custom defaults', () => {
       const params = new URLSearchParams();
       const result = parseListQuery(params, {
@@ -213,6 +258,17 @@ describe('listQueryUtils', () => {
       const result = parseListQuery(params);
       expect(result.filterTree).toBeNull();
     });
+
+    it('should handle filter with special characters', () => {
+      const filter: FilterTree = {
+        and: [{ field: 'name', op: 'contains', value: 'test & value' }],
+      };
+      const params = new URLSearchParams({
+        filter: JSON.stringify(filter),
+      });
+      const result = parseListQuery(params);
+      expect(result.filterTree).toEqual(filter);
+    });
   });
 
   describe('parseSort', () => {
@@ -232,6 +288,45 @@ describe('listQueryUtils', () => {
     it('should build valid sort string', () => {
       expect(buildSort('name', 'ASC')).toBe('name:ASC');
       expect(buildSort('createdAt', 'DESC')).toBe('createdAt:DESC');
+    });
+  });
+
+  describe('sort round-trip', () => {
+    it('should round-trip sort through parse -> build -> parse', () => {
+      const originalSort = 'updatedAt:DESC';
+      const parsed = parseSort(originalSort);
+      expect(parsed).not.toBeNull();
+      const rebuilt = buildSort(parsed!.field, parsed!.direction);
+      expect(rebuilt).toBe(originalSort);
+      const reparsed = parseSort(rebuilt);
+      expect(reparsed).toEqual(parsed);
+    });
+
+    it('should round-trip sort through URL params', () => {
+      const state = {
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'name:ASC',
+        filterTree: null,
+      };
+      const params = buildListQueryParams(state, true);
+      const parsed = parseListQuery(params);
+      expect(parsed.sort).toBe(state.sort);
+    });
+
+    it('should preserve sort in buildApiParams', () => {
+      const state = {
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'createdAt:DESC',
+        filterTree: null,
+      };
+      const apiParams = buildApiParams(state);
+      expect(apiParams.sort).toBe('createdAt:DESC');
+      expect(apiParams.sortBy).toBe('createdAt');
+      expect(apiParams.sortOrder).toBe('DESC');
     });
   });
 
