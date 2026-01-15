@@ -35,10 +35,28 @@ export interface StructuredLogEntry {
 }
 
 /**
+ * Log level priority for filtering
+ */
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  [LogLevel.ERROR]: 0,
+  [LogLevel.WARN]: 1,
+  [LogLevel.INFO]: 2,
+  [LogLevel.DEBUG]: 3,
+  [LogLevel.VERBOSE]: 4,
+};
+
+/**
  * Structured Logger Service
  *
  * Provides JSON-formatted structured logging with automatic context enrichment.
  * Includes correlation ID, tenant ID, user ID, path, and latency in every log entry.
+ *
+ * Supports LOG_LEVEL environment variable to filter logs:
+ * - error: Only errors
+ * - warn: Errors and warnings
+ * - info: Errors, warnings, and info (default)
+ * - debug: All except verbose
+ * - verbose: All logs
  *
  * This is a DEFAULT scoped service (singleton) that can be used anywhere.
  * For request-scoped logging with automatic context, use the StructuredLoggerService
@@ -52,8 +70,15 @@ export class StructuredLoggerService implements NestLoggerService {
   private static globalUserId?: string;
   private static globalPath?: string;
   private static globalMethod?: string;
+  private static logLevel: LogLevel = LogLevel.INFO;
 
-  constructor() {}
+  constructor() {
+    // Initialize log level from environment variable
+    const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
+    if (envLogLevel && Object.values(LogLevel).includes(envLogLevel)) {
+      StructuredLoggerService.logLevel = envLogLevel;
+    }
+  }
 
   /**
    * Set global context for the current request (used by middleware)
@@ -260,9 +285,24 @@ export class StructuredLoggerService implements NestLoggerService {
   }
 
   /**
+   * Check if a log level should be written based on current log level setting
+   */
+  private shouldLog(level: LogLevel): boolean {
+    const currentPriority =
+      LOG_LEVEL_PRIORITY[StructuredLoggerService.logLevel];
+    const messagePriority = LOG_LEVEL_PRIORITY[level];
+    return messagePriority <= currentPriority;
+  }
+
+  /**
    * Write the log entry to stdout as JSON
    */
   private writeLog(entry: StructuredLogEntry): void {
+    // Check if this log level should be written
+    if (!this.shouldLog(entry.level)) {
+      return;
+    }
+
     // Remove undefined values for cleaner output
     const cleanEntry = Object.fromEntries(
       Object.entries(entry).filter(([, v]) => v !== undefined),

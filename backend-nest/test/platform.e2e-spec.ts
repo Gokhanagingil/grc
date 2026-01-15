@@ -371,7 +371,9 @@ describe('Platform Core Features (e2e)', () => {
           .expect(200);
 
         const data = response.body.data ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
+        // List views returns { views: [], defaultView: null } format wrapped in { success: true, data: ... }
+        expect(data).toHaveProperty('views');
+        expect(Array.isArray(data.views)).toBe(true);
       });
     });
 
@@ -441,7 +443,7 @@ describe('Platform Core Features (e2e)', () => {
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(exportRequest)
-          .expect(200);
+          .expect(201); // POST returns 201 Created by default
 
         expect(response.headers['content-type']).toContain('text/csv');
         expect(response.headers['content-disposition']).toContain('attachment');
@@ -511,12 +513,13 @@ describe('Platform Core Features (e2e)', () => {
   });
 
   describe('Tenant Isolation', () => {
-    it('should not allow access to attachments from different tenant', async () => {
+    it('should reject access to attachments with mismatched tenant header', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
       }
 
+      // TenantGuard correctly rejects requests where x-tenant-id doesn't match user's tenant from JWT
       const fakeTenantId = '00000000-0000-0000-0000-000000000001';
 
       await request(app.getHttpServer())
@@ -524,27 +527,24 @@ describe('Platform Core Features (e2e)', () => {
         .query({ refTable: 'grc_risks', refId: 'some-id' })
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', fakeTenantId)
-        .expect(200);
+        .expect(403); // TenantGuard rejects mismatched tenant
     });
 
-    it('should not allow access to list views from different tenant', async () => {
+    it('should reject access to list views with mismatched tenant header', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
       }
 
+      // TenantGuard correctly rejects requests where x-tenant-id doesn't match user's tenant from JWT
       const fakeTenantId = '00000000-0000-0000-0000-000000000001';
 
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get('/grc/list-views')
         .query({ tableName: 'grc_risks' })
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', fakeTenantId)
-        .expect(200);
-
-      const data = response.body.data ?? response.body;
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBe(0);
+        .expect(403); // TenantGuard rejects mismatched tenant
     });
   });
 });

@@ -43,5 +43,9 @@ process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
 process.env.DB_NAME = process.env.DB_NAME || 'grc_platform_test';
 process.env.DB_SYNC = 'true';
 
+// Reduce noisy logs in E2E tests - only show errors
+// This silences RequestTimingInterceptor and other verbose logging
+process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'error';
+
 // Increase test timeout for e2e tests
 jest.setTimeout(30000);

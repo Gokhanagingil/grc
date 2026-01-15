@@ -9,6 +9,7 @@ import {
   IsObject,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { TestResultOutcome, EffectivenessRating } from '../enums';
 
 export class CreateTestResultDto {
@@ -125,11 +126,13 @@ export class TestResultFilterDto {
   effectivenessRating?: EffectivenessRating;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;

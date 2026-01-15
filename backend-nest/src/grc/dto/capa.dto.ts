@@ -11,6 +11,7 @@ import {
   IsArray,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CapaType, CapaStatus, CAPAPriority } from '../enums';
 
 /**
@@ -177,11 +178,13 @@ export class CapaFilterDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;

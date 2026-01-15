@@ -7,6 +7,7 @@ import {
   BadRequestException,
   StreamableFile,
   Res,
+  SetMetadata,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { CurrentUser } from '../../common/decorators';
 import { ExportService } from '../services/export.service';
+import { SKIP_TRANSFORM_KEY } from '../../common/interceptors/response-transform.interceptor';
 
 interface ExportRequestDto {
   tableName: string;
@@ -34,6 +36,7 @@ export class ExportController {
 
   @Post()
   @Permissions(Permission.GRC_RISK_READ)
+  @SetMetadata(SKIP_TRANSFORM_KEY, true) // Skip response transformation for streaming CSV
   async export(
     @Headers('x-tenant-id') tenantId: string,
     @CurrentUser('id') userId: string,

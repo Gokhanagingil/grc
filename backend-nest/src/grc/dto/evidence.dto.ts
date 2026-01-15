@@ -11,6 +11,7 @@ import {
   MaxLength,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EvidenceType, EvidenceSourceType, EvidenceStatus } from '../enums';
 
 /**
@@ -193,11 +194,13 @@ export class EvidenceFilterDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;

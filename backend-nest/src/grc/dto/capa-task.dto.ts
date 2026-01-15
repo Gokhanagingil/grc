@@ -10,6 +10,7 @@ import {
   IsObject,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CAPATaskStatus } from '../enums';
 
@@ -127,11 +128,13 @@ export class CapaTaskFilterDto {
   dueDateTo?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;

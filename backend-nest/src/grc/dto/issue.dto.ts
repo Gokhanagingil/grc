@@ -10,6 +10,7 @@ import {
   MaxLength,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IssueType, IssueStatus, IssueSeverity } from '../enums';
 
 /**
@@ -184,11 +185,13 @@ export class IssueFilterDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;
