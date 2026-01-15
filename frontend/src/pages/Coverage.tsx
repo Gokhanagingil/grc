@@ -30,6 +30,7 @@ import {
   CoverageSummary,
   RequirementCoverageResponse,
   ProcessCoverageResponse,
+  unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
@@ -124,9 +125,13 @@ export const Coverage: React.FC = () => {
         coverageApi.getProcessCoverage(tenantId),
       ]);
 
-      setSummary(summaryRes.data);
-      setRequirementCoverage(reqRes.data);
-      setProcessCoverage(procRes.data);
+      const summaryData = unwrapResponse<CoverageSummary>(summaryRes);
+      const reqData = unwrapResponse<RequirementCoverageResponse>(reqRes);
+      const procData = unwrapResponse<ProcessCoverageResponse>(procRes);
+
+      setSummary(summaryData || null);
+      setRequirementCoverage(reqData || null);
+      setProcessCoverage(procData || null);
     } catch (err) {
       console.error('Error fetching coverage data:', err);
       setError('Failed to load coverage data. Please try again.');
@@ -233,7 +238,7 @@ export const Coverage: React.FC = () => {
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          {requirementCoverage && requirementCoverage.requirements.length > 0 ? (
+          {requirementCoverage && Array.isArray(requirementCoverage.requirements) && requirementCoverage.requirements.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -292,7 +297,7 @@ export const Coverage: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {processCoverage && processCoverage.processes.length > 0 ? (
+          {processCoverage && Array.isArray(processCoverage.processes) && processCoverage.processes.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
