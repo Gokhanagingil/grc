@@ -27,13 +27,24 @@ import {
 } from '@mui/icons-material';
 import {
   coverageApi,
-  CoverageSummary,
-  RequirementCoverageResponse,
-  ProcessCoverageResponse,
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
+import {
+  safeArray,
+  normalizeCoverageSummary,
+  normalizeRequirementCoverage,
+  normalizeProcessCoverage,
+  CoverageSummary,
+  RequirementCoverageResponse,
+  ProcessCoverageResponse,
+  RequirementCoverageItem,
+  ProcessCoverageItem,
+  DEFAULT_COVERAGE_SUMMARY,
+  DEFAULT_REQUIREMENT_COVERAGE,
+  DEFAULT_PROCESS_COVERAGE,
+} from '../api/normalizers/coverage';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -108,9 +119,10 @@ export const Coverage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
 
-  const [summary, setSummary] = useState<CoverageSummary | null>(null);
-  const [requirementCoverage, setRequirementCoverage] = useState<RequirementCoverageResponse | null>(null);
-  const [processCoverage, setProcessCoverage] = useState<ProcessCoverageResponse | null>(null);
+  const [summary, setSummary] = useState<CoverageSummary>(DEFAULT_COVERAGE_SUMMARY);
+  const [requirementCoverage, setRequirementCoverage] = useState<RequirementCoverageResponse>(DEFAULT_REQUIREMENT_COVERAGE);
+  const [processCoverage, setProcessCoverage] = useState<ProcessCoverageResponse>(DEFAULT_PROCESS_COVERAGE);
+  const [hasData, setHasData] = useState(false);
 
   const fetchCoverageData = useCallback(async () => {
     if (!tenantId) return;
@@ -129,9 +141,10 @@ export const Coverage: React.FC = () => {
       const reqData = unwrapResponse<RequirementCoverageResponse>(reqRes);
       const procData = unwrapResponse<ProcessCoverageResponse>(procRes);
 
-      setSummary(summaryData || null);
-      setRequirementCoverage(reqData || null);
-      setProcessCoverage(procData || null);
+      setSummary(normalizeCoverageSummary(summaryData));
+      setRequirementCoverage(normalizeRequirementCoverage(reqData));
+      setProcessCoverage(normalizeProcessCoverage(procData));
+      setHasData(true);
     } catch (err) {
       console.error('Error fetching coverage data:', err);
       setError('Failed to load coverage data. Please try again.');
@@ -162,8 +175,8 @@ export const Coverage: React.FC = () => {
     return <ErrorState message={error} onRetry={fetchCoverageData} />;
   }
 
-  if (!summary) {
-    return <ErrorState message="No coverage data available" />;
+  if (!hasData && !loading) {
+    return <ErrorState message="No coverage data available" onRetry={fetchCoverageData} />;
   }
 
   return (
@@ -238,7 +251,7 @@ export const Coverage: React.FC = () => {
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          {requirementCoverage && Array.isArray(requirementCoverage.requirements) && requirementCoverage.requirements.length > 0 ? (
+          {safeArray<RequirementCoverageItem>(requirementCoverage.requirements).length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -250,7 +263,7 @@ export const Coverage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {requirementCoverage.requirements.map((req) => (
+                {safeArray<RequirementCoverageItem>(requirementCoverage.requirements).map((req) => (
                   <TableRow key={req.id}>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -297,7 +310,7 @@ export const Coverage: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {processCoverage && Array.isArray(processCoverage.processes) && processCoverage.processes.length > 0 ? (
+          {safeArray<ProcessCoverageItem>(processCoverage.processes).length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -309,7 +322,7 @@ export const Coverage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {processCoverage.processes.map((proc) => (
+                {safeArray<ProcessCoverageItem>(processCoverage.processes).map((proc) => (
                   <TableRow key={proc.id}>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
