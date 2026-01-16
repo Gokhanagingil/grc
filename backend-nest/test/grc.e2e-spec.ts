@@ -649,6 +649,58 @@ describe('GRC CRUD Operations (e2e)', () => {
         expect(Array.isArray(data)).toBe(true);
       });
     });
+
+    describe('GET /grc/requirements/filters', () => {
+      it('should return filter options with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/requirements/filters')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response should contain filter arrays
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('families');
+        expect(data).toHaveProperty('versions');
+        expect(data).toHaveProperty('domains');
+        expect(data).toHaveProperty('categories');
+        expect(data).toHaveProperty('hierarchyLevels');
+        expect(Array.isArray(data.families)).toBe(true);
+        expect(Array.isArray(data.versions)).toBe(true);
+        expect(Array.isArray(data.domains)).toBe(true);
+        expect(Array.isArray(data.categories)).toBe(true);
+        expect(Array.isArray(data.hierarchyLevels)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/requirements/filters')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/requirements/filters')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+    });
   });
 
   // ==================== AUDITS ====================

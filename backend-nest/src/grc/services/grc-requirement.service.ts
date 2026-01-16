@@ -249,6 +249,46 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
   }
 
   /**
+   * Get available filter options for requirements
+   * Returns unique values for filter dropdowns in the Standards Library UI
+   */
+  async getFilterOptions(tenantId: string): Promise<{
+    families: string[];
+    versions: string[];
+    domains: string[];
+    categories: string[];
+    hierarchyLevels: string[];
+  }> {
+    const requirements = await this.findAllActiveForTenant(tenantId);
+
+    const families = new Set<string>();
+    const versions = new Set<string>();
+    const domains = new Set<string>();
+    const categories = new Set<string>();
+    const hierarchyLevels = new Set<string>();
+
+    for (const req of requirements) {
+      if (req.framework) {
+        families.add(req.framework);
+      }
+      if (req.category) {
+        categories.add(req.category);
+      }
+      if (req.priority) {
+        hierarchyLevels.add(req.priority);
+      }
+    }
+
+    return {
+      families: Array.from(families).sort(),
+      versions: Array.from(versions).sort(),
+      domains: Array.from(domains).sort(),
+      categories: Array.from(categories).sort(),
+      hierarchyLevels: Array.from(hierarchyLevels).sort(),
+    };
+  }
+
+  /**
    * Find requirements with pagination, sorting, and filtering
    */
   async findWithFilters(

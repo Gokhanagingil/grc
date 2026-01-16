@@ -33,29 +33,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { standardsApi, unwrapResponse } from '../services/grcClient';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
-
-interface StandardRequirement {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  family: string;
-  version: string;
-  hierarchy_level: string;
-  domain: string;
-  category: string;
-  regulation: string;
-  status: string;
-  metadata_tags?: Array<{ id: string; value: string; color: string }>;
-}
-
-interface FiltersData {
-  families: string[];
-  versions: string[];
-  domains: string[];
-  categories: string[];
-  hierarchyLevels: string[];
-}
+import {
+  normalizeFiltersData,
+  normalizeRequirementsResponse,
+  DEFAULT_FILTERS_DATA,
+  FiltersData,
+  StandardRequirement,
+} from '../api/normalizers/standards';
 
 const FAMILY_LABELS: Record<string, string> = {
   iso27001: 'ISO 27001',
@@ -118,16 +102,12 @@ export const StandardsLibrary: React.FC = () => {
   const fetchFiltersData = useCallback(async () => {
     try {
       const response = await standardsApi.getFilters();
-      const data = unwrapResponse<FiltersData>(response);
-      setFiltersData(data || {
-        families: [],
-        versions: [],
-        domains: [],
-        categories: [],
-        hierarchyLevels: [],
-      });
+      const rawData = unwrapResponse<unknown>(response);
+      const normalized = normalizeFiltersData(rawData);
+      setFiltersData(normalized);
     } catch (err) {
       console.error('Failed to fetch filters:', err);
+      setFiltersData(DEFAULT_FILTERS_DATA);
     }
   }, []);
 
@@ -148,18 +128,9 @@ export const StandardsLibrary: React.FC = () => {
       if (filters.hierarchyLevel) params.set('hierarchy_level', filters.hierarchyLevel);
       
       const response = await standardsApi.list(params);
-      const data = response.data;
-      
-      if (data && data.success) {
-        setRequirements(data.data || []);
-        setTotalCount(data.pagination?.total || 0);
-      } else if (Array.isArray(data)) {
-        setRequirements(data);
-        setTotalCount(data.length);
-      } else {
-        setRequirements([]);
-        setTotalCount(0);
-      }
+      const { items, total } = normalizeRequirementsResponse(response.data);
+      setRequirements(items);
+      setTotalCount(total);
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       if (error.response?.status === 404) {
@@ -167,6 +138,8 @@ export const StandardsLibrary: React.FC = () => {
         setTotalCount(0);
       } else {
         setError(error.response?.data?.message || 'Failed to fetch standards');
+        setRequirements([]);
+        setTotalCount(0);
       }
     } finally {
       setLoading(false);
