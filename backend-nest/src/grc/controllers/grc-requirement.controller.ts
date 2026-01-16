@@ -207,6 +207,22 @@ export class GrcRequirementController {
   }
 
   /**
+   * GET /grc/requirements/filters
+   * Get available filter options for requirements (families, versions, domains, etc.)
+   * Used by Standards Library UI to populate filter dropdowns
+   */
+  @Get('filters')
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
+  @Perf()
+  async getFilters(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.requirementService.getFilterOptions(tenantId);
+  }
+
+  /**
    * GET /grc/requirements/:id
    * Get a specific requirement by ID
    */
