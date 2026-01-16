@@ -40,6 +40,8 @@ export interface UseUniversalListResult<T> {
   sort: string;
   isLoading: boolean;
   error: string | null;
+  /** HTTP status code of the error (if any) - useful for distinguishing 401/403 from other errors */
+  errorStatusCode: number | null;
   setPage: (page: number) => void;
   setPageSize: (pageSize: number) => void;
   setSearch: (search: string) => void;
@@ -116,6 +118,7 @@ export function useUniversalList<T>(options: UseUniversalListOptions<T>): UseUni
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatusCode, setErrorStatusCode] = useState<number | null>(null);
 
   const updateUrlParams = useCallback((params: Record<string, string | number>) => {
     if (!syncToUrl) return;
@@ -138,6 +141,7 @@ export function useUniversalList<T>(options: UseUniversalListOptions<T>): UseUni
 
     setIsLoading(true);
     setError(null);
+    setErrorStatusCode(null);
 
     try {
       const params: UniversalListParams = {
@@ -176,11 +180,19 @@ export function useUniversalList<T>(options: UseUniversalListOptions<T>): UseUni
       const status = axiosError.response?.status;
       const message = axiosError.response?.data?.error?.message || axiosError.response?.data?.message;
 
+      // Always set the status code for proper state machine handling
+      if (status) {
+        setErrorStatusCode(status);
+      }
+
       if (status === 401) {
+        // 401 should NOT set items to empty - this prevents the "No data" illusion
         setError('Session expired. Please login again.');
       } else if (status === 403) {
+        // 403 should NOT set items to empty - this prevents the "No data" illusion
         setError('You do not have permission to view this data.');
       } else if (status === 404 || status === 502) {
+        // 404/502 are legitimate "no data" scenarios
         setItems([]);
         setTotal(0);
         setTotalPages(0);
@@ -241,13 +253,14 @@ export function useUniversalList<T>(options: UseUniversalListOptions<T>): UseUni
     sort,
     isLoading,
     error,
+    errorStatusCode,
     setPage,
     setPageSize,
     setSearch,
     setSort,
     refetch,
     reset,
-  }), [items, total, page, pageSize, totalPages, search, sort, isLoading, error, setPage, setPageSize, setSearch, setSort, refetch, reset]);
+  }), [items, total, page, pageSize, totalPages, search, sort, isLoading, error, errorStatusCode, setPage, setPageSize, setSearch, setSort, refetch, reset]);
 }
 
 export default useUniversalList;

@@ -17,13 +17,29 @@ import {
 
 /**
  * Canonical list query state
+ * 
+ * This interface represents the unified query state for all list pages.
+ * It supports:
+ * - pagination: page/pageSize
+ * - sorting: sortField/sortOrder (via sort string "field:ASC|DESC")
+ * - filtering: filterTree (JSON tree with and/or groups + conditions)
+ * - search: q (global quick search across reasonable fields)
  */
 export interface ListQueryState {
   page: number;
   pageSize: number;
-  search: string;
+  /** Quick search query (q parameter) - searches across configured fields */
+  q: string;
+  /** Sort in format "field:ASC" or "field:DESC" */
   sort: string;
+  /** Parsed sort field (derived from sort) */
+  sortField: string;
+  /** Parsed sort order (derived from sort) */
+  sortOrder: 'ASC' | 'DESC';
+  /** Advanced filter tree with AND/OR groups */
   filterTree: FilterTree | null;
+  /** @deprecated Use q instead - kept for backward compatibility */
+  search: string;
 }
 
 /**
@@ -32,9 +48,12 @@ export interface ListQueryState {
 export const DEFAULT_LIST_QUERY_STATE: ListQueryState = {
   page: 1,
   pageSize: 10,
-  search: '',
+  q: '',
   sort: 'createdAt:DESC',
+  sortField: 'createdAt',
+  sortOrder: 'DESC',
   filterTree: null,
+  search: '', // deprecated, use q
 };
 
 /**
@@ -160,16 +179,27 @@ export function parseListQuery(
   
   const pageStr = params.get('page');
   const pageSizeStr = params.get('pageSize');
-  const search = params.get('search');
+  // Support both 'q' (canonical) and 'search' (legacy) - q takes precedence
+  const q = params.get('q') ?? params.get('search');
   const sort = params.get('sort');
   const filter = params.get('filter');
+  
+  // Parse sort into field and order
+  const sortValue = sort ?? mergedDefaults.sort;
+  const parsedSort = parseSort(sortValue);
+  
+  // Resolve search value - q takes precedence
+  const searchValue = q ?? mergedDefaults.q;
   
   return {
     page: pageStr ? parseInt(pageStr, 10) || mergedDefaults.page : mergedDefaults.page,
     pageSize: pageSizeStr ? parseInt(pageSizeStr, 10) || mergedDefaults.pageSize : mergedDefaults.pageSize,
-    search: search ?? mergedDefaults.search,
-    sort: sort ?? mergedDefaults.sort,
+    q: searchValue,
+    sort: sortValue,
+    sortField: parsedSort?.field ?? mergedDefaults.sortField,
+    sortOrder: (parsedSort?.direction ?? mergedDefaults.sortOrder) as 'ASC' | 'DESC',
     filterTree: filter ? parseFilterString(filter) : mergedDefaults.filterTree,
+    search: searchValue, // deprecated, kept for backward compatibility
   };
 }
 
@@ -269,9 +299,12 @@ export function buildListQueryParams(
     params.set('pageSize', String(state.pageSize));
   }
   
-  if (state.search !== undefined && (includeDefaults || state.search !== defaults.search)) {
-    if (state.search) {
-      params.set('search', state.search);
+  // Use 'q' as canonical param, but also check 'search' for backward compatibility
+  const searchValue = state.q ?? state.search;
+  const defaultSearchValue = defaults.q ?? defaults.search;
+  if (searchValue !== undefined && (includeDefaults || searchValue !== defaultSearchValue)) {
+    if (searchValue) {
+      params.set('q', searchValue);
     }
   }
   
@@ -310,10 +343,14 @@ export function mergeListQueryParams(
     newParams.set('pageSize', String(newState.pageSize));
   }
   
-  if (newState.search !== undefined) {
-    if (newState.search) {
-      newParams.set('search', newState.search);
+  // Use 'q' as canonical param, but also check 'search' for backward compatibility
+  const searchValue = newState.q ?? newState.search;
+  if (searchValue !== undefined) {
+    if (searchValue) {
+      newParams.set('q', searchValue);
+      newParams.delete('search'); // Remove legacy param if present
     } else {
+      newParams.delete('q');
       newParams.delete('search');
     }
   }
@@ -417,17 +454,17 @@ export function buildApiParams(state: ListQueryState): Record<string, unknown> {
     pageSize: state.pageSize,
   };
   
-  if (state.search) {
-    params.search = state.search;
+  // Use 'q' as canonical param, but also check 'search' for backward compatibility
+  const searchValue = state.q ?? state.search;
+  if (searchValue) {
+    params.q = searchValue;
   }
   
   if (state.sort) {
     params.sort = state.sort;
-    const parsed = parseSort(state.sort);
-    if (parsed) {
-      params.sortBy = parsed.field;
-      params.sortOrder = parsed.direction;
-    }
+    // Use pre-parsed values if available, otherwise parse
+    params.sortBy = state.sortField || parseSort(state.sort)?.field;
+    params.sortOrder = state.sortOrder || parseSort(state.sort)?.direction;
   }
   
   if (state.filterTree) {

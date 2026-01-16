@@ -1,4 +1,4 @@
-# Unified List Framework v1
+# Unified List Framework v1 (List Contract v1)
 
 This document describes the unified list framework for GRC frontend list pages. The framework provides a consistent mechanism for pagination, sorting, search, filtering, and URL state synchronization across all list pages.
 
@@ -11,6 +11,15 @@ The unified list framework consists of:
 3. **UI Components** (`src/components/common/ListToolbar.tsx`, `src/components/common/FilterBuilderBasic.tsx`) - Reusable toolbar and filter builder components
 4. **Saved Views** (`src/components/common/SavedViewsDropdown.tsx`) - Component for managing saved list views
 
+## List Contract v1
+
+All list screens in the GRC platform share the same query/UX contract:
+
+- **Pagination**: `page`/`pageSize` - Standard pagination with configurable page size
+- **Sorting**: `sort` (format: `field:ASC|DESC`) - Allowlisted fields per entity
+- **Filtering**: `filter` (JSON tree) - AND/OR groups with conditions, single-encoded
+- **Search**: `q` (string) - Global quick search across reasonable fields
+
 ## Canonical Query Parameters
 
 All list pages use these standardized URL query parameters:
@@ -19,9 +28,50 @@ All list pages use these standardized URL query parameters:
 |-----------|--------|---------|-------------|
 | `page` | number | `page=2` | Current page number (1-based) |
 | `pageSize` | number | `pageSize=25` | Items per page |
-| `search` | string | `search=test` | Quick search query |
+| `q` | string | `q=test` | Quick search query (searches across configured fields) |
 | `sort` | `field:ASC\|DESC` | `sort=createdAt:DESC` | Sort field and direction |
 | `filter` | JSON | `filter={"and":[...]}` | Advanced filter tree |
+
+> **Note**: The `search` parameter is deprecated in favor of `q`. Both are supported for backward compatibility, but `q` takes precedence and is the canonical parameter going forward.
+
+### Quick Search (`q` parameter)
+
+The `q` parameter provides global quick search functionality across reasonable fields for each entity. This is different from the advanced `filter` parameter which allows precise field-level filtering.
+
+**Example URLs with quick search:**
+```
+/controls?q=password
+/risks?q=security&sort=severity:DESC
+/policies?q=access&page=2&pageSize=25
+```
+
+**Backend behavior**: The `q` parameter is sent to the backend which searches across configured fields (typically `name`, `description`, `title`, etc.) using a case-insensitive contains match.
+
+### Canonical URL Examples
+
+**Example 1: Single-encoded (canonical format)**
+```
+/controls?page=1&pageSize=25&q=password&sort=createdAt:DESC&filter=%7B%22and%22%3A%5B%7B%22field%22%3A%22status%22%2C%22op%22%3A%22is%22%2C%22value%22%3A%22active%22%7D%5D%7D
+```
+This is the canonical format. The filter JSON `{"and":[{"field":"status","op":"is","value":"active"}]}` is encoded exactly once by URLSearchParams.
+
+**Example 2: Legacy double-encoded (still supported)**
+```
+/controls?filter=%257B%2522and%2522%253A%255B%257B%2522field%2522%253A%2522status%2522%252C%2522op%2522%253A%2522is%2522%252C%2522value%2522%253A%2522active%2522%257D%255D%257D
+```
+This legacy format (where `%7B` became `%257B`) is still parsed correctly via progressive decoding. After any user interaction, the URL will be rewritten to the canonical single-encoded format.
+
+### Sort Field Allowlists
+
+Each entity type has an allowlist of sortable fields to prevent injection attacks. The backend validates that the requested sort field is in the allowlist for the entity type.
+
+**Common sortable fields:**
+- `createdAt`, `updatedAt` - Timestamps (available on all entities)
+- `name`, `title` - Primary identifier fields
+- `status` - Status/state fields
+- Entity-specific fields (e.g., `severity` for risks, `dueDate` for CAPAs)
+
+The frontend should only offer sort options that are in the backend allowlist for the entity.
 
 ## Filter Tree Schema
 
