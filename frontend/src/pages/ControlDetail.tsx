@@ -1159,17 +1159,17 @@ export const ControlDetail: React.FC = () => {
                       {(selected as string[]).map((id) => {
                         const evidence = availableEvidences.find(e => e.id === id);
                         return (
-                          <Chip key={id} label={evidence?.title || id} size="small" />
+                          <Chip key={id} label={evidence?.name || id} size="small" />
                         );
                       })}
                     </Box>
                   )}
                 >
-                  {availableEvidences.map((evidence) => (
-                    <MenuItem key={evidence.id} value={evidence.id}>
-                      {evidence.title} ({evidence.evidenceType})
-                    </MenuItem>
-                  ))}
+                                    {availableEvidences.map((evidence) => (
+                                      <MenuItem key={evidence.id} value={evidence.id}>
+                                        {evidence.name} ({evidence.type})
+                                      </MenuItem>
+                                    ))}
                 </Select>
               </FormControl>
               {availableEvidences.length === 0 && (
