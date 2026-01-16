@@ -955,6 +955,351 @@ describe('GRC CRUD Operations (e2e)', () => {
     });
   });
 
+  // ==================== EVIDENCE ====================
+  describe('GRC Evidence', () => {
+    let createdEvidenceId: string;
+    let existingControlId: string;
+
+    describe('GET /grc/evidence', () => {
+      it('should return list of evidence with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/evidence')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/evidence')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+
+      it('should return 400 without x-tenant-id header', async () => {
+        if (!dbConnected) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/evidence')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(400);
+      });
+    });
+
+    describe('POST /grc/evidence', () => {
+      it('should create a new evidence with valid data', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const newEvidence = {
+          name: 'Test Evidence - E2E',
+          description: 'A test evidence created by e2e tests',
+          type: 'DOCUMENT',
+          sourceType: 'MANUAL',
+          status: 'DRAFT',
+          location: '/documents/test-evidence.pdf',
+          tags: ['test', 'e2e'],
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/evidence')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newEvidence)
+          .expect(201);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newEvidence.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
+
+        createdEvidenceId = data.id;
+      });
+
+      it('should return 400 without required name field', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidEvidence = {
+          description: 'Missing name',
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/evidence')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidEvidence)
+          .expect(400);
+      });
+    });
+
+    describe('GET /grc/evidence/:id', () => {
+      it('should return a specific evidence by ID', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/evidence/${createdEvidenceId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdEvidenceId);
+        expect(data).toHaveProperty('name', 'Test Evidence - E2E');
+      });
+
+      it('should return 404 for non-existent evidence', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/evidence/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('PATCH /grc/evidence/:id', () => {
+      it('should update an existing evidence', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        const updateData = {
+          name: 'Test Evidence - E2E Updated',
+          status: 'APPROVED',
+        };
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/evidence/${createdEvidenceId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(updateData)
+          .expect(200);
+
+        // Response is wrapped in standard envelope
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdEvidenceId);
+        expect(data).toHaveProperty('name', updateData.name);
+        expect(data).toHaveProperty('status', updateData.status);
+      });
+
+      it('should return 404 for non-existent evidence', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .patch('/grc/evidence/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ name: 'Updated' })
+          .expect(404);
+      });
+    });
+
+    describe('Control Linkage', () => {
+      it('should get existing control for linkage test', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        // Get an existing control to link to
+        const response = await request(app.getHttpServer())
+          .get('/grc/controls')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        if (Array.isArray(items) && items.length > 0) {
+          existingControlId = items[0].id;
+        }
+      });
+
+      it('should link evidence to control', async () => {
+        if (
+          !dbConnected ||
+          !tenantId ||
+          !createdEvidenceId ||
+          !existingControlId
+        ) {
+          console.log(
+            'Skipping test: database not connected or no evidence/control available',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .post(
+            `/grc/evidence/${createdEvidenceId}/controls/${existingControlId}`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(201);
+      });
+
+      it('should get linked controls for evidence', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/evidence/${createdEvidenceId}/controls`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response should contain linked controls
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        if (existingControlId) {
+          expect(
+            data.some((c: { id: string }) => c.id === existingControlId),
+          ).toBe(true);
+        }
+      });
+
+      it('should unlink evidence from control', async () => {
+        if (
+          !dbConnected ||
+          !tenantId ||
+          !createdEvidenceId ||
+          !existingControlId
+        ) {
+          console.log(
+            'Skipping test: database not connected or no evidence/control available',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(
+            `/grc/evidence/${createdEvidenceId}/controls/${existingControlId}`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should return 404 when unlinking non-linked control', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        // Try to unlink a control that is not linked (should return 404)
+        await request(app.getHttpServer())
+          .delete(
+            `/grc/evidence/${createdEvidenceId}/controls/00000000-0000-0000-0000-000000000000`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('DELETE /grc/evidence/:id', () => {
+      it('should soft delete an evidence', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/evidence/${createdEvidenceId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should not return deleted evidence in list', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/evidence')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedEvidence = items.find(
+          (e: { id: string }) => e.id === createdEvidenceId,
+        );
+        expect(deletedEvidence).toBeUndefined();
+      });
+
+      it('should return 404 when trying to get deleted evidence', async () => {
+        if (!dbConnected || !tenantId || !createdEvidenceId) {
+          console.log(
+            'Skipping test: database not connected or no evidence created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get(`/grc/evidence/${createdEvidenceId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+  });
+
   // ==================== PROCESS VIOLATIONS ====================
   describe('GRC Process Violations', () => {
     describe('GET /grc/process-violations', () => {
