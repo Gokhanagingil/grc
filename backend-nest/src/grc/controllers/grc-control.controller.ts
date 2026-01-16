@@ -22,6 +22,7 @@ import { Permission } from '../../auth/permissions/permission.enum';
 import { DataSource, FindOptionsWhere } from 'typeorm';
 import { GrcControl } from '../entities/grc-control.entity';
 import { GrcControlProcess } from '../entities/grc-control-process.entity';
+import { GrcControlEvidence } from '../entities/grc-control-evidence.entity';
 import { Process } from '../entities/process.entity';
 import { Perf } from '../../common/decorators';
 import { ControlStatus, ControlType } from '../enums';
@@ -500,6 +501,55 @@ export class GrcControlController {
       id: link.id,
       processId: link.processId,
       process: link.process,
+      createdAt: link.createdAt,
+    }));
+  }
+
+  /**
+   * GET /grc/controls/:controlId/evidences
+   * Get all evidence linked to a control
+   */
+  @Get(':controlId/evidences')
+  @Permissions(Permission.GRC_CONTROL_READ)
+  @Perf()
+  async getLinkedEvidences(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('controlId', ParseUUIDPipe) controlId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const controlRepo = this.dataSource.getRepository(GrcControl);
+    const linkRepo = this.dataSource.getRepository(GrcControlEvidence);
+
+    // Verify control exists and belongs to tenant
+    const control = await controlRepo.findOne({
+      where: {
+        id: controlId,
+        tenantId,
+        isDeleted: false,
+      } as FindOptionsWhere<GrcControl>,
+    });
+    if (!control) {
+      throw new NotFoundException(`Control with ID ${controlId} not found`);
+    }
+
+    // Get all linked evidence
+    const links = await linkRepo.find({
+      where: { controlId, tenantId } as FindOptionsWhere<GrcControlEvidence>,
+      relations: ['evidence'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return links.map((link) => ({
+      id: link.id,
+      evidenceId: link.evidenceId,
+      evidence: link.evidence,
+      evidenceType: link.evidenceType,
+      validFrom: link.validFrom,
+      validUntil: link.validUntil,
+      notes: link.notes,
       createdAt: link.createdAt,
     }));
   }
