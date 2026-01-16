@@ -494,3 +494,28 @@ export enum StatusHistoryEntityType {
   CONTROL_TEST = 'control_test',
   CAPA_TASK = 'capa_task',
 }
+
+// ============================================================================
+// Test Result Enums (Test/Result Sprint)
+// ============================================================================
+
+/**
+ * TestMethod - Method used to conduct a test
+ * Values match PostgreSQL enum: grc_test_results_method_enum
+ */
+export enum TestMethod {
+  INTERVIEW = 'INTERVIEW',
+  OBSERVATION = 'OBSERVATION',
+  INSPECTION = 'INSPECTION',
+  REPERFORMANCE = 'REPERFORMANCE',
+  OTHER = 'OTHER',
+}
+
+/**
+ * TestResultStatus - Status of a test result in its lifecycle
+ * Values match PostgreSQL enum: grc_test_results_status_enum
+ */
+export enum TestResultStatus {
+  DRAFT = 'DRAFT',
+  FINAL = 'FINAL',
+}

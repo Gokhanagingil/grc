@@ -295,13 +295,19 @@ export const API_PATHS = {
     UNLINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
   },
 
-  // Test Results endpoints (Golden Flow Sprint 1B)
+  // Test Results endpoints (Golden Flow Sprint 1B + Test/Result Sprint)
   GRC_TEST_RESULTS: {
     LIST: '/grc/test-results',
     CREATE: '/grc/test-results',
     GET: (id: string) => `/grc/test-results/${id}`,
     UPDATE: (id: string) => `/grc/test-results/${id}`,
     DELETE: (id: string) => `/grc/test-results/${id}`,
+    // Test/Result Sprint - Evidence linking endpoints
+    EVIDENCES: (testResultId: string) => `/grc/test-results/${testResultId}/evidences`,
+    LINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+    UNLINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+    // Test/Result Sprint - Control-centric endpoint
+    BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/test-results`,
   },
 
   // Issues endpoints (Golden Flow Sprint 1B)
@@ -1688,17 +1694,34 @@ export const evidenceApi = {
 // GRC Test Results API (Golden Flow Sprint 1B)
 // ============================================================================
 
+// Test/Result Sprint - Test method enum values
+export type TestMethod = 'INTERVIEW' | 'OBSERVATION' | 'INSPECTION' | 'REPERFORMANCE' | 'OTHER';
+
+// Test/Result Sprint - Test result status enum values
+export type TestResultStatus = 'DRAFT' | 'FINAL';
+
+// Test/Result Sprint - Test result outcome enum values
+export type TestResultOutcome = 'PASS' | 'FAIL' | 'PARTIAL' | 'NOT_TESTED';
+
 export interface TestResultData {
   id: string;
   tenantId: string;
   name: string;
   description?: string;
-  controlTestId: string;
-  result: string;
+  controlTestId?: string;
+  controlId?: string;
+  result: TestResultOutcome;
   effectivenessRating?: string;
-  testedAt: string;
+  testedAt?: string;
   testedByUserId?: string;
   notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
+  evidenceCount?: number;
   createdAt: string;
   updatedAt: string;
   isDeleted: boolean;
@@ -1712,29 +1735,72 @@ export interface TestResultData {
       code?: string;
     };
   };
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
 }
 
 export interface CreateTestResultDto {
-  name: string;
+  name?: string;
   description?: string;
-  controlTestId: string;
-  result: string;
+  controlTestId?: string;
+  controlId?: string;
+  result: TestResultOutcome;
   effectivenessRating?: string;
   testedAt?: string;
   notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
 }
 
 export interface UpdateTestResultDto {
   name?: string;
   description?: string;
-  result?: string;
+  result?: TestResultOutcome;
   effectivenessRating?: string;
   testedAt?: string;
   notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
+}
+
+// Test/Result Sprint - List query params with List Contract v1 support
+export interface TestResultListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  controlId?: string;
+  result?: TestResultOutcome;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  testDateAfter?: string;
+  testDateBefore?: string;
+}
+
+// Test/Result Sprint - Evidence linked to test result
+export interface TestResultEvidenceLink {
+  id: string;
+  tenantId: string;
+  testResultId: string;
+  evidenceId: string;
+  evidence?: EvidenceData;
+  createdAt: string;
 }
 
 export const testResultApi = {
-  list: (tenantId: string, params?: Record<string, unknown>) =>
+  list: (tenantId: string, params?: TestResultListParams) =>
     api.get(API_PATHS.GRC_TEST_RESULTS.LIST, {
       ...withTenantId(tenantId),
       params,
@@ -1751,6 +1817,30 @@ export const testResultApi = {
 
   delete: (tenantId: string, id: string) =>
     api.delete(API_PATHS.GRC_TEST_RESULTS.DELETE(id), withTenantId(tenantId)),
+
+  // Test/Result Sprint - Control-centric endpoint
+  listByControl: (tenantId: string, controlId: string, params?: TestResultListParams) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.BY_CONTROL(controlId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  // Test/Result Sprint - Evidence linking endpoints
+  getEvidences: (tenantId: string, testResultId: string) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.EVIDENCES(testResultId), withTenantId(tenantId)),
+
+  linkEvidence: (tenantId: string, testResultId: string, evidenceId: string) =>
+    api.post(
+      API_PATHS.GRC_TEST_RESULTS.LINK_EVIDENCE(testResultId, evidenceId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkEvidence: (tenantId: string, testResultId: string, evidenceId: string) =>
+    api.delete(
+      API_PATHS.GRC_TEST_RESULTS.UNLINK_EVIDENCE(testResultId, evidenceId),
+      withTenantId(tenantId),
+    ),
 };
 
 // ============================================================================

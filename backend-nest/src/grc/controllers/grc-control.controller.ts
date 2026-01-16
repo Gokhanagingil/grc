@@ -40,6 +40,8 @@ import {
   CONTROL_SEARCHABLE_COLUMNS,
   resetParamCounter,
 } from '../../common';
+import { GrcTestResultService } from '../services/grc-test-result.service';
+import { TestResultFilterDto } from '../dto/test-result.dto';
 
 /**
  * GRC Control Controller
@@ -110,6 +112,7 @@ export class GrcControlController {
   constructor(
     private readonly dataSource: DataSource,
     private readonly universalListService: UniversalListService,
+    private readonly testResultService: GrcTestResultService,
   ) {}
 
   /**
@@ -552,5 +555,44 @@ export class GrcControlController {
       notes: link.notes,
       createdAt: link.createdAt,
     }));
+  }
+
+  // ============================================================================
+  // Test/Result Sprint: Control-centric Test Results Endpoint
+  // ============================================================================
+
+  /**
+   * GET /grc/controls/:controlId/test-results
+   * Get all test results for a specific control
+   * List Contract v1 compliant with pagination and filtering
+   */
+  @Get(':controlId/test-results')
+  @Permissions(Permission.GRC_CONTROL_READ)
+  @Perf()
+  async getTestResults(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('controlId', ParseUUIDPipe) controlId: string,
+    @Query() filter: TestResultFilterDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const result = await this.testResultService.findByControlId(
+      tenantId,
+      controlId,
+      filter,
+    );
+
+    return {
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        page: filter.page || 1,
+        pageSize: filter.pageSize || 20,
+        totalPages: Math.ceil(result.total / (filter.pageSize || 20)),
+      },
+    };
   }
 }
