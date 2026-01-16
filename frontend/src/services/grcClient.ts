@@ -1582,6 +1582,7 @@ export interface EvidenceData {
   externalUrl?: string;
   collectedAt?: string;
   collectedByUserId?: string;
+  dueDate?: string;
   tags?: string[];
   createdAt: string;
   updatedAt: string;
@@ -1597,6 +1598,7 @@ export interface CreateEvidenceDto {
   location?: string;
   externalUrl?: string;
   collectedAt?: string;
+  dueDate?: string;
   tags?: string[];
 }
 
@@ -1609,6 +1611,7 @@ export interface UpdateEvidenceDto {
   location?: string;
   externalUrl?: string;
   collectedAt?: string;
+  dueDate?: string;
   tags?: string[];
 }
 

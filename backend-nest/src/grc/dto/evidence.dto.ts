@@ -81,6 +81,10 @@ export class CreateEvidenceDto {
   expiresAt?: string;
 
   @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
 }
@@ -151,6 +155,10 @@ export class UpdateEvidenceDto {
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 
   @IsOptional()
   @IsObject()

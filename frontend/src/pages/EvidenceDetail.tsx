@@ -466,16 +466,18 @@ export const EvidenceDetail: React.FC = () => {
                     <Grid item xs={8}><Typography>{formatStatus(evidence.sourceType || 'manual')}</Typography></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Status</Typography></Grid>
                     <Grid item xs={8}><Chip label={formatStatus(evidence.status)} size="small" color={getStatusColor(evidence.status)} /></Grid>
-                    <Grid item xs={4}><Typography color="text.secondary">Collected At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDate(evidence.collectedAt)}</Typography></Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>Location & Audit</Typography>
+                                <Grid item xs={4}><Typography color="text.secondary">Collected At</Typography></Grid>
+                                <Grid item xs={8}><Typography>{formatDate(evidence.collectedAt)}</Typography></Grid>
+                                <Grid item xs={4}><Typography color="text.secondary">Due Date</Typography></Grid>
+                                <Grid item xs={8}><Typography>{formatDate(evidence.dueDate)}</Typography></Grid>
+                              </Grid>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Card>
+                            <CardContent>
+                              <Typography variant="h6" gutterBottom>Location & Audit</Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Grid container spacing={2}>
                     <Grid item xs={4}><Typography color="text.secondary">Location</Typography></Grid>
