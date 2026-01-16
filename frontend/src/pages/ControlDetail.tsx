@@ -61,7 +61,7 @@ import {
   CreateTestResultDto,
   API_PATHS,
 } from '../services/grcClient';
-import apiClient from '../services/apiClient';
+import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 
@@ -450,7 +450,7 @@ export const ControlDetail: React.FC = () => {
     setError(null);
 
     try {
-      const response = await apiClient.post(
+      const response = await api.post(
         API_PATHS.GRC_TEST_RESULTS.CREATE_ISSUE(testResultId),
         {},
         { headers: { 'x-tenant-id': tenantId } }
