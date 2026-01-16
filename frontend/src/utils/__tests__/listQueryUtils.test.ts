@@ -131,7 +131,7 @@ describe('listQueryUtils', () => {
       });
       expect(params.get('page')).toBe('2');
       expect(params.get('pageSize')).toBe('25');
-      expect(params.get('search')).toBe('test');
+      expect(params.get('q')).toBe('test'); // Uses canonical 'q' parameter
       expect(params.get('sort')).toBe('name:ASC');
     });
 
@@ -174,6 +174,35 @@ describe('listQueryUtils', () => {
       expect(params.get('page')).toBe('1');
       expect(params.get('pageSize')).toBe('10');
       expect(params.get('sort')).toBe('createdAt:DESC');
+    });
+
+    it('should use q parameter for search (canonical)', () => {
+      const params = buildListQueryParams({
+        page: 1,
+        pageSize: 10,
+        search: 'test query',
+        sort: 'createdAt:DESC',
+        filterTree: null,
+      });
+      expect(params.get('q')).toBe('test query');
+      expect(params.get('search')).toBeNull();
+    });
+
+    it('should round-trip q parameter through build -> parse', () => {
+      const state = {
+        page: 2,
+        pageSize: 25,
+        search: 'round trip test',
+        sort: 'name:ASC',
+        filterTree: null,
+      };
+      const params = buildListQueryParams(state, true);
+      const parsed = parseListQuery(params);
+      expect(parsed.q).toBe('round trip test');
+      expect(parsed.search).toBe('round trip test');
+      expect(parsed.page).toBe(2);
+      expect(parsed.pageSize).toBe(25);
+      expect(parsed.sort).toBe('name:ASC');
     });
   });
 
@@ -268,6 +297,53 @@ describe('listQueryUtils', () => {
       });
       const result = parseListQuery(params);
       expect(result.filterTree).toEqual(filter);
+    });
+
+    it('should parse q parameter (canonical quick search)', () => {
+      const params = new URLSearchParams({
+        q: 'quick search term',
+      });
+      const result = parseListQuery(params);
+      expect(result.q).toBe('quick search term');
+      expect(result.search).toBe('quick search term');
+    });
+
+    it('should prefer q over legacy search parameter', () => {
+      const params = new URLSearchParams({
+        q: 'canonical',
+        search: 'legacy',
+      });
+      const result = parseListQuery(params);
+      expect(result.q).toBe('canonical');
+      expect(result.search).toBe('canonical');
+    });
+
+    it('should fall back to search parameter when q is not present', () => {
+      const params = new URLSearchParams({
+        search: 'legacy search',
+      });
+      const result = parseListQuery(params);
+      expect(result.q).toBe('legacy search');
+      expect(result.search).toBe('legacy search');
+    });
+
+    it('should parse sortField and sortOrder from sort string', () => {
+      const params = new URLSearchParams({
+        sort: 'name:ASC',
+      });
+      const result = parseListQuery(params);
+      expect(result.sortField).toBe('name');
+      expect(result.sortOrder).toBe('ASC');
+    });
+
+    it('should use default sortField and sortOrder when sort is invalid', () => {
+      const params = new URLSearchParams({
+        sort: 'invalid',
+      });
+      const result = parseListQuery(params);
+      // Invalid sort falls back to default 'createdAt:DESC'
+      expect(result.sortField).toBe('createdAt');
+      expect(result.sortOrder).toBe('DESC');
     });
   });
 
@@ -447,7 +523,7 @@ describe('listQueryUtils', () => {
       const result = buildApiParams(state);
       expect(result.page).toBe(2);
       expect(result.pageSize).toBe(25);
-      expect(result.search).toBe('test');
+      expect(result.q).toBe('test'); // Uses canonical 'q' parameter
       expect(result.sortBy).toBe('name');
       expect(result.sortOrder).toBe('ASC');
     });
