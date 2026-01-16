@@ -11,7 +11,13 @@ import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { GrcControlTest } from './grc-control-test.entity';
-import { TestResultOutcome, EffectivenessRating } from '../enums';
+import { GrcControl } from './grc-control.entity';
+import {
+  TestResultOutcome,
+  EffectivenessRating,
+  TestMethod,
+  TestResultStatus,
+} from '../enums';
 import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 
 /**
@@ -21,22 +27,73 @@ import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
  * Each ControlTest has exactly one TestResult (1:1 relationship).
  * Part of the Golden Flow: Control -> ControlTest -> TestResult -> Finding
  * Extends BaseEntity for standard audit fields.
+ *
+ * Test/Result Sprint additions:
+ * - Direct controlId for easier querying
+ * - testDate, method, status, summary, ownerUserId fields
  */
 @Entity('grc_test_results')
 @Index(['tenantId', 'controlTestId'], { unique: true })
 @Index(['tenantId', 'result'])
 @Index(['tenantId', 'createdAt'])
+@Index(['tenantId', 'controlId'])
+@Index(['tenantId', 'testDate'])
+@Index(['tenantId', 'status'])
+@Index(['tenantId', 'method'])
+@Index(['tenantId', 'updatedAt'])
 export class GrcTestResult extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
-  @Column({ name: 'control_test_id', type: 'uuid' })
-  controlTestId: string;
+  @Column({ name: 'control_test_id', type: 'uuid', nullable: true })
+  controlTestId: string | null;
 
-  @OneToOne(() => GrcControlTest, { nullable: false })
+  @OneToOne(() => GrcControlTest, { nullable: true })
   @JoinColumn({ name: 'control_test_id' })
-  controlTest: GrcControlTest;
+  controlTest: GrcControlTest | null;
+
+  // Test/Result Sprint - Direct control reference for easier querying
+  @Column({ name: 'control_id', type: 'uuid', nullable: true })
+  controlId: string | null;
+
+  @ManyToOne(() => GrcControl, { nullable: true })
+  @JoinColumn({ name: 'control_id' })
+  control: GrcControl | null;
+
+  // Test/Result Sprint - Test date
+  @Column({ name: 'test_date', type: 'date', nullable: true })
+  testDate: Date | null;
+
+  // Test/Result Sprint - Test method
+  @Column({
+    type: 'enum',
+    enum: TestMethod,
+    default: TestMethod.OTHER,
+    nullable: true,
+  })
+  method: TestMethod | null;
+
+  // Test/Result Sprint - Status (draft/final)
+  @Column({
+    type: 'enum',
+    enum: TestResultStatus,
+    default: TestResultStatus.DRAFT,
+    nullable: true,
+  })
+  status: TestResultStatus | null;
+
+  // Test/Result Sprint - Summary text
+  @Column({ type: 'text', nullable: true })
+  summary: string | null;
+
+  // Test/Result Sprint - Owner user
+  @Column({ name: 'owner_user_id', type: 'uuid', nullable: true })
+  ownerUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'owner_user_id' })
+  owner: User | null;
 
   @Column({
     type: 'enum',

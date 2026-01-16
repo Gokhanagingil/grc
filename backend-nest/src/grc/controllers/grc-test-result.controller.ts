@@ -124,4 +124,77 @@ export class GrcTestResultController {
     }
     await this.testResultService.softDelete(tenantId, id, req.user.id);
   }
+
+  // ============================================================================
+  // Test/Result Sprint: Evidence Linking Endpoints
+  // ============================================================================
+
+  /**
+   * GET /grc/test-results/:testResultId/evidences
+   * Get all evidences linked to a test result
+   */
+  @Get(':testResultId/evidences')
+  @Permissions(Permission.GRC_CONTROL_READ)
+  async getEvidences(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('testResultId') testResultId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const evidences = await this.testResultService.getEvidences(
+      tenantId,
+      testResultId,
+    );
+    return { success: true, data: evidences };
+  }
+
+  /**
+   * POST /grc/test-results/:testResultId/evidences/:evidenceId
+   * Link an evidence to a test result
+   */
+  @Post(':testResultId/evidences/:evidenceId')
+  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async linkEvidence(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('testResultId') testResultId: string,
+    @Param('evidenceId') evidenceId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const link = await this.testResultService.linkEvidence(
+      tenantId,
+      testResultId,
+      evidenceId,
+      req.user.id,
+    );
+    return { success: true, data: link };
+  }
+
+  /**
+   * DELETE /grc/test-results/:testResultId/evidences/:evidenceId
+   * Unlink an evidence from a test result
+   */
+  @Delete(':testResultId/evidences/:evidenceId')
+  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async unlinkEvidence(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('testResultId') testResultId: string,
+    @Param('evidenceId') evidenceId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    await this.testResultService.unlinkEvidence(
+      tenantId,
+      testResultId,
+      evidenceId,
+      req.user.id,
+    );
+  }
 }

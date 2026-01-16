@@ -48,9 +48,17 @@ import {
   controlApi,
   processApi,
   statusHistoryApi,
+  testResultApi,
+  evidenceApi,
   unwrapResponse,
   unwrapPaginatedResponse,
   StatusHistoryItem,
+  TestResultData,
+  TestResultOutcome,
+  TestMethod,
+  TestResultStatus,
+  EvidenceData,
+  CreateTestResultDto,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
@@ -218,6 +226,22 @@ export const ControlDetail: React.FC = () => {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Test Results state (Test/Result Sprint)
+  const [testResults, setTestResults] = useState<TestResultData[]>([]);
+  const [testResultsLoading, setTestResultsLoading] = useState(false);
+  const [testResultDialogOpen, setTestResultDialogOpen] = useState(false);
+  const [creatingTestResult, setCreatingTestResult] = useState(false);
+  const [availableEvidences, setAvailableEvidences] = useState<EvidenceData[]>([]);
+  const [newTestResult, setNewTestResult] = useState<CreateTestResultDto>({
+    controlId: id || '',
+    result: 'NOT_TESTED' as TestResultOutcome,
+    testDate: new Date().toISOString().split('T')[0],
+    method: 'OTHER' as TestMethod,
+    status: 'DRAFT' as TestResultStatus,
+    summary: '',
+  });
+  const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<string[]>([]);
+
   const fetchControl = useCallback(async () => {
     if (!id || !tenantId) return;
 
@@ -267,16 +291,55 @@ export const ControlDetail: React.FC = () => {
     }
   }, [id, tenantId]);
 
+  // Test/Result Sprint - Fetch test results for this control
+  const fetchTestResults = useCallback(async () => {
+    if (!id || !tenantId) return;
+
+    setTestResultsLoading(true);
+    try {
+      const response = await testResultApi.listByControl(tenantId, id, {
+        sortBy: 'testDate',
+        sortOrder: 'DESC',
+      });
+      const result = unwrapPaginatedResponse<TestResultData>(response);
+      setTestResults(result.items || []);
+    } catch (err) {
+      console.error('Error fetching test results:', err);
+      setTestResults([]);
+    } finally {
+      setTestResultsLoading(false);
+    }
+  }, [id, tenantId]);
+
+  // Test/Result Sprint - Fetch available evidences for linking
+  const fetchAvailableEvidences = useCallback(async () => {
+    if (!tenantId) return;
+
+    try {
+      const response = await evidenceApi.list(tenantId, { pageSize: 100 });
+      const result = unwrapPaginatedResponse<EvidenceData>(response);
+      setAvailableEvidences(result.items || []);
+    } catch (err) {
+      console.error('Error fetching evidences:', err);
+      setAvailableEvidences([]);
+    }
+  }, [tenantId]);
+
   useEffect(() => {
     fetchControl();
     fetchAllProcesses();
   }, [fetchControl, fetchAllProcesses]);
 
   useEffect(() => {
-    if (tabValue === 5) {
+    if (tabValue === 4) {
+      // Test Results tab (Test/Result Sprint)
+      fetchTestResults();
+      fetchAvailableEvidences();
+    } else if (tabValue === 6) {
+      // History tab (shifted by 1 due to new Test Results tab)
       fetchStatusHistory();
     }
-  }, [tabValue, fetchStatusHistory]);
+  }, [tabValue, fetchStatusHistory, fetchTestResults, fetchAvailableEvidences]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -315,6 +378,76 @@ export const ControlDetail: React.FC = () => {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to unlink process');
     }
+  };
+
+  // Test/Result Sprint - Create test result with evidence linking
+  const handleCreateTestResult = async () => {
+    if (!id || !tenantId) return;
+
+    setCreatingTestResult(true);
+    try {
+      // Create the test result
+      const response = await testResultApi.create(tenantId, {
+        ...newTestResult,
+        controlId: id,
+      });
+      const createdTestResult = unwrapResponse<TestResultData>(response);
+
+      // Link selected evidences
+      for (const evidenceId of selectedEvidenceIds) {
+        try {
+          await testResultApi.linkEvidence(tenantId, createdTestResult.id, evidenceId);
+        } catch (linkErr) {
+          console.error('Error linking evidence:', linkErr);
+        }
+      }
+
+      setSuccess('Test result created successfully');
+      setTestResultDialogOpen(false);
+      setNewTestResult({
+        controlId: id,
+        result: 'NOT_TESTED' as TestResultOutcome,
+        testDate: new Date().toISOString().split('T')[0],
+        method: 'OTHER' as TestMethod,
+        status: 'DRAFT' as TestResultStatus,
+        summary: '',
+      });
+      setSelectedEvidenceIds([]);
+      await fetchTestResults();
+      await fetchControl(); // Refresh control to update lastTestResult
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to create test result');
+    } finally {
+      setCreatingTestResult(false);
+    }
+  };
+
+  const handleOpenTestResultDialog = () => {
+    setNewTestResult({
+      controlId: id || '',
+      result: 'NOT_TESTED' as TestResultOutcome,
+      testDate: new Date().toISOString().split('T')[0],
+      method: 'OTHER' as TestMethod,
+      status: 'DRAFT' as TestResultStatus,
+      summary: '',
+    });
+    setSelectedEvidenceIds([]);
+    setTestResultDialogOpen(true);
+  };
+
+  const getResultColor = (result: string): 'success' | 'error' | 'warning' | 'default' => {
+    switch (result) {
+      case 'PASS': return 'success';
+      case 'FAIL': return 'error';
+      case 'PARTIAL': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  const getTestResultStatusColor = (status: string): 'primary' | 'default' => {
+    return status === 'FINAL' ? 'primary' : 'default';
   };
 
   const getStatusColor = (status: ControlStatus): 'error' | 'warning' | 'info' | 'success' | 'default' => {
@@ -421,6 +554,7 @@ export const ControlDetail: React.FC = () => {
           <Tab icon={<ProcessIcon />} label="Coverage" iconPosition="start" />
           <Tab icon={<EvidenceIcon />} label="Evidence" iconPosition="start" />
           <Tab icon={<TestIcon />} label="Tests" iconPosition="start" />
+          <Tab icon={<TestIcon />} label="Test Results" iconPosition="start" />
           <Tab icon={<IssueIcon />} label="Issues/CAPA" iconPosition="start" />
           <Tab icon={<HistoryIcon />} label="History" iconPosition="start" />
           <Tab icon={<AttachmentIcon />} label="Attachments" iconPosition="start" />
@@ -704,8 +838,75 @@ export const ControlDetail: React.FC = () => {
           )}
         </TabPanel>
 
-        {/* Issues/CAPA Tab */}
+        {/* Test Results Tab (Test/Result Sprint) */}
         <TabPanel value={tabValue} index={4}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Test Results</Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenTestResultDialog}
+            >
+              Add Test Result
+            </Button>
+          </Box>
+          {testResultsLoading ? (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          ) : testResults.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Test Date</TableCell>
+                  <TableCell>Result</TableCell>
+                  <TableCell>Method</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Evidence Count</TableCell>
+                  <TableCell>Summary</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {testResults.map((testResult) => (
+                  <TableRow key={testResult.id}>
+                    <TableCell>{formatDate(testResult.testDate || testResult.createdAt)}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={testResult.result} 
+                        size="small" 
+                        color={getResultColor(testResult.result)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={testResult.method || 'OTHER'} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={testResult.status || 'DRAFT'} 
+                        size="small" 
+                        color={getTestResultStatusColor(testResult.status || 'DRAFT')}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>{testResult.evidenceCount || 0}</TableCell>
+                    <TableCell>
+                      <Tooltip title={testResult.summary || ''}>
+                        <Typography sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {testResult.summary || '-'}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <Alert severity="info">No test results recorded for this control yet. Click "Add Test Result" to create one.</Alert>
+          )}
+        </TabPanel>
+
+        {/* Issues/CAPA Tab */}
+        <TabPanel value={tabValue} index={5}>
           <Typography variant="h6" gutterBottom>Related Issues</Typography>
           {control.issues && control.issues.length > 0 ? (
             <Table>
@@ -754,7 +955,7 @@ export const ControlDetail: React.FC = () => {
         </TabPanel>
 
         {/* History Tab */}
-        <TabPanel value={tabValue} index={5}>
+        <TabPanel value={tabValue} index={6}>
           <Typography variant="h6" gutterBottom>Status History</Typography>
           {historyLoading ? (
             <Box display="flex" justifyContent="center" p={4}>
@@ -816,7 +1017,7 @@ export const ControlDetail: React.FC = () => {
         </TabPanel>
 
         {/* Attachments Tab */}
-        <TabPanel value={tabValue} index={6}>
+        <TabPanel value={tabValue} index={7}>
           <AttachmentPanel refTable="grc_controls" refId={control.id} />
         </TabPanel>
       </Paper>
@@ -849,6 +1050,145 @@ export const ControlDetail: React.FC = () => {
             startIcon={linkingProcess ? <CircularProgress size={20} /> : <LinkIcon />}
           >
             Link
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Test Result Dialog (Test/Result Sprint) */}
+      <Dialog open={testResultDialogOpen} onClose={() => setTestResultDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add Test Result</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Test Date</InputLabel>
+                <input
+                  type="date"
+                  value={newTestResult.testDate || ''}
+                  onChange={(e) => setNewTestResult({ ...newTestResult, testDate: e.target.value })}
+                  style={{ 
+                    padding: '16.5px 14px', 
+                    border: '1px solid rgba(0, 0, 0, 0.23)', 
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Result</InputLabel>
+                <Select
+                  value={newTestResult.result}
+                  label="Result"
+                  onChange={(e) => setNewTestResult({ ...newTestResult, result: e.target.value as TestResultOutcome })}
+                >
+                  <MenuItem value="PASS">Pass</MenuItem>
+                  <MenuItem value="FAIL">Fail</MenuItem>
+                  <MenuItem value="PARTIAL">Partial</MenuItem>
+                  <MenuItem value="NOT_TESTED">Not Tested</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Method</InputLabel>
+                <Select
+                  value={newTestResult.method || 'OTHER'}
+                  label="Method"
+                  onChange={(e) => setNewTestResult({ ...newTestResult, method: e.target.value as TestMethod })}
+                >
+                  <MenuItem value="INTERVIEW">Interview</MenuItem>
+                  <MenuItem value="OBSERVATION">Observation</MenuItem>
+                  <MenuItem value="INSPECTION">Inspection</MenuItem>
+                  <MenuItem value="REPERFORMANCE">Reperformance</MenuItem>
+                  <MenuItem value="OTHER">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={newTestResult.status || 'DRAFT'}
+                  label="Status"
+                  onChange={(e) => setNewTestResult({ ...newTestResult, status: e.target.value as TestResultStatus })}
+                >
+                  <MenuItem value="DRAFT">Draft</MenuItem>
+                  <MenuItem value="FINAL">Final</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel shrink>Summary</InputLabel>
+                <textarea
+                  value={newTestResult.summary || ''}
+                  onChange={(e) => setNewTestResult({ ...newTestResult, summary: e.target.value })}
+                  placeholder="Enter test summary..."
+                  rows={3}
+                  style={{ 
+                    padding: '16.5px 14px', 
+                    border: '1px solid rgba(0, 0, 0, 0.23)', 
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    marginTop: '16px'
+                  }}
+                />
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Link Evidence (optional)
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Select Evidence</InputLabel>
+                <Select
+                  multiple
+                  value={selectedEvidenceIds}
+                  label="Select Evidence"
+                  onChange={(e) => setSelectedEvidenceIds(e.target.value as string[])}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((id) => {
+                        const evidence = availableEvidences.find(e => e.id === id);
+                        return (
+                          <Chip key={id} label={evidence?.title || id} size="small" />
+                        );
+                      })}
+                    </Box>
+                  )}
+                >
+                  {availableEvidences.map((evidence) => (
+                    <MenuItem key={evidence.id} value={evidence.id}>
+                      {evidence.title} ({evidence.evidenceType})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {availableEvidences.length === 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  No evidence available. Create evidence first to link it to test results.
+                </Typography>
+              )}
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTestResultDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateTestResult}
+            disabled={!newTestResult.result || creatingTestResult}
+            startIcon={creatingTestResult ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            Create Test Result
           </Button>
         </DialogActions>
       </Dialog>
