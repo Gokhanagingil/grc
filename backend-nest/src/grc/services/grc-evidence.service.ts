@@ -33,6 +33,7 @@ export class GrcEvidenceService {
     'sourceType',
     'status',
     'collectedAt',
+    'dueDate',
   ]);
 
   constructor(

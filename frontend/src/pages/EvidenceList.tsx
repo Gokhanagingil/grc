@@ -259,16 +259,16 @@ export const EvidenceList: React.FC = () => {
         />
       ),
     },
-    {
-      key: 'collectedAt',
-      header: 'Collected',
-      render: (evidence) => formatDate(evidence.collectedAt),
-    },
-    {
-      key: 'createdAt',
-      header: 'Created',
-      render: (evidence) => formatDate(evidence.createdAt),
-    },
+        {
+          key: 'dueDate',
+          header: 'Due Date',
+          render: (evidence) => formatDate(evidence.dueDate),
+        },
+        {
+          key: 'updatedAt',
+          header: 'Updated',
+          render: (evidence) => formatDate(evidence.updatedAt),
+        },
     {
       key: 'actions',
       header: 'Actions',
@@ -425,14 +425,22 @@ export const EvidenceList: React.FC = () => {
               onChange={(e) => setNewEvidence({ ...newEvidence, location: e.target.value })}
               fullWidth
             />
-            <TextField
-              label="External URL"
-              value={newEvidence.externalUrl || ''}
-              onChange={(e) => setNewEvidence({ ...newEvidence, externalUrl: e.target.value })}
-              fullWidth
-            />
-          </Box>
-        </DialogContent>
+                    <TextField
+                      label="External URL"
+                      value={newEvidence.externalUrl || ''}
+                      onChange={(e) => setNewEvidence({ ...newEvidence, externalUrl: e.target.value })}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Due Date"
+                      type="date"
+                      value={newEvidence.dueDate || ''}
+                      onChange={(e) => setNewEvidence({ ...newEvidence, dueDate: e.target.value })}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Box>
+                </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
           <Button 

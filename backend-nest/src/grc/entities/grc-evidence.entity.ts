@@ -28,6 +28,9 @@ import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 @Index(['tenantId', 'createdAt'])
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'sourceType'])
+@Index(['tenantId', 'updatedAt'])
+@Index(['tenantId', 'name'])
+@Index(['tenantId', 'dueDate'])
 export class GrcEvidence extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
@@ -96,6 +99,9 @@ export class GrcEvidence extends BaseEntity {
 
   @Column({ name: 'expires_at', type: 'date', nullable: true })
   expiresAt: Date | null;
+
+  @Column({ name: 'due_date', type: 'date', nullable: true })
+  dueDate: Date | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
