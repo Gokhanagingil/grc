@@ -137,6 +137,7 @@ export const API_PATHS = {
     PROCESSES: (id: string) => `/grc/controls/${id}/processes`,
     LINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
     UNLINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
+    EVIDENCES: (id: string) => `/grc/controls/${id}/evidences`,
   },
 
   // GRC Coverage endpoints (Unified Control Library)
