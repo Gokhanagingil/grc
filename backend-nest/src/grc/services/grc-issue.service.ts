@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DeepPartial } from 'typeorm';
 import {
   GrcIssue,
   GrcControl,
@@ -12,7 +12,7 @@ import {
   GrcIssueEvidence,
   GrcEvidence,
 } from '../entities';
-import { TestResultOutcome } from '../enums';
+import { TestResultOutcome, IssueType, IssueStatus, IssueSeverity } from '../enums';
 import {
   CreateIssueDto,
   UpdateIssueDto,
@@ -513,36 +513,37 @@ export class GrcIssueService {
 
     const autoTitle = `Test failed: ${controlName} - ${testDate}`;
 
-    let autoSeverity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
+    let autoSeverity: IssueSeverity = IssueSeverity.MEDIUM;
     const resultStr = String(testResult.result);
     if (resultStr === String(TestResultOutcome.FAIL)) {
-      autoSeverity = 'high';
+      autoSeverity = IssueSeverity.HIGH;
     } else if (resultStr === String(TestResultOutcome.INCONCLUSIVE)) {
-      autoSeverity = 'medium';
+      autoSeverity = IssueSeverity.MEDIUM;
     }
 
-    const issue = this.issueRepository.create({
+    const issueData: DeepPartial<GrcIssue> = {
       tenantId,
       title: dto.title || autoTitle,
       description:
         dto.description ||
         `Issue created from test result. Result: ${testResult.result}. ${testResult.resultDetails || ''}`.trim(),
-      type: 'self_assessment',
-      status: 'open',
+      type: IssueType.SELF_ASSESSMENT,
+      status: IssueStatus.OPEN,
       severity: dto.severity || autoSeverity,
       controlId: testResult.controlId,
       testResultId: testResult.id,
       discoveredDate: testResult.testDate || new Date(),
-      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-      ownerUserId: dto.ownerUserId || null,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      ownerUserId: dto.ownerUserId || undefined,
       raisedByUserId: userId,
       createdBy: userId,
       metadata: {
         createdFromTestResult: true,
         testResultOutcome: testResult.result,
       },
-    });
+    };
 
+    const issue = this.issueRepository.create(issueData);
     const savedIssue = await this.issueRepository.save(issue);
 
     await this.auditService.recordCreate(
@@ -555,6 +556,6 @@ export class GrcIssueService {
     // Note: Auto-linking evidences from test result is deferred to a future sprint
     // Users can manually link evidences using the existing linkToEvidence endpoint
 
-    return this.findOne(tenantId, String(savedIssue.id));
+    return this.findOne(tenantId, savedIssue.id);
   }
 }
