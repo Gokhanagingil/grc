@@ -21,17 +21,22 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { GrcTestResultService } from '../services/grc-test-result.service';
+import { GrcIssueService } from '../services/grc-issue.service';
 import {
   CreateTestResultDto,
   UpdateTestResultDto,
   ReviewTestResultDto,
   TestResultFilterDto,
 } from '../dto/test-result.dto';
+import { CreateIssueFromTestResultDto } from '../dto/issue.dto';
 
 @Controller('grc/test-results')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcTestResultController {
-  constructor(private readonly testResultService: GrcTestResultService) {}
+  constructor(
+    private readonly testResultService: GrcTestResultService,
+    private readonly issueService: GrcIssueService,
+  ) {}
 
   @Post()
   @Permissions(Permission.GRC_CONTROL_WRITE)
@@ -196,5 +201,41 @@ export class GrcTestResultController {
       evidenceId,
       req.user.id,
     );
+  }
+
+  // ============================================================================
+  // Issue/Finding Sprint: Create Issue from Test Result
+  // ============================================================================
+
+  /**
+   * POST /grc/test-results/:testResultId/issues
+   * Create an Issue from a Test Result (Golden Flow)
+   *
+   * This endpoint creates an issue linked to a test result with the following behavior:
+   * - Auto-generates title if not provided: "Test failed: <controlName> - <testDate>"
+   * - Sets severity based on test result: HIGH for FAIL, MEDIUM for PARTIAL/INCONCLUSIVE
+   * - Links issue to the test result's control
+   * - Links issue to the test result itself
+   * - Auto-links all evidences already linked to the test result
+   */
+  @Post(':testResultId/issues')
+  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async createIssueFromTestResult(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('testResultId') testResultId: string,
+    @Body() dto: CreateIssueFromTestResultDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const issue = await this.issueService.createFromTestResult(
+      tenantId,
+      testResultId,
+      dto,
+      req.user.id,
+    );
+    return { success: true, data: issue };
   }
 }

@@ -308,6 +308,8 @@ export const API_PATHS = {
     UNLINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
     // Test/Result Sprint - Control-centric endpoint
     BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/test-results`,
+    // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
+    CREATE_ISSUE: (testResultId: string) => `/grc/test-results/${testResultId}/issues`,
   },
 
   // Issues endpoints (Golden Flow Sprint 1B)

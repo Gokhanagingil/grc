@@ -59,7 +59,9 @@ import {
   TestResultStatus,
   EvidenceData,
   CreateTestResultDto,
+  API_PATHS,
 } from '../services/grcClient';
+import apiClient from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 
@@ -241,6 +243,9 @@ export const ControlDetail: React.FC = () => {
     summary: '',
   });
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<string[]>([]);
+
+  // Issue/Finding Sprint - Create Issue from Test Result state
+  const [creatingIssueFromTestResult, setCreatingIssueFromTestResult] = useState<string | null>(null);
 
   const fetchControl = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -435,6 +440,39 @@ export const ControlDetail: React.FC = () => {
     });
     setSelectedEvidenceIds([]);
     setTestResultDialogOpen(true);
+  };
+
+  // Issue/Finding Sprint - Create Issue from Test Result handler
+  const handleCreateIssueFromTestResult = async (testResultId: string) => {
+    if (!tenantId) return;
+
+    setCreatingIssueFromTestResult(testResultId);
+    setError(null);
+
+    try {
+      const response = await apiClient.post(
+        API_PATHS.GRC_TEST_RESULTS.CREATE_ISSUE(testResultId),
+        {},
+        { headers: { 'x-tenant-id': tenantId } }
+      );
+
+      if (response.data?.success) {
+        setSuccess('Issue created successfully from test result');
+        await fetchControl(); // Refresh control to update issues list
+        setTabValue(5); // Switch to Issues/CAPA tab
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to create issue from test result');
+    } finally {
+      setCreatingIssueFromTestResult(null);
+    }
+  };
+
+  // Helper to check if a test result can have an issue created from it
+  const canCreateIssueFromTestResult = (result: string): boolean => {
+    return ['FAIL', 'PARTIAL', 'INCONCLUSIVE'].includes(result);
   };
 
   const getResultColor = (result: string): 'success' | 'error' | 'warning' | 'default' => {
@@ -864,6 +902,7 @@ export const ControlDetail: React.FC = () => {
                   <TableCell>Status</TableCell>
                   <TableCell>Evidence Count</TableCell>
                   <TableCell>Summary</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -895,6 +934,26 @@ export const ControlDetail: React.FC = () => {
                           {testResult.summary || '-'}
                         </Typography>
                       </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      {canCreateIssueFromTestResult(testResult.result) && (
+                        <Tooltip title="Create Issue from this failed test result">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<IssueIcon />}
+                            onClick={() => handleCreateIssueFromTestResult(testResult.id)}
+                            disabled={creatingIssueFromTestResult === testResult.id}
+                          >
+                            {creatingIssueFromTestResult === testResult.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              'Create Issue'
+                            )}
+                          </Button>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
