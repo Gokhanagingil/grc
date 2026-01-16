@@ -50,6 +50,7 @@ import {
   statusHistoryApi,
   testResultApi,
   evidenceApi,
+  issueApi,
   unwrapResponse,
   unwrapPaginatedResponse,
   StatusHistoryItem,
@@ -59,6 +60,7 @@ import {
   TestResultStatus,
   EvidenceData,
   CreateTestResultDto,
+  IssueData,
   API_PATHS,
 } from '../services/grcClient';
 import { api } from '../services/api';
@@ -247,6 +249,10 @@ export const ControlDetail: React.FC = () => {
   // Issue/Finding Sprint - Create Issue from Test Result state
   const [creatingIssueFromTestResult, setCreatingIssueFromTestResult] = useState<string | null>(null);
 
+  // Issues/CAPA tab state - fetch issues linked to this control via List Contract v1
+  const [controlIssues, setControlIssues] = useState<IssueData[]>([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
+
   const fetchControl = useCallback(async () => {
     if (!id || !tenantId) return;
 
@@ -330,6 +336,28 @@ export const ControlDetail: React.FC = () => {
     }
   }, [tenantId]);
 
+  // Issues/CAPA tab - Fetch issues linked to this control via List Contract v1
+  const fetchControlIssues = useCallback(async () => {
+    if (!id || !tenantId) return;
+
+    setIssuesLoading(true);
+    try {
+      const response = await issueApi.list(tenantId, {
+        controlId: id,
+        pageSize: 100,
+        sortBy: 'createdAt',
+        sortOrder: 'DESC',
+      });
+      const result = unwrapPaginatedResponse<IssueData>(response);
+      setControlIssues(result.items || []);
+    } catch (err) {
+      console.error('Error fetching issues for control:', err);
+      setControlIssues([]);
+    } finally {
+      setIssuesLoading(false);
+    }
+  }, [id, tenantId]);
+
   useEffect(() => {
     fetchControl();
     fetchAllProcesses();
@@ -340,11 +368,14 @@ export const ControlDetail: React.FC = () => {
       // Test Results tab (Test/Result Sprint)
       fetchTestResults();
       fetchAvailableEvidences();
+    } else if (tabValue === 5) {
+      // Issues/CAPA tab - fetch issues linked to this control
+      fetchControlIssues();
     } else if (tabValue === 6) {
       // History tab (shifted by 1 due to new Test Results tab)
       fetchStatusHistory();
     }
-  }, [tabValue, fetchStatusHistory, fetchTestResults, fetchAvailableEvidences]);
+  }, [tabValue, fetchStatusHistory, fetchTestResults, fetchAvailableEvidences, fetchControlIssues]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -445,7 +476,7 @@ export const ControlDetail: React.FC = () => {
 
       if (response.data?.success) {
         setSuccess('Issue created successfully from test result');
-        await fetchControl(); // Refresh control to update issues list
+        await fetchControlIssues(); // Refresh issues list via List Contract v1
         setTabValue(5); // Switch to Issues/CAPA tab
         setTimeout(() => setSuccess(null), 3000);
       }
@@ -961,7 +992,11 @@ export const ControlDetail: React.FC = () => {
         {/* Issues/CAPA Tab */}
         <TabPanel value={tabValue} index={5}>
           <Typography variant="h6" gutterBottom>Related Issues</Typography>
-          {control.issues && control.issues.length > 0 ? (
+          {issuesLoading ? (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          ) : controlIssues.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -973,7 +1008,7 @@ export const ControlDetail: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {control.issues.map((issue) => (
+                {controlIssues.map((issue) => (
                   <TableRow key={issue.id}>
                     <TableCell>{issue.title}</TableCell>
                     <TableCell>
