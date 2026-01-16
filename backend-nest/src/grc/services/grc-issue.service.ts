@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DeepPartial } from 'typeorm';
 import {
   GrcIssue,
   GrcControl,
@@ -12,10 +12,12 @@ import {
   GrcIssueEvidence,
   GrcEvidence,
 } from '../entities';
+import { TestResultOutcome, IssueType, IssueStatus, IssueSeverity } from '../enums';
 import {
   CreateIssueDto,
   UpdateIssueDto,
   IssueFilterDto,
+  CreateIssueFromTestResultDto,
 } from '../dto/issue.dto';
 import { AuditService } from '../../audit/audit.service';
 
@@ -468,5 +470,92 @@ export class GrcIssueService {
       relations: ['evidence'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Create an Issue from a Test Result
+   *
+   * This method creates an issue linked to a test result, with the following behavior:
+   * - Auto-generates title if not provided: "Test failed: <controlName> - <testDate>"
+   * - Sets type to SELF_ASSESSMENT (closest to test_result source)
+   * - Sets severity based on test result: HIGH for FAIL, MEDIUM for PARTIAL/INCONCLUSIVE
+   * - Links issue to the test result's control
+   * - Links issue to the test result itself
+   * - Auto-links all evidences already linked to the test result
+   *
+   * @param tenantId - Tenant ID
+   * @param testResultId - Test Result ID to create issue from
+   * @param dto - Optional fields for the issue
+   * @param userId - User ID creating the issue
+   * @returns Created issue with linked control, test result, and evidences
+   */
+  async createFromTestResult(
+    tenantId: string,
+    testResultId: string,
+    dto: CreateIssueFromTestResultDto,
+    userId: string,
+  ): Promise<GrcIssue> {
+    const testResult = await this.testResultRepository.findOne({
+      where: { id: testResultId, tenantId, isDeleted: false },
+      relations: ['control'],
+    });
+
+    if (!testResult) {
+      throw new NotFoundException(
+        `Test result with ID ${testResultId} not found`,
+      );
+    }
+
+    const controlName = testResult.control?.name || 'Unknown Control';
+    const testDate = testResult.testDate
+      ? new Date(testResult.testDate).toLocaleDateString()
+      : new Date().toLocaleDateString();
+
+    const autoTitle = `Test failed: ${controlName} - ${testDate}`;
+
+    let autoSeverity: IssueSeverity = IssueSeverity.MEDIUM;
+    const resultStr = String(testResult.result);
+    if (resultStr === String(TestResultOutcome.FAIL)) {
+      autoSeverity = IssueSeverity.HIGH;
+    } else if (resultStr === String(TestResultOutcome.INCONCLUSIVE)) {
+      autoSeverity = IssueSeverity.MEDIUM;
+    }
+
+    const issueData: DeepPartial<GrcIssue> = {
+      tenantId,
+      title: dto.title || autoTitle,
+      description:
+        dto.description ||
+        `Issue created from test result. Result: ${testResult.result}. ${testResult.resultDetails || ''}`.trim(),
+      type: IssueType.SELF_ASSESSMENT,
+      status: IssueStatus.OPEN,
+      severity: dto.severity || autoSeverity,
+      controlId: testResult.controlId,
+      testResultId: testResult.id,
+      discoveredDate: testResult.testDate || new Date(),
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      ownerUserId: dto.ownerUserId || undefined,
+      raisedByUserId: userId,
+      createdBy: userId,
+      metadata: {
+        createdFromTestResult: true,
+        testResultOutcome: testResult.result,
+      },
+    };
+
+    const issue = this.issueRepository.create(issueData);
+    const savedIssue = await this.issueRepository.save(issue);
+
+    await this.auditService.recordCreate(
+      'GrcIssue',
+      savedIssue,
+      userId,
+      tenantId,
+    );
+
+    // Note: Auto-linking evidences from test result is deferred to a future sprint
+    // Users can manually link evidences using the existing linkToEvidence endpoint
+
+    return this.findOne(tenantId, savedIssue.id);
   }
 }

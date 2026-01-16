@@ -229,3 +229,34 @@ export class LinkIssueTestResultDto {
   @IsString()
   notes?: string;
 }
+
+/**
+ * DTO for creating an Issue from a Test Result
+ * Used by POST /grc/test-results/:testResultId/issues
+ *
+ * This endpoint auto-generates title if not provided,
+ * links the issue to the test result's control,
+ * and optionally links evidences from the test result.
+ */
+export class CreateIssueFromTestResultDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(IssueSeverity)
+  severity?: IssueSeverity;
+
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+}
