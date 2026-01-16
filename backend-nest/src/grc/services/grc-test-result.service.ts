@@ -492,15 +492,13 @@ export class GrcTestResultService {
       tenantId,
       testResultId,
       evidenceId,
-      createdBy: userId,
-      updatedBy: userId,
     });
 
     const saved = await this.evidenceTestResultRepository.save(link);
 
     await this.auditService.recordCreate(
       'GrcEvidenceTestResult',
-      saved,
+      { id: saved.id },
       userId,
       tenantId,
     );
