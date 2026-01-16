@@ -75,55 +75,71 @@ export function buildSort(field: string, direction: SortDirection): string {
 }
 
 /**
- * Safely decode a potentially double-encoded string
- * Handles backward compatibility for URLs with double-encoded filter values
- * @param value - The value to decode
- * @returns Decoded value
+ * Try to parse a string as JSON, with progressive decoding for legacy double-encoded URLs.
+ * 
+ * Decoding strategy (per spec):
+ * 1. Try JSON.parse directly (value already decoded by URLSearchParams)
+ * 2. If fails, try decodeURIComponent once then JSON.parse
+ * 3. If still fails, try decodeURIComponent twice then JSON.parse (legacy tolerance)
+ * 4. If still fails, return null and log a non-fatal warning
+ * 
+ * @param value - The raw string value from URLSearchParams
+ * @returns Parsed object or null if invalid
  */
-function safeDecodeURIComponent(value: string): string {
-  if (!value) return value;
+function tryParseFilterJSON(value: string): unknown | null {
+  if (!value) return null;
   
-  let decoded = value;
-  let attempts = 0;
-  const maxAttempts = 2;
-  
-  while (attempts < maxAttempts) {
-    try {
-      const nextDecoded = decodeURIComponent(decoded);
-      if (nextDecoded === decoded) {
-        break;
-      }
-      decoded = nextDecoded;
-      attempts++;
-    } catch {
-      break;
-    }
+  // Strategy 1: Try direct JSON.parse (canonical single-encoded case)
+  // URLSearchParams.get() already decodes once, so the value should be raw JSON
+  try {
+    return JSON.parse(value);
+  } catch {
+    // Continue to next strategy
   }
   
-  return decoded;
+  // Strategy 2: Try decodeURIComponent once then JSON.parse
+  // This handles cases where the filter was double-encoded
+  try {
+    const decoded = decodeURIComponent(value);
+    return JSON.parse(decoded);
+  } catch {
+    // Continue to next strategy
+  }
+  
+  // Strategy 3: Try decodeURIComponent twice then JSON.parse
+  // This handles legacy triple-encoded cases (very rare)
+  try {
+    const decodedOnce = decodeURIComponent(value);
+    const decodedTwice = decodeURIComponent(decodedOnce);
+    return JSON.parse(decodedTwice);
+  } catch {
+    // All strategies failed
+  }
+  
+  // Log warning for debugging (non-fatal)
+  console.warn('[listQueryUtils] Failed to parse filter value after all decode attempts:', value.substring(0, 100));
+  return null;
 }
 
 /**
  * Parse filter string into FilterTree
- * Handles both single-encoded and double-encoded filter values for backward compatibility
- * @param filterStr - The filter string to parse
+ * 
+ * Handles both single-encoded and double-encoded filter values for backward compatibility.
+ * Uses progressive decoding strategy to tolerate legacy URLs while preferring canonical format.
+ * 
+ * @param filterStr - The filter string to parse (from URLSearchParams.get())
  * @returns Parsed FilterTree or null if invalid
  */
 export function parseFilterString(filterStr: string | null): FilterTree | null {
   if (!filterStr) return null;
   
-  try {
-    const decoded = safeDecodeURIComponent(filterStr);
-    const parsed = JSON.parse(decoded);
-    
-    if (isFilterCondition(parsed) || isFilterAndGroup(parsed) || isFilterOrGroup(parsed)) {
-      return parsed;
-    }
-    
-    return null;
-  } catch {
-    return null;
+  const parsed = tryParseFilterJSON(filterStr);
+  
+  if (parsed && (isFilterCondition(parsed) || isFilterAndGroup(parsed) || isFilterOrGroup(parsed))) {
+    return parsed as FilterTree;
   }
+  
+  return null;
 }
 
 /**
@@ -158,24 +174,66 @@ export function parseListQuery(
 }
 
 /**
+ * Validate a filter condition has required fields
+ * @param condition - Condition to validate
+ * @returns true if valid
+ */
+function isValidCondition(condition: FilterCondition): boolean {
+  return typeof condition.field === 'string' && 
+         condition.field.length > 0 && 
+         typeof condition.op === 'string';
+}
+
+/**
  * Normalize a filter input to the canonical tree format
- * - Wraps single condition in {and:[cond]}
- * - Handles null/undefined gracefully
- * - Validates filter structure
+ * 
+ * Normalization rules:
+ * - Wraps single condition in {and:[condition]}
+ * - Keeps existing {and:[...]}/{or:[...]} as-is
+ * - Validates minimal shape and drops invalid nodes
+ * - Returns null for invalid/empty input (safe fallback)
+ * 
  * @param input - Filter input (condition, and/or group, or null)
  * @returns Normalized FilterTree or null
  */
 export function normalizeFilter(input: FilterTree | FilterCondition | null | undefined): FilterTree | null {
   if (!input) return null;
   
+  // Handle single condition - wrap in AND group
   if (isFilterCondition(input)) {
+    if (!isValidCondition(input)) {
+      console.warn('[listQueryUtils] Invalid filter condition dropped:', input);
+      return null;
+    }
     return { and: [input] } as FilterAndGroup;
   }
   
-  if (isFilterAndGroup(input) || isFilterOrGroup(input)) {
-    return input;
+  // Handle AND group - validate and filter children
+  if (isFilterAndGroup(input)) {
+    const validChildren = input.and.filter(child => {
+      if (isFilterCondition(child)) {
+        return isValidCondition(child);
+      }
+      // Recursively validate nested groups
+      return isFilterAndGroup(child) || isFilterOrGroup(child);
+    });
+    return { and: validChildren } as FilterAndGroup;
   }
   
+  // Handle OR group - validate and filter children
+  if (isFilterOrGroup(input)) {
+    const validChildren = input.or.filter(child => {
+      if (isFilterCondition(child)) {
+        return isValidCondition(child);
+      }
+      // Recursively validate nested groups
+      return isFilterAndGroup(child) || isFilterOrGroup(child);
+    });
+    return { or: validChildren } as FilterTree;
+  }
+  
+  // Unknown structure - return null (safe fallback)
+  console.warn('[listQueryUtils] Unknown filter structure dropped:', input);
   return null;
 }
 

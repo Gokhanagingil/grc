@@ -81,16 +81,16 @@ export function isEmptyOperator(op: FilterOperator): boolean {
   return EMPTY_OPERATORS.includes(op);
 }
 
-export function isFilterCondition(tree: FilterTree): tree is FilterCondition {
-  return 'field' in tree && 'op' in tree;
+export function isFilterCondition(tree: unknown): tree is FilterCondition {
+  return tree !== null && typeof tree === 'object' && 'field' in tree && 'op' in tree;
 }
 
-export function isFilterAndGroup(tree: FilterTree): tree is FilterAndGroup {
-  return 'and' in tree;
+export function isFilterAndGroup(tree: unknown): tree is FilterAndGroup {
+  return tree !== null && typeof tree === 'object' && 'and' in tree;
 }
 
-export function isFilterOrGroup(tree: FilterTree): tree is FilterOrGroup {
-  return 'or' in tree;
+export function isFilterOrGroup(tree: unknown): tree is FilterOrGroup {
+  return tree !== null && typeof tree === 'object' && 'or' in tree;
 }
 
 export function createEmptyCondition(fields: FieldDefinition[]): FilterCondition {
