@@ -409,4 +409,110 @@ describe('Closure Loop MVP (e2e)', () => {
       }
     });
   });
+
+  describe('Issue from Test Result - Control Linkage', () => {
+    let testControlId: string;
+    let testControlTestId: string;
+    let testResultId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing control
+      const controlsResponse = await request(app.getHttpServer())
+        .get('/grc/controls')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const controlsData = controlsResponse.body.data ?? controlsResponse.body;
+      const controls = controlsData.items ?? controlsData;
+      if (Array.isArray(controls) && controls.length > 0) {
+        testControlId = controls[0].id;
+      }
+    });
+
+    it('should create issue with controlId linked when creating from test result via controlTestId', async () => {
+      if (!dbConnected || !tenantId || !testControlId) {
+        console.log(
+          'Skipping test: database not connected or no control found',
+        );
+        return;
+      }
+
+      // Step 1: Create a control test for the control
+      const controlTestResponse = await request(app.getHttpServer())
+        .post('/grc/control-tests')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          controlId: testControlId,
+          name: 'E2E Test - Issue Linkage Test',
+          testType: 'MANUAL',
+          status: 'IN_PROGRESS',
+        })
+        .expect(201);
+
+      const controlTestData =
+        controlTestResponse.body.data ?? controlTestResponse.body;
+      testControlTestId = controlTestData.id;
+
+      // Step 2: Create a test result with FAIL outcome via controlTestId
+      const testResultResponse = await request(app.getHttpServer())
+        .post('/grc/test-results')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          controlTestId: testControlTestId,
+          result: 'FAIL',
+          resultDetails: 'E2E test - testing issue control linkage',
+        })
+        .expect(201);
+
+      const testResultData =
+        testResultResponse.body.data ?? testResultResponse.body;
+      testResultId = testResultData.id;
+
+      // Step 3: Create an issue from the test result
+      const issueResponse = await request(app.getHttpServer())
+        .post(`/grc/test-results/${testResultId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({})
+        .expect(201);
+
+      const issueData = issueResponse.body.data ?? issueResponse.body;
+
+      // Verify the issue has controlId set (the fix we're testing)
+      expect(issueData).toHaveProperty('controlId', testControlId);
+      expect(issueData).toHaveProperty('testResultId', testResultId);
+      expect(issueData).toHaveProperty('status', 'open');
+      expect(issueData).toHaveProperty('severity', 'high'); // FAIL -> HIGH severity
+      expect(issueData.metadata).toHaveProperty('createdFromTestResult', true);
+      expect(issueData.metadata).toHaveProperty('testResultOutcome', 'FAIL');
+
+      // Cleanup: soft delete the created issue
+      if (issueData.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${issueData.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test result and control test
+      if (testResultId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/test-results/${testResultId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (testControlTestId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/control-tests/${testControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
 });

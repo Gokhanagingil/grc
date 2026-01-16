@@ -429,20 +429,7 @@ export const ControlDetail: React.FC = () => {
     }
   };
 
-  const handleOpenTestResultDialog = () => {
-    setNewTestResult({
-      controlId: id || '',
-      result: 'NOT_TESTED' as TestResultOutcome,
-      testDate: new Date().toISOString().split('T')[0],
-      method: 'OTHER' as TestMethod,
-      status: 'DRAFT' as TestResultStatus,
-      summary: '',
-    });
-    setSelectedEvidenceIds([]);
-    setTestResultDialogOpen(true);
-  };
-
-  // Issue/Finding Sprint - Create Issue from Test Result handler
+  // Issue/Finding Sprint- Create Issue from Test Result handler
   const handleCreateIssueFromTestResult = async (testResultId: string) => {
     if (!tenantId) return;
 
@@ -880,14 +867,21 @@ export const ControlDetail: React.FC = () => {
         <TabPanel value={tabValue} index={4}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Test Results</Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenTestResultDialog}
-            >
-              Add Test Result
-            </Button>
+            <Tooltip title="Test results are created through the Tests workflow. Schedule a Control Test first, then record results when the test is completed.">
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  disabled
+                >
+                  Add Test Result
+                </Button>
+              </span>
+            </Tooltip>
           </Box>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Test results are created through the Tests workflow. To add a test result, first schedule a Control Test in the Tests tab, then record results when the test is completed.
+          </Alert>
           {testResultsLoading ? (
             <Box display="flex" justifyContent="center" p={4}>
               <CircularProgress />

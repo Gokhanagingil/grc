@@ -12,7 +12,12 @@ import {
   GrcIssueEvidence,
   GrcEvidence,
 } from '../entities';
-import { TestResultOutcome, IssueType, IssueStatus, IssueSeverity } from '../enums';
+import {
+  TestResultOutcome,
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+} from '../enums';
 import {
   CreateIssueDto,
   UpdateIssueDto,
@@ -495,9 +500,11 @@ export class GrcIssueService {
     dto: CreateIssueFromTestResultDto,
     userId: string,
   ): Promise<GrcIssue> {
+    // Load test result with both direct control and controlTest.control relations
+    // to handle both legacy (via controlTestId) and new (via controlId) test results
     const testResult = await this.testResultRepository.findOne({
       where: { id: testResultId, tenantId, isDeleted: false },
-      relations: ['control'],
+      relations: ['control', 'controlTest', 'controlTest.control'],
     });
 
     if (!testResult) {
@@ -506,7 +513,14 @@ export class GrcIssueService {
       );
     }
 
-    const controlName = testResult.control?.name || 'Unknown Control';
+    // Get controlId from either direct link or via controlTest relationship
+    const resolvedControlId =
+      testResult.controlId || testResult.controlTest?.controlId || null;
+
+    // Get control name from either direct link or via controlTest relationship
+    const control = testResult.control || testResult.controlTest?.control;
+    const controlName = control?.name || 'Unknown Control';
+
     const testDate = testResult.testDate
       ? new Date(testResult.testDate).toLocaleDateString()
       : new Date().toLocaleDateString();
@@ -530,7 +544,7 @@ export class GrcIssueService {
       type: IssueType.SELF_ASSESSMENT,
       status: IssueStatus.OPEN,
       severity: dto.severity || autoSeverity,
-      controlId: testResult.controlId,
+      controlId: resolvedControlId,
       testResultId: testResult.id,
       discoveredDate: testResult.testDate || new Date(),
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
