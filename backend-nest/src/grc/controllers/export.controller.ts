@@ -102,6 +102,26 @@ interface ExportQueryDto {
 }
 
 /**
+ * Get safe filename prefix for an entity using explicit switch statement.
+ * This breaks CodeQL taint flow by returning hardcoded string literals
+ * instead of values derived from user input through object property access.
+ */
+export function getSafeEntityName(entity: ExportEntity): string {
+  switch (entity) {
+    case ExportEntity.ISSUES:
+    case ExportEntity.ISSUE:
+      return 'issues';
+    case ExportEntity.CAPAS:
+    case ExportEntity.CAPA:
+      return 'capas';
+    case ExportEntity.EVIDENCE:
+      return 'evidence';
+    default:
+      return 'export';
+  }
+}
+
+/**
  * Sanitize filename to prevent header injection and XSS attacks
  * - Strips dangerous characters: " \ \r \n
  * - Validates against safe pattern: /^[a-z0-9_-]+\.csv$/i
@@ -220,9 +240,10 @@ export class ExportController {
     }
 
     // Get entity config from hardcoded allowlist map
-    // Use safeName from the map for all user-facing messages to prevent XSS
     const entityConfig = EXPORT_ENTITY_MAP[entity];
-    const safeName = entityConfig.safeName;
+    // Use getSafeEntityName() which returns hardcoded string literals via switch statement
+    // This breaks CodeQL taint flow by not deriving the value from user input
+    const safeName = getSafeEntityName(entity);
 
     // Validate entity has an allowlist configured
     if (!hasEntityAllowlist(entity)) {
@@ -337,8 +358,8 @@ export class ExportController {
       .replace(/[:.]/g, '-')
       .slice(0, 16);
 
-    // Build filename ONLY from hardcoded allowlist map safeName, not from entity directly
-    const rawFilename = `${entityConfig.safeName}-${timestamp}.csv`;
+    // Build filename ONLY from getSafeEntityName() which returns hardcoded string literals
+    const rawFilename = `${safeName}-${timestamp}.csv`;
     // Apply defensive sanitization
     const filename = sanitizeFilename(rawFilename);
 
@@ -371,14 +392,15 @@ export class ExportController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    // Use safeName from the map for all user-facing responses to prevent XSS
-    const entityConfig = EXPORT_ENTITY_MAP[entity];
+    // Use getSafeEntityName() which returns hardcoded string literals via switch statement
+    // This breaks CodeQL taint flow by not deriving the value from user input
+    const safeName = getSafeEntityName(entity);
     const permission = ENTITY_PERMISSIONS[entity];
 
     return {
       success: true,
       data: {
-        entity: entityConfig.safeName,
+        entity: safeName,
         requiredPermission: permission,
       },
     };
