@@ -386,6 +386,7 @@ export const EvidenceList: React.FC = () => {
               }
               minTableWidth={900}
               testId="evidence-list-page"
+              hideSearch={true}
             />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>

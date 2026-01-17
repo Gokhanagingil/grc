@@ -24,6 +24,26 @@ GET /api/grc/issues?page=1&pageSize=10&sort=createdAt:DESC&q=security&filter=%7B
 
 The filter parameter accepts a JSON tree structure supporting AND/OR groups with conditions.
 
+### Canonical Format (Recommended)
+
+The canonical format uses `and` and `or` keys directly:
+
+```json
+{ "and": [...] }
+{ "or": [...] }
+```
+
+### Legacy Format (Backward Compatible)
+
+For backward compatibility, the following legacy format is also accepted:
+
+```json
+{ "op": "and", "children": [...] }
+{ "op": "or", "children": [...] }
+```
+
+The backend automatically normalizes legacy format to canonical format before validation.
+
 ### Filter Condition
 
 A single filter condition has the following structure:

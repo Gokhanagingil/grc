@@ -3,6 +3,10 @@
  *
  * Parses and validates filter JSON strings with security constraints.
  * Enforces depth limits, condition counts, and structural validation.
+ *
+ * Supports backward compatibility with legacy filter formats:
+ * - Canonical: { and: [...] } or { or: [...] }
+ * - Legacy: { op: "and", children: [...] } or { op: "or", children: [...] }
  */
 
 import { BadRequestException } from '@nestjs/common';
@@ -22,7 +26,68 @@ import {
 } from './list-query.types';
 
 /**
+ * Normalize legacy filter format to canonical format
+ *
+ * Converts legacy { op: "and"|"or", children: [...] } format
+ * to canonical { and: [...] } or { or: [...] } format.
+ *
+ * This provides backward compatibility with older UI implementations.
+ *
+ * @param node - Raw parsed JSON node
+ * @returns Normalized node in canonical format
+ */
+function normalizeFilterNode(node: unknown): unknown {
+  if (!node || typeof node !== 'object') {
+    return node;
+  }
+
+  const nodeObj = node as Record<string, unknown>;
+
+  // Check for legacy format: { op: "and"|"or", children: [...] }
+  if ('op' in nodeObj && 'children' in nodeObj) {
+    const op = nodeObj.op;
+    const children = nodeObj.children;
+
+    if ((op === 'and' || op === 'or') && Array.isArray(children)) {
+      // Recursively normalize children
+      const normalizedChildren = children.map((child) =>
+        normalizeFilterNode(child),
+      );
+
+      // Convert to canonical format
+      if (op === 'and') {
+        return { and: normalizedChildren };
+      } else {
+        return { or: normalizedChildren };
+      }
+    }
+  }
+
+  // Check for canonical format with nested nodes that might need normalization
+  if ('and' in nodeObj && Array.isArray(nodeObj.and)) {
+    return {
+      and: (nodeObj.and as unknown[]).map((child) =>
+        normalizeFilterNode(child),
+      ),
+    };
+  }
+
+  if ('or' in nodeObj && Array.isArray(nodeObj.or)) {
+    return {
+      or: (nodeObj.or as unknown[]).map((child) => normalizeFilterNode(child)),
+    };
+  }
+
+  // Return as-is (likely a condition node or unknown structure)
+  return node;
+}
+
+/**
  * Parse and validate a filter JSON string
+ *
+ * Supports both canonical and legacy filter formats:
+ * - Canonical: { and: [...] } or { or: [...] }
+ * - Legacy: { op: "and", children: [...] } or { op: "or", children: [...] }
  *
  * @param filterJson - URI-encoded JSON string representing the filter tree
  * @param limits - Security limits for validation
@@ -47,8 +112,11 @@ export function parseFilterJson(
     throw new BadRequestException('Invalid filter JSON: malformed JSON syntax');
   }
 
+  // Normalize legacy format to canonical format (backward compatibility)
+  const normalized = normalizeFilterNode(parsed);
+
   // Validate structure and count conditions
-  const validationResult = validateFilterTree(parsed, limits, 1);
+  const validationResult = validateFilterTree(normalized, limits, 1);
 
   return {
     tree: validationResult.tree,

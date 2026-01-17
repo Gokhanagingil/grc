@@ -6,7 +6,7 @@
  * for managing pagination, sorting, search, and filtering with URL state sync.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AxiosResponse } from 'axios';
 import {
@@ -128,6 +128,9 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
   const updateUrlParams = useCallback((newState: Partial<ListQueryState>) => {
     if (!syncToUrl) return;
     
@@ -140,6 +143,14 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const currentRequestId = ++requestIdRef.current;
+
     setIsLoading(true);
     setError(null);
 
@@ -150,6 +161,11 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
       };
 
       const response = await fetchFn(apiParams);
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       const result = unwrapListResponse<T>(response);
 
       if (result) {
@@ -162,7 +178,20 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
         setTotalPages(0);
       }
     } catch (err: unknown) {
-      const axiosError = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      const axiosError = err as { 
+        response?: { status?: number; data?: { message?: string; error?: { message?: string } } };
+        code?: string;
+        name?: string;
+      };
+
+      if (axiosError.name === 'CanceledError' || axiosError.code === 'ERR_CANCELED') {
+        return;
+      }
+
       const status = axiosError.response?.status;
       const message = axiosError.response?.data?.error?.message || axiosError.response?.data?.message;
 
@@ -174,11 +203,15 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
         setItems([]);
         setTotal(0);
         setTotalPages(0);
+      } else if (status === 429) {
+        setError('Too many requests. Please wait a moment and try again.');
       } else {
         setError(message || 'Failed to fetch data. Please try again.');
       }
     } finally {
-      setIsLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [enabled, state, additionalFilters, fetchFn]);
 

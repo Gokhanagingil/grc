@@ -92,6 +92,79 @@ describe('List Query Parser', () => {
       expect(result.maxDepth).toBeGreaterThanOrEqual(2);
     });
 
+    describe('legacy format backward compatibility', () => {
+      it('should parse legacy AND format with op/children', () => {
+        const json = JSON.stringify({
+          op: 'and',
+          children: [
+            { field: 'status', op: 'is', value: 'draft' },
+            { field: 'name', op: 'contains', value: 'test' },
+          ],
+        });
+
+        const result = parseFilterJson(json);
+
+        expect(result.conditionCount).toBe(2);
+        expect(result.tree).toHaveProperty('and');
+      });
+
+      it('should parse legacy OR format with op/children', () => {
+        const json = JSON.stringify({
+          op: 'or',
+          children: [
+            { field: 'status', op: 'is', value: 'draft' },
+            { field: 'status', op: 'is', value: 'implemented' },
+          ],
+        });
+
+        const result = parseFilterJson(json);
+
+        expect(result.conditionCount).toBe(2);
+        expect(result.tree).toHaveProperty('or');
+      });
+
+      it('should parse nested legacy format', () => {
+        const json = JSON.stringify({
+          op: 'and',
+          children: [
+            { field: 'status', op: 'is', value: 'draft' },
+            {
+              op: 'or',
+              children: [
+                { field: 'name', op: 'contains', value: 'access' },
+                { field: 'name', op: 'contains', value: 'security' },
+              ],
+            },
+          ],
+        });
+
+        const result = parseFilterJson(json);
+
+        expect(result.conditionCount).toBe(3);
+        expect(result.tree).toHaveProperty('and');
+      });
+
+      it('should parse mixed legacy and canonical format', () => {
+        const json = JSON.stringify({
+          and: [
+            { field: 'status', op: 'is', value: 'draft' },
+            {
+              op: 'or',
+              children: [
+                { field: 'name', op: 'contains', value: 'access' },
+                { field: 'name', op: 'contains', value: 'security' },
+              ],
+            },
+          ],
+        });
+
+        const result = parseFilterJson(json);
+
+        expect(result.conditionCount).toBe(3);
+        expect(result.tree).toHaveProperty('and');
+      });
+    });
+
     it('should reject malformed JSON', () => {
       expect(() => parseFilterJson('{ invalid json')).toThrow(
         BadRequestException,
