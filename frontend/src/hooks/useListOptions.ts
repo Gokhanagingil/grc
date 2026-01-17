@@ -17,7 +17,8 @@ const DEFAULT_SORT_OPTIONS: SortableField[] = [
 ];
 
 export function useListOptions(entity: string): UseListOptionsResult {
-  const { tenantId } = useAuth();
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
   const [data, setData] = useState<ListOptionsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
