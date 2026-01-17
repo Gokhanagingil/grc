@@ -540,21 +540,6 @@ export const TestResultDetail: React.FC = () => {
               data-testid="issue-description-input"
             />
             <FormControl fullWidth>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={newIssue.type}
-                label="Type"
-                onChange={(e) => setNewIssue({ ...newIssue, type: e.target.value })}
-                data-testid="issue-type-select"
-              >
-                <MenuItem value="internal_audit">Internal Audit</MenuItem>
-                <MenuItem value="external_audit">External Audit</MenuItem>
-                <MenuItem value="incident">Incident</MenuItem>
-                <MenuItem value="self_assessment">Self Assessment</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
               <InputLabel>Severity</InputLabel>
               <Select
                 value={newIssue.severity}
