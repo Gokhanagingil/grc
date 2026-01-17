@@ -71,6 +71,37 @@ export class GrcCapaController {
   ) {}
 
   /**
+   * GET /grc/capas/filters
+   * Returns filter metadata for the CAPAs list UI
+   * Provides safe arrays of available filter values to prevent UI crashes
+   * NOTE: This route MUST be defined BEFORE @Get(':id') to avoid 'filters' being matched as an ID
+   */
+  @Get('filters')
+  @ApiOperation({
+    summary: 'Get CAPA filter metadata',
+    description: 'Returns available filter values for CAPAs list UI',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Filter metadata returned successfully',
+  })
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  getFilters(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return {
+      success: true,
+      data: {
+        statuses: Object.values(CapaStatus),
+        types: Object.values(CapaType),
+        priorities: Object.values(CAPAPriority),
+      },
+    };
+  }
+
+  /**
    * GET /grc/capas
    * List all CAPAs for the current tenant with pagination and filtering
    */
@@ -320,36 +351,6 @@ export class GrcCapaController {
 
     const capas = await this.capaService.findByIssue(tenantId, issueId);
     return { success: true, data: capas };
-  }
-
-  /**
-   * GET /grc/capas/filters
-   * Returns filter metadata for the CAPAs list UI
-   * Provides safe arrays of available filter values to prevent UI crashes
-   */
-  @Get('filters')
-  @ApiOperation({
-    summary: 'Get CAPA filter metadata',
-    description: 'Returns available filter values for CAPAs list UI',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Filter metadata returned successfully',
-  })
-  @Permissions(Permission.GRC_CAPA_READ)
-  @Perf()
-  getFilters(@Headers('x-tenant-id') tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
-    return {
-      success: true,
-      data: {
-        statuses: Object.values(CapaStatus),
-        types: Object.values(CapaType),
-        priorities: Object.values(CAPAPriority),
-      },
-    };
   }
 
   /**
