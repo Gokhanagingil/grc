@@ -355,26 +355,22 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         }
       });
 
-      it('should handle invalid sortBy field gracefully', async () => {
+      it('should return 400 for invalid sortBy field', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
           return;
         }
 
-        // Invalid sortBy should fall back to default (createdAt)
+        // Invalid sortBy should return 400 (not 500) per list query contract
         const response = await request(app.getHttpServer())
           .get('/grc/risks?sortBy=invalidField')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .expect(200);
+          .expect(400);
 
-        // Response is wrapped in LIST-CONTRACT format
-        const items =
-          response.body.data?.items ??
-          response.body.data ??
-          response.body.items ??
-          response.body;
-        expect(Array.isArray(items)).toBe(true);
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
       });
     });
   });

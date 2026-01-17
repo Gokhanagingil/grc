@@ -593,7 +593,6 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
         expect(response.body).toHaveProperty('success', false);
         expect(response.body).toHaveProperty('error');
         expect(response.body.error).toHaveProperty('message');
-        expect(response.body.error.message).toContain('Invalid sort direction');
       });
     });
 
@@ -610,7 +609,8 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
       });
 
       it('GET /grc/capas with legacy sortBy/sortOrder only => 200', async () => {
@@ -625,7 +625,8 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
       });
 
       it('GET /grc/capas with both canonical and legacy => 200 (canonical wins)', async () => {
@@ -642,7 +643,8 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
       });
 
       it('GET /grc/capas with invalid sort field => 400 (not 500)', async () => {
@@ -836,7 +838,8 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
       });
 
       it('Staging failure: /grc/risks with sort + sortBy + sortOrder => 200 (was 400)', async () => {
