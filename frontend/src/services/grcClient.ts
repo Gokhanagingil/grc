@@ -1856,6 +1856,18 @@ export const testResultApi = {
       API_PATHS.GRC_TEST_RESULTS.UNLINK_EVIDENCE(testResultId, evidenceId),
       withTenantId(tenantId),
     ),
+
+  // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
+  createIssue: (
+    tenantId: string,
+    testResultId: string,
+    data: { title?: string; description?: string; severity?: string; ownerUserId?: string; dueDate?: string },
+  ) =>
+    api.post(
+      API_PATHS.GRC_TEST_RESULTS.CREATE_ISSUE(testResultId),
+      data,
+      withTenantId(tenantId),
+    ),
 };
 
 // ============================================================================

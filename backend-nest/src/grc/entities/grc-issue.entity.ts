@@ -9,7 +9,7 @@ import {
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
-import { IssueType, IssueStatus, IssueSeverity } from '../enums';
+import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
 import { GrcRisk } from './grc-risk.entity';
 import { GrcControl } from './grc-control.entity';
 import { GrcCapa } from './grc-capa.entity';
@@ -65,6 +65,13 @@ export class GrcIssue extends BaseEntity {
     default: IssueSeverity.MEDIUM,
   })
   severity: IssueSeverity;
+
+  @Column({
+    type: 'enum',
+    enum: IssueSource,
+    default: IssueSource.MANUAL,
+  })
+  source: IssueSource;
 
   @Column({ name: 'risk_id', type: 'uuid', nullable: true })
   riskId: string | null;

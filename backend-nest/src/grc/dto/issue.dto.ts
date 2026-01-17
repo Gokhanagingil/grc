@@ -11,7 +11,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IssueType, IssueStatus, IssueSeverity } from '../enums';
+import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
 
 /**
  * DTO for creating a new Issue record
@@ -36,6 +36,10 @@ export class CreateIssueDto {
   @IsOptional()
   @IsEnum(IssueSeverity)
   severity?: IssueSeverity;
+
+  @IsOptional()
+  @IsEnum(IssueSource)
+  source?: IssueSource;
 
   @IsOptional()
   @IsUUID()
@@ -159,6 +163,10 @@ export class IssueFilterDto {
   @IsOptional()
   @IsEnum(IssueSeverity)
   severity?: IssueSeverity;
+
+  @IsOptional()
+  @IsEnum(IssueSource)
+  source?: IssueSource;
 
   @IsOptional()
   @IsUUID()

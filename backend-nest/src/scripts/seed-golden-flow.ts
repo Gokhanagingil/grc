@@ -35,6 +35,8 @@ import {
   ControlFrequency,
   IssueStatus,
   IssueSeverity,
+  IssueSource,
+  IssueType,
   CapaStatus,
   CAPATaskStatus,
   EvidenceType,
@@ -342,6 +344,8 @@ async function seedGoldenFlowData() {
           'Quarterly access control review identified multiple deficiencies requiring immediate remediation.',
         severity: IssueSeverity.HIGH,
         status: IssueStatus.IN_PROGRESS,
+        source: IssueSource.TEST_RESULT,
+        type: IssueType.SELF_ASSESSMENT,
         rootCause:
           'Lack of automated access review process and incomplete offboarding procedures.',
         controlId: control.id,
@@ -378,6 +382,51 @@ async function seedGoldenFlowData() {
       );
     } else {
       console.log('   Golden Flow issue already exists');
+    }
+
+    // 10b. Create second Golden Flow Issue (manual, linked to control only)
+    console.log('10b. Creating second Golden Flow issue (manual)...');
+    let manualIssue = await issueRepo.findOne({
+      where: {
+        tenantId: DEMO_TENANT_ID,
+        title: `${GOLDEN_FLOW_PREFIX}Documentation Gap - Control Procedures`,
+      },
+    });
+
+    if (!manualIssue) {
+      manualIssue = issueRepo.create({
+        tenantId: DEMO_TENANT_ID,
+        title: `${GOLDEN_FLOW_PREFIX}Documentation Gap - Control Procedures`,
+        description:
+          'Manual review identified that control procedures documentation is incomplete and requires updates to reflect current operational practices.',
+        severity: IssueSeverity.MEDIUM,
+        status: IssueStatus.OPEN,
+        source: IssueSource.MANUAL,
+        type: IssueType.INTERNAL_AUDIT,
+        rootCause:
+          'Documentation not updated during last system upgrade cycle.',
+        controlId: control.id,
+        ownerUserId: DEMO_ADMIN_ID,
+        dueDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 days from now
+      });
+      await issueRepo.save(manualIssue);
+      console.log(`   Created manual issue: ${manualIssue.title}`);
+
+      // Create status history for manual issue
+      const statusHistoryRepo = dataSource.getRepository(GrcStatusHistory);
+      await statusHistoryRepo.save(
+        statusHistoryRepo.create({
+          tenantId: DEMO_TENANT_ID,
+          entityType: StatusHistoryEntityType.ISSUE,
+          entityId: manualIssue.id,
+          previousStatus: null,
+          newStatus: IssueStatus.OPEN,
+          changedByUserId: DEMO_ADMIN_ID,
+          changeReason: 'Issue created manually during internal audit',
+        }),
+      );
+    } else {
+      console.log('   Golden Flow manual issue already exists');
     }
 
     // 11. Create Golden Flow CAPA (from issue)
@@ -542,7 +591,11 @@ async function seedGoldenFlowData() {
     console.log(`Evidence: ${evidence.name}`);
     console.log(`Control Test: ${controlTest.id} (${controlTest.status})`);
     console.log(`Test Result: ${testResult.id} (${testResult.result})`);
-    console.log(`Issue: ${issue.title} (${issue.status})`);
+    console.log(`Issue 1 (test_result): ${issue.title} (${issue.status})`);
+    console.log(
+      `Issue 2 (manual): ${manualIssue?.title || 'N/A'} (${manualIssue?.status || 'N/A'})`,
+    );
+    console.log(`Total Issues: 2 (1 linked to test result, 1 manual)`);
     console.log(`CAPA: ${capa.title} (${capa.status})`);
     console.log(`CAPA Tasks: ${tasksData.length} tasks created`);
     console.log('\nGolden Flow seed completed successfully!');

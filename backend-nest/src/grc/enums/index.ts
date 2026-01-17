@@ -160,6 +160,16 @@ export enum IssueSeverity {
   CRITICAL = 'critical',
 }
 
+/**
+ * IssueSource - How the issue was created
+ * manual: Created manually by a user
+ * test_result: Auto-created from a failing test result (Golden Flow)
+ */
+export enum IssueSource {
+  MANUAL = 'manual',
+  TEST_RESULT = 'test_result',
+}
+
 // ============================================================================
 // CAPA Enums
 // ============================================================================

@@ -204,8 +204,27 @@ export class GrcTestResultController {
   }
 
   // ============================================================================
-  // Issue/Finding Sprint: Create Issue from Test Result
+  // Issue/Finding Sprint: Issue Endpoints for Test Results
   // ============================================================================
+
+  /**
+   * GET /grc/test-results/:testResultId/issues
+   * Get all issues linked to a test result
+   */
+  @Get(':testResultId/issues')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  async getIssuesForTestResult(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('testResultId') testResultId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const issues = await this.issueService.findAll(tenantId, {
+      testResultId,
+    });
+    return { success: true, data: issues };
+  }
 
   /**
    * POST /grc/test-results/:testResultId/issues
