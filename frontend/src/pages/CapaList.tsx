@@ -456,6 +456,7 @@ export const CapaList: React.FC = () => {
               }
               minTableWidth={1000}
               testId="capa-list-page"
+              hideSearch={true}
             />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>

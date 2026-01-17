@@ -52,6 +52,8 @@ export interface GenericListPageProps<T> {
   rowsPerPageOptions?: number[];
   /** data-testid for e2e testing */
   testId?: string;
+  /** Hide the built-in search input (use when providing custom search via banner/toolbar) */
+  hideSearch?: boolean;
 }
 
 export function GenericListPage<T>({
@@ -83,6 +85,7 @@ export function GenericListPage<T>({
   minTableWidth = 800,
   rowsPerPageOptions = [5, 10, 25, 50],
   testId,
+  hideSearch = false,
 }: GenericListPageProps<T>) {
   const hasFiltersOrSearch = filters.length > 0 || search.length > 0;
 
@@ -126,8 +129,8 @@ export function GenericListPage<T>({
       )}
 
       <TableToolbar
-        searchValue={search}
-        onSearchChange={onSearchChange}
+        searchValue={hideSearch ? undefined : search}
+        onSearchChange={hideSearch ? undefined : onSearchChange}
         searchPlaceholder={searchPlaceholder}
         filters={filters}
         onFilterRemove={onFilterRemove}

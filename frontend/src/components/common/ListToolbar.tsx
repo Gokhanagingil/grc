@@ -40,6 +40,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as AscIcon,
   ArrowDownward as DescIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { SortDirection, parseSort, buildSort } from '../../utils/listQueryUtils';
 import { useListOptions } from '../../hooks/useListOptions';
@@ -77,6 +78,9 @@ export interface ListToolbarProps {
   filterButton?: React.ReactNode;
   showSort?: boolean;
   showPageSize?: boolean;
+  showExport?: boolean;
+  filterTree?: unknown;
+  onExport?: () => void;
 }
 
 export const ListToolbar: React.FC<ListToolbarProps> = ({
@@ -101,6 +105,9 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
   filterButton,
   showSort = true,
   showPageSize = true,
+  showExport = true,
+  filterTree,
+  onExport,
 }) => {
   const { sortableFields, isLoading: sortOptionsLoading } = useListOptions(entity || '');
 
@@ -166,6 +173,54 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
       onPageSizeChange(newPageSize);
     }
   }, [onPageSizeChange]);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    if (!entity) return;
+
+    if (onExport) {
+      onExport();
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('q', search);
+      if (sort) params.set('sort', sort);
+      if (filterTree) params.set('filter', JSON.stringify(filterTree));
+
+      const token = localStorage.getItem('token');
+      const tenantId = localStorage.getItem('tenantId');
+
+      const response = await fetch(`/api/grc/export/${entity}?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenantId || '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+      a.download = `${entity}-${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [entity, search, sort, filterTree, onExport]);
 
   const hasActiveFilters = filters.length > 0 || activeFilterCount > 0;
 
@@ -279,6 +334,22 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {actions}
+
+          {showExport && entity && (
+            <Tooltip title="Export to CSV">
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={isExporting ? <CircularProgress size={16} /> : <DownloadIcon />}
+                  onClick={handleExport}
+                  disabled={loading || isExporting}
+                >
+                  Export
+                </Button>
+              </span>
+            </Tooltip>
+          )}
 
           {onRefresh && (
             <Tooltip title="Refresh">

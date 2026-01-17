@@ -501,6 +501,7 @@ export const IssueList: React.FC = () => {
               }
               minTableWidth={1000}
               testId="issue-list-page"
+              hideSearch={true}
             />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>

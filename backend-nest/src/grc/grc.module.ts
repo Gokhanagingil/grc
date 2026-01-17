@@ -154,6 +154,9 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
 // Sprint 1E - Insights controller
 import { GrcInsightsController } from './controllers/grc-insights.controller';
 
+// Export controller (List Standard v1.1)
+import { ExportController } from './controllers/export.controller';
+
 /**
  * GRC Module
  *
@@ -322,6 +325,8 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     GrcInsightsController,
     // List Options Controller (List Toolbar Standard)
     ListOptionsController,
+    // Export Controller (List Standard v1.1)
+    ExportController,
   ],
   exports: [
     // Universal List Service (platform-level)
