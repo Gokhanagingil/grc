@@ -150,6 +150,9 @@ export class UpdateIssueDto {
 
 /**
  * DTO for filtering Issue list queries
+ *
+ * Supports both legacy individual filters and the new unified filter tree format.
+ * The filter param accepts a JSON string representing a filter tree with AND/OR groups.
  */
 export class IssueFilterDto {
   @IsOptional()
@@ -218,6 +221,15 @@ export class IssueFilterDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'ASC' | 'DESC';
+
+  /**
+   * Advanced filter tree in JSON format.
+   * Supports AND/OR groups with conditions.
+   * Example: {"and":[{"field":"status","op":"is","value":"open"}]}
+   */
+  @IsOptional()
+  @IsString()
+  filter?: string;
 }
 
 /**

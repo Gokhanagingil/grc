@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   GrcEvidence,
   GrcControl,
@@ -22,6 +22,16 @@ import {
 } from '../dto/evidence.dto';
 import { AuditService } from '../../audit/audit.service';
 import { ControlEvidenceType } from '../enums';
+import { parseFilterJson } from '../../common/list-query/list-query.parser';
+import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
+import {
+  applyFilterTree,
+  applyQuickSearch,
+} from '../../common/list-query/list-query.apply';
+import {
+  EVIDENCE_ALLOWLIST,
+  EVIDENCE_SEARCHABLE_COLUMNS,
+} from '../../common/list-query/list-query.allowlist';
 
 @Injectable()
 export class GrcEvidenceService {
@@ -94,6 +104,7 @@ export class GrcEvidenceService {
       pageSize = 20,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
+      filter: filterJson,
     } = filter;
 
     const queryBuilder = this.evidenceRepository
@@ -104,6 +115,32 @@ export class GrcEvidenceService {
       .where('evidence.tenantId = :tenantId', { tenantId })
       .andWhere('evidence.isDeleted = :isDeleted', { isDeleted: false });
 
+    // Apply advanced filter tree if provided
+    if (filterJson) {
+      try {
+        const parsed = parseFilterJson(filterJson);
+        if (parsed.tree) {
+          // validateFilterAgainstAllowlist throws BadRequestException if validation fails
+          validateFilterAgainstAllowlist(parsed.tree, EVIDENCE_ALLOWLIST);
+          applyFilterTree(
+            queryBuilder,
+            parsed.tree,
+            EVIDENCE_ALLOWLIST,
+            'evidence',
+          );
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException({
+          message: 'Invalid filter JSON',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Legacy individual filters (backward compatibility)
     if (type) {
       queryBuilder.andWhere('evidence.type = :type', { type });
     }
@@ -130,16 +167,14 @@ export class GrcEvidenceService {
       queryBuilder.andWhere('issueEvidence.issueId = :issueId', { issueId });
     }
 
+    // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('LOWER(evidence.name) LIKE LOWER(:searchTerm)', {
-            searchTerm: `%${searchTerm}%`,
-          }).orWhere('LOWER(evidence.description) LIKE LOWER(:searchTerm)', {
-            searchTerm: `%${searchTerm}%`,
-          });
-        }),
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        EVIDENCE_SEARCHABLE_COLUMNS,
+        'evidence',
       );
     }
 

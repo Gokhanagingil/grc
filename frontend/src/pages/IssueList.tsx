@@ -27,7 +27,9 @@ import { issueApi, IssueData, CreateIssueDto } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
-import { useUniversalList } from '../hooks/useUniversalList';
+import { useListData } from '../hooks/useListData';
+import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
+import { FilterConfig } from '../components/common/AdvancedFilter/types';
 
 export enum IssueType {
   INTERNAL_AUDIT = 'internal_audit',
@@ -86,6 +88,68 @@ const formatDate = (dateString: string | null | undefined): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+/**
+ * Issue filter configuration for the advanced filter builder
+ */
+const ISSUE_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: Object.values(IssueStatus),
+      enumLabels: {
+        [IssueStatus.OPEN]: 'Open',
+        [IssueStatus.IN_PROGRESS]: 'In Progress',
+        [IssueStatus.RESOLVED]: 'Resolved',
+        [IssueStatus.CLOSED]: 'Closed',
+        [IssueStatus.REJECTED]: 'Rejected',
+      },
+    },
+    {
+      name: 'severity',
+      label: 'Severity',
+      type: 'enum',
+      enumValues: Object.values(IssueSeverity),
+      enumLabels: {
+        [IssueSeverity.LOW]: 'Low',
+        [IssueSeverity.MEDIUM]: 'Medium',
+        [IssueSeverity.HIGH]: 'High',
+        [IssueSeverity.CRITICAL]: 'Critical',
+      },
+    },
+    {
+      name: 'type',
+      label: 'Type',
+      type: 'enum',
+      enumValues: Object.values(IssueType),
+      enumLabels: {
+        [IssueType.INTERNAL_AUDIT]: 'Internal Audit',
+        [IssueType.EXTERNAL_AUDIT]: 'External Audit',
+        [IssueType.INCIDENT]: 'Incident',
+        [IssueType.SELF_ASSESSMENT]: 'Self Assessment',
+        [IssueType.OTHER]: 'Other',
+      },
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created At',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const IssueList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -122,23 +186,27 @@ export const IssueList: React.FC = () => {
   const {
     items,
     total,
-    page,
-    pageSize,
-    search,
+    state,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
+    setFilterTree,
     refetch,
-  } = useUniversalList<IssueData>({
+    filterConditionCount,
+    clearFilterWithNotification,
+  } = useListData<IssueData>({
     fetchFn: fetchIssues,
     defaultPageSize: 10,
     defaultSort: 'createdAt:DESC',
     syncToUrl: true,
     enabled: isAuthReady,
     additionalFilters,
+    entityName: 'issues',
   });
+
+  const { page, pageSize, q: search } = state;
 
   const handleViewIssue = useCallback((issue: IssueData) => {
     navigate(`/issues/${issue.id}`);
@@ -322,6 +390,13 @@ export const IssueList: React.FC = () => {
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <AdvancedFilterBuilder
+        config={ISSUE_FILTER_CONFIG}
+        initialFilter={state.filterTree}
+        onApply={setFilterTree}
+        onClear={clearFilterWithNotification}
+        activeFilterCount={filterConditionCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -369,7 +444,7 @@ export const IssueList: React.FC = () => {
         Add Issue
       </Button>
     </Box>
-  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange]);
+  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange, state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
 
   return (
     <>

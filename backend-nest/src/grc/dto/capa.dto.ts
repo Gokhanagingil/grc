@@ -147,6 +147,9 @@ export class UpdateCapaDto {
 
 /**
  * DTO for filtering CAPA list queries
+ *
+ * Supports both legacy individual filters and the new unified filter tree format.
+ * The filter param accepts a JSON string representing a filter tree with AND/OR groups.
  */
 export class CapaFilterDto {
   @IsOptional()
@@ -203,4 +206,13 @@ export class CapaFilterDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'ASC' | 'DESC';
+
+  /**
+   * Advanced filter tree in JSON format.
+   * Supports AND/OR groups with conditions.
+   * Example: {"and":[{"field":"status","op":"is","value":"planned"}]}
+   */
+  @IsOptional()
+  @IsString()
+  filter?: string;
 }

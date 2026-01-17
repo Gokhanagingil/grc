@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import {
   GrcIssue,
   GrcControl,
@@ -26,6 +26,16 @@ import {
   CreateIssueFromTestResultDto,
 } from '../dto/issue.dto';
 import { AuditService } from '../../audit/audit.service';
+import { parseFilterJson } from '../../common/list-query/list-query.parser';
+import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
+import {
+  applyFilterTree,
+  applyQuickSearch,
+} from '../../common/list-query/list-query.apply';
+import {
+  ISSUE_ALLOWLIST,
+  ISSUE_SEARCHABLE_COLUMNS,
+} from '../../common/list-query/list-query.allowlist';
 
 @Injectable()
 export class GrcIssueService {
@@ -114,6 +124,7 @@ export class GrcIssueService {
       pageSize = 20,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
+      filter: filterJson,
     } = filter;
 
     const queryBuilder = this.issueRepository
@@ -127,6 +138,27 @@ export class GrcIssueService {
       .where('issue.tenantId = :tenantId', { tenantId })
       .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
 
+    // Apply advanced filter tree if provided
+    if (filterJson) {
+      try {
+        const parsed = parseFilterJson(filterJson);
+        if (parsed.tree) {
+          // validateFilterAgainstAllowlist throws BadRequestException if validation fails
+          validateFilterAgainstAllowlist(parsed.tree, ISSUE_ALLOWLIST);
+          applyFilterTree(queryBuilder, parsed.tree, ISSUE_ALLOWLIST, 'issue');
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException({
+          message: 'Invalid filter JSON',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Legacy individual filters (backward compatibility)
     if (type) {
       queryBuilder.andWhere('issue.type = :type', { type });
     }
@@ -151,16 +183,14 @@ export class GrcIssueService {
       queryBuilder.andWhere('issue.riskId = :riskId', { riskId });
     }
 
+    // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('LOWER(issue.title) LIKE LOWER(:searchTerm)', {
-            searchTerm: `%${searchTerm}%`,
-          }).orWhere('LOWER(issue.description) LIKE LOWER(:searchTerm)', {
-            searchTerm: `%${searchTerm}%`,
-          });
-        }),
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        ISSUE_SEARCHABLE_COLUMNS,
+        'issue',
       );
     }
 

@@ -27,7 +27,9 @@ import { capaApi, CapaData, CreateCapaDto, CapaStatus, CapaPriority } from '../s
 import { useAuth } from '../contexts/AuthContext';
 import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
-import { useUniversalList } from '../hooks/useUniversalList';
+import { useListData } from '../hooks/useListData';
+import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
+import { FilterConfig } from '../components/common/AdvancedFilter/types';
 
 const CAPA_STATUS_VALUES: CapaStatus[] = ['planned', 'in_progress', 'implemented', 'verified', 'rejected', 'closed'];
 const CAPA_PRIORITY_VALUES: CapaPriority[] = ['low', 'medium', 'high', 'critical'];
@@ -61,6 +63,56 @@ const formatStatus = (status: string): string => {
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString();
+};
+
+/**
+ * CAPA filter configuration for the advanced filter builder
+ */
+const CAPA_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: CAPA_STATUS_VALUES,
+      enumLabels: {
+        planned: 'Planned',
+        in_progress: 'In Progress',
+        implemented: 'Implemented',
+        verified: 'Verified',
+        rejected: 'Rejected',
+        closed: 'Closed',
+      },
+    },
+    {
+      name: 'priority',
+      label: 'Priority',
+      type: 'enum',
+      enumValues: CAPA_PRIORITY_VALUES,
+      enumLabels: {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical',
+      },
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created At',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
 };
 
 export const CapaList: React.FC = () => {
@@ -98,23 +150,27 @@ export const CapaList: React.FC = () => {
   const {
     items,
     total,
-    page,
-    pageSize,
-    search,
+    state,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
+    setFilterTree,
     refetch,
-  } = useUniversalList<CapaData>({
+    filterConditionCount,
+    clearFilterWithNotification,
+  } = useListData<CapaData>({
     fetchFn: fetchCapas,
     defaultPageSize: 10,
     defaultSort: 'createdAt:DESC',
     syncToUrl: true,
     enabled: isAuthReady,
     additionalFilters,
+    entityName: 'CAPAs',
   });
+
+  const { page, pageSize, q: search } = state;
 
   const handleViewCapa = useCallback((capa: CapaData) => {
     navigate(`/capa/${capa.id}`);
@@ -299,6 +355,13 @@ export const CapaList: React.FC = () => {
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <AdvancedFilterBuilder
+        config={CAPA_FILTER_CONFIG}
+        initialFilter={state.filterTree}
+        onApply={setFilterTree}
+        onClear={clearFilterWithNotification}
+        activeFilterCount={filterConditionCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -336,7 +399,7 @@ export const CapaList: React.FC = () => {
         Add CAPA
       </Button>
     </Box>
-  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange]);
+  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange, state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
 
   return (
     <>
