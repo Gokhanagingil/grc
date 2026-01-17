@@ -24,7 +24,7 @@ describe('ListOptionsController', () => {
       it('should return allowlist for issues entity', () => {
         const allowlist = getEntityAllowlist('issues');
         expect(allowlist).toBeDefined();
-        expect(allowlist?.entityName).toBe('issue');
+        expect(allowlist?.entityName).toBe('Issue');
         expect(allowlist?.fields).toBeDefined();
         expect(Array.isArray(allowlist?.fields)).toBe(true);
       });
@@ -32,27 +32,27 @@ describe('ListOptionsController', () => {
       it('should return allowlist for capas entity', () => {
         const allowlist = getEntityAllowlist('capas');
         expect(allowlist).toBeDefined();
-        expect(allowlist?.entityName).toBe('capa');
+        expect(allowlist?.entityName).toBe('CAPA');
         expect(allowlist?.fields).toBeDefined();
       });
 
       it('should return allowlist for evidence entity', () => {
         const allowlist = getEntityAllowlist('evidence');
         expect(allowlist).toBeDefined();
-        expect(allowlist?.entityName).toBe('evidence');
+        expect(allowlist?.entityName).toBe('Evidence');
         expect(allowlist?.fields).toBeDefined();
       });
 
       it('should return allowlist for control entity', () => {
         const allowlist = getEntityAllowlist('control');
         expect(allowlist).toBeDefined();
-        expect(allowlist?.entityName).toBe('control');
+        expect(allowlist?.entityName).toBe('Control');
         expect(allowlist?.fields).toBeDefined();
       });
 
-      it('should return null for unknown entity', () => {
+      it('should return undefined for unknown entity', () => {
         const allowlist = getEntityAllowlist('unknown_entity');
-        expect(allowlist).toBeNull();
+        expect(allowlist).toBeUndefined();
       });
 
       it('should be case-insensitive for entity names', () => {
