@@ -342,6 +342,7 @@ export const API_PATHS = {
     EVIDENCE: (id: string) => `/grc/issues/${id}/evidence`,
     LINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
     UNLINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
+    CAPAS: (issueId: string) => `/grc/issues/${issueId}/capas`,
   },
 
   // CAPA endpoints (Golden Flow Sprint 1C)
@@ -2239,6 +2240,9 @@ export const capaApi = {
 
   getByIssue: (tenantId: string, issueId: string) =>
     api.get(API_PATHS.GRC_CAPAS.BY_ISSUE(issueId), withTenantId(tenantId)),
+
+  createFromIssue: (tenantId: string, issueId: string, data: CreateCapaDto) =>
+    api.post(API_PATHS.GRC_ISSUES.CAPAS(issueId), data, withTenantId(tenantId)),
 
   getFilters: (tenantId: string) =>
     api.get(API_PATHS.GRC_CAPAS.FILTERS, withTenantId(tenantId)),

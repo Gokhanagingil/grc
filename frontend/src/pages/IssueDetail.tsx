@@ -482,7 +482,7 @@ export const IssueDetail: React.FC = () => {
   };
 
   const handleOpenCreateCapaDialog = () => {
-    setNewCapaData({ title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM' });
+    setNewCapaData({ title: '', description: '', type: 'corrective', priority: 'high' });
     setCreateCapaDialogOpen(true);
   };
 
@@ -495,8 +495,8 @@ export const IssueDetail: React.FC = () => {
         issueId: id,
         title: newCapaData.title,
         description: newCapaData.description,
-        type: newCapaData.type || 'CORRECTIVE',
-        priority: newCapaData.priority || 'MEDIUM',
+        type: newCapaData.type || 'corrective',
+        priority: newCapaData.priority || 'high',
         dueDate: newCapaData.dueDate,
       });
       setSuccess('CAPA created successfully');
@@ -1097,28 +1097,28 @@ export const IssueDetail: React.FC = () => {
             <FormControl fullWidth>
               <InputLabel>Type</InputLabel>
               <Select
-                value={newCapaData.type || 'CORRECTIVE'}
+                value={newCapaData.type || 'corrective'}
                 label="Type"
-                onChange={(e) => setNewCapaData({ ...newCapaData, type: e.target.value as 'CORRECTIVE' | 'PREVENTIVE' | 'BOTH' })}
+                onChange={(e) => setNewCapaData({ ...newCapaData, type: e.target.value as 'corrective' | 'preventive' | 'both' })}
                 data-testid="new-capa-type-select"
               >
-                <MenuItem value="CORRECTIVE">Corrective</MenuItem>
-                <MenuItem value="PREVENTIVE">Preventive</MenuItem>
-                <MenuItem value="BOTH">Both</MenuItem>
+                <MenuItem value="corrective">Corrective</MenuItem>
+                <MenuItem value="preventive">Preventive</MenuItem>
+                <MenuItem value="both">Both</MenuItem>
               </Select>
             </FormControl>
             <FormControl fullWidth>
               <InputLabel>Priority</InputLabel>
               <Select
-                value={newCapaData.priority || 'MEDIUM'}
+                value={newCapaData.priority || 'high'}
                 label="Priority"
-                onChange={(e) => setNewCapaData({ ...newCapaData, priority: e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' })}
+                onChange={(e) => setNewCapaData({ ...newCapaData, priority: e.target.value as 'low' | 'medium' | 'high' | 'critical' })}
                 data-testid="new-capa-priority-select"
               >
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="CRITICAL">Critical</MenuItem>
+                <MenuItem value="low">Low</MenuItem>
+                <MenuItem value="medium">Medium</MenuItem>
+                <MenuItem value="high">High</MenuItem>
+                <MenuItem value="critical">Critical</MenuItem>
               </Select>
             </FormControl>
             <TextField
