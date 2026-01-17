@@ -295,22 +295,35 @@ export const API_PATHS = {
     UNLINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
   },
 
-  // Test Results endpoints (Golden Flow Sprint 1B + Test/Result Sprint)
-  GRC_TEST_RESULTS: {
-    LIST: '/grc/test-results',
-    CREATE: '/grc/test-results',
-    GET: (id: string) => `/grc/test-results/${id}`,
-    UPDATE: (id: string) => `/grc/test-results/${id}`,
-    DELETE: (id: string) => `/grc/test-results/${id}`,
-    // Test/Result Sprint - Evidence linking endpoints
-    EVIDENCES: (testResultId: string) => `/grc/test-results/${testResultId}/evidences`,
-    LINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
-    UNLINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
-    // Test/Result Sprint - Control-centric endpoint
-    BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/test-results`,
-    // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
-    CREATE_ISSUE: (testResultId: string) => `/grc/test-results/${testResultId}/issues`,
-  },
+    // Test Results endpoints (Golden Flow Sprint 1B + Test/Result Sprint)
+    GRC_TEST_RESULTS: {
+      LIST: '/grc/test-results',
+      CREATE: '/grc/test-results',
+      GET: (id: string) => `/grc/test-results/${id}`,
+      UPDATE: (id: string) => `/grc/test-results/${id}`,
+      DELETE: (id: string) => `/grc/test-results/${id}`,
+      // Test/Result Sprint - Evidence linking endpoints
+      EVIDENCES: (testResultId: string) => `/grc/test-results/${testResultId}/evidences`,
+      LINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+      UNLINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+      // Test/Result Sprint - Control-centric endpoint
+      BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/test-results`,
+      // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
+      CREATE_ISSUE: (testResultId: string) => `/grc/test-results/${testResultId}/issues`,
+    },
+
+    // Control Tests (Test Definitions) endpoints (Control Tests v1)
+    GRC_CONTROL_TESTS: {
+      LIST: '/grc/control-tests',
+      CREATE: '/grc/control-tests',
+      GET: (id: string) => `/grc/control-tests/${id}`,
+      UPDATE: (id: string) => `/grc/control-tests/${id}`,
+      DELETE: (id: string) => `/grc/control-tests/${id}`,
+      UPDATE_STATUS: (id: string) => `/grc/control-tests/${id}/status`,
+      // Nested convenience endpoints
+      BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/tests`,
+      RESULTS: (testId: string) => `/grc/control-tests/${testId}/results`,
+    },
 
   // Issues endpoints (Golden Flow Sprint 1B)
   GRC_ISSUES: {
@@ -1843,6 +1856,133 @@ export const testResultApi = {
       API_PATHS.GRC_TEST_RESULTS.UNLINK_EVIDENCE(testResultId, evidenceId),
       withTenantId(tenantId),
     ),
+};
+
+// ============================================================================
+// GRC Control Tests (Test Definitions) API (Control Tests v1)
+// ============================================================================
+
+export type ControlTestType = 'DESIGN' | 'OPERATING_EFFECTIVENESS' | 'BOTH';
+export type ControlTestStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface ControlTestData {
+  id: string;
+  tenantId: string;
+  controlId: string;
+  name: string;
+  description?: string;
+  testType?: ControlTestType;
+  status: ControlTestStatus;
+  scheduledDate?: string;
+  startedAt?: string;
+  completedAt?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+  tester?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  reviewer?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+export interface CreateControlTestDto {
+  controlId: string;
+  name: string;
+  description?: string;
+  testType?: ControlTestType;
+  scheduledDate?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateControlTestDto {
+  name?: string;
+  description?: string;
+  testType?: ControlTestType;
+  scheduledDate?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateControlTestStatusDto {
+  status: ControlTestStatus;
+  reason?: string;
+}
+
+export interface ControlTestListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  controlId?: string;
+  status?: ControlTestStatus;
+  testType?: ControlTestType;
+  testerUserId?: string;
+  scheduledDateFrom?: string;
+  scheduledDateTo?: string;
+}
+
+export const controlTestApi = {
+  list: (tenantId: string, params?: ControlTestListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateControlTestDto) =>
+    api.post(API_PATHS.GRC_CONTROL_TESTS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateControlTestDto) =>
+    api.put(API_PATHS.GRC_CONTROL_TESTS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateControlTestStatusDto) =>
+    api.patch(API_PATHS.GRC_CONTROL_TESTS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CONTROL_TESTS.DELETE(id), withTenantId(tenantId)),
+
+  listByControl: (tenantId: string, controlId: string, params?: ControlTestListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.BY_CONTROL(controlId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  listResults: (tenantId: string, testId: string, params?: TestResultListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.RESULTS(testId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
 };
 
 // ============================================================================

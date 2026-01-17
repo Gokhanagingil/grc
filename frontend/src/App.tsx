@@ -36,6 +36,8 @@ import { EvidenceList } from './pages/EvidenceList';
 import { EvidenceDetail } from './pages/EvidenceDetail';
 import { TestResultList } from './pages/TestResultList';
 import { TestResultDetail } from './pages/TestResultDetail';
+import { ControlTestList } from './pages/ControlTestList';
+import { ControlTestDetail } from './pages/ControlTestDetail';
 import { IssueList } from './pages/IssueList';
 import { IssueDetail } from './pages/IssueDetail';
 import { CapaList } from './pages/CapaList';
@@ -133,9 +135,11 @@ function App() {
                   <Route path="controls/:id" element={<ControlDetail />} />
                   <Route path="evidence" element={<EvidenceList />} />
                   <Route path="evidence/:id" element={<EvidenceDetail />} />
-                  <Route path="test-results" element={<TestResultList />} />
-                  <Route path="test-results/:id" element={<TestResultDetail />} />
-                  <Route path="issues" element={<IssueList />} />
+                                    <Route path="test-results" element={<TestResultList />} />
+                                    <Route path="test-results/:id" element={<TestResultDetail />} />
+                                    <Route path="control-tests" element={<ControlTestList />} />
+                                    <Route path="control-tests/:id" element={<ControlTestDetail />} />
+                                    <Route path="issues" element={<IssueList />} />
                   <Route path="issues/:id" element={<IssueDetail />} />
                                     <Route path="capa" element={<CapaList />} />
                                     <Route path="capa/:id" element={<CapaDetail />} />

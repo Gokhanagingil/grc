@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository } from 'typeorm';
 import { GrcControlTest, GrcControl, GrcStatusHistory } from '../entities';
 import { ControlTestStatus } from '../enums';
 import {
@@ -97,6 +97,17 @@ export class GrcControlTestService {
     return saved;
   }
 
+  /**
+   * List Contract v1 compliant findAll method
+   *
+   * Supports:
+   * - q (text search on name, description)
+   * - controlId filter
+   * - status filter
+   * - testType filter
+   * - testerUserId filter
+   * - scheduledDate range filters
+   */
   async findAll(
     tenantId: string,
     filter: ControlTestFilterDto,
@@ -108,21 +119,12 @@ export class GrcControlTestService {
       testerUserId,
       scheduledDateFrom,
       scheduledDateTo,
+      q,
       page = 1,
       pageSize = 20,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
     } = filter;
-
-    const where: FindOptionsWhere<GrcControlTest> = {
-      tenantId,
-      isDeleted: false,
-    };
-
-    if (controlId) where.controlId = controlId;
-    if (status) where.status = status;
-    if (testType) where.testType = testType;
-    if (testerUserId) where.testerUserId = testerUserId;
 
     const queryBuilder = this.controlTestRepository
       .createQueryBuilder('controlTest')
@@ -157,6 +159,14 @@ export class GrcControlTestService {
       queryBuilder.andWhere('controlTest.scheduledDate <= :scheduledDateTo', {
         scheduledDateTo,
       });
+    }
+
+    // List Contract v1 - Text search on name and description
+    if (q) {
+      queryBuilder.andWhere(
+        '(controlTest.name ILIKE :q OR controlTest.description ILIKE :q)',
+        { q: `%${q}%` },
+      );
     }
 
     // Validate sortBy to prevent SQL injection

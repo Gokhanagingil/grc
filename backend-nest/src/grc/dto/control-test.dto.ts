@@ -9,6 +9,7 @@ import {
   MaxLength,
   IsObject,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ControlTestType, ControlTestStatus } from '../enums';
 
 export class CreateControlTestDto {
@@ -112,6 +113,15 @@ export class UpdateControlTestStatusDto {
   reason?: string;
 }
 
+/**
+ * ControlTestFilterDto - List Contract v1 compliant filter DTO
+ *
+ * Supports:
+ * - page/pageSize for pagination
+ * - q for text search (name, description)
+ * - filter by: controlId, status, testType, testerUserId, scheduledDate ranges
+ * - sort allowlist: name, createdAt, updatedAt, scheduledDate, status, testType
+ */
 export class ControlTestFilterDto {
   @IsOptional()
   @IsUUID()
@@ -137,12 +147,19 @@ export class ControlTestFilterDto {
   @IsDateString()
   scheduledDateTo?: string;
 
+  // List Contract v1 - Text search
   @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;
