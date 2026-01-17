@@ -242,7 +242,7 @@ jobs:
         with:
           host: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
-          key_path: /github/workspace/.ssh/staging_key
+          key_path: ${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}
           envs: DEPLOY_PATH,STAGING_HOST
           script: |
             set -euo pipefail
