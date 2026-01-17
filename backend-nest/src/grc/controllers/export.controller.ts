@@ -220,17 +220,21 @@ export class ExportController {
     }
 
     // Get entity config from hardcoded allowlist map
+    // Use safeName from the map for all user-facing messages to prevent XSS
     const entityConfig = EXPORT_ENTITY_MAP[entity];
+    const safeName = entityConfig.safeName;
 
     // Validate entity has an allowlist configured
     if (!hasEntityAllowlist(entity)) {
-      throw new BadRequestException(`Entity ${entity} does not support export`);
+      throw new BadRequestException(
+        `Entity ${safeName} does not support export`,
+      );
     }
 
     const allowlist = getEntityAllowlist(entity);
     if (!allowlist) {
       throw new BadRequestException(
-        `Entity ${entity} does not have an allowlist configured`,
+        `Entity ${safeName} does not have an allowlist configured`,
       );
     }
 
@@ -367,12 +371,14 @@ export class ExportController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
+    // Use safeName from the map for all user-facing responses to prevent XSS
+    const entityConfig = EXPORT_ENTITY_MAP[entity];
     const permission = ENTITY_PERMISSIONS[entity];
 
     return {
       success: true,
       data: {
-        entity: entity,
+        entity: entityConfig.safeName,
         requiredPermission: permission,
       },
     };
