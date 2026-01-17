@@ -32,8 +32,11 @@ import { GrcCapa } from '../entities/grc-capa.entity';
 import { Perf } from '../../common/decorators';
 import { ClosureLoopService } from '../services/closure-loop.service';
 import { GrcCapaService } from '../services/grc-capa.service';
+import { GrcCapaTaskService } from '../services/grc-capa-task.service';
 import { UpdateCapaStatusDto } from '../dto/closure-loop.dto';
 import { CreateCapaDto, UpdateCapaDto } from '../dto/capa.dto';
+import { CreateCapaTaskDto } from '../dto/capa-task.dto';
+import { CapaType, CapaStatus, CAPAPriority } from '../enums';
 
 /**
  * GRC CAPA Controller
@@ -64,6 +67,7 @@ export class GrcCapaController {
     private readonly dataSource: DataSource,
     private readonly closureLoopService: ClosureLoopService,
     private readonly capaService: GrcCapaService,
+    private readonly capaTaskService: GrcCapaTaskService,
   ) {}
 
   /**
@@ -316,5 +320,102 @@ export class GrcCapaController {
 
     const capas = await this.capaService.findByIssue(tenantId, issueId);
     return { success: true, data: capas };
+  }
+
+  /**
+   * GET /grc/capas/filters
+   * Returns filter metadata for the CAPAs list UI
+   * Provides safe arrays of available filter values to prevent UI crashes
+   */
+  @Get('filters')
+  @ApiOperation({
+    summary: 'Get CAPA filter metadata',
+    description: 'Returns available filter values for CAPAs list UI',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Filter metadata returned successfully',
+  })
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  getFilters(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return {
+      success: true,
+      data: {
+        statuses: Object.values(CapaStatus),
+        types: Object.values(CapaType),
+        priorities: Object.values(CAPAPriority),
+      },
+    };
+  }
+
+  /**
+   * GET /grc/capas/:capaId/tasks
+   * Get all tasks for a CAPA (nested convenience endpoint)
+   */
+  @Get(':capaId/tasks')
+  @ApiOperation({
+    summary: 'Get tasks for CAPA',
+    description: 'Returns all tasks linked to a specific CAPA',
+  })
+  @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'CAPA not found' })
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  async getTasksForCapa(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('capaId') capaId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.capaService.findOne(tenantId, capaId);
+
+    const tasks = await this.capaTaskService.findByCapaId(tenantId, capaId);
+    return { success: true, data: tasks };
+  }
+
+  /**
+   * POST /grc/capas/:capaId/tasks
+   * Create a new task for a CAPA (nested convenience endpoint)
+   */
+  @Post(':capaId/tasks')
+  @ApiOperation({
+    summary: 'Create task for CAPA',
+    description: 'Creates a new task linked to a specific CAPA',
+  })
+  @ApiResponse({ status: 201, description: 'Task created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'CAPA not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createTaskForCapa(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('capaId') capaId: string,
+    @Body() dto: Omit<CreateCapaTaskDto, 'capaId'>,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.capaService.findOne(tenantId, capaId);
+
+    const taskDto: CreateCapaTaskDto = {
+      ...dto,
+      capaId,
+    } as CreateCapaTaskDto;
+
+    const task = await this.capaTaskService.create(
+      tenantId,
+      taskDto,
+      req.user.id,
+    );
+    return { success: true, data: task };
   }
 }

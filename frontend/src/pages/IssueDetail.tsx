@@ -53,6 +53,7 @@ import {
   evidenceApi,
   capaApi,
   CapaData,
+  CreateCapaDto,
   statusHistoryApi,
   unwrapResponse,
   unwrapPaginatedResponse,
@@ -226,6 +227,10 @@ export const IssueDetail: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [statusReason, setStatusReason] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const [createCapaDialogOpen, setCreateCapaDialogOpen] = useState(false);
+  const [newCapaData, setNewCapaData] = useState<Partial<CreateCapaDto>>({});
+  const [creatingCapa, setCreatingCapa] = useState(false);
 
   const fetchIssue = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -474,6 +479,36 @@ export const IssueDetail: React.FC = () => {
   const getAvailableTransitions = () => {
     if (!issue) return [];
     return ALLOWED_STATUS_TRANSITIONS[issue.status?.toLowerCase()] || [];
+  };
+
+  const handleOpenCreateCapaDialog = () => {
+    setNewCapaData({ title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM' });
+    setCreateCapaDialogOpen(true);
+  };
+
+  const handleCreateCapa = async () => {
+    if (!id || !tenantId || !newCapaData.title) return;
+
+    setCreatingCapa(true);
+    try {
+      await capaApi.createFromIssue(tenantId, id, {
+        issueId: id,
+        title: newCapaData.title,
+        description: newCapaData.description,
+        type: newCapaData.type || 'CORRECTIVE',
+        priority: newCapaData.priority || 'MEDIUM',
+        dueDate: newCapaData.dueDate,
+      });
+      setSuccess('CAPA created successfully');
+      setCreateCapaDialogOpen(false);
+      await fetchLinkedCapas();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to create CAPA');
+    } finally {
+      setCreatingCapa(false);
+    }
   };
 
   if (loading) {
@@ -791,9 +826,19 @@ export const IssueDetail: React.FC = () => {
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }} gutterBottom>
-                      <CapaIcon /> Linked CAPAs ({linkedCapas.length})
-                    </Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CapaIcon /> Linked CAPAs ({linkedCapas.length})
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenCreateCapaDialog}
+                        data-testid="create-capa-button"
+                      >
+                        Create CAPA
+                      </Button>
+                    </Box>
                     <Divider sx={{ mb: 2 }} />
                     {linkedCapas.length === 0 ? (
                       <Typography color="text.secondary">No CAPAs linked to this issue.</Typography>
@@ -1024,6 +1069,78 @@ export const IssueDetail: React.FC = () => {
             data-testid="confirm-status-change-button"
           >
             {updatingStatus ? 'Updating...' : 'Update Status'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={createCapaDialogOpen} onClose={() => setCreateCapaDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create CAPA from Issue</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            <TextField
+              label="Title"
+              value={newCapaData.title || ''}
+              onChange={(e) => setNewCapaData({ ...newCapaData, title: e.target.value })}
+              fullWidth
+              required
+              data-testid="new-capa-title-input"
+            />
+            <TextField
+              label="Description"
+              value={newCapaData.description || ''}
+              onChange={(e) => setNewCapaData({ ...newCapaData, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={3}
+              data-testid="new-capa-description-input"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={newCapaData.type || 'CORRECTIVE'}
+                label="Type"
+                onChange={(e) => setNewCapaData({ ...newCapaData, type: e.target.value as 'CORRECTIVE' | 'PREVENTIVE' | 'BOTH' })}
+                data-testid="new-capa-type-select"
+              >
+                <MenuItem value="CORRECTIVE">Corrective</MenuItem>
+                <MenuItem value="PREVENTIVE">Preventive</MenuItem>
+                <MenuItem value="BOTH">Both</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={newCapaData.priority || 'MEDIUM'}
+                label="Priority"
+                onChange={(e) => setNewCapaData({ ...newCapaData, priority: e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' })}
+                data-testid="new-capa-priority-select"
+              >
+                <MenuItem value="LOW">Low</MenuItem>
+                <MenuItem value="MEDIUM">Medium</MenuItem>
+                <MenuItem value="HIGH">High</MenuItem>
+                <MenuItem value="CRITICAL">Critical</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label="Due Date"
+              type="date"
+              value={newCapaData.dueDate || ''}
+              onChange={(e) => setNewCapaData({ ...newCapaData, dueDate: e.target.value })}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              data-testid="new-capa-due-date-input"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateCapaDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleCreateCapa}
+            variant="contained"
+            disabled={!newCapaData.title || creatingCapa}
+            data-testid="confirm-create-capa-button"
+          >
+            {creatingCapa ? 'Creating...' : 'Create CAPA'}
           </Button>
         </DialogActions>
       </Dialog>

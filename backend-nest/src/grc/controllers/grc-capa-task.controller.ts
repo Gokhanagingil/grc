@@ -15,6 +15,7 @@ import {
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
@@ -28,6 +29,7 @@ import {
   CompleteCapaTaskDto,
   CapaTaskFilterDto,
 } from '../dto/capa-task.dto';
+import { CAPATaskStatus } from '../enums';
 
 @Controller('grc/capa-tasks')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -58,6 +60,28 @@ export class GrcCapaTaskController {
       throw new BadRequestException('Tenant ID is required');
     }
     return this.capaTaskService.findAll(tenantId, filter);
+  }
+
+  @Get('filters')
+  @ApiOperation({
+    summary: 'Get CAPA Task filter metadata',
+    description: 'Returns available filter values for CAPA Tasks list UI',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Filter metadata returned successfully',
+  })
+  @Permissions(Permission.GRC_CAPA_READ)
+  getFilters(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return {
+      success: true,
+      data: {
+        statuses: Object.values(CAPATaskStatus),
+      },
+    };
   }
 
   @Get(':id')

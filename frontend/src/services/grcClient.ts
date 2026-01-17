@@ -353,6 +353,22 @@ export const API_PATHS = {
     DELETE: (id: string) => `/grc/capas/${id}`,
     UPDATE_STATUS: (id: string) => `/grc/capas/${id}/status`,
     BY_ISSUE: (issueId: string) => `/grc/capas/by-issue/${issueId}`,
+    FILTERS: '/grc/capas/filters',
+    TASKS: (capaId: string) => `/grc/capas/${capaId}/tasks`,
+  },
+
+  // CAPA Task endpoints (Golden Flow Sprint 1C)
+  GRC_CAPA_TASKS: {
+    LIST: '/grc/capa-tasks',
+    CREATE: '/grc/capa-tasks',
+    GET: (id: string) => `/grc/capa-tasks/${id}`,
+    UPDATE: (id: string) => `/grc/capa-tasks/${id}`,
+    DELETE: (id: string) => `/grc/capa-tasks/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/capa-tasks/${id}/status`,
+    COMPLETE: (id: string) => `/grc/capa-tasks/${id}/complete`,
+    BY_CAPA: (capaId: string) => `/grc/capa-tasks/by-capa/${capaId}`,
+    STATS: (capaId: string) => `/grc/capa-tasks/by-capa/${capaId}/stats`,
+    FILTERS: '/grc/capa-tasks/filters',
   },
 
   // Onboarding Core endpoints
@@ -2223,6 +2239,111 @@ export const capaApi = {
 
   getByIssue: (tenantId: string, issueId: string) =>
     api.get(API_PATHS.GRC_CAPAS.BY_ISSUE(issueId), withTenantId(tenantId)),
+
+  getFilters: (tenantId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.FILTERS, withTenantId(tenantId)),
+
+  getTasks: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.TASKS(capaId), withTenantId(tenantId)),
+
+  createTask: (tenantId: string, capaId: string, data: CreateCapaTaskDto) =>
+    api.post(API_PATHS.GRC_CAPAS.TASKS(capaId), data, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC CAPA Task API (Golden Flow Sprint 1C)
+// ============================================================================
+
+export type CapaTaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface CapaTaskData {
+  id: string;
+  tenantId: string;
+  capaId: string;
+  title: string;
+  description: string | null;
+  status: CapaTaskStatus;
+  assigneeUserId: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  completedByUserId: string | null;
+  sequenceOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  capa?: CapaData;
+  assignee?: { id: string; firstName: string; lastName: string; email: string };
+  completedBy?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface CreateCapaTaskDto {
+  capaId: string;
+  title: string;
+  description?: string;
+  status?: CapaTaskStatus;
+  assigneeUserId?: string;
+  dueDate?: string;
+  sequenceOrder?: number;
+}
+
+export interface UpdateCapaTaskDto {
+  title?: string;
+  description?: string;
+  assigneeUserId?: string;
+  dueDate?: string;
+  sequenceOrder?: number;
+}
+
+export interface UpdateCapaTaskStatusDto {
+  status: CapaTaskStatus;
+  reason?: string;
+}
+
+export interface CompleteCapaTaskDto {
+  completionNotes?: string;
+}
+
+export interface CapaTaskCompletionStats {
+  total: number;
+  completed: number;
+  pending: number;
+  inProgress: number;
+  cancelled: number;
+  completionPercentage: number;
+}
+
+export const capaTaskApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateCapaTaskDto) =>
+    api.post(API_PATHS.GRC_CAPA_TASKS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateCapaTaskDto) =>
+    api.put(API_PATHS.GRC_CAPA_TASKS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateCapaTaskStatusDto) =>
+    api.patch(API_PATHS.GRC_CAPA_TASKS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  complete: (tenantId: string, id: string, data?: CompleteCapaTaskDto) =>
+    api.patch(API_PATHS.GRC_CAPA_TASKS.COMPLETE(id), data || {}, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CAPA_TASKS.DELETE(id), withTenantId(tenantId)),
+
+  getByCapa: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.BY_CAPA(capaId), withTenantId(tenantId)),
+
+  getStats: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.STATS(capaId), withTenantId(tenantId)),
+
+  getFilters: (tenantId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.FILTERS, withTenantId(tenantId)),
 };
 
 // ============================================================================

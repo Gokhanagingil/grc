@@ -12,6 +12,7 @@ import {
   Request,
   BadRequestException,
   NotFoundException,
+  ConflictException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -34,13 +35,21 @@ import { GrcIssueClause } from '../entities/grc-issue-clause.entity';
 import { Perf } from '../../common/decorators';
 import { ClosureLoopService } from '../services/closure-loop.service';
 import { GrcIssueService } from '../services/grc-issue.service';
+import { GrcCapaService } from '../services/grc-capa.service';
 import { UpdateIssueStatusDto } from '../dto/closure-loop.dto';
 import {
   CreateIssueDto,
   UpdateIssueDto,
   IssueFilterDto,
 } from '../dto/issue.dto';
-import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
+import { CreateCapaDto } from '../dto/capa.dto';
+import {
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+  IssueSource,
+  CapaStatus,
+} from '../enums';
 
 /**
  * GRC Issue Controller
@@ -59,6 +68,7 @@ export class GrcIssueController {
     private readonly dataSource: DataSource,
     private readonly closureLoopService: ClosureLoopService,
     private readonly issueService: GrcIssueService,
+    private readonly capaService: GrcCapaService,
   ) {}
 
   @Post()
@@ -421,6 +431,135 @@ export class GrcIssueController {
       tenantId,
       id,
       dto,
+      req.user.id,
+    );
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * GET /grc/issues/:issueId/capas
+   * Get all CAPAs linked to an Issue (nested convenience endpoint)
+   */
+  @Get(':issueId/capas')
+  @ApiOperation({
+    summary: 'Get CAPAs for Issue',
+    description: 'Returns all CAPAs linked to a specific Issue',
+  })
+  @ApiResponse({ status: 200, description: 'CAPAs retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  async getCapasForIssue(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.issueService.findOne(tenantId, issueId);
+
+    const capas = await this.capaService.findByIssue(tenantId, issueId);
+    return { success: true, data: capas };
+  }
+
+  /**
+   * POST /grc/issues/:issueId/capas
+   * Create a new CAPA linked to an Issue (nested convenience endpoint)
+   */
+  @Post(':issueId/capas')
+  @ApiOperation({
+    summary: 'Create CAPA for Issue',
+    description: 'Creates a new CAPA linked to a specific Issue',
+  })
+  @ApiResponse({ status: 201, description: 'CAPA created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createCapaForIssue(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+    @Body() dto: Omit<CreateCapaDto, 'issueId'>,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.issueService.findOne(tenantId, issueId);
+
+    const capaDto: CreateCapaDto = {
+      ...dto,
+      issueId,
+    } as CreateCapaDto;
+
+    const capa = await this.capaService.create(tenantId, capaDto, req.user.id);
+    return { success: true, data: capa };
+  }
+
+  /**
+   * POST /grc/issues/:issueId/resolve
+   * Resolve an Issue only if all related CAPAs are verified or closed
+   * This is the Golden Flow signal endpoint
+   */
+  @Post(':issueId/resolve')
+  @ApiOperation({
+    summary: 'Resolve Issue',
+    description:
+      'Resolves an Issue only if ALL related CAPAs are in verified or closed status. ' +
+      'Returns 409 Conflict if any CAPA is not yet verified/closed.',
+  })
+  @ApiResponse({ status: 200, description: 'Issue resolved successfully' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot resolve: not all CAPAs are verified/closed',
+  })
+  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async resolveIssue(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.issueService.findOne(tenantId, issueId);
+
+    const capas = await this.capaService.findByIssue(tenantId, issueId);
+
+    if (capas.length === 0) {
+      throw new ConflictException(
+        'Cannot resolve issue: no CAPAs are linked to this issue. ' +
+          'Create at least one CAPA and verify/close it before resolving.',
+      );
+    }
+
+    const unresolvedCapas = capas.filter(
+      (capa) =>
+        capa.status !== CapaStatus.VERIFIED &&
+        capa.status !== CapaStatus.CLOSED,
+    );
+
+    if (unresolvedCapas.length > 0) {
+      const unresolvedTitles = unresolvedCapas
+        .map((c) => `"${c.title}" (${c.status})`)
+        .join(', ');
+      throw new ConflictException(
+        `Cannot resolve issue: ${unresolvedCapas.length} CAPA(s) are not yet verified/closed: ${unresolvedTitles}`,
+      );
+    }
+
+    const result = await this.closureLoopService.updateIssueStatus(
+      tenantId,
+      issueId,
+      { status: IssueStatus.RESOLVED, reason: 'All CAPAs verified/closed' },
       req.user.id,
     );
 

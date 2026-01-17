@@ -27,6 +27,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  LinearProgress,
 } from '@mui/material';
 import {
   Build as CapaIcon,
@@ -35,6 +36,9 @@ import {
   Info as InfoIcon,
   Warning as IssueIcon,
   Edit as EditIcon,
+  Assignment as TaskIcon,
+  Add as AddIcon,
+  CheckCircle as CompleteIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -45,6 +49,11 @@ import {
   statusHistoryApi,
   unwrapResponse,
   StatusHistoryItem,
+  CapaTaskData,
+  CreateCapaTaskDto,
+  CapaTaskStatus,
+  CapaTaskCompletionStats,
+  capaTaskApi,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
@@ -139,6 +148,13 @@ export const CapaDetail: React.FC = () => {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const [tasks, setTasks] = useState<CapaTaskData[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [taskStats, setTaskStats] = useState<CapaTaskCompletionStats | null>(null);
+  const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
+  const [newTaskData, setNewTaskData] = useState<Partial<CreateCapaTaskDto>>({});
+  const [creatingTask, setCreatingTask] = useState(false);
+
   const fetchCapa = useCallback(async () => {
     if (!id || !tenantId) return;
 
@@ -173,12 +189,40 @@ export const CapaDetail: React.FC = () => {
     }
   }, [id, tenantId]);
 
+  const fetchTasks = useCallback(async () => {
+    if (!id || !tenantId) return;
+
+    setTasksLoading(true);
+    try {
+      const [tasksResponse, statsResponse] = await Promise.all([
+        capaApi.getTasks(tenantId, id),
+        capaTaskApi.getStats(tenantId, id),
+      ]);
+      const tasksData = unwrapResponse<CapaTaskData[]>(tasksResponse);
+      const statsData = unwrapResponse<CapaTaskCompletionStats>(statsResponse);
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      setTaskStats(statsData || null);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setTasks([]);
+      setTaskStats(null);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [id, tenantId]);
+
   useEffect(() => {
     fetchCapa();
   }, [fetchCapa]);
 
   useEffect(() => {
     if (tabValue === 2) {
+      fetchTasks();
+    }
+  }, [tabValue, fetchTasks]);
+
+  useEffect(() => {
+    if (tabValue === 3) {
       fetchStatusHistory();
     }
   }, [tabValue, fetchStatusHistory]);
@@ -256,6 +300,58 @@ export const CapaDetail: React.FC = () => {
     return ALLOWED_TRANSITIONS[capa.status] || [];
   };
 
+  const handleOpenCreateTaskDialog = () => {
+    setNewTaskData({ title: '', description: '' });
+    setCreateTaskDialogOpen(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!id || !tenantId || !newTaskData.title) return;
+
+    setCreatingTask(true);
+    try {
+      await capaApi.createTask(tenantId, id, {
+        capaId: id,
+        title: newTaskData.title,
+        description: newTaskData.description,
+        dueDate: newTaskData.dueDate,
+      });
+      setSuccess('Task created successfully');
+      setCreateTaskDialogOpen(false);
+      await fetchTasks();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to create task');
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const handleCompleteTask = async (taskId: string) => {
+    if (!tenantId) return;
+
+    try {
+      await capaTaskApi.complete(tenantId, taskId);
+      setSuccess('Task marked as completed');
+      await fetchTasks();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to complete task');
+    }
+  };
+
+  const getTaskStatusColor = (status: CapaTaskStatus): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+    switch (status) {
+      case 'PENDING': return 'info';
+      case 'IN_PROGRESS': return 'warning';
+      case 'COMPLETED': return 'success';
+      case 'CANCELLED': return 'error';
+      default: return 'default';
+    }
+  };
+
   if (loading) {
     return <LoadingState message="Loading CAPA details..." />;
   }
@@ -309,6 +405,7 @@ export const CapaDetail: React.FC = () => {
         <Tabs value={tabValue} onChange={handleTabChange} aria-label="capa detail tabs">
           <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" data-testid="overview-tab" />
           <Tab icon={<IssueIcon />} label="Issue" iconPosition="start" data-testid="issue-tab" />
+          <Tab icon={<TaskIcon />} label="Tasks" iconPosition="start" data-testid="tasks-tab" />
           <Tab icon={<HistoryIcon />} label="History" iconPosition="start" data-testid="history-tab" />
         </Tabs>
 
@@ -514,6 +611,108 @@ export const CapaDetail: React.FC = () => {
         <TabPanel value={tabValue} index={2}>
           <Card>
             <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">CAPA Tasks</Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenCreateTaskDialog}
+                  data-testid="add-task-button"
+                >
+                  Add Task
+                </Button>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              {taskStats && (
+                <Box sx={{ mb: 3 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Progress: {taskStats.completed} of {taskStats.total} tasks completed
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {taskStats.completionPercentage}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={taskStats.completionPercentage} 
+                    sx={{ height: 8, borderRadius: 4 }}
+                  />
+                </Box>
+              )}
+
+              {tasksLoading ? (
+                <Typography>Loading tasks...</Typography>
+              ) : tasks.length === 0 ? (
+                <Typography color="text.secondary" data-testid="tasks-empty">
+                  No tasks have been created for this CAPA yet.
+                </Typography>
+              ) : (
+                <Table size="small" data-testid="tasks-table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Title</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Due Date</TableCell>
+                      <TableCell>Assignee</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <Typography>{task.title}</Typography>
+                          {task.description && (
+                            <Typography variant="body2" color="text.secondary">
+                              {task.description}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={formatStatus(task.status)} 
+                            size="small" 
+                            color={getTaskStatusColor(task.status)} 
+                          />
+                        </TableCell>
+                        <TableCell>{formatDate(task.dueDate)}</TableCell>
+                        <TableCell>
+                          {task.assignee 
+                            ? `${task.assignee.firstName || ''} ${task.assignee.lastName || ''}`.trim() || task.assignee.email
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<CompleteIcon />}
+                              onClick={() => handleCompleteTask(task.id)}
+                              data-testid={`complete-task-${task.id}`}
+                            >
+                              Complete
+                            </Button>
+                          )}
+                          {task.status === 'COMPLETED' && (
+                            <Typography variant="body2" color="success.main">
+                              Completed {formatDate(task.completedAt)}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
+          <Card>
+            <CardContent>
               <Typography variant="h6" gutterBottom>Status History</Typography>
               <Divider sx={{ mb: 2 }} />
               {historyLoading ? (
@@ -684,6 +883,51 @@ export const CapaDetail: React.FC = () => {
             data-testid="save-edit-button"
           >
             {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={createTaskDialogOpen} onClose={() => setCreateTaskDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create CAPA Task</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            <TextField
+              label="Title"
+              value={newTaskData.title || ''}
+              onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
+              fullWidth
+              required
+              data-testid="new-task-title-input"
+            />
+            <TextField
+              label="Description"
+              value={newTaskData.description || ''}
+              onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={3}
+              data-testid="new-task-description-input"
+            />
+            <TextField
+              label="Due Date"
+              type="date"
+              value={newTaskData.dueDate || ''}
+              onChange={(e) => setNewTaskData({ ...newTaskData, dueDate: e.target.value })}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              data-testid="new-task-due-date-input"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateTaskDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleCreateTask}
+            variant="contained"
+            disabled={!newTaskData.title || creatingTask}
+            data-testid="create-task-button"
+          >
+            {creatingTask ? 'Creating...' : 'Create Task'}
           </Button>
         </DialogActions>
       </Dialog>
