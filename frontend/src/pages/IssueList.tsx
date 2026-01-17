@@ -30,6 +30,7 @@ import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useListData } from '../hooks/useListData';
 import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
 import { FilterConfig } from '../components/common/AdvancedFilter/types';
+import { ListToolbar } from '../components/common/ListToolbar';
 
 export enum IssueType {
   INTERNAL_AUDIT = 'internal_audit',
@@ -192,6 +193,7 @@ export const IssueList: React.FC = () => {
     setPage,
     setPageSize,
     setSearch,
+    setSort,
     setFilterTree,
     refetch,
     filterConditionCount,
@@ -206,7 +208,7 @@ export const IssueList: React.FC = () => {
     entityName: 'issues',
   });
 
-  const { page, pageSize, q: search } = state;
+  const { page, pageSize, q: search, sort } = state;
 
   const handleViewIssue = useCallback((issue: IssueData) => {
     navigate(`/issues/${issue.id}`);
@@ -388,15 +390,18 @@ export const IssueList: React.FC = () => {
     },
   ], [handleViewIssue, handleDeleteIssue]);
 
+  const filterButton = useMemo(() => (
+    <AdvancedFilterBuilder
+      config={ISSUE_FILTER_CONFIG}
+      initialFilter={state.filterTree}
+      onApply={setFilterTree}
+      onClear={clearFilterWithNotification}
+      activeFilterCount={filterConditionCount}
+    />
+  ), [state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
-      <AdvancedFilterBuilder
-        config={ISSUE_FILTER_CONFIG}
-        initialFilter={state.filterTree}
-        onApply={setFilterTree}
-        onClear={clearFilterWithNotification}
-        activeFilterCount={filterConditionCount}
-      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -444,7 +449,24 @@ export const IssueList: React.FC = () => {
         Add Issue
       </Button>
     </Box>
-  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange, state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange]);
+
+  const listToolbar = useMemo(() => (
+    <ListToolbar
+      entity="issues"
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search issues..."
+      sort={sort}
+      onSortChange={setSort}
+      onRefresh={refetch}
+      loading={isLoading}
+      filterButton={filterButton}
+      onClearFilters={handleClearFilters}
+      filters={getActiveFilters()}
+      onFilterRemove={handleFilterRemove}
+    />
+  ), [search, setSearch, sort, setSort, refetch, isLoading, filterButton, handleClearFilters, getActiveFilters, handleFilterRemove]);
 
   return (
     <>
@@ -471,7 +493,12 @@ export const IssueList: React.FC = () => {
               onFilterRemove={handleFilterRemove}
               onClearFilters={handleClearFilters}
               toolbarActions={toolbarActions}
-              banner={<GrcFrameworkWarningBanner />}
+              banner={
+                <>
+                  <GrcFrameworkWarningBanner />
+                  {listToolbar}
+                </>
+              }
               minTableWidth={1000}
               testId="issue-list-page"
             />

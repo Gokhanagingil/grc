@@ -3,7 +3,7 @@
  *
  * An enhanced toolbar for list pages that provides:
  * - Debounced search input
- * - Sort dropdown (field + direction)
+ * - Sort dropdown (field + direction) with allowlist-driven options
  * - Page size selector
  * - Filter button with active filter count
  * - Refresh button
@@ -11,6 +11,10 @@
  *
  * This component integrates with the unified list framework and provides
  * a consistent UI for all list pages.
+ *
+ * Supports two modes for sort options:
+ * 1. Static: Pass sortOptions prop directly
+ * 2. Dynamic: Pass entity prop to fetch options from backend allowlist endpoint
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -27,6 +31,7 @@ import {
   MenuItem,
   Tooltip,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -37,6 +42,7 @@ import {
   ArrowDownward as DescIcon,
 } from '@mui/icons-material';
 import { SortDirection, parseSort, buildSort } from '../../utils/listQueryUtils';
+import { useListOptions } from '../../hooks/useListOptions';
 
 export interface SortOption {
   field: string;
@@ -50,6 +56,7 @@ export interface FilterChip {
 }
 
 export interface ListToolbarProps {
+  entity?: string;
   search?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
@@ -73,13 +80,14 @@ export interface ListToolbarProps {
 }
 
 export const ListToolbar: React.FC<ListToolbarProps> = ({
+  entity,
   search = '',
   onSearchChange,
   searchPlaceholder = 'Search...',
   searchDebounceMs = 300,
   sort = '',
   onSortChange,
-  sortOptions = [],
+  sortOptions: propSortOptions = [],
   pageSize = 10,
   onPageSizeChange,
   pageSizeOptions = [5, 10, 25, 50],
@@ -94,6 +102,17 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
   showSort = true,
   showPageSize = true,
 }) => {
+  const { sortableFields, isLoading: sortOptionsLoading } = useListOptions(entity || '');
+
+  const sortOptions = React.useMemo(() => {
+    if (propSortOptions.length > 0) {
+      return propSortOptions;
+    }
+    if (entity && sortableFields.length > 0) {
+      return sortableFields.map(f => ({ field: f.name, label: f.label }));
+    }
+    return [];
+  }, [propSortOptions, entity, sortableFields]);
   const [localSearch, setLocalSearch] = useState(search);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -179,9 +198,9 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
 
         {filterButton}
 
-        {showSort && sortOptions.length > 0 && onSortChange && (
+        {showSort && (sortOptions.length > 0 || sortOptionsLoading) && onSortChange && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
+            <FormControl size="small" sx={{ minWidth: 140 }} disabled={sortOptionsLoading}>
               <InputLabel>Sort by</InputLabel>
               <Select
                 value={currentSortField}
@@ -189,7 +208,11 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
                 onChange={(e) => handleSortFieldChange(String(e.target.value))}
                 startAdornment={
                   <InputAdornment position="start">
-                    <SortIcon fontSize="small" color="action" />
+                    {sortOptionsLoading ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <SortIcon fontSize="small" color="action" />
+                    )}
                   </InputAdornment>
                 }
               >
@@ -202,7 +225,7 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
             </FormControl>
             {currentSortField && (
               <Tooltip title={`Sort ${currentSortDirection === 'ASC' ? 'Descending' : 'Ascending'}`}>
-                <IconButton size="small" onClick={handleSortDirectionToggle}>
+                <IconButton size="small" onClick={handleSortDirectionToggle} disabled={sortOptionsLoading}>
                   {currentSortDirection === 'ASC' ? <AscIcon fontSize="small" /> : <DescIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>

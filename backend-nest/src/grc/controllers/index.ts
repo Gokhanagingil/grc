@@ -55,3 +55,6 @@ export {
 
 // Platform Controllers (Universal Views)
 export { PlatformController } from './platform.controller';
+
+// List Options Controller (List Toolbar Standard)
+export { ListOptionsController } from './list-options.controller';

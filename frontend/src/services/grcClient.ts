@@ -447,6 +447,12 @@ export const API_PATHS = {
     OVERVIEW: '/grc/insights/overview',
   },
 
+  // GRC Meta endpoints (List Toolbar Standard)
+  GRC_META: {
+    LIST_OPTIONS: '/grc/meta/list-options',
+    LIST_OPTIONS_BY_ENTITY: (entity: string) => `/grc/meta/list-options/${entity}`,
+  },
+
   // Platform Core - Universal Attachments
   ATTACHMENTS: {
     LIST: '/grc/attachments',
@@ -3094,6 +3100,47 @@ export const grcInsightsApi = {
   getOverview: async (tenantId: string): Promise<GrcInsightsOverview> => {
     const response = await api.get(API_PATHS.GRC_INSIGHTS.OVERVIEW, withTenantId(tenantId));
     return unwrapResponse<GrcInsightsOverview>(response);
+  },
+};
+
+// ============================================================================
+// GRC Meta - List Options (List Toolbar Standard)
+// ============================================================================
+
+export interface SortableField {
+  name: string;
+  label: string;
+  type: string;
+}
+
+export interface FilterableField {
+  name: string;
+  label: string;
+  type: string;
+  enumValues?: string[];
+  enumLabels?: Record<string, string>;
+}
+
+export interface ListOptionsResponse {
+  entity: string;
+  sortableFields: SortableField[];
+  filterableFields: FilterableField[];
+  searchableFields: string[];
+}
+
+export interface RegisteredEntitiesResponse {
+  entities: string[];
+}
+
+export const grcMetaApi = {
+  getRegisteredEntities: async (tenantId: string): Promise<RegisteredEntitiesResponse> => {
+    const response = await api.get(API_PATHS.GRC_META.LIST_OPTIONS, withTenantId(tenantId));
+    return unwrapResponse<RegisteredEntitiesResponse>(response);
+  },
+
+  getListOptions: async (tenantId: string, entity: string): Promise<ListOptionsResponse> => {
+    const response = await api.get(API_PATHS.GRC_META.LIST_OPTIONS_BY_ENTITY(entity), withTenantId(tenantId));
+    return unwrapResponse<ListOptionsResponse>(response);
   },
 };
 

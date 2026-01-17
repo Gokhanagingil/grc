@@ -30,6 +30,7 @@ import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useListData } from '../hooks/useListData';
 import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
 import { FilterConfig } from '../components/common/AdvancedFilter/types';
+import { ListToolbar } from '../components/common/ListToolbar';
 
 const CAPA_STATUS_VALUES: CapaStatus[] = ['planned', 'in_progress', 'implemented', 'verified', 'rejected', 'closed'];
 const CAPA_PRIORITY_VALUES: CapaPriority[] = ['low', 'medium', 'high', 'critical'];
@@ -156,6 +157,7 @@ export const CapaList: React.FC = () => {
     setPage,
     setPageSize,
     setSearch,
+    setSort,
     setFilterTree,
     refetch,
     filterConditionCount,
@@ -170,7 +172,7 @@ export const CapaList: React.FC = () => {
     entityName: 'CAPAs',
   });
 
-  const { page, pageSize, q: search } = state;
+  const { page, pageSize, q: search, sort } = state;
 
   const handleViewCapa = useCallback((capa: CapaData) => {
     navigate(`/capa/${capa.id}`);
@@ -353,15 +355,18 @@ export const CapaList: React.FC = () => {
     },
   ], [handleViewCapa, handleDeleteCapa]);
 
+  const filterButton = useMemo(() => (
+    <AdvancedFilterBuilder
+      config={CAPA_FILTER_CONFIG}
+      initialFilter={state.filterTree}
+      onApply={setFilterTree}
+      onClear={clearFilterWithNotification}
+      activeFilterCount={filterConditionCount}
+    />
+  ), [state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
-      <AdvancedFilterBuilder
-        config={CAPA_FILTER_CONFIG}
-        initialFilter={state.filterTree}
-        onApply={setFilterTree}
-        onClear={clearFilterWithNotification}
-        activeFilterCount={filterConditionCount}
-      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -399,7 +404,24 @@ export const CapaList: React.FC = () => {
         Add CAPA
       </Button>
     </Box>
-  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange, state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange]);
+
+  const listToolbar = useMemo(() => (
+    <ListToolbar
+      entity="capas"
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search CAPAs..."
+      sort={sort}
+      onSortChange={setSort}
+      onRefresh={refetch}
+      loading={isLoading}
+      filterButton={filterButton}
+      onClearFilters={handleClearFilters}
+      filters={getActiveFilters()}
+      onFilterRemove={handleFilterRemove}
+    />
+  ), [search, setSearch, sort, setSort, refetch, isLoading, filterButton, handleClearFilters, getActiveFilters, handleFilterRemove]);
 
   return (
     <>
@@ -426,7 +448,12 @@ export const CapaList: React.FC = () => {
               onFilterRemove={handleFilterRemove}
               onClearFilters={handleClearFilters}
               toolbarActions={toolbarActions}
-              banner={<GrcFrameworkWarningBanner />}
+              banner={
+                <>
+                  <GrcFrameworkWarningBanner />
+                  {listToolbar}
+                </>
+              }
               minTableWidth={1000}
               testId="capa-list-page"
             />
