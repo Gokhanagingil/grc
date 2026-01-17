@@ -10,9 +10,9 @@
 # Secrets Required:
 #   - STAGING_SSH_HOST: 46.224.99.150
 #   - STAGING_SSH_USER: root (or grcdeploy)
-#   - STAGING_SSH_KEY_B64: Base64-encoded private SSH key
-#     To create: cat ~/.ssh/id_ed25519 | base64 -w 0
-#     This avoids libcrypto errors from newline/encoding issues in GitHub secrets
+#   - STAGING_SSH_KEY_B64: Base64-encoded private SSH key (preferred)
+#     To create: base64 -w 0 ~/.ssh/grc_staging (Linux)
+#     Fallback:  base64 ~/.ssh/grc_staging | tr -d '\n' (macOS/other)
 #   - (Legacy) STAGING_SSH_KEY: Plain text SSH key (deprecated, use B64 version)
 #
 # Deployment Path: /opt/grc-platform
@@ -29,8 +29,6 @@ on:
 
 env:
   DEPLOY_PATH: /opt/grc-platform
-  STAGING_HOST: ${{ secrets.STAGING_SSH_HOST }}
-  STAGING_USER: ${{ secrets.STAGING_SSH_USER }}
 
 jobs:
   deploy:
@@ -39,32 +37,180 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
       
-      # Decode base64 SSH key to avoid libcrypto errors from newline/encoding issues
-      - name: Setup SSH key
+      # =========================================================================
+      # Step 1: Validate required secrets (fail fast)
+      # =========================================================================
+      - name: Validate required secrets
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.STAGING_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/staging_key
-          chmod 600 ~/.ssh/staging_key
-          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "=== Validating Required Secrets ==="
+          MISSING_SECRETS=""
+          
+          # Check STAGING_SSH_HOST
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_HOST\n"
+          else
+            echo "STAGING_SSH_HOST: present"
+          fi
+          
+          # Check STAGING_SSH_USER
+          if [ -z "${{ secrets.STAGING_SSH_USER }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_USER\n"
+          else
+            echo "STAGING_SSH_USER: present"
+          fi
+          
+          # Check SSH key (prefer B64, fallback to plain)
+          if [ -z "${{ secrets.STAGING_SSH_KEY_B64 }}" ] && [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_KEY_B64 (preferred) or STAGING_SSH_KEY (legacy)\n"
+          else
+            if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+              echo "STAGING_SSH_KEY_B64: present (preferred)"
+            else
+              echo "STAGING_SSH_KEY: present (legacy - consider migrating to B64)"
+            fi
+          fi
+          
+          # Fail if any secrets are missing
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo ""
+            echo "ERROR: Missing required GitHub secrets:"
+            echo -e "$MISSING_SECRETS"
+            echo ""
+            echo "To add secrets:"
+            echo "  1. Go to repository Settings > Secrets and variables > Actions"
+            echo "  2. Add the missing secrets listed above"
+            echo ""
+            echo "To create STAGING_SSH_KEY_B64:"
+            echo "  Linux:   base64 -w 0 ~/.ssh/grc_staging"
+            echo "  macOS:   base64 ~/.ssh/grc_staging | tr -d '\\n'"
+            exit 1
+          fi
+          
+          echo "All required secrets are present."
       
+      # =========================================================================
+      # Step 2: Setup SSH key (workspace-based path for container compatibility)
+      # =========================================================================
+      - name: Setup SSH key
+        id: ssh_setup
+        run: |
+          echo "=== Setting up SSH key ==="
+          
+          # Create .ssh directory in workspace (accessible by containerized actions)
+          SSH_DIR="${GITHUB_WORKSPACE}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          
+          KEY_FILE="${SSH_DIR}/staging_key"
+          KNOWN_HOSTS_FILE="${SSH_DIR}/known_hosts"
+          
+          # Decode SSH key (prefer B64, fallback to plain)
+          if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+            echo "Using base64-encoded SSH key..."
+            echo "${{ secrets.STAGING_SSH_KEY_B64 }}" | base64 -d > "$KEY_FILE" 2>/dev/null
+            if [ $? -ne 0 ]; then
+              echo "ERROR: Failed to decode STAGING_SSH_KEY_B64. Ensure it is valid base64."
+              echo "To regenerate: base64 -w 0 ~/.ssh/grc_staging"
+              exit 1
+            fi
+          else
+            echo "Using plain SSH key (legacy)..."
+            echo "${{ secrets.STAGING_SSH_KEY }}" > "$KEY_FILE"
+          fi
+          
+          chmod 600 "$KEY_FILE"
+          
+          # Validate key file
+          if [ ! -s "$KEY_FILE" ]; then
+            echo "ERROR: SSH key file is empty after decoding"
+            exit 1
+          fi
+          
+          # Print safe diagnostics (fingerprint and size only, never content)
+          echo "=== SSH Key Diagnostics (safe) ==="
+          echo "Key file size: $(wc -c < "$KEY_FILE") bytes"
+          ssh-keygen -lf "$KEY_FILE" 2>/dev/null || echo "WARNING: Could not read key fingerprint"
+          
+          # Setup known_hosts using ssh-keyscan
+          echo "=== Setting up known_hosts ==="
+          ssh-keyscan -H "${{ secrets.STAGING_SSH_HOST }}" >> "$KNOWN_HOSTS_FILE" 2>/dev/null
+          if [ ! -s "$KNOWN_HOSTS_FILE" ]; then
+            echo "WARNING: ssh-keyscan returned empty result, host key verification may fail"
+          else
+            echo "Known hosts entries: $(wc -l < "$KNOWN_HOSTS_FILE")"
+          fi
+          
+          # Export paths for subsequent steps
+          echo "SSH_KEY_PATH=${KEY_FILE}" >> $GITHUB_OUTPUT
+          echo "KNOWN_HOSTS_PATH=${KNOWN_HOSTS_FILE}" >> $GITHUB_OUTPUT
+          
+          echo "SSH setup complete."
+          echo "  Key path: ${KEY_FILE}"
+          echo "  Known hosts: ${KNOWN_HOSTS_FILE}"
+      
+      # =========================================================================
+      # Step 3: Connectivity preflight check (direct SSH test before heavy deploy)
+      # =========================================================================
+      - name: SSH connectivity preflight
+        run: |
+          echo "=== SSH Connectivity Preflight ==="
+          echo "Testing SSH connection to ${{ secrets.STAGING_SSH_HOST }}..."
+          
+          SSH_KEY_PATH="${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}"
+          KNOWN_HOSTS_PATH="${{ steps.ssh_setup.outputs.KNOWN_HOSTS_PATH }}"
+          
+          # Attempt SSH connection with strict host key checking
+          ssh -i "$SSH_KEY_PATH" \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$KNOWN_HOSTS_PATH" \
+              -o ConnectTimeout=30 \
+              -o BatchMode=yes \
+              "${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }}" \
+              "echo PRECHECK_OK" 2>&1
+          
+          if [ $? -eq 0 ]; then
+            echo "SSH connectivity preflight PASSED"
+          else
+            echo ""
+            echo "ERROR: SSH connectivity preflight FAILED"
+            echo ""
+            echo "Troubleshooting hints:"
+            echo "  1. Verify the SSH key is correct and has access to the server"
+            echo "  2. Check that STAGING_SSH_HOST (${{ secrets.STAGING_SSH_HOST }}) is reachable"
+            echo "  3. Verify STAGING_SSH_USER (${{ secrets.STAGING_SSH_USER }}) is correct"
+            echo "  4. Ensure the public key is in ~/.ssh/authorized_keys on the server"
+            echo "  5. Check server firewall allows SSH from GitHub Actions IPs"
+            echo ""
+            echo "Manual test command:"
+            echo "  ssh -i /path/to/key ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }} 'echo OK'"
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 4: Deploy to staging server
+      # =========================================================================
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.2.4
+        env:
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
-          key_path: ~/.ssh/staging_key
+          key: ${{ secrets.STAGING_SSH_KEY_B64 }}
+          key_format: base64
+          envs: DEPLOY_PATH
           script: |
             set -euo pipefail
             
             echo "=== Starting Staging Deployment ==="
-            echo "Deploy path: ${{ env.DEPLOY_PATH }}"
+            echo "Deploy path: $DEPLOY_PATH"
             echo "Timestamp: $(date)"
             
             # Navigate to deploy path
-            cd ${{ env.DEPLOY_PATH }} || {
-              echo "ERROR: Deploy path ${{ env.DEPLOY_PATH }} does not exist!"
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Deploy path $DEPLOY_PATH does not exist!"
               exit 1
             }
             
@@ -111,7 +257,10 @@ jobs:
             echo "=== Deploying with Docker Compose ==="
             docker compose -f docker-compose.staging.yml up -d --build --force-recreate || {
               echo "ERROR: Docker Compose deployment failed"
-              docker compose -f docker-compose.staging.yml logs
+              echo "=== Container Status ==="
+              docker compose -f docker-compose.staging.yml ps || true
+              echo "=== Recent Logs (last 200 lines) ==="
+              docker compose -f docker-compose.staging.yml logs --tail=200 backend frontend db || true
               exit 1
             }
             
@@ -130,12 +279,15 @@ jobs:
             echo "Checking backend health..."
             for i in {1..30}; do
               if curl -sf http://localhost:3002/health/live > /dev/null; then
-                echo "✓ Backend health check passed"
+                echo "Backend health check passed"
                 break
               fi
               if [ $i -eq 30 ]; then
-                echo "✗ Backend health check failed after 30 attempts"
-                docker compose -f docker-compose.staging.yml logs backend
+                echo "Backend health check failed after 30 attempts"
+                echo "=== Container Status ==="
+                docker compose -f docker-compose.staging.yml ps || true
+                echo "=== Backend Logs (last 200 lines) ==="
+                docker compose -f docker-compose.staging.yml logs --tail=200 backend || true
                 exit 1
               fi
               echo "Waiting for backend... ($i/30)"
@@ -146,12 +298,15 @@ jobs:
             echo "Checking frontend health..."
             for i in {1..30}; do
               if curl -sf http://localhost/health > /dev/null; then
-                echo "✓ Frontend health check passed"
+                echo "Frontend health check passed"
                 break
               fi
               if [ $i -eq 30 ]; then
-                echo "✗ Frontend health check failed after 30 attempts"
-                docker compose -f docker-compose.staging.yml logs frontend
+                echo "Frontend health check failed after 30 attempts"
+                echo "=== Container Status ==="
+                docker compose -f docker-compose.staging.yml ps || true
+                echo "=== Frontend Logs (last 200 lines) ==="
+                docker compose -f docker-compose.staging.yml logs --tail=200 frontend || true
                 exit 1
               fi
               echo "Waiting for frontend... ($i/30)"
@@ -219,7 +374,10 @@ jobs:
                       echo "  PASS: Missing tenant header returns 400"
                     else
                       echo "  FAIL: Expected 400, got $HTTP_CODE"
-                      docker compose -f docker-compose.staging.yml logs backend db
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
                       exit 1
                     fi
                     
@@ -234,7 +392,10 @@ jobs:
                       echo "  PASS: Spoof tenant ID returns 403"
                     else
                       echo "  FAIL: Expected 403, got $HTTP_CODE"
-                      docker compose -f docker-compose.staging.yml logs backend db
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
                       exit 1
                     fi
                     
@@ -248,7 +409,10 @@ jobs:
                       echo "  PASS: Valid request returns 200"
                     else
                       echo "  FAIL: Expected 200, got $HTTP_CODE"
-                      docker compose -f docker-compose.staging.yml logs backend db
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
                       exit 1
                     fi
                     
@@ -262,7 +426,7 @@ jobs:
             echo ""
             echo "=== Security Smoke Tests Status ==="
             if [ "$SECURITY_TESTS_STATUS" = "RUNNING" ]; then
-              echo "SECURITY_SMOKE_TESTS: RUNNING - All tests executed and passed"
+              echo "SECURITY_SMOKE_TESTS: PASSED - All tests executed and passed"
             else
               echo "SECURITY_SMOKE_TESTS: SKIPPED - Reason: ${SECURITY_TESTS_REASON:-unknown}"
             fi
