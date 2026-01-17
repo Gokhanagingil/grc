@@ -572,8 +572,10 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(400);
 
-        expect(response.body).toHaveProperty('message');
-        expect(response.body.message).toContain('Invalid sort field');
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
+        expect(response.body.error.message).toContain('Invalid sort field');
       });
 
       it('GET /grc/issues with invalid sort direction => 400 (not 500)', async () => {
@@ -588,8 +590,10 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(400);
 
-        expect(response.body).toHaveProperty('message');
-        expect(response.body.message).toContain('Invalid sort direction');
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
+        expect(response.body.error.message).toContain('Invalid sort direction');
       });
     });
 
@@ -653,8 +657,10 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(400);
 
-        expect(response.body).toHaveProperty('message');
-        expect(response.body.message).toContain('Invalid sort field');
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
+        expect(response.body.error.message).toContain('Invalid sort field');
       });
     });
 
@@ -721,8 +727,10 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(400);
 
-        expect(response.body).toHaveProperty('message');
-        expect(response.body.message).toContain('Invalid sort field');
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
+        expect(response.body.error.message).toContain('Invalid sort field');
       });
     });
 
@@ -791,8 +799,10 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(400);
 
-        expect(response.body).toHaveProperty('message');
-        expect(response.body.message).toContain('Invalid sort field');
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
+        expect(response.body.error.message).toContain('Invalid sort field');
       });
     });
 
