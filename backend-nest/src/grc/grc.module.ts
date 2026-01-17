@@ -142,6 +142,8 @@ import {
   PlatformController,
   // List Options Controller (List Toolbar Standard)
   ListOptionsController,
+  // Export Controller (CSV Export with XSS protection)
+  ExportController,
 } from './controllers';
 
 // Golden Flow Phase 1 controllers
@@ -322,6 +324,8 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     GrcInsightsController,
     // List Options Controller (List Toolbar Standard)
     ListOptionsController,
+    // Export Controller (CSV Export with XSS protection)
+    ExportController,
   ],
   exports: [
     // Universal List Service (platform-level)

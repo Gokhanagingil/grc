@@ -529,3 +529,19 @@ export enum TestResultStatus {
   DRAFT = 'DRAFT',
   FINAL = 'FINAL',
 }
+
+// ============================================================================
+// Export Enums
+// ============================================================================
+
+/**
+ * ExportEntity - Entities that can be exported as CSV
+ * Used with ParseEnumPipe for input validation to prevent XSS attacks
+ */
+export enum ExportEntity {
+  ISSUES = 'issues',
+  ISSUE = 'issue',
+  CAPAS = 'capas',
+  CAPA = 'capa',
+  EVIDENCE = 'evidence',
+}

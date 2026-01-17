@@ -58,3 +58,6 @@ export { PlatformController } from './platform.controller';
 
 // List Options Controller (List Toolbar Standard)
 export { ListOptionsController } from './list-options.controller';
+
+// Export Controller (CSV Export with XSS protection)
+export { ExportController } from './export.controller';
