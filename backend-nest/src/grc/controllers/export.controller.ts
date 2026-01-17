@@ -122,6 +122,31 @@ export function getSafeEntityName(entity: ExportEntity): string {
 }
 
 /**
+ * Get safe column names from the allowlist based on user-requested columns.
+ * This breaks CodeQL taint flow by returning values from the allowlist array,
+ * not from user input. The user input is only used for matching, not for output.
+ */
+export function getSafeColumns(
+  requestedColumns: string[],
+  allowedFields: string[],
+): { valid: string[]; invalid: string[] } {
+  const valid: string[] = [];
+  const invalid: string[] = [];
+
+  for (const requested of requestedColumns) {
+    // Find the matching allowlist value - return the allowlist value, not user input
+    const allowlistMatch = allowedFields.find((field) => field === requested);
+    if (allowlistMatch !== undefined) {
+      valid.push(allowlistMatch);
+    } else {
+      invalid.push(requested);
+    }
+  }
+
+  return { valid, invalid };
+}
+
+/**
  * Sanitize filename to prevent header injection and XSS attacks
  * - Strips dangerous characters: " \ \r \n
  * - Validates against safe pattern: /^[a-z0-9_-]+\.csv$/i
@@ -264,15 +289,18 @@ export class ExportController {
 
     if (query.columns) {
       const requestedColumns = query.columns.split(',').map((c) => c.trim());
-      const invalidColumns = requestedColumns.filter(
-        (c) => !allowedFields.includes(c),
+      // Use getSafeColumns to get allowlist values instead of user-provided values
+      // This breaks CodeQL taint flow by returning values from the allowlist
+      const { valid, invalid } = getSafeColumns(
+        requestedColumns,
+        allowedFields,
       );
-      if (invalidColumns.length > 0) {
+      if (invalid.length > 0) {
         throw new BadRequestException(
-          `Invalid columns: ${invalidColumns.join(', ')}. Allowed columns: ${allowedFields.join(', ')}`,
+          `Invalid columns: ${invalid.join(', ')}. Allowed columns: ${allowedFields.join(', ')}`,
         );
       }
-      exportColumns = requestedColumns;
+      exportColumns = valid;
     }
 
     const repo = this.dataSource.getRepository(entityConfig.entity);
