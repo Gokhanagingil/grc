@@ -140,6 +140,8 @@ import {
   TenantFrameworksController,
   // Platform Controllers (Universal Views)
   PlatformController,
+  // List Options Controller (List Toolbar Standard)
+  ListOptionsController,
 } from './controllers';
 
 // Golden Flow Phase 1 controllers
@@ -318,6 +320,8 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     GrcStatusHistoryController,
     // Sprint 1E - Insights controller
     GrcInsightsController,
+    // List Options Controller (List Toolbar Standard)
+    ListOptionsController,
   ],
   exports: [
     // Universal List Service (platform-level)

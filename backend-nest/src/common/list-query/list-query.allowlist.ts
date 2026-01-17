@@ -252,12 +252,18 @@ export const EVIDENCE_SEARCHABLE_COLUMNS = [
 
 /**
  * Registry of all entity allowlists
+ * Supports both singular and plural entity names for API flexibility
  */
 const ALLOWLIST_REGISTRY: Record<string, EntityAllowlist> = {
+  // Singular names (canonical)
   control: CONTROL_ALLOWLIST,
   issue: ISSUE_ALLOWLIST,
   capa: CAPA_ALLOWLIST,
   evidence: EVIDENCE_ALLOWLIST,
+  // Plural aliases (for API convenience)
+  controls: CONTROL_ALLOWLIST,
+  issues: ISSUE_ALLOWLIST,
+  capas: CAPA_ALLOWLIST,
 };
 
 /**

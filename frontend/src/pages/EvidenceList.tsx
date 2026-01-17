@@ -28,6 +28,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
+import { ListToolbar } from '../components/common/ListToolbar';
 
 export enum EvidenceType {
   DOCUMENT = 'document',
@@ -121,11 +122,13 @@ export const EvidenceList: React.FC = () => {
     page,
     pageSize,
     search,
+    sort,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
+    setSort,
     refetch,
   } = useUniversalList<EvidenceData>({
     fetchFn: fetchEvidence,
@@ -334,6 +337,22 @@ export const EvidenceList: React.FC = () => {
     </Box>
   ), [statusFilter, typeFilter, handleStatusChange, handleTypeChange]);
 
+  const listToolbar = useMemo(() => (
+    <ListToolbar
+      entity="evidence"
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search evidence..."
+      sort={sort}
+      onSortChange={setSort}
+      onRefresh={refetch}
+      loading={isLoading}
+      onClearFilters={handleClearFilters}
+      filters={getActiveFilters()}
+      onFilterRemove={handleFilterRemove}
+    />
+  ), [search, setSearch, sort, setSort, refetch, isLoading, handleClearFilters, getActiveFilters, handleFilterRemove]);
+
   return (
     <>
             <GenericListPage<EvidenceData>
@@ -359,7 +378,12 @@ export const EvidenceList: React.FC = () => {
               onFilterRemove={handleFilterRemove}
               onClearFilters={handleClearFilters}
               toolbarActions={toolbarActions}
-              banner={<GrcFrameworkWarningBanner />}
+              banner={
+                <>
+                  <GrcFrameworkWarningBanner />
+                  {listToolbar}
+                </>
+              }
               minTableWidth={900}
               testId="evidence-list-page"
             />
