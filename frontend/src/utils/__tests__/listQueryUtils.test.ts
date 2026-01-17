@@ -391,7 +391,7 @@ describe('listQueryUtils', () => {
       expect(parsed.sort).toBe(state.sort);
     });
 
-    it('should preserve sort in buildApiParams', () => {
+    it('should preserve sort in buildApiParams (canonical only, no legacy params)', () => {
       const state = {
         page: 1,
         pageSize: 10,
@@ -400,9 +400,10 @@ describe('listQueryUtils', () => {
         filterTree: null,
       };
       const apiParams = buildApiParams(state);
+      // Should ONLY send canonical sort param, NOT legacy sortBy/sortOrder
       expect(apiParams.sort).toBe('createdAt:DESC');
-      expect(apiParams.sortBy).toBe('createdAt');
-      expect(apiParams.sortOrder).toBe('DESC');
+      expect(apiParams.sortBy).toBeUndefined();
+      expect(apiParams.sortOrder).toBeUndefined();
     });
   });
 
@@ -512,7 +513,7 @@ describe('listQueryUtils', () => {
   });
 
   describe('buildApiParams', () => {
-    it('should build API params from state', () => {
+    it('should build API params from state (canonical sort only)', () => {
       const state = {
         page: 2,
         pageSize: 25,
@@ -524,8 +525,10 @@ describe('listQueryUtils', () => {
       expect(result.page).toBe(2);
       expect(result.pageSize).toBe(25);
       expect(result.q).toBe('test'); // Uses canonical 'q' parameter
-      expect(result.sortBy).toBe('name');
-      expect(result.sortOrder).toBe('ASC');
+      // Should ONLY send canonical sort param, NOT legacy sortBy/sortOrder
+      expect(result.sort).toBe('name:ASC');
+      expect(result.sortBy).toBeUndefined();
+      expect(result.sortOrder).toBeUndefined();
     });
 
     it('should include filter when present', () => {

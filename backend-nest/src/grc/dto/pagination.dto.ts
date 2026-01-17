@@ -40,10 +40,26 @@ export class PaginationQueryDto {
   @Min(0)
   offset?: number;
 
+  /**
+   * Canonical sort format: field:ASC or field:DESC
+   * Takes precedence over legacy sortBy/sortOrder if provided
+   */
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  /**
+   * Legacy sort field (use 'sort' param instead)
+   * @deprecated Use sort=field:ASC|DESC format instead
+   */
   @IsOptional()
   @IsString()
   sortBy?: string;
 
+  /**
+   * Legacy sort order (use 'sort' param instead)
+   * @deprecated Use sort=field:ASC|DESC format instead
+   */
   @IsOptional()
   @IsIn(['ASC', 'DESC', 'asc', 'desc'])
   sortOrder?: 'ASC' | 'DESC' | 'asc' | 'desc' = 'DESC';

@@ -508,6 +508,361 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
     });
   });
 
+  describe('Sort Parameter Normalization - Staging Failure Regression', () => {
+    describe('Issues List Endpoint', () => {
+      it('GET /grc/issues with canonical sort only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/issues?page=1&pageSize=10&sort=createdAt:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/issues with legacy sortBy/sortOrder only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/issues?page=1&pageSize=10&sortBy=createdAt&sortOrder=DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/issues with both canonical and legacy => 200 (canonical wins)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/issues?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/issues with invalid sort field => 400 (not 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/issues?page=1&pageSize=10&sort=invalidField:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(400);
+
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toContain('Invalid sort field');
+      });
+
+      it('GET /grc/issues with invalid sort direction => 400 (not 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/issues?page=1&pageSize=10&sort=createdAt:INVALID')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(400);
+
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toContain('Invalid sort direction');
+      });
+    });
+
+    describe('CAPAs List Endpoint', () => {
+      it('GET /grc/capas with canonical sort only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas?page=1&pageSize=10&sort=createdAt:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('items');
+      });
+
+      it('GET /grc/capas with legacy sortBy/sortOrder only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas?page=1&pageSize=10&sortBy=createdAt&sortOrder=DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('items');
+      });
+
+      it('GET /grc/capas with both canonical and legacy => 200 (canonical wins)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/capas?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('items');
+      });
+
+      it('GET /grc/capas with invalid sort field => 400 (not 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas?page=1&pageSize=10&sort=invalidField:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(400);
+
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toContain('Invalid sort field');
+      });
+    });
+
+    describe('Risks List Endpoint', () => {
+      it('GET /grc/risks with canonical sort only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/risks?page=1&pageSize=10&sort=createdAt:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/risks with legacy sortBy/sortOrder only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/risks?page=1&pageSize=10&sortBy=createdAt&sortOrder=DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/risks with both canonical and legacy => 200 (canonical wins)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/risks?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/risks with invalid sort field => 400 (not 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/risks?page=1&pageSize=10&sort=invalidField:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(400);
+
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toContain('Invalid sort field');
+      });
+    });
+
+    describe('Control Tests List Endpoint', () => {
+      it('GET /grc/control-tests with canonical sort only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/control-tests?page=1&pageSize=10&sort=createdAt:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/control-tests with legacy sortBy/sortOrder only => 200', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/control-tests?page=1&pageSize=10&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/control-tests with both canonical and legacy => 200 (canonical wins)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/control-tests?page=1&pageSize=10&sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+
+      it('GET /grc/control-tests with invalid sort field => 400 (not 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/control-tests?page=1&pageSize=10&sort=invalidField:DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(400);
+
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toContain('Invalid sort field');
+      });
+    });
+
+    describe('Exact Staging Failure Reproduction', () => {
+      it('Staging failure: /grc/issues with sort + sortBy + sortOrder => 200 (was 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/issues?sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+      });
+
+      it('Staging failure: /grc/capas with sort + sortBy + sortOrder => 200 (was 500)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas?sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('items');
+      });
+
+      it('Staging failure: /grc/risks with sort + sortBy + sortOrder => 200 (was 400)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/risks?sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+      });
+
+      it('Staging failure: /grc/control-tests with sort + sortBy + sortOrder => 200 (was 400)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(
+            '/grc/control-tests?sort=createdAt:DESC&sortBy=createdAt&sortOrder=DESC',
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+      });
+    });
+  });
+
   describe('Regression Tests - Old Format Should Fail', () => {
     it('should NOT have data as array (old format)', async () => {
       if (!dbConnected || !tenantId) {

@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  UsePipes,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -29,6 +30,7 @@ import {
 } from '../dto/control-test.dto';
 import { GrcTestResultService } from '../services/grc-test-result.service';
 import { TestResultFilterDto } from '../dto/test-result.dto';
+import { ControlTestsListQueryPipe } from '../../common/pipes';
 
 @Controller('grc/control-tests')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -54,6 +56,7 @@ export class GrcControlTestController {
 
   @Get()
   @Permissions(Permission.GRC_CONTROL_READ)
+  @UsePipes(ControlTestsListQueryPipe)
   async findAll(
     @Headers('x-tenant-id') tenantId: string,
     @Query() filter: ControlTestFilterDto,

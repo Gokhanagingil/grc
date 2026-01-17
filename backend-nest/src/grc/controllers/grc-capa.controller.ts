@@ -15,6 +15,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { normalizeListQuerySort } from '../../common/pipes';
 import {
   ApiTags,
   ApiOperation,
@@ -61,6 +62,7 @@ export class GrcCapaController {
     'completedDate',
     'verifiedAt',
     'closedAt',
+    'title',
   ]);
 
   constructor(
@@ -112,8 +114,9 @@ export class GrcCapaController {
     @Headers('x-tenant-id') tenantId: string,
     @Query('page') page = 1,
     @Query('pageSize') pageSize = 20,
-    @Query('sortBy') sortBy = 'createdAt',
-    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
+    @Query('sort') sort?: string,
+    @Query('sortBy') sortByLegacy?: string,
+    @Query('sortOrder') sortOrderLegacy?: string,
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('priority') priority?: string,
@@ -123,6 +126,11 @@ export class GrcCapaController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
+
+    const normalizedSort = normalizeListQuerySort(
+      { sort, sortBy: sortByLegacy, sortOrder: sortOrderLegacy },
+      'capas',
+    );
 
     const capaRepo = this.dataSource.getRepository(GrcCapa);
     const queryBuilder = capaRepo
@@ -157,13 +165,8 @@ export class GrcCapaController {
       );
     }
 
-    const safeSortBy = this.allowedSortFields.has(sortBy)
-      ? sortBy
-      : 'createdAt';
-    const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
     const [items, total] = await queryBuilder
-      .orderBy(`capa.${safeSortBy}`, safeSortOrder)
+      .orderBy(`capa.${normalizedSort.sortBy}`, normalizedSort.sortOrder)
       .skip((Number(page) - 1) * Number(pageSize))
       .take(Number(pageSize))
       .getManyAndCount();
