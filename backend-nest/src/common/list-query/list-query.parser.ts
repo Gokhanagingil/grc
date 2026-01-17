@@ -88,11 +88,16 @@ function normalizeLegacyNode(node: unknown): unknown {
     (nodeObj.op === 'and' || nodeObj.op === 'or') &&
     Array.isArray(nodeObj.children)
   ) {
-    const groupType = nodeObj.op;
     const normalizedChildren = nodeObj.children.map((child) =>
       normalizeLegacyNode(child),
     );
-    return { [groupType]: normalizedChildren };
+    // Use explicit literal strings to avoid CodeQL remote property injection warning
+    // The conditional ensures we only use 'and' or 'or' literals, never user input directly
+    if (nodeObj.op === 'and') {
+      return { and: normalizedChildren };
+    } else {
+      return { or: normalizedChildren };
+    }
   }
 
   // Check for canonical AND group - normalize children recursively
