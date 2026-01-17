@@ -91,12 +91,51 @@ jobs:
           echo "All required secrets are present."
       
       # =========================================================================
-      # Step 2: Setup SSH key (workspace-based path for container compatibility)
+      # Step 2: Sanitize and validate STAGING_SSH_HOST
+      # =========================================================================
+      - name: Sanitize STAGING_SSH_HOST
+        id: sanitize_host
+        run: |
+          echo "=== Sanitizing STAGING_SSH_HOST ==="
+          
+          # Get raw host value and sanitize it
+          HOST_RAW="${{ secrets.STAGING_SSH_HOST }}"
+          
+          # Remove whitespace, carriage returns, tabs, newlines
+          # Strip any URL scheme (http:// or https://)
+          # Strip any path after hostname
+          # Strip any port suffix
+          HOST="$(echo "$HOST_RAW" | tr -d '\r\n\t ' | sed -E 's#^https?://##; s#/.*$##; s/:[0-9]+$//')"
+          
+          # Validate: must be hostname or IP (alphanumeric, dots, hyphens only)
+          if ! echo "$HOST" | grep -qE '^[A-Za-z0-9.-]+$'; then
+            echo "ERROR: Invalid STAGING_SSH_HOST format"
+            echo "  Expected: hostname or IP address (e.g., 46.224.99.150 or staging.example.com)"
+            echo "  Must contain only: letters, numbers, dots, and hyphens"
+            echo "  Must NOT contain: scheme (http://), port (:22), path (/path), or special characters"
+            exit 1
+          fi
+          
+          # Additional validation: must not be empty
+          if [ -z "$HOST" ]; then
+            echo "ERROR: STAGING_SSH_HOST is empty after sanitization"
+            exit 1
+          fi
+          
+          # Export sanitized host for subsequent steps (safe to echo sanitized value)
+          echo "Sanitized host: $HOST"
+          echo "STAGING_HOST=${HOST}" >> $GITHUB_OUTPUT
+      
+      # =========================================================================
+      # Step 3: Setup SSH key (workspace-based path for container compatibility)
       # =========================================================================
       - name: Setup SSH key
         id: ssh_setup
         run: |
           echo "=== Setting up SSH key ==="
+          
+          # Use sanitized host from previous step
+          STAGING_HOST="${{ steps.sanitize_host.outputs.STAGING_HOST }}"
           
           # Create .ssh directory in workspace (accessible by containerized actions)
           SSH_DIR="${GITHUB_WORKSPACE}/.ssh"
@@ -133,9 +172,10 @@ jobs:
           echo "Key file size: $(wc -c < "$KEY_FILE") bytes"
           ssh-keygen -lf "$KEY_FILE" 2>/dev/null || echo "WARNING: Could not read key fingerprint"
           
-          # Setup known_hosts using ssh-keyscan
+          # Setup known_hosts using ssh-keyscan (use sanitized host)
           echo "=== Setting up known_hosts ==="
-          ssh-keyscan -H "${{ secrets.STAGING_SSH_HOST }}" >> "$KNOWN_HOSTS_FILE" 2>/dev/null
+          echo "Scanning host: $STAGING_HOST"
+          ssh-keyscan -H "$STAGING_HOST" >> "$KNOWN_HOSTS_FILE" 2>/dev/null
           if [ ! -s "$KNOWN_HOSTS_FILE" ]; then
             echo "WARNING: ssh-keyscan returned empty result, host key verification may fail"
           else
@@ -151,12 +191,15 @@ jobs:
           echo "  Known hosts: ${KNOWN_HOSTS_FILE}"
       
       # =========================================================================
-      # Step 3: Connectivity preflight check (direct SSH test before heavy deploy)
+      # Step 4: Connectivity preflight check (direct SSH test before heavy deploy)
       # =========================================================================
       - name: SSH connectivity preflight
         run: |
           echo "=== SSH Connectivity Preflight ==="
-          echo "Testing SSH connection to ${{ secrets.STAGING_SSH_HOST }}..."
+          
+          # Use sanitized host
+          STAGING_HOST="${{ steps.sanitize_host.outputs.STAGING_HOST }}"
+          echo "Testing SSH connection to $STAGING_HOST..."
           
           SSH_KEY_PATH="${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}"
           KNOWN_HOSTS_PATH="${{ steps.ssh_setup.outputs.KNOWN_HOSTS_PATH }}"
@@ -167,7 +210,7 @@ jobs:
               -o UserKnownHostsFile="$KNOWN_HOSTS_PATH" \
               -o ConnectTimeout=30 \
               -o BatchMode=yes \
-              "${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }}" \
+              "${{ secrets.STAGING_SSH_USER }}@${STAGING_HOST}" \
               "echo PRECHECK_OK" 2>&1
           
           if [ $? -eq 0 ]; then
@@ -178,29 +221,30 @@ jobs:
             echo ""
             echo "Troubleshooting hints:"
             echo "  1. Verify the SSH key is correct and has access to the server"
-            echo "  2. Check that STAGING_SSH_HOST (${{ secrets.STAGING_SSH_HOST }}) is reachable"
+            echo "  2. Check that STAGING_SSH_HOST ($STAGING_HOST) is reachable"
             echo "  3. Verify STAGING_SSH_USER (${{ secrets.STAGING_SSH_USER }}) is correct"
             echo "  4. Ensure the public key is in ~/.ssh/authorized_keys on the server"
             echo "  5. Check server firewall allows SSH from GitHub Actions IPs"
             echo ""
             echo "Manual test command:"
-            echo "  ssh -i /path/to/key ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }} 'echo OK'"
+            echo "  ssh -i /path/to/key ${{ secrets.STAGING_SSH_USER }}@$STAGING_HOST 'echo OK'"
             exit 1
           fi
       
       # =========================================================================
-      # Step 4: Deploy to staging server
+      # Step 5: Deploy to staging server
       # =========================================================================
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.2.4
         env:
           DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          STAGING_HOST: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
         with:
-          host: ${{ secrets.STAGING_SSH_HOST }}
+          host: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY_B64 }}
           key_format: base64
-          envs: DEPLOY_PATH
+          envs: DEPLOY_PATH,STAGING_HOST
           script: |
             set -euo pipefail
             
@@ -432,7 +476,7 @@ jobs:
             fi
             
             echo "=== Deployment Complete ==="
-            echo "Frontend: http://${{ secrets.STAGING_SSH_HOST }}"
-            echo "Backend API: http://${{ secrets.STAGING_SSH_HOST }}:3002"
-            echo "Backend Health: http://${{ secrets.STAGING_SSH_HOST }}:3002/health/live"
+            echo "Frontend: http://${STAGING_HOST}"
+            echo "Backend API: http://${STAGING_HOST}:3002"
+            echo "Backend Health: http://${STAGING_HOST}:3002/health/live"
 

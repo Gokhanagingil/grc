@@ -8,10 +8,34 @@ The following secrets must be configured in the repository settings (Settings > 
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `STAGING_SSH_HOST` | IP address or hostname of the staging server | `46.224.99.150` |
+| `STAGING_SSH_HOST` | IP address or hostname of the staging server (see format requirements below) | `46.224.99.150` |
 | `STAGING_SSH_USER` | SSH username for deployment | `root` or `grcdeploy` |
 | `STAGING_SSH_KEY_B64` | Base64-encoded private SSH key (preferred) | See generation instructions below |
 | `STAGING_SSH_KEY` | Plain text SSH key (legacy, deprecated) | N/A - use B64 version |
+
+### STAGING_SSH_HOST Format Requirements
+
+The `STAGING_SSH_HOST` secret must be a **hostname or IP address only**. The workflow will sanitize the value but will fail if the format is invalid after sanitization.
+
+**Valid formats:**
+- `46.224.99.150` (IP address)
+- `staging.example.com` (hostname)
+- `my-server.domain.org` (hostname with hyphens)
+
+**Invalid formats (will cause errors):**
+- `http://46.224.99.150` (has scheme - will be stripped but avoid)
+- `https://staging.example.com` (has scheme)
+- `46.224.99.150:22` (has port - will be stripped but avoid)
+- `staging.example.com/path` (has path)
+- `user@46.224.99.150` (has username - use STAGING_SSH_USER instead)
+
+The workflow automatically sanitizes the host by:
+1. Removing whitespace, carriage returns, tabs, and newlines
+2. Stripping `http://` or `https://` scheme prefixes
+3. Removing any path after the hostname
+4. Removing any port suffix (`:22`, `:3002`, etc.)
+
+After sanitization, the host must match the pattern `^[A-Za-z0-9.-]+$` (only letters, numbers, dots, and hyphens).
 
 ## Generating the Base64-Encoded SSH Key
 
@@ -59,9 +83,10 @@ The workflow executes the following steps:
 
 1. **Checkout repository** - Clones the repository using `actions/checkout@v4`
 2. **Validate required secrets** - Fails fast if any required secrets are missing
-3. **Setup SSH key** - Decodes the base64 key and sets up known_hosts
-4. **SSH connectivity preflight** - Tests SSH connection before heavy deployment
-5. **Deploy to staging server** - Executes the deployment script on the remote server
+3. **Sanitize STAGING_SSH_HOST** - Cleans and validates the host value (removes scheme, port, path; validates format)
+4. **Setup SSH key** - Decodes the base64 key and sets up known_hosts using the sanitized host
+5. **SSH connectivity preflight** - Tests SSH connection before heavy deployment
+6. **Deploy to staging server** - Executes the deployment script on the remote server
 
 ### Expected Output
 
@@ -96,6 +121,26 @@ ERROR: Missing required GitHub secrets:
 1. Go to repository Settings > Secrets and variables > Actions
 2. Add the missing secrets listed in the error message
 3. Re-run the workflow
+
+### Error: Invalid STAGING_SSH_HOST format
+
+**Symptom:**
+```
+ERROR: Invalid STAGING_SSH_HOST format
+  Expected: hostname or IP address (e.g., 46.224.99.150 or staging.example.com)
+  Must contain only: letters, numbers, dots, and hyphens
+  Must NOT contain: scheme (http://), port (:22), path (/path), or special characters
+```
+
+**Root Cause:**
+The `STAGING_SSH_HOST` secret contains invalid characters after sanitization. This can happen if the value contains characters other than letters, numbers, dots, and hyphens.
+
+**Solution:**
+1. Go to repository Settings > Secrets and variables > Actions
+2. Update `STAGING_SSH_HOST` to contain only the hostname or IP address
+3. Remove any scheme (`http://`, `https://`), port (`:22`), or path (`/path`)
+4. Example valid values: `46.224.99.150`, `staging.example.com`
+5. Re-run the workflow
 
 ### Error: Failed to decode STAGING_SSH_KEY_B64
 
