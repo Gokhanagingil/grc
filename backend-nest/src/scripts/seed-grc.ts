@@ -62,6 +62,14 @@ import { GrcTestResult } from '../grc/entities/grc-test-result.entity';
 import { GrcControlEvidence } from '../grc/entities/grc-control-evidence.entity';
 import { GrcEvidenceTestResult } from '../grc/entities/grc-evidence-test-result.entity';
 import { GrcIssueEvidence } from '../grc/entities/grc-issue-evidence.entity';
+import { GrcCapa } from '../grc/entities/grc-capa.entity';
+import { GrcCapaTask } from '../grc/entities/grc-capa-task.entity';
+import {
+  CapaType,
+  CapaStatus,
+  CAPAPriority,
+  CAPATaskStatus,
+} from '../grc/enums';
 
 // Demo tenant and user IDs (consistent for idempotency)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -1380,8 +1388,125 @@ async function seedGrcData() {
       }
     }
 
-    // 15. Create linkages for Golden Flow
-    console.log('15. Creating Golden Flow linkages...');
+    // 15. Seed CAPAs (Golden Flow continuation)
+    console.log('15. Seeding CAPAs...');
+    const capaRepo = dataSource.getRepository(GrcCapa);
+    const existingCapas = await capaRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const capasData = [
+      {
+        title: 'Implement DMZ Network Isolation',
+        description:
+          'Corrective action to properly isolate the DMZ from internal network segments. This includes firewall rule updates and network architecture changes.',
+        type: CapaType.CORRECTIVE,
+        status: CapaStatus.IN_PROGRESS,
+        priority: CAPAPriority.HIGH,
+        issueId: issues[0].id, // Network Segmentation Gap - DMZ Isolation
+        ownerUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-15'),
+      },
+      {
+        title: 'Establish Quarterly Access Review Process',
+        description:
+          'Preventive action to establish and document a quarterly access review process with automated reminders and tracking.',
+        type: CapaType.PREVENTIVE,
+        status: CapaStatus.PLANNED,
+        priority: CAPAPriority.MEDIUM,
+        issueId: issues[1].id, // Outdated Access Review Process
+        ownerUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-03-31'),
+      },
+    ];
+
+    const capas: GrcCapa[] = [];
+    for (const data of capasData) {
+      const existing = existingCapas.find((c) => c.title === data.title);
+      if (existing) {
+        capas.push(existing);
+      } else {
+        const capa = capaRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await capaRepo.save(capa);
+        capas.push(capa);
+        console.log(`   Created CAPA: ${data.title}`);
+      }
+    }
+
+    // 16. Seed CAPA Tasks
+    console.log('16. Seeding CAPA Tasks...');
+    const capaTaskRepo = dataSource.getRepository(GrcCapaTask);
+    const existingCapaTasks = await capaTaskRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const capaTasksData = [
+      {
+        title: 'Update firewall rules for DMZ isolation',
+        description:
+          'Configure firewall rules to block direct traffic between DMZ and internal network segments.',
+        status: CAPATaskStatus.COMPLETED,
+        capaId: capas[0].id, // Implement DMZ Network Isolation
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-01-31'),
+        completedAt: new Date('2025-01-15'),
+        sequenceOrder: 1,
+      },
+      {
+        title: 'Implement network monitoring for DMZ traffic',
+        description:
+          'Set up network monitoring to detect and alert on any unauthorized traffic between DMZ and internal networks.',
+        status: CAPATaskStatus.IN_PROGRESS,
+        capaId: capas[0].id, // Implement DMZ Network Isolation
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-10'),
+        sequenceOrder: 2,
+      },
+      {
+        title: 'Document access review procedures',
+        description:
+          'Create detailed documentation for the quarterly access review process including roles, responsibilities, and timelines.',
+        status: CAPATaskStatus.PENDING,
+        capaId: capas[1].id, // Establish Quarterly Access Review Process
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-28'),
+        sequenceOrder: 1,
+      },
+      {
+        title: 'Configure automated access review reminders',
+        description:
+          'Set up automated email reminders to notify stakeholders 2 weeks before each quarterly review deadline.',
+        status: CAPATaskStatus.PENDING,
+        capaId: capas[1].id, // Establish Quarterly Access Review Process
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-03-15'),
+        sequenceOrder: 2,
+      },
+    ];
+
+    const capaTasks: GrcCapaTask[] = [];
+    for (const data of capaTasksData) {
+      const existing = existingCapaTasks.find((t) => t.title === data.title);
+      if (existing) {
+        capaTasks.push(existing);
+      } else {
+        const capaTask = capaTaskRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await capaTaskRepo.save(capaTask);
+        capaTasks.push(capaTask);
+        console.log(`   Created CAPA Task: ${data.title}`);
+      }
+    }
+
+    // 17. Create linkages for Golden Flow
+    console.log('17. Creating Golden Flow linkages...');
     const controlEvidenceRepo = dataSource.getRepository(GrcControlEvidence);
     const evidenceTestResultRepo = dataSource.getRepository(
       GrcEvidenceTestResult,
@@ -1494,25 +1619,28 @@ async function seedGrcData() {
     console.log(`  - Control Tests: ${controlTests.length}`);
     console.log(`  - Test Results: ${testResults.length}`);
     console.log(`  - Issues: ${issues.length}`);
+    console.log(`  - CAPAs: ${capas.length}`);
+    console.log(`  - CAPA Tasks: ${capaTasks.length}`);
     console.log('');
-    console.log('Golden Flow Chain Example:');
-    console.log('  Control -> Evidence -> TestResult -> Issue');
+    console.log('Golden Flow Chain Example (Complete):');
+    console.log(
+      '  Control -> Evidence -> TestResult -> Issue -> CAPA -> CapaTask',
+    );
     console.log('  - Control: CTL-003 (Network Segmentation)');
     console.log('  - Evidence: Firewall Configuration Screenshot');
     console.log('  - Test Result: Network Segmentation Test Q4 2024 (FAIL)');
     console.log('  - Issue: Network Segmentation Gap - DMZ Isolation');
+    console.log('  - CAPA: Implement DMZ Network Isolation');
+    console.log('  - CAPA Tasks: Update firewall rules, Implement monitoring');
     console.log('');
     console.log('To test the Golden Flow API:');
     console.log('  1. Start NestJS: cd backend-nest && npm run start:dev');
     console.log('  2. Login to get JWT token');
     console.log(`  3. Use x-tenant-id: ${DEMO_TENANT_ID} header`);
     console.log('  4. Call GET /grc/evidence, /grc/test-results, /grc/issues');
-    console.log(
-      '  5. Call GET /grc/evidence/:id/controls to see linked controls',
-    );
-    console.log(
-      '  6. Call GET /grc/issues/:id/evidence to see linked evidence',
-    );
+    console.log('  5. Call GET /grc/capas, /grc/capa-tasks');
+    console.log('  6. Call GET /grc/issues/:id/capas to see linked CAPAs');
+    console.log('  7. Call GET /grc/capas/:id/tasks to see CAPA tasks');
     console.log('========================================\n');
   } catch (error) {
     console.error('Error seeding GRC data:', error);

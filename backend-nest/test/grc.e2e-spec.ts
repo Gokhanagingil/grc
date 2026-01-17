@@ -2618,4 +2618,549 @@ describe('GRC CRUD Operations (e2e)', () => {
       }
     });
   });
+
+  // ==================== CAPAs ====================
+  describe('GRC CAPAs', () => {
+    let createdCapaId: string;
+    let testIssueIdForCapa: string;
+
+    // Create a test issue for CAPA tests
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const issueResponse = await request(app.getHttpServer())
+        .post('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'Test Issue for CAPA - E2E',
+          description: 'A test issue for CAPA e2e tests',
+          type: 'INTERNAL_AUDIT',
+          status: 'OPEN',
+          severity: 'MEDIUM',
+        });
+
+      const issueData = issueResponse.body.data ?? issueResponse.body;
+      testIssueIdForCapa = issueData.id;
+    });
+
+    describe('GET /grc/capas', () => {
+      it('should return list of CAPAs with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/capas')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+    });
+
+    describe('POST /grc/capas', () => {
+      it('should create a new CAPA with valid data', async () => {
+        if (!dbConnected || !tenantId || !testIssueIdForCapa) {
+          console.log(
+            'Skipping test: database not connected or no issue created',
+          );
+          return;
+        }
+
+        const newCapa = {
+          title: 'Test CAPA - E2E',
+          description: 'A test CAPA created by e2e tests',
+          type: 'corrective',
+          status: 'planned',
+          priority: 'MEDIUM',
+          issueId: testIssueIdForCapa,
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/capas')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newCapa)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newCapa.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
+
+        createdCapaId = data.id;
+      });
+
+      it('should return 400 without required title field', async () => {
+        if (!dbConnected || !tenantId || !testIssueIdForCapa) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidCapa = {
+          description: 'Missing title',
+          issueId: testIssueIdForCapa,
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/capas')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidCapa)
+          .expect(400);
+      });
+    });
+
+    describe('POST /grc/issues/:issueId/capas (nested)', () => {
+      it('should create a CAPA from issue via nested endpoint', async () => {
+        if (!dbConnected || !tenantId || !testIssueIdForCapa) {
+          console.log(
+            'Skipping test: database not connected or no issue created',
+          );
+          return;
+        }
+
+        const newCapa = {
+          title: 'Test CAPA from Issue - E2E',
+          description: 'A test CAPA created via nested endpoint',
+          type: 'preventive',
+          priority: 'HIGH',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post(`/grc/issues/${testIssueIdForCapa}/capas`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newCapa)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newCapa.title);
+        expect(data).toHaveProperty('issueId', testIssueIdForCapa);
+      });
+    });
+
+    describe('GET /grc/issues/:issueId/capas (nested)', () => {
+      it('should return CAPAs for a specific issue', async () => {
+        if (!dbConnected || !tenantId || !testIssueIdForCapa) {
+          console.log(
+            'Skipping test: database not connected or no issue created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/issues/${testIssueIdForCapa}/capas`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        expect(data.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('GET /grc/capas with search', () => {
+      it('should filter CAPAs by q search parameter', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas?q=E2E')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+    });
+
+    describe('PATCH /grc/capas/:id', () => {
+      it('should update an existing CAPA', async () => {
+        if (!dbConnected || !tenantId || !createdCapaId) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        const updateData = {
+          title: 'Test CAPA - E2E Updated',
+          status: 'in_progress',
+        };
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/capas/${createdCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(updateData)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdCapaId);
+        expect(data).toHaveProperty('title', updateData.title);
+        expect(data).toHaveProperty('status', updateData.status);
+      });
+    });
+
+    describe('GET /grc/capas/filters', () => {
+      it('should return CAPA filter metadata', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas/filters')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('statuses');
+        expect(data).toHaveProperty('priorities');
+        expect(data).toHaveProperty('types');
+        expect(Array.isArray(data.statuses)).toBe(true);
+      });
+    });
+
+    describe('DELETE /grc/capas/:id', () => {
+      it('should soft delete a CAPA', async () => {
+        if (!dbConnected || !tenantId || !createdCapaId) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${createdCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should not return deleted CAPA in list', async () => {
+        if (!dbConnected || !tenantId || !createdCapaId) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capas')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedCapa = items.find(
+          (c: { id: string }) => c.id === createdCapaId,
+        );
+        expect(deletedCapa).toBeUndefined();
+      });
+    });
+
+    // Cleanup
+    afterAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      if (testIssueIdForCapa) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${testIssueIdForCapa}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
+
+  // ==================== CAPA Tasks ====================
+  describe('GRC CAPA Tasks', () => {
+    let createdCapaTaskId: string;
+    let testIssueIdForCapaTask: string;
+    let testCapaIdForTask: string;
+
+    // Create test issue and CAPA for task tests
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const issueResponse = await request(app.getHttpServer())
+        .post('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'Test Issue for CAPA Task - E2E',
+          description: 'A test issue for CAPA task e2e tests',
+          type: 'INTERNAL_AUDIT',
+          status: 'OPEN',
+          severity: 'MEDIUM',
+        });
+
+      const issueData = issueResponse.body.data ?? issueResponse.body;
+      testIssueIdForCapaTask = issueData.id;
+
+      const capaResponse = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'Test CAPA for Task - E2E',
+          description: 'A test CAPA for task e2e tests',
+          type: 'corrective',
+          status: 'planned',
+          priority: 'MEDIUM',
+          issueId: testIssueIdForCapaTask,
+        });
+
+      const capaData = capaResponse.body.data ?? capaResponse.body;
+      testCapaIdForTask = capaData.id;
+    });
+
+    describe('GET /grc/capa-tasks', () => {
+      it('should return list of CAPA tasks with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capa-tasks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+    });
+
+    describe('POST /grc/capa-tasks', () => {
+      it('should create a new CAPA task with valid data', async () => {
+        if (!dbConnected || !tenantId || !testCapaIdForTask) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        const newCapaTask = {
+          title: 'Test CAPA Task - E2E',
+          description: 'A test CAPA task created by e2e tests',
+          status: 'PENDING',
+          capaId: testCapaIdForTask,
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/capa-tasks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newCapaTask)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newCapaTask.title);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('isDeleted', false);
+
+        createdCapaTaskId = data.id;
+      });
+
+      it('should return 400 without required title field', async () => {
+        if (!dbConnected || !tenantId || !testCapaIdForTask) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidCapaTask = {
+          description: 'Missing title',
+          capaId: testCapaIdForTask,
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/capa-tasks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidCapaTask)
+          .expect(400);
+      });
+    });
+
+    describe('POST /grc/capas/:capaId/tasks (nested)', () => {
+      it('should create a task under CAPA via nested endpoint', async () => {
+        if (!dbConnected || !tenantId || !testCapaIdForTask) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        const newTask = {
+          title: 'Test Task from CAPA - E2E',
+          description: 'A test task created via nested endpoint',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post(`/grc/capas/${testCapaIdForTask}/tasks`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newTask)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('title', newTask.title);
+        expect(data).toHaveProperty('capaId', testCapaIdForTask);
+      });
+    });
+
+    describe('GET /grc/capas/:capaId/tasks (nested)', () => {
+      it('should return tasks for a specific CAPA', async () => {
+        if (!dbConnected || !tenantId || !testCapaIdForTask) {
+          console.log(
+            'Skipping test: database not connected or no CAPA created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/capas/${testCapaIdForTask}/tasks`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+        expect(data.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('PATCH /grc/capa-tasks/:id/complete', () => {
+      it('should mark a CAPA task as completed', async () => {
+        if (!dbConnected || !tenantId || !createdCapaTaskId) {
+          console.log(
+            'Skipping test: database not connected or no task created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/capa-tasks/${createdCapaTaskId}/complete`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({})
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdCapaTaskId);
+        expect(data).toHaveProperty('status', 'COMPLETED');
+        expect(data).toHaveProperty('completedAt');
+      });
+    });
+
+    describe('GET /grc/capa-tasks/filters', () => {
+      it('should return CAPA task filter metadata', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capa-tasks/filters')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('statuses');
+        expect(Array.isArray(data.statuses)).toBe(true);
+      });
+    });
+
+    describe('DELETE /grc/capa-tasks/:id', () => {
+      it('should soft delete a CAPA task', async () => {
+        if (!dbConnected || !tenantId || !createdCapaTaskId) {
+          console.log(
+            'Skipping test: database not connected or no task created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/capa-tasks/${createdCapaTaskId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should not return deleted CAPA task in list', async () => {
+        if (!dbConnected || !tenantId || !createdCapaTaskId) {
+          console.log(
+            'Skipping test: database not connected or no task created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/capa-tasks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedTask = items.find(
+          (t: { id: string }) => t.id === createdCapaTaskId,
+        );
+        expect(deletedTask).toBeUndefined();
+      });
+    });
+
+    // Cleanup
+    afterAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      if (testCapaIdForTask) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${testCapaIdForTask}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+
+      if (testIssueIdForCapaTask) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${testIssueIdForCapaTask}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
 });
