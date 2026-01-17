@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository } from 'typeorm';
 import { GrcCapa, GrcIssue, GrcStatusHistory } from '../entities';
 import { CreateCapaDto, UpdateCapaDto, CapaFilterDto } from '../dto/capa.dto';
 import { CapaStatus } from '../enums';
@@ -158,7 +158,12 @@ export class GrcCapaService {
     // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      applyQuickSearch(queryBuilder, searchTerm, CAPA_SEARCHABLE_COLUMNS, 'capa');
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        CAPA_SEARCHABLE_COLUMNS,
+        'capa',
+      );
     }
 
     const safeSortBy = this.allowedSortFields.has(sortBy)

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   GrcEvidence,
   GrcControl,
@@ -130,7 +130,12 @@ export class GrcEvidenceService {
               errors: validationErrors,
             });
           }
-          applyFilterTree(queryBuilder, parsed.tree, EVIDENCE_ALLOWLIST, 'evidence');
+          applyFilterTree(
+            queryBuilder,
+            parsed.tree,
+            EVIDENCE_ALLOWLIST,
+            'evidence',
+          );
         }
       } catch (error) {
         if (error instanceof BadRequestException) {
@@ -173,7 +178,12 @@ export class GrcEvidenceService {
     // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      applyQuickSearch(queryBuilder, searchTerm, EVIDENCE_SEARCHABLE_COLUMNS, 'evidence');
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        EVIDENCE_SEARCHABLE_COLUMNS,
+        'evidence',
+      );
     }
 
     const safeSortBy = this.allowedSortFields.has(sortBy)

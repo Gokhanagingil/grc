@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import {
   GrcIssue,
   GrcControl,
@@ -194,7 +194,12 @@ export class GrcIssueService {
     // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      applyQuickSearch(queryBuilder, searchTerm, ISSUE_SEARCHABLE_COLUMNS, 'issue');
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        ISSUE_SEARCHABLE_COLUMNS,
+        'issue',
+      );
     }
 
     const safeSortBy = this.allowedSortFields.has(sortBy)
