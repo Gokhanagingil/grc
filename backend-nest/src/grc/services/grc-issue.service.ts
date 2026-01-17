@@ -143,16 +143,8 @@ export class GrcIssueService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          const validationErrors = validateFilterAgainstAllowlist(
-            parsed.tree,
-            ISSUE_ALLOWLIST,
-          );
-          if (validationErrors.length > 0) {
-            throw new BadRequestException({
-              message: 'Invalid filter',
-              errors: validationErrors,
-            });
-          }
+          // validateFilterAgainstAllowlist throws BadRequestException if validation fails
+          validateFilterAgainstAllowlist(parsed.tree, ISSUE_ALLOWLIST);
           applyFilterTree(queryBuilder, parsed.tree, ISSUE_ALLOWLIST, 'issue');
         }
       } catch (error) {

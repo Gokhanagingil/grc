@@ -115,16 +115,8 @@ export class GrcCapaService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          const validationErrors = validateFilterAgainstAllowlist(
-            parsed.tree,
-            CAPA_ALLOWLIST,
-          );
-          if (validationErrors.length > 0) {
-            throw new BadRequestException({
-              message: 'Invalid filter',
-              errors: validationErrors,
-            });
-          }
+          // validateFilterAgainstAllowlist throws BadRequestException if validation fails
+          validateFilterAgainstAllowlist(parsed.tree, CAPA_ALLOWLIST);
           applyFilterTree(queryBuilder, parsed.tree, CAPA_ALLOWLIST, 'capa');
         }
       } catch (error) {
