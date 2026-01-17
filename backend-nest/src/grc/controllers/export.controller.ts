@@ -28,7 +28,6 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
-import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { DataSource } from 'typeorm';
 import { GrcIssue } from '../entities/grc-issue.entity';
@@ -44,14 +43,20 @@ import { applyFilterTree } from '../../common/list-query/list-query.apply';
 
 const MAX_EXPORT_ROWS = 10000;
 
-const ENTITY_MAP: Record<string, { entity: new () => unknown; table: string }> =
-  {
-    issues: { entity: GrcIssue, table: 'grc_issues' },
-    issue: { entity: GrcIssue, table: 'grc_issues' },
-    capas: { entity: GrcCapa, table: 'grc_capas' },
-    capa: { entity: GrcCapa, table: 'grc_capas' },
-    evidence: { entity: GrcEvidence, table: 'grc_evidence' },
-  };
+const ENTITY_MAP: Record<
+  string,
+  { entity: new () => unknown; table: string; safeName: string }
+> = {
+  issues: { entity: GrcIssue, table: 'grc_issues', safeName: 'issues' },
+  issue: { entity: GrcIssue, table: 'grc_issues', safeName: 'issues' },
+  capas: { entity: GrcCapa, table: 'grc_capas', safeName: 'capas' },
+  capa: { entity: GrcCapa, table: 'grc_capas', safeName: 'capas' },
+  evidence: {
+    entity: GrcEvidence,
+    table: 'grc_evidence',
+    safeName: 'evidence',
+  },
+};
 
 const ENTITY_PERMISSIONS: Record<string, Permission> = {
   issues: Permission.GRC_ISSUE_READ,
@@ -279,7 +284,8 @@ export class ExportController {
       .toISOString()
       .replace(/[:.]/g, '-')
       .slice(0, 16);
-    const filename = `${entityLower}-${timestamp}.csv`;
+    // Use safeName from validated entity config to prevent XSS
+    const filename = `${entityConfig.safeName}-${timestamp}.csv`;
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
