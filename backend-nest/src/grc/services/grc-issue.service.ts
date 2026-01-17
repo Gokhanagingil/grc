@@ -17,6 +17,7 @@ import {
   IssueType,
   IssueStatus,
   IssueSeverity,
+  IssueSource,
 } from '../enums';
 import {
   CreateIssueDto,
@@ -544,6 +545,7 @@ export class GrcIssueService {
       type: IssueType.SELF_ASSESSMENT,
       status: IssueStatus.OPEN,
       severity: dto.severity || autoSeverity,
+      source: IssueSource.TEST_RESULT,
       controlId: resolvedControlId,
       testResultId: testResult.id,
       discoveredDate: testResult.testDate || new Date(),

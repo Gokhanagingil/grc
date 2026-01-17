@@ -40,6 +40,7 @@ import {
   UpdateIssueDto,
   IssueFilterDto,
 } from '../dto/issue.dto';
+import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
 
 /**
  * GRC Issue Controller
@@ -86,6 +87,37 @@ export class GrcIssueController {
       throw new BadRequestException('Tenant ID is required');
     }
     return this.issueService.findAll(tenantId, filter);
+  }
+
+  /**
+   * GET /grc/issues/filters
+   * Returns filter metadata for the Issues list UI
+   * Provides safe arrays of available filter values to prevent UI crashes
+   */
+  @Get('filters')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  @ApiOperation({
+    summary: 'Get issue filter metadata',
+    description: 'Returns available filter values for issues list UI',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Filter metadata returned successfully',
+  })
+  @Perf()
+  getFilters(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return {
+      success: true,
+      data: {
+        statuses: Object.values(IssueStatus),
+        severities: Object.values(IssueSeverity),
+        types: Object.values(IssueType),
+        sources: Object.values(IssueSource),
+      },
+    };
   }
 
   @Get(':id')

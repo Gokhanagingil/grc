@@ -43,8 +43,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   testResultApi,
   TestResultData,
-  issueApi,
-  CreateIssueDto,
   statusHistoryApi,
   unwrapResponse,
   StatusHistoryItem,
@@ -157,15 +155,17 @@ export const TestResultDetail: React.FC = () => {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [createIssueDialogOpen, setCreateIssueDialogOpen] = useState(false);
-  const [newIssue, setNewIssue] = useState<CreateIssueDto>({
-    title: '',
-    description: '',
-    type: 'internal_audit',
-    status: 'open',
-    severity: 'high',
-  });
-  const [creatingIssue, setCreatingIssue] = useState(false);
+    const [createIssueDialogOpen, setCreateIssueDialogOpen] = useState(false);
+    const [newIssue, setNewIssue] = useState<{
+      title: string;
+      description: string;
+      severity: string;
+    }>({
+      title: '',
+      description: '',
+      severity: 'high',
+    });
+    const [creatingIssue, setCreatingIssue] = useState(false);
 
   const fetchTestResult = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -219,42 +219,43 @@ export const TestResultDetail: React.FC = () => {
     setTabValue(newValue);
   };
 
-  const handleOpenCreateIssueDialog = () => {
-    if (!testResult) return;
+    const handleOpenCreateIssueDialog = () => {
+      if (!testResult) return;
     
-    const controlName = controlTest?.control?.name || controlTest?.control?.code || 'Unknown Control';
-    setNewIssue({
-      title: `Failed Test Result: ${testResult.name}`,
-      description: `Issue created from failed test result.\n\nTest Result: ${testResult.name}\nControl: ${controlName}\nResult: ${testResult.result}\nTested At: ${formatDate(testResult.testedAt)}\n\nNotes: ${testResult.notes || 'N/A'}`,
-      type: 'internal_audit',
-      status: 'open',
-      severity: mapResultToSeverity(testResult.result),
-      controlId: controlTest?.control?.id,
-      testResultId: testResult.id,
-    });
-    setCreateIssueDialogOpen(true);
-  };
+      const controlName = controlTest?.control?.name || controlTest?.control?.code || 'Unknown Control';
+      setNewIssue({
+        title: `Failed Test Result: ${testResult.name}`,
+        description: `Issue created from failed test result.\n\nTest Result: ${testResult.name}\nControl: ${controlName}\nResult: ${testResult.result}\nTested At: ${formatDate(testResult.testedAt)}\n\nNotes: ${testResult.notes || 'N/A'}`,
+        severity: mapResultToSeverity(testResult.result),
+      });
+      setCreateIssueDialogOpen(true);
+    };
 
-  const handleCreateIssue = async () => {
-    if (!tenantId) return;
+    const handleCreateIssue = async () => {
+      if (!tenantId || !testResult) return;
 
-    setCreatingIssue(true);
-    try {
-      const response = await issueApi.create(tenantId, newIssue);
-      const createdIssue = unwrapResponse<{ id: string }>(response);
-      setSuccess('Issue created successfully');
-      setCreateIssueDialogOpen(false);
-      setTimeout(() => {
-        setSuccess(null);
-        navigate(`/issues/${createdIssue.id}`);
-      }, 1500);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to create issue');
-    } finally {
-      setCreatingIssue(false);
-    }
-  };
+      setCreatingIssue(true);
+      try {
+        // Use the dedicated Golden Flow endpoint for creating issues from test results
+        const response = await testResultApi.createIssue(tenantId, testResult.id, {
+          title: newIssue.title,
+          description: newIssue.description,
+          severity: newIssue.severity,
+        });
+        const createdIssue = unwrapResponse<{ id: string }>(response);
+        setSuccess('Issue created successfully');
+        setCreateIssueDialogOpen(false);
+        setTimeout(() => {
+          setSuccess(null);
+          navigate(`/issues/${createdIssue.id}`);
+        }, 1500);
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to create issue');
+      } finally {
+        setCreatingIssue(false);
+      }
+    };
 
   if (loading) {
     return <LoadingState message="Loading test result details..." />;
