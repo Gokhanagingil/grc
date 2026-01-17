@@ -107,8 +107,14 @@ export function serializeFilter(tree: FilterTree): string {
   return JSON.stringify(tree);
 }
 
+/**
+ * Encode filter tree for URL usage.
+ * Note: This returns the JSON string WITHOUT additional encoding.
+ * URLSearchParams will handle the encoding automatically when setting params.
+ * Do NOT use encodeURIComponent here to avoid double-encoding.
+ */
 export function encodeFilter(tree: FilterTree): string {
-  return encodeURIComponent(serializeFilter(tree));
+  return serializeFilter(tree);
 }
 
 export function countConditions(tree: FilterTree): number {
