@@ -164,10 +164,26 @@ export class ControlTestFilterDto {
   @Min(1)
   pageSize?: number;
 
+  /**
+   * Canonical sort format: field:ASC or field:DESC
+   * Takes precedence over legacy sortBy/sortOrder if provided
+   */
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  /**
+   * Legacy sort field (use 'sort' param instead)
+   * @deprecated Use sort=field:ASC|DESC format instead
+   */
   @IsOptional()
   @IsString()
   sortBy?: string;
 
+  /**
+   * Legacy sort order (use 'sort' param instead)
+   * @deprecated Use sort=field:ASC|DESC format instead
+   */
   @IsOptional()
   @IsString()
   sortOrder?: 'ASC' | 'DESC';

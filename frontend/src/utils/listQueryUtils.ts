@@ -461,10 +461,9 @@ export function buildApiParams(state: ListQueryState): Record<string, unknown> {
   }
   
   if (state.sort) {
+    // Send ONLY canonical sort param (field:ASC|DESC format)
+    // Do NOT send legacy sortBy/sortOrder to avoid contract conflicts
     params.sort = state.sort;
-    // Use pre-parsed values if available, otherwise parse
-    params.sortBy = state.sortField || parseSort(state.sort)?.field;
-    params.sortOrder = state.sortOrder || parseSort(state.sort)?.direction;
   }
   
   if (state.filterTree) {

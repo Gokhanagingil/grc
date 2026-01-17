@@ -15,6 +15,7 @@ import {
   ConflictException,
   HttpCode,
   HttpStatus,
+  UsePipes,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -50,6 +51,7 @@ import {
   IssueSource,
   CapaStatus,
 } from '../enums';
+import { IssuesListQueryPipe } from '../../common/pipes';
 
 /**
  * GRC Issue Controller
@@ -88,6 +90,7 @@ export class GrcIssueController {
 
   @Get()
   @Permissions(Permission.GRC_ISSUE_READ)
+  @UsePipes(IssuesListQueryPipe)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,

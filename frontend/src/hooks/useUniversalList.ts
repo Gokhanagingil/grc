@@ -155,12 +155,9 @@ export function useUniversalList<T>(options: UseUniversalListOptions<T>): UseUni
       }
 
       if (sort) {
+        // Send ONLY canonical sort param (field:ASC|DESC format)
+        // Do NOT send legacy sortBy/sortOrder to avoid contract conflicts
         params.sort = sort;
-        const [sortBy, sortOrder] = sort.split(':');
-        if (sortBy && sortOrder) {
-          params.sortBy = sortBy;
-          params.sortOrder = sortOrder as 'ASC' | 'DESC';
-        }
       }
 
       const response = await fetchFn(params);
