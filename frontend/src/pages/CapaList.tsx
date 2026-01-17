@@ -158,7 +158,6 @@ export const CapaList: React.FC = () => {
     setSearch,
     setFilterTree,
     refetch,
-    hasActiveFilter,
     filterConditionCount,
     clearFilterWithNotification,
   } = useListData<CapaData>({

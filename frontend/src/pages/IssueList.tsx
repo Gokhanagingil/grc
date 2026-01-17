@@ -194,7 +194,6 @@ export const IssueList: React.FC = () => {
     setSearch,
     setFilterTree,
     refetch,
-    hasActiveFilter,
     filterConditionCount,
     clearFilterWithNotification,
   } = useListData<IssueData>({

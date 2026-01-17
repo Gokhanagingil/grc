@@ -102,7 +102,8 @@ function countConditions(filter: FilterTree | null): number {
  */
 export function useListData<T>(options: UseListDataOptions<T>): UseListDataResult<T> {
   const {
-    entityName = 'items',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    entityName = 'items', // Reserved for future use in error messages
     fields = [],
     onFilterCleared,
     showNotifications = true,
