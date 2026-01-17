@@ -1736,4 +1736,533 @@ describe('GRC CRUD Operations (e2e)', () => {
       });
     });
   });
+
+  // ==================== CONTROL TESTS (Test Definitions) ====================
+  describe('GRC Control Tests', () => {
+    let createdControlTestId: string;
+    let testControlId: string;
+
+    // First create a control to link tests to
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const newControl = {
+        name: 'Test Control for Control Tests - E2E',
+        code: 'CTL-E2E-CT-001',
+        description: 'A test control for control test e2e tests',
+        status: 'IMPLEMENTED',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/controls')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send(newControl);
+
+      const data = response.body.data ?? response.body;
+      testControlId = data?.id;
+    });
+
+    describe('GET /grc/control-tests', () => {
+      it('should return list of control tests with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/control-tests')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/control-tests')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+
+      it('should support search with q parameter', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/control-tests?q=test')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+      });
+    });
+
+    describe('POST /grc/control-tests', () => {
+      it('should create a new control test with valid data', async () => {
+        if (!dbConnected || !tenantId || !testControlId) {
+          console.log(
+            'Skipping test: database not connected or no control created',
+          );
+          return;
+        }
+
+        const newControlTest = {
+          controlId: testControlId,
+          name: 'Test Control Test - E2E',
+          description: 'A test control test created by e2e tests',
+          testType: 'DESIGN',
+          status: 'PLANNED',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/control-tests')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newControlTest)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newControlTest.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('controlId', testControlId);
+
+        createdControlTestId = data.id;
+      });
+
+      it('should return 400 without required controlId field', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidControlTest = {
+          name: 'Missing controlId',
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/control-tests')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidControlTest)
+          .expect(400);
+      });
+    });
+
+    describe('GET /grc/control-tests/:id', () => {
+      it('should return a specific control test by ID', async () => {
+        if (!dbConnected || !tenantId || !createdControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/control-tests/${createdControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdControlTestId);
+        expect(data).toHaveProperty('name', 'Test Control Test - E2E');
+      });
+
+      it('should return 404 for non-existent control test', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/control-tests/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('PATCH /grc/control-tests/:id', () => {
+      it('should update an existing control test', async () => {
+        if (!dbConnected || !tenantId || !createdControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        const updateData = {
+          name: 'Test Control Test - E2E Updated',
+          description: 'Updated description',
+        };
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/control-tests/${createdControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(updateData)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdControlTestId);
+        expect(data).toHaveProperty('name', updateData.name);
+      });
+    });
+
+    describe('GET /grc/controls/:controlId/tests (nested endpoint)', () => {
+      it('should return tests for a specific control', async () => {
+        if (!dbConnected || !tenantId || !testControlId) {
+          console.log(
+            'Skipping test: database not connected or no control created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/controls/${testControlId}/tests`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+    });
+
+    describe('DELETE /grc/control-tests/:id', () => {
+      it('should soft delete a control test', async () => {
+        if (!dbConnected || !tenantId || !createdControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/control-tests/${createdControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should not return deleted control test in list', async () => {
+        if (!dbConnected || !tenantId || !createdControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/control-tests')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedControlTest = items.find(
+          (ct: { id: string }) => ct.id === createdControlTestId,
+        );
+        expect(deletedControlTest).toBeUndefined();
+      });
+    });
+
+    // Cleanup
+    afterAll(async () => {
+      if (!dbConnected || !tenantId || !testControlId) return;
+
+      await request(app.getHttpServer())
+        .delete(`/grc/controls/${testControlId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+    });
+  });
+
+  // ==================== TEST RESULTS ====================
+  describe('GRC Test Results', () => {
+    let createdTestResultId: string;
+    let testControlId: string;
+    let testControlTestId: string;
+
+    // First create a control and control test to link results to
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create control
+      const controlResponse = await request(app.getHttpServer())
+        .post('/grc/controls')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          name: 'Test Control for Test Results - E2E',
+          code: 'CTL-E2E-TR-001',
+          description: 'A test control for test result e2e tests',
+          status: 'IMPLEMENTED',
+        });
+
+      const controlData = controlResponse.body.data ?? controlResponse.body;
+      testControlId = controlData?.id;
+
+      if (!testControlId) return;
+
+      // Create control test
+      const controlTestResponse = await request(app.getHttpServer())
+        .post('/grc/control-tests')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          controlId: testControlId,
+          name: 'Test Control Test for Results - E2E',
+          description: 'A test control test for test result e2e tests',
+          testType: 'DESIGN',
+          status: 'IN_PROGRESS',
+        });
+
+      const controlTestData =
+        controlTestResponse.body.data ?? controlTestResponse.body;
+      testControlTestId = controlTestData?.id;
+    });
+
+    describe('GET /grc/test-results', () => {
+      it('should return list of test results with valid auth', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/test-results')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+
+      it('should return 401 without token', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/test-results')
+          .set('x-tenant-id', tenantId)
+          .expect(401);
+      });
+    });
+
+    describe('POST /grc/test-results', () => {
+      it('should create a new test result with valid data', async () => {
+        if (!dbConnected || !tenantId || !testControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        const newTestResult = {
+          controlTestId: testControlTestId,
+          name: 'Test Result - E2E',
+          result: 'PASS',
+          effectivenessRating: 'EFFECTIVE',
+          resultDetails: 'Test passed successfully',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/grc/test-results')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newTestResult)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('name', newTestResult.name);
+        expect(data).toHaveProperty('tenantId', tenantId);
+        expect(data).toHaveProperty('controlTestId', testControlTestId);
+
+        createdTestResultId = data.id;
+      });
+
+      it('should return 400 without required controlTestId field', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const invalidTestResult = {
+          name: 'Missing controlTestId',
+          result: 'PASS',
+        };
+
+        await request(app.getHttpServer())
+          .post('/grc/test-results')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(invalidTestResult)
+          .expect(400);
+      });
+    });
+
+    describe('GET /grc/test-results/:id', () => {
+      it('should return a specific test result by ID', async () => {
+        if (!dbConnected || !tenantId || !createdTestResultId) {
+          console.log(
+            'Skipping test: database not connected or no test result created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/test-results/${createdTestResultId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdTestResultId);
+        expect(data).toHaveProperty('name', 'Test Result - E2E');
+      });
+
+      it('should return 404 for non-existent test result', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .get('/grc/test-results/00000000-0000-0000-0000-000000000000')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(404);
+      });
+    });
+
+    describe('PATCH /grc/test-results/:id', () => {
+      it('should update an existing test result', async () => {
+        if (!dbConnected || !tenantId || !createdTestResultId) {
+          console.log(
+            'Skipping test: database not connected or no test result created',
+          );
+          return;
+        }
+
+        const updateData = {
+          name: 'Test Result - E2E Updated',
+          resultDetails: 'Updated test details',
+        };
+
+        const response = await request(app.getHttpServer())
+          .patch(`/grc/test-results/${createdTestResultId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(updateData)
+          .expect(200);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id', createdTestResultId);
+        expect(data).toHaveProperty('name', updateData.name);
+      });
+    });
+
+    describe('GET /grc/control-tests/:testId/results (nested endpoint)', () => {
+      it('should return results for a specific control test', async () => {
+        if (!dbConnected || !tenantId || !testControlTestId) {
+          console.log(
+            'Skipping test: database not connected or no control test created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/control-tests/${testControlTestId}/results`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body.data).toHaveProperty('items');
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+      });
+    });
+
+    describe('DELETE /grc/test-results/:id', () => {
+      it('should soft delete a test result', async () => {
+        if (!dbConnected || !tenantId || !createdTestResultId) {
+          console.log(
+            'Skipping test: database not connected or no test result created',
+          );
+          return;
+        }
+
+        await request(app.getHttpServer())
+          .delete(`/grc/test-results/${createdTestResultId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      });
+
+      it('should not return deleted test result in list', async () => {
+        if (!dbConnected || !tenantId || !createdTestResultId) {
+          console.log(
+            'Skipping test: database not connected or no test result created',
+          );
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/test-results')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        const items =
+          response.body.data?.items ?? response.body.data ?? response.body;
+        const deletedTestResult = items.find(
+          (tr: { id: string }) => tr.id === createdTestResultId,
+        );
+        expect(deletedTestResult).toBeUndefined();
+      });
+    });
+
+    // Cleanup
+    afterAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      if (testControlTestId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/control-tests/${testControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+
+      if (testControlId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/controls/${testControlId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
 });

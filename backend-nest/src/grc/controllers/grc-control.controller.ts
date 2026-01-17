@@ -41,7 +41,9 @@ import {
   resetParamCounter,
 } from '../../common';
 import { GrcTestResultService } from '../services/grc-test-result.service';
+import { GrcControlTestService } from '../services/grc-control-test.service';
 import { TestResultFilterDto } from '../dto/test-result.dto';
+import { ControlTestFilterDto } from '../dto/control-test.dto';
 
 /**
  * GRC Control Controller
@@ -113,6 +115,7 @@ export class GrcControlController {
     private readonly dataSource: DataSource,
     private readonly universalListService: UniversalListService,
     private readonly testResultService: GrcTestResultService,
+    private readonly controlTestService: GrcControlTestService,
   ) {}
 
   /**
@@ -583,6 +586,44 @@ export class GrcControlController {
       controlId,
       filter,
     );
+
+    return {
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        page: filter.page || 1,
+        pageSize: filter.pageSize || 20,
+        totalPages: Math.ceil(result.total / (filter.pageSize || 20)),
+      },
+    };
+  }
+
+  // ============================================================================
+  // Control Tests v1: Control-centric Test Definitions Endpoint
+  // ============================================================================
+
+  /**
+   * GET /grc/controls/:controlId/tests
+   * Get all test definitions for a specific control
+   * List Contract v1 compliant with pagination, search, and filtering
+   */
+  @Get(':controlId/tests')
+  @Permissions(Permission.GRC_CONTROL_READ)
+  @Perf()
+  async getControlTests(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('controlId', ParseUUIDPipe) controlId: string,
+    @Query() filter: ControlTestFilterDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const result = await this.controlTestService.findAll(tenantId, {
+      ...filter,
+      controlId,
+    });
 
     return {
       success: true,

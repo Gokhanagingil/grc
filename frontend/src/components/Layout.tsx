@@ -150,14 +150,15 @@ const menuGroups: NavMenuGroup[] = [
           { text: 'Reports', path: '/audit-reports', status: 'coming_soon' },
         ],
       },
-      { 
-        text: 'Tests / Results', 
-        icon: <AuditIcon />, 
-        path: '/test-results',
-        children: [
-          { text: 'Test Results', path: '/test-results', status: 'active' },
-        ],
-      },
+            { 
+              text: 'Tests / Results', 
+              icon: <AuditIcon />, 
+              path: '/control-tests',
+              children: [
+                { text: 'Control Tests', path: '/control-tests', status: 'active' },
+                { text: 'Test Results', path: '/test-results', status: 'active' },
+              ],
+            },
       { 
         text: 'Evidence', 
         icon: <AuditIcon />, 
