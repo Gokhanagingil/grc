@@ -1015,9 +1015,9 @@ describe('GRC CRUD Operations (e2e)', () => {
         const newEvidence = {
           name: 'Test Evidence - E2E',
           description: 'A test evidence created by e2e tests',
-          type: 'DOCUMENT',
-          sourceType: 'MANUAL',
-          status: 'DRAFT',
+          type: 'document',
+          sourceType: 'manual',
+          status: 'draft',
           location: '/documents/test-evidence.pdf',
           tags: ['test', 'e2e'],
         };
@@ -1104,7 +1104,7 @@ describe('GRC CRUD Operations (e2e)', () => {
 
         const updateData = {
           name: 'Test Evidence - E2E Updated',
-          status: 'APPROVED',
+          status: 'approved',
         };
 
         const response = await request(app.getHttpServer())
