@@ -55,6 +55,10 @@ const formatDate = (dateString: string | null | undefined): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+// Define constant options outside component to avoid useMemo dependency issues
+const STATUS_OPTIONS: ControlTestStatus[] = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+const TEST_TYPE_OPTIONS: ControlTestType[] = ['DESIGN', 'OPERATING_EFFECTIVENESS', 'BOTH'];
+
 export const ControlTestList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -246,9 +250,6 @@ export const ControlTestList: React.FC = () => {
     },
   ], [handleViewControlTest, handleDeleteControlTest]);
 
-  const statusOptions: ControlTestStatus[] = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
-  const testTypeOptions: ControlTestType[] = ['DESIGN', 'OPERATING_EFFECTIVENESS', 'BOTH'];
-
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
       <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -259,7 +260,7 @@ export const ControlTestList: React.FC = () => {
           onChange={(e) => handleStatusChange(e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          {statusOptions.map((status) => (
+          {STATUS_OPTIONS.map((status) => (
             <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
           ))}
         </Select>
@@ -272,7 +273,7 @@ export const ControlTestList: React.FC = () => {
           onChange={(e) => handleTestTypeChange(e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          {testTypeOptions.map((testType) => (
+          {TEST_TYPE_OPTIONS.map((testType) => (
             <MenuItem key={testType} value={testType}>{formatTestType(testType)}</MenuItem>
           ))}
         </Select>
