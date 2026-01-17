@@ -1,10 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { GrcCapa, GrcIssue, GrcStatusHistory } from '../entities';
 import { CreateCapaDto, UpdateCapaDto, CapaFilterDto } from '../dto/capa.dto';
 import { CapaStatus } from '../enums';
 import { AuditService } from '../../audit/audit.service';
+import { parseFilterJson } from '../../common/list-query/list-query.parser';
+import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
+import {
+  applyFilterTree,
+  applyQuickSearch,
+} from '../../common/list-query/list-query.apply';
+import {
+  CAPA_ALLOWLIST,
+  CAPA_SEARCHABLE_COLUMNS,
+} from '../../common/list-query/list-query.allowlist';
 
 @Injectable()
 export class GrcCapaService {
@@ -84,6 +98,7 @@ export class GrcCapaService {
       pageSize = 20,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
+      filter: filterJson,
     } = filter;
 
     const queryBuilder = this.capaRepository
@@ -95,6 +110,35 @@ export class GrcCapaService {
       .where('capa.tenantId = :tenantId', { tenantId })
       .andWhere('capa.isDeleted = :isDeleted', { isDeleted: false });
 
+    // Apply advanced filter tree if provided
+    if (filterJson) {
+      try {
+        const parsed = parseFilterJson(filterJson);
+        if (parsed.tree) {
+          const validationErrors = validateFilterAgainstAllowlist(
+            parsed.tree,
+            CAPA_ALLOWLIST,
+          );
+          if (validationErrors.length > 0) {
+            throw new BadRequestException({
+              message: 'Invalid filter',
+              errors: validationErrors,
+            });
+          }
+          applyFilterTree(queryBuilder, parsed.tree, CAPA_ALLOWLIST, 'capa');
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException({
+          message: 'Invalid filter JSON',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Legacy individual filters (backward compatibility)
     if (type) {
       queryBuilder.andWhere('capa.type = :type', { type });
     }
@@ -111,21 +155,10 @@ export class GrcCapaService {
       queryBuilder.andWhere('capa.ownerUserId = :ownerUserId', { ownerUserId });
     }
 
+    // Apply quick search using the standardized utility
     const searchTerm = q || search;
     if (searchTerm) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('LOWER(capa.title) LIKE LOWER(:searchTerm)', {
-            searchTerm: `%${searchTerm}%`,
-          })
-            .orWhere('LOWER(capa.description) LIKE LOWER(:searchTerm)', {
-              searchTerm: `%${searchTerm}%`,
-            })
-            .orWhere('LOWER(capa.rootCauseAnalysis) LIKE LOWER(:searchTerm)', {
-              searchTerm: `%${searchTerm}%`,
-            });
-        }),
-      );
+      applyQuickSearch(queryBuilder, searchTerm, CAPA_SEARCHABLE_COLUMNS, 'capa');
     }
 
     const safeSortBy = this.allowedSortFields.has(sortBy)
