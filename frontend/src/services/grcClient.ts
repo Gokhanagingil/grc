@@ -3399,7 +3399,7 @@ export interface SysDictionaryData {
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
   defaultValue?: string;
-  order: number;
+  fieldOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -3430,7 +3430,7 @@ export interface CreateFieldDto {
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
   defaultValue?: string;
-  order?: number;
+  fieldOrder?: number;
   isActive?: boolean;
 }
 
@@ -3442,7 +3442,7 @@ export interface UpdateFieldDto {
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
   defaultValue?: string;
-  order?: number;
+  fieldOrder?: number;
   isActive?: boolean;
 }
 

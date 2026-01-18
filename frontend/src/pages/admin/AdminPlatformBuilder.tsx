@@ -118,15 +118,36 @@ export const AdminPlatformBuilder: React.FC = () => {
     referenceTable: '',
     choiceOptions: [],
     defaultValue: '',
-    order: 0,
+    fieldOrder: 0,
     isActive: true,
   });
   const [choiceOptionsText, setChoiceOptionsText] = useState('');
+
+  const getErrorMessage = (err: unknown, defaultMessage: string): string => {
+    const error = err as { response?: { status?: number; data?: { message?: string } } };
+    const status = error.response?.status;
+    const serverMessage = error.response?.data?.message;
+    
+    if (status === 401) {
+      return 'Session expired or not authenticated. Please log in again.';
+    }
+    if (status === 403) {
+      return 'You do not have permission to access this resource.';
+    }
+    if (status === 404) {
+      return 'Resource not found. The endpoint may not be configured correctly.';
+    }
+    if (status && status >= 500) {
+      return serverMessage || 'Server error. Please try again later.';
+    }
+    return serverMessage || defaultMessage;
+  };
 
   const fetchTables = useCallback(async () => {
     if (!tenantId) return;
     try {
       setLoading(true);
+      setError('');
       const response = await platformBuilderApi.listTables(tenantId, {
         page: page + 1,
         pageSize,
@@ -135,8 +156,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       setTables(response.items || []);
       setTotal(response.total || 0);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch tables');
+      setError(getErrorMessage(err, 'Failed to fetch tables'));
       setTables([]);
     } finally {
       setLoading(false);
@@ -153,8 +173,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       });
       setFields(response.items || []);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch fields');
+      setError(getErrorMessage(err, 'Failed to fetch fields'));
       setFields([]);
     } finally {
       setFieldsLoading(false);
@@ -213,8 +232,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       setOpenTableDialog(false);
       fetchTables();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save table');
+      setError(getErrorMessage(err, 'Failed to save table'));
     }
   };
 
@@ -229,8 +247,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       }
       fetchTables();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to delete table');
+      setError(getErrorMessage(err, 'Failed to delete table'));
     }
   };
 
@@ -240,8 +257,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       setSelectedTable(fullTable);
       setTabValue(0);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to load table details');
+      setError(getErrorMessage(err, 'Failed to load table details'));
     }
   };
 
@@ -257,7 +273,7 @@ export const AdminPlatformBuilder: React.FC = () => {
         referenceTable: field.referenceTable || '',
         choiceOptions: field.choiceOptions || [],
         defaultValue: field.defaultValue || '',
-        order: field.order,
+        fieldOrder: field.fieldOrder,
         isActive: field.isActive,
       });
       setChoiceOptionsText(
@@ -265,7 +281,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       );
     } else {
       setEditingField(null);
-      const maxOrder = fields.reduce((max, f) => Math.max(max, f.order), 0);
+      const maxOrder = fields.reduce((max, f) => Math.max(max, f.fieldOrder), 0);
       setFieldFormData({
         fieldName: '',
         label: '',
@@ -275,7 +291,7 @@ export const AdminPlatformBuilder: React.FC = () => {
         referenceTable: '',
         choiceOptions: [],
         defaultValue: '',
-        order: maxOrder + 10,
+        fieldOrder: maxOrder + 10,
         isActive: true,
       });
       setChoiceOptionsText('');
@@ -307,7 +323,7 @@ export const AdminPlatformBuilder: React.FC = () => {
           referenceTable: fieldFormData.type === 'reference' ? fieldFormData.referenceTable : undefined,
           choiceOptions,
           defaultValue: fieldFormData.defaultValue || undefined,
-          order: fieldFormData.order,
+          fieldOrder: fieldFormData.fieldOrder,
           isActive: fieldFormData.isActive,
         };
         await platformBuilderApi.updateField(tenantId, editingField.id, updateData);
@@ -324,8 +340,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       setOpenFieldDialog(false);
       fetchFields(selectedTable.id);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save field');
+      setError(getErrorMessage(err, 'Failed to save field'));
     }
   };
 
@@ -337,8 +352,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       setSuccess('Field deleted successfully');
       fetchFields(selectedTable.id);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to delete field');
+      setError(getErrorMessage(err, 'Failed to delete field'));
     }
   };
 
@@ -556,10 +570,10 @@ export const AdminPlatformBuilder: React.FC = () => {
                     </TableHead>
                     <TableBody>
                       {fields
-                        .sort((a, b) => a.order - b.order)
+                        .sort((a, b) => a.fieldOrder - b.fieldOrder)
                         .map((field) => (
                           <TableRow key={field.id}>
-                            <TableCell>{field.order}</TableCell>
+                            <TableCell>{field.fieldOrder}</TableCell>
                             <TableCell>
                               <Typography variant="body2" fontFamily="monospace">
                                 {field.fieldName}
@@ -790,8 +804,8 @@ export const AdminPlatformBuilder: React.FC = () => {
               fullWidth
               label="Display Order"
               type="number"
-              value={fieldFormData.order}
-              onChange={(e) => setFieldFormData({ ...fieldFormData, order: parseInt(e.target.value, 10) || 0 })}
+              value={fieldFormData.fieldOrder}
+              onChange={(e) => setFieldFormData({ ...fieldFormData, fieldOrder: parseInt(e.target.value, 10) || 0 })}
             />
 
             <Box display="flex" gap={2}>
