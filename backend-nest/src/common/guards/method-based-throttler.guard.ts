@@ -3,10 +3,11 @@ import {
   ThrottlerGuard,
   ThrottlerModuleOptions,
   ThrottlerStorage,
+  ThrottlerException,
 } from '@nestjs/throttler';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 /**
  * User type from JWT payload
@@ -19,13 +20,21 @@ interface JwtUser {
 /**
  * Method-based Rate Limiter Guard
  *
- * Separates rate limiting by HTTP method and route pattern:
- * - GET /grc/** list/detail: readLimiter (120/min in prod, 10000/min in test)
- * - POST/PUT/PATCH/DELETE /grc/**: writeLimiter (30/min in prod, 10000/min in test)
- * - POST /auth/login: authLimiter (10/min in prod, 10000/min in test)
+ * IMPORTANT: This guard overrides the default NestJS throttler behavior.
  *
- * This prevents GET list endpoints from hitting the strict 10/min limit
- * that was breaking UI list screens.
+ * The default ThrottlerGuard applies ALL configured throttlers to every request,
+ * which means if you have throttlers with limits [100, 120, 30, 10], the most
+ * restrictive one (10) will effectively limit all requests.
+ *
+ * This guard implements SCOPE-BASED throttling:
+ * - GET /grc/**, /itsm/**, /platform/**, /audit/**, /health/** -> 'read' (120/min)
+ * - POST /auth/login -> 'auth' (10/min)
+ * - POST/PUT/PATCH/DELETE -> 'write' (30/min)
+ * - Everything else -> 'default' (100/min)
+ *
+ * Each request is only checked against ONE throttler based on its scope,
+ * preventing the premature 429 errors that occurred when all throttlers
+ * were applied to every request.
  *
  * In test environment, uses very high limits (10000/min) to avoid blocking E2E tests.
  */
@@ -33,6 +42,7 @@ interface JwtUser {
 export class MethodBasedThrottlerGuard extends ThrottlerGuard {
   private readonly isTestEnv: boolean;
   private readonly limits: Record<string, number>;
+  private readonly ttl: number = 60000; // 60 seconds
   private configService: ConfigService;
 
   constructor(
@@ -59,6 +69,75 @@ export class MethodBasedThrottlerGuard extends ThrottlerGuard {
       write: this.isTestEnv ? 10000 : 30, // 30/min in prod, 10000/min in test
       default: this.isTestEnv ? 10000 : 100, // 100/min in prod, 10000/min in test
     };
+  }
+
+  /**
+   * Override canActivate to implement scope-based throttling.
+   *
+   * Instead of applying ALL throttlers to every request (default behavior),
+   * we only apply the ONE throttler that matches the request's scope.
+   *
+   * This prevents the issue where the 'auth' throttler (10/min) was being
+   * applied to all requests, causing premature 429 errors after 10 requests.
+   */
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const response = context.switchToHttp().getResponse<Response>();
+
+    // Determine the scope for this request
+    const scope = this.getScope(request);
+    const limit = this.limits[scope] || this.limits.default;
+
+    // In test environment with high limits, skip throttling entirely
+    if (this.isTestEnv && limit >= 10000) {
+      return true;
+    }
+
+    // Get the tracker key for this request
+    const tracker = await this.getTracker(
+      request as unknown as Record<string, unknown>,
+    );
+    const key = `throttle:${scope}:${tracker}`;
+
+    // Increment the counter and check if rate limited
+    const { totalHits, timeToExpire, isBlocked, timeToBlockExpire } =
+      await this.storageService.increment(
+        key,
+        this.ttl,
+        limit,
+        this.ttl,
+        scope,
+      );
+
+    // Set rate limit headers for all scopes
+    const headerSuffix = scope === 'default' ? '' : `-${scope}`;
+    response.header(`X-RateLimit-Limit${headerSuffix}`, String(limit));
+    response.header(
+      `X-RateLimit-Remaining${headerSuffix}`,
+      String(Math.max(0, limit - totalHits)),
+    );
+    response.header(`X-RateLimit-Reset${headerSuffix}`, String(timeToExpire));
+
+    // Also set the default headers for compatibility
+    if (scope !== 'default') {
+      response.header('X-RateLimit-Limit', String(this.limits.default));
+      response.header(
+        'X-RateLimit-Remaining',
+        String(Math.max(0, this.limits.default - totalHits)),
+      );
+      response.header('X-RateLimit-Reset', String(timeToExpire));
+    }
+
+    // If blocked, throw throttler exception
+    if (isBlocked) {
+      response.header(`Retry-After${headerSuffix}`, String(timeToBlockExpire));
+      response.header('Retry-After', String(timeToBlockExpire));
+      throw new ThrottlerException(
+        `Rate limit exceeded for scope '${scope}'. Retry after ${timeToBlockExpire} seconds.`,
+      );
+    }
+
+    return true;
   }
 
   protected getTracker(req: Record<string, unknown>): Promise<string> {
