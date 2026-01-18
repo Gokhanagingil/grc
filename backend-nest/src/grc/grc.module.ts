@@ -59,6 +59,10 @@ import {
   GrcStatusHistory,
   // Golden Flow Sprint 1B entities
   GrcEvidenceTestResult,
+  // Platform Builder entities
+  SysDbObject,
+  SysDictionary,
+  DynamicRecord,
 } from './entities';
 
 // Services
@@ -104,6 +108,10 @@ import { GrcCapaService } from './services/grc-capa.service';
 
 // Sprint 1E - Insights service
 import { GrcInsightsService } from './services/grc-insights.service';
+
+// Platform Builder services
+import { PlatformBuilderService } from './services/platform-builder.service';
+import { DynamicDataService } from './services/dynamic-data.service';
 
 // Controllers
 import {
@@ -155,6 +163,10 @@ import { GrcStatusHistoryController } from './controllers/grc-status-history.con
 
 // Sprint 1E - Insights controller
 import { GrcInsightsController } from './controllers/grc-insights.controller';
+
+// Platform Builder controllers
+import { PlatformBuilderController } from './controllers/platform-builder.controller';
+import { DynamicDataController } from './controllers/dynamic-data.controller';
 
 /**
  * GRC Module
@@ -230,6 +242,10 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
       GrcEvidenceTestResult,
       // Universal Views entities
       UserViewPreference,
+      // Platform Builder entities
+      SysDbObject,
+      SysDictionary,
+      DynamicRecord,
     ]),
     AuditModule,
     AuthModule,
@@ -278,6 +294,9 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     GrcCapaService,
     // Sprint 1E - Insights service
     GrcInsightsService,
+    // Platform Builder services
+    PlatformBuilderService,
+    DynamicDataService,
   ],
   controllers: [
     // Core controllers
@@ -326,6 +345,9 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     ListOptionsController,
     // Export Controller (CSV Export with XSS protection)
     ExportController,
+    // Platform Builder controllers
+    PlatformBuilderController,
+    DynamicDataController,
   ],
   exports: [
     // Universal List Service (platform-level)
@@ -368,6 +390,9 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
     GrcIssueService,
     // Golden Flow Sprint 1C services
     GrcCapaService,
+    // Platform Builder services
+    PlatformBuilderService,
+    DynamicDataService,
   ],
 })
 export class GrcModule {}

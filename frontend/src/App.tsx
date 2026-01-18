@@ -15,8 +15,9 @@ import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
-import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks } from './pages/admin';
+import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder } from './pages/admin';
 import AdminDataModel from './pages/admin/AdminDataModel';
+import DynamicDataList from './pages/DynamicDataList';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
 import { IncidentManagement } from './pages/IncidentManagement';
 import { AuditList } from './pages/AuditList';
@@ -233,7 +234,18 @@ function App() {
                                   <Route path="system" element={<AdminSystem />} />
                                   <Route path="data-model" element={<AdminDataModel />} />
                                   <Route path="frameworks" element={<AdminFrameworks />} />
+                                  <Route path="platform-builder" element={<AdminPlatformBuilder />} />
                                 </Route>
+                {/* Dynamic Data Routes */}
+                <Route path="/data/:tableName" element={
+                  <ProtectedRoute>
+                    <InitializationErrorBoundary>
+                      <Layout />
+                    </InitializationErrorBoundary>
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<DynamicDataList />} />
+                </Route>
               </Routes>
             </Router>
           </OnboardingProvider>

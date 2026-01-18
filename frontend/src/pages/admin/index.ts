@@ -6,3 +6,4 @@ export { AdminTenants } from './AdminTenants';
 export { AdminAuditLogs } from './AdminAuditLogs';
 export { AdminSystem } from './AdminSystem';
 export { AdminFrameworks } from './AdminFrameworks';
+export { AdminPlatformBuilder } from './AdminPlatformBuilder';
