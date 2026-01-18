@@ -40,7 +40,7 @@ import {
   PlayArrow as RecordIcon,
   Warning as ViolationIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   processApi,
   processControlApi,
@@ -49,7 +49,8 @@ import {
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 
 interface Process {
   id: string;
@@ -98,6 +99,21 @@ const PROCESS_CATEGORIES = ['ITSM', 'Security', 'Finance', 'Operations', 'HR', '
 export const ProcessManagement: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -110,11 +126,13 @@ export const ProcessManagement: React.FC = () => {
   const [viewingProcess, setViewingProcess] = useState<Process | null>(null);
   const [editingControl, setEditingControl] = useState<ProcessControl | null>(null);
   const [selectedControlForResult, setSelectedControlForResult] = useState<ProcessControl | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [activeFilter, setActiveFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>((filterParam?.category as string) || '');
+  const [activeFilter, setActiveFilter] = useState<string>((filterParam?.isActive as string) || '');
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [tabValue, setTabValue] = useState(0);
 
   const [processControls, setProcessControls] = useState<ProcessControl[]>([]);
@@ -151,21 +169,60 @@ export const ProcessManagement: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (categoryFilter) {
+      conditions.push({ field: 'category', operator: 'eq', value: categoryFilter });
+    }
+    if (activeFilter !== '') {
+      conditions.push({ field: 'isActive', operator: 'eq', value: activeFilter === 'true' });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [categoryFilter, activeFilter]);
+
+  // Update URL params when filters/sort/page change
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    setSearchParams(params, { replace: true });
+  }, [page, rowsPerPage, categoryFilter, activeFilter, sortField, sortDirection, buildFilter, setSearchParams]);
+
   const fetchProcesses = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
+      const filter = buildFilter();
+      const params = buildListQueryParams({
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter: filter || undefined,
+        sort: formatSortToQuery(sortField, sortDirection),
+        category: categoryFilter || undefined,
+        isActive: activeFilter !== '' ? activeFilter : undefined,
       });
-
-      if (categoryFilter) {
-        params.append('category', categoryFilter);
-      }
-      if (activeFilter) {
-        params.append('isActive', activeFilter);
-      }
 
       const response = await processApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<Process>(response);
@@ -209,13 +266,12 @@ export const ProcessManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, categoryFilter, activeFilter]);
+  }, [tenantId, page, rowsPerPage, categoryFilter, activeFilter, sortField, sortDirection, buildFilter]);
 
   const fetchProcessControls = useCallback(async (processId: string) => {
     try {
       setControlsLoading(true);
-      const params = new URLSearchParams({ processId });
-      const response = await processControlApi.list(tenantId, params);
+      const response = await processControlApi.list(tenantId, buildListQueryParams({ processId }));
       const result = unwrapPaginatedResponse<ProcessControl>(response);
       setProcessControls(result.items);
     } catch (err) {
@@ -501,58 +557,64 @@ export const ProcessManagement: React.FC = () => {
         </Alert>
       )}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={categoryFilter}
-                label="Category"
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {PROCESS_CATEGORIES.map((cat) => (
-                  <MenuItem key={cat} value={cat}>
-                    {cat}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={activeFilter}
-                label="Status"
-                onChange={(e) => {
-                  setActiveFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="true">Active</MenuItem>
-                <MenuItem value="false">Inactive</MenuItem>
-              </Select>
-            </FormControl>
-            {(categoryFilter || activeFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setCategoryFilter('');
-                  setActiveFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        filters={[
+          ...(categoryFilter ? [{ key: 'category', label: 'Category', value: categoryFilter }] : []),
+          ...(activeFilter ? [{ key: 'isActive', label: 'Status', value: activeFilter === 'true' ? 'Active' : 'Inactive' }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'category') {
+            setCategoryFilter('');
+          } else if (key === 'isActive') {
+            setActiveFilter('');
+          }
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setCategoryFilter('');
+          setActiveFilter('');
+          setPage(0);
+        }}
+        filterFields={[
+          {
+            key: 'category',
+            label: 'Category',
+            type: 'select',
+            options: PROCESS_CATEGORIES.map((cat) => ({ value: cat, label: cat })),
+          },
+          {
+            key: 'isActive',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ],
+          },
+        ]}
+        onFilterChange={(key, value) => {
+          if (key === 'category') {
+            setCategoryFilter(value);
+          } else if (key === 'isActive') {
+            setActiveFilter(value);
+          }
+          setPage(0);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'name', label: 'Name' },
+          { field: 'category', label: 'Category' },
+        ]}
+        defaultSortField="createdAt"
+        defaultSortDirection="DESC"
+      />
 
       <Card>
         <CardContent>

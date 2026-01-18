@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_INTERCEPTOR, APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { MethodBasedThrottlerGuard } from './common/guards';
 import { configuration, validate } from './config';
 import { EventsModule } from './events/events.module';
 import { AuditModule } from './audit/audit.module';
@@ -14,6 +15,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
 import { ItsmModule } from './itsm/itsm.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlatformModule } from './platform/platform.module';
@@ -80,17 +82,23 @@ import { StructuredLoggerService } from './common/logger';
             '\n============================================================',
           );
           console.error('FATAL: DB_SYNC=true is BANNED in production/staging!');
-          console.error('============================================================');
           console.error(
-            `Environment: ${nodeEnv}`,
+            '============================================================',
           );
-          console.error('DB_SYNC=true would enable TypeORM auto-sync, which is');
+          console.error(`Environment: ${nodeEnv}`);
+          console.error(
+            'DB_SYNC=true would enable TypeORM auto-sync, which is',
+          );
           console.error('dangerous and non-deterministic in production.');
           console.error('');
           console.error('SOLUTION:');
           console.error('  1. Set DB_SYNC=false (or remove the env var)');
-          console.error('  2. Use migrations instead: npm run migration:run:prod');
-          console.error('============================================================\n');
+          console.error(
+            '  2. Use migrations instead: npm run migration:run:prod',
+          );
+          console.error(
+            '============================================================\n',
+          );
           process.exit(1);
         }
 
@@ -135,6 +143,9 @@ import { StructuredLoggerService } from './common/logger';
     // Metrics collection and /metrics endpoint
     MetricsModule,
 
+    // Telemetry collection (frontend error reporting)
+    TelemetryModule,
+
     // Dashboard aggregation (composes data from GRC and ITSM modules)
     DashboardModule,
 
@@ -153,7 +164,10 @@ import { StructuredLoggerService } from './common/logger';
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,
 
-    // Rate limiting- default: 100 requests per 60 seconds
+    // Rate limiting - Method-based policy:
+    // - GET /grc/** list/detail: readLimiter (120/min) - prevents list screen failures
+    // - POST/PUT/PATCH/DELETE /grc/**: writeLimiter (30/min) - moderate for mutations
+    // - POST /auth/login: authLimiter (10/min) - strict for auth
     // In test environment, use very high limits to avoid blocking E2E tests
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -168,9 +182,19 @@ import { StructuredLoggerService } from './common/logger';
             limit: isTest ? 10000 : 100, // High limit in test, 100 in production
           },
           {
-            name: 'strict',
+            name: 'read',
             ttl: 60000, // 60 seconds
-            limit: isTest ? 10000 : 10, // High limit in test, 10 in production
+            limit: isTest ? 10000 : 120, // High limit in test, 120/min for GET list/detail
+          },
+          {
+            name: 'write',
+            ttl: 60000, // 60 seconds
+            limit: isTest ? 10000 : 30, // High limit in test, 30/min for mutations
+          },
+          {
+            name: 'auth',
+            ttl: 60000, // 60 seconds
+            limit: isTest ? 10000 : 10, // High limit in test, 10/min for auth
           },
         ];
       },
@@ -185,10 +209,11 @@ import { StructuredLoggerService } from './common/logger';
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
-    // Global rate limiting guard
+    // Global rate limiting guard - Method-based throttling
+    // Separates rate limits by HTTP method: GET (read), POST/PUT/DELETE (write), auth
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: MethodBasedThrottlerGuard,
     },
     // Global interceptors for request timing and performance profiling
     {

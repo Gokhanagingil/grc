@@ -1,11 +1,60 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, CancelTokenSource } from 'axios';
 import { getApiBaseUrl } from '../config';
+
+// Request cancellation map for AbortController support
+const cancelTokenSources = new Map<string, CancelTokenSource>();
+
+// Create cancel token for a request
+function getCancelToken(key: string): { cancelToken: any; cancelKey: string } {
+  // Cancel previous request with same key
+  const existing = cancelTokenSources.get(key);
+  if (existing) {
+    existing.cancel('Request superseded by newer request');
+  }
+
+  // Create new cancel token
+  const source = axios.CancelToken.source();
+  cancelTokenSources.set(key, source);
+
+  return { cancelToken: source.token, cancelKey: key };
+}
 
 // Use Cursor's config helper for API base URL (environmental correctness)
 const API_BASE_URL = getApiBaseUrl();
 
 // Shared constant for tenant ID storage key to ensure consistency
 export const STORAGE_TENANT_ID_KEY = 'tenantId';
+
+export function getAuthToken(): string | null {
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  if (!token || token.trim().length === 0) {
+    return null;
+  }
+  return token;
+}
+
+export function getTenantId(): string | null {
+  const tenantId = localStorage.getItem(STORAGE_TENANT_ID_KEY);
+  if (!tenantId || tenantId.trim().length === 0) {
+    return null;
+  }
+  return tenantId;
+}
+
+function buildAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  const tenantId = getTenantId();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  if (tenantId) {
+    headers['x-tenant-id'] = tenantId;
+  }
+
+  return headers;
+}
 
 /**
  * Standard API Error Response
@@ -88,38 +137,74 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor to add auth token and tenant ID
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    // Auto-add tenant ID header if available
-    const tenantId = localStorage.getItem(STORAGE_TENANT_ID_KEY);
-    if (tenantId) {
-      config.headers['x-tenant-id'] = tenantId;
-    } else if (process.env.NODE_ENV === 'development') {
-      // Dev-only: log when tenantId is missing for tenant-required endpoints
-      const tenantRequiredPaths = ['/onboarding/context', '/grc/audits', '/grc/risks', '/grc/policies'];
-      if (tenantRequiredPaths.some(path => config.url?.includes(path))) {
-        console.warn(`[API Interceptor] Missing tenantId for tenant-required endpoint: ${config.url}`);
+export function applyAuthInterceptors(instance: AxiosInstance): void {
+  instance.interceptors.request.use(
+    (config) => {
+      config.headers = config.headers ?? {};
+      const token = getAuthToken();
+      const tenantId = getTenantId();
+
+      if (token && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
+
+      if (tenantId && !config.headers['x-tenant-id']) {
+        config.headers['x-tenant-id'] = tenantId;
+      } else if (!tenantId && process.env.NODE_ENV === 'development') {
+        // Dev-only: log when tenantId is missing for tenant-required endpoints
+        const tenantRequiredPaths = ['/onboarding/context', '/grc/audits', '/grc/risks', '/grc/policies'];
+        if (tenantRequiredPaths.some(path => config.url?.includes(path))) {
+          console.warn(`[API Interceptor] Missing tenantId for tenant-required endpoint: ${config.url}`);
+        }
+      }
+
+      // Add cancel token for GET requests (especially list endpoints)
+      // This allows cancelling previous requests when new ones are made
+      if (config.method?.toLowerCase() === 'get') {
+        const cancelKey = `${config.method}:${config.url}`;
+        const { cancelToken } = getCancelToken(cancelKey);
+        config.cancelToken = cancelToken;
+      }
+
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
     }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  );
+}
+
+// Request interceptor to add auth token and tenant ID
+applyAuthInterceptors(api);
 
 // Response interceptor to handle standard error envelope and auth errors with token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiErrorResponse>) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+      _retryAuth?: boolean;
+    };
+
+    // Handle 429 Rate Limit errors - don't break UI, show user-friendly message
+    if (error.response?.status === 429) {
+      const errorResponse = error.response?.data;
+      const retryAfter = error.response?.headers['retry-after'];
+      const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+      
+      // Create user-friendly rate limit error
+      const rateLimitError = new ApiError(
+        errorResponse?.error?.code || 'RATE_LIMITED',
+        errorResponse?.error?.message || `Çok fazla istek yapıldı. ${retryAfterSeconds} saniye sonra tekrar deneyin.`,
+        {
+          retryAfter: retryAfterSeconds,
+          scope: errorResponse?.error?.details?.scope || 'read',
+        }
+      );
+      
+      // Reject with rate limit error - let UI handle gracefully (show message, keep previous data)
+      return Promise.reject(rateLimitError);
+    }
 
     // Check if response follows the standard error envelope format
     const errorResponse = error.response?.data;
@@ -141,6 +226,24 @@ api.interceptors.response.use(
 
     // If error is 401 and we haven't already tried to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const token = getAuthToken();
+      const tenantId = getTenantId();
+      const hasAuthHeader = Boolean(originalRequest.headers?.Authorization);
+      const hasTenantHeader = Boolean(originalRequest.headers?.['x-tenant-id']);
+
+      // Handle auth/tenant timing: retry once if headers were missing but became available.
+      if (!originalRequest._retryAuth && (token || tenantId) && (!hasAuthHeader || !hasTenantHeader)) {
+        originalRequest._retryAuth = true;
+        originalRequest.headers = originalRequest.headers ?? {};
+        if (token && !hasAuthHeader) {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+        }
+        if (tenantId && !hasTenantHeader) {
+          originalRequest.headers['x-tenant-id'] = tenantId;
+        }
+        return api(originalRequest);
+      }
+
       // Don't try to refresh if this was already a refresh request
       if (originalRequest.url?.includes('/auth/refresh')) {
         localStorage.removeItem('token');
@@ -175,9 +278,11 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
+        const response = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { headers: buildAuthHeaders() }
+        );
 
         // Handle both envelope format { success, data: { accessToken } } and legacy { token }
         let newToken: string | undefined;

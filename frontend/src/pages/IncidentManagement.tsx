@@ -36,9 +36,11 @@ import {
   Lock as CloseIcon,
   Warning as IncidentIcon,
 } from '@mui/icons-material';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar, FilterField, SortOption } from '../components/common';
 import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
@@ -113,6 +115,23 @@ interface Incident {
 
 export const IncidentManagement: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Default values
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,12 +143,14 @@ export const IncidentManagement: React.FC = () => {
   const [viewingIncident, setViewingIncident] = useState<Incident | null>(null);
   const [resolvingIncident, setResolvingIncident] = useState<Incident | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>('');
-  const [priorityFilter, setPriorityFilter] = useState<IncidentPriority | ''>('');
-  const [searchFilter, setSearchFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>((filterParam?.status as IncidentStatus | '') || '');
+  const [priorityFilter, setPriorityFilter] = useState<IncidentPriority | ''>((filterParam?.priority as IncidentPriority | '') || '');
+  const [searchFilter, setSearchFilter] = useState(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [formData, setFormData] = useState({
     shortDescription: '',
     description: '',
@@ -143,6 +164,49 @@ export const IncidentManagement: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (statusFilter) {
+      conditions.push({ field: 'status', operator: 'eq', value: statusFilter });
+    }
+    if (priorityFilter) {
+      conditions.push({ field: 'priority', operator: 'eq', value: priorityFilter });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [statusFilter, priorityFilter]);
+
+  // Update URL params when filters/sort/page change
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchFilter || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    const newSearchParams = new URLSearchParams(params);
+    setSearchParams(newSearchParams, { replace: true });
+  }, [page, rowsPerPage, statusFilter, priorityFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams]);
+
   const fetchIncidents = useCallback(async () => {
     if (!tenantId) {
       setLoading(false);
@@ -151,20 +215,14 @@ export const IncidentManagement: React.FC = () => {
 
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
+      const filter = buildFilter();
+      const params = buildListQueryParams({
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter: filter || undefined,
+        sort: formatSortToQuery(sortField, sortDirection),
+        search: searchFilter || undefined,
       });
-
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (priorityFilter) {
-        params.append('priority', priorityFilter);
-      }
-      if (searchFilter) {
-        params.append('search', searchFilter);
-      }
 
       // Use centralized API client - no more /nest/ prefix
       const response = await incidentApi.list(tenantId, params);
@@ -179,7 +237,7 @@ export const IncidentManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, priorityFilter, searchFilter]);
+  }, [tenantId, page, rowsPerPage, statusFilter, priorityFilter, searchFilter, sortField, sortDirection, buildFilter]);
 
   useEffect(() => {
     fetchIncidents();
@@ -411,69 +469,74 @@ export const IncidentManagement: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as IncidentStatus | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(IncidentStatus).map((status) => (
-                  <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                value={priorityFilter}
-                label="Priority"
-                onChange={(e) => {
-                  setPriorityFilter(e.target.value as IncidentPriority | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(IncidentPriority).map((priority) => (
-                  <MenuItem key={priority} value={priority}>{formatPriority(priority)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              label="Search"
-              placeholder="Search incidents..."
-              value={searchFilter}
-              onChange={(e) => {
-                setSearchFilter(e.target.value);
-                setPage(0);
-              }}
-              sx={{ minWidth: 200 }}
-            />
-            {(statusFilter || priorityFilter || searchFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setStatusFilter('');
-                  setPriorityFilter('');
-                  setSearchFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        searchValue={searchFilter}
+        onSearchChange={(value) => {
+          setSearchFilter(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search incidents..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
+          ...(priorityFilter ? [{ key: 'priority', label: 'Priority', value: formatPriority(priorityFilter) }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'status') {
+            setStatusFilter('');
+          } else if (key === 'priority') {
+            setPriorityFilter('');
+          }
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setPriorityFilter('');
+          setSearchFilter('');
+          setPage(0);
+        }}
+        filterFields={[
+          {
+            key: 'status',
+            label: 'Status',
+            type: 'select',
+            options: Object.values(IncidentStatus).map((status) => ({
+              value: status,
+              label: formatStatus(status),
+            })),
+          },
+          {
+            key: 'priority',
+            label: 'Priority',
+            type: 'select',
+            options: Object.values(IncidentPriority).map((priority) => ({
+              value: priority,
+              label: formatPriority(priority),
+            })),
+          },
+        ]}
+        onFilterChange={(key, value) => {
+          if (key === 'status') {
+            setStatusFilter(value as IncidentStatus | '');
+          } else if (key === 'priority') {
+            setPriorityFilter(value as IncidentPriority | '');
+          }
+          setPage(0);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'priority', label: 'Priority' },
+          { field: 'status', label: 'Status' },
+        ]}
+        defaultSortField="createdAt"
+        defaultSortDirection="DESC"
+      />
 
       <Card>
         <CardContent>

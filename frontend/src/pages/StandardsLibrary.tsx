@@ -20,19 +20,15 @@ import {
   Select,
   MenuItem,
   Alert,
-  InputAdornment,
-  Collapse,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
-  Clear as ClearIcon,
   LibraryBooks as StandardsIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { standardsApi, unwrapResponse } from '../services/grcClient';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 
 interface StandardRequirement {
   id: string;
@@ -90,6 +86,22 @@ const getFamilyColor = (family: string): 'primary' | 'secondary' | 'success' | '
 
 export const StandardsLibrary: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - StandardsLibrary için özel
+  const DEFAULT_SORT = 'code:ASC'; // Standards için genelde code'a göre sıralama mantıklı
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 25; // StandardsLibrary için default 25
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'code', direction: 'ASC' as const };
+
   const [requirements, setRequirements] = useState<StandardRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -100,20 +112,21 @@ export const StandardsLibrary: React.FC = () => {
     categories: [],
     hierarchyLevels: [],
   });
-  const [showFilters, setShowFilters] = useState(true);
   
   const [filters, setFilters] = useState({
-    search: '',
-    family: '',
-    version: '',
-    domain: '',
-    category: '',
-    hierarchyLevel: '',
+    search: searchParam,
+    family: (filterParam?.family as string) || '',
+    version: (filterParam?.version as string) || '',
+    domain: (filterParam?.domain as string) || '',
+    category: (filterParam?.category as string) || '',
+    hierarchyLevel: (filterParam?.hierarchy_level as string) || '',
   });
   
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
 
   const fetchFiltersData = useCallback(async () => {
     try {
@@ -131,21 +144,75 @@ export const StandardsLibrary: React.FC = () => {
     }
   }, []);
 
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (filters.family) {
+      conditions.push({ field: 'family', operator: 'eq', value: filters.family });
+    }
+    if (filters.version) {
+      conditions.push({ field: 'version', operator: 'eq', value: filters.version });
+    }
+    if (filters.domain) {
+      conditions.push({ field: 'domain', operator: 'eq', value: filters.domain });
+    }
+    if (filters.category) {
+      conditions.push({ field: 'category', operator: 'eq', value: filters.category });
+    }
+    if (filters.hierarchyLevel) {
+      conditions.push({ field: 'hierarchy_level', operator: 'eq', value: filters.hierarchyLevel });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [filters.family, filters.version, filters.domain, filters.category, filters.hierarchyLevel]);
+
+  // Update URL params when filters/sort/page change
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: filters.search || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    setSearchParams(params, { replace: true });
+  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter, setSearchParams]);
+
   const fetchRequirements = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       
-      const params = new URLSearchParams();
-      params.set('page', String(page + 1));
-      params.set('limit', String(rowsPerPage));
-      
-      if (filters.search) params.set('search', filters.search);
-      if (filters.family) params.set('family', filters.family);
-      if (filters.version) params.set('version', filters.version);
-      if (filters.domain) params.set('domain', filters.domain);
-      if (filters.category) params.set('category', filters.category);
-      if (filters.hierarchyLevel) params.set('hierarchy_level', filters.hierarchyLevel);
+      const filter = buildFilter();
+      const params = buildListQueryParams({
+        page: page + 1,
+        limit: rowsPerPage, // API limit kullanıyor
+        search: filters.search,
+        family: filters.family || undefined,
+        version: filters.version || undefined,
+        domain: filters.domain || undefined,
+        category: filters.category || undefined,
+        hierarchy_level: filters.hierarchyLevel || undefined,
+        filter: filter || undefined,
+        sort: formatSortToQuery(sortField, sortDirection),
+      });
       
       const response = await standardsApi.list(params);
       const data = response.data;
@@ -171,7 +238,7 @@ export const StandardsLibrary: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, filters]);
+  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter]);
 
   useEffect(() => {
     fetchFiltersData();
@@ -231,104 +298,97 @@ export const StandardsLibrary: React.FC = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Standards Library</Typography>
-        <Button
-          variant="outlined"
-          startIcon={<FilterIcon />}
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          {showFilters ? 'Hide Filters' : 'Show Filters'}
-        </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Collapse in={showFilters}>
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Search"
-                  placeholder="Search by code, title, or description..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Family</InputLabel>
-                  <Select
-                    value={filters.family}
-                    label="Family"
-                    onChange={(e) => handleFilterChange('family', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.families.map((family) => (
-                      <MenuItem key={family} value={family}>
-                        {FAMILY_LABELS[family] || family}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Version</InputLabel>
-                  <Select
-                    value={filters.version}
-                    label="Version"
-                    onChange={(e) => handleFilterChange('version', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.versions.map((version) => (
-                      <MenuItem key={version} value={version}>
-                        {version}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Domain</InputLabel>
-                  <Select
-                    value={filters.domain}
-                    label="Domain"
-                    onChange={(e) => handleFilterChange('domain', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.domains.map((domain) => (
-                      <MenuItem key={domain} value={domain}>
-                        {domain}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                {hasActiveFilters && (
-                  <Button
-                    variant="text"
-                    startIcon={<ClearIcon />}
-                    onClick={handleClearFilters}
-                  >
-                    Clear Filters
-                  </Button>
-                )}
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Collapse>
+      <ListToolbar
+        searchValue={filters.search}
+        onSearchChange={(value) => {
+          handleFilterChange('search', value);
+        }}
+        searchPlaceholder="Search by code, title, or description..."
+        filters={[
+          ...(filters.family ? [{ key: 'family', label: 'Family', value: FAMILY_LABELS[filters.family] || filters.family }] : []),
+          ...(filters.version ? [{ key: 'version', label: 'Version', value: filters.version }] : []),
+          ...(filters.domain ? [{ key: 'domain', label: 'Domain', value: filters.domain }] : []),
+          ...(filters.category ? [{ key: 'category', label: 'Category', value: filters.category }] : []),
+          ...(filters.hierarchyLevel ? [{ key: 'hierarchyLevel', label: 'Level', value: filters.hierarchyLevel }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'family') handleFilterChange('family', '');
+          if (key === 'version') handleFilterChange('version', '');
+          if (key === 'domain') handleFilterChange('domain', '');
+          if (key === 'category') handleFilterChange('category', '');
+          if (key === 'hierarchyLevel') handleFilterChange('hierarchyLevel', '');
+        }}
+        onClearFilters={handleClearFilters}
+        filterFields={[
+          {
+            key: 'family',
+            label: 'Family',
+            type: 'select',
+            options: filtersData.families.map((family) => ({
+              value: family,
+              label: FAMILY_LABELS[family] || family,
+            })),
+          },
+          {
+            key: 'version',
+            label: 'Version',
+            type: 'select',
+            options: filtersData.versions.map((version) => ({
+              value: version,
+              label: version,
+            })),
+          },
+          {
+            key: 'domain',
+            label: 'Domain',
+            type: 'select',
+            options: filtersData.domains.map((domain) => ({
+              value: domain,
+              label: domain,
+            })),
+          },
+          ...(filtersData.categories.length > 0 ? [{
+            key: 'category',
+            label: 'Category',
+            type: 'select' as const,
+            options: filtersData.categories.map((category) => ({
+              value: category,
+              label: category,
+            })),
+          }] : []),
+          ...(filtersData.hierarchyLevels.length > 0 ? [{
+            key: 'hierarchyLevel',
+            label: 'Hierarchy Level',
+            type: 'select' as const,
+            options: filtersData.hierarchyLevels.map((level) => ({
+              value: level,
+              label: level,
+            })),
+          }] : []),
+        ]}
+        onFilterChange={(key, value) => {
+          handleFilterChange(key, value);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'code', label: 'Code' },
+          { field: 'title', label: 'Title' },
+          { field: 'family', label: 'Family' },
+          { field: 'version', label: 'Version' },
+          { field: 'domain', label: 'Domain' },
+        ]}
+        defaultSortField="code"
+        defaultSortDirection="ASC"
+      />
 
       <Card>
         <CardContent>

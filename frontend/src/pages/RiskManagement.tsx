@@ -38,9 +38,11 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { useSearchParams } from 'react-router-dom';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
 
 // Policy interface for relationship management
@@ -113,6 +115,22 @@ interface Risk {
 
 export const RiskManagement: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - RiskManagement için özel
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -121,12 +139,14 @@ export const RiskManagement: React.FC = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [viewingRisk, setViewingRisk] = useState<Risk | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>('');
-  const [severityFilter, setSeverityFilter] = useState<RiskSeverity | ''>('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>((filterParam?.status as RiskStatus | '') || '');
+  const [severityFilter, setSeverityFilter] = useState<RiskSeverity | ''>((filterParam?.severity as RiskSeverity | '') || '');
+  const [searchQuery, setSearchQuery] = useState(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -152,22 +172,61 @@ export const RiskManagement: React.FC = () => {
   // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (statusFilter) {
+      conditions.push({ field: 'status', operator: 'eq', value: statusFilter });
+    }
+    if (severityFilter) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severityFilter });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [statusFilter, severityFilter]);
+
+  // Update URL params when filters/sort/page change
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchQuery || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    setSearchParams(params, { replace: true });
+  }, [page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter, setSearchParams]);
+
   const fetchRisks = useCallback(async () => {
     // Allow fetching even without tenantId - backend will handle authorization
     try {
       setLoading(true);
       setError('');
-      const params = new URLSearchParams({
-        page: String(page + 1), // API uses 1-based pagination
-        pageSize: String(rowsPerPage),
+      const filter = buildFilter();
+      const params = buildListQueryParams({
+        page: page + 1, // API uses 1-based pagination
+        pageSize: rowsPerPage,
+        filter: filter || undefined,
+        sort: formatSortToQuery(sortField, sortDirection),
+        search: searchQuery || undefined,
       });
-      
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (severityFilter) {
-        params.append('severity', severityFilter);
-      }
       
       // Use centralized API client - no more /nest/ prefix
       const response = await riskApi.list(tenantId, params);
@@ -196,7 +255,7 @@ export const RiskManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter]);
+  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter]);
 
   useEffect(() => {
     fetchRisks();
@@ -207,8 +266,8 @@ export const RiskManagement: React.FC = () => {
     if (!tenantId) return;
     try {
       const [policiesResponse, requirementsResponse] = await Promise.all([
-        policyApi.list(tenantId, new URLSearchParams({ pageSize: '100' })),
-        requirementApi.list(tenantId, new URLSearchParams({ pageSize: '100' })),
+        policyApi.list(tenantId, buildListQueryParams({ pageSize: 100 })),
+        requirementApi.list(tenantId, buildListQueryParams({ pageSize: 100 })),
       ]);
       const policiesResult = unwrapPaginatedResponse<Policy>(policiesResponse);
       const requirementsResult = unwrapPaginatedResponse<Requirement>(requirementsResponse);
@@ -451,8 +510,8 @@ export const RiskManagement: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      {/* Toolbar with Search and Filters */}
-      <TableToolbar
+      {/* ListToolbar with Search, Filters, and Sort */}
+      <ListToolbar
         searchValue={searchQuery}
         onSearchChange={(value) => {
           setSearchQuery(value);
@@ -462,7 +521,7 @@ export const RiskManagement: React.FC = () => {
         filters={[
           ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
           ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: formatSeverity(severityFilter) }] : []),
-        ] as FilterOption[]}
+        ]}
         onFilterRemove={(key) => {
           if (key === 'status') setStatusFilter('');
           if (key === 'severity') setSeverityFilter('');
@@ -474,44 +533,49 @@ export const RiskManagement: React.FC = () => {
           setSearchQuery('');
           setPage(0);
         }}
-        onRefresh={fetchRisks}
-        loading={loading}
-        actions={
-          <Box display="flex" gap={1} alignItems="center">
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as RiskStatus | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(RiskStatus).map((status) => (
-                  <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Severity</InputLabel>
-              <Select
-                value={severityFilter}
-                label="Severity"
-                onChange={(e) => {
-                  setSeverityFilter(e.target.value as RiskSeverity | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(RiskSeverity).map((severity) => (
-                  <MenuItem key={severity} value={severity}>{formatSeverity(severity)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        }
+        filterFields={[
+          {
+            key: 'status',
+            label: 'Status',
+            type: 'select',
+            options: Object.values(RiskStatus).map((status) => ({
+              value: status,
+              label: formatStatus(status),
+            })),
+          },
+          {
+            key: 'severity',
+            label: 'Severity',
+            type: 'select',
+            options: Object.values(RiskSeverity).map((severity) => ({
+              value: severity,
+              label: formatSeverity(severity),
+            })),
+          },
+        ]}
+        onFilterChange={(key, value) => {
+          if (key === 'status') {
+            setStatusFilter(value as RiskStatus | '');
+          } else if (key === 'severity') {
+            setSeverityFilter(value as RiskSeverity | '');
+          }
+          setPage(0);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'severity', label: 'Severity' },
+          { field: 'status', label: 'Status' },
+          { field: 'title', label: 'Title' },
+        ]}
+        defaultSortField="createdAt"
+        defaultSortDirection="DESC"
       />
 
       <Card>
