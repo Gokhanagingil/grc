@@ -46,6 +46,7 @@ import {
   Folder as GrcIcon,
   Build as ItsmIcon,
   NavigateNext as NavigateNextIcon,
+  MonitorHeart as SystemIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
@@ -283,19 +284,20 @@ const menuGroups: NavMenuGroup[] = [
       { text: 'GRC Health', icon: <GrcHealthIcon />, path: '/dashboards/grc-health', roles: ['admin', 'manager'] },
     ],
   },
-    {
-      id: 'admin',
-      text: 'Admin',
-      icon: <AdminIcon />,
-      roles: ['admin'],
-      items: [
-        { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
-        { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
-        { text: 'Platform Builder', icon: <SettingsIcon />, path: '/admin/platform-builder', roles: ['admin'] },
-        { text: 'Data Model', icon: <DotWalkingIcon />, path: '/admin/data-model', roles: ['admin'] },
-        { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
-      ],
-    },
+  {
+    id: 'admin',
+    text: 'Admin',
+    icon: <AdminIcon />,
+    roles: ['admin'],
+    items: [
+      { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
+      { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
+      { text: 'Platform Builder', icon: <SettingsIcon />, path: '/admin/platform-builder', roles: ['admin'] },
+      { text: 'System', icon: <SystemIcon />, path: '/admin/system', roles: ['admin'] },
+      { text: 'Data Model', icon: <DotWalkingIcon />, path: '/admin/data-model', roles: ['admin'] },
+      { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
+    ],
+  },
 ];
 
 // Flat list for backward compatibility (page title lookup)
