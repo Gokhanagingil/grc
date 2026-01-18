@@ -17,7 +17,7 @@ import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../dto';
-import { DictionaryFieldType } from '../enums';
+import { PlatformBuilderFieldType } from '../enums';
 import { AuditService } from '../../audit/audit.service';
 
 /**
@@ -334,7 +334,10 @@ export class DynamicDataService {
         result[field.fieldName] = this.coerceValue(value, field.type);
 
         // Validate choice options
-        if (field.type === DictionaryFieldType.CHOICE && field.choiceOptions) {
+        if (
+          field.type === PlatformBuilderFieldType.CHOICE &&
+          field.choiceOptions
+        ) {
           const validValues = field.choiceOptions.map((opt) => opt.value);
           if (!validValues.includes(String(result[field.fieldName]))) {
             errors.push(
@@ -364,7 +367,7 @@ export class DynamicDataService {
   /**
    * Coerce a value to the expected type
    */
-  private coerceValue(value: unknown, type: DictionaryFieldType): unknown {
+  private coerceValue(value: unknown, type: PlatformBuilderFieldType): unknown {
     if (value === null || value === undefined) {
       return null;
     }
@@ -378,12 +381,12 @@ export class DynamicDataService {
           : JSON.stringify(value);
 
     switch (type) {
-      case DictionaryFieldType.STRING:
-      case DictionaryFieldType.TEXT:
-      case DictionaryFieldType.CHOICE:
+      case PlatformBuilderFieldType.STRING:
+      case PlatformBuilderFieldType.TEXT:
+      case PlatformBuilderFieldType.CHOICE:
         return stringValue;
 
-      case DictionaryFieldType.INTEGER: {
+      case PlatformBuilderFieldType.INTEGER: {
         const intVal = parseInt(stringValue, 10);
         if (isNaN(intVal)) {
           throw new Error('Invalid integer value');
@@ -391,7 +394,7 @@ export class DynamicDataService {
         return intVal;
       }
 
-      case DictionaryFieldType.DECIMAL: {
+      case PlatformBuilderFieldType.DECIMAL: {
         const floatVal = parseFloat(stringValue);
         if (isNaN(floatVal)) {
           throw new Error('Invalid decimal value');
@@ -399,13 +402,13 @@ export class DynamicDataService {
         return floatVal;
       }
 
-      case DictionaryFieldType.BOOLEAN:
+      case PlatformBuilderFieldType.BOOLEAN:
         if (typeof value === 'boolean') return value;
         if (stringValue === 'true' || stringValue === '1') return true;
         if (stringValue === 'false' || stringValue === '0') return false;
         throw new Error('Invalid boolean value');
 
-      case DictionaryFieldType.DATE: {
+      case PlatformBuilderFieldType.DATE: {
         const dateVal = new Date(stringValue);
         if (isNaN(dateVal.getTime())) {
           throw new Error('Invalid date value');
@@ -413,7 +416,7 @@ export class DynamicDataService {
         return dateVal.toISOString().split('T')[0];
       }
 
-      case DictionaryFieldType.DATETIME: {
+      case PlatformBuilderFieldType.DATETIME: {
         const datetimeVal = new Date(stringValue);
         if (isNaN(datetimeVal.getTime())) {
           throw new Error('Invalid datetime value');
@@ -421,7 +424,7 @@ export class DynamicDataService {
         return datetimeVal.toISOString();
       }
 
-      case DictionaryFieldType.REFERENCE:
+      case PlatformBuilderFieldType.REFERENCE:
         // For references, just store the ID as string
         return stringValue;
 

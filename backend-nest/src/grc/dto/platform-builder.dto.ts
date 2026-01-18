@@ -12,7 +12,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DictionaryFieldType } from '../enums';
+import { PlatformBuilderFieldType } from '../enums';
 import { PaginationQueryDto } from './pagination.dto';
 
 // ============================================================================
@@ -116,9 +116,9 @@ export class CreateFieldDto {
   @MaxLength(255, { message: 'Label must not exceed 255 characters' })
   label: string;
 
-  @IsEnum(DictionaryFieldType, { message: 'Invalid field type' })
+  @IsEnum(PlatformBuilderFieldType, { message: 'Invalid field type' })
   @IsOptional()
-  type?: DictionaryFieldType;
+  type?: PlatformBuilderFieldType;
 
   @IsBoolean({ message: 'isRequired must be a boolean' })
   @IsOptional()
@@ -165,9 +165,9 @@ export class UpdateFieldDto {
   @MaxLength(255, { message: 'Label must not exceed 255 characters' })
   label?: string;
 
-  @IsEnum(DictionaryFieldType, { message: 'Invalid field type' })
+  @IsEnum(PlatformBuilderFieldType, { message: 'Invalid field type' })
   @IsOptional()
-  type?: DictionaryFieldType;
+  type?: PlatformBuilderFieldType;
 
   @IsBoolean({ message: 'isRequired must be a boolean' })
   @IsOptional()
@@ -219,8 +219,8 @@ export class FieldFilterDto extends PaginationQueryDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsEnum(DictionaryFieldType)
-  type?: DictionaryFieldType;
+  @IsEnum(PlatformBuilderFieldType)
+  type?: PlatformBuilderFieldType;
 }
 
 // ============================================================================
@@ -287,7 +287,7 @@ export interface FieldResponse {
   tableName: string;
   fieldName: string;
   label: string;
-  type: DictionaryFieldType;
+  type: PlatformBuilderFieldType;
   isRequired: boolean;
   isUnique: boolean;
   referenceTable: string | null;

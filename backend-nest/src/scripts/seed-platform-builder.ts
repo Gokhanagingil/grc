@@ -17,7 +17,7 @@ import { Tenant } from '../tenants/tenant.entity';
 import { SysDbObject } from '../grc/entities/sys-db-object.entity';
 import { SysDictionary } from '../grc/entities/sys-dictionary.entity';
 import { DynamicRecord } from '../grc/entities/dynamic-record.entity';
-import { DictionaryFieldType } from '../grc/enums';
+import { PlatformBuilderFieldType } from '../grc/enums';
 
 // Demo tenant ID (consistent with seed-grc.ts)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -72,7 +72,7 @@ async function seedPlatformBuilderData() {
       {
         fieldName: 'name',
         label: 'Vendor Name',
-        type: DictionaryFieldType.STRING,
+        type: PlatformBuilderFieldType.STRING,
         isRequired: true,
         isUnique: true,
         fieldOrder: 0,
@@ -80,7 +80,7 @@ async function seedPlatformBuilderData() {
       {
         fieldName: 'status',
         label: 'Status',
-        type: DictionaryFieldType.CHOICE,
+        type: PlatformBuilderFieldType.CHOICE,
         isRequired: true,
         choiceOptions: [
           { label: 'Active', value: 'active' },
@@ -95,7 +95,7 @@ async function seedPlatformBuilderData() {
       {
         fieldName: 'owner',
         label: 'Owner',
-        type: DictionaryFieldType.REFERENCE,
+        type: PlatformBuilderFieldType.REFERENCE,
         isRequired: false,
         referenceTable: 'users',
         fieldOrder: 2,
@@ -103,14 +103,14 @@ async function seedPlatformBuilderData() {
       {
         fieldName: 'description',
         label: 'Description',
-        type: DictionaryFieldType.TEXT,
+        type: PlatformBuilderFieldType.TEXT,
         isRequired: false,
         fieldOrder: 3,
       },
       {
         fieldName: 'risk_level',
         label: 'Risk Level',
-        type: DictionaryFieldType.CHOICE,
+        type: PlatformBuilderFieldType.CHOICE,
         isRequired: false,
         choiceOptions: [
           { label: 'Low', value: 'low' },
@@ -123,28 +123,28 @@ async function seedPlatformBuilderData() {
       {
         fieldName: 'contract_value',
         label: 'Contract Value',
-        type: DictionaryFieldType.DECIMAL,
+        type: PlatformBuilderFieldType.DECIMAL,
         isRequired: false,
         fieldOrder: 5,
       },
       {
         fieldName: 'contract_start',
         label: 'Contract Start Date',
-        type: DictionaryFieldType.DATE,
+        type: PlatformBuilderFieldType.DATE,
         isRequired: false,
         fieldOrder: 6,
       },
       {
         fieldName: 'contract_end',
         label: 'Contract End Date',
-        type: DictionaryFieldType.DATE,
+        type: PlatformBuilderFieldType.DATE,
         isRequired: false,
         fieldOrder: 7,
       },
       {
         fieldName: 'is_critical',
         label: 'Critical Vendor',
-        type: DictionaryFieldType.BOOLEAN,
+        type: PlatformBuilderFieldType.BOOLEAN,
         isRequired: false,
         defaultValue: 'false',
         fieldOrder: 8,

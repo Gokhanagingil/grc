@@ -2,7 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { SysDbObject } from './sys-db-object.entity';
-import { DictionaryFieldType } from '../enums';
+import { PlatformBuilderFieldType } from '../enums';
 
 /**
  * SysDictionary Entity
@@ -33,10 +33,10 @@ export class SysDictionary extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: DictionaryFieldType,
-    default: DictionaryFieldType.STRING,
+    enum: PlatformBuilderFieldType,
+    default: PlatformBuilderFieldType.STRING,
   })
-  type: DictionaryFieldType;
+  type: PlatformBuilderFieldType;
 
   @Column({ name: 'is_required', type: 'boolean', default: false })
   isRequired: boolean;
