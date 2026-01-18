@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -41,6 +41,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { useSearchParams } from 'react-router-dom';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
@@ -173,14 +174,14 @@ export const RiskManagement: React.FC = () => {
   const tenantId = user?.tenantId || '';
 
   // Build filter object for API (canonical format)
-  const buildFilter = useCallback(() => {
+  const buildFilter = useCallback((status: RiskStatus | '', severity: RiskSeverity | '') => {
     const conditions: Array<Record<string, unknown>> = [];
     
-    if (statusFilter) {
-      conditions.push({ field: 'status', operator: 'eq', value: statusFilter });
+    if (status) {
+      conditions.push({ field: 'status', operator: 'eq', value: status });
     }
-    if (severityFilter) {
-      conditions.push({ field: 'severity', operator: 'eq', value: severityFilter });
+    if (severity) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severity });
     }
 
     if (conditions.length === 0) {
@@ -188,14 +189,20 @@ export const RiskManagement: React.FC = () => {
     }
 
     return { and: conditions };
-  }, [statusFilter, severityFilter]);
+  }, []);
 
-  // Update URL params when filters/sort/page change
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
   useEffect(() => {
-    const filter = buildFilter();
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(statusFilter, severityFilter);
     const sortStr = formatSortToQuery(sortField, sortDirection);
     
-    const params = buildListQueryParamsWithDefaults(
+    const urlParams = buildListQueryParamsWithDefaults(
       {
         page: page + 1,
         pageSize: rowsPerPage,
@@ -211,31 +218,92 @@ export const RiskManagement: React.FC = () => {
       }
     );
 
-    setSearchParams(params, { replace: true });
-  }, [page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter, setSearchParams]);
+    // Build query string for comparison (dedupe)
+    const queryString = new URLSearchParams(urlParams).toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(urlParams, { replace: true });
+    }
+  }, [page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
 
-  const fetchRisks = useCallback(async () => {
-    // Allow fetching even without tenantId - backend will handle authorization
+  // Fetch risks function with dedupe and cancellation support
+  const fetchRisks = useCallback(async (force = false) => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentStatusFilter = (currentFilterParam?.status as RiskStatus | '') || '';
+    const currentSeverityFilter = (currentFilterParam?.severity as RiskSeverity | '') || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentStatusFilter, currentSeverityFilter);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      pageSize: currentPageSize,
+      filter: filter || undefined,
+      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      search: currentSearch || undefined,
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError('');
-      const filter = buildFilter();
-      const params = buildListQueryParams({
-        page: page + 1, // API uses 1-based pagination
-        pageSize: rowsPerPage,
-        filter: filter || undefined,
-        sort: formatSortToQuery(sortField, sortDirection),
-        search: searchQuery || undefined,
-      });
-      
-      // Use centralized API client - no more /nest/ prefix
-      const response = await riskApi.list(tenantId, params);
-      
+
+      const response = await riskApi.list(tenantId, apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       // Handle NestJS response format using centralized unwrapper
       const result = unwrapPaginatedResponse<Risk>(response);
       setRisks(result.items);
       setTotal(result.total);
     } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = error.response?.status;
       const message = error.response?.data?.error?.message || error.response?.data?.message;
@@ -253,12 +321,15 @@ export const RiskManagement: React.FC = () => {
         setError(message || 'Failed to fetch risks. Please try again.');
       }
     } finally {
-      setLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter]);
+  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
 
+  // Fetch risks when URL params change (single source of truth)
   useEffect(() => {
-    fetchRisks();
+    fetchRisks(false);
   }, [fetchRisks]);
 
   // Fetch all policies and requirements for relationship dropdowns
@@ -399,7 +470,7 @@ export const RiskManagement: React.FC = () => {
 
       setOpenDialog(false);
       setError('');
-      fetchRisks();
+      fetchRisks(true); // Force refresh after create/update
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
@@ -415,7 +486,7 @@ export const RiskManagement: React.FC = () => {
         // Use centralized API client - no more /nest/ prefix
         await riskApi.delete(tenantId, id);
         setSuccess('Risk deleted successfully');
-        fetchRisks();
+        fetchRisks(true); // Force refresh after create/update
         
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);

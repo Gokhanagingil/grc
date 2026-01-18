@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { standardsApi, unwrapResponse } from '../services/grcClient';
+import { ApiError } from '../services/api';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 
@@ -145,23 +146,23 @@ export const StandardsLibrary: React.FC = () => {
   }, []);
 
   // Build filter object for API (canonical format)
-  const buildFilter = useCallback(() => {
+  const buildFilter = useCallback((family: string, version: string, domain: string, category: string, hierarchyLevel: string) => {
     const conditions: Array<Record<string, unknown>> = [];
     
-    if (filters.family) {
-      conditions.push({ field: 'family', operator: 'eq', value: filters.family });
+    if (family) {
+      conditions.push({ field: 'family', operator: 'eq', value: family });
     }
-    if (filters.version) {
-      conditions.push({ field: 'version', operator: 'eq', value: filters.version });
+    if (version) {
+      conditions.push({ field: 'version', operator: 'eq', value: version });
     }
-    if (filters.domain) {
-      conditions.push({ field: 'domain', operator: 'eq', value: filters.domain });
+    if (domain) {
+      conditions.push({ field: 'domain', operator: 'eq', value: domain });
     }
-    if (filters.category) {
-      conditions.push({ field: 'category', operator: 'eq', value: filters.category });
+    if (category) {
+      conditions.push({ field: 'category', operator: 'eq', value: category });
     }
-    if (filters.hierarchyLevel) {
-      conditions.push({ field: 'hierarchy_level', operator: 'eq', value: filters.hierarchyLevel });
+    if (hierarchyLevel) {
+      conditions.push({ field: 'hierarchy_level', operator: 'eq', value: hierarchyLevel });
     }
 
     if (conditions.length === 0) {
@@ -169,14 +170,20 @@ export const StandardsLibrary: React.FC = () => {
     }
 
     return { and: conditions };
-  }, [filters.family, filters.version, filters.domain, filters.category, filters.hierarchyLevel]);
+  }, []);
 
-  // Update URL params when filters/sort/page change
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
   useEffect(() => {
-    const filter = buildFilter();
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(filters.family, filters.version, filters.domain, filters.category, filters.hierarchyLevel);
     const sortStr = formatSortToQuery(sortField, sortDirection);
     
-    const params = buildListQueryParamsWithDefaults(
+    const urlParams = buildListQueryParamsWithDefaults(
       {
         page: page + 1,
         pageSize: rowsPerPage,
@@ -192,29 +199,77 @@ export const StandardsLibrary: React.FC = () => {
       }
     );
 
-    setSearchParams(params, { replace: true });
-  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter, setSearchParams]);
+    // Build query string for comparison (dedupe)
+    const queryString = urlParams.toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(urlParams, { replace: true });
+    }
+  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
 
-  const fetchRequirements = useCallback(async () => {
+  useEffect(() => {
+    fetchFiltersData();
+  }, [fetchFiltersData]);
+
+  // Fetch requirements function with dedupe and cancellation support
+  const fetchRequirements = useCallback(async (force = false) => {
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentFamily = (currentFilterParam?.family as string) || '';
+    const currentVersion = (currentFilterParam?.version as string) || '';
+    const currentDomain = (currentFilterParam?.domain as string) || '';
+    const currentCategory = (currentFilterParam?.category as string) || '';
+    const currentHierarchyLevel = (currentFilterParam?.hierarchy_level as string) || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'code', direction: 'ASC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentFamily, currentVersion, currentDomain, currentCategory, currentHierarchyLevel);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      limit: currentPageSize, // API limit kullanıyor
+      search: currentSearch,
+      family: currentFamily || undefined,
+      version: currentVersion || undefined,
+      domain: currentDomain || undefined,
+      category: currentCategory || undefined,
+      hierarchy_level: currentHierarchyLevel || undefined,
+      filter: filter || undefined,
+      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError('');
       
-      const filter = buildFilter();
-      const params = buildListQueryParams({
-        page: page + 1,
-        limit: rowsPerPage, // API limit kullanıyor
-        search: filters.search,
-        family: filters.family || undefined,
-        version: filters.version || undefined,
-        domain: filters.domain || undefined,
-        category: filters.category || undefined,
-        hierarchy_level: filters.hierarchyLevel || undefined,
-        filter: filter || undefined,
-        sort: formatSortToQuery(sortField, sortDirection),
-      });
-      
-      const response = await standardsApi.list(params);
+      const response = await standardsApi.list(apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       const data = response.data;
       
       if (data && data.success) {
@@ -228,6 +283,23 @@ export const StandardsLibrary: React.FC = () => {
         setTotalCount(0);
       }
     } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       if (error.response?.status === 404) {
         setRequirements([]);
@@ -236,16 +308,15 @@ export const StandardsLibrary: React.FC = () => {
         setError(error.response?.data?.message || 'Failed to fetch standards');
       }
     } finally {
-      setLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter]);
+  }, [searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
 
+  // Fetch requirements when URL params change (single source of truth)
   useEffect(() => {
-    fetchFiltersData();
-  }, [fetchFiltersData]);
-
-  useEffect(() => {
-    fetchRequirements();
+    fetchRequirements(false);
   }, [fetchRequirements]);
 
   const handleFilterChange = (field: string, value: string) => {
