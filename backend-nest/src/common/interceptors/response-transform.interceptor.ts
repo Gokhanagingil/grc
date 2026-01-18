@@ -51,14 +51,21 @@ export const SKIP_TRANSFORM_KEY = 'skipTransform';
  * Transforms all successful responses into the standard API response envelope.
  * Handles both regular responses and paginated responses.
  *
- * Success Response Format:
+ * Success Response Format (non-paginated):
  * {
  *   "success": true,
- *   "data": { ... } or [ ... ],
- *   "meta": {
+ *   "data": { ... } or [ ... ]
+ * }
+ *
+ * Success Response Format (paginated - LIST-CONTRACT compliant):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "items": [...],
  *     "total": 100,
- *     "limit": 20,
- *     "offset": 0
+ *     "page": 1,
+ *     "pageSize": 20,
+ *     "totalPages": 5
  *   }
  * }
  */
@@ -143,25 +150,20 @@ export class ResponseTransformInterceptor<T> implements NestInterceptor<
   }
 
   /**
-   * Transform paginated response to standard format
+   * Transform paginated response to LIST-CONTRACT compliant format
+   *
+   * Returns the full paginated object inside data:
+   * {
+   *   success: true,
+   *   data: { items: [...], total, page, pageSize, totalPages }
+   * }
    */
   private transformPaginatedResponse(
     data: PaginatedServiceResponse<unknown>,
-  ): ApiSuccessResponse<unknown[]> {
-    const { items, total, page, pageSize, totalPages } = data;
-
+  ): ApiSuccessResponse<PaginatedServiceResponse<unknown>> {
     return {
       success: true,
-      data: items,
-      meta: {
-        total,
-        page,
-        pageSize,
-        totalPages,
-        // Also include limit/offset for compatibility
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      },
+      data: data,
     };
   }
 }

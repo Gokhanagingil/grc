@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
-  Button,
   Card,
   CardContent,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -14,25 +12,17 @@ import {
   TablePagination,
   Chip,
   IconButton,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
-  InputAdornment,
-  Collapse,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
-  Clear as ClearIcon,
   LibraryBooks as StandardsIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { standardsApi, unwrapResponse } from '../services/grcClient';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { ApiError } from '../services/api';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 
 interface StandardRequirement {
   id: string;
@@ -90,9 +80,26 @@ const getFamilyColor = (family: string): 'primary' | 'secondary' | 'success' | '
 
 export const StandardsLibrary: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - StandardsLibrary için özel
+  const DEFAULT_SORT = 'code:ASC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 25;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'code', direction: 'ASC' as const };
+
   const [requirements, setRequirements] = useState<StandardRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [filtersData, setFiltersData] = useState<FiltersData>({
     families: [],
     versions: [],
@@ -100,20 +107,25 @@ export const StandardsLibrary: React.FC = () => {
     categories: [],
     hierarchyLevels: [],
   });
-  const [showFilters, setShowFilters] = useState(true);
   
   const [filters, setFilters] = useState({
-    search: '',
-    family: '',
-    version: '',
-    domain: '',
-    category: '',
-    hierarchyLevel: '',
+    search: searchParam,
+    family: (filterParam?.family as string) || '',
+    version: (filterParam?.version as string) || '',
+    domain: (filterParam?.domain as string) || '',
+    category: (filterParam?.category as string) || '',
+    hierarchyLevel: (filterParam?.hierarchy_level as string) || '',
   });
   
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
+
+  // Request storm prevention: refs for deduplication and cancellation
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchFiltersData = useCallback(async () => {
     try {
@@ -131,23 +143,136 @@ export const StandardsLibrary: React.FC = () => {
     }
   }, []);
 
-  const fetchRequirements = useCallback(async () => {
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (filters.family) {
+      conditions.push({ field: 'family', operator: 'eq', value: filters.family });
+    }
+    if (filters.version) {
+      conditions.push({ field: 'version', operator: 'eq', value: filters.version });
+    }
+    if (filters.domain) {
+      conditions.push({ field: 'domain', operator: 'eq', value: filters.domain });
+    }
+    if (filters.category) {
+      conditions.push({ field: 'category', operator: 'eq', value: filters.category });
+    }
+    if (filters.hierarchyLevel) {
+      conditions.push({ field: 'hierarchy_level', operator: 'eq', value: filters.hierarchyLevel });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [filters.family, filters.version, filters.domain, filters.category, filters.hierarchyLevel]);
+
+  // Update URL params when filters/sort/page change (single source of truth)
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: filters.search || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    // Only update URL if it changed (prevents unnecessary updates)
+    const queryString = new URLSearchParams(params).toString();
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [page, rowsPerPage, filters, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
+
+  // Fetch requirements function with dedupe and cancellation support
+  const fetchRequirements = useCallback(async (force = false) => {
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    
+    const currentFilters = {
+      search: currentSearch,
+      family: (currentFilterParam?.family as string) || '',
+      version: (currentFilterParam?.version as string) || '',
+      domain: (currentFilterParam?.domain as string) || '',
+      category: (currentFilterParam?.category as string) || '',
+      hierarchyLevel: (currentFilterParam?.hierarchy_level as string) || '',
+    };
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'code', direction: 'ASC' as const };
+
+    // Build filter for API
+    const conditions: Array<Record<string, unknown>> = [];
+    if (currentFilters.family) {
+      conditions.push({ field: 'family', operator: 'eq', value: currentFilters.family });
+    }
+    if (currentFilters.version) {
+      conditions.push({ field: 'version', operator: 'eq', value: currentFilters.version });
+    }
+    if (currentFilters.domain) {
+      conditions.push({ field: 'domain', operator: 'eq', value: currentFilters.domain });
+    }
+    if (currentFilters.category) {
+      conditions.push({ field: 'category', operator: 'eq', value: currentFilters.category });
+    }
+    if (currentFilters.hierarchyLevel) {
+      conditions.push({ field: 'hierarchy_level', operator: 'eq', value: currentFilters.hierarchyLevel });
+    }
+    const filter = conditions.length > 0 ? { and: conditions } : null;
+
+    // Build query params string for deduplication
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      limit: currentPageSize,
+      search: currentFilters.search || undefined,
+      filter: filter || undefined,
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError('');
-      
-      const params = new URLSearchParams();
-      params.set('page', String(page + 1));
-      params.set('limit', String(rowsPerPage));
-      
-      if (filters.search) params.set('search', filters.search);
-      if (filters.family) params.set('family', filters.family);
-      if (filters.version) params.set('version', filters.version);
-      if (filters.domain) params.set('domain', filters.domain);
-      if (filters.category) params.set('category', filters.category);
-      if (filters.hierarchyLevel) params.set('hierarchy_level', filters.hierarchyLevel);
-      
-      const response = await standardsApi.list(params);
+
+      const response = await standardsApi.list(apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       const data = response.data;
       
       if (data && data.success) {
@@ -161,25 +286,44 @@ export const StandardsLibrary: React.FC = () => {
         setTotalCount(0);
       }
     } catch (err: unknown) {
+      // Ignore cancellation errors
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        // Don't clear requirements - keep previous data
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       if (error.response?.status === 404) {
         setRequirements([]);
         setTotalCount(0);
       } else {
         setError(error.response?.data?.message || 'Failed to fetch standards');
+        // Don't clear requirements on error - keep previous data visible
       }
-    } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, filters]);
+  }, [searchParams]);
 
-  useEffect(() => {
-    fetchFiltersData();
-  }, [fetchFiltersData]);
-
+  // Fetch when URL params change (triggered by URL update)
   useEffect(() => {
     fetchRequirements();
   }, [fetchRequirements]);
+
+  // Fetch filters data on mount
+  useEffect(() => {
+    fetchFiltersData();
+  }, [fetchFiltersData]);
 
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({ ...prev, [field]: value }));
@@ -222,7 +366,7 @@ export const StandardsLibrary: React.FC = () => {
       <ErrorState
         title="Failed to load standards"
         message={error}
-        onRetry={fetchRequirements}
+        onRetry={() => fetchRequirements(true)}
       />
     );
   }
@@ -231,104 +375,54 @@ export const StandardsLibrary: React.FC = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Standards Library</Typography>
-        <Button
-          variant="outlined"
-          startIcon={<FilterIcon />}
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          {showFilters ? 'Hide Filters' : 'Show Filters'}
-        </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Collapse in={showFilters}>
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Search"
-                  placeholder="Search by code, title, or description..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Family</InputLabel>
-                  <Select
-                    value={filters.family}
-                    label="Family"
-                    onChange={(e) => handleFilterChange('family', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.families.map((family) => (
-                      <MenuItem key={family} value={family}>
-                        {FAMILY_LABELS[family] || family}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Version</InputLabel>
-                  <Select
-                    value={filters.version}
-                    label="Version"
-                    onChange={(e) => handleFilterChange('version', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.versions.map((version) => (
-                      <MenuItem key={version} value={version}>
-                        {version}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Domain</InputLabel>
-                  <Select
-                    value={filters.domain}
-                    label="Domain"
-                    onChange={(e) => handleFilterChange('domain', e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {filtersData.domains.map((domain) => (
-                      <MenuItem key={domain} value={domain}>
-                        {domain}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                {hasActiveFilters && (
-                  <Button
-                    variant="text"
-                    startIcon={<ClearIcon />}
-                    onClick={handleClearFilters}
-                  >
-                    Clear Filters
-                  </Button>
-                )}
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Collapse>
+      <ListToolbar
+        search={filters.search}
+        onSearchChange={(value) => {
+          handleFilterChange('search', value);
+        }}
+        searchPlaceholder="Search by code, title, or description..."
+        searchDebounceMs={800}
+        sort={formatSortToQuery(sortField, sortDirection)}
+        onSortChange={(sort) => {
+          const parsed = parseSortFromQuery(sort);
+          if (parsed) {
+            setSortField(parsed.field);
+            setSortDirection(parsed.direction);
+          }
+        }}
+        sortOptions={[
+          { field: 'code', label: 'Code' },
+          { field: 'title', label: 'Title' },
+          { field: 'family', label: 'Family' },
+          { field: 'version', label: 'Version' },
+          { field: 'domain', label: 'Domain' },
+        ]}
+        pageSize={rowsPerPage}
+        onPageSizeChange={(size) => {
+          setRowsPerPage(size);
+          setPage(0);
+        }}
+        filters={[
+          ...(filters.family ? [{ key: 'family', label: 'Family', value: FAMILY_LABELS[filters.family] || filters.family }] : []),
+          ...(filters.version ? [{ key: 'version', label: 'Version', value: filters.version }] : []),
+          ...(filters.domain ? [{ key: 'domain', label: 'Domain', value: filters.domain }] : []),
+          ...(filters.category ? [{ key: 'category', label: 'Category', value: filters.category }] : []),
+          ...(filters.hierarchyLevel ? [{ key: 'hierarchyLevel', label: 'Level', value: filters.hierarchyLevel }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'family') handleFilterChange('family', '');
+          if (key === 'version') handleFilterChange('version', '');
+          if (key === 'domain') handleFilterChange('domain', '');
+          if (key === 'category') handleFilterChange('category', '');
+          if (key === 'hierarchyLevel') handleFilterChange('hierarchyLevel', '');
+        }}
+        onClearFilters={handleClearFilters}
+        loading={loading}
+      />
 
       <Card>
         <CardContent>

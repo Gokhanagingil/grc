@@ -111,3 +111,7 @@ frontend/test-results/
 
 # Evidence packs (deployment validation artifacts)
 evidence/
+
+# local deploy keys (DO NOT COMMIT)
+grc_staging_deploy_key
+grc_staging_deploy_key.pub

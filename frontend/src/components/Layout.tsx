@@ -58,12 +58,19 @@ const drawerWidth = 240;
 // Storage key for last known good route (used by InitializationErrorBoundary)
 const LAST_GOOD_ROUTE_KEY = 'lastKnownGoodRoute';
 
+interface NavMenuChild {
+  text: string;
+  path: string;
+  status?: 'active' | 'coming_soon';
+}
+
 interface NavMenuItem {
   text: string;
   icon: React.ReactNode;
   path: string;
   roles?: ('admin' | 'manager' | 'user')[];
   moduleKey?: string;
+  children?: NavMenuChild[];
 }
 
 interface NavMenuGroup {
@@ -80,27 +87,191 @@ const standaloneItems: NavMenuItem[] = [
   { text: 'To-Do', icon: <TodoIcon />, path: '/todos' },
 ];
 
-// Grouped navigation items
+// Grouped navigation items with nested children for 2-level menu
+// GRC Menu reorganized per Golden Flow Sprint 1B IA requirements
 const menuGroups: NavMenuGroup[] = [
   {
-    id: 'grc',
-    text: 'GRC',
+    id: 'grc-library',
+    text: 'GRC > Library',
     icon: <GrcIcon />,
     items: [
-      { text: 'Risk Management', icon: <RiskIcon />, path: '/risk', moduleKey: 'risk' },
-      { text: 'Policies', icon: <GovernanceIcon />, path: '/governance', moduleKey: 'policy' },
-      { text: 'Requirements', icon: <ComplianceIcon />, path: '/compliance', moduleKey: 'compliance' },
-      { text: 'Audits', icon: <AuditIcon />, path: '/audits', moduleKey: 'audit' },
-      { text: 'Processes', icon: <ProcessIcon />, path: '/processes' },
-      { text: 'Violations', icon: <ViolationIcon />, path: '/violations' },
+      { 
+        text: 'Policies', 
+        icon: <GovernanceIcon />, 
+        path: '/governance', 
+        moduleKey: 'policy',
+        children: [
+          { text: 'Policy List', path: '/governance', status: 'active' },
+          { text: 'Templates', path: '/policy-templates', status: 'coming_soon' },
+          { text: 'Reviews', path: '/policy-reviews', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Requirements', 
+        icon: <ComplianceIcon />, 
+        path: '/compliance', 
+        moduleKey: 'compliance',
+        children: [
+          { text: 'Requirements List', path: '/compliance', status: 'active' },
+        ],
+      },
+      { 
+        text: 'Controls', 
+        icon: <ComplianceIcon />, 
+        path: '/controls', 
+        moduleKey: 'compliance',
+        children: [
+          { text: 'Control Library', path: '/controls', status: 'active' },
+          { text: 'Testing', path: '/control-testing', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Processes', 
+        icon: <ProcessIcon />, 
+        path: '/processes',
+        children: [
+          { text: 'Process List', path: '/processes', status: 'active' },
+        ],
+      },
     ],
   },
+  {
+    id: 'grc-assurance',
+    text: 'GRC > Assurance',
+    icon: <AuditIcon />,
+    items: [
+      { 
+        text: 'Audits', 
+        icon: <AuditIcon />, 
+        path: '/audits', 
+        moduleKey: 'audit',
+        children: [
+          { text: 'Audit List', path: '/audits', status: 'active' },
+          { text: 'Findings', path: '/findings', status: 'active' },
+          { text: 'Reports', path: '/audit-reports', status: 'coming_soon' },
+        ],
+      },
+            { 
+              text: 'Tests / Results', 
+              icon: <AuditIcon />, 
+              path: '/control-tests',
+              children: [
+                { text: 'Control Tests', path: '/control-tests', status: 'active' },
+                { text: 'Test Results', path: '/test-results', status: 'active' },
+              ],
+            },
+      { 
+        text: 'Evidence', 
+        icon: <AuditIcon />, 
+        path: '/evidence',
+        children: [
+          { text: 'Evidence List', path: '/evidence', status: 'active' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'grc-findings',
+    text: 'GRC > Findings & Remediation',
+    icon: <ViolationIcon />,
+    items: [
+      { 
+        text: 'Issues', 
+        icon: <ViolationIcon />, 
+        path: '/issues',
+        children: [
+          { text: 'Issues List', path: '/issues', status: 'active' },
+        ],
+      },
+      { 
+        text: 'CAPA', 
+        icon: <ViolationIcon />, 
+        path: '/capa',
+        children: [
+          { text: 'CAPA List', path: '/capa', status: 'active' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'grc-risk',
+    text: 'GRC > Risk & Exceptions',
+    icon: <RiskIcon />,
+    items: [
+      { 
+        text: 'Risks', 
+        icon: <RiskIcon />, 
+        path: '/risk', 
+        moduleKey: 'risk',
+        children: [
+          { text: 'Risk Register', path: '/risk', status: 'active' },
+          { text: 'Assessments', path: '/risk-assessments', status: 'coming_soon' },
+          { text: 'Treatments', path: '/risk-treatments', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Violations', 
+        icon: <ViolationIcon />, 
+        path: '/violations',
+        children: [
+          { text: 'Violations List', path: '/violations', status: 'active' },
+        ],
+      },
+    ],
+  },
+    {
+      id: 'grc-insights',
+      text: 'GRC > Insights',
+      icon: <ComplianceDashboardIcon />,
+      items: [
+        { 
+          text: 'GRC Insights', 
+          icon: <ComplianceDashboardIcon />, 
+          path: '/insights',
+          children: [
+            { text: 'Insights Overview', path: '/insights', status: 'active' },
+          ],
+        },
+        { 
+          text: 'Coverage', 
+          icon: <ComplianceDashboardIcon />, 
+          path: '/coverage',
+          children: [
+            { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
+          ],
+        },
+      ],
+    },
   {
     id: 'itsm',
     text: 'ITSM',
     icon: <ItsmIcon />,
     items: [
-      { text: 'Incidents', icon: <IncidentIcon />, path: '/incidents' },
+      { 
+        text: 'Incidents', 
+        icon: <IncidentIcon />, 
+        path: '/incidents',
+        children: [
+          { text: 'Incident List', path: '/incidents', status: 'active' },
+          { text: 'SLA Dashboard', path: '/sla-dashboard', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Problems', 
+        icon: <IncidentIcon />, 
+        path: '/problems',
+        children: [
+          { text: 'Problem List', path: '/problems', status: 'coming_soon' },
+        ],
+      },
+      { 
+        text: 'Changes', 
+        icon: <IncidentIcon />, 
+        path: '/changes',
+        children: [
+          { text: 'Change List', path: '/changes', status: 'coming_soon' },
+        ],
+      },
     ],
   },
   {
@@ -121,6 +292,7 @@ const menuGroups: NavMenuGroup[] = [
     items: [
       { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
       { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
+      { text: 'Platform Builder', icon: <SettingsIcon />, path: '/admin/platform-builder', roles: ['admin'] },
       { text: 'System', icon: <SystemIcon />, path: '/admin/system', roles: ['admin'] },
       { text: 'Data Model', icon: <DotWalkingIcon />, path: '/admin/data-model', roles: ['admin'] },
       { text: 'Query Builder', icon: <DotWalkingIcon />, path: '/dotwalking' },
@@ -139,11 +311,16 @@ export const Layout: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    grc: true,
+    'grc-library': true,
+    'grc-assurance': false,
+    'grc-findings': false,
+    'grc-risk': false,
+    'grc-insights': false,
     itsm: false,
     dashboards: false,
     admin: false,
   });
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -186,11 +363,25 @@ export const Layout: React.FC = () => {
     fetchEnabledModules();
   }, []);
 
-  // Auto-expand group containing current path
+  // Auto-expand group and item containing current path
   useEffect(() => {
     for (const group of menuGroups) {
-      if (group.items.some(item => location.pathname.startsWith(item.path))) {
+      const matchingItem = group.items.find(item => {
+        // Check if current path matches item path or any of its children
+        if (location.pathname.startsWith(item.path)) return true;
+        if (item.children) {
+          return item.children.some(child => location.pathname.startsWith(child.path));
+        }
+        return false;
+      });
+      
+      if (matchingItem) {
         setExpandedGroups(prev => ({ ...prev, [group.id]: true }));
+        // Also expand the item if it has children
+        if (matchingItem.children && matchingItem.children.length > 0) {
+          const itemKey = `${group.id}-${matchingItem.text}`;
+          setExpandedItems(prev => ({ ...prev, [itemKey]: true }));
+        }
         break;
       }
     }
@@ -249,6 +440,10 @@ export const Layout: React.FC = () => {
 
   const handleGroupToggle = (groupId: string) => {
     setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
+  const handleItemToggle = (itemKey: string) => {
+    setExpandedItems(prev => ({ ...prev, [itemKey]: !prev[itemKey] }));
   };
 
   const handleDrawerToggle = () => {
@@ -421,9 +616,11 @@ export const Layout: React.FC = () => {
           );
         })}
 
-        {/* Grouped items */}
+        {/* Grouped items with 2-level nested menu support */}
         {filteredGroups.map((group) => {
-          const groupTestId = group.id === 'admin' ? 'nav-admin' : group.id === 'grc' && group.items.some(i => i.path === '/audits') ? null : `nav-${group.id}`;
+          // Generate stable test IDs for navigation groups
+          // GRC groups use 'nav-grc-{subgroup}' pattern, others use 'nav-{id}'
+          const groupTestId = group.id === 'admin' ? 'nav-admin' : `nav-group-${group.id}`;
           return (
             <React.Fragment key={group.id}>
               <ListItem disablePadding>
@@ -442,15 +639,90 @@ export const Layout: React.FC = () => {
               <Collapse in={expandedGroups[group.id]} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   {group.items.map((item) => {
+                    const itemKey = `${group.id}-${item.text}`;
+                    const hasChildren = item.children && item.children.length > 0;
                     let testId: string | undefined;
                     if (item.path === '/audits') {
                       testId = 'nav-audit';
                     } else if (item.path.startsWith('/admin')) {
-                      // Admin items will be handled in AdminLayout
                       testId = undefined;
                     } else {
                       testId = `nav-${item.text.toLowerCase().replace(/\s+/g, '-')}`;
                     }
+                    
+                    // If item has children, render expandable sub-menu
+                    if (hasChildren) {
+                      return (
+                        <React.Fragment key={item.text}>
+                          <ListItem disablePadding>
+                            <ListItemButton
+                              onClick={() => handleItemToggle(itemKey)}
+                              data-testid={testId}
+                              sx={{ pl: 4 }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 36 }}>
+                                {item.icon}
+                              </ListItemIcon>
+                              <ListItemText primary={item.text} />
+                              {expandedItems[itemKey] ? <ExpandLess /> : <ExpandMore />}
+                            </ListItemButton>
+                          </ListItem>
+                          <Collapse in={expandedItems[itemKey]} timeout="auto" unmountOnExit>
+                            <List component="div" disablePadding>
+                              {item.children?.map((child) => {
+                                const isComingSoon = child.status === 'coming_soon';
+                                const childSelected = isItemSelected(child.path);
+                                return (
+                                  <ListItem key={child.text} disablePadding>
+                                    <ListItemButton
+                                      selected={childSelected}
+                                      onClick={() => navigate(child.path)}
+                                      sx={{
+                                        pl: 7,
+                                        '&.Mui-selected': {
+                                          backgroundColor: 'primary.main',
+                                          color: 'white',
+                                          '&:hover': {
+                                            backgroundColor: 'primary.dark',
+                                          },
+                                        },
+                                      }}
+                                    >
+                                      <ListItemText 
+                                        primary={child.text}
+                                        secondary={isComingSoon ? 'Coming Soon' : undefined}
+                                        primaryTypographyProps={{ 
+                                          fontSize: '0.875rem',
+                                          color: childSelected ? 'inherit' : (isComingSoon ? 'text.secondary' : 'inherit'),
+                                        }}
+                                        secondaryTypographyProps={{
+                                          fontSize: '0.7rem',
+                                          color: 'warning.main',
+                                        }}
+                                      />
+                                      {isComingSoon && (
+                                        <Chip 
+                                          label="Soon" 
+                                          size="small" 
+                                          color="warning" 
+                                          sx={{ 
+                                            height: 18, 
+                                            fontSize: '0.65rem',
+                                            '& .MuiChip-label': { px: 0.75 },
+                                          }} 
+                                        />
+                                      )}
+                                    </ListItemButton>
+                                  </ListItem>
+                                );
+                              })}
+                            </List>
+                          </Collapse>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    // Items without children render as before
                     return (
                       <ListItem key={item.text} disablePadding>
                         <ListItemButton

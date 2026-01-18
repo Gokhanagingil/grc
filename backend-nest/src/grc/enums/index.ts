@@ -160,6 +160,16 @@ export enum IssueSeverity {
   CRITICAL = 'critical',
 }
 
+/**
+ * IssueSource - How the issue was created
+ * manual: Created manually by a user
+ * test_result: Auto-created from a failing test result (Golden Flow)
+ */
+export enum IssueSource {
+  MANUAL = 'manual',
+  TEST_RESULT = 'test_result',
+}
+
 // ============================================================================
 // CAPA Enums
 // ============================================================================
@@ -189,7 +199,26 @@ export enum EvidenceType {
   LOG = 'log',
   REPORT = 'report',
   CONFIG_EXPORT = 'config_export',
+  LINK = 'link',
   OTHER = 'other',
+}
+
+/**
+ * EvidenceSourceType - How the evidence was collected/sourced
+ */
+export enum EvidenceSourceType {
+  MANUAL = 'manual',
+  URL = 'url',
+  SYSTEM = 'system',
+}
+
+/**
+ * EvidenceStatus - Lifecycle status of evidence
+ */
+export enum EvidenceStatus {
+  DRAFT = 'draft',
+  APPROVED = 'approved',
+  RETIRED = 'retired',
 }
 
 // ============================================================================
@@ -386,4 +415,154 @@ export enum ViolationStatus {
   OPEN = 'open',
   IN_PROGRESS = 'in_progress',
   RESOLVED = 'resolved',
+}
+
+// ============================================================================
+// Golden Flow Enums (Phase 1)
+// ============================================================================
+
+/**
+ * ControlTestType - Type of control test execution
+ * Values match PostgreSQL enum: grc_control_tests_test_type_enum
+ */
+export enum ControlTestType {
+  MANUAL = 'MANUAL',
+  AUTOMATED = 'AUTOMATED',
+  HYBRID = 'HYBRID',
+}
+
+/**
+ * ControlTestStatus - Status of a control test
+ * Values match PostgreSQL enum: grc_control_tests_status_enum
+ */
+export enum ControlTestStatus {
+  PLANNED = 'PLANNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+/**
+ * TestResultOutcome - Outcome of a test result
+ * Values match PostgreSQL enum: grc_test_results_result_enum
+ */
+export enum TestResultOutcome {
+  PASS = 'PASS',
+  FAIL = 'FAIL',
+  INCONCLUSIVE = 'INCONCLUSIVE',
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
+}
+
+/**
+ * EffectivenessRating - Rating of control effectiveness
+ * Values match PostgreSQL enum: grc_test_results_effectiveness_rating_enum
+ */
+export enum EffectivenessRating {
+  EFFECTIVE = 'EFFECTIVE',
+  PARTIALLY_EFFECTIVE = 'PARTIALLY_EFFECTIVE',
+  INEFFECTIVE = 'INEFFECTIVE',
+}
+
+/**
+ * CAPATaskStatus - Status of a CAPA task
+ * Values match PostgreSQL enum: grc_capa_tasks_status_enum
+ */
+export enum CAPATaskStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+/**
+ * ControlEvidenceType - Type of evidence linked to a control
+ * Values match PostgreSQL enum: grc_control_evidence_evidence_type_enum
+ */
+export enum ControlEvidenceType {
+  BASELINE = 'BASELINE',
+  TEST = 'TEST',
+  PERIODIC = 'PERIODIC',
+}
+
+/**
+ * CAPAPriority - Priority level for CAPA
+ * Values match PostgreSQL enum: grc_capas_priority_enum
+ */
+export enum CAPAPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+/**
+ * StatusHistoryEntityType - Entity types tracked in status history
+ */
+export enum StatusHistoryEntityType {
+  ISSUE = 'issue',
+  CAPA = 'capa',
+  CONTROL_TEST = 'control_test',
+  CAPA_TASK = 'capa_task',
+}
+
+// ============================================================================
+// Test Result Enums (Test/Result Sprint)
+// ============================================================================
+
+/**
+ * TestMethod - Method used to conduct a test
+ * Values match PostgreSQL enum: grc_test_results_method_enum
+ */
+export enum TestMethod {
+  INTERVIEW = 'INTERVIEW',
+  OBSERVATION = 'OBSERVATION',
+  INSPECTION = 'INSPECTION',
+  REPERFORMANCE = 'REPERFORMANCE',
+  OTHER = 'OTHER',
+}
+
+/**
+ * TestResultStatus - Status of a test result in its lifecycle
+ * Values match PostgreSQL enum: grc_test_results_status_enum
+ */
+export enum TestResultStatus {
+  DRAFT = 'DRAFT',
+  FINAL = 'FINAL',
+}
+
+// ============================================================================
+// Export Enums
+// ============================================================================
+
+/**
+ * ExportEntity - Entities that can be exported as CSV
+ * Used with ParseEnumPipe for input validation to prevent XSS attacks
+ */
+export enum ExportEntity {
+  ISSUES = 'issues',
+  ISSUE = 'issue',
+  CAPAS = 'capas',
+  CAPA = 'capa',
+  EVIDENCE = 'evidence',
+}
+
+// ============================================================================
+// Platform Builder Enums
+// ============================================================================
+
+/**
+ * PlatformBuilderFieldType - Field types for dynamic table definitions in Platform Builder
+ * Values match PostgreSQL enum: sys_dictionary_field_type_enum
+ * Note: Named differently from DictionaryFieldType in data-model-dictionary.service.ts to avoid conflicts
+ */
+export enum PlatformBuilderFieldType {
+  STRING = 'string',
+  TEXT = 'text',
+  INTEGER = 'integer',
+  DECIMAL = 'decimal',
+  BOOLEAN = 'boolean',
+  DATE = 'date',
+  DATETIME = 'datetime',
+  CHOICE = 'choice',
+  REFERENCE = 'reference',
 }

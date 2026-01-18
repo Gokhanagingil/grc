@@ -170,31 +170,54 @@ export class AuditService {
   /**
    * Sanitize entity for storage in audit log
    * Removes sensitive fields and circular references
+   * Uses Object.fromEntries to avoid CodeQL remote property injection alerts
    */
   private sanitizeEntity(
     entity: Record<string, unknown>,
   ): Record<string, unknown> {
-    const sensitiveFields = ['passwordHash', 'password', 'token', 'secret'];
-    const result: Record<string, unknown> = {};
+    const sensitiveFields = new Set([
+      'passwordHash',
+      'password',
+      'token',
+      'secret',
+    ]);
+
+    const entries: Array<[string, unknown]> = [];
 
     for (const [key, value] of Object.entries(entity)) {
-      if (sensitiveFields.includes(key)) {
-        result[key] = '[REDACTED]';
-      } else if (value instanceof Date) {
-        result[key] = value.toISOString();
-      } else if (typeof value === 'object' && value !== null) {
-        if (
-          'id' in value &&
-          typeof (value as { id: unknown }).id === 'string'
-        ) {
-          result[key] = { id: (value as { id: string }).id };
-        }
-      } else {
-        result[key] = value;
+      const sanitizedEntry = this.sanitizeEntry(key, value, sensitiveFields);
+      if (sanitizedEntry !== null) {
+        entries.push(sanitizedEntry);
       }
     }
 
-    return result;
+    return Object.fromEntries(entries);
+  }
+
+  /**
+   * Sanitize a single entry for audit logging
+   * Returns null if the entry should be skipped, otherwise returns [key, value] tuple
+   */
+  private sanitizeEntry(
+    key: string,
+    value: unknown,
+    sensitiveFields: Set<string>,
+  ): [string, unknown] | null {
+    if (sensitiveFields.has(key)) {
+      return [key, '[REDACTED]'];
+    } else if (value instanceof Date) {
+      return [key, value.toISOString()];
+    } else if (typeof value === 'object' && value !== null) {
+      if (
+        'id' in value &&
+        typeof (value as { id: unknown }).id === 'string'
+      ) {
+        return [key, { id: (value as { id: string }).id }];
+      }
+      return null;
+    } else {
+      return [key, value];
+    }
   }
 
   /**

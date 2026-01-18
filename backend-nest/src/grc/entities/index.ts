@@ -35,6 +35,7 @@ export { GrcFieldMetadataTag } from './grc-field-metadata-tag.entity';
 export { GrcRiskControl } from './grc-risk-control.entity';
 export { GrcPolicyControl } from './grc-policy-control.entity';
 export { GrcRequirementControl } from './grc-requirement-control.entity';
+export { GrcControlProcess } from './grc-control-process.entity';
 export { GrcIssueEvidence } from './grc-issue-evidence.entity';
 export { GrcRiskPolicy } from './grc-risk-policy.entity';
 export { GrcRiskRequirement } from './grc-risk-requirement.entity';
@@ -68,3 +69,22 @@ export {
   ClauseScopeStatus,
 } from './audit-scope-clause.entity';
 export { GrcIssueClause } from './grc-issue-clause.entity';
+
+// Framework Activation Entities
+export { GrcFramework } from './grc-framework.entity';
+export { GrcTenantFramework } from './grc-tenant-framework.entity';
+
+// Golden Flow Phase 1 Entities
+export { GrcControlTest } from './grc-control-test.entity';
+export { GrcTestResult } from './grc-test-result.entity';
+export { GrcCapaTask } from './grc-capa-task.entity';
+export { GrcControlEvidence } from './grc-control-evidence.entity';
+export { GrcStatusHistory } from './grc-status-history.entity';
+
+// Golden Flow Sprint 1B Entities
+export { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
+
+// Platform Builder Entities
+export { SysDbObject } from './sys-db-object.entity';
+export { SysDictionary } from './sys-dictionary.entity';
+export { DynamicRecord } from './dynamic-record.entity';

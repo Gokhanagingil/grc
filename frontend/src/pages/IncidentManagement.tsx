@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -31,14 +31,16 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   CheckCircle as ResolveIcon,
   Lock as CloseIcon,
   Warning as IncidentIcon,
 } from '@mui/icons-material';
+import { useSearchParams } from 'react-router-dom';
 import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { ApiError } from '../services/api';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
@@ -113,6 +115,22 @@ interface Incident {
 
 export const IncidentManagement: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,12 +142,14 @@ export const IncidentManagement: React.FC = () => {
   const [viewingIncident, setViewingIncident] = useState<Incident | null>(null);
   const [resolvingIncident, setResolvingIncident] = useState<Incident | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>('');
-  const [priorityFilter, setPriorityFilter] = useState<IncidentPriority | ''>('');
-  const [searchFilter, setSearchFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>((filterParam?.status as IncidentStatus | '') || '');
+  const [priorityFilter, setPriorityFilter] = useState<IncidentPriority | ''>((filterParam?.priority as IncidentPriority | '') || '');
+  const [searchFilter, setSearchFilter] = useState(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [formData, setFormData] = useState({
     shortDescription: '',
     description: '',
@@ -143,46 +163,150 @@ export const IncidentManagement: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
-  const fetchIncidents = useCallback(async () => {
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback((status: IncidentStatus | '', priority: IncidentPriority | '') => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (status) {
+      conditions.push({ field: 'status', operator: 'eq', value: status });
+    }
+    if (priority) {
+      conditions.push({ field: 'priority', operator: 'eq', value: priority });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, []);
+
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
+  useEffect(() => {
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(statusFilter, priorityFilter);
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const urlParams = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchFilter || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    // Build query string for comparison (dedupe)
+    const queryString = new URLSearchParams(urlParams).toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(new URLSearchParams(urlParams), { replace: true });
+    }
+  }, [page, rowsPerPage, statusFilter, priorityFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
+
+  // Fetch incidents function with dedupe and cancellation support
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchIncidents = useCallback(async (force = false) => {
     if (!tenantId) {
       setLoading(false);
       return;
     }
 
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentStatusFilter = (currentFilterParam?.status as IncidentStatus | '') || '';
+    const currentPriorityFilter = (currentFilterParam?.priority as IncidentPriority | '') || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentStatusFilter, currentPriorityFilter);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      pageSize: currentPageSize,
+      filter: filter || undefined,
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
+      search: currentSearch || undefined,
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
-      });
+      setError('');
 
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (priorityFilter) {
-        params.append('priority', priorityFilter);
-      }
-      if (searchFilter) {
-        params.append('search', searchFilter);
-      }
+      const response = await incidentApi.list(tenantId, apiParams);
 
-      // Use centralized API client - no more /nest/ prefix
-      const response = await incidentApi.list(tenantId, params);
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
 
       // Handle NestJS response format using centralized unwrapper
       const result = unwrapPaginatedResponse<Incident>(response);
       setIncidents(result.items);
       setTotal(result.total);
     } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        // Don't clear incidents - keep previous data (don't update setIncidents)
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to fetch incidents');
     } finally {
-      setLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, priorityFilter, searchFilter]);
+  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
 
+  // Fetch incidents when URL params change (single source of truth)
   useEffect(() => {
-    fetchIncidents();
+    fetchIncidents(false);
   }, [fetchIncidents]);
 
   const handleCreateIncident = () => {
@@ -249,7 +373,7 @@ export const IncidentManagement: React.FC = () => {
 
       setOpenDialog(false);
       setError('');
-      fetchIncidents();
+      fetchIncidents(true); // Force refresh after create/update
 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
@@ -269,7 +393,7 @@ export const IncidentManagement: React.FC = () => {
         // Use centralized API client - no more /nest/ prefix
         await incidentApi.delete(tenantId, id);
         setSuccess('Incident deleted successfully');
-        fetchIncidents();
+        fetchIncidents(true); // Force refresh after delete
 
         setTimeout(() => setSuccess(''), 3000);
       } catch (err: unknown) {
@@ -295,7 +419,7 @@ export const IncidentManagement: React.FC = () => {
       await incidentApi.resolve(tenantId, resolvingIncident.id, resolutionNotes);
       setSuccess('Incident resolved successfully');
       setOpenResolveDialog(false);
-      fetchIncidents();
+      fetchIncidents(true); // Force refresh after resolve
 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
@@ -319,7 +443,7 @@ export const IncidentManagement: React.FC = () => {
       // Use centralized API client - no more /nest/ prefix
       await incidentApi.close(tenantId, incident.id);
       setSuccess('Incident closed successfully');
-      fetchIncidents();
+      fetchIncidents(true); // Force refresh after close
 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
@@ -411,69 +535,46 @@ export const IncidentManagement: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as IncidentStatus | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(IncidentStatus).map((status) => (
-                  <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                value={priorityFilter}
-                label="Priority"
-                onChange={(e) => {
-                  setPriorityFilter(e.target.value as IncidentPriority | '');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.values(IncidentPriority).map((priority) => (
-                  <MenuItem key={priority} value={priority}>{formatPriority(priority)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              label="Search"
-              placeholder="Search incidents..."
-              value={searchFilter}
-              onChange={(e) => {
-                setSearchFilter(e.target.value);
-                setPage(0);
-              }}
-              sx={{ minWidth: 200 }}
-            />
-            {(statusFilter || priorityFilter || searchFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setStatusFilter('');
-                  setPriorityFilter('');
-                  setSearchFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        search={searchFilter}
+        onSearchChange={(value) => {
+          setSearchFilter(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search incidents..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
+          ...(priorityFilter ? [{ key: 'priority', label: 'Priority', value: formatPriority(priorityFilter) }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'status') {
+            setStatusFilter('');
+          } else if (key === 'priority') {
+            setPriorityFilter('');
+          }
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setPriorityFilter('');
+          setSearchFilter('');
+          setPage(0);
+        }}
+        sort={`${sortField}:${sortDirection}`}
+        onSortChange={(sort: string) => {
+          const [field, direction] = sort.split(':');
+          setSortField(field);
+          setSortDirection(direction as 'ASC' | 'DESC');
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'priority', label: 'Priority' },
+          { field: 'status', label: 'Status' },
+        ]}
+        onRefresh={() => fetchIncidents(true)}
+        loading={loading}
+      />
 
       <Card>
         <CardContent>

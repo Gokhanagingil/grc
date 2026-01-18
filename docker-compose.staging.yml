@@ -77,6 +77,11 @@ services:
       # Demo admin (staging)
       DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD}
+      
+      # Version info (set by deploy workflow)
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
+      GIT_COMMIT_SHORT: ${GIT_COMMIT_SHORT:-unknown}
+      BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
     ports:
       - "3002:3002"
     healthcheck:

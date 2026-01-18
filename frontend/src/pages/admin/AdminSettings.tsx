@@ -57,26 +57,29 @@ export const AdminSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [healthResponse, settingsResponse] = await Promise.all([
-        api.get('/health/detailed').catch(() => ({ data: null })),
+      // Use /health/live and /health/db instead of non-existent /health/detailed
+      const [liveResponse, dbResponse, settingsResponse] = await Promise.all([
+        api.get('/health/live').catch(() => ({ data: null })),
+        api.get('/health/db').catch(() => ({ data: null })),
         api.get('/settings/system').catch(() => ({ data: { settings: [] } })),
       ]);
 
-      const healthData = healthResponse.data?.data || healthResponse.data;
+      const liveData = liveResponse.data?.data || liveResponse.data;
+      const dbData = dbResponse.data?.data || dbResponse.data;
       const settingsData = settingsResponse.data?.data?.settings || 
                           settingsResponse.data?.settings || [];
 
       setSystemInfo({
-        backendVersion: healthData?.version || process.env.REACT_APP_VERSION || '1.0.0',
+        backendVersion: liveData?.service || process.env.REACT_APP_VERSION || '1.0.0',
         frontendVersion: process.env.REACT_APP_VERSION || '1.0.0',
-        apiGatewayStatus: healthData?.status === 'OK' ? 'Healthy' : 'Unknown',
+        apiGatewayStatus: liveData?.status === 'ok' ? 'Healthy' : 'Unknown',
         jwtExpiry: '24 hours',
         activeTenant: user?.tenantId || 'Default',
-        logLevel: healthData?.logLevel || 'info',
+        logLevel: 'info',
         storageProvider: 'Local',
-        nodeEnv: healthData?.environment || 'production',
-        uptime: healthData?.uptime || 0,
-        databaseStatus: healthData?.checks?.database?.status || 'Unknown',
+        nodeEnv: 'production',
+        uptime: liveData?.uptime || 0,
+        databaseStatus: dbData?.details?.connected ? 'OK' : 'Unknown',
       });
 
       setSettings(settingsData);

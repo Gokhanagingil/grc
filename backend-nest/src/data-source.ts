@@ -2,6 +2,11 @@ import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  buildTypeORMDataSourceOptions,
+  getDatabaseConnectionConfig,
+  formatConnectionConfigForLogging,
+} from './config/database-config';
 
 // Load environment variables from .env file
 config();
@@ -11,17 +16,42 @@ config();
  *
  * Migration mode determines whether to load migrations from:
  * - "dist": dist/migrations/*.js (production/staging)
- * - "src": src/migrations/*.ts (development)
+ * - "src": src/migrations/*.ts (development/test)
  *
- * Priority:
- * 1. TYPEORM_MIGRATIONS_MODE env var (explicit override)
- * 2. Auto-detect based on runtime environment (dist vs src)
- * 3. Default based on NODE_ENV: "dist" for production/staging, "src" for development
+ * Priority (test safety first):
+ * 1. Test environment (NODE_ENV === 'test' OR JEST_WORKER_ID is set) → ALWAYS 'src'
+ * 2. Production/staging (NODE_ENV === 'production' || 'staging') → ALWAYS 'dist'
+ * 3. TYPEORM_MIGRATIONS_MODE env var (explicit override, but NOT in test)
+ * 4. Auto-detect based on runtime environment (dist vs src)
+ * 5. Default: 'src' for development
  *
  * Production/staging environments MUST use "dist" mode.
+ * Test environments MUST use "src" mode (cannot be overridden).
  */
 function resolveMigrationMode(): 'dist' | 'src' {
-  // Explicit mode override via environment variable
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isJestWorker = !!process.env.JEST_WORKER_ID;
+  const isTestEnv = nodeEnv === 'test' || isJestWorker;
+  const isProductionEnv = nodeEnv === 'production' || nodeEnv === 'staging';
+
+  // TEST SAFETY: Test environment MUST always use 'src' mode
+  // This cannot be overridden by TYPEORM_MIGRATIONS_MODE
+  if (isTestEnv) {
+    console.log(
+      `[TypeORM] Migration mode: src (forced for test environment - NODE_ENV=${nodeEnv}${isJestWorker ? ', JEST_WORKER_ID set' : ''})`,
+    );
+    return 'src';
+  }
+
+  // Production/staging MUST use 'dist' mode
+  if (isProductionEnv) {
+    console.log(
+      `[TypeORM] Migration mode: dist (forced for ${nodeEnv} environment)`,
+    );
+    return 'dist';
+  }
+
+  // Explicit mode override via environment variable (only if not in test)
   const explicitMode = process.env.TYPEORM_MIGRATIONS_MODE;
   if (explicitMode === 'dist' || explicitMode === 'src') {
     console.log(
@@ -32,30 +62,70 @@ function resolveMigrationMode(): 'dist' | 'src' {
 
   // Auto-detect based on runtime environment
   const isDist = isDistEnvironment();
-  
-  // For production/staging, default to "dist" even if auto-detection fails
+  const mode = isDist ? 'dist' : 'src';
+  console.log(
+    `[TypeORM] Migration mode: ${mode} (auto-detected from runtime environment)`,
+  );
+
+  return mode;
+}
+
+/**
+ * Resolve entities mode from environment variable or auto-detect
+ *
+ * Entities mode determines whether to load entities from:
+ * - "dist": dist directory with .entity.js files (production/staging)
+ * - "src": src directory with .entity.ts files (development/test)
+ *
+ * Priority (test safety first):
+ * 1. Test environment (NODE_ENV === 'test' OR JEST_WORKER_ID is set) → ALWAYS 'src'
+ * 2. Production/staging (NODE_ENV === 'production' || 'staging') → ALWAYS 'dist'
+ * 3. TYPEORM_ENTITIES_MODE env var (explicit override, but NOT in test)
+ * 4. Auto-detect based on runtime environment (dist vs src)
+ * 5. Default: 'src' for development
+ *
+ * Production/staging environments MUST use "dist" mode.
+ * Test environments MUST use "src" mode (cannot be overridden).
+ */
+function resolveEntitiesMode(): 'dist' | 'src' {
   const nodeEnv = process.env.NODE_ENV || 'development';
+  const isJestWorker = !!process.env.JEST_WORKER_ID;
+  const isTestEnv = nodeEnv === 'test' || isJestWorker;
   const isProductionEnv = nodeEnv === 'production' || nodeEnv === 'staging';
-  
-  let mode: 'dist' | 'src';
-  if (isDist) {
-    mode = 'dist';
-  } else if (isProductionEnv) {
-    // Production/staging must use "dist" mode
-    mode = 'dist';
+
+  // TEST SAFETY: Test environment MUST always use 'src' mode
+  // This cannot be overridden by TYPEORM_ENTITIES_MODE
+  if (isTestEnv) {
     console.log(
-      `[TypeORM] Migration mode: ${mode} (forced for ${nodeEnv} environment)`,
+      `[TypeORM] Entities mode: src (forced for test environment - NODE_ENV=${nodeEnv}${isJestWorker ? ', JEST_WORKER_ID set' : ''})`,
     );
-  } else {
-    mode = 'src';
+    return 'src';
   }
-  
-  if (!isProductionEnv || isDist) {
+
+  // Production/staging MUST use 'dist' mode
+  if (isProductionEnv) {
     console.log(
-      `[TypeORM] Migration mode: ${mode} (auto-detected from runtime environment)`,
+      `[TypeORM] Entities mode: dist (forced for ${nodeEnv} environment)`,
     );
+    return 'dist';
   }
-  
+
+  // Explicit mode override via environment variable (only if not in test)
+  const explicitMode = process.env.TYPEORM_ENTITIES_MODE;
+  if (explicitMode === 'dist' || explicitMode === 'src') {
+    console.log(
+      `[TypeORM] Entities mode: ${explicitMode} (explicit via TYPEORM_ENTITIES_MODE)`,
+    );
+    return explicitMode;
+  }
+
+  // Auto-detect based on runtime environment
+  const isDist = isDistEnvironment();
+  const mode = isDist ? 'dist' : 'src';
+  console.log(
+    `[TypeORM] Entities mode: ${mode} (auto-detected from runtime environment)`,
+  );
+
   return mode;
 }
 
@@ -165,27 +235,47 @@ function isDistEnvironment(): boolean {
  *   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB (fallbacks)
  */
 const migrationMode = resolveMigrationMode();
+const entitiesMode = resolveEntitiesMode();
+
+// Resolve migrations glob pattern based on mode using ABSOLUTE paths
+// This ensures migrations are found regardless of process.cwd()
+// __dirname is: backend-nest/src when running from src, backend-nest/dist when running from dist
+const migrationsDir = path.join(__dirname, 'migrations');
+const migrationsExtension = migrationMode === 'dist' ? '*.js' : '*.ts';
+const migrationsGlob = [path.join(migrationsDir, migrationsExtension)];
+
+// Resolve entities glob pattern based on mode using ABSOLUTE paths
+// This ensures entities are found regardless of process.cwd()
+const entitiesExtension =
+  entitiesMode === 'dist' ? '*.entity.js' : '*.entity.ts';
+const entitiesGlob = [path.join(__dirname, '**', entitiesExtension)];
+
+// Log resolved migrations glob (safe, no secrets)
+console.log(
+  `[TypeORM] Resolved migrations glob: ${JSON.stringify(migrationsGlob)}`,
+);
+console.log(
+  `[TypeORM] Migration discovery: __dirname=${__dirname}, process.cwd()=${process.cwd()}`,
+);
+
+// Log resolved entities glob (safe, no secrets)
+console.log(
+  `[TypeORM] Resolved entities glob: ${JSON.stringify(entitiesGlob)}`,
+);
+
+// Use canonical database connection config builder
+const dbConfig = getDatabaseConnectionConfig();
+const baseDataSourceOptions = buildTypeORMDataSourceOptions();
+
+console.log(
+  `[TypeORM] Database connection: ${formatConnectionConfigForLogging(dbConfig)}`,
+);
 
 const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(
-    process.env.DB_PORT || process.env.POSTGRES_PORT || '5432',
-    10,
-  ),
-  username: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
-  password:
-    process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || process.env.POSTGRES_DB || 'grc_platform',
-  entities:
-    migrationMode === 'dist'
-      ? ['dist/**/*.entity.js']
-      : ['src/**/*.entity.ts'],
-  migrations:
-    migrationMode === 'dist'
-      ? ['dist/migrations/*.js']
-      : ['src/migrations/*.ts'],
-  synchronize: false, // NEVER enable synchronize - always use migrations
+  ...baseDataSourceOptions,
+  entities: entitiesGlob,
+  migrations: migrationsGlob,
+  migrationsTableName: 'typeorm_migrations', // Explicit table name to prevent collisions
   logging: process.env.NODE_ENV === 'development',
 });
 

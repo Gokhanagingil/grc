@@ -13,6 +13,7 @@
 
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { resolveMigrationsTableName } from '../config/migrations-table-resolver';
 
 // Load environment variables
 config();
@@ -35,11 +36,22 @@ async function showMigrationsStatus() {
     console.log('Connecting to database...\n');
     await dataSource.initialize();
 
-    // Query migrations table (TypeORM default table name)
+    // Resolve the correct migrations table name
+    const resolution = await resolveMigrationsTableName(dataSource);
+    const migrationsTableName = resolution.tableName;
+
+    console.log(
+      `Using migrations table: "${migrationsTableName}" (source: ${resolution.source})`,
+    );
+    if (resolution.warning) {
+      console.log(`WARNING: ${resolution.warning}\n`);
+    }
+
+    // Query migrations table using resolved table name
     // TypeORM query() returns any[] by design, so we need to handle it
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const migrations = await dataSource.query(
-      `SELECT * FROM migrations ORDER BY timestamp DESC LIMIT 20`,
+      `SELECT * FROM "${migrationsTableName}" ORDER BY timestamp DESC LIMIT 20`,
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -92,21 +104,9 @@ async function showMigrationsStatus() {
       console.log('');
     }
 
-    // Also check if migrations table exists
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const tableExists = await dataSource.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'migrations'
-      );
-    `);
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!tableExists[0]?.exists) {
-      console.log(
-        'WARNING: The migrations table does not exist in the database.',
-      );
+    // Print warning if using default table (neither table exists)
+    if (resolution.source === 'default') {
+      console.log('WARNING: No migrations table found in the database.');
       console.log(
         'Run migrations first: npx typeorm migration:run -d dist/data-source.js\n',
       );

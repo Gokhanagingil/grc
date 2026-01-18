@@ -45,18 +45,26 @@ import {
   Search as SearchIcon,
   FilterList as FilterIcon,
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState } from '../components/common';
+import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { AuditScopeCard, RequirementDetailDrawer, StandardsScopeTab } from '../components/audit';
 import { useFormLayout } from '../hooks/useFormLayout';
 import { useUiPolicy } from '../hooks/useUiPolicy';
 import { api } from '../services/api';
 import { useOnboardingSafe } from '../contexts/OnboardingContext';
+import { safeArray, ensureArray } from '../utils/safeHelpers';
+import {
+  normalizeAuditPermissions,
+  normalizeFindings,
+  normalizeAuditRequirements,
+  normalizeAuditReports,
+  normalizeAvailableRequirements,
+} from '../api/normalizers/audit';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
@@ -179,9 +187,24 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+// Map tab names to indices for URL search params
+const TAB_NAMES = ['scope', 'standards', 'findings', 'reports', 'attachments'] as const;
+type TabName = typeof TAB_NAMES[number];
+
+const getTabIndex = (tabName: string | null): number => {
+  if (!tabName) return 0;
+  const index = TAB_NAMES.indexOf(tabName as TabName);
+  return index >= 0 ? index : 0;
+};
+
+const getTabName = (index: number): TabName => {
+  return TAB_NAMES[index] || 'scope';
+};
+
 export const AuditDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   useAuth();
   const { context: onboardingContext } = useOnboardingSafe();
   // Check for create mode: either no id (from /audits/new route) or id === 'new' (from /audits/:id route)
@@ -196,7 +219,12 @@ export const AuditDetail: React.FC = () => {
     const [permissions, setPermissions] = useState<AuditPermissions | null>(null);
     const [users, setUsers] = useState<User[]>([]);
   
-                const [activeTab, setActiveTab] = useState(0);
+                // Tab state managed via URL search params (?tab=scope|standards|findings|reports)
+                const activeTab = getTabIndex(searchParams.get('tab'));
+                const setActiveTab = (index: number) => {
+                  const tabName = getTabName(index);
+                  setSearchParams({ tab: tabName }, { replace: true });
+                };
                 const [findings, setFindings] = useState<Finding[]>([]);
                 const [auditRequirements, setAuditRequirements] = useState<AuditRequirement[]>([]);
                 const [reports, setReports] = useState<AuditReport[]>([]);
@@ -310,16 +338,18 @@ export const AuditDetail: React.FC = () => {
     try {
       const response = await api.get(`/grc/audits/${id}/permissions`);
       const permissionsData = unwrapResponse<AuditPermissions>(response);
-      setPermissions(permissionsData || { read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
+      // Normalize permissions to ensure array fields are always arrays
+      setPermissions(normalizeAuditPermissions(permissionsData));
     } catch {
-      setPermissions({ read: true, write: false, delete: false, maskedFields: [], deniedFields: [] });
+      setPermissions(normalizeAuditPermissions(null));
     }
   }, [id, isNew]);
 
     const fetchUsers = useCallback(async () => {
       try {
         const response = await api.get('/api/users');
-        setUsers(response.data.users || response.data || []);
+        // Use ensureArray to safely extract users array from any response shape
+        setUsers(ensureArray<User>(response.data));
       } catch {
         setUsers([]);
       }
@@ -335,9 +365,11 @@ export const AuditDetail: React.FC = () => {
                       api.get(`/grc/audits/${id}/requirements`),
                       api.get(`/grc/audits/${id}/reports`).catch(() => ({ data: [] }))
                     ]);
-                    setFindings(unwrapResponse<Finding[]>(findingsRes) || []);
-                    setAuditRequirements(unwrapResponse<AuditRequirement[]>(requirementsRes) || []);
-                    setReports(unwrapResponse<AuditReport[]>(reportsRes) || []);
+                    // Normalize all responses to ensure array fields are always arrays
+                    // This prevents crashes from malformed API responses
+                    setFindings(normalizeFindings(unwrapResponse<Finding[]>(findingsRes)));
+                    setAuditRequirements(normalizeAuditRequirements(unwrapResponse<AuditRequirement[]>(requirementsRes)));
+                    setReports(normalizeAuditReports(unwrapResponse<AuditReport[]>(reportsRes)));
                   } catch {
                     setFindings([]);
                     setAuditRequirements([]);
@@ -359,7 +391,7 @@ export const AuditDetail: React.FC = () => {
           setTimeout(() => navigate(`/audits/${id}/reports/${newReportId}`), 1500);
         } else {
           const reportsRes = await api.get(`/grc/audits/${id}/reports`);
-          setReports(reportsRes.data || []);
+          setReports(normalizeAuditReports(unwrapResponse(reportsRes)));
         }
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
@@ -377,7 +409,7 @@ export const AuditDetail: React.FC = () => {
         await api.patch(`/grc/audits/${id}/reports/${reportId}/status`, { status: newStatus });
         setSuccess(`Report status updated to ${newStatus.replace(/_/g, ' ')}`);
         const reportsRes = await api.get(`/grc/audits/${id}/reports`);
-        setReports(reportsRes.data || []);
+        setReports(normalizeAuditReports(unwrapResponse(reportsRes)));
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
         setError(error.response?.data?.message || 'Failed to update report status');
@@ -400,7 +432,8 @@ export const AuditDetail: React.FC = () => {
           try {
             const response = await api.get('/grc/requirements');
             const data = unwrapResponse<Array<{ id: string; framework: string; referenceCode: string; title: string }>>(response);
-            setAvailableRequirements(data || []);
+            // Normalize to ensure we always have an array
+            setAvailableRequirements(normalizeAvailableRequirements(data));
           } catch {
             setAvailableRequirements([]);
           }
@@ -522,7 +555,7 @@ export const AuditDetail: React.FC = () => {
         };
 
                 const getUniqueFrameworks = (): string[] => {
-                  const frameworks = auditRequirements.map(r => r.framework || r.requirement?.framework);
+                  const frameworks = safeArray(auditRequirements).map(r => r.framework || r.requirement?.framework);
                   const unique: string[] = [];
                   for (const f of frameworks) {
                     if (!f) continue;
@@ -537,7 +570,7 @@ export const AuditDetail: React.FC = () => {
                 };
 
         const getUniqueDomains = (): string[] => {
-          const domains = auditRequirements
+          const domains = safeArray(auditRequirements)
             .filter(r => !frameworkFilter || (r.framework || r.requirement?.framework) === frameworkFilter)
             .map(r => {
               const code = r.referenceCode || r.requirement?.referenceCode || '';
@@ -554,7 +587,7 @@ export const AuditDetail: React.FC = () => {
         };
 
         const getFilteredRequirements = (): AuditRequirement[] => {
-          return auditRequirements.filter(r => {
+          return safeArray(auditRequirements).filter(r => {
             const framework = r.framework || r.requirement?.framework;
             const referenceCode = r.referenceCode || r.requirement?.referenceCode || '';
             const title = r.title || r.requirement?.title || '';
@@ -664,7 +697,7 @@ export const AuditDetail: React.FC = () => {
   };
 
   const isFieldHidden = (fieldName: string): boolean => {
-    if (permissions?.maskedFields.includes(fieldName)) return true;
+    if (permissions?.maskedFields?.includes(fieldName)) return true;
     if (uiPolicyHidden(fieldName)) return true;
     if (layout?.hiddenFields?.includes(fieldName)) return true;
     return false;
@@ -673,7 +706,7 @@ export const AuditDetail: React.FC = () => {
   const isFieldReadonly = (fieldName: string): boolean => {
     if (!isEditMode) return true;
     if (!permissions?.write) return true;
-    if (permissions?.deniedFields.includes(fieldName)) return true;
+    if (permissions?.deniedFields?.includes(fieldName)) return true;
     if (uiPolicyReadonly(fieldName)) return true;
     if (layout?.readonlyFields?.includes(fieldName)) return true;
     return false;
@@ -865,7 +898,7 @@ export const AuditDetail: React.FC = () => {
                       onChange={(e) => handleFieldChange('lead_auditor_id', e.target.value || null)}
                     >
                       <MenuItem value="">None</MenuItem>
-                      {users.map(u => (
+                      {safeArray(users).map(u => (
                         <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</MenuItem>
                       ))}
                     </Select>
@@ -1000,10 +1033,11 @@ export const AuditDetail: React.FC = () => {
                                     <CardContent>
                                       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-                                          <Tab label={`Scope & Standards (${auditRequirements.length})`} />
+                                          <Tab label={`Scope & Standards (${safeArray(auditRequirements).length})`} />
                                           <Tab label="Standards Library" />
-                                          <Tab label={`Findings & CAPA (${findings.length})`} />
-                                          <Tab label={`Reports (${reports.length})`} icon={<ReportIcon />} iconPosition="start" />
+                                          <Tab label={`Findings & CAPA (${safeArray(findings).length})`} />
+                                          <Tab label={`Reports (${safeArray(reports).length})`} icon={<ReportIcon />} iconPosition="start" />
+                                          <Tab label="Attachments" />
                                         </Tabs>
                                       </Box>
 
@@ -1025,7 +1059,7 @@ export const AuditDetail: React.FC = () => {
                                           <Box display="flex" justifyContent="center" p={3}>
                                             <CircularProgress />
                                           </Box>
-                                        ) : auditRequirements.length === 0 ? (
+                                        ) : safeArray(auditRequirements).length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No requirements in audit scope. Click "Add Requirements" to add standards/requirements to this audit.</Typography>
                                         ) : (
                                           <Grid container spacing={2}>
@@ -1209,7 +1243,7 @@ export const AuditDetail: React.FC = () => {
                                           <Box display="flex" justifyContent="center" p={3}>
                                             <CircularProgress />
                                           </Box>
-                                        ) : findings.length === 0 ? (
+                                        ) : safeArray(findings).length === 0 ? (
                                           <Typography color="textSecondary" sx={{ p: 2 }}>No findings recorded for this audit. Click "Add Finding" to create a new finding.</Typography>
                                         ) : (
                                           <TableContainer component={Paper} variant="outlined">
@@ -1225,7 +1259,7 @@ export const AuditDetail: React.FC = () => {
                                                 </TableRow>
                                               </TableHead>
                                               <TableBody>
-                                                {findings.map((finding) => (
+                                                {safeArray(findings).map((finding) => (
                                                   <TableRow key={finding.id} hover>
                                                     <TableCell>
                                                       <Typography variant="body2" fontWeight="medium">
@@ -1261,7 +1295,7 @@ export const AuditDetail: React.FC = () => {
                                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                                         {finding.issueRequirements && finding.issueRequirements.length > 0 ? (
                                                           finding.issueRequirements.map((ir) => {
-                                                            const matchingAuditReq = auditRequirements.find(
+                                                            const matchingAuditReq = safeArray(auditRequirements).find(
                                                               ar => ar.requirementId === ir.requirementId
                                                             );
                                                             const referenceCode = matchingAuditReq?.referenceCode || matchingAuditReq?.requirement?.referenceCode || 'Req';
@@ -1330,7 +1364,7 @@ export const AuditDetail: React.FC = () => {
                           <Box display="flex" justifyContent="center" p={3}>
                             <CircularProgress />
                           </Box>
-                        ) : reports.length === 0 ? (
+                        ) : safeArray(reports).length === 0 ? (
                           <Typography color="textSecondary" sx={{ p: 2 }}>No reports generated for this audit yet. Click "Generate Report" to create one.</Typography>
                         ) : (
                           <TableContainer>
@@ -1345,7 +1379,7 @@ export const AuditDetail: React.FC = () => {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {reports.map((report) => (
+                                {safeArray(reports).map((report) => (
                                   <TableRow key={report.id}>
                                     <TableCell>v{report.version}</TableCell>
                                     <TableCell>
@@ -1409,6 +1443,11 @@ export const AuditDetail: React.FC = () => {
                           </TableContainer>
                         )}
                       </TabPanel>
+
+                      {/* Attachments Tab */}
+                      <TabPanel value={activeTab} index={4}>
+                        <AttachmentPanel refTable="grc_audits" refId={audit.id} />
+                      </TabPanel>
                     </CardContent>
                   </Card>
                 )}
@@ -1420,8 +1459,8 @@ export const AuditDetail: React.FC = () => {
               {permissions.read && ' Read'}
               {permissions.write && ' | Write'}
               {permissions.delete && ' | Delete'}
-              {permissions.maskedFields.length > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
-              {permissions.deniedFields.length > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
+              {(permissions.maskedFields?.length ?? 0) > 0 && ` | Masked fields: ${permissions.maskedFields.join(', ')}`}
+              {(permissions.deniedFields?.length ?? 0) > 0 && ` | Denied fields: ${permissions.deniedFields.join(', ')}`}
             </Typography>
           </Paper>
         )}
@@ -1438,7 +1477,7 @@ export const AuditDetail: React.FC = () => {
             <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
               Select requirements to add to this audit's scope. Requirements already in scope will be skipped.
             </Typography>
-            {availableRequirements.length === 0 ? (
+            {safeArray(availableRequirements).length === 0 ? (
               <Typography color="textSecondary">No requirements available.</Typography>
             ) : (
               <TableContainer sx={{ maxHeight: 400 }}>
@@ -1447,11 +1486,11 @@ export const AuditDetail: React.FC = () => {
                     <TableRow>
                       <TableCell padding="checkbox">
                         <Checkbox
-                          indeterminate={selectedRequirementIds.length > 0 && selectedRequirementIds.length < availableRequirements.length}
-                          checked={selectedRequirementIds.length === availableRequirements.length}
+                          indeterminate={selectedRequirementIds.length > 0 && selectedRequirementIds.length < safeArray(availableRequirements).length}
+                          checked={selectedRequirementIds.length === safeArray(availableRequirements).length}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedRequirementIds(availableRequirements.map(r => r.id));
+                              setSelectedRequirementIds(safeArray(availableRequirements).map(r => r.id));
                             } else {
                               setSelectedRequirementIds([]);
                             }
@@ -1464,9 +1503,9 @@ export const AuditDetail: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {availableRequirements.map((req) => {
+                    {safeArray(availableRequirements).map((req) => {
                       const isSelected = selectedRequirementIds.includes(req.id);
-                      const isAlreadyInScope = auditRequirements.some(ar => ar.requirementId === req.id);
+                      const isAlreadyInScope = safeArray(auditRequirements).some(ar => ar.requirementId === req.id);
                       return (
                         <TableRow 
                           key={req.id} 
@@ -1589,7 +1628,7 @@ export const AuditDetail: React.FC = () => {
                     onChange={(e) => setFindingFormData(prev => ({ ...prev, ownerUserId: e.target.value }))}
                   >
                     <MenuItem value="">None</MenuItem>
-                    {users.map(u => (
+                    {safeArray(users).map(u => (
                       <MenuItem key={u.id} value={String(u.id)}>{u.first_name} {u.last_name}</MenuItem>
                     ))}
                   </Select>
@@ -1605,7 +1644,7 @@ export const AuditDetail: React.FC = () => {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              {auditRequirements.length > 0 && (
+              {safeArray(auditRequirements).length > 0 && (
                 <Grid item xs={12}>
                   <FormControl fullWidth>
                     <InputLabel>Link to Requirements</InputLabel>
@@ -1617,7 +1656,7 @@ export const AuditDetail: React.FC = () => {
                       renderValue={(selected) => (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                           {(selected as string[]).map((value) => {
-                            const ar = auditRequirements.find(r => r.requirementId === value);
+                            const ar = safeArray(auditRequirements).find(r => r.requirementId === value);
                             return (
                               <Chip 
                                 key={value} 
@@ -1629,7 +1668,7 @@ export const AuditDetail: React.FC = () => {
                         </Box>
                       )}
                     >
-                      {auditRequirements.map((ar) => (
+                      {safeArray(auditRequirements).map((ar) => (
                         <MenuItem key={ar.requirementId} value={ar.requirementId}>
                           <Checkbox checked={findingFormData.requirementIds.includes(ar.requirementId)} />
                           <ListItemText 

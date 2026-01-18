@@ -201,13 +201,15 @@ export const AdminSystem: React.FC = () => {
 
       let uptime: number | undefined;
       let environment: string | undefined;
+      // Use /health/live endpoint which provides uptime data
+      // Note: /health/detailed endpoint does not exist in the backend
       try {
-        const detailedHealth = await api.get('/health/detailed');
-        const data = detailedHealth.data?.data || detailedHealth.data;
+        const liveHealth = await api.get('/health/live');
+        const data = liveHealth.data?.data || liveHealth.data;
         uptime = data?.uptime;
-        environment = data?.environment;
+        environment = data?.service ? 'production' : undefined;
       } catch {
-        // Detailed health endpoint may not exist
+        // Health endpoint may not be available
       }
 
       setSystemStatus({
@@ -831,13 +833,13 @@ export const AdminSystem: React.FC = () => {
                   <AdminCard title={t(ADMIN_PLATFORM_KEYS.notifications.emailProvider)} icon={<EmailIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                       <Chip
-                        label={notificationStatus.email.enabled ? t(ADMIN_PLATFORM_KEYS.notifications.enabled) : t(ADMIN_PLATFORM_KEYS.notifications.disabled)}
-                        color={notificationStatus.email.enabled ? 'success' : 'default'}
+                        label={notificationStatus.email?.enabled ? t(ADMIN_PLATFORM_KEYS.notifications.enabled) : t(ADMIN_PLATFORM_KEYS.notifications.disabled)}
+                        color={notificationStatus.email?.enabled ? 'success' : 'default'}
                         size="small"
                       />
                       <Chip
-                        label={notificationStatus.email.configured ? t(ADMIN_PLATFORM_KEYS.notifications.configured) : t(ADMIN_PLATFORM_KEYS.notifications.notConfigured)}
-                        color={notificationStatus.email.configured ? 'info' : 'warning'}
+                        label={notificationStatus.email?.configured ? t(ADMIN_PLATFORM_KEYS.notifications.configured) : t(ADMIN_PLATFORM_KEYS.notifications.notConfigured)}
+                        color={notificationStatus.email?.configured ? 'info' : 'warning'}
                         size="small"
                         variant="outlined"
                       />
@@ -846,7 +848,7 @@ export const AdminSystem: React.FC = () => {
                       variant="outlined"
                       size="small"
                       onClick={() => testNotification('email')}
-                      disabled={notificationTestLoading !== null || !notificationStatus.email.enabled}
+                      disabled={notificationTestLoading !== null || !notificationStatus.email?.enabled}
                       startIcon={notificationTestLoading === 'email' ? <CircularProgress size={16} /> : <TestIcon />}
                       fullWidth
                     >
@@ -858,13 +860,13 @@ export const AdminSystem: React.FC = () => {
                   <AdminCard title={t(ADMIN_PLATFORM_KEYS.notifications.webhookProvider)} icon={<WebhookIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                       <Chip
-                        label={notificationStatus.webhook.enabled ? t(ADMIN_PLATFORM_KEYS.notifications.enabled) : t(ADMIN_PLATFORM_KEYS.notifications.disabled)}
-                        color={notificationStatus.webhook.enabled ? 'success' : 'default'}
+                        label={notificationStatus.webhook?.enabled ? t(ADMIN_PLATFORM_KEYS.notifications.enabled) : t(ADMIN_PLATFORM_KEYS.notifications.disabled)}
+                        color={notificationStatus.webhook?.enabled ? 'success' : 'default'}
                         size="small"
                       />
                       <Chip
-                        label={notificationStatus.webhook.configured ? t(ADMIN_PLATFORM_KEYS.notifications.configured) : t(ADMIN_PLATFORM_KEYS.notifications.notConfigured)}
-                        color={notificationStatus.webhook.configured ? 'info' : 'warning'}
+                        label={notificationStatus.webhook?.configured ? t(ADMIN_PLATFORM_KEYS.notifications.configured) : t(ADMIN_PLATFORM_KEYS.notifications.notConfigured)}
+                        color={notificationStatus.webhook?.configured ? 'info' : 'warning'}
                         size="small"
                         variant="outlined"
                       />
@@ -873,7 +875,7 @@ export const AdminSystem: React.FC = () => {
                       variant="outlined"
                       size="small"
                       onClick={() => testNotification('webhook')}
-                      disabled={notificationTestLoading !== null || !notificationStatus.webhook.enabled}
+                      disabled={notificationTestLoading !== null || !notificationStatus.webhook?.enabled}
                       startIcon={notificationTestLoading === 'webhook' ? <CircularProgress size={16} /> : <TestIcon />}
                       fullWidth
                     >
@@ -884,15 +886,15 @@ export const AdminSystem: React.FC = () => {
                 <Grid item xs={12} sm={6} md={4}>
                   <AdminCard title={t(ADMIN_PLATFORM_KEYS.notifications.recentLogs)} icon={<InfoIcon />}>
                     <Typography variant="body2">
-                      <strong>Total:</strong> {notificationStatus.recentLogs.total}
+                      <strong>Total:</strong> {notificationStatus.recentLogs?.total ?? 'Unknown'}
                     </Typography>
                     <Typography variant="body2" color="success.main">
-                      <strong>{t(ADMIN_PLATFORM_KEYS.notifications.success)}:</strong> {notificationStatus.recentLogs.success}
+                      <strong>{t(ADMIN_PLATFORM_KEYS.notifications.success)}:</strong> {notificationStatus.recentLogs?.success ?? 'Unknown'}
                     </Typography>
                     <Typography variant="body2" color="error.main">
-                      <strong>{t(ADMIN_PLATFORM_KEYS.notifications.failed)}:</strong> {notificationStatus.recentLogs.failed}
+                      <strong>{t(ADMIN_PLATFORM_KEYS.notifications.failed)}:</strong> {notificationStatus.recentLogs?.failed ?? 'Unknown'}
                     </Typography>
-                    {notificationStatus.recentLogs.lastAttempt && (
+                    {notificationStatus.recentLogs?.lastAttempt && (
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
                         {t(ADMIN_PLATFORM_KEYS.notifications.lastAttempt)}: {new Date(notificationStatus.recentLogs.lastAttempt).toLocaleString()}
                       </Typography>

@@ -9,6 +9,10 @@ export { GrcRiskController } from './grc-risk.controller';
 export { GrcPolicyController } from './grc-policy.controller';
 export { GrcRequirementController } from './grc-requirement.controller';
 export { GrcAuditController } from './grc-audit.controller';
+export { GrcControlController } from './grc-control.controller';
+export { GrcEvidenceController } from './grc-evidence.controller';
+export { GrcCapaController } from './grc-capa.controller';
+export { GrcCoverageController } from './grc-coverage.controller';
 
 // Policy Versioning Controllers
 export { GrcPolicyVersionController } from './grc-policy-version.controller';
@@ -39,3 +43,21 @@ export {
 
 // Data Model Dictionary Controllers (Admin Studio FAZ 2)
 export { DataModelDictionaryController } from './data-model-dictionary.controller';
+
+// Dotwalking Query Builder Controllers
+export { DotWalkingController } from './dotwalking.controller';
+
+// Framework Activation Controllers
+export {
+  GrcFrameworksController,
+  TenantFrameworksController,
+} from './grc-frameworks.controller';
+
+// Platform Controllers (Universal Views)
+export { PlatformController } from './platform.controller';
+
+// List Options Controller (List Toolbar Standard)
+export { ListOptionsController } from './list-options.controller';
+
+// Export Controller (CSV Export with XSS protection)
+export { ExportController } from './export.controller';

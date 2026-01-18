@@ -9,6 +9,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { moduleApi, ModuleStatus, MenuItem } from '../services/platformApi';
 import { safeArray, safeIncludes } from '../utils/safeHelpers';
 
+/**
+ * Unwrap API response envelope
+ * Handles both formats:
+ * - Envelope: { success: true, data: T }
+ * - Direct: T
+ */
+function unwrapModuleResponse<T>(response: { data: unknown }): T {
+  const data = response.data;
+  if (
+    data &&
+    typeof data === 'object' &&
+    'success' in data &&
+    (data as { success: boolean }).success === true &&
+    'data' in data
+  ) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
+}
+
 export interface UseModulesResult {
   enabledModules: string[];
   moduleStatuses: ModuleStatus[];
@@ -37,10 +57,16 @@ export function useModules(): UseModulesResult {
         moduleApi.getMenu(),
       ]);
 
+      // Unwrap envelope responses and extract data
+      // Handles both: { success: true, data: { enabledModules: [...] } } and { enabledModules: [...] }
+      const enabledData = unwrapModuleResponse<{ tenantId?: string; enabledModules?: string[] }>(enabledResponse);
+      const statusData = unwrapModuleResponse<{ tenantId?: string; modules?: ModuleStatus[] }>(statusResponse);
+      const menuData = unwrapModuleResponse<{ tenantId?: string; menuItems?: MenuItem[] }>(menuResponse);
+
       // Use safeArray to handle undefined/null responses
-      setEnabledModules(safeArray(enabledResponse.data?.enabledModules));
-      setModuleStatuses(safeArray(statusResponse.data?.modules));
-      setMenuItems(safeArray(menuResponse.data?.menuItems));
+      setEnabledModules(safeArray(enabledData?.enabledModules));
+      setModuleStatuses(safeArray(statusData?.modules));
+      setMenuItems(safeArray(menuData?.menuItems));
     } catch (err) {
       console.error('Error fetching modules:', err);
       setError('Failed to load module configuration');

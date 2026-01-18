@@ -111,8 +111,9 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        // Response format: { success: true, data: [...], meta: { page, pageSize, total, totalPages } }
-        expect(Array.isArray(response.body.data)).toBe(true);
+        // Response format (LIST-CONTRACT): { success: true, data: { items: [...], page, pageSize, total, totalPages } }
+        const items = response.body.data?.items ?? response.body.data;
+        expect(Array.isArray(items)).toBe(true);
       });
 
       it('should return 401 without token', async () => {
@@ -587,14 +588,15 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Pagination info is in response.body.meta, not data
+        // Pagination info is in response.body.data (LIST-CONTRACT format)
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('data');
-        expect(response.body).toHaveProperty('meta');
-        expect(response.body.meta).toHaveProperty('page', 1);
-        expect(response.body.meta).toHaveProperty('pageSize', 5);
-        expect(response.body.meta).toHaveProperty('total');
-        expect(response.body.meta).toHaveProperty('totalPages');
+        const paginatedData = response.body.data;
+        expect(paginatedData).toHaveProperty('items');
+        expect(paginatedData).toHaveProperty('page', 1);
+        expect(paginatedData).toHaveProperty('pageSize', 5);
+        expect(paginatedData).toHaveProperty('total');
+        expect(paginatedData).toHaveProperty('totalPages');
       });
 
       it('should support search', async () => {

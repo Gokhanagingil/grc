@@ -14,6 +14,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  UsePipes,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -29,6 +30,7 @@ import {
   LinkRequirementsDto,
 } from '../dto';
 import { Perf } from '../../common/decorators';
+import { RisksListQueryPipe } from '../../common/pipes';
 
 /**
  * GRC Risk Controller
@@ -63,6 +65,7 @@ export class GrcRiskController {
    */
   @Get()
   @Permissions(Permission.GRC_RISK_READ)
+  @UsePipes(RisksListQueryPipe)
   @Perf()
   async findAll(
     @Headers('x-tenant-id') tenantId: string,

@@ -29,11 +29,20 @@ import {
   Help as HelpIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import { safeArray } from '../utils/safeHelpers';
 
 interface Schema {
   entities: string[];
   fields: Record<string, string[]>;
   relationships: Record<string, Record<string, { entity: string; foreignKey: string; type: string }>>;
+}
+
+function unwrapApiResponse<T>(response: { data: unknown }): T {
+  const data = response.data;
+  if (data && typeof data === 'object' && 'success' in data && (data as { success: boolean }).success === true && 'data' in data) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
 }
 
 interface ParseResult {
@@ -70,18 +79,34 @@ export const DotWalkingBuilder: React.FC = () => {
 
   const fetchSchema = useCallback(async () => {
     try {
-      const response = await api.get('/dotwalking/schema');
-      setSchema(response.data);
-    } catch (err: any) {
-      setError('Failed to load schema');
+      const response = await api.get('/admin/data-model/dotwalking/schema');
+      const schemaData = unwrapApiResponse<Schema | null>(response);
+      if (schemaData) {
+        setSchema({
+          entities: safeArray(schemaData.entities),
+          fields: schemaData.fields ?? {},
+          relationships: schemaData.relationships ?? {},
+        });
+      } else {
+        setSchema({ entities: [], fields: {}, relationships: {} });
+        setError('Schema endpoint returned empty data. Dot-walking may not be available.');
+      }
+    } catch (err: unknown) {
+      setSchema({ entities: [], fields: {}, relationships: {} });
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load schema';
+      setError(`Failed to load schema: ${errorMessage}. The dot-walking feature may not be available.`);
     }
   }, []);
 
   const fetchSuggestions = useCallback(async (currentPath: string) => {
     try {
-      const response = await api.get(`/dotwalking/suggestions?path=${encodeURIComponent(currentPath)}`);
-      setSuggestions(response.data.suggestions || []);
-    } catch (err) {
+      const response = await api.get(`/admin/data-model/dotwalking/suggestions?path=${encodeURIComponent(currentPath)}`);
+      const data = unwrapApiResponse<{ suggestions?: string[] } | string[] | null>(response);
+      const suggestionsList = Array.isArray(data) 
+        ? data 
+        : safeArray(data?.suggestions);
+      setSuggestions(suggestionsList);
+    } catch {
       setSuggestions([]);
     }
   }, []);
@@ -92,12 +117,28 @@ export const DotWalkingBuilder: React.FC = () => {
       return;
     }
     try {
-      const response = await api.post('/dotwalking/validate', { path: currentPath });
-      setParseResult(response.data);
-    } catch (err: any) {
+      const response = await api.post('/admin/data-model/dotwalking/validate', { path: currentPath });
+      const data = unwrapApiResponse<ParseResult | null>(response);
+      if (data) {
+        setParseResult({
+          valid: data.valid ?? false,
+          error: data.error ?? null,
+          segments: safeArray(data.segments),
+          depth: data.depth ?? 0,
+        });
+      } else {
+        setParseResult({
+          valid: false,
+          error: 'Validation endpoint returned empty data',
+          segments: [],
+          depth: 0,
+        });
+      }
+    } catch (err: unknown) {
+      const errorResponse = err as { response?: { data?: { message?: string } } };
       setParseResult({
         valid: false,
-        error: err.response?.data?.message || 'Validation failed',
+        error: errorResponse?.response?.data?.message || 'Validation failed',
         segments: [],
         depth: 0
       });
@@ -121,12 +162,29 @@ export const DotWalkingBuilder: React.FC = () => {
     setLoading(true);
     setTestResult(null);
     try {
-      const response = await api.post('/dotwalking/test', { path });
-      setTestResult(response.data);
-    } catch (err: any) {
+      const response = await api.post('/admin/data-model/dotwalking/test', { path });
+      const data = unwrapApiResponse<TestResult | null>(response);
+      if (data) {
+        setTestResult({
+          valid: data.valid ?? false,
+          error: data.error,
+          path: data.path,
+          depth: data.depth,
+          sampleData: safeArray(data.sampleData),
+          sampleCount: data.sampleCount ?? 0,
+          suggestions: safeArray(data.suggestions),
+        });
+      } else {
+        setTestResult({
+          valid: false,
+          error: 'Test endpoint returned empty data'
+        });
+      }
+    } catch (err: unknown) {
+      const errorResponse = err as { response?: { data?: { message?: string } } };
       setTestResult({
         valid: false,
-        error: err.response?.data?.message || 'Test failed'
+        error: errorResponse?.response?.data?.message || 'Test failed'
       });
     } finally {
       setLoading(false);
@@ -257,7 +315,7 @@ export const DotWalkingBuilder: React.FC = () => {
                     Query executed successfully. Found {testResult.sampleCount} record(s).
                   </Alert>
                   
-                  {testResult.sampleData && testResult.sampleData.length > 0 && (
+                  {testResult.sampleData && testResult.sampleData.length > 0 && testResult.sampleData[0] && (
                     <TableContainer sx={{ maxHeight: 400 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
@@ -268,9 +326,9 @@ export const DotWalkingBuilder: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {testResult.sampleData.map((row, index) => (
+                          {testResult.sampleData.filter(row => row != null).map((row, index) => (
                             <TableRow key={index}>
-                              {Object.values(row).map((value: any, cellIndex) => (
+                              {Object.values(row).map((value: unknown, cellIndex) => (
                                 <TableCell key={cellIndex}>
                                   {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
                                 </TableCell>

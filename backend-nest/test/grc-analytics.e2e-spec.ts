@@ -182,14 +182,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
-        const data = response.body.data ?? response.body.items ?? response.body;
-        const meta = response.body.meta ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
-        expect(meta).toHaveProperty('total');
-        expect(meta).toHaveProperty('page');
-        expect(meta).toHaveProperty('pageSize');
-        expect(meta).toHaveProperty('totalPages');
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const paginatedData = response.body.data;
+        expect(paginatedData).toHaveProperty('items');
+        expect(Array.isArray(paginatedData.items)).toBe(true);
+        expect(paginatedData).toHaveProperty('total');
+        expect(paginatedData).toHaveProperty('page');
+        expect(paginatedData).toHaveProperty('pageSize');
+        expect(paginatedData).toHaveProperty('totalPages');
       });
 
       it('should respect page and pageSize parameters', async () => {
@@ -204,12 +204,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
-        const data = response.body.data ?? response.body.items ?? response.body;
-        const meta = response.body.meta ?? response.body;
-        expect(meta.page).toBe(1);
-        expect(meta.pageSize).toBe(5);
-        expect(data.length).toBeLessThanOrEqual(5);
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const paginatedData = response.body.data;
+        expect(paginatedData.page).toBe(1);
+        expect(paginatedData.pageSize).toBe(5);
+        expect(paginatedData.items.length).toBeLessThanOrEqual(5);
       });
 
       it('should enforce maximum pageSize of 100', async () => {
@@ -240,10 +239,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
-        const meta = response.body.meta ?? response.body;
-        const expectedTotalPages = Math.ceil(meta.total / meta.pageSize);
-        expect(meta.totalPages).toBe(expectedTotalPages);
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const paginatedData = response.body.data;
+        const expectedTotalPages = Math.ceil(
+          paginatedData.total / paginatedData.pageSize,
+        );
+        expect(paginatedData.totalPages).toBe(expectedTotalPages);
       });
     });
 
@@ -260,14 +261,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
-        const data = response.body.data ?? response.body.items ?? response.body;
-        const meta = response.body.meta ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
-        expect(meta).toHaveProperty('total');
-        expect(meta).toHaveProperty('page');
-        expect(meta).toHaveProperty('pageSize');
-        expect(meta).toHaveProperty('totalPages');
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const paginatedData = response.body.data;
+        expect(paginatedData).toHaveProperty('items');
+        expect(Array.isArray(paginatedData.items)).toBe(true);
+        expect(paginatedData).toHaveProperty('total');
+        expect(paginatedData).toHaveProperty('page');
+        expect(paginatedData).toHaveProperty('pageSize');
+        expect(paginatedData).toHaveProperty('totalPages');
       });
     });
 
@@ -284,14 +285,14 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
-        const data = response.body.data ?? response.body.items ?? response.body;
-        const meta = response.body.meta ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
-        expect(meta).toHaveProperty('total');
-        expect(meta).toHaveProperty('page');
-        expect(meta).toHaveProperty('pageSize');
-        expect(meta).toHaveProperty('totalPages');
+        // Response is wrapped in LIST-CONTRACT format: { success, data: { items, total, page, pageSize, totalPages } }
+        const paginatedData = response.body.data;
+        expect(paginatedData).toHaveProperty('items');
+        expect(Array.isArray(paginatedData.items)).toBe(true);
+        expect(paginatedData).toHaveProperty('total');
+        expect(paginatedData).toHaveProperty('page');
+        expect(paginatedData).toHaveProperty('pageSize');
+        expect(paginatedData).toHaveProperty('totalPages');
       });
     });
   });
@@ -337,9 +338,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         if (items.length >= 2) {
           // Verify ascending order by title
           const titles = items.map((r: { title: string }) => r.title);
@@ -351,22 +355,22 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         }
       });
 
-      it('should handle invalid sortBy field gracefully', async () => {
+      it('should return 400 for invalid sortBy field', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
           return;
         }
 
-        // Invalid sortBy should fall back to default (createdAt)
+        // Invalid sortBy should return 400 (not 500) per list query contract
         const response = await request(app.getHttpServer())
           .get('/grc/risks?sortBy=invalidField')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .expect(200);
+          .expect(400);
 
-        // Response is wrapped in standard envelope
-        const data = response.body.data ?? response.body.items ?? response.body;
-        expect(Array.isArray(data)).toBe(true);
+        expect(response.body).toHaveProperty('success', false);
+        expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toHaveProperty('message');
       });
     });
   });
@@ -405,9 +409,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         // All returned items should have status=identified
         for (const item of items) {
           expect(item.status).toBe('identified');
@@ -426,9 +433,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         // All returned items should have severity=high
         for (const item of items) {
           expect(item.severity).toBe('high');
@@ -447,9 +457,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         // All returned items should contain the search term
         for (const item of items) {
           const matchesTitle = item.title
@@ -473,9 +486,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         // All returned items should match both filters
         for (const item of items) {
           expect(item.severity).toBe('high');
@@ -495,12 +511,15 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope with pagination in meta
+        // Response is wrapped in LIST-CONTRACT format
+        const paginatedData = response.body.data;
         const items =
-          response.body.data ?? response.body.items ?? response.body;
-        const meta = response.body.meta ?? response.body;
-        expect(meta.page).toBe(1);
-        expect(meta.pageSize).toBe(5);
+          paginatedData?.items ??
+          paginatedData ??
+          response.body.items ??
+          response.body;
+        expect(paginatedData.page).toBe(1);
+        expect(paginatedData.pageSize).toBe(5);
         for (const item of items) {
           expect(item.severity).toBe('high');
         }
@@ -536,9 +555,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         for (const item of items) {
           expect(item.status).toBe('draft');
         }
@@ -556,9 +578,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         for (const item of items) {
           expect(item.category).toBe('Security');
         }
@@ -576,9 +601,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         for (const item of items) {
           const matchesName = item.name
             .toLowerCase()
@@ -605,9 +633,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         for (const item of items) {
           expect(item.framework).toBe('iso27001');
         }
@@ -625,9 +656,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
-        // Response is wrapped in standard envelope
+        // Response is wrapped in LIST-CONTRACT format
         const items =
-          response.body.data ?? response.body.items ?? response.body;
+          response.body.data?.items ??
+          response.body.data ??
+          response.body.items ??
+          response.body;
         for (const item of items) {
           expect(item.status).toBe('compliant');
         }
@@ -772,8 +806,12 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      // Response is wrapped in standard envelope
-      const items = response.body.data ?? response.body.items ?? response.body;
+      // Response is wrapped in LIST-CONTRACT format
+      const items =
+        response.body.data?.items ??
+        response.body.data ??
+        response.body.items ??
+        response.body;
       // All returned items should belong to the authenticated tenant
       for (const item of items) {
         expect(item.tenantId).toBe(tenantId);
@@ -800,11 +838,11 @@ describe('GRC Analytics, Filtering & Reporting (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      // Response is wrapped in standard envelope
+      // Response is wrapped in LIST-CONTRACT format
       const summaryData = summaryResponse.body.data ?? summaryResponse.body;
-      const risksMeta = risksResponse.body.meta ?? risksResponse.body;
+      const risksPaginatedData = risksResponse.body.data;
       // Summary total should match the number of risks for this tenant
-      expect(summaryData.total).toBe(risksMeta.total);
+      expect(summaryData.total).toBe(risksPaginatedData.total);
     });
   });
 });

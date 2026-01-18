@@ -1,0 +1,233 @@
+# =============================================================================
+# GRC Platform - Deploy Preflight Validation
+# =============================================================================
+# CI-local validation of deploy scripts without triggering actual deployment.
+# Runs on PRs that modify deploy workflow or ops scripts.
+#
+# Validates:
+#   - Bash syntax (bash -n)
+#   - JSON parsing logic with mock responses
+#   - Shellcheck (if available)
+#
+# This workflow does NOT:
+#   - SSH to any remote server
+#   - Access secrets
+#   - Trigger actual deployments
+# =============================================================================
+
+name: Deploy Preflight Check
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/deploy-staging.yml'
+      - 'ops/**/*.sh'
+      - 'scripts/**/*.sh'
+  push:
+    branches:
+      - 'hardening/**'
+      - 'ops/**'
+    paths:
+      - '.github/workflows/deploy-staging.yml'
+      - 'ops/**/*.sh'
+      - 'scripts/**/*.sh'
+
+jobs:
+  preflight-validation:
+    name: Validate Deploy Scripts
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check required tools
+        run: |
+          echo "=== Tool Availability Check ==="
+          echo "bash: $(bash --version | head -1)"
+          echo "jq: $(jq --version 2>/dev/null || echo 'not installed')"
+          
+          # jq is required for JSON parsing tests
+          if ! command -v jq &> /dev/null; then
+            echo "ERROR: jq is required but not installed"
+            exit 1
+          fi
+          echo "All required tools available"
+
+      - name: Bash syntax check
+        run: |
+          echo "=== Bash Syntax Validation ==="
+          ERRORS=0
+          
+          # Check ops scripts
+          for script in ops/*.sh; do
+            if [ -f "$script" ]; then
+              echo "Checking: $script"
+              if bash -n "$script" 2>&1; then
+                echo "  PASS: Syntax OK"
+              else
+                echo "  FAIL: Syntax error"
+                ERRORS=$((ERRORS + 1))
+              fi
+            fi
+          done
+          
+          # Check scripts directory
+          for script in scripts/*.sh; do
+            if [ -f "$script" ]; then
+              echo "Checking: $script"
+              if bash -n "$script" 2>&1; then
+                echo "  PASS: Syntax OK"
+              else
+                echo "  FAIL: Syntax error"
+                ERRORS=$((ERRORS + 1))
+              fi
+            fi
+          done
+          
+          if [ $ERRORS -gt 0 ]; then
+            echo "FAILED: $ERRORS script(s) have syntax errors"
+            exit 1
+          fi
+          echo "All scripts passed syntax check"
+
+      - name: Shellcheck (advisory)
+        continue-on-error: true
+        run: |
+          echo "=== Shellcheck Analysis (Advisory) ==="
+          
+          if ! command -v shellcheck &> /dev/null; then
+            echo "shellcheck not installed, skipping"
+            exit 0
+          fi
+          
+          # Run shellcheck on ops scripts (warnings only, don't fail)
+          for script in ops/*.sh scripts/*.sh; do
+            if [ -f "$script" ]; then
+              echo "Analyzing: $script"
+              shellcheck -S warning "$script" || true
+            fi
+          done
+          
+          echo "Shellcheck analysis complete (advisory only)"
+
+      - name: JSON parsing validation
+        run: |
+          echo "=== JSON Parsing Logic Validation ==="
+          
+          # Test the jq parsing logic used in deploy-staging.yml
+          # This validates that TOKEN and TENANT_ID extraction works correctly
+          
+          TESTS_PASSED=0
+          TESTS_FAILED=0
+          
+          # Test 1: Envelope format (NestJS standard response)
+          echo "Test 1: Envelope format response"
+          ENVELOPE_RESPONSE='{"success":true,"data":{"accessToken":"mock-token-123","tenantId":"00000000-0000-0000-0000-000000000001","user":{"email":"test@example.com"}}}'
+          
+          TOKEN=$(echo "$ENVELOPE_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty')
+          TENANT_ID=$(echo "$ENVELOPE_RESPONSE" | jq -r '.data.tenantId // .tenantId // empty')
+          
+          if [ "$TOKEN" = "mock-token-123" ] && [ "$TENANT_ID" = "00000000-0000-0000-0000-000000000001" ]; then
+            echo "  PASS: Envelope format parsed correctly"
+            echo "    TOKEN: [REDACTED - length ${#TOKEN}]"
+            echo "    TENANT_ID: $TENANT_ID"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  FAIL: Envelope format parsing failed"
+            echo "    Expected TOKEN: mock-token-123, Got: $TOKEN"
+            echo "    Expected TENANT_ID: 00000000-0000-0000-0000-000000000001, Got: $TENANT_ID"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+          fi
+          
+          # Test 2: Non-envelope format (direct response)
+          echo "Test 2: Non-envelope format response"
+          DIRECT_RESPONSE='{"accessToken":"direct-token-456","tenantId":"11111111-1111-1111-1111-111111111111","refreshToken":"refresh-xyz"}'
+          
+          TOKEN=$(echo "$DIRECT_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty')
+          TENANT_ID=$(echo "$DIRECT_RESPONSE" | jq -r '.data.tenantId // .tenantId // empty')
+          
+          if [ "$TOKEN" = "direct-token-456" ] && [ "$TENANT_ID" = "11111111-1111-1111-1111-111111111111" ]; then
+            echo "  PASS: Non-envelope format parsed correctly"
+            echo "    TOKEN: [REDACTED - length ${#TOKEN}]"
+            echo "    TENANT_ID: $TENANT_ID"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  FAIL: Non-envelope format parsing failed"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+          fi
+          
+          # Test 3: Missing token (should return empty)
+          echo "Test 3: Missing token handling"
+          MISSING_TOKEN='{"success":true,"data":{"user":{"email":"test@example.com"}}}'
+          
+          TOKEN=$(echo "$MISSING_TOKEN" | jq -r '.data.accessToken // .accessToken // empty')
+          
+          if [ -z "$TOKEN" ]; then
+            echo "  PASS: Missing token correctly returns empty"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  FAIL: Missing token should return empty, got: $TOKEN"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+          fi
+          
+          # Test 4: Invalid JSON handling
+          echo "Test 4: Invalid JSON handling"
+          INVALID_JSON='not valid json at all'
+          
+          TOKEN=$(echo "$INVALID_JSON" | jq -r '.data.accessToken // .accessToken // empty' 2>/dev/null || echo "")
+          
+          if [ -z "$TOKEN" ]; then
+            echo "  PASS: Invalid JSON correctly handled (empty result)"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  FAIL: Invalid JSON should return empty"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+          fi
+          
+          # Test 5: Key extraction for debugging (redacted output)
+          echo "Test 5: Safe key extraction for debugging"
+          DEBUG_RESPONSE='{"success":true,"data":{"accessToken":"secret","tenantId":"uuid","sensitiveField":"should-not-show"}}'
+          
+          KEYS=$(echo "$DEBUG_RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'invalid JSON')
+          DATA_KEYS=$(echo "$DEBUG_RESPONSE" | jq -r '.data | keys | join(", ")' 2>/dev/null || echo 'none')
+          
+          if [ "$KEYS" = "data, success" ] && [ "$DATA_KEYS" = "accessToken, sensitiveField, tenantId" ]; then
+            echo "  PASS: Key extraction works (no values leaked)"
+            echo "    Top-level keys: $KEYS"
+            echo "    Data keys: $DATA_KEYS"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  FAIL: Key extraction unexpected result"
+            echo "    Got keys: $KEYS"
+            echo "    Got data keys: $DATA_KEYS"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+          fi
+          
+          # Summary
+          echo ""
+          echo "=== JSON Parsing Validation Summary ==="
+          echo "Passed: $TESTS_PASSED"
+          echo "Failed: $TESTS_FAILED"
+          
+          if [ $TESTS_FAILED -gt 0 ]; then
+            echo "PREFLIGHT FAILED: JSON parsing tests failed"
+            exit 1
+          fi
+          
+          echo "All JSON parsing tests passed"
+
+      - name: Preflight summary
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  DEPLOY PREFLIGHT CHECK: PASSED"
+          echo "=========================================="
+          echo ""
+          echo "Validated:"
+          echo "  - Bash syntax: OK"
+          echo "  - JSON parsing logic: OK"
+          echo "  - Shellcheck: Advisory (see above)"
+          echo ""
+          echo "This PR is safe to merge from a deploy script perspective."
+          echo "Actual deployment still requires manual trigger via workflow_dispatch."

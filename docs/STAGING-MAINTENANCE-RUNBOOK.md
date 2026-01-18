@@ -286,6 +286,105 @@ If the frontend still shows old behavior after rebuild:
 
 ## Troubleshooting
 
+### Frontend Error Telemetry
+
+The frontend automatically sends sanitized crash reports to the backend when ErrorBoundary components catch errors. These reports are logged with correlation IDs for debugging.
+
+**Viewing frontend error telemetry in backend logs:**
+
+```bash
+# View recent frontend crash reports
+ssh root@46.224.99.150 "docker logs grc-staging-backend 2>&1 | grep 'Frontend crash reported' | tail -20"
+
+# Filter by correlation ID
+ssh root@46.224.99.150 "docker logs grc-staging-backend 2>&1 | grep '<correlation-id>'"
+```
+
+**Telemetry payload includes:**
+- `timestamp` - When the error occurred
+- `pathname` - The route where the crash happened
+- `error.name` - Error type (e.g., TypeError, ReferenceError)
+- `error.message` - Sanitized error message (PII/tokens removed)
+- `error.stack` - Sanitized stack trace (truncated to 2000 chars)
+- `error.componentStack` - React component hierarchy
+- `lastApiEndpoint` - Last API call before the crash (useful for debugging)
+- `correlationId` - For correlating with backend logs
+
+**Security notes:**
+- All sensitive data (JWTs, emails, passwords, API keys) is stripped before transmission
+- Stack traces are truncated to prevent excessive data
+- No authentication required (errors may occur before login)
+
+Once you have the minified stack trace from telemetry, use the sourcemap tracer below to find the original source location.
+
+### Debugging Minified JavaScript Crashes (Sourcemap Tracing)
+
+When the frontend crashes with an error like `TypeError: Cannot read properties of undefined (reading 'length')` and the stack trace points to minified code (e.g., `main.abc123.js:2:1690087`), use the sourcemap tracing tool to find the original source location.
+
+**Prerequisites:**
+- Python 3.6+ on the staging host (no Node.js required)
+- The `ops/sourcemap_trace.py` script in the repository
+
+**Step 1: Extract the sourcemap from the frontend container**
+
+```bash
+# SSH to staging server
+ssh root@46.224.99.150
+
+# Find the current bundle hash
+docker exec grc-staging-frontend ls /usr/share/nginx/html/static/js/ | grep 'main.*\.js$'
+# Example output: main.1c58c782.js
+
+# Extract the sourcemap (replace <hash> with actual hash)
+docker compose -f docker-compose.staging.yml exec -T frontend \
+  sh -lc 'cat /usr/share/nginx/html/static/js/main.<hash>.js.map' > /tmp/main.<hash>.js.map
+
+# Verify the file is valid JSON (should show file size > 0)
+ls -la /tmp/main.<hash>.js.map
+head -c 1 /tmp/main.<hash>.js.map  # Should show '{'
+```
+
+**Step 2: Run the sourcemap tracer**
+
+```bash
+# From the repo directory on staging
+cd /opt/grc-platform
+
+# Trace the crash location (replace <hash>, <line>, <column> with actual values)
+python3 ops/sourcemap_trace.py /tmp/main.<hash>.js.map <line> <column>
+
+# Example:
+python3 ops/sourcemap_trace.py /tmp/main.1c58c782.js.map 2 1690087
+```
+
+**Expected output:**
+```
+Loading sourcemap: /tmp/main.1c58c782.js.map
+File size: 8,465,398 bytes
+Sources: 1494 files
+Names: 14563 identifiers
+Parsing mappings...
+Total mappings: 356,127
+
+Looking up generated position: line 2, column 1690087
+
+============================================================
+ORIGINAL SOURCE LOCATION:
+============================================================
+  File:   hooks/useUiPolicy.ts
+  Line:   99
+  Column: 3
+  Name:   useEffect
+============================================================
+```
+
+**Troubleshooting sourcemap extraction:**
+
+If the sourcemap file is empty or invalid:
+1. Verify the container is running: `docker ps | grep frontend`
+2. Check the file exists in container: `docker exec grc-staging-frontend ls -la /usr/share/nginx/html/static/js/`
+3. Ensure GENERATE_SOURCEMAP=true was set during build (check Dockerfile or docker-compose.staging.yml)
+
 ### Container Won't Start
 
 1. Check logs: `docker logs grc-staging-backend`
@@ -490,6 +589,59 @@ These limitations do not affect the core GRC functionality (Dashboard, Governanc
 | `/grc/requirements` | GET | 200 | Requirement list (requires auth) |
 | `/dashboard/overview` | GET | 200 | Dashboard KPIs (requires auth) |
 | `/itsm/incidents` | GET | 200 | Incident list (requires auth) |
+
+## Nginx Routing Configuration
+
+The frontend nginx container acts as a reverse proxy, routing API requests to the backend while serving static files for the SPA.
+
+### Understanding the /api/ Prefix Stripping
+
+Backend routes are mounted at `/grc/*`, `/auth/*`, `/health/*`, etc. (no `/api/` prefix). However, the frontend may call these routes via `/api/*` for namespacing. The nginx `/api/` location block strips this prefix before forwarding to the backend.
+
+The critical configuration in `frontend/nginx.conf`:
+
+```nginx
+location ^~ /api/ {
+    proxy_pass http://backend/;  # TRAILING SLASH IS CRITICAL
+    ...
+}
+```
+
+The trailing slash on `proxy_pass http://backend/;` is essential:
+- **With trailing slash**: `/api/grc/control-tests` becomes `/grc/control-tests` (correct)
+- **Without trailing slash**: `/api/grc/control-tests` stays as `/api/grc/control-tests` (404 error)
+
+### Validating Nginx Routing on Staging
+
+To verify the nginx config has the correct proxy_pass directive:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T frontend sh -lc "nginx -T | grep -nE 'location \\^~ /api/|proxy_pass http://backend' | head -20"
+```
+
+Expected output should show `proxy_pass http://backend/;` (with trailing slash) in the `/api/` location block.
+
+To test that routing works correctly:
+
+```bash
+curl -i http://localhost/api/grc/control-tests -H "x-tenant-id: 00000000-0000-0000-0000-000000000001"
+```
+
+The response should NOT be:
+```json
+{"success":false,"error":{"code":"NOT_FOUND","message":"Cannot GET /api/grc/control-tests"}}
+```
+
+A 401/403 (auth required) or 200 response indicates routing is working correctly. The key is that the path `/api/grc/...` should not appear in the error message.
+
+### CI Guardrail
+
+A Jest config-lint test (`backend-nest/src/config/nginx-config-lint.spec.ts`) validates the nginx configuration in CI. This test:
+- Verifies the `/api/` location block exists
+- Asserts `proxy_pass http://backend/;` has the trailing slash
+- Fails if the trailing slash is missing
+
+This prevents accidental regressions where the trailing slash is removed.
 
 ## Swap Configuration for Frontend Builds
 
@@ -710,6 +862,56 @@ If your SSH connection closes during deployment:
    echo $?
    ```
 
+#### Recovering from SSH Disconnect During Smoke Tests
+
+If SSH disconnects during smoke tests, use the evidence directory to investigate:
+
+1. **Find the latest evidence directory:**
+   ```bash
+   LATEST=$(ls -td evidence/staging-* | head -1)
+   echo "Latest evidence: $LATEST"
+   ```
+
+2. **Filter SMOKE test lines from raw.log:**
+   ```bash
+   grep "SMOKE" "$LATEST/raw.log"
+   ```
+
+   This shows all smoke test attempts, including:
+   - `SMOKE credential_guard result=OK/FAILED` - Credential validation
+   - `SMOKE login attempt=X http=YYY retry=YES/NO reason=...` - Login attempts with retry decisions
+   - `SMOKE context attempt=X http=YYY retry=YES/NO reason=...` - Context test attempts
+   - `SMOKE login response_body=<...>` - Sanitized response bodies (tokens masked)
+
+3. **Check for token leaks (evidence integrity):**
+   ```bash
+   # This should return empty (no matches) if no tokens leaked
+   grep -E "eyJ[a-zA-Z0-9_-]{10,}\.|Bearer [A-Za-z0-9._-]{10,}" "$LATEST/raw.log" || echo "OK: No token patterns found"
+   ```
+
+4. **Review specific test failure:**
+   ```bash
+   # Show all login attempts
+   grep "SMOKE login" "$LATEST/raw.log"
+   
+   # Show all context attempts
+   grep "SMOKE context" "$LATEST/raw.log"
+   
+   # Show credential guard result
+   grep "SMOKE credential_guard" "$LATEST/raw.log"
+   ```
+
+5. **If login failed with 400/401/403/404 (client error):**
+   - Check credential guard output: `grep "SMOKE credential_guard" "$LATEST/raw.log"`
+   - Verify `STAGING_ADMIN_EMAIL` and `STAGING_ADMIN_PASSWORD` are correct
+   - Check sanitized response body for validation errors: `grep "SMOKE login response_body" "$LATEST/raw.log"`
+   - Note: Client errors (4xx) are NOT retried - script fails immediately after first attempt
+
+6. **If login failed with 429 (rate limit) or 5xx (server error):**
+   - Script should have retried 3 times with exponential backoff
+   - Check retry decision in logs: `grep "SMOKE login.*retry=YES" "$LATEST/raw.log"`
+   - Review backend logs: `docker logs grc-staging-backend --tail 50`
+
 ### What the Script Does
 
 The script executes the following steps in sequence:
@@ -837,6 +1039,109 @@ cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -B 5 -A 10 "FAILED"
 
 Login or API tests failed. Use manual verification commands below to debug.
 
+**Retry Policy:**
+The script uses a deterministic retry policy for smoke tests:
+- **400/401/403/404 (Client Errors)**: NO RETRY - Script fails immediately after first attempt (client error indicates invalid credentials/request)
+- **429 (Rate Limit)**: RETRYABLE - Script retries 3 times with exponential backoff (2s, 4s, 8s)
+- **408/5xx (Server Errors/Timeout)**: RETRYABLE - Script retries 3 times with exponential backoff
+- **000 (Network Error)**: RETRYABLE - Script retries 3 times with exponential backoff
+
+Each attempt is logged with retry decision: `SMOKE login attempt=X http=YYY retry=YES/NO reason=...`
+
+**Common Causes:**
+- **HTTP 400 (Bad Request)**: Usually indicates DTO/payload mismatch or invalid credentials
+  - Check credential guard output: Password must be >= 8 chars and not a placeholder (e.g., `***`)
+  - Email format must be valid (contains `@` and `.`)
+  - Check if backend expects `email` (not `username`) in login payload
+  - Verify credentials are correct: `STAGING_ADMIN_EMAIL` and `STAGING_ADMIN_PASSWORD`
+  - Check backend logs for validation errors: `docker logs grc-staging-backend --tail 50 | grep -i "validation\|login"`
+  - Note: Script does NOT retry on 400 (client error) - fails immediately
+- **HTTP 401 (Unauthorized)**: Invalid credentials or user not found
+  - Verify user exists: `docker exec grc-staging-db psql -U grc_staging -d grc_staging -c "SELECT email FROM nest_users;"`
+  - Check password hash is valid (should start with `$2b$10$`)
+  - Re-run seed script if needed
+  - Note: Script does NOT retry on 401 (client error) - fails immediately
+- **HTTP 429 (Too Many Requests)**: Rate limiting triggered
+  - Script will retry 3 times automatically with backoff
+  - Wait a few minutes and re-run script if all retries fail
+  - Check brute force protection logs in backend
+
+**Credential Guard Failures:**
+- **Password too short (< 8 chars)**: Set valid password via `STAGING_ADMIN_PASSWORD`
+- **Password is placeholder** (e.g., `***`, `********`): Set real password value
+- **Invalid email format**: Email must contain `@` and `.` (e.g., `user@example.com`)
+
+**Debugging Steps:**
+1. Check credential guard result: `grep "SMOKE credential_guard" "$(ls -td evidence/staging-* | head -1)/raw.log"`
+2. Check script evidence logs: `cat "$(ls -td evidence/staging-* | head -1)/raw.log" | grep -A 5 "SMOKE login"`
+3. Review sanitized response body in logs (tokens are automatically masked): `grep "SMOKE login response_body" "$(ls -td evidence/staging-* | head -1)/raw.log"`
+4. Check retry attempts: `grep "SMOKE login attempt" "$(ls -td evidence/staging-* | head -1)/raw.log"`
+5. Use manual login test below to verify credentials independently
+6. Check backend container logs for detailed error messages
+
+### Manual Verification with tmux (Staging Server)
+
+Use these commands on the staging server with tmux to safely run the deployment script and verify results:
+
+#### Step 1: Set Environment Variables (Password Length Check)
+
+```bash
+# Start tmux session
+tmux new -s deploy
+
+# Set credentials (verify password length without printing it)
+export STAGING_ADMIN_EMAIL="admin@grc-platform.local"
+export STAGING_ADMIN_PASSWORD="your-password-here"
+
+# Check password length (without showing password)
+echo "Password length: ${#STAGING_ADMIN_PASSWORD}"
+# Should show >= 8, and not be placeholder like "***"
+
+# Optional: Set tenant ID
+export STAGING_TENANT_ID="00000000-0000-0000-0000-000000000001"
+```
+
+#### Step 2: Run Deployment Script
+
+```bash
+# Navigate to repo
+cd /opt/grc-platform
+
+# Run deployment
+bash ops/staging-deploy-validate.sh
+```
+
+**Detach from tmux:** Press `Ctrl+B`, then `D`  
+**Reattach to tmux:** `tmux attach -t deploy` (from another SSH session)
+
+#### Step 3: Extract SMOKE Test Lines from Evidence
+
+After the script completes (or fails), extract SMOKE test information:
+
+```bash
+# Find latest evidence directory
+LATEST=$(ls -td evidence/staging-* | head -1)
+echo "Latest evidence: $LATEST"
+
+# Extract all SMOKE lines
+grep "SMOKE" "$LATEST/raw.log"
+
+# Extract only login attempts
+grep "SMOKE login attempt" "$LATEST/raw.log"
+
+# Extract only context attempts
+grep "SMOKE context attempt" "$LATEST/raw.log"
+
+# Extract credential guard result
+grep "SMOKE credential_guard" "$LATEST/raw.log"
+
+# Extract sanitized response bodies (if login failed)
+grep "SMOKE login response_body" "$LATEST/raw.log"
+
+# Check for token leaks (should be empty)
+grep -E "eyJ[a-zA-Z0-9_-]{10,}\.|Bearer [A-Za-z0-9._-]{10,}" "$LATEST/raw.log" || echo "OK: No token patterns found"
+```
+
 ### Manual Smoke Verification (Node-based)
 
 Use these commands to manually verify smoke tests without running the full script. These commands use Node.js inside the backend container (same as the script) and never log tokens.
@@ -886,10 +1191,25 @@ docker exec -e ADMIN_EMAIL="${STAGING_ADMIN_EMAIL}" \
               }
             } catch (e) {
               console.error("ERROR: Invalid JSON");
+              if (body) {
+                let sanitized = body
+                  .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[JWT_MASKED]')
+                  .replace(/Bearer [A-Za-z0-9._-]{10,}/g, 'Bearer [TOKEN_MASKED]')
+                  .replace(/"accessToken"\s*:\s*"[^"]{10,}"/g, '"accessToken":"[MASKED]"');
+                console.error("Response:", sanitized.substring(0, 500));
+              }
               process.exit(1);
             }
           } else {
             console.error("ERROR: HTTP", res.statusCode);
+            // Output sanitized response body for debugging (tokens masked)
+            if (body) {
+              let sanitized = body
+                .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[JWT_MASKED]')
+                .replace(/Bearer [A-Za-z0-9._-]{10,}/g, 'Bearer [TOKEN_MASKED]')
+                .replace(/"accessToken"\s*:\s*"[^"]{10,}"/g, '"accessToken":"[MASKED]"');
+              console.error("Response:", sanitized.substring(0, 500));
+            }
             process.exit(1);
           }
         });

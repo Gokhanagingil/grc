@@ -3,11 +3,16 @@
  * 
  * Provides UI policy evaluation functionality.
  * Evaluates conditions and applies actions (hide/show/readonly/mandatory/disable).
+ * 
+ * SAFETY: This hook is hardened against undefined/null/malformed API responses.
+ * It will NEVER throw for any backend response shape - worst case it falls back
+ * to defaultActions and empty policies.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { uiPolicyApi, UiPolicy, UiPolicyActions, UiPolicyCondition } from '../services/platformApi';
+import { toStringArray, extractPoliciesArray, extractActionsObject } from '../utils/safeHelpers';
 
 export interface UseUiPolicyResult {
   policies: UiPolicy[];
@@ -22,7 +27,11 @@ export interface UseUiPolicyResult {
   refreshPolicies: () => Promise<void>;
 }
 
-const defaultActions: UiPolicyActions = {
+/**
+ * Default actions object - single source of truth for safe defaults.
+ * All field arrays default to empty arrays to prevent "cannot read property of undefined" errors.
+ */
+const DEFAULT_ACTIONS: UiPolicyActions = {
   hiddenFields: [],
   shownFields: [],
   readonlyFields: [],
@@ -32,10 +41,36 @@ const defaultActions: UiPolicyActions = {
   disabledFields: [],
 };
 
+/**
+ * Safely merges partial actions with defaults to ensure all fields are defined.
+ * Handles undefined, null, or partial action objects from API responses.
+ * 
+ * Uses toStringArray to ensure each field is always an array of strings,
+ * even if the API returns null, undefined, non-array values, or arrays
+ * containing non-string items.
+ */
+function getSafeActions(actions: UiPolicyActions | undefined | null): UiPolicyActions {
+  if (!actions) {
+    return DEFAULT_ACTIONS;
+  }
+  
+  // Use toStringArray for robust normalization - handles null, undefined,
+  // non-array values, and filters to only valid strings
+  return {
+    hiddenFields: toStringArray(actions.hiddenFields),
+    shownFields: toStringArray(actions.shownFields),
+    readonlyFields: toStringArray(actions.readonlyFields),
+    editableFields: toStringArray(actions.editableFields),
+    mandatoryFields: toStringArray(actions.mandatoryFields),
+    optionalFields: toStringArray(actions.optionalFields),
+    disabledFields: toStringArray(actions.disabledFields),
+  };
+}
+
 export function useUiPolicy(tableName: string, initialFormData?: Record<string, unknown>): UseUiPolicyResult {
   useAuth();
   const [policies, setPolicies] = useState<UiPolicy[]>([]);
-  const [actions, setActions] = useState<UiPolicyActions>(defaultActions);
+  const [actions, setActions] = useState<UiPolicyActions>(DEFAULT_ACTIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +82,13 @@ export function useUiPolicy(tableName: string, initialFormData?: Record<string, 
       setError(null);
 
       const response = await uiPolicyApi.getForTable(tableName);
-      setPolicies(response.data.policies);
+      // Use extractPoliciesArray to safely handle various response shapes:
+      // - {data: {policies: [...]}}
+      // - {success: true, data: {policies: [...]}}
+      // - {success: true, data: {success: true, data: {policies: [...]}}} (double-wrapped)
+      // - undefined/null responses
+      const extractedPolicies = extractPoliciesArray<UiPolicy>(response.data);
+      setPolicies(extractedPolicies);
     } catch (err) {
       console.error('Error fetching UI policies:', err);
       setError('Failed to load UI policies');
@@ -63,7 +104,14 @@ export function useUiPolicy(tableName: string, initialFormData?: Record<string, 
 
       try {
         const response = await uiPolicyApi.evaluate(tableName, formData);
-        setActions(response.data.actions);
+        // Use extractActionsObject to safely handle various response shapes:
+        // - {data: {actions: {...}}}
+        // - {success: true, data: {actions: {...}}}
+        // - {success: true, data: {success: true, data: {actions: {...}}}} (double-wrapped)
+        // - undefined/null responses
+        const extractedActions = extractActionsObject<UiPolicyActions>(response.data);
+        // Safely merge with defaults to handle undefined/partial responses
+        setActions(getSafeActions(extractedActions));
       } catch (err) {
         console.error('Error evaluating UI policies:', err);
         // Keep current actions on error
@@ -82,51 +130,55 @@ export function useUiPolicy(tableName: string, initialFormData?: Record<string, 
     }
   }, [initialFormData, policies.length, evaluatePolicies]);
 
+  // Create a safe actions object that guarantees all fields are defined arrays.
+  // This is the single source of truth for all field checks below.
+  const safeActions = useMemo(() => getSafeActions(actions), [actions]);
+
   const hiddenFieldsSet = useMemo(
-    () => new Set(actions.hiddenFields),
-    [actions.hiddenFields]
+    () => new Set(safeActions.hiddenFields),
+    [safeActions.hiddenFields]
   );
 
   const readonlyFieldsSet = useMemo(
-    () => new Set(actions.readonlyFields),
-    [actions.readonlyFields]
+    () => new Set(safeActions.readonlyFields),
+    [safeActions.readonlyFields]
   );
 
   const mandatoryFieldsSet = useMemo(
-    () => new Set(actions.mandatoryFields),
-    [actions.mandatoryFields]
+    () => new Set(safeActions.mandatoryFields),
+    [safeActions.mandatoryFields]
   );
 
   const disabledFieldsSet = useMemo(
-    () => new Set(actions.disabledFields),
-    [actions.disabledFields]
+    () => new Set(safeActions.disabledFields),
+    [safeActions.disabledFields]
   );
 
   const isFieldHidden = useCallback(
     (fieldName: string): boolean => {
       // Hidden unless explicitly shown
-      if (actions.shownFields.includes(fieldName)) return false;
+      if (safeActions.shownFields.includes(fieldName)) return false;
       return hiddenFieldsSet.has(fieldName);
     },
-    [hiddenFieldsSet, actions.shownFields]
+    [hiddenFieldsSet, safeActions.shownFields]
   );
 
   const isFieldReadonly = useCallback(
     (fieldName: string): boolean => {
       // Readonly unless explicitly editable
-      if (actions.editableFields.includes(fieldName)) return false;
+      if (safeActions.editableFields.includes(fieldName)) return false;
       return readonlyFieldsSet.has(fieldName);
     },
-    [readonlyFieldsSet, actions.editableFields]
+    [readonlyFieldsSet, safeActions.editableFields]
   );
 
   const isFieldMandatory = useCallback(
     (fieldName: string): boolean => {
       // Mandatory unless explicitly optional
-      if (actions.optionalFields.includes(fieldName)) return false;
+      if (safeActions.optionalFields.includes(fieldName)) return false;
       return mandatoryFieldsSet.has(fieldName);
     },
-    [mandatoryFieldsSet, actions.optionalFields]
+    [mandatoryFieldsSet, safeActions.optionalFields]
   );
 
   const isFieldDisabled = useCallback(

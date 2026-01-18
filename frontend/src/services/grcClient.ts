@@ -130,6 +130,23 @@ export const API_PATHS = {
     RISKS: (id: string) => `/grc/requirements/${id}/risks`,
   },
 
+  // GRC Control endpoints (Unified Control Library)
+  GRC_CONTROLS: {
+    LIST: '/grc/controls',
+    GET: (id: string) => `/grc/controls/${id}`,
+    PROCESSES: (id: string) => `/grc/controls/${id}/processes`,
+    LINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
+    UNLINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
+    EVIDENCES: (id: string) => `/grc/controls/${id}/evidences`,
+  },
+
+  // GRC Coverage endpoints (Unified Control Library)
+  GRC_COVERAGE: {
+    SUMMARY: '/grc/coverage',
+    REQUIREMENTS: '/grc/coverage/requirements',
+    PROCESSES: '/grc/coverage/processes',
+  },
+
   // Standards Library endpoints (Phase 7 - Express backend)
   STANDARDS: {
     LIST: '/grc/requirements',
@@ -260,9 +277,115 @@ export const API_PATHS = {
     UNLINK_RISK: (id: string) => `/grc/process-violations/${id}/unlink-risk`,
   },
 
+  // Evidence endpoints (Golden Flow Sprint 1B)
+  GRC_EVIDENCE: {
+    LIST: '/grc/evidence',
+    CREATE: '/grc/evidence',
+    GET: (id: string) => `/grc/evidence/${id}`,
+    UPDATE: (id: string) => `/grc/evidence/${id}`,
+    DELETE: (id: string) => `/grc/evidence/${id}`,
+    CONTROLS: (id: string) => `/grc/evidence/${id}/controls`,
+    LINK_CONTROL: (evidenceId: string, controlId: string) => `/grc/evidence/${evidenceId}/controls/${controlId}`,
+    UNLINK_CONTROL: (evidenceId: string, controlId: string) => `/grc/evidence/${evidenceId}/controls/${controlId}`,
+    TEST_RESULTS: (id: string) => `/grc/evidence/${id}/test-results`,
+    LINK_TEST_RESULT: (evidenceId: string, testResultId: string) => `/grc/evidence/${evidenceId}/test-results/${testResultId}`,
+    UNLINK_TEST_RESULT: (evidenceId: string, testResultId: string) => `/grc/evidence/${evidenceId}/test-results/${testResultId}`,
+    ISSUES: (id: string) => `/grc/evidence/${id}/issues`,
+    LINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
+    UNLINK_ISSUE: (evidenceId: string, issueId: string) => `/grc/evidence/${evidenceId}/issues/${issueId}`,
+  },
+
+    // Test Results endpoints (Golden Flow Sprint 1B + Test/Result Sprint)
+    GRC_TEST_RESULTS: {
+      LIST: '/grc/test-results',
+      CREATE: '/grc/test-results',
+      GET: (id: string) => `/grc/test-results/${id}`,
+      UPDATE: (id: string) => `/grc/test-results/${id}`,
+      DELETE: (id: string) => `/grc/test-results/${id}`,
+      // Test/Result Sprint - Evidence linking endpoints
+      EVIDENCES: (testResultId: string) => `/grc/test-results/${testResultId}/evidences`,
+      LINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+      UNLINK_EVIDENCE: (testResultId: string, evidenceId: string) => `/grc/test-results/${testResultId}/evidences/${evidenceId}`,
+      // Test/Result Sprint - Control-centric endpoint
+      BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/test-results`,
+      // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
+      CREATE_ISSUE: (testResultId: string) => `/grc/test-results/${testResultId}/issues`,
+    },
+
+    // Control Tests (Test Definitions) endpoints (Control Tests v1)
+    GRC_CONTROL_TESTS: {
+      LIST: '/grc/control-tests',
+      CREATE: '/grc/control-tests',
+      GET: (id: string) => `/grc/control-tests/${id}`,
+      UPDATE: (id: string) => `/grc/control-tests/${id}`,
+      DELETE: (id: string) => `/grc/control-tests/${id}`,
+      UPDATE_STATUS: (id: string) => `/grc/control-tests/${id}/status`,
+      // Nested convenience endpoints
+      BY_CONTROL: (controlId: string) => `/grc/controls/${controlId}/tests`,
+      RESULTS: (testId: string) => `/grc/control-tests/${testId}/results`,
+    },
+
+  // Issues endpoints (Golden Flow Sprint 1B)
+  GRC_ISSUES: {
+    LIST: '/grc/issues',
+    CREATE: '/grc/issues',
+    GET: (id: string) => `/grc/issues/${id}`,
+    UPDATE: (id: string) => `/grc/issues/${id}`,
+    DELETE: (id: string) => `/grc/issues/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/issues/${id}/status`,
+    CONTROLS: (id: string) => `/grc/issues/${id}/controls`,
+    LINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
+    UNLINK_CONTROL: (issueId: string, controlId: string) => `/grc/issues/${issueId}/controls/${controlId}`,
+    TEST_RESULTS: (id: string) => `/grc/issues/${id}/test-results`,
+    LINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
+    UNLINK_TEST_RESULT: (issueId: string, testResultId: string) => `/grc/issues/${issueId}/test-results/${testResultId}`,
+    EVIDENCE: (id: string) => `/grc/issues/${id}/evidence`,
+    LINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
+    UNLINK_EVIDENCE: (issueId: string, evidenceId: string) => `/grc/issues/${issueId}/evidence/${evidenceId}`,
+    CAPAS: (issueId: string) => `/grc/issues/${issueId}/capas`,
+  },
+
+  // CAPA endpoints (Golden Flow Sprint 1C)
+  GRC_CAPAS: {
+    LIST: '/grc/capas',
+    CREATE: '/grc/capas',
+    GET: (id: string) => `/grc/capas/${id}`,
+    UPDATE: (id: string) => `/grc/capas/${id}`,
+    DELETE: (id: string) => `/grc/capas/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/capas/${id}/status`,
+    BY_ISSUE: (issueId: string) => `/grc/capas/by-issue/${issueId}`,
+    FILTERS: '/grc/capas/filters',
+    TASKS: (capaId: string) => `/grc/capas/${capaId}/tasks`,
+  },
+
+  // CAPA Task endpoints (Golden Flow Sprint 1C)
+  GRC_CAPA_TASKS: {
+    LIST: '/grc/capa-tasks',
+    CREATE: '/grc/capa-tasks',
+    GET: (id: string) => `/grc/capa-tasks/${id}`,
+    UPDATE: (id: string) => `/grc/capa-tasks/${id}`,
+    DELETE: (id: string) => `/grc/capa-tasks/${id}`,
+    UPDATE_STATUS: (id: string) => `/grc/capa-tasks/${id}/status`,
+    COMPLETE: (id: string) => `/grc/capa-tasks/${id}/complete`,
+    BY_CAPA: (capaId: string) => `/grc/capa-tasks/by-capa/${capaId}`,
+    STATS: (capaId: string) => `/grc/capa-tasks/by-capa/${capaId}/stats`,
+    FILTERS: '/grc/capa-tasks/filters',
+  },
+
   // Onboarding Core endpoints
   ONBOARDING: {
     CONTEXT: '/onboarding/context',
+  },
+
+  // Framework Activation endpoints (Tenant-level compliance frameworks)
+  GRC_FRAMEWORKS: {
+    LIST: '/grc/frameworks',
+  },
+
+  // Tenant Frameworks endpoints
+  TENANT_FRAMEWORKS: {
+    GET: '/tenants/me/frameworks',
+    UPDATE: '/tenants/me/frameworks',
   },
 
   // Standards Library endpoints (Audit Phase 2 - NestJS backend)
@@ -291,6 +414,14 @@ export const API_PATHS = {
     UNLINK_FINDING: (auditId: string, clauseId: string, issueId: string) => `/grc/audits/${auditId}/clauses/${clauseId}/findings/${issueId}`,
   },
 
+  // GRC Status History endpoints (Control Detail History tab)
+  GRC_STATUS_HISTORY: {
+    LIST: '/grc/status-history',
+    GET: (id: string) => `/grc/status-history/${id}`,
+    BY_ENTITY: (entityType: string, entityId: string) => `/grc/status-history/by-entity/${entityType}/${entityId}`,
+    TIMELINE: (entityType: string, entityId: string) => `/grc/status-history/timeline/${entityType}/${entityId}`,
+  },
+
   // Admin Studio Data Model Dictionary endpoints (FAZ 2)
   DATA_MODEL: {
     TABLES: '/admin/data-model/tables',
@@ -302,6 +433,79 @@ export const API_PATHS = {
     GRAPH: '/admin/data-model/graph',
     REFRESH: '/admin/data-model/refresh',
   },
+
+  // Platform Universal Views endpoints
+  PLATFORM: {
+    TABLES: '/grc/platform/tables',
+    TABLE_SCHEMA: (tableName: string) => `/grc/platform/tables/${tableName}/schema`,
+    VIEWS: '/grc/platform/views',
+    VIEW: (tableName: string) => `/grc/platform/views/${tableName}`,
+  },
+
+  // GRC Insights endpoints (Sprint 1E)
+  GRC_INSIGHTS: {
+    OVERVIEW: '/grc/insights/overview',
+  },
+
+  // GRC Meta endpoints (List Toolbar Standard)
+  GRC_META: {
+    LIST_OPTIONS: '/grc/meta/list-options',
+    LIST_OPTIONS_BY_ENTITY: (entity: string) => `/grc/meta/list-options/${entity}`,
+  },
+
+  // Platform Core - Universal Attachments
+  ATTACHMENTS: {
+    LIST: '/grc/attachments',
+    UPLOAD: '/grc/attachments',
+    GET: (id: string) => `/grc/attachments/${id}`,
+    DOWNLOAD: (id: string) => `/grc/attachments/${id}/download`,
+    DELETE: (id: string) => `/grc/attachments/${id}`,
+  },
+
+  // Platform Core - List Views
+  LIST_VIEWS: {
+    LIST: '/grc/list-views',
+    CREATE: '/grc/list-views',
+    GET: (id: string) => `/grc/list-views/${id}`,
+    UPDATE: (id: string) => `/grc/list-views/${id}`,
+    UPDATE_COLUMNS: (id: string) => `/grc/list-views/${id}/columns`,
+    DELETE: (id: string) => `/grc/list-views/${id}`,
+  },
+
+  // Platform Core - Export
+  EXPORT: {
+    CREATE: '/grc/export',
+  },
+
+  // Platform Builder - Admin APIs
+  PLATFORM_BUILDER: {
+    // Table management
+    TABLES: {
+      LIST: '/grc/admin/tables',
+      CREATE: '/grc/admin/tables',
+      GET: (id: string) => `/grc/admin/tables/${id}`,
+      UPDATE: (id: string) => `/grc/admin/tables/${id}`,
+      DELETE: (id: string) => `/grc/admin/tables/${id}`,
+    },
+    // Field management
+    FIELDS: {
+      LIST: (tableId: string) => `/grc/admin/tables/${tableId}/fields`,
+      CREATE: (tableId: string) => `/grc/admin/tables/${tableId}/fields`,
+      GET: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+      UPDATE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+      DELETE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+    },
+  },
+
+  // Dynamic Data - Runtime APIs
+  DYNAMIC_DATA: {
+    LIST: (tableName: string) => `/grc/data/${tableName}`,
+    SCHEMA: (tableName: string) => `/grc/data/${tableName}/schema`,
+    GET: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+    CREATE: (tableName: string) => `/grc/data/${tableName}`,
+    UPDATE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+    DELETE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+  },
 } as const;
 
 // ============================================================================
@@ -309,12 +513,24 @@ export const API_PATHS = {
 // ============================================================================
 
 /**
- * Standard paginated response from NestJS backend
+ * Standard paginated response from NestJS backend (LIST-CONTRACT compliant)
+ *
+ * Response shape:
+ * {
+ *   success: true,
+ *   data: {
+ *     items: [...],
+ *     total: 100,
+ *     page: 1,
+ *     pageSize: 20,
+ *     totalPages: 5
+ *   }
+ * }
  */
 export interface PaginatedResponse<T> {
   success: boolean;
-  data: T[];
-  meta: {
+  data: {
+    items: T[];
     total: number;
     page: number;
     pageSize: number;
@@ -482,27 +698,49 @@ function transformRequirementResponse<T extends Record<string, unknown>>(require
 }
 
 /**
- * Unwrap paginated NestJS response
+ * Unwrap paginated NestJS response (LIST-CONTRACT compliant)
+ *
+ * Expected response shape:
+ * {
+ *   success: true,
+ *   data: { items: [...], total, page, pageSize, totalPages }
+ * }
  */
 export function unwrapPaginatedResponse<T>(response: { data: unknown }): { items: T[]; total: number; page: number; pageSize: number } {
-  const data = response.data as PaginatedResponse<T> | { items: T[]; total: number };
+  const data = response.data as PaginatedResponse<T> | { items: T[]; total: number; page?: number; pageSize?: number };
   
+  // LIST-CONTRACT compliant format: { success: true, data: { items, total, page, pageSize, totalPages } }
+  if ('success' in data && data.success && 'data' in data) {
+    const paginatedData = (data as PaginatedResponse<T>).data;
+    if (paginatedData && 'items' in paginatedData) {
+      return {
+        items: paginatedData.items,
+        total: paginatedData.total,
+        page: paginatedData.page,
+        pageSize: paginatedData.pageSize,
+      };
+    }
+  }
+  
+  // Legacy format with meta (backward compatibility)
   if ('success' in data && data.success && 'data' in data && 'meta' in data) {
+    // Cast through unknown since we're doing runtime type checking
+    const legacyData = data as unknown as { success: boolean; data: T[]; meta: { total: number; page: number; pageSize: number } };
     return {
-      items: data.data,
-      total: data.meta.total,
-      page: data.meta.page,
-      pageSize: data.meta.pageSize,
+      items: legacyData.data,
+      total: legacyData.meta.total,
+      page: legacyData.meta.page,
+      pageSize: legacyData.meta.pageSize,
     };
   }
   
-  // Legacy format
+  // Direct paginated object format
   if ('items' in data) {
     return {
       items: data.items,
       total: data.total,
-      page: 1,
-      pageSize: data.items.length,
+      page: data.page || 1,
+      pageSize: data.pageSize || data.items.length,
     };
   }
   
@@ -1373,6 +1611,900 @@ export const processViolationApi = {
 };
 
 // ============================================================================
+// GRC Control API (Unified Control Library)
+// ============================================================================
+
+export const controlApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CONTROLS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CONTROLS.GET(id), withTenantId(tenantId)),
+
+  getProcesses: (tenantId: string, controlId: string) =>
+    api.get(API_PATHS.GRC_CONTROLS.PROCESSES(controlId), withTenantId(tenantId)),
+
+  linkProcess: (tenantId: string, controlId: string, processId: string) =>
+    api.post(
+      API_PATHS.GRC_CONTROLS.LINK_PROCESS(controlId, processId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkProcess: (tenantId: string, controlId: string, processId: string) =>
+    api.delete(
+      API_PATHS.GRC_CONTROLS.UNLINK_PROCESS(controlId, processId),
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC Evidence API (Golden Flow Sprint 1B)
+// ============================================================================
+
+export interface EvidenceData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  type: string;
+  sourceType: string;
+  status: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  collectedByUserId?: string;
+  dueDate?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+
+export interface CreateEvidenceDto {
+  name: string;
+  description?: string;
+  type: string;
+  sourceType?: string;
+  status?: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  dueDate?: string;
+  tags?: string[];
+}
+
+export interface UpdateEvidenceDto {
+  name?: string;
+  description?: string;
+  type?: string;
+  sourceType?: string;
+  status?: string;
+  location?: string;
+  externalUrl?: string;
+  collectedAt?: string;
+  dueDate?: string;
+  tags?: string[];
+}
+
+export const evidenceApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_EVIDENCE.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateEvidenceDto) =>
+    api.post(API_PATHS.GRC_EVIDENCE.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateEvidenceDto) =>
+    api.patch(API_PATHS.GRC_EVIDENCE.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_EVIDENCE.DELETE(id), withTenantId(tenantId)),
+
+  getControls: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.CONTROLS(evidenceId), withTenantId(tenantId)),
+
+  linkControl: (tenantId: string, evidenceId: string, controlId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_CONTROL(evidenceId, controlId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkControl: (tenantId: string, evidenceId: string, controlId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_CONTROL(evidenceId, controlId),
+      withTenantId(tenantId),
+    ),
+
+  getTestResults: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.TEST_RESULTS(evidenceId), withTenantId(tenantId)),
+
+  linkTestResult: (tenantId: string, evidenceId: string, testResultId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_TEST_RESULT(evidenceId, testResultId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkTestResult: (tenantId: string, evidenceId: string, testResultId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_TEST_RESULT(evidenceId, testResultId),
+      withTenantId(tenantId),
+    ),
+
+  getIssues: (tenantId: string, evidenceId: string) =>
+    api.get(API_PATHS.GRC_EVIDENCE.ISSUES(evidenceId), withTenantId(tenantId)),
+
+  linkIssue: (tenantId: string, evidenceId: string, issueId: string) =>
+    api.post(
+      API_PATHS.GRC_EVIDENCE.LINK_ISSUE(evidenceId, issueId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkIssue: (tenantId: string, evidenceId: string, issueId: string) =>
+    api.delete(
+      API_PATHS.GRC_EVIDENCE.UNLINK_ISSUE(evidenceId, issueId),
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC Test Results API (Golden Flow Sprint 1B)
+// ============================================================================
+
+// Test/Result Sprint - Test method enum values
+export type TestMethod = 'INTERVIEW' | 'OBSERVATION' | 'INSPECTION' | 'REPERFORMANCE' | 'OTHER';
+
+// Test/Result Sprint - Test result status enum values
+export type TestResultStatus = 'DRAFT' | 'FINAL';
+
+// Test/Result Sprint - Test result outcome enum values
+export type TestResultOutcome = 'PASS' | 'FAIL' | 'PARTIAL' | 'NOT_TESTED';
+
+export interface TestResultData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  controlTestId?: string;
+  controlId?: string;
+  result: TestResultOutcome;
+  effectivenessRating?: string;
+  testedAt?: string;
+  testedByUserId?: string;
+  notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
+  evidenceCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  controlTest?: {
+    id: string;
+    name: string;
+    controlId: string;
+    control?: {
+      id: string;
+      name: string;
+      code?: string;
+    };
+  };
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+}
+
+export interface CreateTestResultDto {
+  name?: string;
+  description?: string;
+  controlTestId?: string;
+  controlId?: string;
+  result: TestResultOutcome;
+  effectivenessRating?: string;
+  testedAt?: string;
+  notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
+}
+
+export interface UpdateTestResultDto {
+  name?: string;
+  description?: string;
+  result?: TestResultOutcome;
+  effectivenessRating?: string;
+  testedAt?: string;
+  notes?: string;
+  // Test/Result Sprint - New fields
+  testDate?: string;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  summary?: string;
+  ownerUserId?: string;
+}
+
+// Test/Result Sprint - List query params with List Contract v1 support
+export interface TestResultListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  controlId?: string;
+  result?: TestResultOutcome;
+  method?: TestMethod;
+  status?: TestResultStatus;
+  testDateAfter?: string;
+  testDateBefore?: string;
+}
+
+// Test/Result Sprint - Evidence linked to test result
+export interface TestResultEvidenceLink {
+  id: string;
+  tenantId: string;
+  testResultId: string;
+  evidenceId: string;
+  evidence?: EvidenceData;
+  createdAt: string;
+}
+
+export const testResultApi = {
+  list: (tenantId: string, params?: TestResultListParams) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateTestResultDto) =>
+    api.post(API_PATHS.GRC_TEST_RESULTS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateTestResultDto) =>
+    api.patch(API_PATHS.GRC_TEST_RESULTS.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_TEST_RESULTS.DELETE(id), withTenantId(tenantId)),
+
+  // Test/Result Sprint - Control-centric endpoint
+  listByControl: (tenantId: string, controlId: string, params?: TestResultListParams) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.BY_CONTROL(controlId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  // Test/Result Sprint - Evidence linking endpoints
+  getEvidences: (tenantId: string, testResultId: string) =>
+    api.get(API_PATHS.GRC_TEST_RESULTS.EVIDENCES(testResultId), withTenantId(tenantId)),
+
+  linkEvidence: (tenantId: string, testResultId: string, evidenceId: string) =>
+    api.post(
+      API_PATHS.GRC_TEST_RESULTS.LINK_EVIDENCE(testResultId, evidenceId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkEvidence: (tenantId: string, testResultId: string, evidenceId: string) =>
+    api.delete(
+      API_PATHS.GRC_TEST_RESULTS.UNLINK_EVIDENCE(testResultId, evidenceId),
+      withTenantId(tenantId),
+    ),
+
+  // Issue/Finding Sprint - Create Issue from Test Result (Golden Flow)
+  createIssue: (
+    tenantId: string,
+    testResultId: string,
+    data: { title?: string; description?: string; severity?: string; ownerUserId?: string; dueDate?: string },
+  ) =>
+    api.post(
+      API_PATHS.GRC_TEST_RESULTS.CREATE_ISSUE(testResultId),
+      data,
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC Control Tests (Test Definitions) API (Control Tests v1)
+// ============================================================================
+
+export type ControlTestType = 'DESIGN' | 'OPERATING_EFFECTIVENESS' | 'BOTH';
+export type ControlTestStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface ControlTestData {
+  id: string;
+  tenantId: string;
+  controlId: string;
+  name: string;
+  description?: string;
+  testType?: ControlTestType;
+  status: ControlTestStatus;
+  scheduledDate?: string;
+  startedAt?: string;
+  completedAt?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+  tester?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  reviewer?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+export interface CreateControlTestDto {
+  controlId: string;
+  name: string;
+  description?: string;
+  testType?: ControlTestType;
+  scheduledDate?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateControlTestDto {
+  name?: string;
+  description?: string;
+  testType?: ControlTestType;
+  scheduledDate?: string;
+  testerUserId?: string;
+  reviewerUserId?: string;
+  testProcedure?: string;
+  sampleSize?: number;
+  populationSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateControlTestStatusDto {
+  status: ControlTestStatus;
+  reason?: string;
+}
+
+export interface ControlTestListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  controlId?: string;
+  status?: ControlTestStatus;
+  testType?: ControlTestType;
+  testerUserId?: string;
+  scheduledDateFrom?: string;
+  scheduledDateTo?: string;
+}
+
+export const controlTestApi = {
+  list: (tenantId: string, params?: ControlTestListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateControlTestDto) =>
+    api.post(API_PATHS.GRC_CONTROL_TESTS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateControlTestDto) =>
+    api.put(API_PATHS.GRC_CONTROL_TESTS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateControlTestStatusDto) =>
+    api.patch(API_PATHS.GRC_CONTROL_TESTS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CONTROL_TESTS.DELETE(id), withTenantId(tenantId)),
+
+  listByControl: (tenantId: string, controlId: string, params?: ControlTestListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.BY_CONTROL(controlId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  listResults: (tenantId: string, testId: string, params?: TestResultListParams) =>
+    api.get(API_PATHS.GRC_CONTROL_TESTS.RESULTS(testId), {
+      ...withTenantId(tenantId),
+      params,
+    }),
+};
+
+// ============================================================================
+// GRC Issues API (Golden Flow Sprint 1B)
+// ============================================================================
+
+export interface IssueData {
+  id: string;
+  tenantId: string;
+  title: string;
+  description?: string;
+  type: string;
+  status: string;
+  severity: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+  resolvedDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  control?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+}
+
+export interface CreateIssueDto {
+  title: string;
+  description?: string;
+  type: string;
+  status?: string;
+  severity: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+}
+
+export interface UpdateIssueDto {
+  title?: string;
+  description?: string;
+  type?: string;
+  status?: string;
+  severity?: string;
+  controlId?: string;
+  testResultId?: string;
+  ownerUserId?: string;
+  discoveredDate?: string;
+  dueDate?: string;
+  resolvedDate?: string;
+}
+
+export const issueApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_ISSUES.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_ISSUES.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateIssueDto) =>
+    api.post(API_PATHS.GRC_ISSUES.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateIssueDto) =>
+    api.patch(API_PATHS.GRC_ISSUES.UPDATE(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_ISSUES.DELETE(id), withTenantId(tenantId)),
+
+  getControls: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.CONTROLS(issueId), withTenantId(tenantId)),
+
+  linkControl: (tenantId: string, issueId: string, controlId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_CONTROL(issueId, controlId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkControl: (tenantId: string, issueId: string, controlId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_CONTROL(issueId, controlId),
+      withTenantId(tenantId),
+    ),
+
+  getTestResults: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.TEST_RESULTS(issueId), withTenantId(tenantId)),
+
+  linkTestResult: (tenantId: string, issueId: string, testResultId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_TEST_RESULT(issueId, testResultId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkTestResult: (tenantId: string, issueId: string, testResultId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_TEST_RESULT(issueId, testResultId),
+      withTenantId(tenantId),
+    ),
+
+  getEvidence: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_ISSUES.EVIDENCE(issueId), withTenantId(tenantId)),
+
+  linkEvidence: (tenantId: string, issueId: string, evidenceId: string) =>
+    api.post(
+      API_PATHS.GRC_ISSUES.LINK_EVIDENCE(issueId, evidenceId),
+      {},
+      withTenantId(tenantId),
+    ),
+
+  unlinkEvidence: (tenantId: string, issueId: string, evidenceId: string) =>
+    api.delete(
+      API_PATHS.GRC_ISSUES.UNLINK_EVIDENCE(issueId, evidenceId),
+      withTenantId(tenantId),
+    ),
+
+  updateStatus: (tenantId: string, issueId: string, data: { status: string; reason?: string }) =>
+    api.patch(
+      API_PATHS.GRC_ISSUES.UPDATE_STATUS(issueId),
+      data,
+      withTenantId(tenantId),
+    ),
+};
+
+// ============================================================================
+// GRC CAPA API (Golden Flow Sprint 1C)
+// ============================================================================
+
+export type CapaStatus = 'planned' | 'in_progress' | 'implemented' | 'verified' | 'rejected' | 'closed';
+export type CapaType = 'corrective' | 'preventive' | 'both';
+export type CapaPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface CapaData {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  type: CapaType;
+  status: CapaStatus;
+  priority: CapaPriority;
+  issueId: string;
+  ownerUserId: string | null;
+  dueDate: string | null;
+  completedDate: string | null;
+  rootCauseAnalysis: string | null;
+  actionPlan: string | null;
+  implementationNotes: string | null;
+  verificationMethod: string | null;
+  verificationNotes: string | null;
+  verifiedAt: string | null;
+  verifiedByUserId: string | null;
+  closureNotes: string | null;
+  closedAt: string | null;
+  closedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  issue?: IssueData;
+  owner?: { id: string; firstName: string; lastName: string; email: string };
+  verifiedBy?: { id: string; firstName: string; lastName: string; email: string };
+  closedBy?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface CreateCapaDto {
+  title: string;
+  description?: string;
+  type?: CapaType;
+  status?: CapaStatus;
+  priority?: CapaPriority;
+  issueId: string;
+  ownerUserId?: string;
+  dueDate?: string;
+  rootCauseAnalysis?: string;
+  actionPlan?: string;
+  verificationMethod?: string;
+}
+
+export interface UpdateCapaDto {
+  title?: string;
+  description?: string;
+  type?: CapaType;
+  priority?: CapaPriority;
+  ownerUserId?: string;
+  dueDate?: string;
+  rootCauseAnalysis?: string;
+  actionPlan?: string;
+  implementationNotes?: string;
+  verificationMethod?: string;
+  verificationNotes?: string;
+  closureNotes?: string;
+}
+
+export interface UpdateCapaStatusDto {
+  status: CapaStatus;
+  reason?: string;
+}
+
+export const capaApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CAPAS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CAPAS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateCapaDto) =>
+    api.post(API_PATHS.GRC_CAPAS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateCapaDto) =>
+    api.patch(API_PATHS.GRC_CAPAS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateCapaStatusDto) =>
+    api.patch(API_PATHS.GRC_CAPAS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CAPAS.DELETE(id), withTenantId(tenantId)),
+
+  getByIssue: (tenantId: string, issueId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.BY_ISSUE(issueId), withTenantId(tenantId)),
+
+  createFromIssue: (tenantId: string, issueId: string, data: CreateCapaDto) =>
+    api.post(API_PATHS.GRC_ISSUES.CAPAS(issueId), data, withTenantId(tenantId)),
+
+  getFilters: (tenantId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.FILTERS, withTenantId(tenantId)),
+
+  getTasks: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPAS.TASKS(capaId), withTenantId(tenantId)),
+
+  createTask: (tenantId: string, capaId: string, data: CreateCapaTaskDto) =>
+    api.post(API_PATHS.GRC_CAPAS.TASKS(capaId), data, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC CAPA Task API (Golden Flow Sprint 1C)
+// ============================================================================
+
+export type CapaTaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface CapaTaskData {
+  id: string;
+  tenantId: string;
+  capaId: string;
+  title: string;
+  description: string | null;
+  status: CapaTaskStatus;
+  assigneeUserId: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  completedByUserId: string | null;
+  sequenceOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  capa?: CapaData;
+  assignee?: { id: string; firstName: string; lastName: string; email: string };
+  completedBy?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface CreateCapaTaskDto {
+  capaId: string;
+  title: string;
+  description?: string;
+  status?: CapaTaskStatus;
+  assigneeUserId?: string;
+  dueDate?: string;
+  sequenceOrder?: number;
+}
+
+export interface UpdateCapaTaskDto {
+  title?: string;
+  description?: string;
+  assigneeUserId?: string;
+  dueDate?: string;
+  sequenceOrder?: number;
+}
+
+export interface UpdateCapaTaskStatusDto {
+  status: CapaTaskStatus;
+  reason?: string;
+}
+
+export interface CompleteCapaTaskDto {
+  completionNotes?: string;
+}
+
+export interface CapaTaskCompletionStats {
+  total: number;
+  completed: number;
+  pending: number;
+  inProgress: number;
+  cancelled: number;
+  completionPercentage: number;
+}
+
+export const capaTaskApi = {
+  list: (tenantId: string, params?: Record<string, unknown>) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.GET(id), withTenantId(tenantId)),
+
+  create: (tenantId: string, data: CreateCapaTaskDto) =>
+    api.post(API_PATHS.GRC_CAPA_TASKS.CREATE, data, withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: UpdateCapaTaskDto) =>
+    api.put(API_PATHS.GRC_CAPA_TASKS.UPDATE(id), data, withTenantId(tenantId)),
+
+  updateStatus: (tenantId: string, id: string, data: UpdateCapaTaskStatusDto) =>
+    api.patch(API_PATHS.GRC_CAPA_TASKS.UPDATE_STATUS(id), data, withTenantId(tenantId)),
+
+  complete: (tenantId: string, id: string, data?: CompleteCapaTaskDto) =>
+    api.patch(API_PATHS.GRC_CAPA_TASKS.COMPLETE(id), data || {}, withTenantId(tenantId)),
+
+  delete: (tenantId: string, id: string) =>
+    api.delete(API_PATHS.GRC_CAPA_TASKS.DELETE(id), withTenantId(tenantId)),
+
+  getByCapa: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.BY_CAPA(capaId), withTenantId(tenantId)),
+
+  getStats: (tenantId: string, capaId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.STATS(capaId), withTenantId(tenantId)),
+
+  getFilters: (tenantId: string) =>
+    api.get(API_PATHS.GRC_CAPA_TASKS.FILTERS, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Coverage API (Unified Control Library)
+// ============================================================================
+
+export interface CoverageSummary {
+  requirementCoverage: number;
+  processCoverage: number;
+  unlinkedControlsCount: number;
+  totalRequirements: number;
+  coveredRequirements: number;
+  totalProcesses: number;
+  coveredProcesses: number;
+  totalControls: number;
+}
+
+export interface RequirementCoverageItem {
+  id: string;
+  title: string;
+  referenceCode: string;
+  status: string;
+  controlCount: number;
+  isCovered: boolean;
+}
+
+export interface RequirementCoverageResponse {
+  total: number;
+  covered: number;
+  uncovered: number;
+  coveragePercent: number;
+  requirements: RequirementCoverageItem[];
+}
+
+export interface ProcessCoverageItem {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  controlCount: number;
+  isCovered: boolean;
+}
+
+export interface ProcessCoverageResponse {
+  total: number;
+  covered: number;
+  uncovered: number;
+  coveragePercent: number;
+  processes: ProcessCoverageItem[];
+}
+
+export const coverageApi = {
+  getSummary: (tenantId: string) =>
+    api.get<CoverageSummary>(API_PATHS.GRC_COVERAGE.SUMMARY, withTenantId(tenantId)),
+
+  getRequirementCoverage: (tenantId: string) =>
+    api.get<RequirementCoverageResponse>(API_PATHS.GRC_COVERAGE.REQUIREMENTS, withTenantId(tenantId)),
+
+  getProcessCoverage: (tenantId: string) =>
+    api.get<ProcessCoverageResponse>(API_PATHS.GRC_COVERAGE.PROCESSES, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Status History Types and API (Control Detail History tab)
+// ============================================================================
+
+export interface StatusHistoryItem {
+  id: string;
+  tenantId: string;
+  entityType: string;
+  entityId: string;
+  previousStatus: string | null;
+  newStatus: string;
+  changedByUserId: string | null;
+  changedBy: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+  changeReason: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface StatusHistoryFilterParams {
+  entityType?: string;
+  entityId?: string;
+  changedByUserId?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface StatusTimelineResponse {
+  timeline: StatusHistoryItem[];
+  currentStatus: string | null;
+  totalTransitions: number;
+  firstTransitionAt: string | null;
+  lastTransitionAt: string | null;
+}
+
+export const statusHistoryApi = {
+  list: (tenantId: string, params?: StatusHistoryFilterParams) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    }),
+
+  get: (tenantId: string, id: string) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.GET(id), withTenantId(tenantId)),
+
+  getByEntity: (tenantId: string, entityType: string, entityId: string) =>
+    api.get(API_PATHS.GRC_STATUS_HISTORY.BY_ENTITY(entityType, entityId), withTenantId(tenantId)),
+
+  getTimeline: (tenantId: string, entityType: string, entityId: string) =>
+    api.get<StatusTimelineResponse>(API_PATHS.GRC_STATUS_HISTORY.TIMELINE(entityType, entityId), withTenantId(tenantId)),
+};
+
+// ============================================================================
 // Onboarding Core Types
 // ============================================================================
 
@@ -1486,6 +2618,40 @@ export const DEFAULT_POLICY_RESULT: PolicyResult = {
 export const onboardingApi = {
   getContext: (tenantId: string) =>
     api.get(API_PATHS.ONBOARDING.CONTEXT, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// Framework Activation API (Tenant-level compliance frameworks)
+// ============================================================================
+
+export interface GrcFrameworkData {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantFrameworksResponse {
+  activeKeys: string[];
+}
+
+export const grcFrameworksApi = {
+  list: () => api.get<{ frameworks: GrcFrameworkData[] }>(API_PATHS.GRC_FRAMEWORKS.LIST),
+};
+
+export const tenantFrameworksApi = {
+  get: (tenantId: string) =>
+    api.get<TenantFrameworksResponse>(API_PATHS.TENANT_FRAMEWORKS.GET, withTenantId(tenantId)),
+
+  update: (tenantId: string, activeKeys: string[]) =>
+    api.put<TenantFrameworksResponse>(
+      API_PATHS.TENANT_FRAMEWORKS.UPDATE,
+      { activeKeys },
+      withTenantId(tenantId)
+    ),
 };
 
 // ============================================================================
@@ -1831,4 +2997,617 @@ export const dataModelApi = {
   getGraph: () => api.get(API_PATHS.DATA_MODEL.GRAPH),
 
   refreshCache: () => api.get(API_PATHS.DATA_MODEL.REFRESH),
+};
+
+// ============================================================================
+// Platform Universal Views Types
+// ============================================================================
+
+export type SchemaDataType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'enum'
+  | 'uuid'
+  | 'relation';
+
+export interface FieldSchema {
+  name: string;
+  label: string;
+  dataType: SchemaDataType;
+  enumValues?: string[];
+  searchable: boolean;
+  filterable: boolean;
+  sortable: boolean;
+  defaultVisible: boolean;
+  width?: number;
+  relationTable?: string;
+  relationLabelField?: string;
+}
+
+export interface TableSchema {
+  tableName: string;
+  displayName: string;
+  fields: FieldSchema[];
+}
+
+export interface ColumnFilter {
+  op: string;
+  value: unknown;
+  valueTo?: unknown;
+}
+
+export interface ViewPreference {
+  visibleColumns: string[];
+  columnOrder: string[];
+  columnWidths?: Record<string, number>;
+  sort?: {
+    field: string;
+    direction: 'ASC' | 'DESC';
+  };
+  filters?: Record<string, ColumnFilter>;
+  pageSize?: number;
+}
+
+export interface ViewPreferenceResponse {
+  tableName: string;
+  userId: string;
+  tenantId: string;
+  preference: ViewPreference;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveViewPreferenceDto {
+  visibleColumns?: string[];
+  columnOrder?: string[];
+  columnWidths?: Record<string, number>;
+  sort?: {
+    field: string;
+    direction: 'ASC' | 'DESC';
+  };
+  filters?: Record<string, ColumnFilter>;
+  pageSize?: number;
+}
+
+// ============================================================================
+// Platform Universal Views API
+// ============================================================================
+
+export const platformViewsApi = {
+  listTables: (tenantId: string) =>
+    api.get(API_PATHS.PLATFORM.TABLES, withTenantId(tenantId)),
+
+  getTableSchema: (tenantId: string, tableName: string) =>
+    api.get(API_PATHS.PLATFORM.TABLE_SCHEMA(tableName), withTenantId(tenantId)),
+
+  getViewPreference: (tenantId: string, tableName: string) =>
+    api.get(API_PATHS.PLATFORM.VIEW(tableName), withTenantId(tenantId)),
+
+  saveViewPreference: (
+    tenantId: string,
+    tableName: string,
+    preference: SaveViewPreferenceDto,
+  ) =>
+    api.put(API_PATHS.PLATFORM.VIEW(tableName), preference, withTenantId(tenantId)),
+
+  getAllViewPreferences: (tenantId: string) =>
+    api.get(API_PATHS.PLATFORM.VIEWS, withTenantId(tenantId)),
+};
+
+// ============================================================================
+// GRC Insights API (Sprint 1E)
+// ============================================================================
+
+export interface GrcInsightsOverview {
+  openIssuesBySeverity: {
+    CRITICAL: number;
+    HIGH: number;
+    MEDIUM: number;
+    LOW: number;
+  };
+  overdueCAPAsCount: number;
+  recentFailTestResults: Array<{
+    id: string;
+    name: string;
+    testedAt: string | null;
+    controlTestName: string | null;
+  }>;
+  evidenceStats: {
+    linked: number;
+    unlinked: number;
+    total: number;
+  };
+  summary: {
+    totalOpenIssues: number;
+    totalOverdueCAPAs: number;
+    totalFailedTests: number;
+  };
+}
+
+export const grcInsightsApi = {
+  getOverview: async (tenantId: string): Promise<GrcInsightsOverview> => {
+    const response = await api.get(API_PATHS.GRC_INSIGHTS.OVERVIEW, withTenantId(tenantId));
+    return unwrapResponse<GrcInsightsOverview>(response);
+  },
+};
+
+// ============================================================================
+// GRC Meta - List Options (List Toolbar Standard)
+// ============================================================================
+
+export interface SortableField {
+  name: string;
+  label: string;
+  type: string;
+}
+
+export interface FilterableField {
+  name: string;
+  label: string;
+  type: string;
+  enumValues?: string[];
+  enumLabels?: Record<string, string>;
+}
+
+export interface ListOptionsResponse {
+  entity: string;
+  sortableFields: SortableField[];
+  filterableFields: FilterableField[];
+  searchableFields: string[];
+}
+
+export interface RegisteredEntitiesResponse {
+  entities: string[];
+}
+
+export const grcMetaApi = {
+  getRegisteredEntities: async (tenantId: string): Promise<RegisteredEntitiesResponse> => {
+    const response = await api.get(API_PATHS.GRC_META.LIST_OPTIONS, withTenantId(tenantId));
+    return unwrapResponse<RegisteredEntitiesResponse>(response);
+  },
+
+  getListOptions: async (tenantId: string, entity: string): Promise<ListOptionsResponse> => {
+    const response = await api.get(API_PATHS.GRC_META.LIST_OPTIONS_BY_ENTITY(entity), withTenantId(tenantId));
+    return unwrapResponse<ListOptionsResponse>(response);
+  },
+};
+
+// ============================================================================
+// Platform Core - Universal Attachments
+// ============================================================================
+
+export interface AttachmentData {
+  id: string;
+  tenantId: string;
+  refTable: string;
+  refId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  storageProvider: 'local' | 's3';
+  status: 'uploaded' | 'scanned' | 'blocked' | 'deleted';
+  createdBy: string | null;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export const attachmentApi = {
+  list: async (tenantId: string, refTable: string, refId: string): Promise<AttachmentData[]> => {
+    const response = await api.get(
+      `${API_PATHS.ATTACHMENTS.LIST}?refTable=${encodeURIComponent(refTable)}&refId=${encodeURIComponent(refId)}`,
+      withTenantId(tenantId)
+    );
+    return unwrapResponse<AttachmentData[]>(response);
+  },
+
+  upload: async (tenantId: string, refTable: string, refId: string, file: File): Promise<AttachmentData> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(
+      `${API_PATHS.ATTACHMENTS.UPLOAD}?refTable=${encodeURIComponent(refTable)}&refId=${encodeURIComponent(refId)}`,
+      formData,
+      {
+        ...withTenantId(tenantId),
+        headers: {
+          ...withTenantId(tenantId).headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return unwrapResponse<AttachmentData>(response);
+  },
+
+  get: async (tenantId: string, id: string): Promise<AttachmentData> => {
+    const response = await api.get(API_PATHS.ATTACHMENTS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<AttachmentData>(response);
+  },
+
+  download: async (tenantId: string, id: string): Promise<Blob> => {
+    const response = await api.get(API_PATHS.ATTACHMENTS.DOWNLOAD(id), {
+      ...withTenantId(tenantId),
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
+  delete: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.ATTACHMENTS.DELETE(id), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Platform Core - List Views
+// ============================================================================
+
+export interface ListViewColumnData {
+  id: string;
+  columnName: string;
+  orderIndex: number;
+  visible: boolean;
+  width: number | null;
+  pinned: 'left' | 'right' | null;
+}
+
+export interface ListViewData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  name: string;
+  scope: 'user' | 'role' | 'tenant' | 'system';
+  ownerUserId: string | null;
+  roleId: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  columns: ListViewColumnData[];
+}
+
+export interface ListViewsResponse {
+  views: ListViewData[];
+  defaultView: ListViewData | null;
+}
+
+export interface CreateListViewDto {
+  tableName: string;
+  name: string;
+  scope?: 'user' | 'role' | 'tenant' | 'system';
+  roleId?: string;
+  isDefault?: boolean;
+  columns?: Array<{
+    columnName: string;
+    orderIndex: number;
+    visible?: boolean;
+    width?: number;
+    pinned?: 'left' | 'right';
+  }>;
+}
+
+export interface UpdateListViewDto {
+  name?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateColumnsDto {
+  columns: Array<{
+    columnName: string;
+    orderIndex: number;
+    visible?: boolean;
+    width?: number;
+    pinned?: 'left' | 'right';
+  }>;
+}
+
+export const listViewApi = {
+  list: async (tenantId: string, tableName: string, roleId?: string): Promise<ListViewsResponse> => {
+    let url = `${API_PATHS.LIST_VIEWS.LIST}?tableName=${encodeURIComponent(tableName)}`;
+    if (roleId) {
+      url += `&roleId=${encodeURIComponent(roleId)}`;
+    }
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<ListViewsResponse>(response);
+  },
+
+  get: async (tenantId: string, id: string): Promise<ListViewData> => {
+    const response = await api.get(API_PATHS.LIST_VIEWS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  create: async (tenantId: string, data: CreateListViewDto): Promise<ListViewData> => {
+    const response = await api.post(API_PATHS.LIST_VIEWS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  update: async (tenantId: string, id: string, data: UpdateListViewDto): Promise<ListViewData> => {
+    const response = await api.put(API_PATHS.LIST_VIEWS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  updateColumns: async (tenantId: string, id: string, data: UpdateColumnsDto): Promise<ListViewData> => {
+    const response = await api.put(API_PATHS.LIST_VIEWS.UPDATE_COLUMNS(id), data, withTenantId(tenantId));
+    return unwrapResponse<ListViewData>(response);
+  },
+
+  delete: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.LIST_VIEWS.DELETE(id), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Platform Core - Export
+// ============================================================================
+
+export interface ExportRequestDto {
+  tableName: string;
+  viewId?: string;
+  columns?: string[];
+  filters?: Record<string, unknown>;
+  search?: string;
+  sort?: { field: string; order: 'ASC' | 'DESC' };
+  format: 'csv' | 'xlsx';
+}
+
+export const exportApi = {
+  export: async (tenantId: string, data: ExportRequestDto): Promise<Blob> => {
+    const response = await api.post(API_PATHS.EXPORT.CREATE, data, {
+      ...withTenantId(tenantId),
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+};
+
+// ============================================================================
+// Platform Builder - Admin APIs
+// ============================================================================
+
+export type PlatformBuilderFieldType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'datetime' | 'choice' | 'reference';
+
+export interface ChoiceOption {
+  label: string;
+  value: string;
+}
+
+export interface SysDbObjectData {
+  id: string;
+  tenantId: string;
+  name: string;
+  label: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+  fieldCount?: number;
+  recordCount?: number;
+}
+
+export interface SysDictionaryData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  fieldName: string;
+  label: string;
+  type: PlatformBuilderFieldType;
+  isRequired: boolean;
+  isUnique: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+}
+
+export interface CreateTableDto {
+  name: string;
+  label: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateTableDto {
+  label?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface CreateFieldDto {
+  fieldName: string;
+  label: string;
+  type?: PlatformBuilderFieldType;
+  isRequired?: boolean;
+  isUnique?: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateFieldDto {
+  label?: string;
+  type?: PlatformBuilderFieldType;
+  isRequired?: boolean;
+  isUnique?: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order?: number;
+  isActive?: boolean;
+}
+
+export interface TablesListResponse {
+  items: SysDbObjectData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface FieldsListResponse {
+  items: SysDictionaryData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export const platformBuilderApi = {
+  // Table management
+  listTables: async (tenantId: string, params?: { page?: number; pageSize?: number; search?: string }): Promise<TablesListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    const url = queryParams.toString() ? `${API_PATHS.PLATFORM_BUILDER.TABLES.LIST}?${queryParams}` : API_PATHS.PLATFORM_BUILDER.TABLES.LIST;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<TablesListResponse>(response);
+  },
+
+  getTable: async (tenantId: string, id: string): Promise<SysDbObjectData> => {
+    const response = await api.get(API_PATHS.PLATFORM_BUILDER.TABLES.GET(id), withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  createTable: async (tenantId: string, data: CreateTableDto): Promise<SysDbObjectData> => {
+    const response = await api.post(API_PATHS.PLATFORM_BUILDER.TABLES.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  updateTable: async (tenantId: string, id: string, data: UpdateTableDto): Promise<SysDbObjectData> => {
+    const response = await api.patch(API_PATHS.PLATFORM_BUILDER.TABLES.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  deleteTable: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.PLATFORM_BUILDER.TABLES.DELETE(id), withTenantId(tenantId));
+  },
+
+  // Field management
+  listFields: async (tenantId: string, tableId: string, params?: { page?: number; pageSize?: number }): Promise<FieldsListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    const url = queryParams.toString() ? `${API_PATHS.PLATFORM_BUILDER.FIELDS.LIST(tableId)}?${queryParams}` : API_PATHS.PLATFORM_BUILDER.FIELDS.LIST(tableId);
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<FieldsListResponse>(response);
+  },
+
+  getField: async (tenantId: string, fieldId: string): Promise<SysDictionaryData> => {
+    const response = await api.get(API_PATHS.PLATFORM_BUILDER.FIELDS.GET(fieldId), withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  createField: async (tenantId: string, tableId: string, data: CreateFieldDto): Promise<SysDictionaryData> => {
+    const response = await api.post(API_PATHS.PLATFORM_BUILDER.FIELDS.CREATE(tableId), data, withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  updateField: async (tenantId: string, fieldId: string, data: UpdateFieldDto): Promise<SysDictionaryData> => {
+    const response = await api.patch(API_PATHS.PLATFORM_BUILDER.FIELDS.UPDATE(fieldId), data, withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  deleteField: async (tenantId: string, fieldId: string): Promise<void> => {
+    await api.delete(API_PATHS.PLATFORM_BUILDER.FIELDS.DELETE(fieldId), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Dynamic Data - Runtime APIs
+// ============================================================================
+
+export interface DynamicRecordData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  recordId: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+}
+
+export interface DynamicRecordsListResponse {
+  records: {
+    items: DynamicRecordData[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+  fields: SysDictionaryData[];
+}
+
+export interface DynamicRecordDetailResponse {
+  record: DynamicRecordData;
+  fields: SysDictionaryData[];
+}
+
+export interface CreateDynamicRecordDto {
+  data: Record<string, unknown>;
+}
+
+export interface UpdateDynamicRecordDto {
+  data: Record<string, unknown>;
+}
+
+export interface DynamicDataListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  filter?: Record<string, unknown>;
+}
+
+export const dynamicDataApi = {
+  list: async (tenantId: string, tableName: string, params?: DynamicDataListParams): Promise<DynamicRecordsListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params?.filter) queryParams.append('filter', JSON.stringify(params.filter));
+    const url = queryParams.toString() ? `${API_PATHS.DYNAMIC_DATA.LIST(tableName)}?${queryParams}` : API_PATHS.DYNAMIC_DATA.LIST(tableName);
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordsListResponse>(response);
+  },
+
+  getSchema: async (tenantId: string, tableName: string): Promise<{ fields: SysDictionaryData[] }> => {
+    const response = await api.get(API_PATHS.DYNAMIC_DATA.SCHEMA(tableName), withTenantId(tenantId));
+    return unwrapResponse<{ fields: SysDictionaryData[] }>(response);
+  },
+
+  get: async (tenantId: string, tableName: string, recordId: string): Promise<DynamicRecordDetailResponse> => {
+    const response = await api.get(API_PATHS.DYNAMIC_DATA.GET(tableName, recordId), withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordDetailResponse>(response);
+  },
+
+  create: async (tenantId: string, tableName: string, data: CreateDynamicRecordDto): Promise<DynamicRecordData> => {
+    const response = await api.post(API_PATHS.DYNAMIC_DATA.CREATE(tableName), data, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordData>(response);
+  },
+
+  update: async (tenantId: string, tableName: string, recordId: string, data: UpdateDynamicRecordDto): Promise<DynamicRecordData> => {
+    const response = await api.patch(API_PATHS.DYNAMIC_DATA.UPDATE(tableName, recordId), data, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordData>(response);
+  },
+
+  delete: async (tenantId: string, tableName: string, recordId: string): Promise<void> => {
+    await api.delete(API_PATHS.DYNAMIC_DATA.DELETE(tableName, recordId), withTenantId(tenantId));
+  },
 };

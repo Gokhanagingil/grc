@@ -28,6 +28,8 @@ import {
   RiskStatus,
   PolicyStatus,
   ControlStatus,
+  ControlType,
+  ControlImplementationType,
   ComplianceFramework,
   ProcessControlMethod,
   ProcessControlFrequency,
@@ -35,11 +37,39 @@ import {
   ControlResultSource,
   ViolationSeverity,
   ViolationStatus,
+  // Golden Flow Sprint 1B enums
+  EvidenceType,
+  EvidenceSourceType,
+  EvidenceStatus,
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+  ControlTestType,
+  ControlTestStatus,
+  TestResultOutcome,
+  EffectivenessRating,
 } from '../grc/enums';
 import { Process } from '../grc/entities/process.entity';
 import { ProcessControl } from '../grc/entities/process-control.entity';
 import { ControlResult } from '../grc/entities/control-result.entity';
 import { ProcessViolation } from '../grc/entities/process-violation.entity';
+import { GrcControlProcess } from '../grc/entities/grc-control-process.entity';
+// Golden Flow Sprint 1B entities
+import { GrcEvidence } from '../grc/entities/grc-evidence.entity';
+import { GrcIssue } from '../grc/entities/grc-issue.entity';
+import { GrcControlTest } from '../grc/entities/grc-control-test.entity';
+import { GrcTestResult } from '../grc/entities/grc-test-result.entity';
+import { GrcControlEvidence } from '../grc/entities/grc-control-evidence.entity';
+import { GrcEvidenceTestResult } from '../grc/entities/grc-evidence-test-result.entity';
+import { GrcIssueEvidence } from '../grc/entities/grc-issue-evidence.entity';
+import { GrcCapa } from '../grc/entities/grc-capa.entity';
+import { GrcCapaTask } from '../grc/entities/grc-capa-task.entity';
+import {
+  CapaType,
+  CapaStatus,
+  CAPAPriority,
+  CAPATaskStatus,
+} from '../grc/enums';
 
 // Demo tenant and user IDs (consistent for idempotency)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -1024,6 +1054,546 @@ async function seedGrcData() {
       console.log('   Control results already exist, skipping...');
     }
 
+    // 13. Seed Process-Only Control Example (Unified Control Library)
+    console.log('13. Seeding process-only control example...');
+    const controlProcessRepo = dataSource.getRepository(GrcControlProcess);
+
+    // Create "Sales Order Management" process if it doesn't exist
+    let salesProcess = await processRepo.findOne({
+      where: { code: 'PRC-SALES-001', tenantId: DEMO_TENANT_ID },
+    });
+
+    if (!salesProcess) {
+      salesProcess = processRepo.create({
+        name: 'Sales Order Management',
+        code: 'PRC-SALES-001',
+        description:
+          'End-to-end process for managing sales orders from creation to fulfillment',
+        category: 'Sales',
+        ownerUserId: DEMO_ADMIN_ID,
+        isActive: true,
+        tenantId: DEMO_TENANT_ID,
+        isDeleted: false,
+      });
+      await processRepo.save(salesProcess);
+      console.log('   Created process: PRC-SALES-001 - Sales Order Management');
+    } else {
+      console.log('   Sales Order Management process already exists');
+    }
+
+    // Create "Sales Approval Control" if it doesn't exist
+    let salesControl = await controlRepo.findOne({
+      where: { code: 'CTL-SALES-001', tenantId: DEMO_TENANT_ID },
+    });
+
+    if (!salesControl) {
+      salesControl = controlRepo.create({
+        name: 'Sales Approval Control',
+        code: 'CTL-SALES-001',
+        description:
+          'Ensures all sales orders above threshold require manager approval before processing',
+        type: ControlType.PREVENTIVE,
+        implementationType: ControlImplementationType.MANUAL,
+        status: ControlStatus.IMPLEMENTED,
+        ownerUserId: DEMO_ADMIN_ID,
+        tenantId: DEMO_TENANT_ID,
+      });
+      await controlRepo.save(salesControl);
+      console.log('   Created control: CTL-SALES-001 - Sales Approval Control');
+    } else {
+      console.log('   Sales Approval Control already exists');
+    }
+
+    // Link control to process (process-only control - no requirement link)
+    const existingLink = await controlProcessRepo.findOne({
+      where: {
+        controlId: salesControl.id,
+        processId: salesProcess.id,
+        tenantId: DEMO_TENANT_ID,
+      },
+    });
+
+    if (!existingLink) {
+      const controlProcessLink = controlProcessRepo.create({
+        controlId: salesControl.id,
+        processId: salesProcess.id,
+        tenantId: DEMO_TENANT_ID,
+        notes:
+          'Process-only control example - not linked to any compliance requirement',
+      });
+      await controlProcessRepo.save(controlProcessLink);
+      console.log(
+        '   Linked CTL-SALES-001 to PRC-SALES-001 (process-only control)',
+      );
+    } else {
+      console.log('   Control-process link already exists');
+    }
+
+    // ============================================
+    // Golden Flow Sprint 1B: Evidence, Tests, Issues
+    // ============================================
+
+    // 12. Seed Evidence
+    console.log('12. Seeding evidence records...');
+    const evidenceRepo = dataSource.getRepository(GrcEvidence);
+    const existingEvidence = await evidenceRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const evidenceData = [
+      {
+        name: 'Access Control Policy Document',
+        description:
+          'Official access control policy document approved by management',
+        type: EvidenceType.DOCUMENT,
+        sourceType: EvidenceSourceType.MANUAL,
+        status: EvidenceStatus.APPROVED,
+        location: '/documents/policies/access-control-policy-v2.pdf',
+        collectedAt: new Date('2024-12-01'),
+        collectedByUserId: DEMO_ADMIN_ID,
+        tags: ['policy', 'access-control', 'approved'],
+      },
+      {
+        name: 'Firewall Configuration Screenshot',
+        description:
+          'Screenshot of firewall rules showing network segmentation',
+        type: EvidenceType.SCREENSHOT,
+        sourceType: EvidenceSourceType.MANUAL,
+        status: EvidenceStatus.APPROVED,
+        location: '/evidence/screenshots/firewall-config-2024-12.png',
+        collectedAt: new Date('2024-12-15'),
+        collectedByUserId: DEMO_ADMIN_ID,
+        tags: ['network', 'firewall', 'screenshot'],
+      },
+      {
+        name: 'Security Training Completion Report',
+        description:
+          'Report showing all employees completed security awareness training',
+        type: EvidenceType.DOCUMENT,
+        sourceType: EvidenceSourceType.SYSTEM,
+        status: EvidenceStatus.APPROVED,
+        location: '/reports/training/security-awareness-2024-q4.pdf',
+        collectedAt: new Date('2024-11-30'),
+        tags: ['training', 'compliance', 'hr'],
+      },
+      {
+        name: 'Vulnerability Scan Results',
+        description: 'Monthly vulnerability scan results from security scanner',
+        type: EvidenceType.LOG,
+        sourceType: EvidenceSourceType.SYSTEM,
+        status: EvidenceStatus.DRAFT,
+        location: '/scans/vulnerability/scan-2024-12.json',
+        externalUrl: 'https://scanner.example.com/reports/2024-12',
+        collectedAt: new Date('2024-12-20'),
+        tags: ['vulnerability', 'scan', 'security'],
+      },
+    ];
+
+    const evidenceRecords: GrcEvidence[] = [];
+    for (const data of evidenceData) {
+      const existing = existingEvidence.find((e) => e.name === data.name);
+      if (existing) {
+        evidenceRecords.push(existing);
+      } else {
+        const evidence = evidenceRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await evidenceRepo.save(evidence);
+        evidenceRecords.push(evidence);
+        console.log(`   Created evidence: ${data.name}`);
+      }
+    }
+
+    // 13. Seed Control Tests and Test Results
+    console.log('13. Seeding control tests and test results...');
+    const controlTestRepo = dataSource.getRepository(GrcControlTest);
+    const testResultRepo = dataSource.getRepository(GrcTestResult);
+    const existingControlTests = await controlTestRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    // Create control tests for the first two controls
+    const controlTestsData = [
+      {
+        name: 'Access Control Policy Test Q4 2024',
+        description: 'Quarterly test of access control policy implementation',
+        controlId: controls[0].id, // Access Control Policy
+        testType: ControlTestType.MANUAL,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-05'),
+        completedAt: new Date('2024-12-10'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Review access control lists, verify least privilege, check access reviews',
+        sampleSize: 50,
+        populationSize: 200,
+      },
+      {
+        name: 'Data Encryption Test Q4 2024',
+        description: 'Quarterly test of data encryption at rest',
+        controlId: controls[1].id, // Data Encryption at Rest
+        testType: ControlTestType.AUTOMATED,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-03'),
+        completedAt: new Date('2024-12-03'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Run automated encryption verification script on all databases',
+        sampleSize: 100,
+        populationSize: 100,
+      },
+      {
+        name: 'Network Segmentation Test Q4 2024',
+        description: 'Quarterly test of network segmentation controls',
+        controlId: controls[2].id, // Network Segmentation
+        testType: ControlTestType.MANUAL,
+        status: ControlTestStatus.COMPLETED,
+        scheduledDate: new Date('2024-12-01'),
+        startedAt: new Date('2024-12-08'),
+        completedAt: new Date('2024-12-12'),
+        testerUserId: DEMO_ADMIN_ID,
+        testProcedure:
+          'Review firewall rules, test network isolation, verify VLAN configuration',
+        sampleSize: 25,
+        populationSize: 50,
+      },
+    ];
+
+    const controlTests: GrcControlTest[] = [];
+    const testResults: GrcTestResult[] = [];
+
+    for (const data of controlTestsData) {
+      const existing = existingControlTests.find((ct) => ct.name === data.name);
+      if (existing) {
+        controlTests.push(existing);
+        // Find existing test result
+        const existingResult = await testResultRepo.findOne({
+          where: { controlTestId: existing.id, tenantId: DEMO_TENANT_ID },
+        });
+        if (existingResult) {
+          testResults.push(existingResult);
+        }
+      } else {
+        const controlTest = controlTestRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await controlTestRepo.save(controlTest);
+        controlTests.push(controlTest);
+        console.log(`   Created control test: ${data.name}`);
+
+        // Create test result for completed tests
+        if (data.status === ControlTestStatus.COMPLETED) {
+          // Determine result based on control index (first two pass, third fails)
+          const isPass = controlTestsData.indexOf(data) < 2;
+          const testResult = testResultRepo.create({
+            controlTestId: controlTest.id,
+            tenantId: DEMO_TENANT_ID,
+            result: isPass ? TestResultOutcome.PASS : TestResultOutcome.FAIL,
+            resultDetails: isPass
+              ? 'Control operating effectively with no exceptions noted'
+              : 'Control partially implemented - gaps identified in network segmentation',
+            exceptionsNoted: isPass
+              ? null
+              : 'DMZ not properly isolated from internal network',
+            exceptionsCount: isPass ? 0 : 2,
+            sampleTested: data.sampleSize,
+            samplePassed: isPass
+              ? data.sampleSize
+              : Math.floor(data.sampleSize * 0.8),
+            effectivenessRating: isPass
+              ? EffectivenessRating.EFFECTIVE
+              : EffectivenessRating.PARTIALLY_EFFECTIVE,
+            recommendations: isPass
+              ? 'Continue current control implementation'
+              : 'Implement additional firewall rules to isolate DMZ',
+            reviewedAt: new Date('2024-12-15'),
+            reviewedByUserId: DEMO_ADMIN_ID,
+            isDeleted: false,
+          });
+          await testResultRepo.save(testResult);
+          testResults.push(testResult);
+          console.log(
+            `   Created test result: ${isPass ? 'PASS' : 'FAIL'} for ${data.name}`,
+          );
+        }
+      }
+    }
+
+    // 14. Seed Issues
+    console.log('14. Seeding issues...');
+    const issueRepo = dataSource.getRepository(GrcIssue);
+    const existingIssues = await issueRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const issuesData = [
+      {
+        title: 'Network Segmentation Gap - DMZ Isolation',
+        description:
+          'During Q4 2024 testing, it was identified that the DMZ is not properly isolated from the internal network. This creates a potential attack vector.',
+        type: IssueType.INTERNAL_AUDIT,
+        status: IssueStatus.OPEN,
+        severity: IssueSeverity.HIGH,
+        controlId: controls[2].id, // Network Segmentation
+        testResultId: testResults.length > 2 ? testResults[2].id : null,
+        discoveredDate: new Date('2024-12-12'),
+        dueDate: new Date('2025-01-31'),
+        ownerUserId: DEMO_ADMIN_ID,
+      },
+      {
+        title: 'Outdated Access Review Process',
+        description:
+          'Access reviews are not being conducted on schedule. Last review was 6 months ago instead of quarterly.',
+        type: IssueType.SELF_ASSESSMENT,
+        status: IssueStatus.IN_PROGRESS,
+        severity: IssueSeverity.MEDIUM,
+        controlId: controls[0].id, // Access Control Policy
+        discoveredDate: new Date('2024-11-15'),
+        dueDate: new Date('2025-02-28'),
+        ownerUserId: DEMO_ADMIN_ID,
+      },
+      {
+        title: 'Missing Encryption Key Rotation',
+        description:
+          'Encryption keys have not been rotated in the past 12 months, exceeding the 6-month rotation policy.',
+        type: IssueType.EXTERNAL_AUDIT,
+        status: IssueStatus.OPEN,
+        severity: IssueSeverity.MEDIUM,
+        controlId: controls[1].id, // Data Encryption at Rest
+        discoveredDate: new Date('2024-12-20'),
+        dueDate: new Date('2025-01-15'),
+      },
+    ];
+
+    const issues: GrcIssue[] = [];
+    for (const data of issuesData) {
+      const existing = existingIssues.find((i) => i.title === data.title);
+      if (existing) {
+        issues.push(existing);
+      } else {
+        const issue = issueRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await issueRepo.save(issue);
+        issues.push(issue);
+        console.log(`   Created issue: ${data.title}`);
+      }
+    }
+
+    // 15. Seed CAPAs (Golden Flow continuation)
+    console.log('15. Seeding CAPAs...');
+    const capaRepo = dataSource.getRepository(GrcCapa);
+    const existingCapas = await capaRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const capasData = [
+      {
+        title: 'Implement DMZ Network Isolation',
+        description:
+          'Corrective action to properly isolate the DMZ from internal network segments. This includes firewall rule updates and network architecture changes.',
+        type: CapaType.CORRECTIVE,
+        status: CapaStatus.IN_PROGRESS,
+        priority: CAPAPriority.HIGH,
+        issueId: issues[0].id, // Network Segmentation Gap - DMZ Isolation
+        ownerUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-15'),
+      },
+      {
+        title: 'Establish Quarterly Access Review Process',
+        description:
+          'Preventive action to establish and document a quarterly access review process with automated reminders and tracking.',
+        type: CapaType.PREVENTIVE,
+        status: CapaStatus.PLANNED,
+        priority: CAPAPriority.MEDIUM,
+        issueId: issues[1].id, // Outdated Access Review Process
+        ownerUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-03-31'),
+      },
+    ];
+
+    const capas: GrcCapa[] = [];
+    for (const data of capasData) {
+      const existing = existingCapas.find((c) => c.title === data.title);
+      if (existing) {
+        capas.push(existing);
+      } else {
+        const capa = capaRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await capaRepo.save(capa);
+        capas.push(capa);
+        console.log(`   Created CAPA: ${data.title}`);
+      }
+    }
+
+    // 16. Seed CAPA Tasks
+    console.log('16. Seeding CAPA Tasks...');
+    const capaTaskRepo = dataSource.getRepository(GrcCapaTask);
+    const existingCapaTasks = await capaTaskRepo.find({
+      where: { tenantId: DEMO_TENANT_ID },
+    });
+
+    const capaTasksData = [
+      {
+        title: 'Update firewall rules for DMZ isolation',
+        description:
+          'Configure firewall rules to block direct traffic between DMZ and internal network segments.',
+        status: CAPATaskStatus.COMPLETED,
+        capaId: capas[0].id, // Implement DMZ Network Isolation
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-01-31'),
+        completedAt: new Date('2025-01-15'),
+        sequenceOrder: 1,
+      },
+      {
+        title: 'Implement network monitoring for DMZ traffic',
+        description:
+          'Set up network monitoring to detect and alert on any unauthorized traffic between DMZ and internal networks.',
+        status: CAPATaskStatus.IN_PROGRESS,
+        capaId: capas[0].id, // Implement DMZ Network Isolation
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-10'),
+        sequenceOrder: 2,
+      },
+      {
+        title: 'Document access review procedures',
+        description:
+          'Create detailed documentation for the quarterly access review process including roles, responsibilities, and timelines.',
+        status: CAPATaskStatus.PENDING,
+        capaId: capas[1].id, // Establish Quarterly Access Review Process
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-02-28'),
+        sequenceOrder: 1,
+      },
+      {
+        title: 'Configure automated access review reminders',
+        description:
+          'Set up automated email reminders to notify stakeholders 2 weeks before each quarterly review deadline.',
+        status: CAPATaskStatus.PENDING,
+        capaId: capas[1].id, // Establish Quarterly Access Review Process
+        assigneeUserId: DEMO_ADMIN_ID,
+        dueDate: new Date('2025-03-15'),
+        sequenceOrder: 2,
+      },
+    ];
+
+    const capaTasks: GrcCapaTask[] = [];
+    for (const data of capaTasksData) {
+      const existing = existingCapaTasks.find((t) => t.title === data.title);
+      if (existing) {
+        capaTasks.push(existing);
+      } else {
+        const capaTask = capaTaskRepo.create({
+          ...data,
+          tenantId: DEMO_TENANT_ID,
+          isDeleted: false,
+        });
+        await capaTaskRepo.save(capaTask);
+        capaTasks.push(capaTask);
+        console.log(`   Created CAPA Task: ${data.title}`);
+      }
+    }
+
+    // 17. Create linkages for Golden Flow
+    console.log('17. Creating Golden Flow linkages...');
+    const controlEvidenceRepo = dataSource.getRepository(GrcControlEvidence);
+    const evidenceTestResultRepo = dataSource.getRepository(
+      GrcEvidenceTestResult,
+    );
+    const issueEvidenceRepo = dataSource.getRepository(GrcIssueEvidence);
+
+    // Link evidence to controls
+    const controlEvidenceLinks = [
+      { controlId: controls[0].id, evidenceId: evidenceRecords[0].id }, // Access Control Policy -> Policy Document
+      { controlId: controls[2].id, evidenceId: evidenceRecords[1].id }, // Network Segmentation -> Firewall Screenshot
+      { controlId: controls[3].id, evidenceId: evidenceRecords[2].id }, // Security Training -> Training Report
+      { controlId: controls[5].id, evidenceId: evidenceRecords[3].id }, // Vulnerability Management -> Scan Results
+    ];
+
+    for (const link of controlEvidenceLinks) {
+      const existing = await controlEvidenceRepo.findOne({
+        where: {
+          controlId: link.controlId,
+          evidenceId: link.evidenceId,
+          tenantId: DEMO_TENANT_ID,
+        },
+      });
+      if (!existing) {
+        const controlEvidence = controlEvidenceRepo.create({
+          ...link,
+          tenantId: DEMO_TENANT_ID,
+        });
+        await controlEvidenceRepo.save(controlEvidence);
+        console.log('   Linked evidence to control');
+      }
+    }
+
+    // Link evidence to test results
+    if (testResults.length > 0 && evidenceRecords.length > 0) {
+      const evidenceTestResultLinks = [
+        { evidenceId: evidenceRecords[0].id, testResultId: testResults[0].id }, // Policy Document -> Access Control Test
+        {
+          evidenceId: evidenceRecords[1].id,
+          testResultId:
+            testResults.length > 2 ? testResults[2].id : testResults[0].id,
+        }, // Firewall Screenshot -> Network Test
+      ];
+
+      for (const link of evidenceTestResultLinks) {
+        const existing = await evidenceTestResultRepo.findOne({
+          where: {
+            evidenceId: link.evidenceId,
+            testResultId: link.testResultId,
+            tenantId: DEMO_TENANT_ID,
+          },
+        });
+        if (!existing) {
+          const evidenceTestResult = evidenceTestResultRepo.create({
+            ...link,
+            tenantId: DEMO_TENANT_ID,
+          });
+          await evidenceTestResultRepo.save(evidenceTestResult);
+          console.log('   Linked evidence to test result');
+        }
+      }
+    }
+
+    // Link evidence to issues
+    if (issues.length > 0 && evidenceRecords.length > 1) {
+      const issueEvidenceLinks = [
+        { issueId: issues[0].id, evidenceId: evidenceRecords[1].id }, // DMZ Issue -> Firewall Screenshot
+      ];
+
+      for (const link of issueEvidenceLinks) {
+        const existing = await issueEvidenceRepo.findOne({
+          where: {
+            issueId: link.issueId,
+            evidenceId: link.evidenceId,
+            tenantId: DEMO_TENANT_ID,
+          },
+        });
+        if (!existing) {
+          const issueEvidence = issueEvidenceRepo.create({
+            ...link,
+            tenantId: DEMO_TENANT_ID,
+          });
+          await issueEvidenceRepo.save(issueEvidence);
+          console.log('   Linked evidence to issue');
+        }
+      }
+    }
+
     console.log('\n========================================');
     console.log('GRC Demo Data Seed Complete!');
     console.log('========================================');
@@ -1032,18 +1602,45 @@ async function seedGrcData() {
     console.log(`Admin Password: TestPassword123! (use existing auth)`);
     console.log('');
     console.log('Summary:');
-    console.log(`  - Controls: ${controls.length}`);
+    console.log(
+      `  - Controls: ${controls.length + 1} (includes process-only control)`,
+    );
     console.log(`  - Risks: ${risks.length}`);
     console.log(`  - Policies: ${policies.length}`);
     console.log(`  - Requirements: ${requirements.length}`);
-    console.log(`  - Processes: ${processes.length}`);
+    console.log(
+      `  - Processes: ${processes.length + 1} (includes Sales Order Management)`,
+    );
     console.log(`  - Process Controls: ${processControls.length}`);
+    console.log(`  - Control-Process Links: 1 (process-only control example)`);
     console.log('');
-    console.log('To test the API:');
+    console.log('Golden Flow Sprint 1B Data:');
+    console.log(`  - Evidence: ${evidenceRecords.length}`);
+    console.log(`  - Control Tests: ${controlTests.length}`);
+    console.log(`  - Test Results: ${testResults.length}`);
+    console.log(`  - Issues: ${issues.length}`);
+    console.log(`  - CAPAs: ${capas.length}`);
+    console.log(`  - CAPA Tasks: ${capaTasks.length}`);
+    console.log('');
+    console.log('Golden Flow Chain Example (Complete):');
+    console.log(
+      '  Control -> Evidence -> TestResult -> Issue -> CAPA -> CapaTask',
+    );
+    console.log('  - Control: CTL-003 (Network Segmentation)');
+    console.log('  - Evidence: Firewall Configuration Screenshot');
+    console.log('  - Test Result: Network Segmentation Test Q4 2024 (FAIL)');
+    console.log('  - Issue: Network Segmentation Gap - DMZ Isolation');
+    console.log('  - CAPA: Implement DMZ Network Isolation');
+    console.log('  - CAPA Tasks: Update firewall rules, Implement monitoring');
+    console.log('');
+    console.log('To test the Golden Flow API:');
     console.log('  1. Start NestJS: cd backend-nest && npm run start:dev');
     console.log('  2. Login to get JWT token');
     console.log(`  3. Use x-tenant-id: ${DEMO_TENANT_ID} header`);
-    console.log('  4. Call GET /grc/risks, /grc/policies, /grc/requirements');
+    console.log('  4. Call GET /grc/evidence, /grc/test-results, /grc/issues');
+    console.log('  5. Call GET /grc/capas, /grc/capa-tasks');
+    console.log('  6. Call GET /grc/issues/:id/capas to see linked CAPAs');
+    console.log('  7. Call GET /grc/capas/:id/tasks to see CAPA tasks');
     console.log('========================================\n');
   } catch (error) {
     console.error('Error seeding GRC data:', error);

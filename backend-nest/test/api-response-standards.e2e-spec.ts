@@ -9,11 +9,22 @@ import { AppModule } from '../src/app.module';
  *
  * Tests to verify that all API responses follow the standard envelope format:
  *
- * Success Response:
+ * Success Response (non-paginated):
  * {
  *   "success": true,
- *   "data": ...,
- *   "meta": { ... }
+ *   "data": ...
+ * }
+ *
+ * Success Response (paginated - LIST-CONTRACT):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "items": [...],
+ *     "total": number,
+ *     "page": number,
+ *     "pageSize": number,
+ *     "totalPages": number
+ *   }
  * }
  *
  * Error Response:
@@ -83,7 +94,7 @@ describe('API Response Standards (e2e)', () => {
   });
 
   describe('Success Response Envelope', () => {
-    it('should return standard success envelope for list endpoints', async () => {
+    it('should return standard success envelope for list endpoints (LIST-CONTRACT)', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
@@ -95,15 +106,17 @@ describe('API Response Standards (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      // Verify standard envelope structure
+      // Verify LIST-CONTRACT compliant envelope structure
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.meta).toHaveProperty('total');
-      expect(response.body.meta).toHaveProperty('page');
-      expect(response.body.meta).toHaveProperty('pageSize');
-      expect(response.body.meta).toHaveProperty('totalPages');
+      // data should be an object with items array (LIST-CONTRACT)
+      expect(Array.isArray(response.body.data)).toBe(false);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('page');
+      expect(response.body.data).toHaveProperty('pageSize');
+      expect(response.body.data).toHaveProperty('totalPages');
     });
 
     it('should return standard success envelope for single resource endpoints', async () => {
@@ -262,8 +275,8 @@ describe('API Response Standards (e2e)', () => {
     });
   });
 
-  describe('Pagination Meta in Response Envelope', () => {
-    it('should include correct pagination meta for list endpoints', async () => {
+  describe('Pagination in Response Envelope (LIST-CONTRACT)', () => {
+    it('should include correct pagination in data for list endpoints', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
@@ -275,14 +288,14 @@ describe('API Response Standards (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
+      // LIST-CONTRACT: pagination is inside data, not in meta
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.meta).toHaveProperty('page', 1);
-      expect(response.body.meta).toHaveProperty('pageSize', 10);
-      expect(response.body.meta).toHaveProperty('total');
-      expect(response.body.meta).toHaveProperty('totalPages');
-      expect(response.body.meta).toHaveProperty('limit', 10);
-      expect(response.body.meta).toHaveProperty('offset', 0);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data).toHaveProperty('page', 1);
+      expect(response.body.data).toHaveProperty('pageSize', 10);
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('totalPages');
     });
 
     it('should support limit/offset pagination style', async () => {
@@ -297,10 +310,11 @@ describe('API Response Standards (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
+      // LIST-CONTRACT: pagination is inside data
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.meta).toHaveProperty('limit');
-      expect(response.body.meta).toHaveProperty('offset');
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data).toHaveProperty('pageSize');
     });
 
     it('should return 400 for oversized limit (greater than 100)', async () => {
@@ -354,7 +368,7 @@ describe('API Response Standards (e2e)', () => {
       expect(response.body.error).toHaveProperty('code');
     });
 
-    it('should handle page 2 with correct offset calculation', async () => {
+    it('should handle page 2 with correct pagination', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
         return;
@@ -366,11 +380,11 @@ describe('API Response Standards (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
+      // LIST-CONTRACT: pagination is inside data
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.meta).toHaveProperty('page', 2);
-      expect(response.body.meta).toHaveProperty('pageSize', 10);
-      expect(response.body.meta).toHaveProperty('offset', 10);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('page', 2);
+      expect(response.body.data).toHaveProperty('pageSize', 10);
     });
   });
 });
