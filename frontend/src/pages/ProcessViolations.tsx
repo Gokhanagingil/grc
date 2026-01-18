@@ -43,8 +43,9 @@ import {
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 import { useSearchParams } from 'react-router-dom';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 
 interface ProcessViolation {
   id: string;
@@ -101,8 +102,23 @@ const STATUS_LABELS: Record<string, string> = {
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - ProcessViolations için özel
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
   const processIdFromUrl = searchParams.get('processId') || '';
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [violations, setViolations] = useState<ProcessViolation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,14 +128,16 @@ export const ProcessViolations: React.FC = () => {
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
   const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-    const [statusFilter, setStatusFilter] = useState<string>('');
-    const [severityFilter, setSeverityFilter] = useState<string>('');
-    const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
-    const [processName, setProcessName] = useState<string>('');
-    const [searchFilter, setSearchFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>((filterParam?.status as string) || '');
+  const [severityFilter, setSeverityFilter] = useState<string>((filterParam?.severity as string) || '');
+  const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl || (filterParam?.processId as string) || '');
+  const [processName, setProcessName] = useState<string>('');
+  const [searchFilter, setSearchFilter] = useState<string>(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
     const [allRisks, setAllRisks] = useState<Risk[]>([]);
     const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
@@ -131,24 +149,74 @@ export const ProcessViolations: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback(() => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (statusFilter) {
+      conditions.push({ field: 'status', operator: 'eq', value: statusFilter });
+    }
+    if (severityFilter) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severityFilter });
+    }
+    if (processFilter) {
+      conditions.push({ field: 'processId', operator: 'eq', value: processFilter });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, [statusFilter, severityFilter, processFilter]);
+
+  // Update URL params when filters/sort/page change
+  useEffect(() => {
+    const filter = buildFilter();
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const params = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchFilter || null,
+        processId: processFilter || null, // processId özel durum - URL'de ayrı tutuluyor
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    // processId özel durum - filter içinde de var ama URL'de ayrı da tutuluyor
+    if (processFilter) {
+      params.set('processId', processFilter);
+    } else {
+      params.delete('processId');
+    }
+
+    setSearchParams(params, { replace: true });
+  }, [page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams]);
+
   const fetchViolations = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
+      const filter = buildFilter();
+      const params = buildListQueryParams({
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter: filter || undefined,
+        sort: formatSortToQuery(sortField, sortDirection),
+        search: searchFilter || undefined,
+        status: statusFilter || undefined,
+        severity: severityFilter || undefined,
+        processId: processFilter || undefined,
       });
-
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (severityFilter) {
-        params.append('severity', severityFilter);
-      }
-      if (processFilter) {
-        params.append('processId', processFilter);
-      }
 
       const response = await processViolationApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<ProcessViolation>(response);
@@ -173,7 +241,7 @@ export const ProcessViolations: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter]);
+  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter]);
 
     const fetchAllRisks = useCallback(async () => {
       if (!tenantId) {
@@ -181,8 +249,7 @@ export const ProcessViolations: React.FC = () => {
         return;
       }
       try {
-        const params = new URLSearchParams({ pageSize: '100' });
-        const response = await riskApi.list(tenantId, params);
+        const response = await riskApi.list(tenantId, buildListQueryParams({ pageSize: 100 }));
         const result = unwrapPaginatedResponse<Risk>(response);
         setAllRisks(result.items || []);
       } catch (err) {
@@ -366,80 +433,75 @@ export const ProcessViolations: React.FC = () => {
         </Alert>
       )}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <TextField
-              size="small"
-              placeholder="Search title..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              sx={{ minWidth: 150 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {VIOLATION_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {STATUS_LABELS[status] || status.toUpperCase().replace('_', ' ')}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Severity</InputLabel>
-              <Select
-                value={severityFilter}
-                label="Severity"
-                onChange={(e) => {
-                  setSeverityFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {VIOLATION_SEVERITIES.map((severity) => (
-                  <MenuItem key={severity} value={severity}>
-                    {SEVERITY_LABELS[severity] || severity.toUpperCase()}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-                        {processFilter && (
-                          <Chip
-                            label={`Process: ${processName || processFilter.substring(0, 8) + '...'}`}
-                            size="small"
-                            onDelete={() => {
-                              setProcessFilter('');
-                              setPage(0);
-                            }}
-                          />
-                        )}
-            {(statusFilter || severityFilter || processFilter || searchFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setStatusFilter('');
-                  setSeverityFilter('');
-                  setProcessFilter('');
-                  setSearchFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        searchValue={searchFilter}
+        onSearchChange={(value) => {
+          setSearchFilter(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search violations..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: STATUS_LABELS[statusFilter] || statusFilter.toUpperCase().replace('_', ' ') }] : []),
+          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: SEVERITY_LABELS[severityFilter] || severityFilter.toUpperCase() }] : []),
+          ...(processFilter ? [{ key: 'processId', label: 'Process', value: processName || processFilter.substring(0, 8) + '...' }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'status') setStatusFilter('');
+          if (key === 'severity') setSeverityFilter('');
+          if (key === 'processId') setProcessFilter('');
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setSeverityFilter('');
+          setProcessFilter('');
+          setSearchFilter('');
+          setPage(0);
+        }}
+        filterFields={[
+          {
+            key: 'status',
+            label: 'Status',
+            type: 'select',
+            options: VIOLATION_STATUSES.map((status) => ({
+              value: status,
+              label: STATUS_LABELS[status] || status.toUpperCase().replace('_', ' '),
+            })),
+          },
+          {
+            key: 'severity',
+            label: 'Severity',
+            type: 'select',
+            options: VIOLATION_SEVERITIES.map((severity) => ({
+              value: severity,
+              label: SEVERITY_LABELS[severity] || severity.toUpperCase(),
+            })),
+          },
+        ]}
+        onFilterChange={(key, value) => {
+          if (key === 'status') {
+            setStatusFilter(value);
+          } else if (key === 'severity') {
+            setSeverityFilter(value);
+          }
+          setPage(0);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'severity', label: 'Severity' },
+          { field: 'status', label: 'Status' },
+          { field: 'title', label: 'Title' },
+        ]}
+        defaultSortField="createdAt"
+        defaultSortDirection="DESC"
+      />
 
       <Card>
         <CardContent>

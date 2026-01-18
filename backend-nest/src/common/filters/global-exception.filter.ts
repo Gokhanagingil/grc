@@ -70,34 +70,58 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      // Handle validation errors (class-validator)
-      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const responseObj = exceptionResponse as Record<string, unknown>;
-
-        // Extract message
-        if (typeof responseObj.message === 'string') {
-          message = responseObj.message;
-        } else if (Array.isArray(responseObj.message)) {
-          // Validation errors from class-validator
-          message = 'Validation failed';
-          fieldErrors = this.extractFieldErrors(responseObj.message);
-        } else {
-          message = exception.message;
-        }
-
-        // Extract error code
-        errorCode = this.getErrorCode(status, responseObj.error as string);
-
-        // Include additional details if present
-        if (responseObj.details) {
-          details = responseObj.details as Record<string, unknown>;
-        }
+      // Handle 429 Rate Limit errors with Retry-After header
+      if (status === HttpStatus.TOO_MANY_REQUESTS) {
+        const retryAfterSeconds = 60; // Default: 60 seconds
+        response.setHeader('Retry-After', String(retryAfterSeconds));
+        
+        // Extract scope from error response or infer from request
+        const scope = this.inferRateLimitScope(request);
+        
+        errorCode = 'RATE_LIMITED';
+        message = `Çok fazla istek yapıldı. ${retryAfterSeconds} saniye sonra tekrar deneyin.`;
+        details = {
+          retryAfter: retryAfterSeconds,
+          scope,
+        };
+        
+        // Log rate limit event with correlation ID
+        this.logger.warn(`Rate limit exceeded: ${request.method} ${request.url}`, {
+          errorCode,
+          scope,
+          correlationId: request.headers['x-correlation-id'],
+          tenantId: request.headers['x-tenant-id'],
+        });
       } else {
-        message =
-          typeof exceptionResponse === 'string'
-            ? exceptionResponse
-            : exception.message;
-        errorCode = this.getErrorCode(status);
+        // Handle validation errors (class-validator)
+        if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+          const responseObj = exceptionResponse as Record<string, unknown>;
+
+          // Extract message
+          if (typeof responseObj.message === 'string') {
+            message = responseObj.message;
+          } else if (Array.isArray(responseObj.message)) {
+            // Validation errors from class-validator
+            message = 'Validation failed';
+            fieldErrors = this.extractFieldErrors(responseObj.message);
+          } else {
+            message = exception.message;
+          }
+
+          // Extract error code
+          errorCode = this.getErrorCode(status, responseObj.error as string);
+
+          // Include additional details if present
+          if (responseObj.details) {
+            details = responseObj.details as Record<string, unknown>;
+          }
+        } else {
+          message =
+            typeof exceptionResponse === 'string'
+              ? exceptionResponse
+              : exception.message;
+          errorCode = this.getErrorCode(status);
+        }
       }
     } else if (exception instanceof Error) {
       // Unexpected errors
@@ -206,5 +230,33 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
 
     return statusCodeMap[status] || 'ERROR';
+  }
+
+  /**
+   * Infer rate limit scope from request method and path
+   */
+  private inferRateLimitScope(request: Request): string {
+    const method = request.method.toUpperCase();
+    const path = request.path;
+
+    // Auth endpoints
+    if (path.startsWith('/auth/login') && method === 'POST') {
+      return 'auth';
+    }
+
+    // GET endpoints - read operations
+    if (method === 'GET') {
+      if (path.match(/\/grc\/(risks|policies|requirements|incidents|processes|process-violations|audits)/) ||
+          path.match(/\/itsm\/(incidents)/)) {
+        return 'read';
+      }
+    }
+
+    // Write endpoints - mutations
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      return 'write';
+    }
+
+    return 'default';
   }
 }
