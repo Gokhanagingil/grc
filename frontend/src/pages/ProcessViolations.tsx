@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -28,7 +28,6 @@ import {
 import {
   Edit as EditIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   Warning as ViolationIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
@@ -43,8 +42,10 @@ import {
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/api';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 import { useSearchParams } from 'react-router-dom';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 
 interface ProcessViolation {
   id: string;
@@ -82,7 +83,6 @@ interface Risk {
 }
 
 // Backend expects lowercase enum values
-const VIOLATION_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 const VIOLATION_STATUSES = ['open', 'in_progress', 'resolved'];
 
 // Display labels for UI (uppercase for display)
@@ -101,8 +101,23 @@ const STATUS_LABELS: Record<string, string> = {
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - ProcessViolations için özel
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
   const processIdFromUrl = searchParams.get('processId') || '';
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
   const [violations, setViolations] = useState<ProcessViolation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,14 +127,16 @@ export const ProcessViolations: React.FC = () => {
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
   const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
   const [total, setTotal] = useState(0);
-    const [statusFilter, setStatusFilter] = useState<string>('');
-    const [severityFilter, setSeverityFilter] = useState<string>('');
-    const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl);
-    const [processName, setProcessName] = useState<string>('');
-    const [searchFilter, setSearchFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>((filterParam?.status as string) || '');
+  const [severityFilter, setSeverityFilter] = useState<string>((filterParam?.severity as string) || '');
+  const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl || (filterParam?.processId as string) || '');
+  const [processName, setProcessName] = useState<string>('');
+  const [searchFilter, setSearchFilter] = useState<string>(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
     const [allRisks, setAllRisks] = useState<Risk[]>([]);
     const [selectedRiskId, setSelectedRiskId] = useState<string>('');
 
@@ -131,30 +148,151 @@ export const ProcessViolations: React.FC = () => {
 
   const tenantId = user?.tenantId || '';
 
-  const fetchViolations = useCallback(async () => {
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback((status: string, severity: string, processId: string) => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (status) {
+      conditions.push({ field: 'status', operator: 'eq', value: status });
+    }
+    if (severity) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severity });
+    }
+    if (processId) {
+      conditions.push({ field: 'processId', operator: 'eq', value: processId });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, []);
+
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
+  useEffect(() => {
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(statusFilter, severityFilter, processFilter);
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const urlParams = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchFilter || null,
+        processId: processFilter || null, // processId özel durum - URL'de ayrı tutuluyor
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    // processId özel durum - filter içinde de var ama URL'de ayrı da tutuluyor
+    if (processFilter) {
+      urlParams.set('processId', processFilter);
+    } else {
+      urlParams.delete('processId');
+    }
+
+    // Build query string for comparison (dedupe)
+    const queryString = urlParams.toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(urlParams, { replace: true });
+    }
+  }, [page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
+
+  // Fetch violations function with dedupe and cancellation support
+  const fetchViolations = useCallback(async (force = false) => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentStatusFilter = (currentFilterParam?.status as string) || '';
+    const currentSeverityFilter = (currentFilterParam?.severity as string) || '';
+    const currentProcessFilter = searchParams.get('processId') || (currentFilterParam?.processId as string) || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentStatusFilter, currentSeverityFilter, currentProcessFilter);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      pageSize: currentPageSize,
+      filter: filter || undefined,
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
+      search: currentSearch || undefined,
+      status: currentStatusFilter || undefined,
+      severity: currentSeverityFilter || undefined,
+      processId: currentProcessFilter || undefined,
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError('');
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
-      });
 
-      if (statusFilter) {
-        params.append('status', statusFilter);
-      }
-      if (severityFilter) {
-        params.append('severity', severityFilter);
-      }
-      if (processFilter) {
-        params.append('processId', processFilter);
+      const response = await processViolationApi.list(tenantId, apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
       }
 
-      const response = await processViolationApi.list(tenantId, params);
       const result = unwrapPaginatedResponse<ProcessViolation>(response);
       setViolations(result.items);
       setTotal(result.total);
     } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       const status = error.response?.status;
       const message = error.response?.data?.message;
@@ -171,9 +309,16 @@ export const ProcessViolations: React.FC = () => {
         setError(message || 'Failed to fetch violations. Please try again.');
       }
     } finally {
-      setLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter]);
+  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
+
+  // Fetch violations when URL params change (single source of truth)
+  useEffect(() => {
+    fetchViolations(false);
+  }, [fetchViolations]);
 
     const fetchAllRisks = useCallback(async () => {
       if (!tenantId) {
@@ -181,8 +326,7 @@ export const ProcessViolations: React.FC = () => {
         return;
       }
       try {
-        const params = new URLSearchParams({ pageSize: '100' });
-        const response = await riskApi.list(tenantId, params);
+        const response = await riskApi.list(tenantId, buildListQueryParams({ pageSize: 100 }));
         const result = unwrapPaginatedResponse<Risk>(response);
         setAllRisks(result.items || []);
       } catch (err) {
@@ -254,7 +398,7 @@ export const ProcessViolations: React.FC = () => {
       await processViolationApi.update(tenantId, editingViolation.id, updateData);
       setSuccess('Violation updated successfully');
       setOpenEditDialog(false);
-      fetchViolations();
+      fetchViolations(true); // Force refresh after update/delete
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -283,7 +427,7 @@ export const ProcessViolations: React.FC = () => {
         setSuccess('Risk unlinked successfully');
       }
       setOpenLinkRiskDialog(false);
-      fetchViolations();
+      fetchViolations(true); // Force refresh after update/delete
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -366,80 +510,47 @@ export const ProcessViolations: React.FC = () => {
         </Alert>
       )}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <FilterIcon color="action" />
-            <TextField
-              size="small"
-              placeholder="Search title..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              sx={{ minWidth: 150 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {VIOLATION_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {STATUS_LABELS[status] || status.toUpperCase().replace('_', ' ')}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Severity</InputLabel>
-              <Select
-                value={severityFilter}
-                label="Severity"
-                onChange={(e) => {
-                  setSeverityFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {VIOLATION_SEVERITIES.map((severity) => (
-                  <MenuItem key={severity} value={severity}>
-                    {SEVERITY_LABELS[severity] || severity.toUpperCase()}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-                        {processFilter && (
-                          <Chip
-                            label={`Process: ${processName || processFilter.substring(0, 8) + '...'}`}
-                            size="small"
-                            onDelete={() => {
-                              setProcessFilter('');
-                              setPage(0);
-                            }}
-                          />
-                        )}
-            {(statusFilter || severityFilter || processFilter || searchFilter) && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setStatusFilter('');
-                  setSeverityFilter('');
-                  setProcessFilter('');
-                  setSearchFilter('');
-                  setPage(0);
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        search={searchFilter}
+        onSearchChange={(value) => {
+          setSearchFilter(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search violations..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: STATUS_LABELS[statusFilter] || statusFilter.toUpperCase().replace('_', ' ') }] : []),
+          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: SEVERITY_LABELS[severityFilter] || severityFilter.toUpperCase() }] : []),
+          ...(processFilter ? [{ key: 'processId', label: 'Process', value: processName || processFilter.substring(0, 8) + '...' }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'status') setStatusFilter('');
+          if (key === 'severity') setSeverityFilter('');
+          if (key === 'processId') setProcessFilter('');
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setSeverityFilter('');
+          setProcessFilter('');
+          setSearchFilter('');
+          setPage(0);
+        }}
+        sort={`${sortField}:${sortDirection}`}
+        onSortChange={(sort: string) => {
+          const [field, direction] = sort.split(':');
+          setSortField(field);
+          setSortDirection(direction as 'ASC' | 'DESC');
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'severity', label: 'Severity' },
+          { field: 'status', label: 'Status' },
+          { field: 'title', label: 'Title' },
+        ]}
+        onRefresh={() => fetchViolations(true)}
+        loading={loading}
+      />
 
       <Card>
         <CardContent>

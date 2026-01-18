@@ -208,6 +208,26 @@ api.interceptors.response.use(
       _retryForMissingAuth?: boolean;
     };
 
+    // Handle 429 Rate Limit errors - don't break UI, show user-friendly message
+    if (error.response?.status === 429) {
+      const rateLimitResponse = error.response?.data;
+      const retryAfter = error.response?.headers['retry-after'];
+      const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+      
+      // Create user-friendly rate limit error
+      const rateLimitError = new ApiError(
+        rateLimitResponse?.error?.code || 'RATE_LIMITED',
+        rateLimitResponse?.error?.message || `Çok fazla istek yapıldı. ${retryAfterSeconds} saniye sonra tekrar deneyin.`,
+        {
+          retryAfter: retryAfterSeconds,
+          scope: rateLimitResponse?.error?.details?.scope || 'read',
+        }
+      );
+      
+      // Reject with rate limit error - let UI handle gracefully (show message, keep previous data)
+      return Promise.reject(rateLimitError);
+    }
+
     // Check if response follows the standard error envelope format
     const errorResponse = error.response?.data;
     if (errorResponse && errorResponse.success === false && errorResponse.error) {
