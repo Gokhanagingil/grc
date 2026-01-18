@@ -88,7 +88,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
-        run: npm ci
+        # Use --legacy-peer-deps to work around react-scripts@5.0.1 peer constraint
+        # (typescript ^3.2.1 || ^4) vs project's typescript@^5.9.3
+        run: npm ci --legacy-peer-deps
       
       - name: Run npm audit
         run: npm audit --audit-level=high
