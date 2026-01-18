@@ -104,7 +104,7 @@ const DynamicDataList: React.FC = () => {
   const getDisplayFields = () => {
     return fields
       .filter((f) => f.isActive)
-      .sort((a, b) => a.order - b.order)
+      .sort((a, b) => a.fieldOrder - b.fieldOrder)
       .slice(0, 6);
   };
 
@@ -520,10 +520,10 @@ const DynamicDataList: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {fields
-              .filter((f) => f.isActive)
-              .sort((a, b) => a.order - b.order)
-              .map((field) => (
+              {fields
+                .filter((f) => f.isActive)
+                .sort((a, b) => a.fieldOrder - b.fieldOrder)
+                .map((field) => (
                 <Box key={field.fieldName}>
                   {renderFieldInput(field)}
                 </Box>
