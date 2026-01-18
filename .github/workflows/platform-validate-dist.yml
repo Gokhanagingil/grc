@@ -72,7 +72,7 @@ jobs:
           docker save grc-backend:platform-validate -o /tmp/backend-image.tar
 
       - name: Upload backend image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: backend-image-platform-validate
           path: /tmp/backend-image.tar
