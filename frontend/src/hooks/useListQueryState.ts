@@ -227,8 +227,17 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
     }
   }, [enabled, state, additionalFilters, fetchFn]);
 
+  // Fetch data when dependencies change
   useEffect(() => {
     fetchData();
+    
+    // Cleanup: abort in-flight request when component unmounts or dependencies change
+    // This prevents React warnings about state updates on unmounted components
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchData]);
 
   const setPage = useCallback((page: number) => {
