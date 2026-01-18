@@ -350,12 +350,9 @@ export class DynamicDataService {
       }
     }
 
-    // Include any extra fields that aren't in the schema (for flexibility)
-    for (const [key, value] of Object.entries(data)) {
-      if (!fields.find((f) => f.fieldName === key)) {
-        result[key] = value;
-      }
-    }
+    // Note: Extra fields not in the schema are intentionally ignored for security
+    // (prevents prototype pollution via __proto__, constructor, etc.)
+    // If users need additional fields, they should define them in the schema first.
 
     if (errors.length > 0) {
       throw new BadRequestException(errors.join('; '));
