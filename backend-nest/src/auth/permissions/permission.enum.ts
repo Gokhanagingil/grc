@@ -70,6 +70,12 @@ export enum Permission {
   ADMIN_SETTINGS_WRITE = 'admin:settings:write',
   ADMIN_TENANTS_READ = 'admin:tenants:read',
   ADMIN_TENANTS_WRITE = 'admin:tenants:write',
+
+  // Platform Builder permissions
+  ADMIN_TABLES_READ = 'admin:tables:read',
+  ADMIN_TABLES_WRITE = 'admin:tables:write',
+  DATA_RECORDS_READ = 'data:records:read',
+  DATA_RECORDS_WRITE = 'data:records:write',
 }
 
 /**
@@ -116,4 +122,10 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ADMIN_SETTINGS_WRITE]: 'Modify system settings',
   [Permission.ADMIN_TENANTS_READ]: 'View tenants and tenant details',
   [Permission.ADMIN_TENANTS_WRITE]: 'Create, update, and delete tenants',
+  [Permission.ADMIN_TABLES_READ]: 'View dynamic table definitions',
+  [Permission.ADMIN_TABLES_WRITE]:
+    'Create, update, and delete dynamic table definitions',
+  [Permission.DATA_RECORDS_READ]: 'View dynamic table records',
+  [Permission.DATA_RECORDS_WRITE]:
+    'Create, update, and delete dynamic table records',
 };
