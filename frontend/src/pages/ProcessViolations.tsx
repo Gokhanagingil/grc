@@ -28,7 +28,6 @@ import {
 import {
   Edit as EditIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   Warning as ViolationIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
@@ -84,7 +83,6 @@ interface Risk {
 }
 
 // Backend expects lowercase enum values
-const VIOLATION_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 const VIOLATION_STATUSES = ['open', 'in_progress', 'resolved'];
 
 // Display labels for UI (uppercase for display)

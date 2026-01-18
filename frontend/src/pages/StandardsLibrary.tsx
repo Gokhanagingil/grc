@@ -99,6 +99,7 @@ export const StandardsLibrary: React.FC = () => {
   const [requirements, setRequirements] = useState<StandardRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [filtersData, setFiltersData] = useState<FiltersData>({
     families: [],
     versions: [],

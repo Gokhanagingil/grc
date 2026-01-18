@@ -31,17 +31,16 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   CheckCircle as ResolveIcon,
   Lock as CloseIcon,
   Warning as IncidentIcon,
 } from '@mui/icons-material';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar, SortOption } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
@@ -117,7 +116,6 @@ interface Incident {
 export const IncidentManagement: React.FC = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   // Default values
   const DEFAULT_SORT = 'createdAt:DESC';

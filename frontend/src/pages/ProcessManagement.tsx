@@ -35,7 +35,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  FilterList as FilterIcon,
   AccountTree as ProcessIcon,
   PlayArrow as RecordIcon,
   Warning as ViolationIcon,
