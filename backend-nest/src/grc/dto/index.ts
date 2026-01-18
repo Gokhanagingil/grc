@@ -74,3 +74,22 @@ export {
 
 // Standard DTOs
 export { CreateStandardDto } from './create-standard.dto';
+
+// Platform Builder DTOs
+export {
+  CreateTableDto,
+  UpdateTableDto,
+  TableFilterDto,
+  ChoiceOptionDto,
+  CreateFieldDto,
+  UpdateFieldDto,
+  FieldFilterDto,
+  CreateRecordDto,
+  UpdateRecordDto,
+  RecordFilterDto,
+} from './platform-builder.dto';
+export type {
+  TableResponse,
+  FieldResponse,
+  RecordResponse,
+} from './platform-builder.dto';

@@ -83,3 +83,8 @@ export { GrcStatusHistory } from './grc-status-history.entity';
 
 // Golden Flow Sprint 1B Entities
 export { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
+
+// Platform Builder Entities
+export { SysDbObject } from './sys-db-object.entity';
+export { SysDictionary } from './sys-dictionary.entity';
+export { DynamicRecord } from './dynamic-record.entity';

@@ -476,6 +476,36 @@ export const API_PATHS = {
   EXPORT: {
     CREATE: '/grc/export',
   },
+
+  // Platform Builder - Admin APIs
+  PLATFORM_BUILDER: {
+    // Table management
+    TABLES: {
+      LIST: '/grc/admin/tables',
+      CREATE: '/grc/admin/tables',
+      GET: (id: string) => `/grc/admin/tables/${id}`,
+      UPDATE: (id: string) => `/grc/admin/tables/${id}`,
+      DELETE: (id: string) => `/grc/admin/tables/${id}`,
+    },
+    // Field management
+    FIELDS: {
+      LIST: (tableId: string) => `/grc/admin/tables/${tableId}/fields`,
+      CREATE: (tableId: string) => `/grc/admin/tables/${tableId}/fields`,
+      GET: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+      UPDATE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+      DELETE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
+    },
+  },
+
+  // Dynamic Data - Runtime APIs
+  DYNAMIC_DATA: {
+    LIST: (tableName: string) => `/grc/data/${tableName}`,
+    SCHEMA: (tableName: string) => `/grc/data/${tableName}/schema`,
+    GET: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+    CREATE: (tableName: string) => `/grc/data/${tableName}`,
+    UPDATE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+    DELETE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
+  },
 } as const;
 
 // ============================================================================
@@ -3327,5 +3357,257 @@ export const exportApi = {
       responseType: 'blob',
     });
     return response.data as Blob;
+  },
+};
+
+// ============================================================================
+// Platform Builder - Admin APIs
+// ============================================================================
+
+export type PlatformBuilderFieldType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'datetime' | 'choice' | 'reference';
+
+export interface ChoiceOption {
+  label: string;
+  value: string;
+}
+
+export interface SysDbObjectData {
+  id: string;
+  tenantId: string;
+  name: string;
+  label: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+  fieldCount?: number;
+  recordCount?: number;
+}
+
+export interface SysDictionaryData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  fieldName: string;
+  label: string;
+  type: PlatformBuilderFieldType;
+  isRequired: boolean;
+  isUnique: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+}
+
+export interface CreateTableDto {
+  name: string;
+  label: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateTableDto {
+  label?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface CreateFieldDto {
+  fieldName: string;
+  label: string;
+  type?: PlatformBuilderFieldType;
+  isRequired?: boolean;
+  isUnique?: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateFieldDto {
+  label?: string;
+  type?: PlatformBuilderFieldType;
+  isRequired?: boolean;
+  isUnique?: boolean;
+  referenceTable?: string;
+  choiceOptions?: ChoiceOption[];
+  defaultValue?: string;
+  order?: number;
+  isActive?: boolean;
+}
+
+export interface TablesListResponse {
+  items: SysDbObjectData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface FieldsListResponse {
+  items: SysDictionaryData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export const platformBuilderApi = {
+  // Table management
+  listTables: async (tenantId: string, params?: { page?: number; pageSize?: number; search?: string }): Promise<TablesListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    const url = queryParams.toString() ? `${API_PATHS.PLATFORM_BUILDER.TABLES.LIST}?${queryParams}` : API_PATHS.PLATFORM_BUILDER.TABLES.LIST;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<TablesListResponse>(response);
+  },
+
+  getTable: async (tenantId: string, id: string): Promise<SysDbObjectData> => {
+    const response = await api.get(API_PATHS.PLATFORM_BUILDER.TABLES.GET(id), withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  createTable: async (tenantId: string, data: CreateTableDto): Promise<SysDbObjectData> => {
+    const response = await api.post(API_PATHS.PLATFORM_BUILDER.TABLES.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  updateTable: async (tenantId: string, id: string, data: UpdateTableDto): Promise<SysDbObjectData> => {
+    const response = await api.patch(API_PATHS.PLATFORM_BUILDER.TABLES.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<SysDbObjectData>(response);
+  },
+
+  deleteTable: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.PLATFORM_BUILDER.TABLES.DELETE(id), withTenantId(tenantId));
+  },
+
+  // Field management
+  listFields: async (tenantId: string, tableId: string, params?: { page?: number; pageSize?: number }): Promise<FieldsListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    const url = queryParams.toString() ? `${API_PATHS.PLATFORM_BUILDER.FIELDS.LIST(tableId)}?${queryParams}` : API_PATHS.PLATFORM_BUILDER.FIELDS.LIST(tableId);
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<FieldsListResponse>(response);
+  },
+
+  getField: async (tenantId: string, fieldId: string): Promise<SysDictionaryData> => {
+    const response = await api.get(API_PATHS.PLATFORM_BUILDER.FIELDS.GET(fieldId), withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  createField: async (tenantId: string, tableId: string, data: CreateFieldDto): Promise<SysDictionaryData> => {
+    const response = await api.post(API_PATHS.PLATFORM_BUILDER.FIELDS.CREATE(tableId), data, withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  updateField: async (tenantId: string, fieldId: string, data: UpdateFieldDto): Promise<SysDictionaryData> => {
+    const response = await api.patch(API_PATHS.PLATFORM_BUILDER.FIELDS.UPDATE(fieldId), data, withTenantId(tenantId));
+    return unwrapResponse<SysDictionaryData>(response);
+  },
+
+  deleteField: async (tenantId: string, fieldId: string): Promise<void> => {
+    await api.delete(API_PATHS.PLATFORM_BUILDER.FIELDS.DELETE(fieldId), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// Dynamic Data - Runtime APIs
+// ============================================================================
+
+export interface DynamicRecordData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  recordId: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+}
+
+export interface DynamicRecordsListResponse {
+  records: {
+    items: DynamicRecordData[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+  fields: SysDictionaryData[];
+}
+
+export interface DynamicRecordDetailResponse {
+  record: DynamicRecordData;
+  fields: SysDictionaryData[];
+}
+
+export interface CreateDynamicRecordDto {
+  data: Record<string, unknown>;
+}
+
+export interface UpdateDynamicRecordDto {
+  data: Record<string, unknown>;
+}
+
+export interface DynamicDataListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  filter?: Record<string, unknown>;
+}
+
+export const dynamicDataApi = {
+  list: async (tenantId: string, tableName: string, params?: DynamicDataListParams): Promise<DynamicRecordsListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params?.filter) queryParams.append('filter', JSON.stringify(params.filter));
+    const url = queryParams.toString() ? `${API_PATHS.DYNAMIC_DATA.LIST(tableName)}?${queryParams}` : API_PATHS.DYNAMIC_DATA.LIST(tableName);
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordsListResponse>(response);
+  },
+
+  getSchema: async (tenantId: string, tableName: string): Promise<{ fields: SysDictionaryData[] }> => {
+    const response = await api.get(API_PATHS.DYNAMIC_DATA.SCHEMA(tableName), withTenantId(tenantId));
+    return unwrapResponse<{ fields: SysDictionaryData[] }>(response);
+  },
+
+  get: async (tenantId: string, tableName: string, recordId: string): Promise<DynamicRecordDetailResponse> => {
+    const response = await api.get(API_PATHS.DYNAMIC_DATA.GET(tableName, recordId), withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordDetailResponse>(response);
+  },
+
+  create: async (tenantId: string, tableName: string, data: CreateDynamicRecordDto): Promise<DynamicRecordData> => {
+    const response = await api.post(API_PATHS.DYNAMIC_DATA.CREATE(tableName), data, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordData>(response);
+  },
+
+  update: async (tenantId: string, tableName: string, recordId: string, data: UpdateDynamicRecordDto): Promise<DynamicRecordData> => {
+    const response = await api.patch(API_PATHS.DYNAMIC_DATA.UPDATE(tableName, recordId), data, withTenantId(tenantId));
+    return unwrapResponse<DynamicRecordData>(response);
+  },
+
+  delete: async (tenantId: string, tableName: string, recordId: string): Promise<void> => {
+    await api.delete(API_PATHS.DYNAMIC_DATA.DELETE(tableName, recordId), withTenantId(tenantId));
   },
 };

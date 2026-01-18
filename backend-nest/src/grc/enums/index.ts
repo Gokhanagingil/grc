@@ -545,3 +545,24 @@ export enum ExportEntity {
   CAPA = 'capa',
   EVIDENCE = 'evidence',
 }
+
+// ============================================================================
+// Platform Builder Enums
+// ============================================================================
+
+/**
+ * PlatformBuilderFieldType - Field types for dynamic table definitions in Platform Builder
+ * Values match PostgreSQL enum: sys_dictionary_field_type_enum
+ * Note: Named differently from DictionaryFieldType in data-model-dictionary.service.ts to avoid conflicts
+ */
+export enum PlatformBuilderFieldType {
+  STRING = 'string',
+  TEXT = 'text',
+  INTEGER = 'integer',
+  DECIMAL = 'decimal',
+  BOOLEAN = 'boolean',
+  DATE = 'date',
+  DATETIME = 'datetime',
+  CHOICE = 'choice',
+  REFERENCE = 'reference',
+}
