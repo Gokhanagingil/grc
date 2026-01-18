@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -43,6 +43,7 @@ import {
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 import { useSearchParams } from 'react-router-dom';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
@@ -150,17 +151,17 @@ export const ProcessViolations: React.FC = () => {
   const tenantId = user?.tenantId || '';
 
   // Build filter object for API (canonical format)
-  const buildFilter = useCallback(() => {
+  const buildFilter = useCallback((status: string, severity: string, processId: string) => {
     const conditions: Array<Record<string, unknown>> = [];
     
-    if (statusFilter) {
-      conditions.push({ field: 'status', operator: 'eq', value: statusFilter });
+    if (status) {
+      conditions.push({ field: 'status', operator: 'eq', value: status });
     }
-    if (severityFilter) {
-      conditions.push({ field: 'severity', operator: 'eq', value: severityFilter });
+    if (severity) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severity });
     }
-    if (processFilter) {
-      conditions.push({ field: 'processId', operator: 'eq', value: processFilter });
+    if (processId) {
+      conditions.push({ field: 'processId', operator: 'eq', value: processId });
     }
 
     if (conditions.length === 0) {
@@ -168,14 +169,20 @@ export const ProcessViolations: React.FC = () => {
     }
 
     return { and: conditions };
-  }, [statusFilter, severityFilter, processFilter]);
+  }, []);
 
-  // Update URL params when filters/sort/page change
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
   useEffect(() => {
-    const filter = buildFilter();
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(statusFilter, severityFilter, processFilter);
     const sortStr = formatSortToQuery(sortField, sortDirection);
     
-    const params = buildListQueryParamsWithDefaults(
+    const urlParams = buildListQueryParamsWithDefaults(
       {
         page: page + 1,
         pageSize: rowsPerPage,
@@ -194,35 +201,100 @@ export const ProcessViolations: React.FC = () => {
 
     // processId özel durum - filter içinde de var ama URL'de ayrı da tutuluyor
     if (processFilter) {
-      params.set('processId', processFilter);
+      urlParams.set('processId', processFilter);
     } else {
-      params.delete('processId');
+      urlParams.delete('processId');
     }
 
-    setSearchParams(params, { replace: true });
-  }, [page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams]);
+    // Build query string for comparison (dedupe)
+    const queryString = urlParams.toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(urlParams, { replace: true });
+    }
+  }, [page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
 
-  const fetchViolations = useCallback(async () => {
+  // Fetch violations function with dedupe and cancellation support
+  const fetchViolations = useCallback(async (force = false) => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentStatusFilter = (currentFilterParam?.status as string) || '';
+    const currentSeverityFilter = (currentFilterParam?.severity as string) || '';
+    const currentProcessFilter = searchParams.get('processId') || (currentFilterParam?.processId as string) || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentStatusFilter, currentSeverityFilter, currentProcessFilter);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      pageSize: currentPageSize,
+      filter: filter || undefined,
+      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      search: currentSearch || undefined,
+      status: currentStatusFilter || undefined,
+      severity: currentSeverityFilter || undefined,
+      processId: currentProcessFilter || undefined,
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError('');
-      const filter = buildFilter();
-      const params = buildListQueryParams({
-        page: page + 1,
-        pageSize: rowsPerPage,
-        filter: filter || undefined,
-        sort: formatSortToQuery(sortField, sortDirection),
-        search: searchFilter || undefined,
-        status: statusFilter || undefined,
-        severity: severityFilter || undefined,
-        processId: processFilter || undefined,
-      });
 
-      const response = await processViolationApi.list(tenantId, params);
+      const response = await processViolationApi.list(tenantId, apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       const result = unwrapPaginatedResponse<ProcessViolation>(response);
       setViolations(result.items);
       setTotal(result.total);
     } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        setLoading(false);
+        return;
+      }
+
       const error = err as { response?: { status?: number; data?: { message?: string } } };
       const status = error.response?.status;
       const message = error.response?.data?.message;
@@ -239,9 +311,16 @@ export const ProcessViolations: React.FC = () => {
         setError(message || 'Failed to fetch violations. Please try again.');
       }
     } finally {
-      setLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [tenantId, page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter]);
+  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
+
+  // Fetch violations when URL params change (single source of truth)
+  useEffect(() => {
+    fetchViolations(false);
+  }, [fetchViolations]);
 
     const fetchAllRisks = useCallback(async () => {
       if (!tenantId) {
@@ -321,7 +400,7 @@ export const ProcessViolations: React.FC = () => {
       await processViolationApi.update(tenantId, editingViolation.id, updateData);
       setSuccess('Violation updated successfully');
       setOpenEditDialog(false);
-      fetchViolations();
+      fetchViolations(true); // Force refresh after update/delete
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -350,7 +429,7 @@ export const ProcessViolations: React.FC = () => {
         setSuccess('Risk unlinked successfully');
       }
       setOpenLinkRiskDialog(false);
-      fetchViolations();
+      fetchViolations(true); // Force refresh after update/delete
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };

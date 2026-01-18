@@ -2163,3 +2163,1109 @@ export const RiskManagement: React.FC = () => {
     </Box>
   );
 };
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
+  LinearProgress,
+  TablePagination,
+  Tooltip,
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Security as RiskIcon,
+} from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { useSearchParams } from 'react-router-dom';
+import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/api';
+import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
+
+// Policy interface for relationship management
+interface Policy {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string;
+  category: string | null;
+}
+
+// Requirement interface for relationship management
+interface Requirement {
+  id: string;
+  title: string;
+  referenceCode: string;
+  status: string;
+  framework: string;
+}
+
+// Risk enums matching backend
+export enum RiskSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+export enum RiskLikelihood {
+  RARE = 'rare',
+  UNLIKELY = 'unlikely',
+  POSSIBLE = 'possible',
+  LIKELY = 'likely',
+  ALMOST_CERTAIN = 'almost_certain',
+}
+
+export enum RiskStatus {
+  DRAFT = 'draft',
+  IDENTIFIED = 'identified',
+  ASSESSED = 'assessed',
+  MITIGATING = 'mitigating',
+  ACCEPTED = 'accepted',
+  CLOSED = 'closed',
+}
+
+// Risk interface matching NestJS backend response
+interface Risk {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  severity: RiskSeverity;
+  likelihood: RiskLikelihood;
+  impact: RiskSeverity;
+  score: number | null;
+  status: RiskStatus;
+  ownerUserId: string | null;
+  dueDate: string | null;
+  mitigationPlan: string | null;
+  tags: string[] | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+}
+
+
+export const RiskManagement: React.FC = () => {
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Default values - RiskManagement için özel
+  const DEFAULT_SORT = 'createdAt:DESC';
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PAGE_SIZE = 10;
+
+  // Read initial values from URL
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
+  const searchParam = searchParams.get('search') || '';
+  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+
+  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [openDialog, setOpenDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
+  const [viewingRisk, setViewingRisk] = useState<Risk | null>(null);
+  const [page, setPage] = useState(Math.max(0, pageParam - 1));
+  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
+  const [total, setTotal] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>((filterParam?.status as RiskStatus | '') || '');
+  const [severityFilter, setSeverityFilter] = useState<RiskSeverity | ''>((filterParam?.severity as RiskSeverity | '') || '');
+  const [searchQuery, setSearchQuery] = useState(searchParam);
+  const [sortField, setSortField] = useState(parsedSort.field);
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    severity: RiskSeverity.MEDIUM,
+    likelihood: RiskLikelihood.POSSIBLE,
+    impact: RiskSeverity.MEDIUM,
+    status: RiskStatus.DRAFT,
+    mitigationPlan: '',
+    dueDate: null as Date | null,
+  });
+
+  // Relationship management state
+  const [allPolicies, setAllPolicies] = useState<Policy[]>([]);
+  const [allRequirements, setAllRequirements] = useState<Requirement[]>([]);
+  const [linkedPolicies, setLinkedPolicies] = useState<Policy[]>([]);
+  const [linkedRequirements, setLinkedRequirements] = useState<Requirement[]>([]);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
+  const [selectedRequirementIds, setSelectedRequirementIds] = useState<string[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSaving, setRelationshipSaving] = useState(false);
+
+  // Get tenant ID from user context
+  const tenantId = user?.tenantId || '';
+
+  // Build filter object for API (canonical format)
+  const buildFilter = useCallback((status: RiskStatus | '', severity: RiskSeverity | '') => {
+    const conditions: Array<Record<string, unknown>> = [];
+    
+    if (status) {
+      conditions.push({ field: 'status', operator: 'eq', value: status });
+    }
+    if (severity) {
+      conditions.push({ field: 'severity', operator: 'eq', value: severity });
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    return { and: conditions };
+  }, []);
+
+  // Ref to store last query params string for deduplication
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
+  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
+  useEffect(() => {
+    // Step 1: Update URL params when local state changes (no fetch here)
+    const filter = buildFilter(statusFilter, severityFilter);
+    const sortStr = formatSortToQuery(sortField, sortDirection);
+    
+    const urlParams = buildListQueryParamsWithDefaults(
+      {
+        page: page + 1,
+        pageSize: rowsPerPage,
+        filter,
+        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
+        search: searchQuery || null,
+      },
+      {
+        page: DEFAULT_PAGE,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sort: DEFAULT_SORT,
+        filter: null,
+      }
+    );
+
+    // Build query string for comparison (dedupe)
+    const queryString = new URLSearchParams(urlParams).toString();
+    
+    // Only update URL if it changed (prevents unnecessary updates)
+    const currentUrlParams = searchParams.toString();
+    if (queryString !== currentUrlParams) {
+      setSearchParams(urlParams, { replace: true });
+    }
+  }, [page, rowsPerPage, statusFilter, severityFilter, searchQuery, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
+
+  // Fetch risks function with dedupe and cancellation support
+  const fetchRisks = useCallback(async (force = false) => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+
+    // Read values from URL (single source of truth)
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
+    const currentSearch = searchParams.get('search') || '';
+    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
+    const currentStatusFilter = (currentFilterParam?.status as RiskStatus | '') || '';
+    const currentSeverityFilter = (currentFilterParam?.severity as RiskSeverity | '') || '';
+
+    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
+
+    // Build query params string for deduplication
+    const filter = buildFilter(currentStatusFilter, currentSeverityFilter);
+    const apiParams = buildListQueryParams({
+      page: currentPage,
+      pageSize: currentPageSize,
+      filter: filter || undefined,
+      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      search: currentSearch || undefined,
+    });
+    const queryString = new URLSearchParams(apiParams).toString();
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await riskApi.list(tenantId, apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
+      // Handle NestJS response format using centralized unwrapper
+      const result = unwrapPaginatedResponse<Risk>(response);
+      setRisks(result.items);
+      setTotal(result.total);
+    } catch (err: unknown) {
+      // Ignore cancellation errors (AbortController or axios CancelToken)
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      // Check if it's an axios cancellation
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        setLoading(false);
+        return;
+      }
+
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view risks.');
+      } else if (status === 404 || status === 502) {
+        // Backend not available - show empty state instead of error
+        setRisks([]);
+        setTotal(0);
+        console.warn('Risk management backend not available');
+      } else {
+        setError(message || 'Failed to fetch risks. Please try again.');
+      }
+    } finally {
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
+
+  // Fetch risks when URL params change (single source of truth)
+  useEffect(() => {
+    fetchRisks(false);
+  }, [fetchRisks]);
+
+  // Fetch all policies and requirements for relationship dropdowns
+  const fetchAllPoliciesAndRequirements = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        policyApi.list(tenantId, buildListQueryParams({ pageSize: 100 })),
+        requirementApi.list(tenantId, buildListQueryParams({ pageSize: 100 })),
+      ]);
+      const policiesResult = unwrapPaginatedResponse<Policy>(policiesResponse);
+      const requirementsResult = unwrapPaginatedResponse<Requirement>(requirementsResponse);
+      setAllPolicies(policiesResult.items);
+      setAllRequirements(requirementsResult.items);
+    } catch (err) {
+      console.error('Failed to fetch policies/requirements for relationships:', err);
+    }
+  }, [tenantId]);
+
+  // Fetch linked policies and requirements for a specific risk
+  const fetchRiskRelationships = useCallback(async (riskId: string) => {
+    if (!tenantId) return;
+    setRelationshipLoading(true);
+    try {
+      const [policiesResponse, requirementsResponse] = await Promise.all([
+        riskApi.getLinkedPolicies(tenantId, riskId),
+        riskApi.getLinkedRequirements(tenantId, riskId),
+      ]);
+      const policies = unwrapResponse<Policy[]>(policiesResponse) || [];
+      const requirements = unwrapResponse<Requirement[]>(requirementsResponse) || [];
+      setLinkedPolicies(policies);
+      setLinkedRequirements(requirements);
+      setSelectedPolicyIds(policies.map(p => p.id));
+      setSelectedRequirementIds(requirements.map(r => r.id));
+    } catch (err) {
+      console.error('Failed to fetch risk relationships:', err);
+      setLinkedPolicies([]);
+      setLinkedRequirements([]);
+      setSelectedPolicyIds([]);
+      setSelectedRequirementIds([]);
+    } finally {
+      setRelationshipLoading(false);
+    }
+  }, [tenantId]);
+
+  // Save relationship changes
+  const handleSaveRelationships = async () => {
+    if (!tenantId || !viewingRisk) return;
+    setRelationshipSaving(true);
+    try {
+      await Promise.all([
+        riskApi.linkPolicies(tenantId, viewingRisk.id, selectedPolicyIds),
+        riskApi.linkRequirements(tenantId, viewingRisk.id, selectedRequirementIds),
+      ]);
+      setSuccess('Relationships updated successfully');
+      // Refresh linked items
+      await fetchRiskRelationships(viewingRisk.id);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to save relationships:', err);
+      setError('Failed to save relationships');
+    } finally {
+      setRelationshipSaving(false);
+    }
+  };
+
+  // Fetch all policies/requirements on mount
+  useEffect(() => {
+    fetchAllPoliciesAndRequirements();
+  }, [fetchAllPoliciesAndRequirements]);
+
+  const handleCreateRisk = () => {
+    setEditingRisk(null);
+    setFormData({
+      title: '',
+      description: '',
+      category: '',
+      severity: RiskSeverity.MEDIUM,
+      likelihood: RiskLikelihood.POSSIBLE,
+      impact: RiskSeverity.MEDIUM,
+      status: RiskStatus.DRAFT,
+      mitigationPlan: '',
+      dueDate: null,
+    });
+    setOpenDialog(true);
+  };
+
+  const handleEditRisk = (risk: Risk) => {
+    setEditingRisk(risk);
+    setFormData({
+      title: risk.title,
+      description: risk.description || '',
+      category: risk.category || '',
+      severity: risk.severity,
+      likelihood: risk.likelihood,
+      impact: risk.impact,
+      status: risk.status,
+      mitigationPlan: risk.mitigationPlan || '',
+      dueDate: risk.dueDate ? new Date(risk.dueDate) : null,
+    });
+    setOpenDialog(true);
+  };
+
+  const handleViewRisk = (risk: Risk) => {
+    setViewingRisk(risk);
+    setOpenViewDialog(true);
+    // Fetch relationships when viewing a risk
+    fetchRiskRelationships(risk.id);
+  };
+
+  const handleSaveRisk = async () => {
+    if (!tenantId) {
+      setError('Tenant ID is required');
+      return;
+    }
+
+    try {
+      const riskData = {
+        title: formData.title,
+        description: formData.description || undefined,
+        category: formData.category || undefined,
+        severity: formData.severity,
+        likelihood: formData.likelihood,
+        impact: formData.impact,
+        status: formData.status,
+        mitigationPlan: formData.mitigationPlan || undefined,
+        dueDate: formData.dueDate?.toISOString().split('T')[0] || undefined,
+      };
+
+      // Use centralized API client - no more /nest/ prefix
+      if (editingRisk) {
+        await riskApi.update(tenantId, editingRisk.id, riskData);
+        setSuccess('Risk updated successfully');
+      } else {
+        await riskApi.create(tenantId, riskData);
+        setSuccess('Risk created successfully');
+      }
+
+      setOpenDialog(false);
+      setError('');
+      fetchRisks(true); // Force refresh after create/update
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save risk');
+    }
+  };
+
+  const handleDeleteRisk = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this risk?')) {
+      try {
+        // Use centralized API client - no more /nest/ prefix
+        await riskApi.delete(tenantId, id);
+        setSuccess('Risk deleted successfully');
+        fetchRisks(true); // Force refresh after create/update
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete risk');
+      }
+    }
+  };
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const getSeverityColor = (severity: RiskSeverity): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+    switch (severity) {
+      case RiskSeverity.CRITICAL: return 'error';
+      case RiskSeverity.HIGH: return 'warning';
+      case RiskSeverity.MEDIUM: return 'info';
+      case RiskSeverity.LOW: return 'success';
+      default: return 'default';
+    }
+  };
+
+  const getStatusColor = (status: RiskStatus): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+    switch (status) {
+      case RiskStatus.CLOSED: return 'success';
+      case RiskStatus.ACCEPTED: return 'info';
+      case RiskStatus.MITIGATING: return 'warning';
+      case RiskStatus.ASSESSED: return 'info';
+      case RiskStatus.IDENTIFIED: return 'warning';
+      case RiskStatus.DRAFT: return 'default';
+      default: return 'default';
+    }
+  };
+
+  const getRiskScoreColor = (score: number | null): 'error' | 'warning' | 'info' | 'success' => {
+    if (!score) return 'info';
+    if (score >= 16) return 'error';
+    if (score >= 9) return 'warning';
+    if (score >= 4) return 'info';
+    return 'success';
+  };
+
+  const formatSeverity = (severity: RiskSeverity): string => {
+    return severity.charAt(0).toUpperCase() + severity.slice(1);
+  };
+
+  const formatStatus = (status: RiskStatus): string => {
+    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const formatLikelihood = (likelihood: RiskLikelihood): string => {
+    return likelihood.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  if (loading) {
+    return <LoadingState message="Loading risks..." />;
+  }
+
+  if (error && risks.length === 0) {
+    return (
+      <ErrorState
+        title="Failed to load risks"
+        message={error}
+        onRetry={fetchRisks}
+      />
+    );
+  }
+
+    return (
+      <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h4">Risk Management</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRisk}
+          >
+            New Risk
+          </Button>
+        </Box>
+
+        {/* Onboarding Framework Warning Banner */}
+        <GrcFrameworkWarningBanner />
+
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
+
+      {/* ListToolbar with Search, Filters, and Sort */}
+      <ListToolbar
+        searchValue={searchQuery}
+        onSearchChange={(value) => {
+          setSearchQuery(value);
+          setPage(0);
+        }}
+        searchPlaceholder="Search risks..."
+        filters={[
+          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
+          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: formatSeverity(severityFilter) }] : []),
+        ]}
+        onFilterRemove={(key) => {
+          if (key === 'status') setStatusFilter('');
+          if (key === 'severity') setSeverityFilter('');
+          setPage(0);
+        }}
+        onClearFilters={() => {
+          setStatusFilter('');
+          setSeverityFilter('');
+          setSearchQuery('');
+          setPage(0);
+        }}
+        filterFields={[
+          {
+            key: 'status',
+            label: 'Status',
+            type: 'select',
+            options: Object.values(RiskStatus).map((status) => ({
+              value: status,
+              label: formatStatus(status),
+            })),
+          },
+          {
+            key: 'severity',
+            label: 'Severity',
+            type: 'select',
+            options: Object.values(RiskSeverity).map((severity) => ({
+              value: severity,
+              label: formatSeverity(severity),
+            })),
+          },
+        ]}
+        onFilterChange={(key, value) => {
+          if (key === 'status') {
+            setStatusFilter(value as RiskStatus | '');
+          } else if (key === 'severity') {
+            setSeverityFilter(value as RiskSeverity | '');
+          }
+          setPage(0);
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={(field, direction) => {
+          setSortField(field);
+          setSortDirection(direction);
+        }}
+        sortOptions={[
+          { field: 'createdAt', label: 'Created Date' },
+          { field: 'updatedAt', label: 'Updated Date' },
+          { field: 'severity', label: 'Severity' },
+          { field: 'status', label: 'Status' },
+          { field: 'title', label: 'Title' },
+        ]}
+        defaultSortField="createdAt"
+        defaultSortDirection="DESC"
+      />
+
+      <Card>
+        <CardContent>
+          <ResponsiveTable minWidth={900}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Severity</TableCell>
+                  <TableCell>Likelihood</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Due Date</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {risks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<RiskIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No risks found"
+                        message={tenantId ? 'Get started by creating your first risk assessment.' : 'Please select a tenant to view risks.'}
+                        actionLabel={tenantId ? 'Create Risk' : undefined}
+                        onAction={tenantId ? handleCreateRisk : undefined}
+                        minHeight="200px"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  risks.map((risk) => (
+                    <TableRow key={risk.id} hover>
+                      <TableCell>
+                        <Typography variant="subtitle2">{risk.title}</Typography>
+                        {risk.description && (
+                          <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
+                            {risk.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{risk.category || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={formatSeverity(risk.severity)}
+                          color={getSeverityColor(risk.severity)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={formatLikelihood(risk.likelihood)}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </TableCell>
+                                            <TableCell>
+                                              <FeatureGate feature="advanced_risk_scoring">
+                                                <Box display="flex" alignItems="center" gap={1}>
+                                                  <Typography variant="body2">{risk.score ?? '-'}</Typography>
+                                                  {risk.score && (
+                                                    <LinearProgress
+                                                      variant="determinate"
+                                                      value={Math.min((risk.score / 20) * 100, 100)}
+                                                      color={getRiskScoreColor(risk.score)}
+                                                      sx={{ width: 50, height: 8, borderRadius: 4 }}
+                                                    />
+                                                  )}
+                                                </Box>
+                                              </FeatureGate>
+                                            </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={formatStatus(risk.status)}
+                          color={getStatusColor(risk.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {risk.dueDate ? new Date(risk.dueDate).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title="View">
+                          <IconButton size="small" onClick={() => handleViewRisk(risk)}>
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton size="small" onClick={() => handleEditRisk(risk)}>
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton size="small" onClick={() => handleDeleteRisk(risk.id)} color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </ResponsiveTable>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Risk Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {editingRisk ? 'Edit Risk' : 'Create New Risk'}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                error={!formData.title}
+                helperText={!formData.title ? 'Title is required' : ''}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                multiline
+                rows={3}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="e.g., Operational, Financial, Compliance"
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Severity</InputLabel>
+                <Select
+                  value={formData.severity}
+                  label="Severity"
+                  onChange={(e) => setFormData({ ...formData, severity: e.target.value as RiskSeverity })}
+                >
+                  {Object.values(RiskSeverity).map((severity) => (
+                    <MenuItem key={severity} value={severity}>{formatSeverity(severity)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Likelihood</InputLabel>
+                <Select
+                  value={formData.likelihood}
+                  label="Likelihood"
+                  onChange={(e) => setFormData({ ...formData, likelihood: e.target.value as RiskLikelihood })}
+                >
+                  {Object.values(RiskLikelihood).map((likelihood) => (
+                    <MenuItem key={likelihood} value={likelihood}>{formatLikelihood(likelihood)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Impact</InputLabel>
+                <Select
+                  value={formData.impact}
+                  label="Impact"
+                  onChange={(e) => setFormData({ ...formData, impact: e.target.value as RiskSeverity })}
+                >
+                  {Object.values(RiskSeverity).map((impact) => (
+                    <MenuItem key={impact} value={impact}>{formatSeverity(impact)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Status"
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as RiskStatus })}
+                >
+                  {Object.values(RiskStatus).map((status) => (
+                    <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Due Date"
+                  value={formData.dueDate}
+                  onChange={(newValue: Date | null) =>
+                    setFormData({ ...formData, dueDate: newValue })
+                  }
+                  slotProps={{
+                    textField: { fullWidth: true },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Mitigation Plan"
+                multiline
+                rows={4}
+                value={formData.mitigationPlan}
+                onChange={(e) => setFormData({ ...formData, mitigationPlan: e.target.value })}
+                placeholder="Describe the plan to mitigate this risk..."
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleSaveRisk} 
+            variant="contained"
+            disabled={!formData.title}
+          >
+            {editingRisk ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Risk Dialog */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Risk Details
+        </DialogTitle>
+        <DialogContent>
+          {viewingRisk && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="h6">{viewingRisk.title}</Typography>
+              </Grid>
+              {viewingRisk.description && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Description</Typography>
+                  <Typography>{viewingRisk.description}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Category</Typography>
+                <Typography>{viewingRisk.category || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Status</Typography>
+                <Chip
+                  label={formatStatus(viewingRisk.status)}
+                  color={getStatusColor(viewingRisk.status)}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" color="textSecondary">Severity</Typography>
+                <Chip
+                  label={formatSeverity(viewingRisk.severity)}
+                  color={getSeverityColor(viewingRisk.severity)}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" color="textSecondary">Likelihood</Typography>
+                <Chip
+                  label={formatLikelihood(viewingRisk.likelihood)}
+                  variant="outlined"
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" color="textSecondary">Impact</Typography>
+                <Chip
+                  label={formatSeverity(viewingRisk.impact)}
+                  color={getSeverityColor(viewingRisk.impact)}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Risk Score</Typography>
+                <Typography>{viewingRisk.score ?? 'Not calculated'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Due Date</Typography>
+                <Typography>
+                  {viewingRisk.dueDate ? new Date(viewingRisk.dueDate).toLocaleDateString() : '-'}
+                </Typography>
+              </Grid>
+              {viewingRisk.mitigationPlan && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">Mitigation Plan</Typography>
+                  <Typography>{viewingRisk.mitigationPlan}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Created</Typography>
+                <Typography>{new Date(viewingRisk.createdAt).toLocaleString()}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
+                <Typography>{new Date(viewingRisk.updatedAt).toLocaleString()}</Typography>
+              </Grid>
+
+              {/* Relationship Management Section */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Linked Relationships</Typography>
+                  {relationshipLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <Grid container spacing={2}>
+                      {/* Linked Policies */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Policies</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedPolicyIds}
+                            label="Linked Policies"
+                            onChange={(e) => setSelectedPolicyIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const policy = allPolicies.find(p => p.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={policy ? `${policy.name}${policy.code ? ` [${policy.code}]` : ''}` : id}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allPolicies.map((policy) => (
+                              <MenuItem key={policy.id} value={policy.id}>
+                                {policy.name}{policy.code ? ` [${policy.code}]` : ''} - {policy.status}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedPolicies.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedPolicies.length} {linkedPolicies.length === 1 ? 'policy' : 'policies'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Linked Requirements */}
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Linked Requirements</InputLabel>
+                          <Select
+                            multiple
+                            value={selectedRequirementIds}
+                            label="Linked Requirements"
+                            onChange={(e) => setSelectedRequirementIds(e.target.value as string[])}
+                            renderValue={(selected) => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((id) => {
+                                  const requirement = allRequirements.find(r => r.id === id);
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={requirement ? `[${requirement.framework.toUpperCase()}] ${requirement.referenceCode}` : id}
+                                      size="small"
+                                      color="secondary"
+                                      variant="outlined"
+                                    />
+                                  );
+                                })}
+                              </Box>
+                            )}
+                          >
+                            {allRequirements.map((requirement) => (
+                              <MenuItem key={requirement.id} value={requirement.id}>
+                                [{requirement.framework.toUpperCase()}] {requirement.referenceCode} - {requirement.title}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {linkedRequirements.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="textSecondary">
+                              Currently linked: {linkedRequirements.length} {linkedRequirements.length === 1 ? 'requirement' : 'requirements'}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Save Relationships Button */}
+                      <Grid item xs={12}>
+                        <Button
+                          variant="outlined"
+                          onClick={handleSaveRelationships}
+                          disabled={relationshipSaving}
+                          startIcon={relationshipSaving ? <CircularProgress size={16} /> : null}
+                        >
+                          {relationshipSaving ? 'Saving...' : 'Save Relationships'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+          <Button 
+            onClick={() => {
+              if (viewingRisk) {
+                handleEditRisk(viewingRisk);
+                setOpenViewDialog(false);
+              }
+            }} 
+            variant="contained"
+          >
+            Edit
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
