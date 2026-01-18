@@ -64,6 +64,61 @@ interface ValidationResult {
 }
 
 /**
+ * Normalize legacy filter format to canonical format
+ *
+ * Legacy format: {op: "and"|"or", children: [...]}
+ * Canonical format: {and: [...]} or {or: [...]}
+ *
+ * This function recursively normalizes the entire tree.
+ *
+ * @param node - Filter node (possibly in legacy format)
+ * @returns Normalized node in canonical format
+ */
+function normalizeLegacyNode(node: unknown): unknown {
+  if (!node || typeof node !== 'object') {
+    return node;
+  }
+
+  const nodeObj = node as Record<string, unknown>;
+
+  // Check for legacy format: {op: "and"|"or", children: [...]}
+  if (
+    'op' in nodeObj &&
+    'children' in nodeObj &&
+    (nodeObj.op === 'and' || nodeObj.op === 'or') &&
+    Array.isArray(nodeObj.children)
+  ) {
+    const normalizedChildren = nodeObj.children.map((child) =>
+      normalizeLegacyNode(child),
+    );
+    // Use explicit literal strings to avoid CodeQL remote property injection warning
+    // The conditional ensures we only use 'and' or 'or' literals, never user input directly
+    if (nodeObj.op === 'and') {
+      return { and: normalizedChildren };
+    } else {
+      return { or: normalizedChildren };
+    }
+  }
+
+  // Check for canonical AND group - normalize children recursively
+  if ('and' in nodeObj && Array.isArray(nodeObj.and)) {
+    return {
+      and: nodeObj.and.map((child) => normalizeLegacyNode(child)),
+    };
+  }
+
+  // Check for canonical OR group - normalize children recursively
+  if ('or' in nodeObj && Array.isArray(nodeObj.or)) {
+    return {
+      or: nodeObj.or.map((child) => normalizeLegacyNode(child)),
+    };
+  }
+
+  // Condition nodes or other structures pass through unchanged
+  return node;
+}
+
+/**
  * Recursively validate filter tree structure
  */
 function validateFilterTree(
@@ -82,7 +137,9 @@ function validateFilterTree(
     throw new BadRequestException(`Invalid filter node at path: ${path}`);
   }
 
-  const nodeObj = node as Record<string, unknown>;
+  // Normalize legacy format to canonical format before validation
+  const normalizedNode = normalizeLegacyNode(node);
+  const nodeObj = normalizedNode as Record<string, unknown>;
 
   // Check if it's an AND group
   if ('and' in nodeObj) {

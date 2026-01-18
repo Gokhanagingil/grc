@@ -215,6 +215,29 @@ function formatDateForCSV(value: unknown): string {
   return '';
 }
 
+/**
+ * Parse entity from path parameter, stripping optional .csv extension
+ * Returns the validated ExportEntity or throws BadRequestException
+ *
+ * @param entityParam - Raw entity parameter (e.g., "issues" or "issues.csv")
+ * @returns Validated ExportEntity
+ * @throws BadRequestException if entity is not valid
+ */
+export function parseEntityParam(entityParam: string): ExportEntity {
+  // Strip .csv extension if present
+  const entityName = entityParam.replace(/\.csv$/i, '');
+
+  // Check if it's a valid ExportEntity
+  const validEntities = Object.values(ExportEntity);
+  if (validEntities.includes(entityName as ExportEntity)) {
+    return entityName as ExportEntity;
+  }
+
+  throw new BadRequestException(
+    `Invalid entity '${entityName}'. Allowed entities: ${validEntities.join(', ')}`,
+  );
+}
+
 @ApiTags('GRC Export')
 @ApiBearerAuth()
 @ApiHeader({ name: 'x-tenant-id', description: 'Tenant ID', required: true })
@@ -227,12 +250,13 @@ export class ExportController {
   @ApiOperation({
     summary: 'Export entity data as CSV',
     description: `Exports entity data as CSV file. Supports filtering, sorting, and column selection.
-    Maximum ${MAX_EXPORT_ROWS} rows per export. Supported entities: issues, capas, evidence.`,
+    Maximum ${MAX_EXPORT_ROWS} rows per export. Supported entities: issues, capas, evidence.
+    Entity parameter accepts both plain names (e.g., 'issues') and with .csv extension (e.g., 'issues.csv').`,
   })
   @ApiParam({
     name: 'entity',
-    description: 'Entity to export (issues, capas, evidence)',
-    enum: ExportEntity,
+    description:
+      'Entity to export (issues, capas, evidence). Accepts optional .csv extension.',
   })
   @ApiQuery({ name: 'q', required: false, description: 'Quick search query' })
   @ApiQuery({
@@ -256,13 +280,16 @@ export class ExportController {
   @Perf()
   async exportEntity(
     @Headers('x-tenant-id') tenantId: string,
-    @Param('entity', new ParseEnumPipe(ExportEntity)) entity: ExportEntity,
+    @Param('entity') entityParam: string,
     @Query() query: ExportQueryDto,
     @Res() res: Response,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
+
+    // Parse entity from path param, stripping optional .csv extension
+    const entity = parseEntityParam(entityParam);
 
     // Get entity config from hardcoded allowlist map
     const entityConfig = EXPORT_ENTITY_MAP[entity];
