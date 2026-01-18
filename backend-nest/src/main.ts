@@ -200,7 +200,10 @@ async function bootstrap() {
 
   // Trust proxy for correct IP extraction behind nginx
   // This ensures req.ip is the real client IP when behind a reverse proxy
-  app.set('trust proxy', true);
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    set: (key: string, value: unknown) => void;
+  };
+  expressApp.set('trust proxy', true);
 
   // CORS configuration
   const corsOrigins = configService.get<string>(

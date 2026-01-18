@@ -71,30 +71,36 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
 
       // Handle 429 Rate Limit errors with Retry-After header
-      if (status === HttpStatus.TOO_MANY_REQUESTS) {
+      if (status === (HttpStatus.TOO_MANY_REQUESTS as number)) {
         const retryAfterSeconds = 60; // Default: 60 seconds
         response.setHeader('Retry-After', String(retryAfterSeconds));
-        
+
         // Extract scope from error response or infer from request
         const scope = this.inferRateLimitScope(request);
-        
+
         errorCode = 'RATE_LIMITED';
         message = `Çok fazla istek yapıldı. ${retryAfterSeconds} saniye sonra tekrar deneyin.`;
         details = {
           retryAfter: retryAfterSeconds,
           scope,
         };
-        
+
         // Log rate limit event with correlation ID
-        this.logger.warn(`Rate limit exceeded: ${request.method} ${request.url}`, {
-          errorCode,
-          scope,
-          correlationId: request.headers['x-correlation-id'],
-          tenantId: request.headers['x-tenant-id'],
-        });
+        this.logger.warn(
+          `Rate limit exceeded: ${request.method} ${request.url}`,
+          {
+            errorCode,
+            scope,
+            correlationId: request.headers['x-correlation-id'],
+            tenantId: request.headers['x-tenant-id'],
+          },
+        );
       } else {
         // Handle validation errors (class-validator)
-        if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        if (
+          typeof exceptionResponse === 'object' &&
+          exceptionResponse !== null
+        ) {
           const responseObj = exceptionResponse as Record<string, unknown>;
 
           // Extract message
@@ -246,8 +252,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // GET endpoints - read operations
     if (method === 'GET') {
-      if (path.match(/\/grc\/(risks|policies|requirements|incidents|processes|process-violations|audits)/) ||
-          path.match(/\/itsm\/(incidents)/)) {
+      if (
+        path.match(
+          /\/grc\/(risks|policies|requirements|incidents|processes|process-violations|audits)/,
+        ) ||
+        path.match(/\/itsm\/(incidents)/)
+      ) {
         return 'read';
       }
     }
