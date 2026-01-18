@@ -241,7 +241,7 @@ export const ProcessViolations: React.FC = () => {
       page: currentPage,
       pageSize: currentPageSize,
       filter: filter || undefined,
-      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
       search: currentSearch || undefined,
       status: currentStatusFilter || undefined,
       severity: currentSeverityFilter || undefined,
@@ -513,7 +513,7 @@ export const ProcessViolations: React.FC = () => {
       )}
 
       <ListToolbar
-        searchValue={searchFilter}
+        search={searchFilter}
         onSearchChange={(value) => {
           setSearchFilter(value);
           setPage(0);
@@ -537,39 +537,11 @@ export const ProcessViolations: React.FC = () => {
           setSearchFilter('');
           setPage(0);
         }}
-        filterFields={[
-          {
-            key: 'status',
-            label: 'Status',
-            type: 'select',
-            options: VIOLATION_STATUSES.map((status) => ({
-              value: status,
-              label: STATUS_LABELS[status] || status.toUpperCase().replace('_', ' '),
-            })),
-          },
-          {
-            key: 'severity',
-            label: 'Severity',
-            type: 'select',
-            options: VIOLATION_SEVERITIES.map((severity) => ({
-              value: severity,
-              label: SEVERITY_LABELS[severity] || severity.toUpperCase(),
-            })),
-          },
-        ]}
-        onFilterChange={(key, value) => {
-          if (key === 'status') {
-            setStatusFilter(value);
-          } else if (key === 'severity') {
-            setSeverityFilter(value);
-          }
-          setPage(0);
-        }}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSortChange={(field, direction) => {
+        sort={`${sortField}:${sortDirection}`}
+        onSortChange={(sort: string) => {
+          const [field, direction] = sort.split(':');
           setSortField(field);
-          setSortDirection(direction);
+          setSortDirection(direction as 'ASC' | 'DESC');
         }}
         sortOptions={[
           { field: 'createdAt', label: 'Created Date' },
@@ -578,8 +550,8 @@ export const ProcessViolations: React.FC = () => {
           { field: 'status', label: 'Status' },
           { field: 'title', label: 'Title' },
         ]}
-        defaultSortField="createdAt"
-        defaultSortDirection="DESC"
+        onRefresh={() => fetchViolations(true)}
+        loading={loading}
       />
 
       <Card>

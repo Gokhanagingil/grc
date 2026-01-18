@@ -41,7 +41,7 @@ import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grc
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar, FilterField, SortOption } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar, SortOption } from '../components/common';
 import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
@@ -244,7 +244,7 @@ export const IncidentManagement: React.FC = () => {
       page: currentPage,
       pageSize: currentPageSize,
       filter: filter || undefined,
-      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
       search: currentSearch || undefined,
     });
     const queryString = new URLSearchParams(apiParams).toString();
@@ -538,7 +538,7 @@ export const IncidentManagement: React.FC = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
       <ListToolbar
-        searchValue={searchFilter}
+        search={searchFilter}
         onSearchChange={(value) => {
           setSearchFilter(value);
           setPage(0);
@@ -562,39 +562,11 @@ export const IncidentManagement: React.FC = () => {
           setSearchFilter('');
           setPage(0);
         }}
-        filterFields={[
-          {
-            key: 'status',
-            label: 'Status',
-            type: 'select',
-            options: Object.values(IncidentStatus).map((status) => ({
-              value: status,
-              label: formatStatus(status),
-            })),
-          },
-          {
-            key: 'priority',
-            label: 'Priority',
-            type: 'select',
-            options: Object.values(IncidentPriority).map((priority) => ({
-              value: priority,
-              label: formatPriority(priority),
-            })),
-          },
-        ]}
-        onFilterChange={(key, value) => {
-          if (key === 'status') {
-            setStatusFilter(value as IncidentStatus | '');
-          } else if (key === 'priority') {
-            setPriorityFilter(value as IncidentPriority | '');
-          }
-          setPage(0);
-        }}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSortChange={(field, direction) => {
+        sort={`${sortField}:${sortDirection}`}
+        onSortChange={(sort: string) => {
+          const [field, direction] = sort.split(':');
           setSortField(field);
-          setSortDirection(direction);
+          setSortDirection(direction as 'ASC' | 'DESC');
         }}
         sortOptions={[
           { field: 'createdAt', label: 'Created Date' },
@@ -602,8 +574,8 @@ export const IncidentManagement: React.FC = () => {
           { field: 'priority', label: 'Priority' },
           { field: 'status', label: 'Status' },
         ]}
-        defaultSortField="createdAt"
-        defaultSortDirection="DESC"
+        onRefresh={() => fetchIncidents(true)}
+        loading={loading}
       />
 
       <Card>

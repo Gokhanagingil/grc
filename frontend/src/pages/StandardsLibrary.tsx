@@ -243,7 +243,7 @@ export const StandardsLibrary: React.FC = () => {
       limit: currentPageSize,
       search: currentFilters.search || undefined,
       filter: filter || undefined,
-      sort: formatSortToQuery(parsedSort.field, parsedSort.direction),
+      sort: { field: parsedSort.field, direction: parsedSort.direction },
     });
     const queryString = new URLSearchParams(apiParams).toString();
 

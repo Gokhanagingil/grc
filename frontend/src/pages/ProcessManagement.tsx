@@ -219,7 +219,7 @@ export const ProcessManagement: React.FC = () => {
         page: page + 1,
         pageSize: rowsPerPage,
         filter: filter || undefined,
-        sort: formatSortToQuery(sortField, sortDirection),
+        sort: { field: sortField, direction: sortDirection },
         category: categoryFilter || undefined,
         isActive: activeFilter !== '' ? activeFilter : undefined,
       });
@@ -575,36 +575,11 @@ export const ProcessManagement: React.FC = () => {
           setActiveFilter('');
           setPage(0);
         }}
-        filterFields={[
-          {
-            key: 'category',
-            label: 'Category',
-            type: 'select',
-            options: PROCESS_CATEGORIES.map((cat) => ({ value: cat, label: cat })),
-          },
-          {
-            key: 'isActive',
-            label: 'Status',
-            type: 'select',
-            options: [
-              { value: 'true', label: 'Active' },
-              { value: 'false', label: 'Inactive' },
-            ],
-          },
-        ]}
-        onFilterChange={(key, value) => {
-          if (key === 'category') {
-            setCategoryFilter(value);
-          } else if (key === 'isActive') {
-            setActiveFilter(value);
-          }
-          setPage(0);
-        }}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSortChange={(field, direction) => {
+        sort={`${sortField}:${sortDirection}`}
+        onSortChange={(sort: string) => {
+          const [field, direction] = sort.split(':');
           setSortField(field);
-          setSortDirection(direction);
+          setSortDirection(direction as 'ASC' | 'DESC');
         }}
         sortOptions={[
           { field: 'createdAt', label: 'Created Date' },
@@ -612,8 +587,8 @@ export const ProcessManagement: React.FC = () => {
           { field: 'name', label: 'Name' },
           { field: 'category', label: 'Category' },
         ]}
-        defaultSortField="createdAt"
-        defaultSortDirection="DESC"
+        onRefresh={() => fetchProcesses()}
+        loading={loading}
       />
 
       <Card>
