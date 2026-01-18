@@ -46,15 +46,25 @@ export class MethodBasedThrottlerGuard extends ThrottlerGuard {
     }
 
     // GET endpoints: read limiter (120/min) - much higher for list screens
+    // Apply to all GET requests under /grc/, /itsm/, /platform/, /audit/, /health/ (except /metrics)
     if (method === 'GET') {
-      // Check if it's a list or detail endpoint
-      if (path.match(/\/grc\/(risks|policies|requirements|incidents|processes|process-violations|audits)/) ||
-          path.match(/\/itsm\/(incidents)/)) {
+      // Exclude metrics endpoint (may have different rate limit needs)
+      if (path === '/metrics') {
+        return 'default';
+      }
+      
+      // All GET requests to GRC, ITSM, Platform, Audit, Health endpoints use read limiter
+      if (path.startsWith('/grc/') ||
+          path.startsWith('/itsm/') ||
+          path.startsWith('/platform/') ||
+          path.startsWith('/audit/') ||
+          path.startsWith('/health/')) {
         return 'read';
       }
     }
 
     // Write endpoints: write limiter (30/min) - moderate for mutations
+    // Apply to all POST/PUT/PATCH/DELETE requests
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       return 'write';
     }

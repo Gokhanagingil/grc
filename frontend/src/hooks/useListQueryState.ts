@@ -6,7 +6,7 @@
  * for managing pagination, sorting, search, and filtering with URL state sync.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AxiosResponse } from 'axios';
 import {
@@ -21,6 +21,7 @@ import {
   buildApiParams,
 } from '../utils/listQueryUtils';
 import { FilterTree } from '../components/common/AdvancedFilter/types';
+import { ApiError } from '../services/api';
 
 /**
  * List contract response from backend
@@ -128,6 +129,10 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Request storm prevention: refs for deduplication and cancellation
+  const lastQueryParamsRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const updateUrlParams = useCallback((newState: Partial<ListQueryState>) => {
     if (!syncToUrl) return;
     
@@ -135,21 +140,43 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
     setSearchParams(newParams, { replace: true });
   }, [syncToUrl, searchParams, setSearchParams]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!enabled) {
       return;
     }
+
+    // Build query params string for deduplication
+    const apiParams = {
+      ...buildApiParams(state),
+      ...additionalFilters,
+    };
+    const queryString = JSON.stringify(apiParams);
+
+    // Dedupe: Skip fetch if query params haven't changed (unless forced)
+    if (!force && queryString === lastQueryParamsRef.current) {
+      return;
+    }
+    lastQueryParamsRef.current = queryString;
+
+    // Cancel previous request if still in flight
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const apiParams = {
-        ...buildApiParams(state),
-        ...additionalFilters,
-      };
-
       const response = await fetchFn(apiParams);
+
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       const result = unwrapListResponse<T>(response);
 
       if (result) {
@@ -162,6 +189,23 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
         setTotalPages(0);
       }
     } catch (err: unknown) {
+      // Ignore cancellation errors
+      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
+      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
+        return;
+      }
+
+      // Handle 429 Rate Limit errors with user-friendly message
+      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
+        const retryAfter = (err.details?.retryAfter as number) || 60;
+        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
+        // Don't clear items - keep previous data
+        setIsLoading(false);
+        return;
+      }
+
       const axiosError = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
       const status = axiosError.response?.status;
       const message = axiosError.response?.data?.error?.message || axiosError.response?.data?.message;
@@ -176,6 +220,7 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
         setTotalPages(0);
       } else {
         setError(message || 'Failed to fetch data. Please try again.');
+        // Don't clear items on error - keep previous data visible
       }
     } finally {
       setIsLoading(false);
@@ -221,7 +266,7 @@ export function useListQueryState<T>(options: UseListQueryStateOptions<T>): UseL
   }, [updateUrlParams]);
 
   const refetch = useCallback(async () => {
-    await fetchData();
+    await fetchData(true); // Force refetch
   }, [fetchData]);
 
   const reset = useCallback(() => {
