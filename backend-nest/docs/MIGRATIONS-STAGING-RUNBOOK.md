@@ -302,6 +302,90 @@ docker compose -f docker-compose.staging.yml exec backend sh -c "
 "
 ```
 
+## Platform Builder Validation
+
+After running migrations, verify that the Platform Builder feature is working correctly:
+
+### Step 1: Check Platform Builder Tables Exist
+
+```bash
+# Verify Platform Builder tables exist in database
+docker compose -f docker-compose.staging.yml exec backend sh -c "
+  node -e \"
+    const { AppDataSource } = require('./dist/data-source.js');
+    AppDataSource.initialize().then(async (ds) => {
+      const result = await ds.manager.query(\\\`
+        SELECT
+          to_regclass('public.sys_db_object') IS NOT NULL as sys_db_object,
+          to_regclass('public.sys_dictionary') IS NOT NULL as sys_dictionary,
+          to_regclass('public.dynamic_records') IS NOT NULL as dynamic_records
+      \\\`);
+      console.log('Platform Builder Tables:');
+      console.log('  sys_db_object:', result[0].sys_db_object ? 'EXISTS' : 'MISSING');
+      console.log('  sys_dictionary:', result[0].sys_dictionary ? 'EXISTS' : 'MISSING');
+      console.log('  dynamic_records:', result[0].dynamic_records ? 'EXISTS' : 'MISSING');
+      if (!result[0].sys_db_object || !result[0].sys_dictionary || !result[0].dynamic_records) {
+        console.log('ERROR: Platform Builder tables missing! Run migrations.');
+        process.exit(1);
+      }
+      console.log('OK: All Platform Builder tables exist');
+      await ds.destroy();
+    }).catch(e => { console.error(e); process.exit(1); });
+  \"
+"
+```
+
+### Step 2: Test Platform Builder Endpoint
+
+```bash
+# Login and get token
+TOKEN=$(curl -s -X POST http://localhost:3002/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@grc-platform.local","password":"YOUR_PASSWORD"}' \
+  | jq -r '.accessToken // .data.accessToken')
+
+# Test GET /grc/admin/tables endpoint
+curl -s -X GET "http://localhost:3002/grc/admin/tables?page=1&pageSize=10" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  | jq .
+
+# Expected: {"success":true,"data":{"items":[],"total":0,...}}
+# If you get 500 error, migrations haven't been run!
+```
+
+### Step 3: Acceptance Criteria
+
+After deployment, verify:
+
+1. Admin login works
+2. Navigate to Admin → Platform Builder
+3. Tables list loads (empty state OK, NO "Failed to fetch tables" error)
+4. Create table `u_demo_assets` (label "Demo Assets") - should succeed
+5. Refresh page → table still listed
+6. (Bonus) Add 1 field to the new table and see it in fields list
+
+### Troubleshooting: 500 Error on /grc/admin/tables
+
+**Symptoms**: GET /grc/admin/tables returns 500 Internal Server Error
+
+**Root Cause**: Platform Builder migration (1737300000000-CreatePlatformBuilderTables) was not run
+
+**Solution**:
+```bash
+# 1. Check migration status
+docker compose -f docker-compose.staging.yml exec backend sh -c "npx typeorm migration:show -d dist/data-source.js"
+
+# 2. Look for [ ] 1737300000000-CreatePlatformBuilderTables (pending)
+
+# 3. Run migrations
+docker compose -f docker-compose.staging.yml exec backend sh -c "npx typeorm migration:run -d dist/data-source.js"
+
+# 4. Verify tables exist (see Step 1 above)
+
+# 5. Test endpoint (see Step 2 above)
+```
+
 ## Security Notes
 
 - Migrations run with the same database credentials as the application

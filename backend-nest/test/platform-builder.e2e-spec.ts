@@ -4,6 +4,9 @@ import * as request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 
+import { DataSource } from 'typeorm';
+import { getDataSourceToken } from '@nestjs/typeorm';
+
 /**
  * Platform Builder E2E Tests
  *
@@ -66,6 +69,76 @@ describe('Platform Builder (e2e)', () => {
     if (app) {
       await app.close();
     }
+  });
+
+  // ==================== REGRESSION TEST: Platform Builder Tables Exist ====================
+  // This test verifies that the Platform Builder migration has been run and the required
+  // tables exist. This is a regression test for the 500 error that occurs when the
+  // /grc/admin/tables endpoint is called but the sys_db_object table doesn't exist.
+  // Root cause: Migration 1737300000000-CreatePlatformBuilderTables was not run on staging.
+  describe('Platform Builder Schema Validation (Regression Test)', () => {
+    it('should have sys_db_object table in database schema', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const dataSource = app.get<DataSource>(getDataSourceToken());
+      const result = await dataSource.manager.query<Array<{ exists: boolean }>>(
+        `SELECT to_regclass('public.sys_db_object') IS NOT NULL as exists`,
+      );
+
+      expect(result[0].exists).toBe(true);
+    });
+
+    it('should have sys_dictionary table in database schema', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const dataSource = app.get<DataSource>(getDataSourceToken());
+      const result = await dataSource.manager.query<Array<{ exists: boolean }>>(
+        `SELECT to_regclass('public.sys_dictionary') IS NOT NULL as exists`,
+      );
+
+      expect(result[0].exists).toBe(true);
+    });
+
+    it('should have dynamic_records table in database schema', async () => {
+      if (!dbConnected) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const dataSource = app.get<DataSource>(getDataSourceToken());
+      const result = await dataSource.manager.query<Array<{ exists: boolean }>>(
+        `SELECT to_regclass('public.dynamic_records') IS NOT NULL as exists`,
+      );
+
+      expect(result[0].exists).toBe(true);
+    });
+
+    it('should return 200 for GET /grc/admin/tables when tables exist (not 500)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // This test verifies the endpoint returns 200 (not 500) when Platform Builder
+      // tables exist. A 500 error here indicates the migration hasn't been run.
+      const response = await request(app.getHttpServer())
+        .get('/grc/admin/tables?page=1&pageSize=10')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      // Should NOT be 500 - that indicates missing tables
+      expect(response.status).not.toBe(500);
+      // Should be 200 with valid response
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+    });
   });
 
   // ==================== ADMIN TABLE MANAGEMENT ====================
