@@ -84,6 +84,9 @@ async function bootstrap() {
               grc_requirements: string | null;
               grc_policies: string | null;
               grc_risks: string | null;
+              sys_db_object: string | null;
+              sys_dictionary: string | null;
+              dynamic_records: string | null;
             }>
           >(`
             SELECT
@@ -91,7 +94,10 @@ async function bootstrap() {
               current_schema() as schema,
               to_regclass('public.grc_requirements')::text as grc_requirements,
               to_regclass('public.grc_policies')::text as grc_policies,
-              to_regclass('public.grc_risks')::text as grc_risks
+              to_regclass('public.grc_risks')::text as grc_risks,
+              to_regclass('public.sys_db_object')::text as sys_db_object,
+              to_regclass('public.sys_dictionary')::text as sys_dictionary,
+              to_regclass('public.dynamic_records')::text as dynamic_records
           `);
 
           const result = driftCheckResult[0];
@@ -108,6 +114,15 @@ async function bootstrap() {
           );
           console.log(
             `[Runtime Diagnostics]   grc_risks: ${result?.grc_risks ?? 'NULL'}`,
+          );
+          console.log(
+            `[Runtime Diagnostics]   sys_db_object: ${result?.sys_db_object ?? 'NULL'}`,
+          );
+          console.log(
+            `[Runtime Diagnostics]   sys_dictionary: ${result?.sys_dictionary ?? 'NULL'}`,
+          );
+          console.log(
+            `[Runtime Diagnostics]   dynamic_records: ${result?.dynamic_records ?? 'NULL'}`,
           );
 
           // HARD FAIL in test environment if any critical GRC table is missing (NULL)
@@ -145,8 +160,45 @@ async function bootstrap() {
             throw new Error(errorMsg);
           }
 
+          // HARD FAIL in test environment if Platform Builder tables are missing
+          if (
+            !result?.sys_db_object ||
+            !result?.sys_dictionary ||
+            !result?.dynamic_records
+          ) {
+            const missingTables: string[] = [];
+            if (!result?.sys_db_object) missingTables.push('sys_db_object');
+            if (!result?.sys_dictionary) missingTables.push('sys_dictionary');
+            if (!result?.dynamic_records) missingTables.push('dynamic_records');
+
+            const errorMsg =
+              `FATAL: Platform Builder tables missing in test environment!\n` +
+              `Missing tables: ${missingTables.join(', ')}\n` +
+              `Database: ${result?.db}\n` +
+              `Schema: ${result?.schema}\n` +
+              `This indicates the Platform Builder migration (1737300000000-CreatePlatformBuilderTables) was not run.\n` +
+              `Run: npx typeorm migration:run -d dist/data-source.js`;
+
+            console.error(
+              '[Runtime Diagnostics] ========================================',
+            );
+            console.error('[Runtime Diagnostics] FATAL ERROR');
+            console.error(
+              '[Runtime Diagnostics] ========================================',
+            );
+            console.error(errorMsg);
+            console.error(
+              '[Runtime Diagnostics] ========================================',
+            );
+
+            throw new Error(errorMsg);
+          }
+
           console.log(
             '[Runtime Diagnostics] ✓ All critical GRC tables exist (NOT NULL)',
+          );
+          console.log(
+            '[Runtime Diagnostics] ✓ All Platform Builder tables exist (NOT NULL)',
           );
         } catch (error) {
           // Re-throw if it's our intentional error, otherwise log warning
@@ -177,6 +229,70 @@ async function bootstrap() {
             currentSchema: diagnostics.currentSchema,
           },
         );
+      }
+
+      // Check Platform Builder tables in ALL environments (not just test)
+      // This helps diagnose 500 errors on staging/production when migrations haven't been run
+      try {
+        const platformBuilderCheck = await dataSource.manager.query<
+          Array<{
+            sys_db_object: string | null;
+            sys_dictionary: string | null;
+            dynamic_records: string | null;
+          }>
+        >(`
+          SELECT
+            to_regclass('public.sys_db_object')::text as sys_db_object,
+            to_regclass('public.sys_dictionary')::text as sys_dictionary,
+            to_regclass('public.dynamic_records')::text as dynamic_records
+        `);
+
+        const pbResult = platformBuilderCheck[0];
+        const missingPbTables: string[] = [];
+        if (!pbResult?.sys_db_object) missingPbTables.push('sys_db_object');
+        if (!pbResult?.sys_dictionary) missingPbTables.push('sys_dictionary');
+        if (!pbResult?.dynamic_records) missingPbTables.push('dynamic_records');
+
+        if (missingPbTables.length > 0) {
+          logger.error(
+            'Platform Builder tables missing! The /grc/admin/tables endpoint will return 500 errors.',
+            {
+              missingTables: missingPbTables,
+              currentDatabase: diagnostics.currentDatabase,
+              currentSchema: diagnostics.currentSchema,
+              resolution:
+                'Run migrations: npx typeorm migration:run -d dist/data-source.js',
+            },
+          );
+          console.error(
+            '\n========================================\n' +
+              'ERROR: Platform Builder tables missing!\n' +
+              '========================================\n' +
+              `Missing tables: ${missingPbTables.join(', ')}\n` +
+              `Database: ${diagnostics.currentDatabase}\n` +
+              `Schema: ${diagnostics.currentSchema}\n` +
+              '\n' +
+              'The Platform Builder feature (/grc/admin/tables) will NOT work.\n' +
+              'This will cause 500 Internal Server Error responses.\n' +
+              '\n' +
+              'Resolution: Run the Platform Builder migration:\n' +
+              '  npx typeorm migration:run -d dist/data-source.js\n' +
+              '========================================\n',
+          );
+        } else {
+          logger.log('Platform Builder tables verified', {
+            sys_db_object: 'exists',
+            sys_dictionary: 'exists',
+            dynamic_records: 'exists',
+          });
+        }
+      } catch (pbCheckError) {
+        logger.warn('Could not verify Platform Builder tables', {
+          error:
+            pbCheckError instanceof Error
+              ? pbCheckError.message
+              : String(pbCheckError),
+        });
       }
     }
   } catch (error) {
