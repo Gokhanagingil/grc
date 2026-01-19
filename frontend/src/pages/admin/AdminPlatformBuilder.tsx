@@ -559,7 +559,7 @@ export const AdminPlatformBuilder: React.FC = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Order</TableCell>
+                        <TableCell>Field Order</TableCell>
                         <TableCell>Field Name</TableCell>
                         <TableCell>Label</TableCell>
                         <TableCell>Type</TableCell>
