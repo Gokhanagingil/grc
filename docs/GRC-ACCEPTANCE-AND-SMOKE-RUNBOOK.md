@@ -71,6 +71,7 @@ NEST_API_URL=https://staging.example.com npm run smoke:grc
 7. **Summary endpoints** - KPI data endpoints respond
 8. **Relationship endpoints** - Risk-policy and risk-requirement links work
 9. **User profile** - `/users/me` returns current user
+10. **Platform Builder** - `/grc/admin/tables` returns 200 (requires ADMIN role)
 
 ### Sample Smoke Test Output
 
