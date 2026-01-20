@@ -35,7 +35,7 @@ export interface GenericListPageProps<T> {
   search: string;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onSearchChange: (search: string) => void;
+  onSearchChange?: (search: string) => void;
   onRefresh: () => void;
   onClearError?: () => void;
   getRowKey: (item: T) => string;
@@ -127,7 +127,7 @@ export function GenericListPage<T>({
 
       <TableToolbar
         searchValue={search}
-        onSearchChange={onSearchChange}
+        onSearchChange={onSearchChange || (() => {})}
         searchPlaceholder={searchPlaceholder}
         filters={filters}
         onFilterRemove={onFilterRemove}

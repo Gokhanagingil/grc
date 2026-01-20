@@ -324,7 +324,7 @@ const components: ThemeOptions['components'] = {
         height: 24,
         fontSize: '0.6875rem',
       },
-      colorDefault: {
+      filled: {
         backgroundColor: colors.grey[100],
         color: colors.text.primary,
       },
