@@ -417,9 +417,31 @@ export const AuditList: React.FC = () => {
                     </TableRow>
                   ) : (
                     audits.map((audit) => (
-                      <TableRow key={audit.id} hover>
+                      <TableRow 
+                        key={audit.id} 
+                        hover
+                        sx={{ 
+                          cursor: 'pointer',
+                          '&:hover': { backgroundColor: 'action.hover' },
+                        }}
+                      >
                         <TableCell>
-                          <Typography variant="subtitle2">{audit.name}</Typography>
+                          <Typography 
+                            variant="subtitle2" 
+                            component="span"
+                            onClick={() => navigate(`/audits/${audit.id}`)}
+                            sx={{ 
+                              color: 'primary.main',
+                              cursor: 'pointer',
+                              '&:hover': { 
+                                textDecoration: 'underline',
+                                color: 'primary.dark',
+                              },
+                              fontWeight: 500,
+                            }}
+                          >
+                            {audit.name}
+                          </Typography>
                           {audit.description && (
                             <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
                               {audit.description}

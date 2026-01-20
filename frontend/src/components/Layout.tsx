@@ -21,6 +21,9 @@ import {
   Collapse,
   Breadcrumbs,
   Link,
+  Select,
+  FormControl,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -47,13 +50,18 @@ import {
   Build as ItsmIcon,
   NavigateNext as NavigateNextIcon,
   MonitorHeart as SystemIcon,
+  LibraryBooks as LibraryIcon,
+  PlaylistAddCheck as AssuranceIcon,
+  BugReport as FindingsIcon,
+  TrendingUp as InsightsIcon,
+  KeyboardArrowDown as ArrowDownIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
 import { ErrorBoundary } from './common/ErrorBoundary';
 import { safeArray, safeIncludes } from '../utils/safeHelpers';
 
-const drawerWidth = 240;
+const drawerWidth = 260;
 
 // Storage key for last known good route (used by InitializationErrorBoundary)
 const LAST_GOOD_ROUTE_KEY = 'lastKnownGoodRoute';
@@ -81,199 +89,182 @@ interface NavMenuGroup {
   roles?: ('admin' | 'manager' | 'user')[];
 }
 
-// Standalone items (not in groups)
+// Domain types for the domain switcher
+type DomainType = 'grc' | 'itsm';
+
+// Domain configuration
+const domains: { id: DomainType; label: string; icon: React.ReactNode; enabled: boolean }[] = [
+  { id: 'grc', label: 'GRC', icon: <GrcIcon />, enabled: true },
+  { id: 'itsm', label: 'ITSM', icon: <ItsmIcon />, enabled: false }, // Disabled for now, placeholder for future
+];
+
+// Standalone items (not in groups) - shown regardless of domain
 const standaloneItems: NavMenuItem[] = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { text: 'To-Do', icon: <TodoIcon />, path: '/todos' },
 ];
 
-// Grouped navigation items with nested children for 2-level menu
-// GRC Menu reorganized per Golden Flow Sprint 1B IA requirements
-const menuGroups: NavMenuGroup[] = [
+// GRC domain menu groups - Clean labels without "GRC > " prefix
+const grcMenuGroups: NavMenuGroup[] = [
   {
-    id: 'grc-library',
-    text: 'GRC > Library',
-    icon: <GrcIcon />,
+    id: 'library',
+    text: 'Library',
+    icon: <LibraryIcon />,
     items: [
       { 
         text: 'Policies', 
         icon: <GovernanceIcon />, 
         path: '/governance', 
         moduleKey: 'policy',
-        children: [
-          { text: 'Policy List', path: '/governance', status: 'active' },
-          { text: 'Templates', path: '/policy-templates', status: 'coming_soon' },
-          { text: 'Reviews', path: '/policy-reviews', status: 'coming_soon' },
-        ],
       },
       { 
         text: 'Requirements', 
         icon: <ComplianceIcon />, 
         path: '/compliance', 
         moduleKey: 'compliance',
-        children: [
-          { text: 'Requirements List', path: '/compliance', status: 'active' },
-        ],
       },
       { 
         text: 'Controls', 
         icon: <ComplianceIcon />, 
         path: '/controls', 
         moduleKey: 'compliance',
-        children: [
-          { text: 'Control Library', path: '/controls', status: 'active' },
-          { text: 'Testing', path: '/control-testing', status: 'coming_soon' },
-        ],
       },
       { 
         text: 'Processes', 
         icon: <ProcessIcon />, 
         path: '/processes',
-        children: [
-          { text: 'Process List', path: '/processes', status: 'active' },
-        ],
+      },
+      { 
+        text: 'Standards', 
+        icon: <LibraryIcon />, 
+        path: '/standards',
       },
     ],
   },
   {
-    id: 'grc-assurance',
-    text: 'GRC > Assurance',
-    icon: <AuditIcon />,
+    id: 'assurance',
+    text: 'Assurance',
+    icon: <AssuranceIcon />,
     items: [
       { 
         text: 'Audits', 
         icon: <AuditIcon />, 
         path: '/audits', 
         moduleKey: 'audit',
-        children: [
-          { text: 'Audit List', path: '/audits', status: 'active' },
-          { text: 'Findings', path: '/findings', status: 'active' },
-          { text: 'Reports', path: '/audit-reports', status: 'coming_soon' },
-        ],
       },
-            { 
-              text: 'Tests / Results', 
-              icon: <AuditIcon />, 
-              path: '/control-tests',
-              children: [
-                { text: 'Control Tests', path: '/control-tests', status: 'active' },
-                { text: 'Test Results', path: '/test-results', status: 'active' },
-              ],
-            },
+      { 
+        text: 'Control Tests', 
+        icon: <AuditIcon />, 
+        path: '/control-tests',
+      },
+      { 
+        text: 'Test Results', 
+        icon: <AuditIcon />, 
+        path: '/test-results',
+      },
       { 
         text: 'Evidence', 
         icon: <AuditIcon />, 
         path: '/evidence',
-        children: [
-          { text: 'Evidence List', path: '/evidence', status: 'active' },
-        ],
       },
     ],
   },
   {
-    id: 'grc-findings',
-    text: 'GRC > Findings & Remediation',
-    icon: <ViolationIcon />,
+    id: 'findings',
+    text: 'Findings & Remediation',
+    icon: <FindingsIcon />,
     items: [
       { 
         text: 'Issues', 
         icon: <ViolationIcon />, 
         path: '/issues',
-        children: [
-          { text: 'Issues List', path: '/issues', status: 'active' },
-        ],
       },
       { 
         text: 'CAPA', 
         icon: <ViolationIcon />, 
         path: '/capa',
-        children: [
-          { text: 'CAPA List', path: '/capa', status: 'active' },
-        ],
       },
     ],
   },
   {
-    id: 'grc-risk',
-    text: 'GRC > Risk & Exceptions',
+    id: 'risk',
+    text: 'Risk & Exceptions',
     icon: <RiskIcon />,
     items: [
       { 
-        text: 'Risks', 
+        text: 'Risk Register', 
         icon: <RiskIcon />, 
         path: '/risk', 
         moduleKey: 'risk',
-        children: [
-          { text: 'Risk Register', path: '/risk', status: 'active' },
-          { text: 'Assessments', path: '/risk-assessments', status: 'coming_soon' },
-          { text: 'Treatments', path: '/risk-treatments', status: 'coming_soon' },
-        ],
       },
       { 
         text: 'Violations', 
         icon: <ViolationIcon />, 
         path: '/violations',
-        children: [
-          { text: 'Violations List', path: '/violations', status: 'active' },
-        ],
       },
     ],
   },
-    {
-      id: 'grc-insights',
-      text: 'GRC > Insights',
-      icon: <ComplianceDashboardIcon />,
-      items: [
-        { 
-          text: 'GRC Insights', 
-          icon: <ComplianceDashboardIcon />, 
-          path: '/insights',
-          children: [
-            { text: 'Insights Overview', path: '/insights', status: 'active' },
-          ],
-        },
-        { 
-          text: 'Coverage', 
-          icon: <ComplianceDashboardIcon />, 
-          path: '/coverage',
-          children: [
-            { text: 'Coverage Dashboard', path: '/coverage', status: 'active' },
-          ],
-        },
-      ],
-    },
   {
-    id: 'itsm',
-    text: 'ITSM',
-    icon: <ItsmIcon />,
+    id: 'insights',
+    text: 'Insights',
+    icon: <InsightsIcon />,
     items: [
       { 
-        text: 'Incidents', 
-        icon: <IncidentIcon />, 
-        path: '/incidents',
-        children: [
-          { text: 'Incident List', path: '/incidents', status: 'active' },
-          { text: 'SLA Dashboard', path: '/sla-dashboard', status: 'coming_soon' },
-        ],
+        text: 'GRC Insights', 
+        icon: <ComplianceDashboardIcon />, 
+        path: '/insights',
       },
       { 
-        text: 'Problems', 
-        icon: <IncidentIcon />, 
-        path: '/problems',
-        children: [
-          { text: 'Problem List', path: '/problems', status: 'coming_soon' },
-        ],
-      },
-      { 
-        text: 'Changes', 
-        icon: <IncidentIcon />, 
-        path: '/changes',
-        children: [
-          { text: 'Change List', path: '/changes', status: 'coming_soon' },
-        ],
+        text: 'Coverage', 
+        icon: <ComplianceDashboardIcon />, 
+        path: '/coverage',
       },
     ],
   },
+];
+
+// ITSM domain menu groups (placeholder for future)
+const itsmMenuGroups: NavMenuGroup[] = [
+  {
+    id: 'incidents',
+    text: 'Incidents',
+    icon: <IncidentIcon />,
+    items: [
+      { 
+        text: 'Incident List', 
+        icon: <IncidentIcon />, 
+        path: '/incidents',
+      },
+    ],
+  },
+  {
+    id: 'problems',
+    text: 'Problems',
+    icon: <IncidentIcon />,
+    items: [
+      { 
+        text: 'Problem List', 
+        icon: <IncidentIcon />, 
+        path: '/problems',
+      },
+    ],
+  },
+  {
+    id: 'changes',
+    text: 'Changes',
+    icon: <IncidentIcon />,
+    items: [
+      { 
+        text: 'Change List', 
+        icon: <IncidentIcon />, 
+        path: '/changes',
+      },
+    ],
+  },
+];
+
+// Shared menu groups (shown in all domains)
+const sharedMenuGroups: NavMenuGroup[] = [
   {
     id: 'dashboards',
     text: 'Dashboards',
@@ -286,7 +277,7 @@ const menuGroups: NavMenuGroup[] = [
   },
   {
     id: 'admin',
-    text: 'Admin',
+    text: 'Administration',
     icon: <AdminIcon />,
     roles: ['admin'],
     items: [
@@ -300,6 +291,21 @@ const menuGroups: NavMenuGroup[] = [
   },
 ];
 
+// Helper to get menu groups for a domain
+const getMenuGroupsForDomain = (domain: DomainType): NavMenuGroup[] => {
+  switch (domain) {
+    case 'grc':
+      return [...grcMenuGroups, ...sharedMenuGroups];
+    case 'itsm':
+      return [...itsmMenuGroups, ...sharedMenuGroups];
+    default:
+      return [...grcMenuGroups, ...sharedMenuGroups];
+  }
+};
+
+// Legacy: Flat list for backward compatibility (page title lookup)
+const menuGroups = [...grcMenuGroups, ...itsmMenuGroups, ...sharedMenuGroups];
+
 // Flat list for backward compatibility (page title lookup)
 const menuItems: NavMenuItem[] = [
   ...standaloneItems,
@@ -310,13 +316,16 @@ export const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
+  const [currentDomain, setCurrentDomain] = useState<DomainType>('grc');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'grc-library': true,
-    'grc-assurance': false,
-    'grc-findings': false,
-    'grc-risk': false,
-    'grc-insights': false,
-    itsm: false,
+    library: true,
+    assurance: false,
+    findings: false,
+    risk: false,
+    insights: false,
+    incidents: false,
+    problems: false,
+    changes: false,
     dashboards: false,
     admin: false,
   });
@@ -324,6 +333,28 @@ export const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Get menu groups for current domain
+  const domainMenuGroups = useMemo(() => getMenuGroupsForDomain(currentDomain), [currentDomain]);
+  
+  // Handle domain change
+  const handleDomainChange = (event: SelectChangeEvent<DomainType>) => {
+    const newDomain = event.target.value as DomainType;
+    setCurrentDomain(newDomain);
+    // Reset expanded groups when switching domains
+    setExpandedGroups({
+      library: newDomain === 'grc',
+      assurance: false,
+      findings: false,
+      risk: false,
+      insights: false,
+      incidents: newDomain === 'itsm',
+      problems: false,
+      changes: false,
+      dashboards: false,
+      admin: false,
+    });
+  };
 
   useEffect(() => {
     const fetchEnabledModules = async () => {
@@ -429,14 +460,14 @@ export const Layout: React.FC = () => {
 
   const filteredGroups = useMemo(() => {
     if (!user) return [];
-    return menuGroups
+    return domainMenuGroups
       .filter(group => !group.roles || safeIncludes(group.roles, user.role))
       .map(group => ({
         ...group,
         items: group.items.filter(filterItem),
       }))
       .filter(group => group.items.length > 0);
-  }, [user, filterItem]);
+  }, [user, filterItem, domainMenuGroups]);
 
   const handleGroupToggle = (groupId: string) => {
     setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -576,14 +607,71 @@ export const Layout: React.FC = () => {
     : menuItems.find(item => item.path === location.pathname)?.text || 'GRC Platform';
 
   const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
-          GRC Platform
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Domain Switcher Header */}
+      <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Typography 
+          variant="overline" 
+          sx={{ 
+            color: 'text.secondary', 
+            fontSize: '0.65rem', 
+            fontWeight: 600,
+            letterSpacing: '0.1em',
+            display: 'block',
+            mb: 0.5,
+          }}
+        >
+          Current Module
         </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
+        <FormControl fullWidth size="small">
+          <Select
+            value={currentDomain}
+            onChange={handleDomainChange}
+            IconComponent={ArrowDownIcon}
+            sx={{
+              backgroundColor: 'primary.main',
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiSelect-icon': { color: 'white' },
+              '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '&:hover': { backgroundColor: 'primary.dark' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
+              borderRadius: 1.5,
+            }}
+          >
+            {domains.map((domain) => (
+              <MenuItem 
+                key={domain.id} 
+                value={domain.id}
+                disabled={!domain.enabled}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                {domain.icon}
+                <Typography component="span" sx={{ fontWeight: 500 }}>
+                  {domain.label}
+                </Typography>
+                {!domain.enabled && (
+                  <Chip 
+                    label="Coming Soon" 
+                    size="small" 
+                    sx={{ 
+                      ml: 'auto', 
+                      height: 20, 
+                      fontSize: '0.65rem',
+                    }} 
+                  />
+                )}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+      
+      <List sx={{ flexGrow: 1, overflow: 'auto', pt: 1 }}>
         {/* Standalone items */}
         {filteredStandaloneItems.map((item) => {
           const testId = item.path === '/dashboard' ? 'nav-dashboard' : `nav-${item.text.toLowerCase().replace(/\s+/g, '-')}`;
@@ -759,7 +847,7 @@ export const Layout: React.FC = () => {
           );
         })}
       </List>
-    </div>
+    </Box>
   );
 
   return (

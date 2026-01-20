@@ -306,7 +306,21 @@ export const IssueList: React.FC = () => {
         <Tooltip title={issue.description || ''}>
           <Typography 
             variant="body2" 
-            sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            component="span"
+            onClick={() => handleViewIssue(issue)}
+            sx={{ 
+              maxWidth: 250, 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              whiteSpace: 'nowrap',
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': { 
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+              fontWeight: 500,
+            }}
           >
             {issue.title}
           </Typography>
@@ -483,10 +497,8 @@ export const IssueList: React.FC = () => {
               search={search}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
-              onSearchChange={setSearch}
               onRefresh={refetch}
               getRowKey={(issue) => issue.id}
-              searchPlaceholder="Search issues..."
               emptyMessage="No issues found"
               emptyFilteredMessage="Try adjusting your filters or search query"
               filters={getActiveFilters()}

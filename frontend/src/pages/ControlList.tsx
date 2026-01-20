@@ -353,7 +353,20 @@ export const ControlList: React.FC = () => {
       key: 'code',
       header: 'Code',
       render: (control) => (
-        <Typography variant="body2" fontWeight="medium">
+        <Typography 
+          variant="body2" 
+          fontWeight="medium"
+          component="span"
+          onClick={() => handleViewControl(control)}
+          sx={{ 
+            color: 'primary.main',
+            cursor: 'pointer',
+            '&:hover': { 
+              textDecoration: 'underline',
+              color: 'primary.dark',
+            },
+          }}
+        >
           {control.code || '-'}
         </Typography>
       ),

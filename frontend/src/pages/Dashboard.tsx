@@ -150,6 +150,21 @@ export const Dashboard: React.FC = () => {
   const handleNavigateToPolicies = () => navigate('/governance', { state: { source: 'dashboard' } });
   const handleNavigateToIncidents = () => navigate('/incidents', { state: { source: 'dashboard' } });
 
+  // Drill-down navigation for charts
+  const handleComplianceStatusClick = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'Completed': 'compliant',
+      'Pending': 'in_progress',
+      'Overdue': 'non_compliant',
+    };
+    const filterStatus = statusMap[status] || status.toLowerCase();
+    navigate(`/compliance?status=${filterStatus}`, { state: { source: 'dashboard', filter: status } });
+  };
+
+  const handleTopRiskClick = (riskId: string) => {
+    navigate(`/risk/${riskId}`, { state: { source: 'dashboard' } });
+  };
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -383,11 +398,14 @@ export const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Compliance Status */}
+        {/* Compliance Status - Clickable for drill-down */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Compliance Status
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Click a segment to view filtered list
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -404,13 +422,15 @@ export const Dashboard: React.FC = () => {
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  onClick={(data) => data && data.name && handleComplianceStatusClick(data.name)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {[
                     { name: 'Completed', value: stats.compliance.completed },
                     { name: 'Pending', value: stats.compliance.pending },
                     { name: 'Overdue', value: stats.compliance.overdue },
                   ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} style={{ cursor: 'pointer' }} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -508,17 +528,21 @@ export const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Top 5 Open Risks */}
+        {/* Top 5 Open Risks - Clickable for drill-down */}
         {stats.risks.top5OpenRisks && stats.risks.top5OpenRisks.length > 0 && (
           <Grid item xs={12}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Top 5 Open Risks
               </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Click a risk to view details
+              </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {stats.risks.top5OpenRisks.map((risk, index) => (
                   <Box
                     key={risk.id}
+                    onClick={() => handleTopRiskClick(risk.id)}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -526,13 +550,27 @@ export const Dashboard: React.FC = () => {
                       p: 1,
                       bgcolor: index % 2 === 0 ? '#f5f5f5' : 'white',
                       borderRadius: 1,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                        transform: 'translateX(4px)',
+                      },
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Typography variant="body2" color="textSecondary">
                         #{index + 1}
                       </Typography>
-                      <Typography variant="body1">{risk.title}</Typography>
+                      <Typography 
+                        variant="body1" 
+                        sx={{ 
+                          color: 'primary.main',
+                          '&:hover': { textDecoration: 'underline' },
+                        }}
+                      >
+                        {risk.title}
+                      </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Typography
