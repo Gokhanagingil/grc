@@ -132,10 +132,8 @@ describe('queryParams helpers', () => {
       expect(params.has('filter')).toBe(true);
       const filterStr = params.get('filter');
       expect(filterStr).toBeTruthy();
-      if (filterStr) {
-        const parsed = JSON.parse(filterStr);
-        expect(parsed).toEqual(filter);
-      }
+      const parsed = JSON.parse(filterStr as string);
+      expect(parsed).toEqual(filter);
     });
 
     it('excludes empty search from URL params', () => {
