@@ -41,11 +41,11 @@ test.describe('Navigation', () => {
     const controlsItem = page.getByTestId('nav-controls').first();
     await expect(controlsItem).toBeVisible();
     
-    // Expand Assurance group and verify Evidence and Tests/Results items
+    // Expand Assurance group and verify Evidence and Test Results items
     await assuranceGroup.click();
     const evidenceItem = page.getByTestId('nav-evidence').first();
     await expect(evidenceItem).toBeVisible();
-    const testResultsItem = page.getByTestId('nav-tests-/-results').first();
+    const testResultsItem = page.getByTestId('nav-test-results').first();
     await expect(testResultsItem).toBeVisible();
     // Also verify Audits item is present
     const auditsItem = page.getByTestId('nav-audit').first();
@@ -56,9 +56,9 @@ test.describe('Navigation', () => {
     const issuesItem = page.getByTestId('nav-issues').first();
     await expect(issuesItem).toBeVisible();
     
-    // Expand Risk & Exceptions group and verify Risks item
+    // Expand Risk & Exceptions group and verify Risk Register item
     await riskGroup.click();
-    const risksItem = page.getByTestId('nav-risks').first();
+    const risksItem = page.getByTestId('nav-risk-register').first();
     await expect(risksItem).toBeVisible();
     
     // Expand Insights group and verify Coverage item

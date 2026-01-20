@@ -20,29 +20,31 @@ jest.mock('../../../services/api', () => ({
   STORAGE_TENANT_ID_KEY: 'tenantId',
 }));
 
-// Mock the grcClient module
+// Create mock functions that can be accessed from tests
 const mockGrcFrameworksApiList = jest.fn();
 const mockTenantFrameworksApiGet = jest.fn();
 const mockTenantFrameworksApiUpdate = jest.fn();
-const mockUnwrapResponse = jest.fn((response) => {
-  const data = response.data;
-  if (data && typeof data === 'object' && 'success' in data && data.success === true && 'data' in data) {
-    return data.data;
-  }
-  return data;
-});
 
-jest.mock('../../../services/grcClient', () => ({
-  grcFrameworksApi: {
-    list: () => mockGrcFrameworksApiList(),
-  },
-  tenantFrameworksApi: {
-    get: (tenantId: string) => mockTenantFrameworksApiGet(tenantId),
-    update: (tenantId: string, keys: string[]) => mockTenantFrameworksApiUpdate(tenantId, keys),
-  },
-  unwrapResponse: (response: unknown) => mockUnwrapResponse(response),
-  GrcFrameworkData: {},
-}));
+
+jest.mock('../../../services/grcClient', () => {
+  return {
+    grcFrameworksApi: {
+      list: () => mockGrcFrameworksApiList(),
+    },
+    tenantFrameworksApi: {
+      get: (tenantId: string) => mockTenantFrameworksApiGet(tenantId),
+      update: (tenantId: string, keys: string[]) => mockTenantFrameworksApiUpdate(tenantId, keys),
+    },
+    unwrapResponse: <T,>(response: { data: unknown }): T => {
+      const data = response.data;
+      if (data && typeof data === 'object' && 'success' in data && (data as { success: boolean }).success === true && 'data' in data) {
+        return (data as { data: T }).data;
+      }
+      return data as T;
+    },
+    GrcFrameworkData: {},
+  };
+});
 
 // Mock the AuthContext
 jest.mock('../../../contexts/AuthContext', () => ({

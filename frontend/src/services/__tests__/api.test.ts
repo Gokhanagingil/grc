@@ -9,6 +9,29 @@
  * - One-time retry on 401 when token/tenant missing at request time
  */
 
+// Mock axios before importing api module to avoid ESM parsing issues
+jest.mock('axios', () => ({
+  create: jest.fn(() => ({
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() },
+    },
+    defaults: { headers: { common: {} } },
+  })),
+  post: jest.fn(),
+}));
+
+// Mock config module
+jest.mock('../../config', () => ({
+  getApiBaseUrl: () => 'http://localhost:3002',
+}));
+
+// Mock telemetry service
+jest.mock('../telemetryService', () => ({
+  recordApiCall: jest.fn(),
+}));
+
+// eslint-disable-next-line import/first
 import { getToken, getTenantId, extractTokenFromResponse, STORAGE_TENANT_ID_KEY } from '../api';
 
 describe('api.ts helpers', () => {

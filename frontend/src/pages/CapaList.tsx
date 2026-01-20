@@ -269,7 +269,21 @@ export const CapaList: React.FC = () => {
         <Tooltip title={capa.description || ''}>
           <Typography 
             variant="body2" 
-            sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            component="span"
+            onClick={() => handleViewCapa(capa)}
+            sx={{ 
+              maxWidth: 250, 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              whiteSpace: 'nowrap',
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': { 
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+              fontWeight: 500,
+            }}
           >
             {capa.title}
           </Typography>
@@ -438,10 +452,8 @@ export const CapaList: React.FC = () => {
               search={search}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
-              onSearchChange={setSearch}
               onRefresh={refetch}
               getRowKey={(capa) => capa.id}
-              searchPlaceholder="Search CAPAs..."
               emptyMessage="No CAPAs found"
               emptyFilteredMessage="Try adjusting your filters or search query"
               filters={getActiveFilters()}

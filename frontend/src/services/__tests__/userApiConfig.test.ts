@@ -26,9 +26,9 @@ describe('userApiConfig', () => {
   });
 
   describe('getUserApiMode', () => {
-    it('should return "express" by default when no env var is set', () => {
+    it('should return "nest" by default when no env var is set', () => {
       delete process.env.REACT_APP_USER_API_MODE;
-      expect(getUserApiMode()).toBe('express');
+      expect(getUserApiMode()).toBe('nest');
     });
 
     it('should return "express" when REACT_APP_USER_API_MODE is "express"', () => {
@@ -46,9 +46,9 @@ describe('userApiConfig', () => {
       expect(getUserApiMode()).toBe('nest');
     });
 
-    it('should return "express" for invalid mode values', () => {
+    it('should return "nest" for invalid mode values', () => {
       process.env.REACT_APP_USER_API_MODE = 'invalid';
-      expect(getUserApiMode()).toBe('express');
+      expect(getUserApiMode()).toBe('nest');
     });
   });
 
@@ -80,12 +80,25 @@ describe('userApiConfig', () => {
   describe('getNestApiUrl', () => {
     it('should return default URL when no env var is set', () => {
       delete process.env.REACT_APP_NEST_API_URL;
+      delete process.env.REACT_APP_API_URL;
       expect(getNestApiUrl()).toBe('http://localhost:3002');
     });
 
     it('should return REACT_APP_NEST_API_URL when set', () => {
       process.env.REACT_APP_NEST_API_URL = 'http://custom-nest:3002';
       expect(getNestApiUrl()).toBe('http://custom-nest:3002');
+    });
+
+    it('should return empty string when REACT_APP_API_URL is empty (for nginx proxy)', () => {
+      delete process.env.REACT_APP_NEST_API_URL;
+      process.env.REACT_APP_API_URL = '';
+      expect(getNestApiUrl()).toBe('');
+    });
+
+    it('should fall back to REACT_APP_API_URL without /api suffix', () => {
+      delete process.env.REACT_APP_NEST_API_URL;
+      process.env.REACT_APP_API_URL = 'http://fallback:3001/api';
+      expect(getNestApiUrl()).toBe('http://fallback:3001');
     });
   });
 
@@ -140,9 +153,9 @@ describe('userApiConfig', () => {
       expect(isNestMode()).toBe(false);
     });
 
-    it('should return false by default', () => {
+    it('should return true by default', () => {
       delete process.env.REACT_APP_USER_API_MODE;
-      expect(isNestMode()).toBe(false);
+      expect(isNestMode()).toBe(true);
     });
   });
 
@@ -157,9 +170,9 @@ describe('userApiConfig', () => {
       expect(isExpressMode()).toBe(false);
     });
 
-    it('should return true by default', () => {
+    it('should return false by default', () => {
       delete process.env.REACT_APP_USER_API_MODE;
-      expect(isExpressMode()).toBe(true);
+      expect(isExpressMode()).toBe(false);
     });
   });
 
@@ -177,7 +190,7 @@ describe('userApiConfig', () => {
     it('should expose default values', () => {
       expect(userApiConfig.defaults.EXPRESS_API_URL).toBe('http://localhost:3001/api');
       expect(userApiConfig.defaults.NEST_API_URL).toBe('http://localhost:3002');
-      expect(userApiConfig.defaults.USER_API_MODE).toBe('express');
+      expect(userApiConfig.defaults.USER_API_MODE).toBe('nest');
     });
   });
 });

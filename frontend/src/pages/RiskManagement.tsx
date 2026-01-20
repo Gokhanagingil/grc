@@ -704,9 +704,31 @@ export const RiskManagement: React.FC = () => {
                   </TableRow>
                 ) : (
                   risks.map((risk) => (
-                    <TableRow key={risk.id} hover>
+                    <TableRow 
+                      key={risk.id} 
+                      hover
+                      sx={{ 
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: 'action.hover' },
+                      }}
+                    >
                       <TableCell>
-                        <Typography variant="subtitle2">{risk.title}</Typography>
+                        <Typography 
+                          variant="subtitle2" 
+                          component="span"
+                          onClick={() => handleViewRisk(risk)}
+                          sx={{ 
+                            color: 'primary.main',
+                            cursor: 'pointer',
+                            '&:hover': { 
+                              textDecoration: 'underline',
+                              color: 'primary.dark',
+                            },
+                            fontWeight: 500,
+                          }}
+                        >
+                          {risk.title}
+                        </Typography>
                         {risk.description && (
                           <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
                             {risk.description}
