@@ -65,19 +65,20 @@ describe('userClient adapter logic', () => {
 
     it('should use default NestJS URL when not configured', () => {
       delete process.env.REACT_APP_NEST_API_URL;
+      delete process.env.REACT_APP_API_URL;
       expect(getUserApiBaseUrl()).toBe('http://localhost:3002');
     });
   });
 
   describe('Default mode behavior', () => {
-    it('should default to Express mode when no mode is set', () => {
+    it('should default to NestJS mode when no mode is set', () => {
       delete process.env.REACT_APP_USER_API_MODE;
-      expect(getUserApiMode()).toBe('express');
+      expect(getUserApiMode()).toBe('nest');
     });
 
-    it('should default to Express mode for invalid mode values', () => {
+    it('should default to NestJS mode for invalid mode values', () => {
       process.env.REACT_APP_USER_API_MODE = 'invalid';
-      expect(getUserApiMode()).toBe('express');
+      expect(getUserApiMode()).toBe('nest');
     });
   });
 
