@@ -178,7 +178,7 @@ docker compose -f docker-compose.staging.yml exec -T backend sh -lc \
 
 ```bash
 docker compose -f docker-compose.staging.yml exec -T backend sh -lc \
-  'npm run seed:standards:prod'
+  'npm run seed:standards'
 ```
 
 ### 6. Validate Platform

@@ -114,7 +114,7 @@ docker compose -f docker-compose.staging.yml exec backend sh -c "npx typeorm mig
 
 ```bash
 # Seed standards data (if needed)
-docker compose -f docker-compose.staging.yml exec backend sh -c "npm run seed:standards:prod"
+docker compose -f docker-compose.staging.yml exec backend sh -c "npm run seed:standards"
 ```
 
 ## Complete Staging Deployment Command Chain
@@ -144,7 +144,7 @@ docker compose -f docker-compose.staging.yml exec backend sh -c "npx typeorm mig
 docker compose -f docker-compose.staging.yml exec backend sh -c "npx typeorm migration:show -d dist/data-source.js"
 
 # 8. Seed data (if needed)
-docker compose -f docker-compose.staging.yml exec backend sh -c "npm run seed:standards:prod"
+docker compose -f docker-compose.staging.yml exec backend sh -c "npm run seed:standards"
 ```
 
 ## Troubleshooting

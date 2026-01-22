@@ -426,7 +426,7 @@ step_seed() {
     
     log_info "Running standards seed script..."
     local seed_output
-    seed_output=$(exec_backend "npm run seed:standards:prod" 2>&1) || {
+    seed_output=$(exec_backend "npm run seed:standards" 2>&1) || {
         log_warn "Standards seed script had issues (may be expected if already seeded)"
         echo "$seed_output" | tail -10
     }

@@ -45,7 +45,7 @@ echo "=== 7. MIGRATION RUN ===" && \
 docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:run -d dist/data-source.js && \
 echo "" && \
 echo "=== 8. SEED SCRIPT EXECUTION ===" && \
-docker compose -f docker-compose.staging.yml exec -T backend npm run seed:standards:prod && \
+docker compose -f docker-compose.staging.yml exec -T backend npm run seed:standards && \
 echo "" && \
 echo "==========================================" && \
 echo "✅ Deployment completed successfully!" && \
