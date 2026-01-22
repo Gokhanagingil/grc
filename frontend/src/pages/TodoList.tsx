@@ -110,7 +110,14 @@ export const TodoList: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/todos');
-      setTodos(response.data.todos || []);
+      const todoList = response.data.todos || [];
+      // Sort by created_at desc (newest first) to ensure newly created todos appear at top
+      todoList.sort((a: Todo, b: Todo) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
+      setTodos(todoList);
       setError(null);
     } catch (err: unknown) {
       const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
