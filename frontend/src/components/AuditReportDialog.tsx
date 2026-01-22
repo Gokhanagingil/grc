@@ -64,12 +64,8 @@ export const AuditReportDialog: React.FC<AuditReportDialogProps> = ({
         setSelectedTemplateId(result.items[0].id);
       }
     } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      if (error.response?.status === 404) {
-        setTemplates([]);
-      } else {
-        setError(error.response?.data?.message || 'Failed to fetch templates');
-      }
+      console.warn('Failed to fetch report templates:', err);
+      setTemplates([]);
     } finally {
       setTemplatesLoading(false);
     }
@@ -152,8 +148,11 @@ export const AuditReportDialog: React.FC<AuditReportDialogProps> = ({
             ) : templates.length === 0 ? (
               <Box textAlign="center" py={4}>
                 <ReportIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                <Typography variant="h6" color="textSecondary" gutterBottom>
+                  Coming Soon
+                </Typography>
                 <Typography color="textSecondary">
-                  No report templates available. Please create a template first.
+                  Report generation will be available once templates are configured by your administrator.
                 </Typography>
               </Box>
             ) : (

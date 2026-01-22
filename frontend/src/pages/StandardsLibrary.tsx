@@ -22,6 +22,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { standardsApi, unwrapResponse } from '../services/grcClient';
 import { ApiError } from '../services/api';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { normalizeFiltersData, normalizeRequirementsResponse, FiltersData as NormalizedFiltersData } from '../api/normalizers/standards';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
 
 interface StandardRequirement {
@@ -130,16 +131,18 @@ export const StandardsLibrary: React.FC = () => {
   const fetchFiltersData = useCallback(async () => {
     try {
       const response = await standardsApi.getFilters();
-      const data = unwrapResponse<FiltersData>(response);
-      setFiltersData(data || {
+      const rawData = unwrapResponse<NormalizedFiltersData>(response);
+      const data = normalizeFiltersData(rawData);
+      setFiltersData(data);
+    } catch (err) {
+      console.error('Failed to fetch filters:', err);
+      setFiltersData({
         families: [],
         versions: [],
         domains: [],
         categories: [],
         hierarchyLevels: [],
       });
-    } catch (err) {
-      console.error('Failed to fetch filters:', err);
     }
   }, []);
 
@@ -275,16 +278,10 @@ export const StandardsLibrary: React.FC = () => {
 
       const data = response.data;
       
-      if (data && data.success) {
-        setRequirements(data.data || []);
-        setTotalCount(data.pagination?.total || 0);
-      } else if (Array.isArray(data)) {
-        setRequirements(data);
-        setTotalCount(data.length);
-      } else {
-        setRequirements([]);
-        setTotalCount(0);
-      }
+      const normalized = normalizeRequirementsResponse(data);
+      setRequirements(normalized.items);
+      setTotalCount(normalized.total);
+      setLoading(false);
     } catch (err: unknown) {
       // Ignore cancellation errors
       if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {

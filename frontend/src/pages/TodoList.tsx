@@ -83,6 +83,8 @@ const statusColors: Record<string, 'default' | 'primary' | 'success'> = {
   completed: 'success',
 };
 
+const TODO_CATEGORIES = ['Work', 'Personal', 'Compliance', 'Audit', 'Risk', 'Policy', 'Security', 'Other'];
+
 const initialFormData: TodoFormData = {
   title: '',
   description: '',
@@ -451,12 +453,21 @@ export const TodoList: React.FC = () => {
                 <MenuItem value="completed">Completed</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              label="Category"
-              fullWidth
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            />
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={formData.category}
+                label="Category"
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                <MenuItem value="">None</MenuItem>
+                {TODO_CATEGORIES.map((cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               label="Due Date"
               type="date"

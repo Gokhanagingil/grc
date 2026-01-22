@@ -44,8 +44,10 @@ import {
   processApi,
   processControlApi,
   controlResultApi,
+  evidenceApi,
   unwrapPaginatedResponse,
   unwrapResponse,
+  EvidenceData,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
@@ -137,6 +139,8 @@ export const ProcessManagement: React.FC = () => {
   const [processControls, setProcessControls] = useState<ProcessControl[]>([]);
   const [controlsLoading, setControlsLoading] = useState(false);
   const [complianceScores, setComplianceScores] = useState<Record<string, ComplianceScore>>({});
+  const [availableEvidence, setAvailableEvidence] = useState<EvidenceData[]>([]);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -454,6 +458,21 @@ export const ProcessManagement: React.FC = () => {
     }
   };
 
+  const fetchAvailableEvidence = useCallback(async () => {
+    if (!tenantId) return;
+    setEvidenceLoading(true);
+    try {
+      const response = await evidenceApi.list(tenantId, { pageSize: 100 });
+      const data = unwrapPaginatedResponse<EvidenceData>(response);
+      setAvailableEvidence(data.items || []);
+    } catch (err) {
+      console.error('Failed to fetch evidence:', err);
+      setAvailableEvidence([]);
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }, [tenantId]);
+
   const handleRecordResult = (control: ProcessControl) => {
     setSelectedControlForResult(control);
     setResultFormData({
@@ -463,6 +482,7 @@ export const ProcessManagement: React.FC = () => {
       resultValueText: '',
       evidenceReference: '',
     });
+    fetchAvailableEvidence();
     setOpenResultDialog(true);
   };
 
@@ -1124,15 +1144,32 @@ export const ProcessManagement: React.FC = () => {
               />
             )}
 
-            <TextField
-              label="Evidence Reference"
-              value={resultFormData.evidenceReference}
-              onChange={(e) =>
-                setResultFormData({ ...resultFormData, evidenceReference: e.target.value })
-              }
-              fullWidth
-              helperText="Link to evidence document or file"
-            />
+            <FormControl fullWidth>
+              <InputLabel>Evidence Reference</InputLabel>
+              <Select
+                value={resultFormData.evidenceReference}
+                label="Evidence Reference"
+                onChange={(e) =>
+                  setResultFormData({ ...resultFormData, evidenceReference: e.target.value })
+                }
+                disabled={evidenceLoading}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {availableEvidence.map((evidence) => (
+                  <MenuItem key={evidence.id} value={evidence.id}>
+                    {evidence.name} ({evidence.type})
+                  </MenuItem>
+                ))}
+              </Select>
+              {evidenceLoading && <LinearProgress sx={{ mt: 1 }} />}
+              {!evidenceLoading && availableEvidence.length === 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                  No evidence records found. Create evidence first in the Evidence module.
+                </Typography>
+              )}
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
