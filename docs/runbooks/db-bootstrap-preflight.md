@@ -123,7 +123,7 @@ docker stop preflight-db && docker rm preflight-db
 
 The preflight workflow validates schema correctness in isolation. The following are validated during actual staging deployment:
 
-1. **Production seed data** - `seed:standards:prod` runs in staging
+1. **Production seed data** - `seed:standards` runs in staging
 2. **Docker container builds** - Full Dockerfile build and runtime
 3. **Network connectivity** - Real database connections and service discovery
 4. **Environment secrets** - Real JWT secrets, database credentials
