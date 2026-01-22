@@ -1159,7 +1159,7 @@ export const ProcessManagement: React.FC = () => {
                 </MenuItem>
                 {availableEvidence.map((evidence) => (
                   <MenuItem key={evidence.id} value={evidence.id}>
-                    {evidence.name} ({evidence.evidenceType})
+                    {evidence.name} ({evidence.type})
                   </MenuItem>
                 ))}
               </Select>
