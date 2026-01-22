@@ -76,7 +76,11 @@ function App() {
                       </ErrorBoundary>
                     } 
                   />
-                  <Route path="todos" element={<TodoList />} />
+                  <Route path="todos" element={
+                    <ErrorBoundary>
+                      <TodoList />
+                    </ErrorBoundary>
+                  } />
                   <Route path="governance" element={<Governance />} />
                   <Route path="risk" element={<RiskManagement />} />
                   <Route path="compliance" element={<Compliance />} />
@@ -175,7 +179,11 @@ function App() {
                   <Route path="audits/:auditId/reports/:reportId" element={<ReportViewer />} />
                   <Route path="findings/:id" element={<FindingDetail />} />
                   <Route path="findings/:id/edit" element={<FindingDetail />} />
-                  <Route path="standards" element={<StandardsLibrary />} />
+                  <Route path="standards" element={
+                    <ErrorBoundary>
+                      <StandardsLibrary />
+                    </ErrorBoundary>
+                  } />
                   <Route path="standards/:id" element={<StandardDetail />} />
                   <Route path="dashboards/audit" element={
                     <ProtectedRoute allowedRoles={['admin', 'auditor', 'audit_manager', 'governance']}>

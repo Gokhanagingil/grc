@@ -30,11 +30,26 @@ export class LocalFsAdapter implements StorageAdapter {
   private readonly basePath: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.basePath = this.configService.get<string>(
+    const configuredPath = this.configService.get<string>(
       'ATTACHMENT_STORAGE_PATH',
-      './uploads',
     );
-    void this.ensureBaseDirectory();
+    if (configuredPath) {
+      this.basePath = configuredPath;
+    } else {
+      this.basePath =
+        process.env.NODE_ENV === 'production' ? '/data/uploads' : './uploads';
+    }
+    this.initializeStorage();
+  }
+
+  private initializeStorage(): void {
+    setImmediate(() => {
+      this.ensureBaseDirectory().catch((err: Error) => {
+        this.logger.warn(
+          `Storage directory initialization deferred: ${err.message}`,
+        );
+      });
+    });
   }
 
   /**
