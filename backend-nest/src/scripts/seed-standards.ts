@@ -1,12 +1,16 @@
 /**
  * Standards Library Seed Script
  *
- * Seeds ISO/IEC 27001:2022 standard with sample clauses for testing.
- * Includes a hierarchical clause structure to test ClauseTree functionality.
+ * Seeds multiple standards with clauses for testing:
+ * - ISO/IEC 27001:2022 (structure only, copyright-safe)
+ * - NIST CSF 2.0 (public domain)
  *
  * Usage: npm run seed:standards
  *
  * This script is idempotent - it checks for existing data before creating.
+ * Copyright note: ISO 27001 full text is copyrighted. This seed contains
+ * only structural metadata (clause numbers and generic titles) which is
+ * copyright-safe for reference purposes.
  */
 
 import { NestFactory } from '@nestjs/core';
@@ -16,17 +20,450 @@ import { Tenant } from '../tenants/tenant.entity';
 import { Standard } from '../grc/entities/standard.entity';
 import { StandardClause } from '../grc/entities/standard-clause.entity';
 
-// Demo tenant ID (consistent with seed-grc.ts)
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+
+interface ClauseData {
+  code: string;
+  title: string;
+  description: string | null;
+  parentCode: string | null;
+  hierarchyLevel: number;
+  sortOrder: number;
+  isAuditable?: boolean;
+}
+
+interface StandardData {
+  code: string;
+  name: string;
+  version: string;
+  domain: string;
+  description: string;
+  publisher: string;
+  publishedDate: Date;
+  metadata: Record<string, unknown>;
+  clauses: ClauseData[];
+}
+
+// ISO 27001:2022 - Structure only (copyright-safe)
+// Contains main body clauses (4-10) and Annex A controls
+const ISO27001_CLAUSES: ClauseData[] = [
+  // Clause 4: Context of the organization
+  { code: '4', title: 'Context of the organization', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 1 },
+  { code: '4.1', title: 'Understanding the organization and its context', description: null, parentCode: '4', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '4.2', title: 'Understanding the needs and expectations of interested parties', description: null, parentCode: '4', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: '4.3', title: 'Determining the scope of the ISMS', description: null, parentCode: '4', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: '4.4', title: 'Information security management system', description: null, parentCode: '4', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+
+  // Clause 5: Leadership
+  { code: '5', title: 'Leadership', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 2 },
+  { code: '5.1', title: 'Leadership and commitment', description: null, parentCode: '5', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '5.2', title: 'Policy', description: null, parentCode: '5', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: '5.3', title: 'Organizational roles, responsibilities and authorities', description: null, parentCode: '5', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+
+  // Clause 6: Planning
+  { code: '6', title: 'Planning', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 3 },
+  { code: '6.1', title: 'Actions to address risks and opportunities', description: null, parentCode: '6', hierarchyLevel: 1, sortOrder: 1 },
+  { code: '6.1.1', title: 'General', description: null, parentCode: '6.1', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: '6.1.2', title: 'Information security risk assessment', description: null, parentCode: '6.1', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: '6.1.3', title: 'Information security risk treatment', description: null, parentCode: '6.1', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: '6.2', title: 'Information security objectives and planning to achieve them', description: null, parentCode: '6', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: '6.3', title: 'Planning of changes', description: null, parentCode: '6', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+
+  // Clause 7: Support
+  { code: '7', title: 'Support', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 4 },
+  { code: '7.1', title: 'Resources', description: null, parentCode: '7', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '7.2', title: 'Competence', description: null, parentCode: '7', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: '7.3', title: 'Awareness', description: null, parentCode: '7', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: '7.4', title: 'Communication', description: null, parentCode: '7', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+  { code: '7.5', title: 'Documented information', description: null, parentCode: '7', hierarchyLevel: 1, sortOrder: 5 },
+  { code: '7.5.1', title: 'General', description: null, parentCode: '7.5', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: '7.5.2', title: 'Creating and updating', description: null, parentCode: '7.5', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: '7.5.3', title: 'Control of documented information', description: null, parentCode: '7.5', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+
+  // Clause 8: Operation
+  { code: '8', title: 'Operation', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 5 },
+  { code: '8.1', title: 'Operational planning and control', description: null, parentCode: '8', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '8.2', title: 'Information security risk assessment', description: null, parentCode: '8', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: '8.3', title: 'Information security risk treatment', description: null, parentCode: '8', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+
+  // Clause 9: Performance evaluation
+  { code: '9', title: 'Performance evaluation', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 6 },
+  { code: '9.1', title: 'Monitoring, measurement, analysis and evaluation', description: null, parentCode: '9', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '9.2', title: 'Internal audit', description: null, parentCode: '9', hierarchyLevel: 1, sortOrder: 2 },
+  { code: '9.2.1', title: 'General', description: null, parentCode: '9.2', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: '9.2.2', title: 'Internal audit programme', description: null, parentCode: '9.2', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: '9.3', title: 'Management review', description: null, parentCode: '9', hierarchyLevel: 1, sortOrder: 3 },
+  { code: '9.3.1', title: 'General', description: null, parentCode: '9.3', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: '9.3.2', title: 'Management review inputs', description: null, parentCode: '9.3', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: '9.3.3', title: 'Management review results', description: null, parentCode: '9.3', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+
+  // Clause 10: Improvement
+  { code: '10', title: 'Improvement', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 7 },
+  { code: '10.1', title: 'Continual improvement', description: null, parentCode: '10', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: '10.2', title: 'Nonconformity and corrective action', description: null, parentCode: '10', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+
+  // Annex A Controls (ISO 27001:2022 structure)
+  // A.5 Organizational controls
+  { code: 'A.5', title: 'Organizational controls', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 8 },
+  { code: 'A.5.1', title: 'Policies for information security', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: 'A.5.2', title: 'Information security roles and responsibilities', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: 'A.5.3', title: 'Segregation of duties', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: 'A.5.4', title: 'Management responsibilities', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+  { code: 'A.5.5', title: 'Contact with authorities', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 5, isAuditable: true },
+  { code: 'A.5.6', title: 'Contact with special interest groups', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 6, isAuditable: true },
+  { code: 'A.5.7', title: 'Threat intelligence', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 7, isAuditable: true },
+  { code: 'A.5.8', title: 'Information security in project management', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 8, isAuditable: true },
+  { code: 'A.5.9', title: 'Inventory of information and other associated assets', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 9, isAuditable: true },
+  { code: 'A.5.10', title: 'Acceptable use of information and other associated assets', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 10, isAuditable: true },
+  { code: 'A.5.11', title: 'Return of assets', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 11, isAuditable: true },
+  { code: 'A.5.12', title: 'Classification of information', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 12, isAuditable: true },
+  { code: 'A.5.13', title: 'Labelling of information', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 13, isAuditable: true },
+  { code: 'A.5.14', title: 'Information transfer', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 14, isAuditable: true },
+  { code: 'A.5.15', title: 'Access control', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 15, isAuditable: true },
+  { code: 'A.5.16', title: 'Identity management', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 16, isAuditable: true },
+  { code: 'A.5.17', title: 'Authentication information', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 17, isAuditable: true },
+  { code: 'A.5.18', title: 'Access rights', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 18, isAuditable: true },
+  { code: 'A.5.19', title: 'Information security in supplier relationships', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 19, isAuditable: true },
+  { code: 'A.5.20', title: 'Addressing information security within supplier agreements', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 20, isAuditable: true },
+  { code: 'A.5.21', title: 'Managing information security in the ICT supply chain', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 21, isAuditable: true },
+  { code: 'A.5.22', title: 'Monitoring, review and change management of supplier services', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 22, isAuditable: true },
+  { code: 'A.5.23', title: 'Information security for use of cloud services', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 23, isAuditable: true },
+  { code: 'A.5.24', title: 'Information security incident management planning and preparation', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 24, isAuditable: true },
+  { code: 'A.5.25', title: 'Assessment and decision on information security events', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 25, isAuditable: true },
+  { code: 'A.5.26', title: 'Response to information security incidents', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 26, isAuditable: true },
+  { code: 'A.5.27', title: 'Learning from information security incidents', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 27, isAuditable: true },
+  { code: 'A.5.28', title: 'Collection of evidence', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 28, isAuditable: true },
+  { code: 'A.5.29', title: 'Information security during disruption', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 29, isAuditable: true },
+  { code: 'A.5.30', title: 'ICT readiness for business continuity', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 30, isAuditable: true },
+  { code: 'A.5.31', title: 'Legal, statutory, regulatory and contractual requirements', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 31, isAuditable: true },
+  { code: 'A.5.32', title: 'Intellectual property rights', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 32, isAuditable: true },
+  { code: 'A.5.33', title: 'Protection of records', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 33, isAuditable: true },
+  { code: 'A.5.34', title: 'Privacy and protection of PII', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 34, isAuditable: true },
+  { code: 'A.5.35', title: 'Independent review of information security', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 35, isAuditable: true },
+  { code: 'A.5.36', title: 'Compliance with policies, rules and standards for information security', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 36, isAuditable: true },
+  { code: 'A.5.37', title: 'Documented operating procedures', description: null, parentCode: 'A.5', hierarchyLevel: 1, sortOrder: 37, isAuditable: true },
+
+  // A.6 People controls
+  { code: 'A.6', title: 'People controls', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 9 },
+  { code: 'A.6.1', title: 'Screening', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: 'A.6.2', title: 'Terms and conditions of employment', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: 'A.6.3', title: 'Information security awareness, education and training', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: 'A.6.4', title: 'Disciplinary process', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+  { code: 'A.6.5', title: 'Responsibilities after termination or change of employment', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 5, isAuditable: true },
+  { code: 'A.6.6', title: 'Confidentiality or non-disclosure agreements', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 6, isAuditable: true },
+  { code: 'A.6.7', title: 'Remote working', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 7, isAuditable: true },
+  { code: 'A.6.8', title: 'Information security event reporting', description: null, parentCode: 'A.6', hierarchyLevel: 1, sortOrder: 8, isAuditable: true },
+
+  // A.7 Physical controls
+  { code: 'A.7', title: 'Physical controls', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 10 },
+  { code: 'A.7.1', title: 'Physical security perimeters', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: 'A.7.2', title: 'Physical entry', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: 'A.7.3', title: 'Securing offices, rooms and facilities', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: 'A.7.4', title: 'Physical security monitoring', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+  { code: 'A.7.5', title: 'Protecting against physical and environmental threats', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 5, isAuditable: true },
+  { code: 'A.7.6', title: 'Working in secure areas', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 6, isAuditable: true },
+  { code: 'A.7.7', title: 'Clear desk and clear screen', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 7, isAuditable: true },
+  { code: 'A.7.8', title: 'Equipment siting and protection', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 8, isAuditable: true },
+  { code: 'A.7.9', title: 'Security of assets off-premises', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 9, isAuditable: true },
+  { code: 'A.7.10', title: 'Storage media', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 10, isAuditable: true },
+  { code: 'A.7.11', title: 'Supporting utilities', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 11, isAuditable: true },
+  { code: 'A.7.12', title: 'Cabling security', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 12, isAuditable: true },
+  { code: 'A.7.13', title: 'Equipment maintenance', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 13, isAuditable: true },
+  { code: 'A.7.14', title: 'Secure disposal or re-use of equipment', description: null, parentCode: 'A.7', hierarchyLevel: 1, sortOrder: 14, isAuditable: true },
+
+  // A.8 Technological controls
+  { code: 'A.8', title: 'Technological controls', description: null, parentCode: null, hierarchyLevel: 0, sortOrder: 11 },
+  { code: 'A.8.1', title: 'User endpoint devices', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 1, isAuditable: true },
+  { code: 'A.8.2', title: 'Privileged access rights', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 2, isAuditable: true },
+  { code: 'A.8.3', title: 'Information access restriction', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 3, isAuditable: true },
+  { code: 'A.8.4', title: 'Access to source code', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 4, isAuditable: true },
+  { code: 'A.8.5', title: 'Secure authentication', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 5, isAuditable: true },
+  { code: 'A.8.6', title: 'Capacity management', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 6, isAuditable: true },
+  { code: 'A.8.7', title: 'Protection against malware', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 7, isAuditable: true },
+  { code: 'A.8.8', title: 'Management of technical vulnerabilities', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 8, isAuditable: true },
+  { code: 'A.8.9', title: 'Configuration management', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 9, isAuditable: true },
+  { code: 'A.8.10', title: 'Information deletion', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 10, isAuditable: true },
+  { code: 'A.8.11', title: 'Data masking', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 11, isAuditable: true },
+  { code: 'A.8.12', title: 'Data leakage prevention', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 12, isAuditable: true },
+  { code: 'A.8.13', title: 'Information backup', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 13, isAuditable: true },
+  { code: 'A.8.14', title: 'Redundancy of information processing facilities', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 14, isAuditable: true },
+  { code: 'A.8.15', title: 'Logging', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 15, isAuditable: true },
+  { code: 'A.8.16', title: 'Monitoring activities', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 16, isAuditable: true },
+  { code: 'A.8.17', title: 'Clock synchronization', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 17, isAuditable: true },
+  { code: 'A.8.18', title: 'Use of privileged utility programs', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 18, isAuditable: true },
+  { code: 'A.8.19', title: 'Installation of software on operational systems', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 19, isAuditable: true },
+  { code: 'A.8.20', title: 'Networks security', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 20, isAuditable: true },
+  { code: 'A.8.21', title: 'Security of network services', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 21, isAuditable: true },
+  { code: 'A.8.22', title: 'Segregation of networks', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 22, isAuditable: true },
+  { code: 'A.8.23', title: 'Web filtering', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 23, isAuditable: true },
+  { code: 'A.8.24', title: 'Use of cryptography', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 24, isAuditable: true },
+  { code: 'A.8.25', title: 'Secure development life cycle', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 25, isAuditable: true },
+  { code: 'A.8.26', title: 'Application security requirements', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 26, isAuditable: true },
+  { code: 'A.8.27', title: 'Secure system architecture and engineering principles', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 27, isAuditable: true },
+  { code: 'A.8.28', title: 'Secure coding', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 28, isAuditable: true },
+  { code: 'A.8.29', title: 'Security testing in development and acceptance', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 29, isAuditable: true },
+  { code: 'A.8.30', title: 'Outsourced development', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 30, isAuditable: true },
+  { code: 'A.8.31', title: 'Separation of development, test and production environments', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 31, isAuditable: true },
+  { code: 'A.8.32', title: 'Change management', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 32, isAuditable: true },
+  { code: 'A.8.33', title: 'Test information', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 33, isAuditable: true },
+  { code: 'A.8.34', title: 'Protection of information systems during audit testing', description: null, parentCode: 'A.8', hierarchyLevel: 1, sortOrder: 34, isAuditable: true },
+];
+
+// NIST CSF 2.0 - Public domain framework
+const NIST_CSF_CLAUSES: ClauseData[] = [
+  // GOVERN Function (new in CSF 2.0)
+  { code: 'GV', title: 'GOVERN', description: 'Establish and monitor the organization\'s cybersecurity risk management strategy, expectations, and policy', parentCode: null, hierarchyLevel: 0, sortOrder: 1 },
+  { code: 'GV.OC', title: 'Organizational Context', description: 'The circumstances surrounding the organization\'s cybersecurity risk management decisions are understood', parentCode: 'GV', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'GV.OC-01', title: 'Organizational mission is understood', description: null, parentCode: 'GV.OC', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'GV.OC-02', title: 'Internal and external stakeholders are understood', description: null, parentCode: 'GV.OC', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'GV.OC-03', title: 'Legal, regulatory, and contractual requirements are understood', description: null, parentCode: 'GV.OC', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'GV.OC-04', title: 'Critical objectives, capabilities, and services are understood', description: null, parentCode: 'GV.OC', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'GV.OC-05', title: 'Outcomes, capabilities, and services dependencies are understood', description: null, parentCode: 'GV.OC', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'GV.RM', title: 'Risk Management Strategy', description: 'The organization\'s priorities, constraints, risk tolerance, and assumptions are established', parentCode: 'GV', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'GV.RM-01', title: 'Risk management objectives are established', description: null, parentCode: 'GV.RM', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'GV.RM-02', title: 'Risk appetite and tolerance statements are established', description: null, parentCode: 'GV.RM', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'GV.RM-03', title: 'Cybersecurity risk management activities are integrated into ERM', description: null, parentCode: 'GV.RM', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'GV.RM-04', title: 'Strategic direction for risk response is established', description: null, parentCode: 'GV.RM', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'GV.RR', title: 'Roles, Responsibilities, and Authorities', description: 'Cybersecurity roles, responsibilities, and authorities are established', parentCode: 'GV', hierarchyLevel: 1, sortOrder: 3 },
+  { code: 'GV.RR-01', title: 'Organizational leadership is responsible for cybersecurity risk', description: null, parentCode: 'GV.RR', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'GV.RR-02', title: 'Roles, responsibilities, and authorities are established', description: null, parentCode: 'GV.RR', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'GV.RR-03', title: 'Adequate resources are allocated', description: null, parentCode: 'GV.RR', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'GV.RR-04', title: 'Cybersecurity is included in HR practices', description: null, parentCode: 'GV.RR', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'GV.PO', title: 'Policy', description: 'Organizational cybersecurity policy is established, communicated, and enforced', parentCode: 'GV', hierarchyLevel: 1, sortOrder: 4 },
+  { code: 'GV.PO-01', title: 'Policy for managing cybersecurity risks is established', description: null, parentCode: 'GV.PO', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'GV.PO-02', title: 'Policy is reviewed, updated, and communicated', description: null, parentCode: 'GV.PO', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'GV.SC', title: 'Cybersecurity Supply Chain Risk Management', description: 'Cyber supply chain risk management processes are identified and managed', parentCode: 'GV', hierarchyLevel: 1, sortOrder: 5 },
+  { code: 'GV.SC-01', title: 'Supply chain risk management program is established', description: null, parentCode: 'GV.SC', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'GV.SC-02', title: 'Cybersecurity roles and responsibilities for suppliers are established', description: null, parentCode: 'GV.SC', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'GV.SC-03', title: 'Supply chain risk assessment is performed', description: null, parentCode: 'GV.SC', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+
+  // IDENTIFY Function
+  { code: 'ID', title: 'IDENTIFY', description: 'Understand the organization\'s current cybersecurity risk posture', parentCode: null, hierarchyLevel: 0, sortOrder: 2 },
+  { code: 'ID.AM', title: 'Asset Management', description: 'Assets that enable the organization to achieve business purposes are identified and managed', parentCode: 'ID', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'ID.AM-01', title: 'Inventories of hardware managed by the organization are maintained', description: null, parentCode: 'ID.AM', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'ID.AM-02', title: 'Inventories of software, services, and systems are maintained', description: null, parentCode: 'ID.AM', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'ID.AM-03', title: 'Representations of network communication and data flows are maintained', description: null, parentCode: 'ID.AM', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'ID.AM-04', title: 'Inventories of services provided by suppliers are maintained', description: null, parentCode: 'ID.AM', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'ID.AM-05', title: 'Assets are prioritized based on classification, criticality, and value', description: null, parentCode: 'ID.AM', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'ID.RA', title: 'Risk Assessment', description: 'The cybersecurity risk to the organization is understood', parentCode: 'ID', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'ID.RA-01', title: 'Vulnerabilities in assets are identified, validated, and recorded', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'ID.RA-02', title: 'Cyber threat intelligence is received from information sharing forums', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'ID.RA-03', title: 'Internal and external threats are identified and recorded', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'ID.RA-04', title: 'Potential impacts and likelihoods of threats are identified', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'ID.RA-05', title: 'Threats, vulnerabilities, likelihoods, and impacts are used to understand risk', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'ID.RA-06', title: 'Risk responses are chosen, prioritized, planned, and tracked', description: null, parentCode: 'ID.RA', hierarchyLevel: 2, sortOrder: 6, isAuditable: true },
+  { code: 'ID.IM', title: 'Improvement', description: 'Improvements to organizational cybersecurity risk management are identified', parentCode: 'ID', hierarchyLevel: 1, sortOrder: 3 },
+  { code: 'ID.IM-01', title: 'Improvements are identified from evaluations', description: null, parentCode: 'ID.IM', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'ID.IM-02', title: 'Improvements are identified from security tests and exercises', description: null, parentCode: 'ID.IM', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'ID.IM-03', title: 'Improvements are identified from operational activities', description: null, parentCode: 'ID.IM', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+
+  // PROTECT Function
+  { code: 'PR', title: 'PROTECT', description: 'Use safeguards to prevent or reduce cybersecurity risk', parentCode: null, hierarchyLevel: 0, sortOrder: 3 },
+  { code: 'PR.AA', title: 'Identity Management, Authentication, and Access Control', description: 'Access to assets is limited to authorized users, services, and hardware', parentCode: 'PR', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'PR.AA-01', title: 'Identities and credentials for authorized users, services, and hardware are managed', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'PR.AA-02', title: 'Identities are proofed and bound to credentials', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'PR.AA-03', title: 'Users, services, and hardware are authenticated', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'PR.AA-04', title: 'Identity assertions are protected, conveyed, and verified', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'PR.AA-05', title: 'Access permissions, entitlements, and authorizations are managed', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'PR.AA-06', title: 'Physical access to assets is managed, monitored, and enforced', description: null, parentCode: 'PR.AA', hierarchyLevel: 2, sortOrder: 6, isAuditable: true },
+  { code: 'PR.AT', title: 'Awareness and Training', description: 'The organization\'s personnel are provided with cybersecurity awareness and training', parentCode: 'PR', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'PR.AT-01', title: 'Personnel are provided with awareness and training', description: null, parentCode: 'PR.AT', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'PR.AT-02', title: 'Individuals in specialized roles are provided with awareness and training', description: null, parentCode: 'PR.AT', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'PR.DS', title: 'Data Security', description: 'Data are managed consistent with the organization\'s risk strategy', parentCode: 'PR', hierarchyLevel: 1, sortOrder: 3 },
+  { code: 'PR.DS-01', title: 'Data-at-rest is protected', description: null, parentCode: 'PR.DS', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'PR.DS-02', title: 'Data-in-transit is protected', description: null, parentCode: 'PR.DS', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'PR.DS-10', title: 'Data-in-use is protected', description: null, parentCode: 'PR.DS', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'PR.DS-11', title: 'Backups of data are created, protected, maintained, and tested', description: null, parentCode: 'PR.DS', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'PR.PS', title: 'Platform Security', description: 'The hardware, software, and services of physical and virtual platforms are managed', parentCode: 'PR', hierarchyLevel: 1, sortOrder: 4 },
+  { code: 'PR.PS-01', title: 'Configuration management practices are established and applied', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'PR.PS-02', title: 'Software is maintained, replaced, and removed', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'PR.PS-03', title: 'Hardware is maintained, replaced, and removed', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'PR.PS-04', title: 'Log records are generated and made available for continuous monitoring', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'PR.PS-05', title: 'Installation and execution of unauthorized software is prevented', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'PR.PS-06', title: 'Secure software development practices are integrated', description: null, parentCode: 'PR.PS', hierarchyLevel: 2, sortOrder: 6, isAuditable: true },
+  { code: 'PR.IR', title: 'Technology Infrastructure Resilience', description: 'Security architectures are managed with the organization\'s risk strategy', parentCode: 'PR', hierarchyLevel: 1, sortOrder: 5 },
+  { code: 'PR.IR-01', title: 'Networks and environments are protected from unauthorized access', description: null, parentCode: 'PR.IR', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'PR.IR-02', title: 'Network architecture is designed to protect assets', description: null, parentCode: 'PR.IR', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'PR.IR-03', title: 'Network integrity is protected', description: null, parentCode: 'PR.IR', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'PR.IR-04', title: 'Adequate resource capacity is maintained', description: null, parentCode: 'PR.IR', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+
+  // DETECT Function
+  { code: 'DE', title: 'DETECT', description: 'Find and analyze possible cybersecurity attacks and compromises', parentCode: null, hierarchyLevel: 0, sortOrder: 4 },
+  { code: 'DE.CM', title: 'Continuous Monitoring', description: 'Assets are monitored to find anomalies, indicators of compromise, and other events', parentCode: 'DE', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'DE.CM-01', title: 'Networks and network services are monitored', description: null, parentCode: 'DE.CM', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'DE.CM-02', title: 'The physical environment is monitored', description: null, parentCode: 'DE.CM', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'DE.CM-03', title: 'Personnel activity and technology usage are monitored', description: null, parentCode: 'DE.CM', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'DE.CM-06', title: 'External service provider activities and services are monitored', description: null, parentCode: 'DE.CM', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'DE.CM-09', title: 'Computing hardware and software, runtime environments are monitored', description: null, parentCode: 'DE.CM', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'DE.AE', title: 'Adverse Event Analysis', description: 'Anomalies, indicators of compromise, and other potentially adverse events are analyzed', parentCode: 'DE', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'DE.AE-02', title: 'Potentially adverse events are analyzed to better understand associated activities', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'DE.AE-03', title: 'Information is correlated from multiple sources', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'DE.AE-04', title: 'The estimated impact and scope of adverse events are understood', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'DE.AE-06', title: 'Information on adverse events is provided to authorized staff and tools', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'DE.AE-07', title: 'Cyber threat intelligence and other contextual information are integrated', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'DE.AE-08', title: 'Incidents are declared when adverse events meet defined criteria', description: null, parentCode: 'DE.AE', hierarchyLevel: 2, sortOrder: 6, isAuditable: true },
+
+  // RESPOND Function
+  { code: 'RS', title: 'RESPOND', description: 'Take action regarding a detected cybersecurity incident', parentCode: null, hierarchyLevel: 0, sortOrder: 5 },
+  { code: 'RS.MA', title: 'Incident Management', description: 'Responses to detected cybersecurity incidents are managed', parentCode: 'RS', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'RS.MA-01', title: 'The incident response plan is executed in coordination with relevant parties', description: null, parentCode: 'RS.MA', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RS.MA-02', title: 'Incident reports are triaged and validated', description: null, parentCode: 'RS.MA', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'RS.MA-03', title: 'Incidents are categorized and prioritized', description: null, parentCode: 'RS.MA', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'RS.MA-04', title: 'Incidents are escalated or elevated as needed', description: null, parentCode: 'RS.MA', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'RS.MA-05', title: 'The criteria for initiating incident recovery are applied', description: null, parentCode: 'RS.MA', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'RS.AN', title: 'Incident Analysis', description: 'Investigations are conducted to ensure effective response and support forensics', parentCode: 'RS', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'RS.AN-03', title: 'Analysis is performed to establish what has taken place during an incident', description: null, parentCode: 'RS.AN', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RS.AN-06', title: 'Actions performed during an investigation are recorded', description: null, parentCode: 'RS.AN', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'RS.AN-07', title: 'Incident data and metadata are collected and their integrity preserved', description: null, parentCode: 'RS.AN', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'RS.AN-08', title: 'An incident\'s magnitude is estimated and validated', description: null, parentCode: 'RS.AN', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'RS.CO', title: 'Incident Response Reporting and Communication', description: 'Response activities are coordinated with internal and external stakeholders', parentCode: 'RS', hierarchyLevel: 1, sortOrder: 3 },
+  { code: 'RS.CO-02', title: 'Internal and external stakeholders are notified of incidents', description: null, parentCode: 'RS.CO', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RS.CO-03', title: 'Information is shared with designated internal and external stakeholders', description: null, parentCode: 'RS.CO', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'RS.MI', title: 'Incident Mitigation', description: 'Activities are performed to prevent expansion of an event and mitigate its effects', parentCode: 'RS', hierarchyLevel: 1, sortOrder: 4 },
+  { code: 'RS.MI-01', title: 'Incidents are contained', description: null, parentCode: 'RS.MI', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RS.MI-02', title: 'Incidents are eradicated', description: null, parentCode: 'RS.MI', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+
+  // RECOVER Function
+  { code: 'RC', title: 'RECOVER', description: 'Restore assets and operations that were impacted by a cybersecurity incident', parentCode: null, hierarchyLevel: 0, sortOrder: 6 },
+  { code: 'RC.RP', title: 'Incident Recovery Plan Execution', description: 'Restoration activities are performed to ensure operational availability', parentCode: 'RC', hierarchyLevel: 1, sortOrder: 1 },
+  { code: 'RC.RP-01', title: 'The recovery portion of the incident response plan is executed', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RC.RP-02', title: 'Recovery actions are selected, scoped, prioritized, and performed', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+  { code: 'RC.RP-03', title: 'The integrity of backups and other restoration assets is verified', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 3, isAuditable: true },
+  { code: 'RC.RP-04', title: 'Critical mission functions and cybersecurity risk management are considered', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 4, isAuditable: true },
+  { code: 'RC.RP-05', title: 'The integrity of restored assets is verified, systems and services are restored', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 5, isAuditable: true },
+  { code: 'RC.RP-06', title: 'The end of incident recovery is declared based on criteria', description: null, parentCode: 'RC.RP', hierarchyLevel: 2, sortOrder: 6, isAuditable: true },
+  { code: 'RC.CO', title: 'Incident Recovery Communication', description: 'Restoration activities are coordinated with internal and external parties', parentCode: 'RC', hierarchyLevel: 1, sortOrder: 2 },
+  { code: 'RC.CO-03', title: 'Recovery activities and progress are communicated to stakeholders', description: null, parentCode: 'RC.CO', hierarchyLevel: 2, sortOrder: 1, isAuditable: true },
+  { code: 'RC.CO-04', title: 'Public updates on incident recovery are shared using approved methods', description: null, parentCode: 'RC.CO', hierarchyLevel: 2, sortOrder: 2, isAuditable: true },
+];
+
+const STANDARDS_DATA: StandardData[] = [
+  {
+    code: 'ISO27001',
+    name: 'ISO/IEC 27001:2022',
+    version: '2022',
+    domain: 'security',
+    description: 'Information security management systems - Requirements. International standard for managing information security. Note: This seed contains structural metadata only (clause numbers and generic titles) for copyright compliance.',
+    publisher: 'ISO/IEC',
+    publishedDate: new Date('2022-10-25'),
+    metadata: {
+      framework: 'ISO27001',
+      category: 'Information Security',
+      copyrightNote: 'Structure only - full text requires licensed copy',
+    },
+    clauses: ISO27001_CLAUSES,
+  },
+  {
+    code: 'NIST-CSF',
+    name: 'NIST Cybersecurity Framework 2.0',
+    version: '2.0',
+    domain: 'security',
+    description: 'The NIST Cybersecurity Framework (CSF) 2.0 provides guidance to industry, government agencies, and other organizations to manage cybersecurity risks. This is a public domain framework.',
+    publisher: 'NIST',
+    publishedDate: new Date('2024-02-26'),
+    metadata: {
+      framework: 'NIST-CSF',
+      category: 'Cybersecurity',
+      license: 'Public Domain',
+    },
+    clauses: NIST_CSF_CLAUSES,
+  },
+];
+
+async function seedStandard(
+  dataSource: DataSource,
+  tenantId: string,
+  standardData: StandardData,
+): Promise<{ standard: Standard; clauseCount: number }> {
+  const standardRepo = dataSource.getRepository(Standard);
+  const clauseRepo = dataSource.getRepository(StandardClause);
+
+  let standard = await standardRepo.findOne({
+    where: {
+      tenantId,
+      code: standardData.code,
+      version: standardData.version,
+    },
+  });
+
+  if (!standard) {
+    standard = standardRepo.create({
+      tenantId,
+      code: standardData.code,
+      name: standardData.name,
+      version: standardData.version,
+      domain: standardData.domain,
+      description: standardData.description,
+      publisher: standardData.publisher,
+      publishedDate: standardData.publishedDate,
+      metadata: standardData.metadata,
+    });
+    await standardRepo.save(standard);
+    console.log(`   Created standard: ${standardData.name}`);
+  } else {
+    console.log(`   Standard already exists: ${standardData.name}`);
+  }
+
+  const clauseMap = new Map<string, StandardClause>();
+  let createdCount = 0;
+
+  for (const clauseData of standardData.clauses) {
+    const existing = await clauseRepo.findOne({
+      where: {
+        tenantId,
+        standardId: standard.id,
+        code: clauseData.code,
+      },
+    });
+
+    if (existing) {
+      clauseMap.set(clauseData.code, existing);
+    } else {
+      const clause = clauseRepo.create({
+        tenantId,
+        standardId: standard.id,
+        code: clauseData.code,
+        title: clauseData.title,
+        description: clauseData.description,
+        hierarchyLevel: clauseData.hierarchyLevel,
+        sortOrder: clauseData.sortOrder,
+        isAuditable: clauseData.isAuditable ?? false,
+        metadata: {
+          standard: standardData.code,
+          version: standardData.version,
+        },
+      });
+      await clauseRepo.save(clause);
+      clauseMap.set(clauseData.code, clause);
+      createdCount++;
+    }
+  }
+
+  for (const clauseData of standardData.clauses) {
+    if (clauseData.parentCode) {
+      const clause = clauseMap.get(clauseData.code);
+      const parent = clauseMap.get(clauseData.parentCode);
+
+      if (clause && parent && clause.parentId !== parent.id) {
+        clause.parentId = parent.id;
+        await clauseRepo.save(clause);
+      }
+    }
+  }
+
+  console.log(`   Clauses: ${standardData.clauses.length} total, ${createdCount} new`);
+
+  return { standard, clauseCount: standardData.clauses.length };
+}
 
 async function seedStandards() {
   console.log('Starting Standards Library seed...\n');
+  console.log('This seed is idempotent - existing records will be skipped.\n');
 
   const app = await NestFactory.createApplicationContext(AppModule);
   const dataSource = app.get(DataSource);
 
   try {
-    // 1. Ensure demo tenant exists
     console.log('1. Checking demo tenant...');
     const tenantRepo = dataSource.getRepository(Tenant);
     const tenant = await tenantRepo.findOne({ where: { id: DEMO_TENANT_ID } });
@@ -39,279 +476,32 @@ async function seedStandards() {
     }
     console.log('   Demo tenant found');
 
-    // 2. Seed ISO 27001:2022 Standard
-    console.log('2. Seeding ISO/IEC 27001:2022 standard...');
-    const standardRepo = dataSource.getRepository(Standard);
-    let standard = await standardRepo.findOne({
-      where: {
-        tenantId: DEMO_TENANT_ID,
-        code: 'ISO27001',
-        version: '2022',
-      },
-    });
+    console.log('\n2. Seeding standards...\n');
 
-    if (!standard) {
-      standard = standardRepo.create({
-        tenantId: DEMO_TENANT_ID,
-        code: 'ISO27001',
-        name: 'ISO/IEC 27001:2022',
-        version: '2022',
-        domain: 'security',
-        description:
-          'Information security management systems — Requirements. International standard for managing information security.',
-        publisher: 'ISO/IEC',
-        publishedDate: new Date('2022-10-25'),
-        metadata: {
-          framework: 'ISO27001',
-          category: 'Information Security',
-        },
-      });
-      await standardRepo.save(standard);
-      console.log('   Created standard: ISO/IEC 27001:2022');
-    } else {
-      console.log('   Standard already exists: ISO/IEC 27001:2022');
-    }
+    const results: Array<{ name: string; clauseCount: number }> = [];
 
-    // 3. Seed Clauses with hierarchy
-    console.log('3. Seeding clauses...');
-    const clauseRepo = dataSource.getRepository(StandardClause);
-
-    // Define clauses with parent-child relationships
-    // Structure: A.5 -> A.5.1 -> A.5.1.1, A.5.1.2, etc.
-    const clausesData = [
-      // Top-level: A.5 Information security policies
-      {
-        code: 'A.5',
-        title: 'Information security policies',
-        description:
-          'Policies for information security shall be defined, approved by management, published and communicated to employees and relevant external parties.',
-        parentCode: null,
-        hierarchyLevel: 0,
-        sortOrder: 1,
-      },
-      // Second-level: A.5.1
-      {
-        code: 'A.5.1',
-        title: 'Management direction for information security',
-        description:
-          'Management shall demonstrate their commitment to the establishment, implementation, operation, monitoring, review, maintenance and continual improvement of the information security management system.',
-        parentCode: 'A.5',
-        hierarchyLevel: 1,
-        sortOrder: 1,
-      },
-      // Third-level: A.5.1.1
-      {
-        code: 'A.5.1.1',
-        title: 'Policies for information security',
-        description:
-          'A set of policies for information security shall be defined, approved by management, published and communicated to employees and relevant external parties.',
-        parentCode: 'A.5.1',
-        hierarchyLevel: 2,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.5.1.2',
-        title: 'Review of policies for information security',
-        description:
-          'The policies for information security shall be reviewed at planned intervals or if significant changes occur.',
-        parentCode: 'A.5.1',
-        hierarchyLevel: 2,
-        sortOrder: 2,
-      },
-      // Top-level: A.6 Organization of information security
-      {
-        code: 'A.6',
-        title: 'Organization of information security',
-        description:
-          'A management framework shall be established to initiate and control the implementation and operation of information security within the organization.',
-        parentCode: null,
-        hierarchyLevel: 0,
-        sortOrder: 2,
-      },
-      {
-        code: 'A.6.1',
-        title: 'Internal organization',
-        description:
-          'The organization shall establish and maintain an internal structure to ensure that information security activities are performed in a coordinated manner.',
-        parentCode: 'A.6',
-        hierarchyLevel: 1,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.6.1.1',
-        title: 'Information security roles and responsibilities',
-        description:
-          'All information security roles and responsibilities shall be defined and allocated.',
-        parentCode: 'A.6.1',
-        hierarchyLevel: 2,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.6.1.2',
-        title: 'Segregation of duties',
-        description:
-          'Conflicting duties and areas of responsibility shall be segregated to reduce opportunities for unauthorized or unintentional modification or misuse of the organization assets.',
-        parentCode: 'A.6.1',
-        hierarchyLevel: 2,
-        sortOrder: 2,
-      },
-      {
-        code: 'A.6.1.3',
-        title: 'Contact with authorities',
-        description:
-          'Appropriate contacts with relevant authorities shall be maintained.',
-        parentCode: 'A.6.1',
-        hierarchyLevel: 2,
-        sortOrder: 3,
-      },
-      // Top-level: A.9 Access control
-      {
-        code: 'A.9',
-        title: 'Access control',
-        description:
-          'Access to information and other associated assets shall be restricted based on business and security requirements.',
-        parentCode: null,
-        hierarchyLevel: 0,
-        sortOrder: 3,
-      },
-      {
-        code: 'A.9.2',
-        title: 'User access management',
-        description:
-          'Formal user access management processes shall be in place to control allocation of access rights.',
-        parentCode: 'A.9',
-        hierarchyLevel: 1,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.9.2.3',
-        title: 'Management of privileged access rights',
-        description:
-          'The allocation and use of privileged access rights shall be restricted and controlled.',
-        parentCode: 'A.9.2',
-        hierarchyLevel: 2,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.9.2.4',
-        title: 'Management of secret authentication information of users',
-        description:
-          'The allocation of secret authentication information shall be controlled through a formal management process.',
-        parentCode: 'A.9.2',
-        hierarchyLevel: 2,
-        sortOrder: 2,
-      },
-      // Top-level: A.12 Operations security
-      {
-        code: 'A.12',
-        title: 'Operations security',
-        description:
-          'Operational procedures and responsibilities shall be established and maintained to ensure secure operation of information processing facilities.',
-        parentCode: null,
-        hierarchyLevel: 0,
-        sortOrder: 4,
-      },
-      {
-        code: 'A.12.3',
-        title: 'Backup',
-        description:
-          'Backup copies of information, software and system images shall be taken and tested regularly in accordance with an agreed backup policy.',
-        parentCode: 'A.12',
-        hierarchyLevel: 1,
-        sortOrder: 1,
-      },
-      {
-        code: 'A.12.3.1',
-        title: 'Information backup',
-        description:
-          'Backup copies of information, software and system images shall be taken and tested regularly in accordance with an agreed backup policy.',
-        parentCode: 'A.12.3',
-        hierarchyLevel: 2,
-        sortOrder: 1,
-      },
-    ];
-
-    const createdClauses: StandardClause[] = [];
-    const clauseMap = new Map<string, StandardClause>();
-
-    // First pass: Create all clauses without parent relationships
-    for (const clauseData of clausesData) {
-      const existing = await clauseRepo.findOne({
-        where: {
-          tenantId: DEMO_TENANT_ID,
-          standardId: standard.id,
-          code: clauseData.code,
-        },
-      });
-
-      if (existing) {
-        clauseMap.set(clauseData.code, existing);
-        createdClauses.push(existing);
-        console.log(`   Clause already exists: ${clauseData.code}`);
-      } else {
-        const clause = clauseRepo.create({
-          tenantId: DEMO_TENANT_ID,
-          standardId: standard.id,
-          code: clauseData.code,
-          title: clauseData.title,
-          description: clauseData.description,
-          hierarchyLevel: clauseData.hierarchyLevel,
-          sortOrder: clauseData.sortOrder,
-          metadata: {
-            standard: 'ISO27001',
-            version: '2022',
-          },
-        });
-        await clauseRepo.save(clause);
-        clauseMap.set(clauseData.code, clause);
-        createdClauses.push(clause);
-        console.log(
-          `   Created clause: ${clauseData.code} - ${clauseData.title}`,
-        );
-      }
-    }
-
-    // Second pass: Update parent relationships
-    console.log('4. Setting up clause hierarchy...');
-    for (const clauseData of clausesData) {
-      if (clauseData.parentCode) {
-        const clause = clauseMap.get(clauseData.code);
-        const parent = clauseMap.get(clauseData.parentCode);
-
-        if (clause && parent && clause.parentId !== parent.id) {
-          clause.parentId = parent.id;
-          await clauseRepo.save(clause);
-          console.log(
-            `   Linked: ${clauseData.code} -> ${clauseData.parentCode}`,
-          );
-        }
-      }
+    for (const standardData of STANDARDS_DATA) {
+      console.log(`   Processing: ${standardData.name}`);
+      const { standard, clauseCount } = await seedStandard(
+        dataSource,
+        DEMO_TENANT_ID,
+        standardData,
+      );
+      results.push({ name: standard.name, clauseCount });
+      console.log('');
     }
 
     console.log('\n========================================');
     console.log('Standards Library Seed Complete!');
     console.log('========================================');
     console.log(`Tenant ID: ${DEMO_TENANT_ID}`);
-    console.log(`Standard: ISO/IEC 27001:2022`);
-    console.log(`Clauses: ${createdClauses.length}`);
     console.log('');
-    console.log('Clause hierarchy:');
-    const topLevel = createdClauses.filter((c) => c.hierarchyLevel === 0);
-    for (const top of topLevel) {
-      console.log(`  - ${top.code}: ${top.title}`);
-      const children = createdClauses.filter(
-        (c) => c.parentId === top.id && c.hierarchyLevel === 1,
-      );
-      for (const child of children) {
-        console.log(`    - ${child.code}: ${child.title}`);
-        const grandchildren = createdClauses.filter(
-          (c) => c.parentId === child.id && c.hierarchyLevel === 2,
-        );
-        for (const grandchild of grandchildren) {
-          console.log(`      - ${grandchild.code}: ${grandchild.title}`);
-        }
-      }
+    console.log('Standards seeded:');
+    for (const result of results) {
+      console.log(`  - ${result.name}: ${result.clauseCount} clauses`);
     }
+    console.log('');
+    console.log('Total clauses:', results.reduce((sum, r) => sum + r.clauseCount, 0));
     console.log('========================================\n');
   } catch (error) {
     console.error('Error seeding standards:', error);
@@ -321,7 +511,6 @@ async function seedStandards() {
   }
 }
 
-// Run the seed
 seedStandards()
   .then(() => process.exit(0))
   .catch((error) => {
