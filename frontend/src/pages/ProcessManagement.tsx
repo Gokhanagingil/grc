@@ -124,7 +124,7 @@ export const ProcessManagement: React.FC = () => {
   const [openControlDialog, setOpenControlDialog] = useState(false);
   const [openResultDialog, setOpenResultDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
-  const [viewingProcess, setViewingProcess] = useState<Process | null>(null);
+  const [viewingProcess] = useState<Process | null>(null);
   const [editingControl, setEditingControl] = useState<ProcessControl | null>(null);
   const [selectedControlForResult, setSelectedControlForResult] = useState<ProcessControl | null>(null);
   const [page, setPage] = useState(Math.max(0, pageParam - 1));

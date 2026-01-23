@@ -126,7 +126,7 @@ export const ProcessViolations: React.FC = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
-  const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
+  const [viewingViolation] = useState<ProcessViolation | null>(null);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
   const [page, setPage] = useState(Math.max(0, pageParam - 1));
   const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);

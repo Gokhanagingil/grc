@@ -211,7 +211,7 @@ export const RiskManagement: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
-  const [viewingRisk, setViewingRisk] = useState<Risk | null>(null);
+  const [viewingRisk] = useState<Risk | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
