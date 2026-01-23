@@ -43,6 +43,8 @@ import { IssueList } from './pages/IssueList';
 import { IssueDetail } from './pages/IssueDetail';
 import { CapaList } from './pages/CapaList';
 import { CapaDetail } from './pages/CapaDetail';
+import { PolicyDetail } from './pages/PolicyDetail';
+import { RequirementDetail } from './pages/RequirementDetail';
 import GrcInsights from './pages/GrcInsights';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -81,9 +83,11 @@ function App() {
                       <TodoList />
                     </ErrorBoundary>
                   } />
-                  <Route path="governance" element={<Governance />} />
-                  <Route path="risk" element={<RiskManagement />} />
-                  <Route path="compliance" element={<Compliance />} />
+                                    <Route path="governance" element={<Governance />} />
+                                    <Route path="policies/:id" element={<PolicyDetail />} />
+                                    <Route path="risk" element={<RiskManagement />} />
+                                    <Route path="compliance" element={<Compliance />} />
+                                    <Route path="requirements/:id" element={<RequirementDetail />} />
                   <Route path="dotwalking" element={<DotWalkingBuilder />} />
                   <Route path="incidents" element={<IncidentManagement />} />
                   <Route path="processes" element={<ProcessManagement />} />
