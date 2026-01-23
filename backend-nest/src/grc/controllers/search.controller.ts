@@ -72,7 +72,13 @@ export class SearchController {
       throw new BadRequestException('entity is required');
     }
 
-    const validEntities: SearchableEntity[] = ['risk', 'policy', 'requirement'];
+    const validEntities: SearchableEntity[] = [
+      'risk',
+      'policy',
+      'requirement',
+      'issue',
+      'audit',
+    ];
     if (!validEntities.includes(searchRequest.entity)) {
       throw new BadRequestException(
         `Invalid entity. Must be one of: ${validEntities.join(', ')}`,
@@ -161,5 +167,41 @@ export class SearchController {
     }
 
     return this.searchService.searchRequirements(tenantId, searchQuery);
+  }
+
+  /**
+   * POST /grc/search/issues
+   * Search issues specifically
+   */
+  @Post('issues')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  @Perf()
+  async searchIssues(
+    @Headers('x-tenant-id') tenantId: string,
+    @Body() searchQuery: SearchQueryDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.searchService.searchIssues(tenantId, searchQuery);
+  }
+
+  /**
+   * POST /grc/search/audits
+   * Search audits specifically
+   */
+  @Post('audits')
+  @Permissions(Permission.GRC_AUDIT_READ)
+  @Perf()
+  async searchAudits(
+    @Headers('x-tenant-id') tenantId: string,
+    @Body() searchQuery: SearchQueryDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.searchService.searchAudits(tenantId, searchQuery);
   }
 }
