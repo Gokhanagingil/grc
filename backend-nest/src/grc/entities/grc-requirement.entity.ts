@@ -27,11 +27,15 @@ import { GrcIssueRequirement } from './grc-issue-requirement.entity';
 @Index(['tenantId', 'framework'])
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'framework', 'referenceCode'], { unique: true })
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 @Index(['tenantId', 'status', 'createdAt'])
 export class GrcRequirement extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({
     type: 'enum',

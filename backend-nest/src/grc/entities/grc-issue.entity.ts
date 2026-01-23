@@ -33,11 +33,15 @@ import { GrcTestResult } from './grc-test-result.entity';
 @Index(['tenantId', 'riskId'])
 @Index(['tenantId', 'controlId'])
 @Index(['tenantId', 'auditId'])
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 @Index(['tenantId', 'status', 'createdAt'])
 export class GrcIssue extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({ type: 'varchar', length: 255 })
   title: string;

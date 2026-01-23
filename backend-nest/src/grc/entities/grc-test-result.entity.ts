@@ -41,10 +41,14 @@ import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'method'])
 @Index(['tenantId', 'updatedAt'])
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 export class GrcTestResult extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({ name: 'control_test_id', type: 'uuid', nullable: true })
   controlTestId: string | null;

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +15,7 @@ import {
   ControlTestFilterDto,
 } from '../dto/control-test.dto';
 import { AuditService } from '../../audit/audit.service';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 @Injectable()
 export class GrcControlTestService {
@@ -53,6 +55,7 @@ export class GrcControlTestService {
     @InjectRepository(GrcStatusHistory)
     private readonly statusHistoryRepository: Repository<GrcStatusHistory>,
     private readonly auditService: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {}
 
   async create(
@@ -68,8 +71,18 @@ export class GrcControlTestService {
       throw new NotFoundException(`Control with ID ${dto.controlId} not found`);
     }
 
+    // Generate code if not provided
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.CONTROL_TEST,
+      );
+    }
+
     const controlTest = this.controlTestRepository.create({
       ...dto,
+      code,
       tenantId,
       status: ControlTestStatus.PLANNED,
       createdBy: userId,

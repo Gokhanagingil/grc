@@ -16,11 +16,15 @@ import { ControlTestType, ControlTestStatus } from '../enums';
 @Index(['tenantId', 'controlId'])
 @Index(['tenantId', 'status'])
 @Index(['tenantId', 'scheduledDate'])
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 @Index(['tenantId', 'status', 'createdAt'])
 export class GrcControlTest extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({ name: 'control_id', type: 'uuid' })
   controlId: string;

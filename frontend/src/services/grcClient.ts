@@ -90,6 +90,8 @@ export const API_PATHS = {
     RISKS: '/grc/search/risks',
     POLICIES: '/grc/search/policies',
     REQUIREMENTS: '/grc/search/requirements',
+    ISSUES: '/grc/search/issues',
+    AUDITS: '/grc/search/audits',
   },
 
   // Metadata endpoints
@@ -945,6 +947,12 @@ export const searchApi = {
   
   searchRequirements: (tenantId: string, query: Record<string, unknown>) =>
     api.post(API_PATHS.SEARCH.REQUIREMENTS, query, withTenantId(tenantId)),
+
+  searchIssues: (tenantId: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.ISSUES, query, withTenantId(tenantId)),
+
+  searchAudits: (tenantId: string, query: Record<string, unknown>) =>
+    api.post(API_PATHS.SEARCH.AUDITS, query, withTenantId(tenantId)),
 };
 
 // ============================================================================
@@ -2057,6 +2065,7 @@ export const controlTestApi = {
 export interface IssueData {
   id: string;
   tenantId: string;
+  code?: string;
   title: string;
   description?: string;
   type: string;

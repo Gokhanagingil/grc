@@ -300,6 +300,15 @@ export const IssueList: React.FC = () => {
 
   const columns: ColumnDefinition<IssueData>[] = useMemo(() => [
     {
+      key: 'code',
+      header: 'Code',
+      render: (issue) => (
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+          {issue.code || '-'}
+        </Typography>
+      ),
+    },
+    {
       key: 'title',
       header: 'Title',
       render: (issue) => (

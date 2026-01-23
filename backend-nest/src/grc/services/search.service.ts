@@ -4,6 +4,8 @@ import { Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { GrcRisk } from '../entities/grc-risk.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { GrcIssue } from '../entities/grc-issue.entity';
+import { GrcAudit } from '../entities/grc-audit.entity';
 import { QueryDSLService, QueryDSL } from './query-dsl.service';
 import { SearchEngine } from '../enums';
 
@@ -34,7 +36,12 @@ export interface SearchResultDto<T> {
 /**
  * Supported searchable entities
  */
-export type SearchableEntity = 'risk' | 'policy' | 'requirement';
+export type SearchableEntity =
+  | 'risk'
+  | 'policy'
+  | 'requirement'
+  | 'issue'
+  | 'audit';
 
 /**
  * Search Service
@@ -54,6 +61,10 @@ export class SearchService {
     private readonly policyRepository: Repository<GrcPolicy>,
     @InjectRepository(GrcRequirement)
     private readonly requirementRepository: Repository<GrcRequirement>,
+    @InjectRepository(GrcIssue)
+    private readonly issueRepository: Repository<GrcIssue>,
+    @InjectRepository(GrcAudit)
+    private readonly auditRepository: Repository<GrcAudit>,
     private readonly queryDSLService: QueryDSLService,
   ) {}
 
@@ -80,6 +91,14 @@ export class SearchService {
         >;
       case 'requirement':
         return this.searchRequirementsInternal(tenantId, query) as Promise<
+          SearchResultDto<T>
+        >;
+      case 'issue':
+        return this.searchIssuesInternal(tenantId, query) as Promise<
+          SearchResultDto<T>
+        >;
+      case 'audit':
+        return this.searchAuditsInternal(tenantId, query) as Promise<
           SearchResultDto<T>
         >;
       default: {
@@ -231,6 +250,100 @@ export class SearchService {
   }
 
   /**
+   * Internal search implementation for issues
+   */
+  private async searchIssuesInternal(
+    tenantId: string,
+    query: SearchQueryDto,
+  ): Promise<SearchResultDto<GrcIssue>> {
+    const {
+      query: searchQuery,
+      dsl,
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      searchFields = ['title', 'description', 'code'],
+    } = query;
+
+    const qb = this.issueRepository.createQueryBuilder('issue');
+
+    qb.where('issue.tenantId = :tenantId', { tenantId });
+    qb.andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (searchQuery) {
+      this.applyTextSearch(qb, 'issue', searchQuery, searchFields);
+    }
+
+    if (dsl) {
+      this.queryDSLService.applyDSL(qb, dsl, 'issue');
+    }
+
+    const total = await qb.getCount();
+
+    qb.orderBy(`issue.${sortBy}`, sortOrder);
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * Internal search implementation for audits
+   */
+  private async searchAuditsInternal(
+    tenantId: string,
+    query: SearchQueryDto,
+  ): Promise<SearchResultDto<GrcAudit>> {
+    const {
+      query: searchQuery,
+      dsl,
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      searchFields = ['name', 'description', 'code'],
+    } = query;
+
+    const qb = this.auditRepository.createQueryBuilder('audit');
+
+    qb.where('audit.tenantId = :tenantId', { tenantId });
+    qb.andWhere('audit.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (searchQuery) {
+      this.applyTextSearch(qb, 'audit', searchQuery, searchFields);
+    }
+
+    if (dsl) {
+      this.queryDSLService.applyDSL(qb, dsl, 'audit');
+    }
+
+    const total = await qb.getCount();
+
+    qb.orderBy(`audit.${sortBy}`, sortOrder);
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
    * Elasticsearch search implementation (stub for future)
    */
   private searchElasticsearch<T>(
@@ -302,6 +415,26 @@ export class SearchService {
     query: SearchQueryDto,
   ): Promise<SearchResultDto<GrcRequirement>> {
     return this.searchRequirementsInternal(tenantId, query);
+  }
+
+  /**
+   * Search issues
+   */
+  async searchIssues(
+    tenantId: string,
+    query: SearchQueryDto,
+  ): Promise<SearchResultDto<GrcIssue>> {
+    return this.searchIssuesInternal(tenantId, query);
+  }
+
+  /**
+   * Search audits
+   */
+  async searchAudits(
+    tenantId: string,
+    query: SearchQueryDto,
+  ): Promise<SearchResultDto<GrcAudit>> {
+    return this.searchAuditsInternal(tenantId, query);
   }
 
   /**

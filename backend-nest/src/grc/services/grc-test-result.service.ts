@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -21,6 +22,7 @@ import {
   TestResultFilterDto,
 } from '../dto/test-result.dto';
 import { AuditService } from '../../audit/audit.service';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 @Injectable()
 export class GrcTestResultService {
@@ -51,6 +53,7 @@ export class GrcTestResultService {
     @InjectRepository(GrcEvidence)
     private readonly evidenceRepository: Repository<GrcEvidence>,
     private readonly auditService: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {}
 
   /**
@@ -105,8 +108,18 @@ export class GrcTestResultService {
       );
     }
 
+    // Generate code if not provided
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.TEST_RESULT,
+      );
+    }
+
     const testResult = this.testResultRepository.create({
       ...dto,
+      code,
       tenantId,
       // Also set controlId from the control test's control
       controlId: controlTest.control?.id || null,
@@ -165,8 +178,18 @@ export class GrcTestResultService {
       throw new NotFoundException(`Control with ID ${dto.controlId} not found`);
     }
 
+    // Generate code if not provided
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.TEST_RESULT,
+      );
+    }
+
     const testResult = this.testResultRepository.create({
       ...dto,
+      code,
       tenantId,
       controlId: dto.controlId,
       testDate: dto.testDate ? new Date(dto.testDate) : new Date(),

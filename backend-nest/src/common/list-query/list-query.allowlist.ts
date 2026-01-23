@@ -86,6 +86,7 @@ export const CONTROL_SEARCHABLE_COLUMNS = [
  * Issue entity field definitions
  */
 const ISSUE_FIELDS: FieldDefinition[] = [
+  { name: 'code', type: 'string' },
   { name: 'title', type: 'string' },
   { name: 'description', type: 'string' },
   {
@@ -143,6 +144,7 @@ export const ISSUE_ALLOWLIST: EntityAllowlist = {
  * Issue searchable columns for quick search
  */
 export const ISSUE_SEARCHABLE_COLUMNS = [
+  { column: 'code' },
   { column: 'title' },
   { column: 'description' },
 ];
@@ -211,6 +213,7 @@ export const CAPA_SEARCHABLE_COLUMNS = [
  * Evidence entity field definitions
  */
 const EVIDENCE_FIELDS: FieldDefinition[] = [
+  { name: 'code', type: 'string' },
   { name: 'name', type: 'string' },
   { name: 'description', type: 'string' },
   { name: 'location', type: 'string' },
@@ -246,6 +249,7 @@ export const EVIDENCE_ALLOWLIST: EntityAllowlist = {
  * Evidence searchable columns for quick search
  */
 export const EVIDENCE_SEARCHABLE_COLUMNS = [
+  { column: 'code' },
   { column: 'name' },
   { column: 'description' },
 ];

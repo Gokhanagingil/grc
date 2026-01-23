@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
@@ -36,6 +37,7 @@ import {
   ISSUE_ALLOWLIST,
   ISSUE_SEARCHABLE_COLUMNS,
 } from '../../common/list-query/list-query.allowlist';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 @Injectable()
 export class GrcIssueService {
@@ -63,6 +65,7 @@ export class GrcIssueService {
     @InjectRepository(GrcEvidence)
     private readonly evidenceRepository: Repository<GrcEvidence>,
     private readonly auditService: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {}
 
   async create(
@@ -92,8 +95,18 @@ export class GrcIssueService {
       }
     }
 
+    // Generate code if not provided
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.ISSUE,
+      );
+    }
+
     const issue = this.issueRepository.create({
       ...dto,
+      code,
       tenantId,
       raisedByUserId: userId,
       createdBy: userId,

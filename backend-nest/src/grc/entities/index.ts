@@ -88,3 +88,6 @@ export { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 export { SysDbObject } from './sys-db-object.entity';
 export { SysDictionary } from './sys-dictionary.entity';
 export { DynamicRecord } from './dynamic-record.entity';
+
+// Code Generation Entities
+export { TenantSequence } from './tenant-sequence.entity';

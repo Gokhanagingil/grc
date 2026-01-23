@@ -63,6 +63,8 @@ import {
   SysDbObject,
   SysDictionary,
   DynamicRecord,
+  // Code Generation entities
+  TenantSequence,
 } from './entities';
 
 // Services
@@ -112,6 +114,9 @@ import { GrcInsightsService } from './services/grc-insights.service';
 // Platform Builder services
 import { PlatformBuilderService } from './services/platform-builder.service';
 import { DynamicDataService } from './services/dynamic-data.service';
+
+// Code Generation services
+import { CodeGeneratorService } from './services/code-generator.service';
 
 // Controllers
 import {
@@ -246,6 +251,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
       SysDbObject,
       SysDictionary,
       DynamicRecord,
+      // Code Generation entities
+      TenantSequence,
     ]),
     AuditModule,
     AuthModule,
@@ -297,6 +304,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
     // Platform Builder services
     PlatformBuilderService,
     DynamicDataService,
+    // Code Generation services
+    CodeGeneratorService,
   ],
   controllers: [
     // Core controllers
@@ -393,6 +402,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
     // Platform Builder services
     PlatformBuilderService,
     DynamicDataService,
+    // Code Generation services
+    CodeGeneratorService,
   ],
 })
 export class GrcModule {}
