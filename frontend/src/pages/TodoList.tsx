@@ -33,7 +33,9 @@ import {
   Schedule as ScheduleIcon,
   Flag as FlagIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Todo {
   id: number;
@@ -95,10 +97,13 @@ const initialFormData: TodoFormData = {
 };
 
 export const TodoList: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [formData, setFormData] = useState<TodoFormData>(initialFormData);
@@ -107,8 +112,14 @@ export const TodoList: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
 
   const fetchTodos = useCallback(async () => {
+    // Don't fetch if auth is still loading or user is not authenticated
+    if (authLoading || !user) {
+      return;
+    }
+
     try {
       setLoading(true);
+      setAuthError(false);
       const response = await api.get('/todos');
       const todoList = response.data.todos || [];
       // Sort by created_at desc (newest first) to ensure newly created todos appear at top
@@ -121,8 +132,13 @@ export const TodoList: React.FC = () => {
       setError(null);
     } catch (err: unknown) {
       const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      // Handle 401/403 - authentication/authorization error
+      if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+        setAuthError(true);
+        setTodos([]);
+        setError('Session expired or unauthorized. Please log in again.');
       // Handle 404 gracefully - endpoint may not be implemented yet
-      if (axiosError.response?.status === 404 || axiosError.response?.status === 502) {
+      } else if (axiosError.response?.status === 404 || axiosError.response?.status === 502) {
         setTodos([]);
         setError(null);
         console.warn('Todo API not available yet');
@@ -132,7 +148,7 @@ export const TodoList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authLoading, user]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -150,9 +166,12 @@ export const TodoList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchTodos();
-    fetchStats();
-  }, [fetchTodos, fetchStats]);
+    // Only fetch when auth is ready and user is authenticated
+    if (!authLoading && user) {
+      fetchTodos();
+      fetchStats();
+    }
+  }, [fetchTodos, fetchStats, authLoading, user]);
 
   const handleOpenDialog = (todo?: Todo) => {
     if (todo) {
@@ -233,6 +252,29 @@ export const TodoList: React.FC = () => {
   };
 
   const completionPercentage = stats ? Math.round((stats.completed / stats.total) * 100) || 0 : 0;
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show auth error with login button
+  if (authError) {
+    return (
+      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="400px" gap={2}>
+        <Alert severity="error">
+          Session expired or unauthorized. Please log in again.
+        </Alert>
+        <Button variant="contained" onClick={() => navigate('/login')}>
+          Go to Login
+        </Button>
+      </Box>
+    );
+  }
 
   if (loading && todos.length === 0) {
     return (

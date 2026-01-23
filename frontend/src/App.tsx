@@ -26,6 +26,7 @@ import { FindingDetail } from './pages/FindingDetail';
 import { ReportViewer } from './pages/ReportViewer';
 import { StandardsLibrary } from './pages/StandardsLibrary';
 import { StandardDetail } from './pages/StandardDetail';
+import { ClauseDetail } from './pages/ClauseDetail';
 import { AuditDashboard, ComplianceDashboard, GrcHealthDashboard } from './pages/dashboards';
 import { ProcessManagement } from './pages/ProcessManagement';
 import { ProcessDetail } from './pages/ProcessDetail';
@@ -209,9 +210,10 @@ function App() {
                       <StandardsLibrary />
                     </ErrorBoundary>
                   } />
-                  <Route path="standards/:id" element={<StandardDetail />} />
+                                    <Route path="standards/:id" element={<StandardDetail />} />
+                                    <Route path="standards/clauses/:id" element={<ClauseDetail />} />
                   
-                  {/* Legacy /library/* route redirects */}
+                                    {/* Legacy /library/* route redirects */}
                   <Route path="library/standards" element={<Navigate to="/standards" replace />} />
                   <Route path="library/standards/:id" element={<LegacyStandardRedirect />} />
                   <Route path="library/requirements" element={<Navigate to="/compliance" replace />} />
