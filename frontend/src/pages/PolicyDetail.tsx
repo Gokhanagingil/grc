@@ -341,9 +341,9 @@ export const PolicyDetail: React.FC = () => {
                   </Box>
                 </TabPanel>
 
-                <TabPanel value={tabValue} index={2}>
-                  <PolicyVersionsTab policyId={id || ''} />
-                </TabPanel>
+                                <TabPanel value={tabValue} index={2}>
+                                  <PolicyVersionsTab policyId={id || ''} policyTitle={policyTitle} />
+                                </TabPanel>
               </Paper>
             </CardContent>
           </Card>
