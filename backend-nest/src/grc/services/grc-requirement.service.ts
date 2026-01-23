@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -20,6 +20,7 @@ import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../dto';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 /**
  * GRC Requirement Service
@@ -38,6 +39,7 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
     @InjectRepository(GrcIssueRequirement)
     private readonly issueRequirementRepository: Repository<GrcIssueRequirement>,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {
     super(repository);
   }
@@ -53,8 +55,18 @@ export class GrcRequirementService extends MultiTenantServiceBase<GrcRequirement
       'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'isDeleted'
     >,
   ): Promise<GrcRequirement> {
+    // Generate code if not provided
+    let code = data.code;
+    if (!code && this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.REQUIREMENT,
+      );
+    }
+
     const requirement = await this.createForTenant(tenantId, {
       ...data,
+      code,
       isDeleted: false,
     });
 

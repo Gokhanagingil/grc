@@ -23,6 +23,7 @@ import {
 } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { UniversalListService } from '../../common';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 /**
  * GRC Risk Service
@@ -51,6 +52,7 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly universalListService?: UniversalListService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {
     super(repository);
   }
@@ -67,8 +69,18 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'isDeleted'
     >,
   ): Promise<GrcRisk> {
+    // Generate code if not provided
+    let code = data.code;
+    if (!code && this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.RISK,
+      );
+    }
+
     const risk = await this.createForTenant(tenantId, {
       ...data,
+      code,
       createdBy: userId,
       isDeleted: false,
     });

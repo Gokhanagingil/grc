@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -32,6 +33,7 @@ import {
   EVIDENCE_ALLOWLIST,
   EVIDENCE_SEARCHABLE_COLUMNS,
 } from '../../common/list-query/list-query.allowlist';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 @Injectable()
 export class GrcEvidenceService {
@@ -62,6 +64,7 @@ export class GrcEvidenceService {
     @InjectRepository(GrcIssueEvidence)
     private readonly issueEvidenceRepository: Repository<GrcIssueEvidence>,
     private readonly auditService: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {}
 
   async create(
@@ -69,8 +72,18 @@ export class GrcEvidenceService {
     dto: CreateEvidenceDto,
     userId: string,
   ): Promise<GrcEvidence> {
+    // Generate code if not provided
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.EVIDENCE,
+      );
+    }
+
     const evidence = this.evidenceRepository.create({
       ...dto,
+      code,
       tenantId,
       createdBy: userId,
     });

@@ -22,6 +22,7 @@ import { PaginatedResponse, createPaginatedResponse } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { IssueType, IssueStatus, IssueSeverity } from '../enums';
 import { AuditType } from '../entities/grc-audit.entity';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 /**
  * GRC Audit Service
@@ -54,6 +55,7 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     private readonly standardClauseRepository: Repository<StandardClause>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {
     super(repository);
   }
@@ -67,8 +69,18 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
     userId: string,
     data: CreateAuditDto,
   ): Promise<GrcAudit> {
+    // Generate code if not provided
+    let code: string | null = null;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.AUDIT,
+      );
+    }
+
     const auditData: Partial<GrcAudit> = {
       ...data,
+      code,
       plannedStartDate: data.plannedStartDate
         ? new Date(data.plannedStartDate)
         : null,

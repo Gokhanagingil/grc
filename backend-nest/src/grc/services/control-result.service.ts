@@ -24,6 +24,7 @@ import {
   createPaginatedResponse,
 } from '../dto';
 import { AuditService } from '../../audit/audit.service';
+import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
 /**
  * ControlResult Service
@@ -43,6 +44,7 @@ export class ControlResultService extends MultiTenantServiceBase<ControlResult> 
     private readonly violationRepository: Repository<ProcessViolation>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly codeGeneratorService?: CodeGeneratorService,
   ) {
     super(repository);
   }
@@ -174,6 +176,15 @@ export class ControlResultService extends MultiTenantServiceBase<ControlResult> 
       return existingViolation;
     }
 
+    // Generate code for the violation
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.VIOLATION,
+      );
+    }
+
     // Generate violation title
     const executionDateStr = result.executionDate.toISOString().split('T')[0];
     const title = `Violation: ${control.name} - ${executionDateStr}`;
@@ -181,6 +192,7 @@ export class ControlResultService extends MultiTenantServiceBase<ControlResult> 
     // Create the violation
     const violation = this.violationRepository.create({
       tenantId,
+      code,
       controlId: control.id,
       controlResultId: result.id,
       severity: ViolationSeverity.MEDIUM, // Default severity

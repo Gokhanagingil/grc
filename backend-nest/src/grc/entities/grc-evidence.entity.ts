@@ -31,10 +31,14 @@ import { GrcEvidenceTestResult } from './grc-evidence-test-result.entity';
 @Index(['tenantId', 'updatedAt'])
 @Index(['tenantId', 'name'])
 @Index(['tenantId', 'dueDate'])
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 export class GrcEvidence extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

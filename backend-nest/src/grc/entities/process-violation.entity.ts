@@ -27,10 +27,14 @@ import { GrcRisk } from './grc-risk.entity';
 @Index(['tenantId', 'severity'])
 @Index(['tenantId', 'linkedRiskId'])
 @Index(['tenantId', 'controlResultId'], { unique: true })
+@Index(['tenantId', 'code'], { unique: true, where: 'code IS NOT NULL' })
 export class ProcessViolation extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
 
   @Column({ name: 'control_id', type: 'uuid' })
   controlId: string;
