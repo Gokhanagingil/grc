@@ -44,7 +44,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 
 interface ProcessViolation {
@@ -101,6 +101,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Default values - ProcessViolations için özel
@@ -125,7 +126,7 @@ export const ProcessViolations: React.FC = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
-  const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
+  const [viewingViolation] = useState<ProcessViolation | null>(null);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
   const [page, setPage] = useState(Math.max(0, pageParam - 1));
   const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
@@ -368,8 +369,7 @@ export const ProcessViolations: React.FC = () => {
   }, [fetchAllRisks]);
 
   const handleViewViolation = (violation: ProcessViolation) => {
-    setViewingViolation(violation);
-    setOpenViewDialog(true);
+    navigate(`/violations/${violation.id}`);
   };
 
   const handleEditViolation = (violation: ProcessViolation) => {
@@ -592,7 +592,12 @@ export const ProcessViolations: React.FC = () => {
                       );
                     })
                     .map((violation) => (
-                    <TableRow key={violation.id} hover>
+                    <TableRow 
+                      key={violation.id} 
+                      hover
+                      onClick={() => handleViewViolation(violation)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2">{violation.title}</Typography>
                         {violation.description && (

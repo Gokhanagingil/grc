@@ -308,6 +308,7 @@ export const ControlTestList: React.FC = () => {
       banner={<GrcFrameworkWarningBanner />}
       minTableWidth={900}
       testId="control-test-list-page"
+      onRowClick={handleViewControlTest}
     />
   );
 };
