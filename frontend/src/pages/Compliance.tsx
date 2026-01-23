@@ -114,18 +114,7 @@ export const Compliance: React.FC = () => {
   }, [fetchRequirements]);
 
     const handleCreateRequirement = () => {
-      setEditingRequirement(null);
-      setFormData({
-        title: '',
-        description: '',
-        regulation: 'iso27001',
-        category: '',
-        status: 'not_started',
-        dueDate: null,
-        evidence: '',
-        assignedTo: '',
-      });
-      setOpenDialog(true);
+      navigate('/requirements/new');
     };
 
   const handleEditRequirement = (requirement: ComplianceRequirement) => {
@@ -305,7 +294,12 @@ export const Compliance: React.FC = () => {
                   </TableRow>
                 ) : (
                   requirements.map((requirement) => (
-                    <TableRow key={requirement.id}>
+                    <TableRow 
+                      key={requirement.id}
+                      hover
+                      onClick={() => handleViewRequirement(requirement)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2">{requirement.title}</Typography>
                         <Typography variant="body2" color="textSecondary">
