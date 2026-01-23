@@ -103,7 +103,7 @@ export const StandardsLibrary: React.FC = () => {
   }, [fetchStandards]);
 
   const handleViewStandard = (id: string) => {
-    navigate(`/library/standards/${id}`);
+    navigate(`/standards/${id}`);
   };
 
   if (loading && standards.length === 0) {
