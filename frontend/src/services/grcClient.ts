@@ -2057,6 +2057,7 @@ export const controlTestApi = {
 export interface IssueData {
   id: string;
   tenantId: string;
+  code?: string;
   title: string;
   description?: string;
   type: string;

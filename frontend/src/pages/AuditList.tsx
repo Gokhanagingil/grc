@@ -51,6 +51,7 @@ const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | 
 
 interface Audit {
   id: string;
+  code: string | null;
   name: string;
   description: string | null;
   auditType: 'internal' | 'external' | 'regulatory' | 'compliance';
@@ -391,6 +392,7 @@ export const AuditList: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell>Code</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Status</TableCell>
@@ -404,7 +406,7 @@ export const AuditList: React.FC = () => {
                 <TableBody>
                   {audits.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 0, border: 'none' }}>
                         <EmptyState
                           icon={<AuditIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
                           title="No audits found"
@@ -425,6 +427,11 @@ export const AuditList: React.FC = () => {
                           '&:hover': { backgroundColor: 'action.hover' },
                         }}
                       >
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                            {audit.code || '-'}
+                          </Typography>
+                        </TableCell>
                         <TableCell>
                           <Typography 
                             variant="subtitle2" 

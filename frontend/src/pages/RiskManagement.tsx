@@ -107,6 +107,7 @@ export enum RiskStatus {
 interface Risk {
   id: string;
   tenantId: string;
+  code: string | null;
   title: string;
   description: string | null;
   category: string | null;
@@ -676,6 +677,7 @@ export const RiskManagement: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell>Code</TableCell>
                   <TableCell>Title</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell>Severity</TableCell>
@@ -689,7 +691,7 @@ export const RiskManagement: React.FC = () => {
               <TableBody>
                 {risks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 0, border: 'none' }}>
                       <EmptyState
                         icon={<RiskIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
                         title="No risks found"
@@ -711,6 +713,11 @@ export const RiskManagement: React.FC = () => {
                         '&:hover': { backgroundColor: 'action.hover' },
                       }}
                     >
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                          {risk.code || '-'}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Typography 
                           variant="subtitle2" 
