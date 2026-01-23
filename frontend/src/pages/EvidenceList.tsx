@@ -386,6 +386,7 @@ export const EvidenceList: React.FC = () => {
               }
               minTableWidth={900}
               testId="evidence-list-page"
+              onRowClick={handleViewEvidence}
             />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>

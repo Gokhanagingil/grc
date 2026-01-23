@@ -38,7 +38,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { riskApi, policyApi, requirementApi, unwrapPaginatedResponse, unwrapResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -204,6 +204,7 @@ const RISK_FILTER_CONFIG: FilterConfig = {
 
 export const RiskManagement: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -395,10 +396,7 @@ export const RiskManagement: React.FC = () => {
   };
 
   const handleViewRisk = (risk: Risk) => {
-    setViewingRisk(risk);
-    setOpenViewDialog(true);
-    // Fetch relationships when viewing a risk
-    fetchRiskRelationships(risk.id);
+    navigate(`/risks/${risk.id}`);
   };
 
   const handleSaveRisk = async () => {
@@ -707,6 +705,7 @@ export const RiskManagement: React.FC = () => {
                     <TableRow 
                       key={risk.id} 
                       hover
+                      onClick={() => handleViewRisk(risk)}
                       sx={{ 
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: 'action.hover' },

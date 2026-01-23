@@ -28,7 +28,10 @@ import { StandardsLibrary } from './pages/StandardsLibrary';
 import { StandardDetail } from './pages/StandardDetail';
 import { AuditDashboard, ComplianceDashboard, GrcHealthDashboard } from './pages/dashboards';
 import { ProcessManagement } from './pages/ProcessManagement';
+import { ProcessDetail } from './pages/ProcessDetail';
 import { ProcessViolations } from './pages/ProcessViolations';
+import { ViolationDetail } from './pages/ViolationDetail';
+import { RiskDetail } from './pages/RiskDetail';
 import { Profile } from './pages/Profile';
 import { Coverage } from './pages/Coverage';
 import { ControlList } from './pages/ControlList';
@@ -98,13 +101,18 @@ function App() {
                                     <Route path="policies/new" element={<PolicyDetail />} />
                                     <Route path="policies/:id" element={<PolicyDetail />} />
                                     <Route path="risk" element={<RiskManagement />} />
+                  <Route path="risks/new" element={<RiskDetail />} />
+                  <Route path="risks/:id" element={<RiskDetail />} />
                                     <Route path="compliance" element={<Compliance />} />
                                     <Route path="requirements/new" element={<RequirementDetail />} />
                                     <Route path="requirements/:id" element={<RequirementDetail />} />
                   <Route path="dotwalking" element={<DotWalkingBuilder />} />
                   <Route path="incidents" element={<IncidentManagement />} />
                   <Route path="processes" element={<ProcessManagement />} />
-                                    <Route path="violations" element={<ProcessViolations />} />
+                  <Route path="processes/new" element={<ProcessDetail />} />
+                  <Route path="processes/:id" element={<ProcessDetail />} />
+                  <Route path="violations" element={<ProcessViolations />} />
+                  <Route path="violations/:id" element={<ViolationDetail />} />
                                     <Route path="profile" element={<Profile />} />
                                     <Route path="coverage" element={<Coverage />} />
                   

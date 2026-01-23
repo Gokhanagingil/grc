@@ -52,6 +52,8 @@ export interface GenericListPageProps<T> {
   rowsPerPageOptions?: number[];
   /** data-testid for e2e testing */
   testId?: string;
+  /** Callback when a row is clicked (for navigation to detail page) */
+  onRowClick?: (item: T) => void;
 }
 
 export function GenericListPage<T>({
@@ -83,6 +85,7 @@ export function GenericListPage<T>({
   minTableWidth = 800,
   rowsPerPageOptions = [5, 10, 25, 50],
   testId,
+  onRowClick,
 }: GenericListPageProps<T>) {
   const hasFiltersOrSearch = filters.length > 0 || search.length > 0;
 
@@ -163,7 +166,12 @@ export function GenericListPage<T>({
                   </TableRow>
                 ) : (
                   items.map((item) => (
-                    <TableRow key={getRowKey(item)} hover>
+                    <TableRow 
+                      key={getRowKey(item)} 
+                      hover
+                      onClick={() => onRowClick?.(item)}
+                      sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                    >
                       {columns.map((column) => (
                         <TableCell key={column.key}>
                           {column.render(item)}

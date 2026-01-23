@@ -36,10 +36,10 @@ import {
   BugReport as FindingIcon,
   Assignment as AuditIcon,
   Label as TagIcon,
-  Create as CreateIcon,
+  ListAlt as RequirementsIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { standardsLibraryApi, standardsApi, platformMetadataApi } from '../services/grcClient';
+import { standardsLibraryApi, standardsApi, platformMetadataApi, unwrapResponse } from '../services/grcClient';
 import { LoadingState, ErrorState } from '../components/common';
 
 interface StandardRequirement {
@@ -83,6 +83,16 @@ interface MappedAudit {
   id: string;
   title: string;
   status: string;
+}
+
+interface StandardClause {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  level: number;
+  sortOrder: number;
+  isAuditable: boolean;
 }
 
 interface MetadataValue {
@@ -132,6 +142,9 @@ export const StandardDetail: React.FC = () => {
   const [findings, setFindings] = useState<MappedFinding[]>([]);
   const [audits, setAudits] = useState<MappedAudit[]>([]);
   const [metadata, setMetadata] = useState<MetadataValue[]>([]);
+  
+  const [clauses, setClauses] = useState<StandardClause[]>([]);
+  const [clausesLoading, setClausesLoading] = useState(false);
   
   const [mappingsLoading, setMappingsLoading] = useState(false);
   const [openMapDialog, setOpenMapDialog] = useState(false);
@@ -190,10 +203,28 @@ export const StandardDetail: React.FC = () => {
     }
   }, [id]);
 
+  const fetchClauses = useCallback(async () => {
+    if (!id) return;
+    
+    setClausesLoading(true);
+    
+    try {
+      const response = await standardsLibraryApi.getClauses(id);
+      const data = unwrapResponse<StandardClause[]>(response);
+      setClauses(data || []);
+    } catch (err) {
+      console.error('Failed to fetch clauses:', err);
+      setClauses([]);
+    } finally {
+      setClausesLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchStandard();
     fetchMappings();
-  }, [fetchStandard, fetchMappings]);
+    fetchClauses();
+  }, [fetchStandard, fetchMappings, fetchClauses]);
 
   const handleOpenMapDialog = (type: 'policy' | 'risk' | 'finding' | 'audit') => {
     setMapType(type);
@@ -267,27 +298,7 @@ export const StandardDetail: React.FC = () => {
           color="primary"
           sx={{ mr: 1 }}
         />
-        <Chip label={`v${standard.version}`} variant="outlined" sx={{ mr: 1 }} />
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<CreateIcon />}
-          onClick={() => {
-            // Navigate to finding create page with context
-            navigate('/findings/new', {
-              state: {
-                standardId: standard.id,
-                standardCode: standard.code,
-                standardTitle: standard.title,
-                clauseId: standard.id, // For now, using standard.id as clauseId
-                clauseCode: standard.code,
-                clauseTitle: standard.title,
-              },
-            });
-          }}
-        >
-          Create Finding
-        </Button>
+        <Chip label={`v${standard.version}`} variant="outlined" />
       </Box>
 
       <Grid container spacing={3}>
@@ -318,19 +329,57 @@ export const StandardDetail: React.FC = () => {
               
               <Paper variant="outlined">
                 <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+                  <Tab label={`Requirements (${clauses.length})`} icon={<RequirementsIcon />} iconPosition="start" />
                   <Tab label={`Policies (${policies.length})`} icon={<PolicyIcon />} iconPosition="start" />
                   <Tab label={`Risks (${risks.length})`} icon={<RiskIcon />} iconPosition="start" />
                   <Tab label={`Findings (${findings.length})`} icon={<FindingIcon />} iconPosition="start" />
                   <Tab label={`Audits (${audits.length})`} icon={<AuditIcon />} iconPosition="start" />
                 </Tabs>
 
-                {mappingsLoading ? (
+                {(mappingsLoading || clausesLoading) ? (
                   <Box display="flex" justifyContent="center" py={4}>
                     <CircularProgress />
                   </Box>
                 ) : (
                   <>
                     <TabPanel value={tabValue} index={0}>
+                      {clauses.length === 0 ? (
+                        <Typography color="textSecondary" align="center" py={2}>
+                          No requirements/clauses found for this standard
+                        </Typography>
+                      ) : (
+                        <List dense>
+                          {clauses.map((clause) => (
+                            <ListItem 
+                              key={clause.id}
+                              sx={{ 
+                                pl: clause.level * 2,
+                                cursor: 'pointer',
+                                '&:hover': { backgroundColor: 'action.hover' },
+                              }}
+                              onClick={() => navigate(`/requirements/${clause.id}`)}
+                            >
+                              <ListItemText
+                                primary={
+                                  <Box display="flex" alignItems="center" gap={1}>
+                                    <Chip label={clause.code} size="small" variant="outlined" />
+                                    <Typography variant="body2">{clause.title}</Typography>
+                                  </Box>
+                                }
+                                secondary={clause.description}
+                              />
+                              <ListItemSecondaryAction>
+                                {clause.isAuditable && (
+                                  <Chip label="Auditable" size="small" color="primary" variant="outlined" />
+                                )}
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                          ))}
+                        </List>
+                      )}
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={1}>
                       <Box display="flex" justifyContent="flex-end" mb={2}>
                         <Button
                           size="small"
@@ -361,7 +410,7 @@ export const StandardDetail: React.FC = () => {
                       )}
                     </TabPanel>
 
-                    <TabPanel value={tabValue} index={1}>
+                    <TabPanel value={tabValue} index={2}>
                       <Box display="flex" justifyContent="flex-end" mb={2}>
                         <Button
                           size="small"
@@ -396,7 +445,7 @@ export const StandardDetail: React.FC = () => {
                       )}
                     </TabPanel>
 
-                    <TabPanel value={tabValue} index={2}>
+                    <TabPanel value={tabValue} index={3}>
                       <Box display="flex" justifyContent="flex-end" mb={2}>
                         <Button
                           size="small"
@@ -431,7 +480,7 @@ export const StandardDetail: React.FC = () => {
                       )}
                     </TabPanel>
 
-                    <TabPanel value={tabValue} index={3}>
+                    <TabPanel value={tabValue} index={4}>
                       <Box display="flex" justifyContent="flex-end" mb={2}>
                         <Button
                           size="small"

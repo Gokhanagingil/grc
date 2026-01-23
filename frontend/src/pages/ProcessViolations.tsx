@@ -368,8 +368,7 @@ export const ProcessViolations: React.FC = () => {
   }, [fetchAllRisks]);
 
   const handleViewViolation = (violation: ProcessViolation) => {
-    setViewingViolation(violation);
-    setOpenViewDialog(true);
+    navigate(`/violations/${violation.id}`);
   };
 
   const handleEditViolation = (violation: ProcessViolation) => {
@@ -592,7 +591,12 @@ export const ProcessViolations: React.FC = () => {
                       );
                     })
                     .map((violation) => (
-                    <TableRow key={violation.id} hover>
+                    <TableRow 
+                      key={violation.id} 
+                      hover
+                      onClick={() => handleViewViolation(violation)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2">{violation.title}</Typography>
                         {violation.description && (

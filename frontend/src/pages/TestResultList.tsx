@@ -290,6 +290,7 @@ export const TestResultList: React.FC = () => {
           banner={<GrcFrameworkWarningBanner />}
           minTableWidth={900}
           testId="test-result-list-page"
+          onRowClick={handleViewTestResult}
         />
   );
 };

@@ -314,10 +314,7 @@ export const ProcessManagement: React.FC = () => {
   };
 
   const handleViewProcess = (process: Process) => {
-    setViewingProcess(process);
-    setOpenViewDialog(true);
-    setTabValue(0);
-    fetchProcessControls(process.id);
+    navigate(`/processes/${process.id}`);
   };
 
   const handleSaveProcess = async () => {
@@ -645,7 +642,12 @@ export const ProcessManagement: React.FC = () => {
                   </TableRow>
                 ) : (
                   processes.map((process) => (
-                    <TableRow key={process.id} hover>
+                    <TableRow 
+                      key={process.id} 
+                      hover
+                      onClick={() => handleViewProcess(process)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2">{process.name}</Typography>
                         {process.description && (
