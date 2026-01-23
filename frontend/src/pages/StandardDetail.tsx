@@ -41,6 +41,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { standardsLibraryApi, standardsApi, platformMetadataApi, unwrapResponse } from '../services/grcClient';
 import { LoadingState, ErrorState } from '../components/common';
+import { RecordPicker, RecordPickerOption, RecordPickerEntityType } from '../components/RecordPicker';
 
 interface StandardRequirement {
   id: string;
@@ -150,6 +151,7 @@ export const StandardDetail: React.FC = () => {
   const [openMapDialog, setOpenMapDialog] = useState(false);
   const [mapType, setMapType] = useState<'policy' | 'risk' | 'finding' | 'audit'>('policy');
   const [mapTargetId, setMapTargetId] = useState('');
+  const [selectedRecord, setSelectedRecord] = useState<RecordPickerOption | null>(null);
   const [mapJustification, setMapJustification] = useState('');
   const [mapEvidenceStrength, setMapEvidenceStrength] = useState('medium');
   const [mapError, setMapError] = useState('');
@@ -229,10 +231,21 @@ export const StandardDetail: React.FC = () => {
   const handleOpenMapDialog = (type: 'policy' | 'risk' | 'finding' | 'audit') => {
     setMapType(type);
     setMapTargetId('');
+    setSelectedRecord(null);
     setMapJustification('');
     setMapEvidenceStrength('medium');
     setMapError('');
     setOpenMapDialog(true);
+  };
+
+  const handleRecordSelect = (recordId: string | null, record: RecordPickerOption | null) => {
+    setMapTargetId(recordId || '');
+    setSelectedRecord(record);
+  };
+
+  const getPickerEntityType = (): RecordPickerEntityType => {
+    if (mapType === 'finding') return 'issue';
+    return mapType;
   };
 
   const handleCreateMapping = async () => {
@@ -614,14 +627,20 @@ export const StandardDetail: React.FC = () => {
           )}
           
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              fullWidth
-              label={`${mapType.charAt(0).toUpperCase() + mapType.slice(1)} ID`}
+            <RecordPicker
+              entityType={getPickerEntityType()}
               value={mapTargetId}
-              onChange={(e) => setMapTargetId(e.target.value)}
-              placeholder={`Enter the ${mapType} ID to map`}
+              onChange={handleRecordSelect}
+              label={`Select ${mapType.charAt(0).toUpperCase() + mapType.slice(1)}`}
+              placeholder={`Search ${mapType}s by code or name...`}
               required
             />
+            
+            {selectedRecord && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Selected: <strong>{selectedRecord.code ? `${selectedRecord.code} - ` : ''}{selectedRecord.title}</strong>
+              </Alert>
+            )}
             
             {mapType === 'policy' && (
               <TextField
