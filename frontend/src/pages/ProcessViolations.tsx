@@ -44,7 +44,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
 
 interface ProcessViolation {
@@ -101,6 +101,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export const ProcessViolations: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Default values - ProcessViolations için özel

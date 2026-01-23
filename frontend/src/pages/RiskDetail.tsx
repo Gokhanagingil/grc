@@ -204,12 +204,10 @@ export const RiskDetail: React.FC = () => {
 
     setRelationsLoading(true);
     try {
-      const [policiesRes, controlsRes] = await Promise.all([
-        riskApi.getPolicies(tenantId, id).catch(() => ({ data: { data: [] } })),
-        riskApi.getControls(tenantId, id).catch(() => ({ data: { data: [] } })),
-      ]);
+      const policiesRes = await riskApi.getLinkedPolicies(tenantId, id).catch(() => ({ data: { data: [] } }));
       setLinkedPolicies(policiesRes.data?.data || policiesRes.data || []);
-      setLinkedControls(controlsRes.data?.data || controlsRes.data || []);
+      // Controls API not yet implemented for risks
+      setLinkedControls([]);
     } catch (err) {
       console.error('Failed to fetch relations:', err);
     } finally {
