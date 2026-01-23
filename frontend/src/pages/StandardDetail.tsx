@@ -357,7 +357,7 @@ export const StandardDetail: React.FC = () => {
                                 cursor: 'pointer',
                                 '&:hover': { backgroundColor: 'action.hover' },
                               }}
-                              onClick={() => navigate(`/requirements/${clause.id}`)}
+                              onClick={() => navigate(`/standards/clauses/${clause.id}`)}
                             >
                               <ListItemText
                                 primary={
