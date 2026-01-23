@@ -157,7 +157,12 @@ export const StandardsLibrary: React.FC = () => {
                   </TableRow>
                 ) : (
                   standards.map((standard) => (
-                    <TableRow key={standard.id} hover>
+                    <TableRow 
+                      key={standard.id} 
+                      hover 
+                      onClick={() => handleViewStandard(standard.id)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight="medium">
                           {standard.code}

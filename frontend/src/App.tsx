@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
@@ -52,6 +52,17 @@ import { InitializationErrorBoundary } from './components/common/InitializationE
 import { ComingSoonPage } from './components/common/ComingSoonPage';
 import { enterpriseTheme } from './theme';
 
+// Legacy route redirect components
+const LegacyStandardRedirect: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/standards/${id}`} replace />;
+};
+
+const LegacyRequirementRedirect: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/requirements/${id}`} replace />;
+};
+
 function App() {
   return (
     <ThemeProvider theme={enterpriseTheme}>
@@ -84,9 +95,11 @@ function App() {
                     </ErrorBoundary>
                   } />
                                     <Route path="governance" element={<Governance />} />
+                                    <Route path="policies/new" element={<PolicyDetail />} />
                                     <Route path="policies/:id" element={<PolicyDetail />} />
                                     <Route path="risk" element={<RiskManagement />} />
                                     <Route path="compliance" element={<Compliance />} />
+                                    <Route path="requirements/new" element={<RequirementDetail />} />
                                     <Route path="requirements/:id" element={<RequirementDetail />} />
                   <Route path="dotwalking" element={<DotWalkingBuilder />} />
                   <Route path="incidents" element={<IncidentManagement />} />
@@ -189,6 +202,12 @@ function App() {
                     </ErrorBoundary>
                   } />
                   <Route path="standards/:id" element={<StandardDetail />} />
+                  
+                  {/* Legacy /library/* route redirects */}
+                  <Route path="library/standards" element={<Navigate to="/standards" replace />} />
+                  <Route path="library/standards/:id" element={<LegacyStandardRedirect />} />
+                  <Route path="library/requirements" element={<Navigate to="/compliance" replace />} />
+                  <Route path="library/requirements/:id" element={<LegacyRequirementRedirect />} />
                   <Route path="dashboards/audit" element={
                     <ProtectedRoute allowedRoles={['admin', 'auditor', 'audit_manager', 'governance']}>
                       <AuditDashboard />

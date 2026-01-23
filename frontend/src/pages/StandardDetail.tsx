@@ -39,7 +39,7 @@ import {
   Create as CreateIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { standardsApi, platformMetadataApi } from '../services/grcClient';
+import { standardsLibraryApi, standardsApi, platformMetadataApi } from '../services/grcClient';
 import { LoadingState, ErrorState } from '../components/common';
 
 interface StandardRequirement {
@@ -122,7 +122,7 @@ export const StandardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const [requirement, setRequirement] = useState<StandardRequirement | null>(null);
+  const [standard, setStandard] = useState<StandardRequirement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
@@ -141,24 +141,24 @@ export const StandardDetail: React.FC = () => {
   const [mapEvidenceStrength, setMapEvidenceStrength] = useState('medium');
   const [mapError, setMapError] = useState('');
 
-  const fetchRequirement = useCallback(async () => {
+  const fetchStandard = useCallback(async () => {
     if (!id) return;
     
     try {
       setLoading(true);
       setError('');
       
-      const response = await standardsApi.get(id);
+      const response = await standardsLibraryApi.get(id);
       const data = response.data;
       
       if (data && data.success) {
-        setRequirement(data.data);
+        setStandard(data.data);
       } else {
-        setRequirement(data);
+        setStandard(data);
       }
     } catch (err: unknown) {
       const error = err as { response?: { status?: number; data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch requirement details');
+      setError(error.response?.data?.message || 'Failed to fetch standard details');
     } finally {
       setLoading(false);
     }
@@ -191,9 +191,9 @@ export const StandardDetail: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    fetchRequirement();
+    fetchStandard();
     fetchMappings();
-  }, [fetchRequirement, fetchMappings]);
+  }, [fetchStandard, fetchMappings]);
 
   const handleOpenMapDialog = (type: 'policy' | 'risk' | 'finding' | 'audit') => {
     setMapType(type);
@@ -237,15 +237,15 @@ export const StandardDetail: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingState message="Loading requirement details..." />;
+    return <LoadingState message="Loading standard details..." />;
   }
 
-  if (error || !requirement) {
+  if (error || !standard) {
     return (
       <ErrorState
-        title="Failed to load requirement"
-        message={error || 'Requirement not found'}
-        onRetry={fetchRequirement}
+        title="Failed to load standard"
+        message={error || 'Standard not found'}
+        onRetry={fetchStandard}
       />
     );
   }
@@ -257,17 +257,17 @@ export const StandardDetail: React.FC = () => {
           <BackIcon />
         </IconButton>
         <Box flex={1}>
-          <Typography variant="h4">{requirement.code}</Typography>
+          <Typography variant="h4">{standard.code}</Typography>
           <Typography variant="subtitle1" color="textSecondary">
-            {requirement.title}
+            {standard.title}
           </Typography>
         </Box>
         <Chip
-          label={FAMILY_LABELS[requirement.family] || requirement.family}
+          label={FAMILY_LABELS[standard.family] || standard.family}
           color="primary"
           sx={{ mr: 1 }}
         />
-        <Chip label={`v${requirement.version}`} variant="outlined" sx={{ mr: 1 }} />
+        <Chip label={`v${standard.version}`} variant="outlined" sx={{ mr: 1 }} />
         <Button
           variant="contained"
           color="primary"
@@ -276,12 +276,12 @@ export const StandardDetail: React.FC = () => {
             // Navigate to finding create page with context
             navigate('/findings/new', {
               state: {
-                standardId: requirement.id,
-                standardCode: requirement.code,
-                standardTitle: requirement.title,
-                clauseId: requirement.id, // For now, using requirement.id as clauseId
-                clauseCode: requirement.code,
-                clauseTitle: requirement.title,
+                standardId: standard.id,
+                standardCode: standard.code,
+                standardTitle: standard.title,
+                clauseId: standard.id, // For now, using standard.id as clauseId
+                clauseCode: standard.code,
+                clauseTitle: standard.title,
               },
             });
           }}
@@ -296,16 +296,16 @@ export const StandardDetail: React.FC = () => {
             <CardContent>
               <Typography variant="h6" gutterBottom>Description</Typography>
               <Typography variant="body1" paragraph>
-                {requirement.description}
+                {standard.description}
               </Typography>
               
-              {requirement.description_long && (
+              {standard.description_long && (
                 <>
                   <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                     Detailed Description
                   </Typography>
                   <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {requirement.description_long}
+                    {standard.description_long}
                   </Typography>
                 </>
               )}
@@ -342,7 +342,7 @@ export const StandardDetail: React.FC = () => {
                       </Box>
                       {policies.length === 0 ? (
                         <Typography color="textSecondary" align="center" py={2}>
-                          No policies mapped to this requirement
+                          No policies mapped to this standard
                         </Typography>
                       ) : (
                         <List dense>
@@ -373,7 +373,7 @@ export const StandardDetail: React.FC = () => {
                       </Box>
                       {risks.length === 0 ? (
                         <Typography color="textSecondary" align="center" py={2}>
-                          No risks mapped to this requirement
+                          No risks mapped to this standard
                         </Typography>
                       ) : (
                         <List dense>
@@ -408,7 +408,7 @@ export const StandardDetail: React.FC = () => {
                       </Box>
                       {findings.length === 0 ? (
                         <Typography color="textSecondary" align="center" py={2}>
-                          No findings mapped to this requirement
+                          No findings mapped to this standard
                         </Typography>
                       ) : (
                         <List dense>
@@ -443,7 +443,7 @@ export const StandardDetail: React.FC = () => {
                       </Box>
                       {audits.length === 0 ? (
                         <Typography color="textSecondary" align="center" py={2}>
-                          No audits mapped to this requirement
+                          No audits mapped to this standard
                         </Typography>
                       ) : (
                         <List dense>
@@ -476,44 +476,44 @@ export const StandardDetail: React.FC = () => {
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Family</Typography>
-                <Typography>{FAMILY_LABELS[requirement.family] || requirement.family}</Typography>
+                <Typography>{FAMILY_LABELS[standard.family] || standard.family}</Typography>
               </Box>
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Version</Typography>
-                <Typography>{requirement.version}</Typography>
+                <Typography>{standard.version}</Typography>
               </Box>
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Hierarchy Level</Typography>
                 <Typography sx={{ textTransform: 'capitalize' }}>
-                  {requirement.hierarchy_level || '-'}
+                  {standard.hierarchy_level || '-'}
                 </Typography>
               </Box>
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Domain</Typography>
                 <Typography sx={{ textTransform: 'capitalize' }}>
-                  {requirement.domain || '-'}
+                  {standard.domain || '-'}
                 </Typography>
               </Box>
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Category</Typography>
-                <Typography>{requirement.category || '-'}</Typography>
+                <Typography>{standard.category || '-'}</Typography>
               </Box>
               
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Regulation</Typography>
-                <Typography>{requirement.regulation || '-'}</Typography>
+                <Typography>{standard.regulation || '-'}</Typography>
               </Box>
               
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">Status</Typography>
                 <Chip
-                  label={requirement.status}
+                  label={standard.status}
                   size="small"
-                  color={requirement.status === 'completed' ? 'success' : requirement.status === 'in_progress' ? 'info' : 'default'}
+                  color={standard.status === 'completed' ? 'success' : standard.status === 'in_progress' ? 'info' : 'default'}
                 />
               </Box>
             </CardContent>
@@ -555,7 +555,7 @@ export const StandardDetail: React.FC = () => {
 
       <Dialog open={openMapDialog} onClose={() => setOpenMapDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
-          Map {mapType.charAt(0).toUpperCase() + mapType.slice(1)} to Requirement
+          Map {mapType.charAt(0).toUpperCase() + mapType.slice(1)} to Standard
         </DialogTitle>
         <DialogContent>
           {mapError && (
@@ -582,7 +582,7 @@ export const StandardDetail: React.FC = () => {
                 onChange={(e) => setMapJustification(e.target.value)}
                 multiline
                 rows={3}
-                placeholder="Optional: Explain why this policy is mapped to this requirement"
+                placeholder="Optional: Explain why this policy is mapped to this standard"
               />
             )}
             

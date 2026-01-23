@@ -113,18 +113,7 @@ export const Governance: React.FC = () => {
   }, [fetchPolicies]);
 
   const handleCreatePolicy = () => {
-    setEditingPolicy(null);
-    setFormData({
-      title: '',
-      description: '',
-      category: '',
-      version: '1.0',
-      status: 'draft',
-      effectiveDate: null,
-      reviewDate: null,
-      content: '',
-    });
-    setOpenDialog(true);
+    navigate('/policies/new');
   };
 
   const handleEditPolicy = (policy: Policy) => {
@@ -293,7 +282,12 @@ export const Governance: React.FC = () => {
                   </TableRow>
                 ) : (
                   policies.map((policy) => (
-                    <TableRow key={policy.id}>
+                    <TableRow 
+                      key={policy.id}
+                      hover
+                      onClick={() => handleViewPolicy(policy)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2">{policy.title}</Typography>
                         <Typography variant="body2" color="textSecondary">

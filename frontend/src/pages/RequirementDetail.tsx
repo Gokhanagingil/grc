@@ -131,9 +131,11 @@ export const RequirementDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const tenantId = user?.tenantId || '';
+  
+  const isCreateMode = id === 'new';
 
   const [requirement, setRequirement] = useState<Requirement | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isCreateMode);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -146,15 +148,15 @@ export const RequirementDetail: React.FC = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    framework: '',
+    framework: isCreateMode ? 'iso27001' : '',
     category: '',
-    status: '',
+    status: isCreateMode ? 'not_started' : '',
     dueDate: null as Date | null,
     evidence: '',
   });
 
   const fetchRequirement = useCallback(async () => {
-    if (!id || !tenantId) return;
+    if (!id || !tenantId || isCreateMode) return;
 
     setLoading(true);
     setError(null);
@@ -169,7 +171,7 @@ export const RequirementDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, tenantId]);
+  }, [id, tenantId, isCreateMode]);
 
   const fetchAssociatedRisks = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -216,7 +218,8 @@ export const RequirementDetail: React.FC = () => {
   };
 
   const handleSaveRequirement = async () => {
-    if (!id || !tenantId) return;
+    if (!tenantId) return;
+    if (!isCreateMode && !id) return;
 
     setSaving(true);
     try {
@@ -229,14 +232,21 @@ export const RequirementDetail: React.FC = () => {
         dueDate: formData.dueDate?.toISOString().split('T')[0],
       };
 
-      await requirementApi.update(tenantId, id, requirementData);
-      setSuccess('Requirement updated successfully');
-      setEditDialogOpen(false);
-      await fetchRequirement();
+      if (isCreateMode) {
+        const response = await requirementApi.create(tenantId, requirementData);
+        const created = unwrapResponse<Requirement>(response);
+        setSuccess('Requirement created successfully');
+        navigate(`/requirements/${created.id}`);
+      } else {
+        await requirementApi.update(tenantId, id!, requirementData);
+        setSuccess('Requirement updated successfully');
+        setEditDialogOpen(false);
+        await fetchRequirement();
+      }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to update requirement');
+      setError(error.response?.data?.message || (isCreateMode ? 'Failed to create requirement' : 'Failed to update requirement'));
     } finally {
       setSaving(false);
     }
@@ -251,20 +261,146 @@ export const RequirementDetail: React.FC = () => {
     return <LoadingState message="Loading requirement details..." />;
   }
 
-  if (error && !requirement) {
+  if (!isCreateMode && error && !requirement) {
     return <ErrorState message={error} onRetry={fetchRequirement} />;
   }
 
-  if (!requirement) {
+  if (!isCreateMode && !requirement) {
     return <ErrorState message="Requirement not found" />;
   }
 
-  const ownerName = requirement.owner 
-    ? `${requirement.owner.firstName || ''} ${requirement.owner.lastName || ''}`.trim() || requirement.owner.email
+  // Create mode: show create form
+  if (isCreateMode) {
+    return (
+      <Box sx={{ p: 3 }} data-testid="requirement-create-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/compliance')} data-testid="back-button">
+            <BackIcon />
+          </IconButton>
+          <Box flex={1}>
+            <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <RequirementIcon /> Create New Requirement
+            </Typography>
+          </Box>
+        </Box>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+        <Card>
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Framework</InputLabel>
+                  <Select
+                    value={formData.framework}
+                    label="Framework"
+                    onChange={(e) => setFormData({ ...formData, framework: e.target.value })}
+                  >
+                    <MenuItem value="iso27001">ISO 27001</MenuItem>
+                    <MenuItem value="soc2">SOC 2</MenuItem>
+                    <MenuItem value="gdpr">GDPR</MenuItem>
+                    <MenuItem value="hipaa">HIPAA</MenuItem>
+                    <MenuItem value="pci_dss">PCI DSS</MenuItem>
+                    <MenuItem value="nist">NIST</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={formData.status}
+                    label="Status"
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <MenuItem value="not_started">Not Started</MenuItem>
+                    <MenuItem value="in_progress">In Progress</MenuItem>
+                    <MenuItem value="implemented">Implemented</MenuItem>
+                    <MenuItem value="verified">Verified</MenuItem>
+                    <MenuItem value="non_compliant">Non-Compliant</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Due Date"
+                    value={formData.dueDate}
+                    onChange={(newValue: Date | null) =>
+                      setFormData({ ...formData, dueDate: newValue })
+                    }
+                    slotProps={{
+                      textField: { fullWidth: true },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Evidence Requirements"
+                  multiline
+                  rows={4}
+                  value={formData.evidence}
+                  onChange={(e) => setFormData({ ...formData, evidence: e.target.value })}
+                  placeholder="Describe the evidence or documentation required for compliance..."
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Box display="flex" justifyContent="flex-end" gap={2}>
+                  <Button onClick={() => navigate('/compliance')}>Cancel</Button>
+                  <Button 
+                    onClick={handleSaveRequirement} 
+                    variant="contained" 
+                    disabled={saving || !formData.title || !formData.framework}
+                  >
+                    {saving ? 'Creating...' : 'Create Requirement'}
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  }
+
+  const ownerName = requirement!.owner 
+    ? `${requirement!.owner.firstName || ''} ${requirement!.owner.lastName || ''}`.trim() || requirement!.owner.email
     : '-';
   
-  const assignedToName = requirement.assignedTo
-    ? `${requirement.assignedTo.firstName || ''} ${requirement.assignedTo.lastName || ''}`.trim() || requirement.assignedTo.email
+  const assignedToName = requirement!.assignedTo
+    ? `${requirement!.assignedTo.firstName || ''} ${requirement!.assignedTo.lastName || ''}`.trim() || requirement!.assignedTo.email
     : '-';
 
   return (
@@ -275,21 +411,21 @@ export const RequirementDetail: React.FC = () => {
         </IconButton>
         <Box flex={1}>
           <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <RequirementIcon /> {requirement.title}
+            <RequirementIcon /> {requirement!.title}
           </Typography>
-          {requirement.referenceCode && (
+          {requirement!.referenceCode && (
             <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-              Reference: {requirement.referenceCode}
+              Reference: {requirement!.referenceCode}
             </Typography>
           )}
         </Box>
         <Box display="flex" gap={1} alignItems="center">
           <Chip
-            label={formatStatus(requirement.status)}
-            color={getStatusColor(requirement.status)}
+            label={formatStatus(requirement!.status)}
+            color={getStatusColor(requirement!.status)}
             size="medium"
           />
-          {isOverdue(requirement.dueDate) && requirement.status !== 'verified' && (
+          {isOverdue(requirement!.dueDate) && requirement!.status !== 'verified' && (
             <Chip label="Overdue" color="error" size="medium" />
           )}
         </Box>
@@ -320,15 +456,15 @@ export const RequirementDetail: React.FC = () => {
                   <Box sx={{ p: 2 }}>
                     <Typography variant="h6" gutterBottom>Description</Typography>
                     <Typography variant="body1" paragraph>
-                      {requirement.description || 'No description provided.'}
+                      {requirement!.description || 'No description provided.'}
                     </Typography>
 
-                    {requirement.evidence && (
+                    {requirement!.evidence && (
                       <>
                         <Divider sx={{ my: 2 }} />
                         <Typography variant="h6" gutterBottom>Evidence Requirements</Typography>
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {requirement.evidence}
+                          {requirement!.evidence}
                         </Typography>
                       </>
                     )}
@@ -382,19 +518,19 @@ export const RequirementDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Framework</Typography>
-                <Typography>{formatFramework(requirement.framework)}</Typography>
+                <Typography>{formatFramework(requirement!.framework)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Category</Typography>
-                <Typography>{requirement.category || '-'}</Typography>
+                <Typography>{requirement!.category || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Status</Typography>
                 <Chip
-                  label={formatStatus(requirement.status)}
-                  color={getStatusColor(requirement.status)}
+                  label={formatStatus(requirement!.status)}
+                  color={getStatusColor(requirement!.status)}
                   size="small"
                 />
               </Box>
@@ -412,8 +548,8 @@ export const RequirementDetail: React.FC = () => {
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Due Date</Typography>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Typography>{formatDate(requirement.dueDate)}</Typography>
-                  {isOverdue(requirement.dueDate) && requirement.status !== 'verified' && (
+                  <Typography>{formatDate(requirement!.dueDate)}</Typography>
+                  {isOverdue(requirement!.dueDate) && requirement!.status !== 'verified' && (
                     <Chip label="Overdue" color="error" size="small" />
                   )}
                 </Box>
@@ -421,12 +557,12 @@ export const RequirementDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Created</Typography>
-                <Typography>{formatDate(requirement.createdAt)}</Typography>
+                <Typography>{formatDate(requirement!.createdAt)}</Typography>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
-                <Typography>{formatDate(requirement.updatedAt)}</Typography>
+                <Typography>{formatDate(requirement!.updatedAt)}</Typography>
               </Box>
             </CardContent>
           </Card>

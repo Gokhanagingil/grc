@@ -118,9 +118,11 @@ export const PolicyDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const tenantId = user?.tenantId || '';
+  
+  const isCreateMode = id === 'new';
 
   const [policy, setPolicy] = useState<Policy | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isCreateMode);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -134,15 +136,15 @@ export const PolicyDetail: React.FC = () => {
     title: '',
     description: '',
     category: '',
-    version: '',
-    status: '',
+    version: isCreateMode ? '1.0' : '',
+    status: isCreateMode ? 'draft' : '',
     effectiveDate: null as Date | null,
     reviewDate: null as Date | null,
     content: '',
   });
 
   const fetchPolicy = useCallback(async () => {
-    if (!id || !tenantId) return;
+    if (!id || !tenantId || isCreateMode) return;
 
     setLoading(true);
     setError(null);
@@ -157,7 +159,7 @@ export const PolicyDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, tenantId]);
+  }, [id, tenantId, isCreateMode]);
 
   const fetchAssociatedRisks = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -205,7 +207,8 @@ export const PolicyDetail: React.FC = () => {
   };
 
   const handleSavePolicy = async () => {
-    if (!id || !tenantId) return;
+    if (!tenantId) return;
+    if (!isCreateMode && !id) return;
 
     setSaving(true);
     try {
@@ -220,14 +223,21 @@ export const PolicyDetail: React.FC = () => {
         content: formData.content,
       };
 
-      await policyApi.update(tenantId, id, policyData);
-      setSuccess('Policy updated successfully');
-      setEditDialogOpen(false);
-      await fetchPolicy();
+      if (isCreateMode) {
+        const response = await policyApi.create(tenantId, policyData);
+        const created = unwrapResponse<Policy>(response);
+        setSuccess('Policy created successfully');
+        navigate(`/policies/${created.id}`);
+      } else {
+        await policyApi.update(tenantId, id!, policyData);
+        setSuccess('Policy updated successfully');
+        setEditDialogOpen(false);
+        await fetchPolicy();
+      }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to update policy');
+      setError(error.response?.data?.message || (isCreateMode ? 'Failed to create policy' : 'Failed to update policy'));
     } finally {
       setSaving(false);
     }
@@ -237,18 +247,145 @@ export const PolicyDetail: React.FC = () => {
     return <LoadingState message="Loading policy details..." />;
   }
 
-  if (error && !policy) {
+  if (!isCreateMode && error && !policy) {
     return <ErrorState message={error} onRetry={fetchPolicy} />;
   }
 
-  if (!policy) {
+  if (!isCreateMode && !policy) {
     return <ErrorState message="Policy not found" />;
   }
 
-  const policyTitle = policy.name || policy.title || 'Untitled Policy';
-  const policyDescription = policy.summary || policy.description || '';
-  const ownerName = policy.owner 
-    ? `${policy.owner.firstName || ''} ${policy.owner.lastName || ''}`.trim() || policy.owner.email
+  // Create mode: show create form
+  if (isCreateMode) {
+    return (
+      <Box sx={{ p: 3 }} data-testid="policy-create-page">
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <IconButton onClick={() => navigate('/governance')} data-testid="back-button">
+            <BackIcon />
+          </IconButton>
+          <Box flex={1}>
+            <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PolicyIcon /> Create New Policy
+            </Typography>
+          </Box>
+        </Box>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+        <Card>
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Version"
+                  value={formData.version}
+                  onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={formData.status}
+                    label="Status"
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <MenuItem value="draft">Draft</MenuItem>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="archived">Archived</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Effective Date"
+                    value={formData.effectiveDate}
+                    onChange={(newValue: Date | null) =>
+                      setFormData({ ...formData, effectiveDate: newValue })
+                    }
+                    slotProps={{
+                      textField: { fullWidth: true },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Review Date"
+                    value={formData.reviewDate}
+                    onChange={(newValue: Date | null) =>
+                      setFormData({ ...formData, reviewDate: newValue })
+                    }
+                    slotProps={{
+                      textField: { fullWidth: true },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Content"
+                  multiline
+                  rows={4}
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Box display="flex" justifyContent="flex-end" gap={2}>
+                  <Button onClick={() => navigate('/governance')}>Cancel</Button>
+                  <Button 
+                    onClick={handleSavePolicy} 
+                    variant="contained" 
+                    disabled={saving || !formData.title}
+                  >
+                    {saving ? 'Creating...' : 'Create Policy'}
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  }
+
+  const policyTitle = policy!.name || policy!.title || 'Untitled Policy';
+  const policyDescription = policy!.summary || policy!.description || '';
+  const ownerName = policy!.owner 
+    ? `${policy!.owner.firstName || ''} ${policy!.owner.lastName || ''}`.trim() || policy!.owner.email
     : '-';
 
   return (
@@ -268,8 +405,8 @@ export const PolicyDetail: React.FC = () => {
           )}
         </Box>
         <Chip
-          label={formatStatus(policy.status)}
-          color={getStatusColor(policy.status)}
+          label={formatStatus(policy!.status)}
+          color={getStatusColor(policy!.status)}
           size="medium"
         />
         <Button
@@ -302,12 +439,12 @@ export const PolicyDetail: React.FC = () => {
                       {policyDescription || 'No description provided.'}
                     </Typography>
 
-                    {policy.content && (
+                    {policy!.content && (
                       <>
                         <Divider sx={{ my: 2 }} />
                         <Typography variant="h6" gutterBottom>Content</Typography>
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {policy.content}
+                          {policy!.content}
                         </Typography>
                       </>
                     )}
@@ -357,19 +494,19 @@ export const PolicyDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Category</Typography>
-                <Typography>{policy.category || '-'}</Typography>
+                <Typography>{policy!.category || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Version</Typography>
-                <Typography>{policy.version || '-'}</Typography>
+                <Typography>{policy!.version || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Status</Typography>
                 <Chip
-                  label={formatStatus(policy.status)}
-                  color={getStatusColor(policy.status)}
+                  label={formatStatus(policy!.status)}
+                  color={getStatusColor(policy!.status)}
                   size="small"
                 />
               </Box>
@@ -381,22 +518,22 @@ export const PolicyDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Effective Date</Typography>
-                <Typography>{formatDate(policy.effectiveDate)}</Typography>
+                <Typography>{formatDate(policy!.effectiveDate)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Review Date</Typography>
-                <Typography>{formatDate(policy.reviewDate)}</Typography>
+                <Typography>{formatDate(policy!.reviewDate)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Created</Typography>
-                <Typography>{formatDate(policy.createdAt)}</Typography>
+                <Typography>{formatDate(policy!.createdAt)}</Typography>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
-                <Typography>{formatDate(policy.updatedAt)}</Typography>
+                <Typography>{formatDate(policy!.updatedAt)}</Typography>
               </Box>
             </CardContent>
           </Card>
