@@ -411,21 +411,21 @@ export const RequirementDetail: React.FC = () => {
         </IconButton>
         <Box flex={1}>
           <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <RequirementIcon /> {requirement.title}
+            <RequirementIcon /> {requirement!.title}
           </Typography>
-          {requirement.referenceCode && (
+          {requirement!.referenceCode && (
             <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-              Reference: {requirement.referenceCode}
+              Reference: {requirement!.referenceCode}
             </Typography>
           )}
         </Box>
         <Box display="flex" gap={1} alignItems="center">
           <Chip
-            label={formatStatus(requirement.status)}
-            color={getStatusColor(requirement.status)}
+            label={formatStatus(requirement!.status)}
+            color={getStatusColor(requirement!.status)}
             size="medium"
           />
-          {isOverdue(requirement.dueDate) && requirement.status !== 'verified' && (
+          {isOverdue(requirement!.dueDate) && requirement!.status !== 'verified' && (
             <Chip label="Overdue" color="error" size="medium" />
           )}
         </Box>
@@ -456,15 +456,15 @@ export const RequirementDetail: React.FC = () => {
                   <Box sx={{ p: 2 }}>
                     <Typography variant="h6" gutterBottom>Description</Typography>
                     <Typography variant="body1" paragraph>
-                      {requirement.description || 'No description provided.'}
+                      {requirement!.description || 'No description provided.'}
                     </Typography>
 
-                    {requirement.evidence && (
+                    {requirement!.evidence && (
                       <>
                         <Divider sx={{ my: 2 }} />
                         <Typography variant="h6" gutterBottom>Evidence Requirements</Typography>
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {requirement.evidence}
+                          {requirement!.evidence}
                         </Typography>
                       </>
                     )}
@@ -518,19 +518,19 @@ export const RequirementDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Framework</Typography>
-                <Typography>{formatFramework(requirement.framework)}</Typography>
+                <Typography>{formatFramework(requirement!.framework)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Category</Typography>
-                <Typography>{requirement.category || '-'}</Typography>
+                <Typography>{requirement!.category || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Status</Typography>
                 <Chip
-                  label={formatStatus(requirement.status)}
-                  color={getStatusColor(requirement.status)}
+                  label={formatStatus(requirement!.status)}
+                  color={getStatusColor(requirement!.status)}
                   size="small"
                 />
               </Box>
@@ -548,8 +548,8 @@ export const RequirementDetail: React.FC = () => {
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Due Date</Typography>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Typography>{formatDate(requirement.dueDate)}</Typography>
-                  {isOverdue(requirement.dueDate) && requirement.status !== 'verified' && (
+                  <Typography>{formatDate(requirement!.dueDate)}</Typography>
+                  {isOverdue(requirement!.dueDate) && requirement!.status !== 'verified' && (
                     <Chip label="Overdue" color="error" size="small" />
                   )}
                 </Box>
@@ -557,12 +557,12 @@ export const RequirementDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Created</Typography>
-                <Typography>{formatDate(requirement.createdAt)}</Typography>
+                <Typography>{formatDate(requirement!.createdAt)}</Typography>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
-                <Typography>{formatDate(requirement.updatedAt)}</Typography>
+                <Typography>{formatDate(requirement!.updatedAt)}</Typography>
               </Box>
             </CardContent>
           </Card>

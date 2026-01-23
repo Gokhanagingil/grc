@@ -405,8 +405,8 @@ export const PolicyDetail: React.FC = () => {
           )}
         </Box>
         <Chip
-          label={formatStatus(policy.status)}
-          color={getStatusColor(policy.status)}
+          label={formatStatus(policy!.status)}
+          color={getStatusColor(policy!.status)}
           size="medium"
         />
         <Button
@@ -439,12 +439,12 @@ export const PolicyDetail: React.FC = () => {
                       {policyDescription || 'No description provided.'}
                     </Typography>
 
-                    {policy.content && (
+                    {policy!.content && (
                       <>
                         <Divider sx={{ my: 2 }} />
                         <Typography variant="h6" gutterBottom>Content</Typography>
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {policy.content}
+                          {policy!.content}
                         </Typography>
                       </>
                     )}
@@ -494,19 +494,19 @@ export const PolicyDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Category</Typography>
-                <Typography>{policy.category || '-'}</Typography>
+                <Typography>{policy!.category || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Version</Typography>
-                <Typography>{policy.version || '-'}</Typography>
+                <Typography>{policy!.version || '-'}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Status</Typography>
                 <Chip
-                  label={formatStatus(policy.status)}
-                  color={getStatusColor(policy.status)}
+                  label={formatStatus(policy!.status)}
+                  color={getStatusColor(policy!.status)}
                   size="small"
                 />
               </Box>
@@ -518,22 +518,22 @@ export const PolicyDetail: React.FC = () => {
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Effective Date</Typography>
-                <Typography>{formatDate(policy.effectiveDate)}</Typography>
+                <Typography>{formatDate(policy!.effectiveDate)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Review Date</Typography>
-                <Typography>{formatDate(policy.reviewDate)}</Typography>
+                <Typography>{formatDate(policy!.reviewDate)}</Typography>
               </Box>
 
               <Box mb={2}>
                 <Typography variant="subtitle2" color="textSecondary">Created</Typography>
-                <Typography>{formatDate(policy.createdAt)}</Typography>
+                <Typography>{formatDate(policy!.createdAt)}</Typography>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">Last Updated</Typography>
-                <Typography>{formatDate(policy.updatedAt)}</Typography>
+                <Typography>{formatDate(policy!.updatedAt)}</Typography>
               </Box>
             </CardContent>
           </Card>
