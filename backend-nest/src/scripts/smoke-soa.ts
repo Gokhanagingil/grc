@@ -8,6 +8,11 @@
  *   npm run smoke:soa (dev - ts-node)
  *   npm run smoke:soa:prod (production - node dist)
  *
+ * Environment Variables:
+ *   API_BASE_URL or NEST_API_URL - Backend base URL (default: http://localhost:3002)
+ *   DEMO_ADMIN_EMAIL - Demo admin email (default: admin@grc-platform.local)
+ *   DEMO_ADMIN_PASSWORD - Demo admin password (default: TestPassword123!)
+ *
  * Prerequisites:
  * - NestJS backend running on port 3002
  * - Demo data seeded (npm run seed:grc, npm run seed:soa)
@@ -19,8 +24,11 @@ import { config } from 'dotenv';
 // Load environment variables
 config();
 
-// Configuration
-const BASE_URL = process.env.NEST_API_URL || 'http://localhost:3002';
+// Configuration - honor API_BASE_URL first, then NEST_API_URL, then default
+const BASE_URL =
+  process.env.API_BASE_URL ||
+  process.env.NEST_API_URL ||
+  'http://localhost:3002';
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
 const DEMO_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
@@ -29,6 +37,11 @@ interface ApiResponse {
   statusCode: number;
   data: unknown;
   error?: string;
+}
+
+interface ListResponse {
+  items?: unknown[];
+  total?: number;
 }
 
 /**
@@ -108,6 +121,22 @@ function printSection(title: string) {
 }
 
 /**
+ * Print request details for debugging
+ */
+function printRequestDetails(
+  method: string,
+  path: string,
+  response: ApiResponse,
+) {
+  const fullUrl = `${BASE_URL}${path}`;
+  console.log(`  Request: ${method} ${fullUrl}`);
+  console.log(`  Status: ${response.statusCode}`);
+  if (response.error) {
+    console.log(`  Error: ${response.error}`);
+  }
+}
+
+/**
  * Print result with status indicator
  */
 function printResult(
@@ -136,6 +165,91 @@ function printResult(
 }
 
 /**
+ * Print debug bundle when 0 profiles found
+ * Provides curl commands and SQL queries for manual verification
+ */
+function printDebugBundle() {
+  console.log('\n' + '-'.repeat(60));
+  console.log('DEBUG BUNDLE: 0 profiles found - Manual verification steps');
+  console.log('-'.repeat(60));
+
+  console.log('\n1. CURL COMMANDS (run from backend container or host):');
+  console.log('   # Direct backend call (inside container):');
+  console.log(
+    `   curl -s -H "Authorization: Bearer <TOKEN>" -H "x-tenant-id: ${DEMO_TENANT_ID}" \\`,
+  );
+  console.log(`        "${BASE_URL}/grc/soa/profiles?page=1&pageSize=10"`);
+
+  console.log(
+    '\n   # Via nginx /api prefix (from host or frontend container):',
+  );
+  console.log(
+    `   curl -s -H "Authorization: Bearer <TOKEN>" -H "x-tenant-id: ${DEMO_TENANT_ID}" \\`,
+  );
+  console.log(
+    `        "http://localhost/api/grc/soa/profiles?page=1&pageSize=10"`,
+  );
+
+  console.log('\n2. DATABASE SQL CHECKS (run inside db container):');
+  console.log('   # Check table schema:');
+  console.log(
+    "   SELECT column_name, data_type FROM information_schema.columns WHERE table_name='grc_soa_profiles';",
+  );
+
+  console.log('\n   # Check existing profiles:');
+  console.log(
+    '   SELECT id, tenant_id, status, is_deleted FROM grc_soa_profiles ORDER BY created_at DESC LIMIT 5;',
+  );
+
+  console.log('\n   # Count profiles by tenant:');
+  console.log(
+    '   SELECT tenant_id, COUNT(*) as count FROM grc_soa_profiles WHERE is_deleted = false GROUP BY tenant_id;',
+  );
+
+  console.log('\n   # Check demo tenant profiles specifically:');
+  console.log(
+    `   SELECT id, name, status, is_deleted FROM grc_soa_profiles WHERE tenant_id = '${DEMO_TENANT_ID}';`,
+  );
+
+  console.log('\n3. SEED DATA (if no profiles exist):');
+  console.log('   npm run seed:soa:prod');
+  console.log('-'.repeat(60));
+}
+
+/**
+ * Validate LIST-CONTRACT response format
+ */
+function validateListContract(
+  response: ApiResponse,
+  endpointName: string,
+): { valid: boolean; items: unknown[]; total: number } {
+  const data = response.data as ListResponse;
+
+  if (!data || typeof data !== 'object') {
+    console.log(
+      `    [CONTRACT VIOLATION] ${endpointName}: Response is not an object`,
+    );
+    return { valid: false, items: [], total: 0 };
+  }
+
+  if (!Array.isArray(data.items)) {
+    console.log(
+      `    [CONTRACT VIOLATION] ${endpointName}: 'items' is not an array (got ${typeof data.items})`,
+    );
+    return { valid: false, items: [], total: 0 };
+  }
+
+  if (typeof data.total !== 'number') {
+    console.log(
+      `    [CONTRACT VIOLATION] ${endpointName}: 'total' is not a number (got ${typeof data.total})`,
+    );
+    return { valid: false, items: [], total: 0 };
+  }
+
+  return { valid: true, items: data.items, total: data.total };
+}
+
+/**
  * Main SOA smoke test function
  */
 async function runSoaSmokeTest() {
@@ -145,6 +259,7 @@ async function runSoaSmokeTest() {
   console.log(`Base URL: ${BASE_URL}`);
   console.log(`Tenant ID: ${DEMO_TENANT_ID}`);
   console.log(`Demo User: ${DEMO_EMAIL}`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log('');
 
   let passed = 0;
@@ -153,7 +268,10 @@ async function runSoaSmokeTest() {
 
   // 1. Health Check
   printSection('1. Health Check');
-  const healthResponse = await makeRequest('GET', '/health/live');
+  const healthPath = '/health/live';
+  const healthResponse = await makeRequest('GET', healthPath);
+  printRequestDetails('GET', healthPath, healthResponse);
+
   if (printResult('GET /health/live', healthResponse)) {
     passed++;
   } else {
@@ -167,15 +285,17 @@ async function runSoaSmokeTest() {
 
   // 2. Authentication
   printSection('2. Authentication');
+  const loginPath = '/auth/login';
   const loginResponse = await makeRequest(
     'POST',
-    '/auth/login',
+    loginPath,
     {},
     {
       email: DEMO_EMAIL,
       password: DEMO_PASSWORD,
     },
   );
+  printRequestDetails('POST', loginPath, loginResponse);
 
   if (loginResponse.statusCode === 200 || loginResponse.statusCode === 201) {
     const loginData = loginResponse.data as {
@@ -207,7 +327,7 @@ async function runSoaSmokeTest() {
     console.log('\n[WARNING] Cannot continue without authentication token');
     console.log('Skipping authenticated endpoints...\n');
     printSummary(passed, failed);
-    process.exit(failed > 0 ? 1 : 0);
+    process.exit(1);
   }
 
   const authHeaders: Record<string, string> = {
@@ -215,102 +335,73 @@ async function runSoaSmokeTest() {
     'x-tenant-id': DEMO_TENANT_ID,
   };
 
-  // 3. SOA Profiles List
-  printSection('3. SOA Profiles');
-  let profilesResponse = await makeRequest(
-    'GET',
-    '/grc/soa/profiles?page=1&pageSize=10',
-    authHeaders,
-  );
-  if (printResult('GET /grc/soa/profiles', profilesResponse)) {
-    passed++;
-    let data = profilesResponse.data as {
-      items?: Array<{ id: string; name: string; status: string }>;
-      total?: number;
-    };
-    let items = data.items || [];
-    let total = data.total || 0;
-    console.log(`    Items: ${items.length}, Total: ${total}`);
+  // 3. SOA Profiles List - Single deterministic call (no retry logic)
+  printSection('3. SOA Profiles List');
+  const profilesPath = '/grc/soa/profiles?page=1&pageSize=10';
+  const profilesResponse = await makeRequest('GET', profilesPath, authHeaders);
+  printRequestDetails('GET', profilesPath, profilesResponse);
 
-    // If default query returns 0, try with explicit status filters
-    // This handles cases where profiles might exist but weren't returned
-    if (total === 0) {
-      console.log('    No profiles found with default query. Trying status filters...');
-      
-      // Try DRAFT status (most common for seeded profiles)
-      const draftResponse = await makeRequest(
-        'GET',
-        '/grc/soa/profiles?page=1&pageSize=10&status=DRAFT',
-        authHeaders,
-      );
-      const draftData = draftResponse.data as {
-        items?: Array<{ id: string; name: string; status: string }>;
-        total?: number;
-      };
-      const draftTotal = draftData.total || 0;
-      
-      if (draftTotal > 0) {
-        console.log(`    Found ${draftTotal} profiles with status=DRAFT`);
-        total = draftTotal;
-        data = draftData;
-        items = draftData.items || [];
-        // Update response for subsequent tests
-        profilesResponse = draftResponse;
-      } else {
-        // Try PUBLISHED status
-        const publishedResponse = await makeRequest(
-          'GET',
-          '/grc/soa/profiles?page=1&pageSize=10&status=PUBLISHED',
-          authHeaders,
-        );
-        const publishedData = publishedResponse.data as {
-          items?: Array<{ id: string; name: string; status: string }>;
-          total?: number;
-        };
-        const publishedTotal = publishedData.total || 0;
-        
-        if (publishedTotal > 0) {
-          console.log(`    Found ${publishedTotal} profiles with status=PUBLISHED`);
-          total = publishedTotal;
-          data = publishedData;
-          items = publishedData.items || [];
-          profilesResponse = publishedResponse;
-        }
-      }
-    }
-
-    if (items.length > 0) {
-      console.log(`    First profile: "${items[0].name}" (${items[0].status})`);
-    }
-
-    // Verify at least 1 profile exists (when seed has been run)
-    if (total >= 1) {
-      console.log(`[OK] At least 1 SOA profile exists (total: ${total}, seed verified)`);
-      passed++;
-    } else {
-      console.log(
-        '[WARN] No SOA profiles found with any status filter. Run: npm run seed:soa:prod to seed data',
-      );
-      // Don't fail - this is a warning, not a failure
-    }
-  } else {
+  if (!printResult('GET /grc/soa/profiles', profilesResponse)) {
     failed++;
+    console.log('\n[ERROR] SOA profiles endpoint failed');
+    printDebugBundle();
+    printSummary(passed, failed);
+    process.exit(1);
+  }
+
+  passed++;
+
+  // Validate LIST-CONTRACT format
+  const listValidation = validateListContract(
+    profilesResponse,
+    'GET /grc/soa/profiles',
+  );
+  if (!listValidation.valid) {
+    failed++;
+    console.log('\n[ERROR] Response does not conform to LIST-CONTRACT');
+    printSummary(passed, failed);
+    process.exit(1);
+  }
+
+  console.log(
+    `    Items: ${listValidation.items.length}, Total: ${listValidation.total}`,
+  );
+
+  // Check if profiles exist
+  if (listValidation.total === 0) {
+    console.log('\n[WARN] No SOA profiles found in database');
+    printDebugBundle();
+    // This is a warning, not a failure - the endpoint works correctly
+    // The issue is missing seed data, not a broken endpoint
+  } else {
+    const firstProfile = listValidation.items[0] as {
+      id: string;
+      name: string;
+      status: string;
+    };
+    console.log(
+      `    First profile: "${firstProfile.name}" (${firstProfile.status})`,
+    );
+    console.log(
+      `[OK] At least 1 SOA profile exists (total: ${listValidation.total}, seed verified)`,
+    );
+    passed++;
   }
 
   // 4. SOA Profile Detail (if profiles exist)
   printSection('4. SOA Profile Detail');
-  const profilesData = profilesResponse.data as {
-    items?: Array<{ id: string; name: string }>;
-  };
-  const profiles = profilesData?.items || [];
+  const profiles = listValidation.items as Array<{ id: string; name: string }>;
 
   if (profiles.length > 0) {
     const profileId = profiles[0].id;
+    const detailPath = `/grc/soa/profiles/${profileId}`;
     const profileDetailResponse = await makeRequest(
       'GET',
-      `/grc/soa/profiles/${profileId}`,
+      detailPath,
       authHeaders,
     );
+    printRequestDetails('GET', detailPath, profileDetailResponse);
+
     if (
       printResult(`GET /grc/soa/profiles/${profileId}`, profileDetailResponse)
     ) {
@@ -328,31 +419,35 @@ async function runSoaSmokeTest() {
 
     // 5. SOA Items for Profile
     printSection('5. SOA Items');
-    const itemsResponse = await makeRequest(
-      'GET',
-      `/grc/soa/profiles/${profileId}/items?page=1&pageSize=10`,
-      authHeaders,
-    );
+    const itemsPath = `/grc/soa/profiles/${profileId}/items?page=1&pageSize=10`;
+    const itemsResponse = await makeRequest('GET', itemsPath, authHeaders);
+    printRequestDetails('GET', itemsPath, itemsResponse);
+
     if (
       printResult(`GET /grc/soa/profiles/${profileId}/items`, itemsResponse)
     ) {
       passed++;
-      const itemsData = itemsResponse.data as {
-        items?: Array<{
-          id: string;
-          applicability: string;
-          implementationStatus: string;
-        }>;
-        total?: number;
-      };
-      const items = itemsData.items || [];
-      const total = itemsData.total || 0;
-      console.log(`    Items: ${items.length}, Total: ${total}`);
 
-      if (items.length > 0) {
+      const itemsValidation = validateListContract(
+        itemsResponse,
+        `GET /grc/soa/profiles/${profileId}/items`,
+      );
+      if (!itemsValidation.valid) {
+        failed++;
+      } else {
         console.log(
-          `    First item: applicability=${items[0].applicability}, status=${items[0].implementationStatus}`,
+          `    Items: ${itemsValidation.items.length}, Total: ${itemsValidation.total}`,
         );
+
+        if (itemsValidation.items.length > 0) {
+          const firstItem = itemsValidation.items[0] as {
+            applicability: string;
+            implementationStatus: string;
+          };
+          console.log(
+            `    First item: applicability=${firstItem.applicability}, status=${firstItem.implementationStatus}`,
+          );
+        }
       }
     } else {
       failed++;
@@ -360,11 +455,10 @@ async function runSoaSmokeTest() {
 
     // 6. SOA Statistics
     printSection('6. SOA Statistics');
-    const statsResponse = await makeRequest(
-      'GET',
-      `/grc/soa/profiles/${profileId}/statistics`,
-      authHeaders,
-    );
+    const statsPath = `/grc/soa/profiles/${profileId}/statistics`;
+    const statsResponse = await makeRequest('GET', statsPath, authHeaders);
+    printRequestDetails('GET', statsPath, statsResponse);
+
     if (
       printResult(
         `GET /grc/soa/profiles/${profileId}/statistics`,
@@ -400,6 +494,8 @@ async function runSoaSmokeTest() {
   printSummary(passed, failed);
 
   // Exit with appropriate code
+  // Exit 0 if all endpoint calls succeeded (even if 0 profiles found)
+  // Exit 1 if any endpoint failed or contract was violated
   process.exit(failed > 0 ? 1 : 0);
 }
 
@@ -407,15 +503,19 @@ function printSummary(passed: number, failed: number) {
   console.log('\n' + '='.repeat(60));
   console.log('SOA SMOKE TEST SUMMARY');
   console.log('='.repeat(60));
+  console.log(`Base URL: ${BASE_URL}`);
+  console.log(`Tenant ID: ${DEMO_TENANT_ID}`);
   console.log(`Passed: ${passed}`);
   console.log(`Failed: ${failed}`);
   console.log(`Total:  ${passed + failed}`);
   console.log('');
 
   if (failed === 0) {
-    console.log('[SUCCESS] All SOA endpoints are accessible.');
+    console.log(
+      '[SUCCESS] All SOA endpoints are accessible and conform to contract.',
+    );
   } else {
-    console.log('[FAILURE] Some SOA endpoints failed.');
+    console.log('[FAILURE] Some SOA endpoints failed or violated contract.');
     console.log('Please check the errors above and fix the issues.');
   }
   console.log('');
