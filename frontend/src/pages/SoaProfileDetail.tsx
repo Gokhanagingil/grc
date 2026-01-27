@@ -59,6 +59,7 @@ import {
   controlApi,
   evidenceApi,
   StandardData,
+  unwrapPaginatedResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
@@ -216,7 +217,8 @@ export const SoaProfileDetail: React.FC = () => {
   const fetchStandards = useCallback(async () => {
     try {
       const response = await standardsLibraryApi.list();
-      setStandards(response.items || []);
+      const data = response.data?.data || response.data || [];
+      setStandards(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching standards:', err);
     }
@@ -251,7 +253,8 @@ export const SoaProfileDetail: React.FC = () => {
 
     try {
       const response = await controlApi.list(tenantId, { pageSize: 100 });
-      setAvailableControls(response.items.map(c => ({ id: c.id, name: c.name, code: c.code })));
+      const { items } = unwrapPaginatedResponse<{ id: string; name: string; code: string }>(response);
+      setAvailableControls((items || []).map(c => ({ id: c.id, name: c.name, code: c.code })));
     } catch (err) {
       console.error('Error fetching controls:', err);
     }
@@ -263,7 +266,8 @@ export const SoaProfileDetail: React.FC = () => {
 
     try {
       const response = await evidenceApi.list(tenantId, { pageSize: 100 });
-      setAvailableEvidence(response.items.map(e => ({ id: e.id, title: e.title })));
+      const { items } = unwrapPaginatedResponse<{ id: string; title: string }>(response);
+      setAvailableEvidence((items || []).map(e => ({ id: e.id, title: e.title })));
     } catch (err) {
       console.error('Error fetching evidence:', err);
     }

@@ -64,8 +64,10 @@ export const SoaProfilesList: React.FC = () => {
     const fetchStandards = async () => {
       if (!tenantId) return;
       try {
-        const response = await standardsLibraryApi.list(tenantId, { pageSize: 100 });
-        setStandards(response.items.map(s => ({ id: s.id, name: s.name })));
+        const response = await standardsLibraryApi.list();
+        const data = response.data?.data || response.data || [];
+        const standardsArray = Array.isArray(data) ? data : [];
+        setStandards(standardsArray.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
       } catch (error) {
         console.error('Failed to fetch standards:', error);
       }
@@ -81,7 +83,7 @@ export const SoaProfilesList: React.FC = () => {
   }, [statusFilter, standardIdFilter]);
 
   const fetchProfiles = useCallback((params: Record<string, unknown>) => {
-    return soaApi.listProfiles(tenantId, params as Parameters<typeof soaApi.listProfiles>[1]);
+    return soaApi.listProfiles(tenantId, params);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;

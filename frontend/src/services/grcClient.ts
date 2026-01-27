@@ -3721,6 +3721,7 @@ export interface SoaProfileListParams {
   search?: string;
   standardId?: string;
   status?: SoaProfileStatus;
+  sort?: string;
   sortBy?: string;
   sortOrder?: 'ASC' | 'DESC';
 }
@@ -3761,19 +3762,19 @@ export interface SoaItemEvidenceLink {
 }
 
 export const soaApi = {
-  // Profile operations
-  listProfiles: async (tenantId: string, params?: SoaProfileListParams): Promise<PaginatedResponse<SoaProfileData>['data']> => {
+  // Profile operations - returns raw AxiosResponse for useUniversalList compatibility
+  listProfiles: (tenantId: string, params?: SoaProfileListParams | Record<string, unknown>) => {
     const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.standardId) queryParams.append('standardId', params.standardId);
-    if (params?.status) queryParams.append('status', params.status);
-    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params?.page) queryParams.append('page', String(params.page));
+    if (params?.pageSize) queryParams.append('pageSize', String(params.pageSize));
+    if (params?.search) queryParams.append('search', String(params.search));
+    if (params?.standardId) queryParams.append('standardId', String(params.standardId));
+    if (params?.status) queryParams.append('status', String(params.status));
+    if (params?.sort) queryParams.append('sort', String(params.sort));
+    if (params?.sortBy) queryParams.append('sortBy', String(params.sortBy));
+    if (params?.sortOrder) queryParams.append('sortOrder', String(params.sortOrder));
     const url = queryParams.toString() ? `${API_PATHS.GRC_SOA.PROFILES.LIST}?${queryParams}` : API_PATHS.GRC_SOA.PROFILES.LIST;
-    const response = await api.get(url, withTenantId(tenantId));
-    return unwrapPaginatedResponse<SoaProfileData>(response);
+    return api.get(url, withTenantId(tenantId));
   },
 
   getProfile: async (tenantId: string, id: string): Promise<SoaProfileData> => {
@@ -3814,7 +3815,7 @@ export const soaApi = {
   },
 
   // Item operations
-  listItems: async (tenantId: string, params: SoaItemListParams): Promise<PaginatedResponse<SoaItemData>['data']> => {
+  listItems: async (tenantId: string, params: SoaItemListParams): Promise<{ items: SoaItemData[]; total: number; page: number; pageSize: number }> => {
     const queryParams = new URLSearchParams();
     queryParams.append('profileId', params.profileId);
     if (params.page) queryParams.append('page', params.page.toString());
