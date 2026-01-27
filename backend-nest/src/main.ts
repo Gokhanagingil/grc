@@ -377,6 +377,34 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to start application:', error);
+  // Ensure error details are properly logged (not just empty {})
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+  const errorName = error instanceof Error ? error.name : 'UnknownError';
+
+  console.error('========================================');
+  console.error('FATAL: Failed to start application');
+  console.error('========================================');
+  console.error(`Error Type: ${errorName}`);
+  console.error(`Message: ${errorMessage}`);
+  if (errorStack) {
+    console.error('Stack Trace:');
+    console.error(errorStack);
+  }
+  console.error('========================================');
+
+  // Also log as JSON for structured logging systems
+  console.error(
+    JSON.stringify({
+      level: 'fatal',
+      message: 'Failed to start application',
+      error: {
+        name: errorName,
+        message: errorMessage,
+        stack: errorStack,
+      },
+    }),
+  );
+
   process.exit(1);
 });
