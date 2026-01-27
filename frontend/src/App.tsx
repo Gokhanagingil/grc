@@ -50,6 +50,8 @@ import { CapaDetail } from './pages/CapaDetail';
 import { PolicyDetail } from './pages/PolicyDetail';
 import { RequirementDetail } from './pages/RequirementDetail';
 import GrcInsights from './pages/GrcInsights';
+import { SoaProfilesList } from './pages/SoaProfilesList';
+import { SoaProfileDetail } from './pages/SoaProfileDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -212,6 +214,8 @@ function App() {
                   } />
                                     <Route path="standards/:id" element={<StandardDetail />} />
                                     <Route path="standards/clauses/:id" element={<ClauseDetail />} />
+                  <Route path="soa" element={<SoaProfilesList />} />
+                  <Route path="soa/:id" element={<SoaProfileDetail />} />
                   
                                     {/* Legacy /library/* route redirects */}
                   <Route path="library/standards" element={<Navigate to="/standards" replace />} />

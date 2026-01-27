@@ -91,3 +91,9 @@ export { DynamicRecord } from './dynamic-record.entity';
 
 // Code Generation Entities
 export { TenantSequence } from './tenant-sequence.entity';
+
+// SOA (Statement of Applicability) Entities
+export { GrcSoaProfile } from './grc-soa-profile.entity';
+export { GrcSoaItem } from './grc-soa-item.entity';
+export { GrcSoaItemControl } from './grc-soa-item-control.entity';
+export { GrcSoaItemEvidence } from './grc-soa-item-evidence.entity';
