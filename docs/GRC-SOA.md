@@ -179,3 +179,114 @@ The smoke test will:
 2. Call `GET /grc/soa/profiles?page=1&pageSize=10`
 3. Verify at least 1 profile exists
 4. Test profile detail, items, and statistics endpoints
+
+## Staging Verification Checklist
+
+This is the canonical checklist for verifying SOA functionality on staging. Follow these steps in order after any deployment or database changes.
+
+### Step 1: Run Migrations
+
+Ensure all database migrations are applied:
+
+```bash
+# Inside backend container
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npx typeorm migration:show -d dist/data-source.js'
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npx typeorm migration:run -d dist/data-source.js'
+```
+
+### Step 2: Run Platform Validation
+
+Verify the platform scripts work correctly:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run platform:validate:prod'
+```
+
+### Step 3: Seed SOA Data (Idempotent)
+
+Seed the SOA demo data:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run seed:soa:prod'
+```
+
+### Step 4: Run SOA Smoke Test
+
+Run the smoke test and verify it reports total >= 1:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run smoke:soa:prod'
+```
+
+Expected output should show:
+- `[OK] At least 1 SOA profile exists (total: X, seed verified)`
+- `[SUCCESS] All SOA endpoints are accessible and conform to contract.`
+
+### Step 5: Verify /api Prefix Parity
+
+The frontend calls endpoints via `/api/*` which nginx strips before forwarding to the backend. Verify both paths return identical results.
+
+**From inside the backend container (direct backend call):**
+```bash
+# Get a token first
+TOKEN=$(docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'curl -s -X POST http://localhost:3002/auth/login -H "Content-Type: application/json" -d "{\"email\":\"admin@grc-platform.local\",\"password\":\"TestPassword123!\"}" | grep -o "\"accessToken\":\"[^\"]*\"" | cut -d"\"" -f4')
+
+# Direct backend call
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc "curl -s -H 'Authorization: Bearer $TOKEN' -H 'x-tenant-id: 00000000-0000-0000-0000-000000000001' 'http://localhost:3002/grc/soa/profiles?page=1&pageSize=10'"
+```
+
+**From the host (via nginx /api prefix):**
+```bash
+# Via nginx (from host)
+curl -s -H "Authorization: Bearer $TOKEN" -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+     "http://localhost/api/grc/soa/profiles?page=1&pageSize=10"
+```
+
+Both calls should return the same JSON response with `items` array and `total` count.
+
+### Step 6: Database Verification (Pure SQL)
+
+If the smoke test reports 0 profiles, verify the database directly using pure SQL (no psql meta-commands):
+
+```bash
+# Check table schema
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc_staging -d grc_staging -c \
+  "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='grc_soa_profiles';"
+
+# Check existing profiles
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc_staging -d grc_staging -c \
+  "SELECT id, tenant_id, status, is_deleted FROM grc_soa_profiles ORDER BY created_at DESC LIMIT 5;"
+
+# Count profiles by tenant
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc_staging -d grc_staging -c \
+  "SELECT tenant_id, COUNT(*) as count FROM grc_soa_profiles WHERE is_deleted = false GROUP BY tenant_id;"
+
+# Check demo tenant profiles specifically
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc_staging -d grc_staging -c \
+  "SELECT id, name, status, is_deleted FROM grc_soa_profiles WHERE tenant_id = '00000000-0000-0000-0000-000000000001';"
+```
+
+### Step 7: UI Quick Check
+
+Open the frontend in a browser and verify:
+
+1. Navigate to GRC > SOA
+2. The profiles list should show at least 1 profile (the demo profile)
+3. Click on the demo profile to open the detail view
+4. The items table should show ~150 items (depending on the standard used)
+5. Statistics should display counts by applicability and implementation status
+
+### Troubleshooting
+
+If the smoke test reports 0 profiles but the database has data:
+
+1. **Check tenant ID**: Ensure the `x-tenant-id` header matches the tenant in the database
+2. **Check is_deleted flag**: Profiles with `is_deleted = true` are filtered out
+3. **Check API_BASE_URL**: The smoke script uses `API_BASE_URL` or `NEST_API_URL` env vars (default: `http://localhost:3002`)
+4. **Check nginx routing**: Verify `/api/*` prefix stripping is working (see Step 5)
+
+If the endpoint returns 404:
+
+1. Verify the backend container is running: `docker ps | grep backend`
+2. Check backend logs: `docker logs grc-staging-backend --tail 100`
+3. Verify the SOA controller is registered: check for `/grc/soa` routes in startup logs
