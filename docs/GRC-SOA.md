@@ -109,3 +109,73 @@ The SOA module uses existing GRC permissions:
 ## Multi-Tenant Support
 
 SOA profiles are fully tenant-isolated. Each tenant can have their own SOA profiles without visibility into other tenants' data. The `x-tenant-id` header is required for all API operations.
+
+## Seeding SOA Data
+
+The SOA module includes a seed script that creates demo SOA profiles and items for testing and demonstration purposes.
+
+### Prerequisites
+
+Before running the SOA seed, ensure you have:
+1. Run the GRC seed to create the demo tenant and admin user: `npm run seed:grc` (dev) or `npm run seed:grc` (prod)
+2. Run the standards seed to populate standards and clauses: `npm run seed:standards:dev` (dev) or `npm run seed:standards` (prod)
+
+### Running the Seed
+
+**Local Development (TypeScript mode):**
+```bash
+cd backend-nest
+npm run seed:soa:dev
+```
+
+**Staging/Production (Compiled JavaScript mode):**
+```bash
+# Inside the backend container
+npm run seed:soa:prod
+# Or equivalently:
+npm run seed:soa
+```
+
+### What the Seed Creates
+
+The SOA seed script creates:
+- 1 SOA profile (status: DRAFT) for the demo tenant, linked to an existing standard (ISO 27001 if available)
+- SOA items for each clause in the selected standard, with various applicability and implementation statuses:
+  - 10 items as IMPLEMENTED
+  - 10 items as PLANNED
+  - 5 items as NOT_APPLICABLE
+  - 5 items as PARTIALLY_IMPLEMENTED
+  - Remaining items as UNDECIDED/NOT_IMPLEMENTED
+
+### Idempotency
+
+The seed script is idempotent - running it multiple times will not create duplicate data. It checks for existing profiles and items before creating new ones.
+
+### Data Source
+
+SOA items are initialized from the `standards` and `standard_clauses` tables (legacy tables, NOT grc_standards/grc_standard_clauses). The seed script:
+1. Finds an existing standard (preferring ISO 27001)
+2. Creates an SOA profile linked to that standard
+3. Creates SOA items for each clause in the standard
+
+If no standards/clauses exist in the database, the seed will log a warning and exit without creating data.
+
+### Verifying the Seed
+
+After running the seed, you can verify the data was created correctly:
+
+**Local Development:**
+```bash
+npm run smoke:soa
+```
+
+**Staging/Production:**
+```bash
+npm run smoke:soa:prod
+```
+
+The smoke test will:
+1. Log in with admin credentials
+2. Call `GET /grc/soa/profiles?page=1&pageSize=10`
+3. Verify at least 1 profile exists
+4. Test profile detail, items, and statistics endpoints

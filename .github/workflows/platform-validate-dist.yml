@@ -165,7 +165,7 @@ jobs:
             
             echo ""
             echo "Checking for required .js scripts..."
-            for script in platform-validate validate-env validate-db validate-migrations; do
+            for script in platform-validate validate-env validate-db validate-migrations seed-soa smoke-soa; do
               if [ -f "/app/dist/scripts/${script}.js" ]; then
                 echo "  [OK] ${script}.js exists"
               else

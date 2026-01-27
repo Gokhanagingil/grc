@@ -29,6 +29,7 @@ const SEED_SCRIPTS = [
   'seed-frameworks.js',
   'seed-golden-flow.js',
   'seed-demo-story.js',
+  'seed-soa.js',
 ];
 
 function loadScript(scriptPath: string): void {
