@@ -11,6 +11,7 @@ The platform implements multiple layers of automated checks to prevent security 
 ### 1. Secret Scanning (TruffleHog)
 
 **Workflow:** `.github/workflows/secret-scanning.yml`
+**Documentation:** [SECURITY-SECRET-SCAN.md](./SECURITY-SECRET-SCAN.md)
 
 **Risk Level:** P0 (Critical)
 
@@ -22,6 +23,12 @@ The platform implements multiple layers of automated checks to prevent security 
 - Scheduled daily at 2:00 AM UTC
 - Uses `--only-verified` flag to minimize false positives
 - Fails build only on verified (active) secrets
+- Uses event-based scan range detection (PR diff vs push incremental)
+
+**Event Handling (Fixed Jan 2026):**
+- `pull_request`: Scans diff between PR branch and base branch
+- `push` to main: Scans commits since previous HEAD (`github.event.before`)
+- `schedule`: Scans last 50 commits for daily audit
 
 **Local Testing:**
 ```bash
@@ -33,6 +40,9 @@ pip install trufflehog
 # Run scan
 trufflehog filesystem . --only-verified
 ```
+
+**Handling False Positives:**
+See [SECURITY-SECRET-SCAN.md](./SECURITY-SECRET-SCAN.md) for detailed instructions on adding ignore rules with proper documentation.
 
 ### 2. CodeQL Security Analysis
 
@@ -254,8 +264,9 @@ npm run test -- --testPathPattern=log-sanitizer
 
 If TruffleHog reports a false positive:
 1. Verify the secret is not actually active
-2. Add the pattern to `.trufflehog-ignore` if needed
-3. Use inline ignore comments in code
+2. Add the pattern to `.trufflehogignore` if needed (see [SECURITY-SECRET-SCAN.md](./SECURITY-SECRET-SCAN.md))
+3. Document the ignore with justification and CI run link
+4. Get approval from a security-aware reviewer
 
 ### Credential Pattern Check Failures
 
