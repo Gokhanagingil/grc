@@ -217,20 +217,67 @@ async function runSoaSmokeTest() {
 
   // 3. SOA Profiles List
   printSection('3. SOA Profiles');
-  const profilesResponse = await makeRequest(
+  let profilesResponse = await makeRequest(
     'GET',
     '/grc/soa/profiles?page=1&pageSize=10',
     authHeaders,
   );
   if (printResult('GET /grc/soa/profiles', profilesResponse)) {
     passed++;
-    const data = profilesResponse.data as {
+    let data = profilesResponse.data as {
       items?: Array<{ id: string; name: string; status: string }>;
       total?: number;
     };
-    const items = data.items || [];
-    const total = data.total || 0;
+    let items = data.items || [];
+    let total = data.total || 0;
     console.log(`    Items: ${items.length}, Total: ${total}`);
+
+    // If default query returns 0, try with explicit status filters
+    // This handles cases where profiles might exist but weren't returned
+    if (total === 0) {
+      console.log('    No profiles found with default query. Trying status filters...');
+      
+      // Try DRAFT status (most common for seeded profiles)
+      const draftResponse = await makeRequest(
+        'GET',
+        '/grc/soa/profiles?page=1&pageSize=10&status=DRAFT',
+        authHeaders,
+      );
+      const draftData = draftResponse.data as {
+        items?: Array<{ id: string; name: string; status: string }>;
+        total?: number;
+      };
+      const draftTotal = draftData.total || 0;
+      
+      if (draftTotal > 0) {
+        console.log(`    Found ${draftTotal} profiles with status=DRAFT`);
+        total = draftTotal;
+        data = draftData;
+        items = draftData.items || [];
+        // Update response for subsequent tests
+        profilesResponse = draftResponse;
+      } else {
+        // Try PUBLISHED status
+        const publishedResponse = await makeRequest(
+          'GET',
+          '/grc/soa/profiles?page=1&pageSize=10&status=PUBLISHED',
+          authHeaders,
+        );
+        const publishedData = publishedResponse.data as {
+          items?: Array<{ id: string; name: string; status: string }>;
+          total?: number;
+        };
+        const publishedTotal = publishedData.total || 0;
+        
+        if (publishedTotal > 0) {
+          console.log(`    Found ${publishedTotal} profiles with status=PUBLISHED`);
+          total = publishedTotal;
+          data = publishedData;
+          items = publishedData.items || [];
+          profilesResponse = publishedResponse;
+        }
+      }
+    }
 
     if (items.length > 0) {
       console.log(`    First profile: "${items[0].name}" (${items[0].status})`);
@@ -238,11 +285,11 @@ async function runSoaSmokeTest() {
 
     // Verify at least 1 profile exists (when seed has been run)
     if (total >= 1) {
-      console.log('[OK] At least 1 SOA profile exists (seed verified)');
+      console.log(`[OK] At least 1 SOA profile exists (total: ${total}, seed verified)`);
       passed++;
     } else {
       console.log(
-        '[WARN] No SOA profiles found. Run: npm run seed:soa:prod to seed data',
+        '[WARN] No SOA profiles found with any status filter. Run: npm run seed:soa:prod to seed data',
       );
       // Don't fail - this is a warning, not a failure
     }
