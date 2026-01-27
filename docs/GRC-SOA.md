@@ -290,3 +290,36 @@ If the endpoint returns 404:
 1. Verify the backend container is running: `docker ps | grep backend`
 2. Check backend logs: `docker logs grc-staging-backend --tail 100`
 3. Verify the SOA controller is registered: check for `/grc/soa` routes in startup logs
+
+## Smoke Script Technical Details
+
+The smoke script (`smoke-soa.ts`) validates SOA endpoints against the normalized LIST-CONTRACT format. It supports multiple response envelope variants to ensure robust validation regardless of how the backend wraps responses.
+
+### LIST-CONTRACT Normalization
+
+The smoke script uses a `normalizeListContract()` helper function that handles these response shapes:
+
+- **Format A**: `{ data: { items: [], total, page, pageSize, totalPages } }` - Single envelope
+- **Format B**: `{ data: { data: { items: [], total, page, pageSize, totalPages } } }` - Double envelope
+- **Format C**: `{ items: [], total, page, pageSize, totalPages }` - Raw list-contract
+
+This ensures the smoke test works correctly regardless of which envelope format the backend returns, preventing false-negative failures due to envelope mismatch.
+
+### Debugging Failed Validations
+
+When contract validation fails, the smoke script prints:
+
+- Request URL
+- HTTP status code
+- First 2KB of the raw JSON response body (truncated for safety, no secrets exposed)
+
+This makes debugging envelope mismatches straightforward without requiring manual curl commands.
+
+### Contract Warnings vs Violations
+
+The script distinguishes between:
+
+- **CONTRACT VIOLATION**: Critical issues that cause test failure (e.g., `items` not an array, response not an object)
+- **CONTRACT WARNING**: Non-critical issues logged for awareness (e.g., `totalPages` missing and computed, double envelope detected)
+
+Warnings do not cause test failures but are logged to help identify potential backend inconsistencies.
