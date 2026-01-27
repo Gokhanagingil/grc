@@ -566,3 +566,38 @@ export enum PlatformBuilderFieldType {
   CHOICE = 'choice',
   REFERENCE = 'reference',
 }
+
+// ============================================================================
+// SOA (Statement of Applicability) Enums
+// ============================================================================
+
+/**
+ * SoaProfileStatus - Status of an SOA profile in its lifecycle
+ * Values match PostgreSQL enum: grc_soa_profiles_status_enum
+ */
+export enum SoaProfileStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+/**
+ * SoaApplicability - Whether a clause is applicable to the organization
+ * Values match PostgreSQL enum: grc_soa_items_applicability_enum
+ */
+export enum SoaApplicability {
+  APPLICABLE = 'APPLICABLE',
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
+  UNDECIDED = 'UNDECIDED',
+}
+
+/**
+ * SoaImplementationStatus - Implementation status of an applicable clause
+ * Values match PostgreSQL enum: grc_soa_items_implementation_status_enum
+ */
+export enum SoaImplementationStatus {
+  IMPLEMENTED = 'IMPLEMENTED',
+  PARTIALLY_IMPLEMENTED = 'PARTIALLY_IMPLEMENTED',
+  PLANNED = 'PLANNED',
+  NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
+}

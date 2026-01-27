@@ -139,6 +139,11 @@ const grcMenuGroups: NavMenuGroup[] = [
         icon: <LibraryIcon />, 
         path: '/standards',
       },
+      { 
+        text: 'SOA', 
+        icon: <AssuranceIcon />, 
+        path: '/soa',
+      },
     ],
   },
   {

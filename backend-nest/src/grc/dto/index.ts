@@ -93,3 +93,14 @@ export type {
   FieldResponse,
   RecordResponse,
 } from './platform-builder.dto';
+
+// SOA (Statement of Applicability) DTOs
+export {
+  CreateSoaProfileDto,
+  UpdateSoaProfileDto,
+  FilterSoaProfileDto,
+  UpdateSoaItemDto,
+  FilterSoaItemDto,
+  SOA_PROFILE_SORTABLE_FIELDS,
+  SOA_ITEM_SORTABLE_FIELDS,
+} from './soa.dto';

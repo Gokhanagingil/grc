@@ -508,6 +508,31 @@ export const API_PATHS = {
     UPDATE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
     DELETE: (tableName: string, recordId: string) => `/grc/data/${tableName}/${recordId}`,
   },
+
+  // SOA (Statement of Applicability) endpoints
+  GRC_SOA: {
+    // Profile endpoints
+    PROFILES: {
+      LIST: '/grc/soa/profiles',
+      CREATE: '/grc/soa/profiles',
+      GET: (id: string) => `/grc/soa/profiles/${id}`,
+      UPDATE: (id: string) => `/grc/soa/profiles/${id}`,
+      DELETE: (id: string) => `/grc/soa/profiles/${id}`,
+      PUBLISH: (id: string) => `/grc/soa/profiles/${id}/publish`,
+      INITIALIZE_ITEMS: (id: string) => `/grc/soa/profiles/${id}/initialize-items`,
+      EXPORT: (id: string) => `/grc/soa/profiles/${id}/export`,
+    },
+    // Item endpoints
+    ITEMS: {
+      LIST: '/grc/soa/items',
+      GET: (id: string) => `/grc/soa/items/${id}`,
+      UPDATE: (id: string) => `/grc/soa/items/${id}`,
+      LINK_CONTROL: (itemId: string, controlId: string) => `/grc/soa/items/${itemId}/controls/${controlId}`,
+      UNLINK_CONTROL: (itemId: string, controlId: string) => `/grc/soa/items/${itemId}/controls/${controlId}`,
+      LINK_EVIDENCE: (itemId: string, evidenceId: string) => `/grc/soa/items/${itemId}/evidence/${evidenceId}`,
+      UNLINK_EVIDENCE: (itemId: string, evidenceId: string) => `/grc/soa/items/${itemId}/evidence/${evidenceId}`,
+    },
+  },
 } as const;
 
 // ============================================================================
@@ -3618,5 +3643,222 @@ export const dynamicDataApi = {
 
   delete: async (tenantId: string, tableName: string, recordId: string): Promise<void> => {
     await api.delete(API_PATHS.DYNAMIC_DATA.DELETE(tableName, recordId), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// SOA (Statement of Applicability) Types and API
+// ============================================================================
+
+export type SoaProfileStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type SoaApplicability = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNDECIDED';
+export type SoaImplementationStatus = 'IMPLEMENTED' | 'PARTIALLY_IMPLEMENTED' | 'PLANNED' | 'NOT_IMPLEMENTED';
+
+export interface SoaProfileData {
+  id: string;
+  tenantId: string;
+  standardId: string;
+  standard?: StandardData;
+  name: string;
+  description: string | null;
+  scopeText: string | null;
+  status: SoaProfileStatus;
+  version: number;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+}
+
+export interface SoaItemData {
+  id: string;
+  tenantId: string;
+  profileId: string;
+  clauseId: string;
+  clause?: ClauseData;
+  applicability: SoaApplicability;
+  justification: string | null;
+  implementationStatus: SoaImplementationStatus;
+  targetDate: string | null;
+  ownerUserId: string | null;
+  notes: string | null;
+  controlsCount?: number;
+  evidenceCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+}
+
+export interface CreateSoaProfileDto {
+  standardId: string;
+  name: string;
+  description?: string;
+  scopeText?: string;
+}
+
+export interface UpdateSoaProfileDto {
+  name?: string;
+  description?: string;
+  scopeText?: string;
+}
+
+export interface UpdateSoaItemDto {
+  applicability?: SoaApplicability;
+  justification?: string;
+  implementationStatus?: SoaImplementationStatus;
+  targetDate?: string;
+  ownerUserId?: string;
+  notes?: string;
+}
+
+export interface SoaProfileListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  standardId?: string;
+  status?: SoaProfileStatus;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface SoaItemListParams {
+  profileId: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  clauseId?: string;
+  applicability?: SoaApplicability;
+  implementationStatus?: SoaImplementationStatus;
+  hasEvidence?: boolean;
+  hasControls?: boolean;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface InitializeItemsResult {
+  created: number;
+  existing: number;
+}
+
+export interface SoaItemControlLink {
+  id: string;
+  tenantId: string;
+  soaItemId: string;
+  controlId: string;
+  createdAt: string;
+}
+
+export interface SoaItemEvidenceLink {
+  id: string;
+  tenantId: string;
+  soaItemId: string;
+  evidenceId: string;
+  createdAt: string;
+}
+
+export const soaApi = {
+  // Profile operations
+  listProfiles: async (tenantId: string, params?: SoaProfileListParams): Promise<PaginatedResponse<SoaProfileData>['data']> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.standardId) queryParams.append('standardId', params.standardId);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    const url = queryParams.toString() ? `${API_PATHS.GRC_SOA.PROFILES.LIST}?${queryParams}` : API_PATHS.GRC_SOA.PROFILES.LIST;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapPaginatedResponse<SoaProfileData>(response);
+  },
+
+  getProfile: async (tenantId: string, id: string): Promise<SoaProfileData> => {
+    const response = await api.get(API_PATHS.GRC_SOA.PROFILES.GET(id), withTenantId(tenantId));
+    return unwrapResponse<SoaProfileData>(response);
+  },
+
+  createProfile: async (tenantId: string, data: CreateSoaProfileDto): Promise<SoaProfileData> => {
+    const response = await api.post(API_PATHS.GRC_SOA.PROFILES.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<SoaProfileData>(response);
+  },
+
+  updateProfile: async (tenantId: string, id: string, data: UpdateSoaProfileDto): Promise<SoaProfileData> => {
+    const response = await api.patch(API_PATHS.GRC_SOA.PROFILES.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<SoaProfileData>(response);
+  },
+
+  deleteProfile: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_SOA.PROFILES.DELETE(id), withTenantId(tenantId));
+  },
+
+  publishProfile: async (tenantId: string, id: string): Promise<SoaProfileData> => {
+    const response = await api.post(API_PATHS.GRC_SOA.PROFILES.PUBLISH(id), {}, withTenantId(tenantId));
+    return unwrapResponse<SoaProfileData>(response);
+  },
+
+  initializeItems: async (tenantId: string, profileId: string): Promise<InitializeItemsResult> => {
+    const response = await api.post(API_PATHS.GRC_SOA.PROFILES.INITIALIZE_ITEMS(profileId), {}, withTenantId(tenantId));
+    return unwrapResponse<InitializeItemsResult>(response);
+  },
+
+  exportCsv: async (tenantId: string, profileId: string): Promise<Blob> => {
+    const response = await api.get(`${API_PATHS.GRC_SOA.PROFILES.EXPORT(profileId)}?format=csv`, {
+      ...withTenantId(tenantId),
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  // Item operations
+  listItems: async (tenantId: string, params: SoaItemListParams): Promise<PaginatedResponse<SoaItemData>['data']> => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('profileId', params.profileId);
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.clauseId) queryParams.append('clauseId', params.clauseId);
+    if (params.applicability) queryParams.append('applicability', params.applicability);
+    if (params.implementationStatus) queryParams.append('implementationStatus', params.implementationStatus);
+    if (params.hasEvidence !== undefined) queryParams.append('hasEvidence', params.hasEvidence.toString());
+    if (params.hasControls !== undefined) queryParams.append('hasControls', params.hasControls.toString());
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    const url = `${API_PATHS.GRC_SOA.ITEMS.LIST}?${queryParams}`;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapPaginatedResponse<SoaItemData>(response);
+  },
+
+  getItem: async (tenantId: string, id: string): Promise<SoaItemData> => {
+    const response = await api.get(API_PATHS.GRC_SOA.ITEMS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<SoaItemData>(response);
+  },
+
+  updateItem: async (tenantId: string, id: string, data: UpdateSoaItemDto): Promise<SoaItemData> => {
+    const response = await api.patch(API_PATHS.GRC_SOA.ITEMS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<SoaItemData>(response);
+  },
+
+  // Control linking
+  linkControl: async (tenantId: string, itemId: string, controlId: string): Promise<SoaItemControlLink> => {
+    const response = await api.post(API_PATHS.GRC_SOA.ITEMS.LINK_CONTROL(itemId, controlId), {}, withTenantId(tenantId));
+    return unwrapResponse<SoaItemControlLink>(response);
+  },
+
+  unlinkControl: async (tenantId: string, itemId: string, controlId: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_SOA.ITEMS.UNLINK_CONTROL(itemId, controlId), withTenantId(tenantId));
+  },
+
+  // Evidence linking
+  linkEvidence: async (tenantId: string, itemId: string, evidenceId: string): Promise<SoaItemEvidenceLink> => {
+    const response = await api.post(API_PATHS.GRC_SOA.ITEMS.LINK_EVIDENCE(itemId, evidenceId), {}, withTenantId(tenantId));
+    return unwrapResponse<SoaItemEvidenceLink>(response);
+  },
+
+  unlinkEvidence: async (tenantId: string, itemId: string, evidenceId: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_SOA.ITEMS.UNLINK_EVIDENCE(itemId, evidenceId), withTenantId(tenantId));
   },
 };

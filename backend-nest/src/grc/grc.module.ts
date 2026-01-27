@@ -65,6 +65,11 @@ import {
   DynamicRecord,
   // Code Generation entities
   TenantSequence,
+  // SOA (Statement of Applicability) entities
+  GrcSoaProfile,
+  GrcSoaItem,
+  GrcSoaItemControl,
+  GrcSoaItemEvidence,
 } from './entities';
 
 // Services
@@ -117,6 +122,9 @@ import { DynamicDataService } from './services/dynamic-data.service';
 
 // Code Generation services
 import { CodeGeneratorService } from './services/code-generator.service';
+
+// SOA (Statement of Applicability) services
+import { GrcSoaService } from './services/grc-soa.service';
 
 // Controllers
 import {
@@ -172,6 +180,9 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
 // Platform Builder controllers
 import { PlatformBuilderController } from './controllers/platform-builder.controller';
 import { DynamicDataController } from './controllers/dynamic-data.controller';
+
+// SOA (Statement of Applicability) controllers
+import { GrcSoaController } from './controllers/grc-soa.controller';
 
 /**
  * GRC Module
@@ -253,6 +264,11 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
       DynamicRecord,
       // Code Generation entities
       TenantSequence,
+      // SOA (Statement of Applicability) entities
+      GrcSoaProfile,
+      GrcSoaItem,
+      GrcSoaItemControl,
+      GrcSoaItemEvidence,
     ]),
     AuditModule,
     AuthModule,
@@ -306,6 +322,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
     DynamicDataService,
     // Code Generation services
     CodeGeneratorService,
+    // SOA (Statement of Applicability) services
+    GrcSoaService,
   ],
   controllers: [
     // Core controllers
@@ -357,6 +375,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
     // Platform Builder controllers
     PlatformBuilderController,
     DynamicDataController,
+    // SOA (Statement of Applicability) controllers
+    GrcSoaController,
   ],
   exports: [
     // Universal List Service (platform-level)
@@ -404,6 +424,8 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
     DynamicDataService,
     // Code Generation services
     CodeGeneratorService,
+    // SOA (Statement of Applicability) services
+    GrcSoaService,
   ],
 })
 export class GrcModule {}
