@@ -72,6 +72,18 @@ export class GrcSoaService {
 
   /**
    * List SOA profiles with pagination and filtering
+   *
+   * By default, returns ALL non-deleted profiles for the tenant regardless of status.
+   * Only filters by status if the 'status' query parameter is explicitly provided.
+   *
+   * This ensures that:
+   * - DRAFT profiles are visible in the list (e.g., after seeding)
+   * - Users can see all their profiles unless they explicitly filter
+   * - Status filtering is opt-in, not opt-out
+   *
+   * @param tenantId - Tenant ID for multi-tenant isolation (required)
+   * @param filter - Filter DTO with optional status, search, standardId, pagination, etc.
+   * @returns Paginated response with SOA profiles
    */
   async listProfiles(
     tenantId: string,
@@ -111,7 +123,8 @@ export class GrcSoaService {
       qb.andWhere('profile.standardId = :standardId', { standardId });
     }
 
-    // Apply status filter
+    // Apply status filter ONLY if explicitly provided
+    // By default, return all statuses (DRAFT, PUBLISHED, ARCHIVED)
     if (status) {
       qb.andWhere('profile.status = :status', { status });
     }
