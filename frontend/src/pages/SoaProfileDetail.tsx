@@ -214,15 +214,13 @@ export const SoaProfileDetail: React.FC = () => {
 
   // Fetch standards
   const fetchStandards = useCallback(async () => {
-    if (!tenantId) return;
-
     try {
-      const response = await standardsLibraryApi.list(tenantId, { pageSize: 100 });
-      setStandards(response.items);
+      const response = await standardsLibraryApi.list();
+      setStandards(response.items || []);
     } catch (err) {
       console.error('Error fetching standards:', err);
     }
-  }, [tenantId]);
+  }, []);
 
   // Fetch items
   const fetchItems = useCallback(async () => {
