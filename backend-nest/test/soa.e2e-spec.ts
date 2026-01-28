@@ -539,4 +539,91 @@ describe('SOA Profiles (e2e)', () => {
       expect(response.body.message).toContain('not found');
     });
   });
+
+  describe('UUID Format Validation', () => {
+    it('should accept non-RFC-4122 UUIDs (demo/seed format) for nested items endpoint', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // This UUID has 0 in version/variant positions (not RFC 4122 compliant)
+      // but should still be accepted by our permissive UUID validation
+      const demoStyleUuid = '00000000-0000-0000-0000-000000000100';
+
+      // Should return 404 (profile not found) rather than 400 (validation error)
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/profiles/${demoStyleUuid}/items?page=1&pageSize=10`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+
+      // The error should be "not found" not "validation failed"
+      expect(response.body.message).toContain('not found');
+      expect(response.body.message).not.toContain('UUID');
+    });
+
+    it('should accept non-RFC-4122 UUIDs (demo/seed format) for nested statistics endpoint', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // This UUID has 0 in version/variant positions (not RFC 4122 compliant)
+      const demoStyleUuid = '00000000-0000-0000-0000-000000000100';
+
+      // Should return 404 (profile not found) rather than 400 (validation error)
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/profiles/${demoStyleUuid}/statistics`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+
+      // The error should be "not found" not "validation failed"
+      expect(response.body.message).toContain('not found');
+      expect(response.body.message).not.toContain('UUID');
+    });
+
+    it('should accept non-RFC-4122 UUIDs in flat items endpoint query param', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // This UUID has 0 in version/variant positions (not RFC 4122 compliant)
+      const demoStyleUuid = '00000000-0000-0000-0000-000000000100';
+
+      // Should return 200 with empty items (profile doesn't exist but validation passes)
+      // or 404 if the service validates profile existence
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/items?profileId=${demoStyleUuid}&page=1&pageSize=10`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      // Should NOT return 400 with "profileId must be a UUID" error
+      expect(response.status).not.toBe(400);
+      if (response.body.message) {
+        expect(response.body.message).not.toContain('must be a UUID');
+      }
+    });
+
+    it('should reject invalid UUID formats', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // This is not a valid UUID format at all
+      const invalidUuid = 'not-a-valid-uuid';
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/profiles/${invalidUuid}/items`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(400);
+
+      // Should return validation error
+      expect(response.body.message).toContain('UUID');
+    });
+  });
 });

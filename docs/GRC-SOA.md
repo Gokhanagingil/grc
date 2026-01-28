@@ -323,3 +323,132 @@ The script distinguishes between:
 - **CONTRACT WARNING**: Non-critical issues logged for awareness (e.g., `totalPages` missing and computed, double envelope detected)
 
 Warnings do not cause test failures but are logged to help identify potential backend inconsistencies.
+
+## API Reference
+
+### Canonical Endpoints
+
+The SOA module exposes the following canonical REST endpoints. All endpoints require JWT authentication (`Authorization: Bearer <token>`) and tenant context (`x-tenant-id` header).
+
+#### Profile Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/grc/soa/profiles` | List all SOA profiles (paginated) |
+| POST | `/grc/soa/profiles` | Create a new SOA profile |
+| GET | `/grc/soa/profiles/:id` | Get a specific profile by ID |
+| PATCH | `/grc/soa/profiles/:id` | Update a profile |
+| DELETE | `/grc/soa/profiles/:id` | Soft delete a profile |
+| POST | `/grc/soa/profiles/:id/publish` | Publish a profile |
+| POST | `/grc/soa/profiles/:id/initialize-items` | Initialize items from standard clauses |
+| GET | `/grc/soa/profiles/:id/export` | Export profile to CSV |
+
+#### Nested Item and Statistics Endpoints (Canonical)
+
+These are the **canonical** endpoints for accessing items and statistics by profile:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/grc/soa/profiles/:profileId/items` | List items for a profile (LIST-CONTRACT) |
+| GET | `/grc/soa/profiles/:profileId/statistics` | Get aggregated statistics for a profile |
+
+#### Flat Item Endpoints (Legacy)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/grc/soa/items` | List items (requires `profileId` query param) |
+| GET | `/grc/soa/items/:id` | Get a specific item by ID |
+| PATCH | `/grc/soa/items/:id` | Update an item |
+
+#### Control and Evidence Linking
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/grc/soa/items/:id/controls/:controlId` | Link a control to an item |
+| DELETE | `/grc/soa/items/:id/controls/:controlId` | Unlink a control from an item |
+| POST | `/grc/soa/items/:id/evidence/:evidenceId` | Link evidence to an item |
+| DELETE | `/grc/soa/items/:id/evidence/:evidenceId` | Unlink evidence from an item |
+
+### Example curl Commands
+
+**List profiles:**
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+     -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+     "http://localhost:3002/grc/soa/profiles?page=1&pageSize=10"
+```
+
+**Get profile items (canonical nested endpoint):**
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+     -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+     "http://localhost:3002/grc/soa/profiles/00000000-0000-0000-0000-000000000100/items?page=1&pageSize=10"
+```
+
+**Get profile statistics:**
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+     -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+     "http://localhost:3002/grc/soa/profiles/00000000-0000-0000-0000-000000000100/statistics"
+```
+
+**Via nginx /api prefix (from frontend or external clients):**
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+     -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+     "http://localhost/api/grc/soa/profiles/00000000-0000-0000-0000-000000000100/items?page=1&pageSize=10"
+```
+
+### Response Formats
+
+**LIST-CONTRACT format (for list endpoints):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "total": 150,
+    "page": 1,
+    "pageSize": 10,
+    "totalPages": 15
+  }
+}
+```
+
+**Statistics response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalItems": 150,
+    "applicabilityCounts": {
+      "APPLICABLE": 100,
+      "NOT_APPLICABLE": 30,
+      "UNDECIDED": 20
+    },
+    "implementationCounts": {
+      "IMPLEMENTED": 50,
+      "PARTIALLY_IMPLEMENTED": 25,
+      "PLANNED": 15,
+      "NOT_IMPLEMENTED": 60
+    },
+    "evidenceCoverage": {
+      "itemsWithEvidence": 45,
+      "itemsWithoutEvidence": 105
+    },
+    "controlCoverage": {
+      "itemsWithControls": 60,
+      "itemsWithoutControls": 90
+    }
+  }
+}
+```
+
+### UUID Format Support
+
+The SOA module accepts any UUID-formatted string (8-4-4-4-12 hex pattern) for profile IDs and other UUID parameters. This includes:
+
+- RFC 4122 compliant UUIDs (v1, v3, v4, v5)
+- Demo/seed UUIDs like `00000000-0000-0000-0000-000000000100` (which have 0 in version/variant positions)
+
+This permissive validation ensures compatibility with demo data and seed scripts while still rejecting malformed strings.
