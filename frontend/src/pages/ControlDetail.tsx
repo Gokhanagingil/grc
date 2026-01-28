@@ -253,6 +253,20 @@ export const ControlDetail: React.FC = () => {
   const [controlIssues, setControlIssues] = useState<IssueData[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
 
+  // Linked GrcEvidence state (Evidence Golden Flow)
+  interface LinkedGrcEvidence {
+    id: string;
+    evidenceId: string;
+    evidence: EvidenceData;
+    evidenceType?: string;
+    validFrom?: string;
+    validUntil?: string;
+    notes?: string;
+    createdAt: string;
+  }
+  const [linkedGrcEvidences, setLinkedGrcEvidences] = useState<LinkedGrcEvidence[]>([]);
+  const [linkedEvidencesLoading, setLinkedEvidencesLoading] = useState(false);
+
   const fetchControl = useCallback(async () => {
     if (!id || !tenantId) return;
 
@@ -358,13 +372,33 @@ export const ControlDetail: React.FC = () => {
     }
   }, [id, tenantId]);
 
+  // Evidence Golden Flow - Fetch linked GrcEvidence records
+  const fetchLinkedGrcEvidences = useCallback(async () => {
+    if (!id || !tenantId) return;
+
+    setLinkedEvidencesLoading(true);
+    try {
+      const response = await controlApi.getEvidences(tenantId, id);
+      const data = unwrapResponse<LinkedGrcEvidence[]>(response);
+      setLinkedGrcEvidences(data || []);
+    } catch (err) {
+      console.error('Error fetching linked evidences for control:', err);
+      setLinkedGrcEvidences([]);
+    } finally {
+      setLinkedEvidencesLoading(false);
+    }
+  }, [id, tenantId]);
+
   useEffect(() => {
     fetchControl();
     fetchAllProcesses();
   }, [fetchControl, fetchAllProcesses]);
 
   useEffect(() => {
-    if (tabValue === 4) {
+    if (tabValue === 2) {
+      // Evidence tab - fetch linked GrcEvidence records
+      fetchLinkedGrcEvidences();
+    } else if (tabValue === 4) {
       // Test Results tab (Test/Result Sprint)
       fetchTestResults();
       fetchAvailableEvidences();
@@ -375,7 +409,7 @@ export const ControlDetail: React.FC = () => {
       // History tab (shifted by 1 due to new Test Results tab)
       fetchStatusHistory();
     }
-  }, [tabValue, fetchStatusHistory, fetchTestResults, fetchAvailableEvidences, fetchControlIssues]);
+  }, [tabValue, fetchStatusHistory, fetchTestResults, fetchAvailableEvidences, fetchControlIssues, fetchLinkedGrcEvidences]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -810,7 +844,55 @@ export const ControlDetail: React.FC = () => {
 
         {/* Evidence Tab */}
         <TabPanel value={tabValue} index={2}>
-          <Typography variant="h6" gutterBottom>Control Evidence</Typography>
+          <Box mb={4}>
+            <Typography variant="h6" gutterBottom>Linked Evidence (GRC Evidence Library)</Typography>
+            {linkedEvidencesLoading ? (
+              <Box display="flex" justifyContent="center" p={4}>
+                <CircularProgress />
+              </Box>
+            ) : linkedGrcEvidences.length > 0 ? (
+              <Table data-testid="linked-grc-evidences-table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Evidence Type</TableCell>
+                    <TableCell>Linked At</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {linkedGrcEvidences.map((link) => (
+                    <TableRow key={link.id} data-testid={`linked-evidence-row-${link.evidenceId}`}>
+                      <TableCell>
+                        <Typography
+                          component="a"
+                          href={`/evidence/${link.evidenceId}`}
+                          sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                        >
+                          {link.evidence?.name || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={formatStatus(link.evidence?.type || '')} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={formatStatus(link.evidence?.status || '')} size="small" />
+                      </TableCell>
+                      <TableCell>{link.evidenceType || '-'}</TableCell>
+                      <TableCell>{formatDateTime(link.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <Alert severity="info">No evidence linked from the GRC Evidence Library yet. Link evidence from the Evidence detail page.</Alert>
+            )}
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="h6" gutterBottom>Legacy Control Evidence</Typography>
           {control.controlEvidence && control.controlEvidence.length > 0 ? (
             <Table>
               <TableHead>
@@ -835,7 +917,7 @@ export const ControlDetail: React.FC = () => {
               </TableBody>
             </Table>
           ) : (
-            <Alert severity="info">No evidence collected for this control yet.</Alert>
+            <Alert severity="info">No legacy evidence collected for this control yet.</Alert>
           )}
         </TabPanel>
 
