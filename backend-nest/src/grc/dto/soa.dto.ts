@@ -6,7 +6,17 @@ import {
   IsDateString,
   MaxLength,
   IsBoolean,
+  Matches,
 } from 'class-validator';
+
+/**
+ * UUID format regex pattern
+ * Accepts any UUID-formatted string (8-4-4-4-12 hex pattern)
+ * This is more permissive than RFC 4122 to support demo/seed UUIDs
+ * that don't have valid version/variant bits (e.g., 00000000-0000-0000-0000-000000000100)
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { Type } from 'class-transformer';
 import {
   SoaProfileStatus,
@@ -135,7 +145,7 @@ export class UpdateSoaItemDto {
  */
 export class FilterSoaItemDto {
   @IsOptional()
-  @IsUUID()
+  @Matches(UUID_PATTERN, { message: 'profileId must be a valid UUID format' })
   profileId?: string;
 
   @IsOptional()

@@ -17,6 +17,7 @@ import {
   Res,
   Request,
 } from '@nestjs/common';
+import { UuidFormatPipe } from '../../common/pipes';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -230,7 +231,7 @@ export class GrcSoaController {
   @Perf()
   async listProfileItems(
     @Headers('x-tenant-id') tenantId: string,
-    @Param('profileId', ParseUUIDPipe) profileId: string,
+    @Param('profileId', UuidFormatPipe) profileId: string,
     @Query() filter: FilterSoaItemDto,
   ) {
     if (!tenantId) {
@@ -257,7 +258,7 @@ export class GrcSoaController {
   @Perf()
   async getProfileStatistics(
     @Headers('x-tenant-id') tenantId: string,
-    @Param('profileId', ParseUUIDPipe) profileId: string,
+    @Param('profileId', UuidFormatPipe) profileId: string,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
