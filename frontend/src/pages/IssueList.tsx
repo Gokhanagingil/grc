@@ -390,7 +390,7 @@ export const IssueList: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (issue) => (
-        <Box display="flex" gap={0.5}>
+        <Box display="flex" gap={0.5} onClick={(e) => e.stopPropagation()}>
           <Tooltip title="View Details">
             <IconButton
               size="small"
@@ -522,6 +522,7 @@ export const IssueList: React.FC = () => {
               }
               minTableWidth={1000}
               testId="issue-list-page"
+              onRowClick={handleViewIssue}
             />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>

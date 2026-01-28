@@ -2974,7 +2974,6 @@ describe('GRC CRUD Operations (e2e)', () => {
         const newCapaTask = {
           title: 'Test CAPA Task - E2E',
           description: 'A test CAPA task created by e2e tests',
-          status: 'PENDING',
           capaId: testCapaIdForTask,
         };
 
