@@ -515,4 +515,151 @@ describe('Closure Loop MVP (e2e)', () => {
       }
     });
   });
+
+  describe('CAPA Creation with Lowercase Priority (Regression)', () => {
+    let testIssueId: string;
+    let createdCapaId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing issue to link the CAPA to
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issues = issuesResponse.body.data ?? issuesResponse.body;
+      if (Array.isArray(issues) && issues.length > 0) {
+        testIssueId = issues[0].id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the created CAPA
+      if (createdCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${createdCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA with lowercase priority "high" and store as "HIGH"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Create CAPA via Issue -> CAPA endpoint with lowercase priority
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Lowercase Priority CAPA',
+          description: 'Testing case-insensitive priority normalization',
+          priority: 'high', // lowercase - should be normalized to HIGH
+          type: 'corrective',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+
+      const capa = response.body.data;
+      createdCapaId = capa.id;
+
+      // Verify the priority was normalized to uppercase
+      expect(capa).toHaveProperty('priority', 'HIGH');
+      expect(capa).toHaveProperty(
+        'title',
+        'E2E Test - Lowercase Priority CAPA',
+      );
+    });
+
+    it('should create CAPA with mixed case priority "Medium" and store as "MEDIUM"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Mixed Case Priority CAPA',
+          description: 'Testing case-insensitive priority normalization',
+          priority: 'Medium', // mixed case - should be normalized to MEDIUM
+          type: 'preventive',
+        })
+        .expect(201);
+
+      const capa = response.body.data;
+
+      // Verify the priority was normalized to uppercase
+      expect(capa).toHaveProperty('priority', 'MEDIUM');
+
+      // Cleanup
+      if (capa.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${capa.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should reject invalid priority value after normalization', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to create CAPA with invalid priority
+      await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Invalid Priority CAPA',
+          description: 'Testing validation still works',
+          priority: 'urgent', // invalid - should be rejected even after normalization
+          type: 'corrective',
+        })
+        .expect(400);
+    });
+
+    it('should keep uppercase priority "CRITICAL" as "CRITICAL"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Uppercase Priority CAPA',
+          description: 'Testing uppercase priority is preserved',
+          priority: 'CRITICAL', // uppercase - should remain CRITICAL
+          type: 'both',
+        })
+        .expect(201);
+
+      const capa = response.body.data;
+
+      // Verify the priority remains uppercase
+      expect(capa).toHaveProperty('priority', 'CRITICAL');
+
+      // Cleanup
+      if (capa.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${capa.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
 });
