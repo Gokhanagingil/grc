@@ -140,6 +140,33 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/issues/:id/controls - GET (linked controls for an issue)
+    // MUST be before the generic /grc/controls handler
+    if (url.match(/\/grc\/issues\/[^/]+\/controls/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked controls (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
+    // Handle grc/issues/:id/test-results - GET (linked test results for an issue)
+    // MUST be before the generic /grc/test-results handler
+    if (url.match(/\/grc\/issues\/[^/]+\/test-results/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked test results (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
+    // Handle grc/issues/:id/evidence - GET (linked evidence for an issue)
+    // MUST be before the generic /grc/evidence handler
+    if (url.match(/\/grc\/issues\/[^/]+\/evidence/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked evidence (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
     // Handle grc/controls - GET (list)
     if (url.includes('/grc/controls') && method === 'GET') {
       logMock(method, url, true);
@@ -534,6 +561,33 @@ export async function setupMockApi(page: Page) {
           totalPages: 1,
         }));
       }
+      return;
+    }
+
+    // Handle grc/capas/by-issue/:issueId - GET (linked CAPAs for an issue)
+    if (url.includes('/grc/capas/by-issue/') && method === 'GET') {
+      logMock(method, url, true);
+      const mockLinkedCapa = {
+        id: 'mock-capa-001',
+        tenantId: 'test-tenant-id',
+        title: 'Mock Corrective Action Plan',
+        description: 'CAPA to address security control failure',
+        type: 'corrective',
+        status: 'planned',
+        priority: 'high',
+        dueDate: '2024-02-15',
+        issueId: 'mock-issue-001',
+        issue: {
+          id: 'mock-issue-001',
+          title: 'Mock Security Control Failure Issue',
+          status: 'OPEN',
+          severity: 'HIGH',
+        },
+        createdAt: '2024-01-22T00:00:00Z',
+        updatedAt: '2024-01-22T00:00:00Z',
+      };
+      // Return array of linked CAPAs (can be empty or with mock data)
+      await route.fulfill(successResponse([mockLinkedCapa]));
       return;
     }
 
