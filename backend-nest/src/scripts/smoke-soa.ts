@@ -39,9 +39,110 @@ interface ApiResponse {
   error?: string;
 }
 
-interface ListResponse {
-  items?: unknown[];
-  total?: number;
+interface NormalizedListContract {
+  items: unknown[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * Safely truncate a string to a maximum length for logging.
+ * Ensures no secrets are exposed by truncating to a safe size.
+ */
+function safeTruncate(str: string, maxLength: number = 2048): string {
+  if (str.length <= maxLength) {
+    return str;
+  }
+  return str.substring(0, maxLength) + '... [truncated]';
+}
+
+/**
+ * Normalize a LIST-CONTRACT response from various envelope formats.
+ *
+ * Supports these response shapes:
+ * A) { data: { items: [], total, page, pageSize, totalPages } }
+ * B) { data: { data: { items: [], total, page, pageSize, totalPages } } } (double envelope)
+ * C) { items: [], total, page, pageSize, totalPages } (raw list-contract)
+ *
+ * @param json - The raw JSON response from the API
+ * @returns NormalizedListContract - The normalized list contract
+ * @throws Error if the response cannot be normalized to a valid list contract
+ */
+export function normalizeListContract(json: unknown): NormalizedListContract {
+  if (!json || typeof json !== 'object') {
+    throw new Error('Response is not an object');
+  }
+
+  const obj = json as Record<string, unknown>;
+
+  // Helper to extract list contract fields from an object
+  function extractListContract(
+    candidate: Record<string, unknown>,
+  ): NormalizedListContract | null {
+    if (!candidate || typeof candidate !== 'object') {
+      return null;
+    }
+
+    // Check if this object has the required list contract fields
+    if (Array.isArray(candidate.items)) {
+      const items = candidate.items;
+      const total =
+        typeof candidate.total === 'number' ? candidate.total : items.length;
+      const page = typeof candidate.page === 'number' ? candidate.page : 1;
+      const pageSize =
+        typeof candidate.pageSize === 'number' ? candidate.pageSize : 10;
+
+      // Calculate totalPages if missing
+      let totalPages: number;
+      if (typeof candidate.totalPages === 'number') {
+        totalPages = candidate.totalPages;
+      } else {
+        totalPages = Math.ceil(total / pageSize);
+        // Log warning about missing totalPages (contract warning, not error)
+        console.log(
+          `    [CONTRACT WARNING] 'totalPages' missing, computed as ${totalPages}`,
+        );
+      }
+
+      return { items, total, page, pageSize, totalPages };
+    }
+
+    return null;
+  }
+
+  // Try format C: raw list-contract { items: [], total, ... }
+  const rawContract = extractListContract(obj);
+  if (rawContract) {
+    return rawContract;
+  }
+
+  // Try format A: { data: { items: [], total, ... } }
+  if (obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, unknown>;
+    const singleEnvelopeContract = extractListContract(dataObj);
+    if (singleEnvelopeContract) {
+      return singleEnvelopeContract;
+    }
+
+    // Try format B: { data: { data: { items: [], total, ... } } } (double envelope)
+    if (dataObj.data && typeof dataObj.data === 'object') {
+      const innerDataObj = dataObj.data as Record<string, unknown>;
+      const doubleEnvelopeContract = extractListContract(innerDataObj);
+      if (doubleEnvelopeContract) {
+        console.log(
+          '    [CONTRACT WARNING] Double envelope detected (data.data.items)',
+        );
+        return doubleEnvelopeContract;
+      }
+    }
+  }
+
+  // Could not normalize - throw with helpful message
+  throw new Error(
+    `Cannot normalize response to LIST-CONTRACT. Expected 'items' array at root, data.items, or data.data.items`,
+  );
 }
 
 /**
@@ -217,36 +318,74 @@ function printDebugBundle() {
 }
 
 /**
- * Validate LIST-CONTRACT response format
+ * Print raw response body for debugging (truncated to safe size, no secrets)
+ */
+function printRawResponseBody(response: ApiResponse, requestUrl: string): void {
+  console.log('\n    --- RAW RESPONSE DEBUG ---');
+  console.log(`    Request URL: ${requestUrl}`);
+  console.log(`    HTTP Status: ${response.statusCode}`);
+  try {
+    const rawJson = JSON.stringify(response.data, null, 2);
+    console.log(
+      `    Response Body (first 2KB):\n${safeTruncate(rawJson, 2048)}`,
+    );
+  } catch {
+    console.log(`    Response Body: [Unable to stringify]`);
+  }
+  console.log('    --- END RAW RESPONSE ---\n');
+}
+
+/**
+ * Validate LIST-CONTRACT response format using normalizeListContract.
+ * Supports multiple envelope formats and prints raw body on failure.
  */
 function validateListContract(
   response: ApiResponse,
   endpointName: string,
 ): { valid: boolean; items: unknown[]; total: number } {
-  const data = response.data as ListResponse;
+  try {
+    const normalized = normalizeListContract(response.data);
 
-  if (!data || typeof data !== 'object') {
-    console.log(
-      `    [CONTRACT VIOLATION] ${endpointName}: Response is not an object`,
-    );
+    // Additional validation: ensure items is truly an array
+    if (!Array.isArray(normalized.items)) {
+      console.log(
+        `    [CONTRACT VIOLATION] ${endpointName}: 'items' is not an array after normalization`,
+      );
+      printRawResponseBody(response, endpointName);
+      return { valid: false, items: [], total: 0 };
+    }
+
+    // Validate total is a number
+    if (typeof normalized.total !== 'number') {
+      console.log(
+        `    [CONTRACT VIOLATION] ${endpointName}: 'total' is not a number (got ${typeof normalized.total})`,
+      );
+      printRawResponseBody(response, endpointName);
+      return { valid: false, items: [], total: 0 };
+    }
+
+    // Validate page is a number
+    if (typeof normalized.page !== 'number') {
+      console.log(
+        `    [CONTRACT WARNING] ${endpointName}: 'page' is not a number (got ${typeof normalized.page})`,
+      );
+    }
+
+    // Validate pageSize is a number
+    if (typeof normalized.pageSize !== 'number') {
+      console.log(
+        `    [CONTRACT WARNING] ${endpointName}: 'pageSize' is not a number (got ${typeof normalized.pageSize})`,
+      );
+    }
+
+    return { valid: true, items: normalized.items, total: normalized.total };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    console.log(`    [CONTRACT VIOLATION] ${endpointName}: ${errorMessage}`);
+    printRawResponseBody(response, endpointName);
     return { valid: false, items: [], total: 0 };
   }
-
-  if (!Array.isArray(data.items)) {
-    console.log(
-      `    [CONTRACT VIOLATION] ${endpointName}: 'items' is not an array (got ${typeof data.items})`,
-    );
-    return { valid: false, items: [], total: 0 };
-  }
-
-  if (typeof data.total !== 'number') {
-    console.log(
-      `    [CONTRACT VIOLATION] ${endpointName}: 'total' is not a number (got ${typeof data.total})`,
-    );
-    return { valid: false, items: [], total: 0 };
-  }
-
-  return { valid: true, items: data.items, total: data.total };
 }
 
 /**
