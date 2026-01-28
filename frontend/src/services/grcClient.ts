@@ -3893,7 +3893,7 @@ export const soaApi = {
   },
 
   // Issue linking (SOA Closure Loop)
-  listLinkedIssues: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: IssueData[]; total: number; page: number; pageSize: number; totalPages: number }> => {
+  listLinkedIssues: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: IssueData[]; total: number; page: number; pageSize: number }> => {
     const url = `${API_PATHS.GRC_SOA.ITEMS.LIST_ISSUES(itemId)}?page=${page}&pageSize=${pageSize}`;
     const response = await api.get(url, withTenantId(tenantId));
     return unwrapPaginatedResponse<IssueData>(response);
@@ -3905,7 +3905,7 @@ export const soaApi = {
   },
 
   // CAPA linking (SOA Closure Loop)
-  listLinkedCapas: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: CapaData[]; total: number; page: number; pageSize: number; totalPages: number }> => {
+  listLinkedCapas: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: CapaData[]; total: number; page: number; pageSize: number }> => {
     const url = `${API_PATHS.GRC_SOA.ITEMS.LIST_CAPAS(itemId)}?page=${page}&pageSize=${pageSize}`;
     const response = await api.get(url, withTenantId(tenantId));
     return unwrapPaginatedResponse<CapaData>(response);

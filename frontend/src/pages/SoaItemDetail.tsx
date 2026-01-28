@@ -26,6 +26,7 @@ import {
   TextField,
   Divider,
   Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   PlaylistAddCheck as SoaIcon,
@@ -39,7 +40,6 @@ import {
   BugReport as IssueIcon,
   Build as CapaIcon,
   OpenInNew as ViewIcon,
-  CircularProgress,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -820,7 +820,7 @@ export const SoaItemDetail: React.FC = () => {
                       <TableBody>
                         {linkedCapas.map((capa) => (
                           <TableRow key={capa.id}>
-                            <TableCell>{capa.code || '-'}</TableCell>
+                            <TableCell>{capa.id.slice(0, 8) || '-'}</TableCell>
                             <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {capa.title || '-'}
                             </TableCell>
