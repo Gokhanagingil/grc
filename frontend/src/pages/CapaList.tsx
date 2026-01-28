@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Alert,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -189,13 +190,22 @@ export const CapaList: React.FC = () => {
     }
   }, [tenantId, refetch]);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const handleCreateCapa = useCallback(async () => {
-    if (!newCapa.issueId) {
-      alert('Please enter an Issue ID');
+    if (!newCapa.title) {
+      setCreateError('Title is required');
       return;
     }
+    setCreateError(null);
     try {
-      await capaApi.create(tenantId, newCapa);
+      // Create CAPA - issueId is optional for standalone CAPAs
+      // Pass undefined instead of empty string for issueId to avoid validation issues
+      const payload = {
+        ...newCapa,
+        issueId: newCapa.issueId?.trim() || undefined,
+      };
+      await capaApi.create(tenantId, payload);
       setCreateDialogOpen(false);
       setNewCapa({
         title: '',
@@ -204,8 +214,20 @@ export const CapaList: React.FC = () => {
         priority: 'medium',
       });
       refetch();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to create CAPA:', err);
+      const error = err as { response?: { data?: { message?: string; fieldErrors?: Record<string, string[]> } } };
+      if (error.response?.data?.fieldErrors) {
+        const fieldErrors = error.response.data.fieldErrors;
+        const errorMessages = Object.entries(fieldErrors)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('; ');
+        setCreateError(errorMessages);
+      } else if (error.response?.data?.message) {
+        setCreateError(error.response.data.message);
+      } else {
+        setCreateError('Failed to create CAPA. Please try again.');
+      }
     }
   }, [tenantId, newCapa, refetch]);
 
@@ -470,10 +492,15 @@ export const CapaList: React.FC = () => {
               testId="capa-list-page"
             />
 
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-capa-dialog">
         <DialogTitle>Add New CAPA</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            {createError && (
+              <Alert severity="error" onClose={() => setCreateError(null)} data-testid="capa-create-error">
+                {createError}
+              </Alert>
+            )}
             <TextField
               label="Title"
               value={newCapa.title}
@@ -492,12 +519,11 @@ export const CapaList: React.FC = () => {
               data-testid="capa-description-input"
             />
             <TextField
-              label="Issue ID"
+              label="Issue ID (Optional)"
               value={newCapa.issueId}
               onChange={(e) => setNewCapa({ ...newCapa, issueId: e.target.value })}
               fullWidth
-              required
-              helperText="Enter the UUID of the Issue this CAPA is linked to"
+              helperText="Leave empty for standalone CAPA, or enter the UUID of an Issue to link"
               data-testid="capa-issue-id-input"
             />
             <FormControl fullWidth>
@@ -516,11 +542,11 @@ export const CapaList: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)} data-testid="cancel-capa-button">Cancel</Button>
           <Button 
             onClick={handleCreateCapa} 
             variant="contained"
-            disabled={!newCapa.title || !newCapa.issueId}
+            disabled={!newCapa.title}
             data-testid="create-capa-button"
           >
             Create

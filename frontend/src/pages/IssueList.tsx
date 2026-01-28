@@ -468,6 +468,7 @@ export const IssueList: React.FC = () => {
         variant="contained"
         startIcon={<AddIcon />}
         onClick={() => setCreateDialogOpen(true)}
+        data-testid="add-issue-button"
       >
         Add Issue
       </Button>
@@ -525,7 +526,7 @@ export const IssueList: React.FC = () => {
               onRowClick={handleViewIssue}
             />
 
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-issue-dialog">
         <DialogTitle>Add New Issue</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
@@ -535,6 +536,7 @@ export const IssueList: React.FC = () => {
               onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
               fullWidth
               required
+              data-testid="issue-title-input"
             />
             <TextField
               label="Description"
@@ -543,6 +545,7 @@ export const IssueList: React.FC = () => {
               fullWidth
               multiline
               rows={3}
+              data-testid="issue-description-input"
             />
             <FormControl fullWidth>
               <InputLabel>Type</InputLabel>
@@ -550,6 +553,7 @@ export const IssueList: React.FC = () => {
                 value={newIssue.type}
                 label="Type"
                 onChange={(e) => setNewIssue({ ...newIssue, type: e.target.value })}
+                data-testid="issue-type-select"
               >
                 {Object.values(IssueType).map((type) => (
                   <MenuItem key={type} value={type}>{formatType(type)}</MenuItem>
@@ -562,6 +566,7 @@ export const IssueList: React.FC = () => {
                 value={newIssue.severity}
                 label="Severity"
                 onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value })}
+                data-testid="issue-severity-select"
               >
                 {Object.values(IssueSeverity).map((severity) => (
                   <MenuItem key={severity} value={severity}>{formatStatus(severity)}</MenuItem>
@@ -574,6 +579,7 @@ export const IssueList: React.FC = () => {
                 value={newIssue.status}
                 label="Status"
                 onChange={(e) => setNewIssue({ ...newIssue, status: e.target.value })}
+                data-testid="issue-status-select"
               >
                 {Object.values(IssueStatus).map((status) => (
                   <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
@@ -583,11 +589,12 @@ export const IssueList: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)} data-testid="cancel-issue-button">Cancel</Button>
           <Button 
             onClick={handleCreateIssue} 
             variant="contained"
             disabled={!newIssue.title}
+            data-testid="create-issue-button"
           >
             Create
           </Button>

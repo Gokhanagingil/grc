@@ -836,4 +836,152 @@ describe('Closure Loop MVP (e2e)', () => {
       }
     });
   });
+
+  describe('Tenant Isolation - Cross-Tenant Data Access Prevention', () => {
+    const FAKE_TENANT_ID = '99999999-9999-9999-9999-999999999999';
+    let realCapaId: string;
+    let realIssueId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get a real CAPA from the authenticated tenant
+      const capasResponse = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capas = capasResponse.body.data ?? capasResponse.body;
+      if (Array.isArray(capas) && capas.length > 0) {
+        realCapaId = capas[0].id;
+      }
+
+      // Get a real Issue from the authenticated tenant
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issues = issuesResponse.body.data ?? issuesResponse.body;
+      if (Array.isArray(issues) && issues.length > 0) {
+        realIssueId = issues[0].id;
+      }
+    });
+
+    it('should NOT return CAPAs from another tenant when using wrong x-tenant-id', async () => {
+      if (!dbConnected || !tenantId || !realCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      // Try to access CAPA with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get(`/grc/capas/${realCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT return Issues from another tenant when using wrong x-tenant-id', async () => {
+      if (!dbConnected || !tenantId || !realIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to access Issue with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get(`/grc/issues/${realIssueId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT allow updating CAPA status from another tenant', async () => {
+      if (!dbConnected || !tenantId || !realCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      // Try to update CAPA status with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/capas/${realCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID)
+        .send({
+          status: 'in_progress',
+          comment: 'Cross-tenant attack attempt',
+        });
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT allow updating Issue status from another tenant', async () => {
+      if (!dbConnected || !tenantId || !realIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to update Issue status with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/issues/${realIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID)
+        .send({
+          status: 'in_progress',
+          comment: 'Cross-tenant attack attempt',
+        });
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should return empty list when querying CAPAs with wrong tenant ID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Query CAPAs with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return empty list (no CAPAs for that tenant) or 403
+      if (response.status === 200) {
+        const data = response.body.data ?? response.body;
+        const items = data.items ?? data;
+        expect(Array.isArray(items) ? items.length : 0).toBe(0);
+      } else {
+        expect([403]).toContain(response.status);
+      }
+    });
+
+    it('should return empty list when querying Issues with wrong tenant ID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Query Issues with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return empty list (no Issues for that tenant) or 403
+      if (response.status === 200) {
+        const data = response.body.data ?? response.body;
+        const items = data.items ?? data;
+        expect(Array.isArray(items) ? items.length : 0).toBe(0);
+      } else {
+        expect([403]).toContain(response.status);
+      }
+    });
+  });
 });
