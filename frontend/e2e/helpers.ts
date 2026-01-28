@@ -537,6 +537,33 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/capas/by-issue/:issueId - GET (linked CAPAs for an issue)
+    if (url.includes('/grc/capas/by-issue/') && method === 'GET') {
+      logMock(method, url, true);
+      const mockLinkedCapa = {
+        id: 'mock-capa-001',
+        tenantId: 'test-tenant-id',
+        title: 'Mock Corrective Action Plan',
+        description: 'CAPA to address security control failure',
+        type: 'corrective',
+        status: 'planned',
+        priority: 'high',
+        dueDate: '2024-02-15',
+        issueId: 'mock-issue-001',
+        issue: {
+          id: 'mock-issue-001',
+          title: 'Mock Security Control Failure Issue',
+          status: 'OPEN',
+          severity: 'HIGH',
+        },
+        createdAt: '2024-01-22T00:00:00Z',
+        updatedAt: '2024-01-22T00:00:00Z',
+      };
+      // Return array of linked CAPAs (can be empty or with mock data)
+      await route.fulfill(successResponse([mockLinkedCapa]));
+      return;
+    }
+
     // Handle grc/capas - GET (CAPA list and detail pages) - note: API uses plural 'capas'
     if (url.includes('/grc/capas') && method === 'GET') {
       logMock(method, url, true);
