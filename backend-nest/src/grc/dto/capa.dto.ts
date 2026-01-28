@@ -11,8 +11,18 @@ import {
   IsArray,
   Matches,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { CapaType, CapaStatus, CAPAPriority, SourceType } from '../enums';
+
+/**
+ * Transform to normalize enum values to uppercase.
+ * Accepts lowercase, uppercase, or mixed case input and converts to uppercase.
+ * Used for enums like CAPAPriority where DB expects uppercase values.
+ */
+const UppercaseEnumTransform = () =>
+  Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  );
 
 /**
  * DTO for creating a new CAPA record
@@ -38,6 +48,7 @@ export class CreateCapaDto {
   status?: CapaStatus;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(CAPAPriority)
   priority?: CAPAPriority;
 
@@ -74,6 +85,7 @@ export class CreateCapaDto {
   metadata?: Record<string, unknown>;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(SourceType)
   sourceType?: SourceType;
 
@@ -109,6 +121,7 @@ export class UpdateCapaDto {
   type?: CapaType;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(CAPAPriority)
   priority?: CAPAPriority;
 
@@ -178,6 +191,7 @@ export class CapaFilterDto {
   type?: CapaType;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(CAPAPriority)
   priority?: CAPAPriority;
 
@@ -256,6 +270,7 @@ export class CreateCapaFromSoaItemDto {
   type?: CapaType;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(CAPAPriority)
   priority?: CAPAPriority;
 

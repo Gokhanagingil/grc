@@ -10,9 +10,19 @@ import {
   IsObject,
   Matches,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CAPATaskStatus } from '../enums';
+
+/**
+ * Transform to normalize enum values to uppercase.
+ * Accepts lowercase, uppercase, or mixed case input and converts to uppercase.
+ * Used for enums like CAPATaskStatus where DB expects uppercase values.
+ */
+const UppercaseEnumTransform = () =>
+  Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  );
 
 export class CreateCapaTaskDto {
   @IsUUID()
@@ -86,6 +96,7 @@ export class UpdateCapaTaskStatusDto {
     description: 'Target status for the CAPA task',
     example: 'IN_PROGRESS',
   })
+  @UppercaseEnumTransform()
   @IsEnum(CAPATaskStatus)
   status: CAPATaskStatus;
 
@@ -112,6 +123,7 @@ export class CapaTaskFilterDto {
   capaId?: string;
 
   @IsOptional()
+  @UppercaseEnumTransform()
   @IsEnum(CAPATaskStatus)
   status?: CAPATaskStatus;
 
