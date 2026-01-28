@@ -3,11 +3,20 @@
 # =============================================================================
 # Staging deployment configuration for Hetzner server
 #
+# IMPORTANT: Project Name & Volume Stability
+#   This file pins the project name to "grc-platform" to ensure consistent
+#   volume naming across all invocations. The database volume is configured
+#   as external to prevent accidental creation of new volumes.
+#
+#   If you see "volume not found" errors, the external volume must be created
+#   first or already exist from a previous deployment.
+#
 # Usage:
 #   Start:    docker compose -f docker-compose.staging.yml up -d
 #   Stop:     docker compose -f docker-compose.staging.yml down
 #   Rebuild:  docker compose -f docker-compose.staging.yml up -d --build --force-recreate
 #   Logs:     docker compose -f docker-compose.staging.yml logs -f
+#   Validate: bash ops/staging-db-validate.sh
 #
 # After starting, access:
 #   - Frontend: http://46.224.99.150
@@ -16,6 +25,11 @@
 #   - Frontend Health: http://46.224.99.150/frontend-health
 #
 # =============================================================================
+
+# Pin the project name to ensure consistent volume naming
+# This prevents volume drift when compose is invoked from different directories
+# or with different environment variables
+name: grc-platform
 
 services:
   # ---------------------------------------------------------------------------
@@ -30,7 +44,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-grc_platform}
     volumes:
-      - grc_staging_postgres_data:/var/lib/postgresql/data
+      - grc_staging_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-grc_platform}"]
       interval: 10s
@@ -125,9 +139,23 @@ services:
 # -----------------------------------------------------------------------------
 # Named Volumes
 # -----------------------------------------------------------------------------
+# IMPORTANT: The database volume is configured as EXTERNAL to prevent
+# accidental creation of new volumes with different names.
+#
+# The volume "grc-platform_grc_staging_postgres_data" must already exist
+# on the staging host. This is the volume that contains the production
+# staging data.
+#
+# If deploying to a fresh host, create the volume first:
+#   docker volume create grc-platform_grc_staging_postgres_data
+#
+# To verify the correct volume is mounted, run:
+#   bash ops/staging-db-validate.sh
+# -----------------------------------------------------------------------------
 volumes:
-  grc_staging_postgres_data:
-    driver: local
+  grc_staging_db_data:
+    external: true
+    name: grc-platform_grc_staging_postgres_data
 
 # -----------------------------------------------------------------------------
 # Networks
