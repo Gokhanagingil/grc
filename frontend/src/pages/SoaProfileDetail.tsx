@@ -171,6 +171,8 @@ export const SoaProfileDetail: React.FC = () => {
   const [itemsSearch, setItemsSearch] = useState('');
   const [applicabilityFilter, setApplicabilityFilter] = useState<SoaApplicability | ''>('');
   const [implementationFilter, setImplementationFilter] = useState<SoaImplementationStatus | ''>('');
+  const [hasControlsFilter, setHasControlsFilter] = useState<'true' | 'false' | ''>('');
+  const [hasEvidenceFilter, setHasEvidenceFilter] = useState<'true' | 'false' | ''>('');
 
   // Item edit dialog
   const [editingItem, setEditingItem] = useState<SoaItemData | null>(null);
@@ -245,6 +247,8 @@ export const SoaProfileDetail: React.FC = () => {
         search: itemsSearch || undefined,
         applicability: applicabilityFilter || undefined,
         implementationStatus: implementationFilter || undefined,
+        hasControls: hasControlsFilter === '' ? undefined : hasControlsFilter === 'true',
+        hasEvidence: hasEvidenceFilter === '' ? undefined : hasEvidenceFilter === 'true',
       });
       setItems(response.items);
       setItemsTotal(response.total);
@@ -253,7 +257,7 @@ export const SoaProfileDetail: React.FC = () => {
     } finally {
       setItemsLoading(false);
     }
-  }, [id, tenantId, isNew, itemsPage, itemsPageSize, itemsSearch, applicabilityFilter, implementationFilter]);
+  }, [id, tenantId, isNew, itemsPage, itemsPageSize, itemsSearch, applicabilityFilter, implementationFilter, hasControlsFilter, hasEvidenceFilter]);
 
   // Fetch available controls
   const fetchControls = useCallback(async () => {
@@ -619,7 +623,7 @@ export const SoaProfileDetail: React.FC = () => {
               }>
                 {statisticsError}
               </Alert>
-            ) : statistics ? (
+            ) : statistics ? (<>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6} md={2}>
                   <Box textAlign="center" p={1}>
@@ -718,7 +722,109 @@ export const SoaProfileDetail: React.FC = () => {
                   </Box>
                 </Grid>
               </Grid>
-            ) : null}
+              
+              {/* Gaps Section */}
+              {statistics.gaps && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Gaps
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                      <Card 
+                        variant="outlined" 
+                        sx={{ 
+                          bgcolor: statistics.gaps.missingControls > 0 ? 'warning.light' : 'success.light',
+                          cursor: 'pointer',
+                          '&:hover': { boxShadow: 2 }
+                        }}
+                        onClick={() => {
+                          setApplicabilityFilter('');
+                          setImplementationFilter('');
+                          setHasControlsFilter('false');
+                          setHasEvidenceFilter('');
+                          setItemsPage(0);
+                          setTabValue(0);
+                        }}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="h3" color={statistics.gaps.missingControls > 0 ? 'warning.dark' : 'success.dark'}>
+                            {statistics.gaps.missingControls}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Missing Controls
+                          </Typography>
+                          <Button size="small" sx={{ mt: 1 }}>
+                            View Items
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Card 
+                        variant="outlined" 
+                        sx={{ 
+                          bgcolor: statistics.gaps.missingEvidence > 0 ? 'warning.light' : 'success.light',
+                          cursor: 'pointer',
+                          '&:hover': { boxShadow: 2 }
+                        }}
+                        onClick={() => {
+                          setApplicabilityFilter('');
+                          setImplementationFilter('');
+                          setHasControlsFilter('');
+                          setHasEvidenceFilter('false');
+                          setItemsPage(0);
+                          setTabValue(0);
+                        }}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="h3" color={statistics.gaps.missingEvidence > 0 ? 'warning.dark' : 'success.dark'}>
+                            {statistics.gaps.missingEvidence}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Missing Evidence
+                          </Typography>
+                          <Button size="small" sx={{ mt: 1 }}>
+                            View Items
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Card 
+                        variant="outlined" 
+                        sx={{ 
+                          bgcolor: statistics.gaps.applicableNotImplemented > 0 ? 'error.light' : 'success.light',
+                          cursor: 'pointer',
+                          '&:hover': { boxShadow: 2 }
+                        }}
+                        onClick={() => {
+                          setApplicabilityFilter('APPLICABLE');
+                          setImplementationFilter('NOT_IMPLEMENTED');
+                          setHasControlsFilter('');
+                          setHasEvidenceFilter('');
+                          setItemsPage(0);
+                          setTabValue(0);
+                        }}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="h3" color={statistics.gaps.applicableNotImplemented > 0 ? 'error.dark' : 'success.dark'}>
+                            {statistics.gaps.applicableNotImplemented}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Applicable & Not Implemented
+                          </Typography>
+                          <Button size="small" sx={{ mt: 1 }}>
+                            View Items
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </>
+              )}
+            </>) : null}
           </CardContent>
         </Card>
       )}
@@ -778,6 +884,36 @@ export const SoaProfileDetail: React.FC = () => {
                   <MenuItem value="PARTIALLY_IMPLEMENTED">Partially Implemented</MenuItem>
                   <MenuItem value="PLANNED">Planned</MenuItem>
                   <MenuItem value="NOT_IMPLEMENTED">Not Implemented</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Has Controls</InputLabel>
+                <Select
+                  value={hasControlsFilter}
+                  label="Has Controls"
+                  onChange={(e) => {
+                    setHasControlsFilter(e.target.value as 'true' | 'false' | '');
+                    setItemsPage(0);
+                  }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="true">Yes</MenuItem>
+                  <MenuItem value="false">No</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Has Evidence</InputLabel>
+                <Select
+                  value={hasEvidenceFilter}
+                  label="Has Evidence"
+                  onChange={(e) => {
+                    setHasEvidenceFilter(e.target.value as 'true' | 'false' | '');
+                    setItemsPage(0);
+                  }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="true">Yes</MenuItem>
+                  <MenuItem value="false">No</MenuItem>
                 </Select>
               </FormControl>
             </Box>
