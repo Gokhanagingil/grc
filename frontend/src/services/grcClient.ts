@@ -532,6 +532,10 @@ export const API_PATHS = {
       UNLINK_CONTROL: (itemId: string, controlId: string) => `/grc/soa/items/${itemId}/controls/${controlId}`,
       LINK_EVIDENCE: (itemId: string, evidenceId: string) => `/grc/soa/items/${itemId}/evidence/${evidenceId}`,
       UNLINK_EVIDENCE: (itemId: string, evidenceId: string) => `/grc/soa/items/${itemId}/evidence/${evidenceId}`,
+      LIST_ISSUES: (itemId: string) => `/grc/soa/items/${itemId}/issues`,
+      CREATE_ISSUE: (itemId: string) => `/grc/soa/items/${itemId}/issues`,
+      LIST_CAPAS: (itemId: string) => `/grc/soa/items/${itemId}/capas`,
+      CREATE_CAPA: (itemId: string) => `/grc/soa/items/${itemId}/capas`,
     },
   },
 } as const;
@@ -3886,5 +3890,29 @@ export const soaApi = {
 
   unlinkEvidence: async (tenantId: string, itemId: string, evidenceId: string): Promise<void> => {
     await api.delete(API_PATHS.GRC_SOA.ITEMS.UNLINK_EVIDENCE(itemId, evidenceId), withTenantId(tenantId));
+  },
+
+  // Issue linking (SOA Closure Loop)
+  listLinkedIssues: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: IssueData[]; total: number; page: number; pageSize: number }> => {
+    const url = `${API_PATHS.GRC_SOA.ITEMS.LIST_ISSUES(itemId)}?page=${page}&pageSize=${pageSize}`;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapPaginatedResponse<IssueData>(response);
+  },
+
+  createIssueFromItem: async (tenantId: string, itemId: string, data: { title?: string; description?: string; severity?: string; ownerUserId?: string; dueDate?: string }): Promise<IssueData> => {
+    const response = await api.post(API_PATHS.GRC_SOA.ITEMS.CREATE_ISSUE(itemId), data, withTenantId(tenantId));
+    return unwrapResponse<IssueData>(response);
+  },
+
+  // CAPA linking (SOA Closure Loop)
+  listLinkedCapas: async (tenantId: string, itemId: string, page = 1, pageSize = 5): Promise<{ items: CapaData[]; total: number; page: number; pageSize: number }> => {
+    const url = `${API_PATHS.GRC_SOA.ITEMS.LIST_CAPAS(itemId)}?page=${page}&pageSize=${pageSize}`;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapPaginatedResponse<CapaData>(response);
+  },
+
+  createCapaFromItem: async (tenantId: string, itemId: string, data: { title: string; description?: string; type?: string; priority?: string; ownerUserId?: string; dueDate?: string; issueId?: string }): Promise<CapaData> => {
+    const response = await api.post(API_PATHS.GRC_SOA.ITEMS.CREATE_CAPA(itemId), data, withTenantId(tenantId));
+    return unwrapResponse<CapaData>(response);
   },
 };

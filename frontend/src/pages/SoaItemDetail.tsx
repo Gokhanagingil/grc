@@ -26,6 +26,7 @@ import {
   TextField,
   Divider,
   Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   PlaylistAddCheck as SoaIcon,
@@ -36,6 +37,9 @@ import {
   Security as ControlIcon,
   Description as EvidenceIcon,
   Link as LinkIcon,
+  BugReport as IssueIcon,
+  Build as CapaIcon,
+  OpenInNew as ViewIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -47,6 +51,8 @@ import {
   controlApi,
   evidenceApi,
   unwrapPaginatedResponse,
+  IssueData,
+  CapaData,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
@@ -116,6 +122,17 @@ export const SoaItemDetail: React.FC = () => {
   const [selectedEvidenceId, setSelectedEvidenceId] = useState('');
   const [linking, setLinking] = useState(false);
 
+  const [linkedIssues, setLinkedIssues] = useState<IssueData[]>([]);
+  const [linkedIssuesTotal, setLinkedIssuesTotal] = useState(0);
+  const [linkedIssuesLoading, setLinkedIssuesLoading] = useState(false);
+
+  const [linkedCapas, setLinkedCapas] = useState<CapaData[]>([]);
+  const [linkedCapasTotal, setLinkedCapasTotal] = useState(0);
+  const [linkedCapasLoading, setLinkedCapasLoading] = useState(false);
+
+  const [creatingIssue, setCreatingIssue] = useState(false);
+  const [creatingCapa, setCreatingCapa] = useState(false);
+
   const fetchItem = useCallback(async () => {
     if (!itemId || !tenantId) return;
 
@@ -169,11 +186,43 @@ export const SoaItemDetail: React.FC = () => {
     }
   }, [tenantId]);
 
+  const fetchLinkedIssues = useCallback(async () => {
+    if (!itemId || !tenantId) return;
+
+    setLinkedIssuesLoading(true);
+    try {
+      const result = await soaApi.listLinkedIssues(tenantId, itemId, 1, 5);
+      setLinkedIssues(result.items || []);
+      setLinkedIssuesTotal(result.total || 0);
+    } catch (err) {
+      console.error('Error fetching linked issues:', err);
+    } finally {
+      setLinkedIssuesLoading(false);
+    }
+  }, [itemId, tenantId]);
+
+  const fetchLinkedCapas = useCallback(async () => {
+    if (!itemId || !tenantId) return;
+
+    setLinkedCapasLoading(true);
+    try {
+      const result = await soaApi.listLinkedCapas(tenantId, itemId, 1, 5);
+      setLinkedCapas(result.items || []);
+      setLinkedCapasTotal(result.total || 0);
+    } catch (err) {
+      console.error('Error fetching linked CAPAs:', err);
+    } finally {
+      setLinkedCapasLoading(false);
+    }
+  }, [itemId, tenantId]);
+
   useEffect(() => {
     fetchItem();
     fetchControls();
     fetchEvidence();
-  }, [fetchItem, fetchControls, fetchEvidence]);
+    fetchLinkedIssues();
+    fetchLinkedCapas();
+  }, [fetchItem, fetchControls, fetchEvidence, fetchLinkedIssues, fetchLinkedCapas]);
 
   const handleSave = async () => {
     if (!itemId || !tenantId) return;
@@ -237,6 +286,65 @@ export const SoaItemDetail: React.FC = () => {
       navigate(`/soa/${item.profileId}`);
     } else {
       navigate('/soa');
+    }
+  };
+
+  const handleCreateIssue = async () => {
+    if (!itemId || !tenantId) return;
+
+    setCreatingIssue(true);
+    try {
+      const issue = await soaApi.createIssueFromItem(tenantId, itemId, {});
+      setSuccess('Issue created successfully');
+      fetchLinkedIssues();
+      navigate(`/issues/${issue.id}`);
+    } catch (err) {
+      console.error('Error creating issue:', err);
+      setError('Failed to create issue. Please try again.');
+    } finally {
+      setCreatingIssue(false);
+    }
+  };
+
+  const handleCreateCapa = async () => {
+    if (!itemId || !tenantId) return;
+
+    setCreatingCapa(true);
+    try {
+      const clauseCode = item?.clause?.code || 'Unknown';
+      const clauseName = item?.clause?.title || 'Unknown Clause';
+      const capa = await soaApi.createCapaFromItem(tenantId, itemId, {
+        title: `CAPA for SOA Gap: ${clauseCode} - ${clauseName}`,
+      });
+      setSuccess('CAPA created successfully');
+      fetchLinkedCapas();
+      navigate(`/capas/${capa.id}`);
+    } catch (err) {
+      console.error('Error creating CAPA:', err);
+      setError('Failed to create CAPA. Please try again.');
+    } finally {
+      setCreatingCapa(false);
+    }
+  };
+
+  const getIssueStatusColor = (status: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
+    switch (status?.toUpperCase()) {
+      case 'CLOSED': return 'success';
+      case 'RESOLVED': return 'info';
+      case 'IN_PROGRESS': return 'warning';
+      case 'OPEN': return 'error';
+      default: return 'default';
+    }
+  };
+
+  const getCapaStatusColor = (status: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
+    switch (status?.toUpperCase()) {
+      case 'COMPLETED': return 'success';
+      case 'VERIFIED': return 'success';
+      case 'IN_PROGRESS': return 'warning';
+      case 'PLANNED': return 'info';
+      case 'CANCELLED': return 'error';
+      default: return 'default';
     }
   };
 
@@ -592,6 +700,164 @@ export const SoaItemDetail: React.FC = () => {
           </Card>
         </Grid>
 
+        {/* Linked Issues Section */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">
+                  <IssueIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Linked Issues ({linkedIssuesTotal})
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  onClick={handleCreateIssue}
+                  disabled={creatingIssue}
+                  startIcon={creatingIssue ? <CircularProgress size={16} /> : undefined}
+                >
+                  {creatingIssue ? 'Creating...' : 'Create Issue'}
+                </Button>
+              </Box>
+              {linkedIssuesLoading ? (
+                <Box display="flex" justifyContent="center" p={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : linkedIssues.length === 0 ? (
+                <Alert severity="info">No issues created from this SOA item yet.</Alert>
+              ) : (
+                <>
+                  <Paper variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Code</TableCell>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {linkedIssues.map((issue) => (
+                          <TableRow key={issue.id}>
+                            <TableCell>{issue.code || '-'}</TableCell>
+                            <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {issue.title || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={formatStatus(issue.status || '')}
+                                size="small"
+                                color={getIssueStatusColor(issue.status || '')}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                size="small"
+                                onClick={() => navigate(`/issues/${issue.id}`)}
+                                title="View Issue"
+                              >
+                                <ViewIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                  {linkedIssuesTotal > 5 && (
+                    <Box display="flex" justifyContent="center" mt={1}>
+                      <Button size="small" onClick={() => navigate(`/issues?sourceType=SOA_ITEM&sourceId=${itemId}`)}>
+                        View all {linkedIssuesTotal} issues
+                      </Button>
+                    </Box>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Linked CAPAs Section */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">
+                  <CapaIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Linked CAPAs ({linkedCapasTotal})
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleCreateCapa}
+                  disabled={creatingCapa}
+                  startIcon={creatingCapa ? <CircularProgress size={16} /> : undefined}
+                >
+                  {creatingCapa ? 'Creating...' : 'Create CAPA'}
+                </Button>
+              </Box>
+              {linkedCapasLoading ? (
+                <Box display="flex" justifyContent="center" p={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : linkedCapas.length === 0 ? (
+                <Alert severity="info">No CAPAs created from this SOA item yet.</Alert>
+              ) : (
+                <>
+                  <Paper variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Code</TableCell>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {linkedCapas.map((capa) => (
+                          <TableRow key={capa.id}>
+                            <TableCell>{capa.id.slice(0, 8) || '-'}</TableCell>
+                            <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {capa.title || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={formatStatus(capa.status || '')}
+                                size="small"
+                                color={getCapaStatusColor(capa.status || '')}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                size="small"
+                                onClick={() => navigate(`/capas/${capa.id}`)}
+                                title="View CAPA"
+                              >
+                                <ViewIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                  {linkedCapasTotal > 5 && (
+                    <Box display="flex" justifyContent="center" mt={1}>
+                      <Button size="small" onClick={() => navigate(`/capas?sourceType=SOA_ITEM&sourceId=${itemId}`)}>
+                        View all {linkedCapasTotal} CAPAs
+                      </Button>
+                    </Box>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Next Actions Section */}
         <Grid item xs={12}>
           <Card>
@@ -604,21 +870,24 @@ export const SoaItemDetail: React.FC = () => {
                 <Button
                   variant="outlined"
                   color="primary"
-                  onClick={() => navigate(`/issues/new?soaItemId=${itemId}&clauseCode=${encodeURIComponent(item?.clause?.code || '')}`)}
+                  onClick={handleCreateIssue}
+                  disabled={creatingIssue}
                 >
-                  Create Issue
+                  {creatingIssue ? 'Creating Issue...' : 'Create Issue'}
                 </Button>
                 <Button
                   variant="outlined"
                   color="secondary"
-                  onClick={() => navigate(`/capas/new?soaItemId=${itemId}&clauseCode=${encodeURIComponent(item?.clause?.code || '')}`)}
+                  onClick={handleCreateCapa}
+                  disabled={creatingCapa}
                 >
-                  Create CAPA
+                  {creatingCapa ? 'Creating CAPA...' : 'Create CAPA'}
                 </Button>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                 Create an Issue to track problems or non-conformities related to this SOA item. 
                 Create a CAPA (Corrective and Preventive Action) to document remediation steps.
+                Issues and CAPAs created here will automatically track their origin from this SOA item.
               </Typography>
             </CardContent>
           </Card>

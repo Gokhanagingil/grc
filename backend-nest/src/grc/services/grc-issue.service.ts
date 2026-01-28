@@ -19,12 +19,14 @@ import {
   IssueStatus,
   IssueSeverity,
   IssueSource,
+  SourceType,
 } from '../enums';
 import {
   CreateIssueDto,
   UpdateIssueDto,
   IssueFilterDto,
   CreateIssueFromTestResultDto,
+  CreateIssueFromSoaItemDto,
 } from '../dto/issue.dto';
 import { AuditService } from '../../audit/audit.service';
 import { parseFilterJson } from '../../common/list-query/list-query.parser';
@@ -616,5 +618,84 @@ export class GrcIssueService {
     // Users can manually link evidences using the existing linkToEvidence endpoint
 
     return this.findOne(tenantId, savedIssue.id);
+  }
+
+  async createFromSoaItem(
+    tenantId: string,
+    soaItemId: string,
+    clauseCode: string,
+    clauseName: string,
+    dto: CreateIssueFromSoaItemDto,
+    userId: string,
+  ): Promise<GrcIssue> {
+    const autoTitle = dto.title || `SOA Gap: ${clauseCode} - ${clauseName}`;
+
+    let code: string | undefined;
+    if (this.codeGeneratorService) {
+      code = await this.codeGeneratorService.generateCode(
+        tenantId,
+        CodePrefix.ISSUE,
+      );
+    }
+
+    const issueData: DeepPartial<GrcIssue> = {
+      tenantId,
+      code,
+      title: autoTitle,
+      description:
+        dto.description ||
+        `Issue created from SOA item gap. Clause: ${clauseCode} - ${clauseName}`,
+      type: IssueType.SELF_ASSESSMENT,
+      status: IssueStatus.OPEN,
+      severity: IssueSeverity.MEDIUM,
+      source: IssueSource.SOA_ITEM,
+      sourceType: SourceType.SOA_ITEM,
+      sourceId: soaItemId,
+      sourceRef: clauseCode,
+      sourceMeta: {
+        clauseName,
+        createdFromSoaItem: true,
+      },
+      discoveredDate: new Date(),
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      ownerUserId: dto.ownerUserId || undefined,
+      raisedByUserId: userId,
+      createdBy: userId,
+    };
+
+    const issue = this.issueRepository.create(issueData);
+    const savedIssue = await this.issueRepository.save(issue);
+
+    await this.auditService.recordCreate(
+      'GrcIssue',
+      savedIssue,
+      userId,
+      tenantId,
+    );
+
+    return this.findOne(tenantId, savedIssue.id);
+  }
+
+  async findBySourceId(
+    tenantId: string,
+    sourceType: SourceType,
+    sourceId: string,
+    page = 1,
+    pageSize = 5,
+  ): Promise<{ items: GrcIssue[]; total: number }> {
+    const [items, total] = await this.issueRepository.findAndCount({
+      where: {
+        tenantId,
+        sourceType,
+        sourceId,
+        isDeleted: false,
+      },
+      relations: ['owner', 'raisedBy'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return { items, total };
   }
 }

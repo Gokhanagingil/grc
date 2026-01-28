@@ -559,6 +559,247 @@ describe('SOA Profiles (e2e)', () => {
     });
   });
 
+  describe('GET /grc/soa/items/:id/issues - Linked Issues', () => {
+    let createdIssueId: string;
+
+    afterAll(async () => {
+      if (dbConnected && dataSource && createdIssueId) {
+        try {
+          const issueRepo = dataSource.getRepository('GrcIssue');
+          await issueRepo.delete(createdIssueId);
+        } catch (error) {
+          console.warn('Error cleaning up test issue:', error);
+        }
+      }
+    });
+
+    it('should return linked issues for an SOA item in LIST-CONTRACT format', async () => {
+      if (!dbConnected || !tenantId || !testItemId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/issues?page=1&pageSize=5`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('page');
+      expect(response.body.data).toHaveProperty('pageSize');
+      expect(response.body.data).toHaveProperty('totalPages');
+    });
+
+    it('should create an issue from SOA item with source tracking', async () => {
+      if (!dbConnected || !tenantId || !testItemId || !testClauseId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const createDto = {
+        title: 'Test Issue from SOA Item',
+        description: 'Created via e2e test',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/soa/items/${testItemId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send(createDto)
+        .expect(201);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body).toHaveProperty('title', createDto.title);
+      expect(response.body).toHaveProperty('sourceType', 'SOA_ITEM');
+      expect(response.body).toHaveProperty('sourceId', testItemId);
+      expect(response.body).toHaveProperty('source', 'soa_item');
+
+      createdIssueId = response.body.id;
+
+      const listResponse = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/issues?page=1&pageSize=5`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const issueIds = listResponse.body.data.items.map(
+        (i: { id: string }) => i.id,
+      );
+      expect(issueIds).toContain(createdIssueId);
+    });
+
+    it('should return 404 for non-existent SOA item', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const fakeId = '00000000-0000-0000-0000-000000000999';
+      await request(app.getHttpServer())
+        .get(`/grc/soa/items/${fakeId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+    });
+
+    it('should maintain tenant isolation for linked issues', async () => {
+      if (!dbConnected || !tenantId || !testItemId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const otherTenantId = '99999999-9999-9999-9999-999999999999';
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', otherTenantId)
+        .expect(404);
+
+      expect(response.body.message).toContain('not found');
+    });
+  });
+
+  describe('GET /grc/soa/items/:id/capas - Linked CAPAs', () => {
+    let createdCapaId: string;
+    let createdIssueForCapaId: string;
+
+    afterAll(async () => {
+      if (dbConnected && dataSource) {
+        try {
+          if (createdCapaId) {
+            const capaRepo = dataSource.getRepository('GrcCapa');
+            await capaRepo.delete(createdCapaId);
+          }
+          if (createdIssueForCapaId) {
+            const issueRepo = dataSource.getRepository('GrcIssue');
+            await issueRepo.delete(createdIssueForCapaId);
+          }
+        } catch (error) {
+          console.warn('Error cleaning up test CAPA/Issue:', error);
+        }
+      }
+    });
+
+    it('should return linked CAPAs for an SOA item in LIST-CONTRACT format', async () => {
+      if (!dbConnected || !tenantId || !testItemId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/capas?page=1&pageSize=5`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('page');
+      expect(response.body.data).toHaveProperty('pageSize');
+      expect(response.body.data).toHaveProperty('totalPages');
+    });
+
+    it('should create a CAPA from SOA item with source tracking', async () => {
+      if (!dbConnected || !tenantId || !testItemId || !testClauseId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const issueResponse = await request(app.getHttpServer())
+        .post(`/grc/soa/items/${testItemId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'Issue for CAPA Test',
+          description: 'Created via e2e test for CAPA',
+        })
+        .expect(201);
+
+      createdIssueForCapaId = issueResponse.body.id;
+
+      const createCapaDto = {
+        title: 'Test CAPA from SOA Item',
+        description: 'Created via e2e test',
+        issueId: createdIssueForCapaId,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/soa/items/${testItemId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send(createCapaDto)
+        .expect(201);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body).toHaveProperty('title', createCapaDto.title);
+      expect(response.body).toHaveProperty('sourceType', 'SOA_ITEM');
+      expect(response.body).toHaveProperty('sourceId', testItemId);
+
+      createdCapaId = response.body.id;
+
+      const listResponse = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/capas?page=1&pageSize=5`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const capaIds = listResponse.body.data.items.map(
+        (c: { id: string }) => c.id,
+      );
+      expect(capaIds).toContain(createdCapaId);
+    });
+
+    it('should return 404 for non-existent SOA item', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const fakeId = '00000000-0000-0000-0000-000000000999';
+      await request(app.getHttpServer())
+        .get(`/grc/soa/items/${fakeId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+    });
+
+    it('should maintain tenant isolation for linked CAPAs', async () => {
+      if (!dbConnected || !tenantId || !testItemId) {
+        console.log(
+          'Skipping test: database not connected or test data not available',
+        );
+        return;
+      }
+
+      const otherTenantId = '99999999-9999-9999-9999-999999999999';
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/soa/items/${testItemId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', otherTenantId)
+        .expect(404);
+
+      expect(response.body.message).toContain('not found');
+    });
+  });
+
   describe('UUID Format Validation', () => {
     // Helper to extract error message from response body (handles different envelope formats)
     const getErrorMessage = (body: Record<string, unknown>): string => {

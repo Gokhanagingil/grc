@@ -26,6 +26,8 @@ import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { Perf } from '../../common/decorators';
 import { GrcSoaService } from '../services/grc-soa.service';
+import { GrcIssueService } from '../services/grc-issue.service';
+import { GrcCapaService } from '../services/grc-capa.service';
 import {
   CreateSoaProfileDto,
   UpdateSoaProfileDto,
@@ -33,6 +35,9 @@ import {
   UpdateSoaItemDto,
   FilterSoaItemDto,
 } from '../dto';
+import { CreateIssueFromSoaItemDto } from '../dto/issue.dto';
+import { CreateCapaFromSoaItemDto } from '../dto/capa.dto';
+import { SourceType } from '../enums';
 
 /**
  * GRC SOA Controller
@@ -49,7 +54,11 @@ import {
 @Controller('grc/soa')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcSoaController {
-  constructor(private readonly soaService: GrcSoaService) {}
+  constructor(
+    private readonly soaService: GrcSoaService,
+    private readonly issueService: GrcIssueService,
+    private readonly capaService: GrcCapaService,
+  ) {}
 
   // ============================================================================
   // Profile Endpoints
@@ -486,5 +495,197 @@ export class GrcSoaController {
         `Link between SOA Item ${id} and Evidence ${evidenceId} not found`,
       );
     }
+  }
+
+  // ============================================================================
+  // Issue/CAPA Linking Endpoints (SOA Closure Loop)
+  // ============================================================================
+
+  /**
+   * GET /grc/soa/items/:id/issues
+   * Get Issues created from this SOA item
+   * Returns LIST-CONTRACT format with pagination
+   */
+  @Get('items/:id/issues')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  @Perf()
+  async getLinkedIssues(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', UuidFormatPipe) id: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const item = await this.soaService.getItem(tenantId, id);
+    if (!item) {
+      throw new NotFoundException(`SOA Item with ID ${id} not found`);
+    }
+
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 5;
+
+    const result = await this.issueService.findBySourceId(
+      tenantId,
+      SourceType.SOA_ITEM,
+      id,
+      pageNum,
+      pageSizeNum,
+    );
+
+    return {
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        page: pageNum,
+        pageSize: pageSizeNum,
+        totalPages: Math.ceil(result.total / pageSizeNum),
+      },
+    };
+  }
+
+  /**
+   * POST /grc/soa/items/:id/issues
+   * Create an Issue from this SOA item
+   * Sets source fields to track origin
+   */
+  @Post('items/:id/issues')
+  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createIssueFromItem(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id', UuidFormatPipe) id: string,
+    @Body() dto: CreateIssueFromSoaItemDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const item = await this.soaService.getItem(tenantId, id);
+    if (!item) {
+      throw new NotFoundException(`SOA Item with ID ${id} not found`);
+    }
+
+    const clauseCode: string = item.clause?.code ?? 'Unknown';
+    const clauseName: string = item.clause?.title ?? 'Unknown Clause';
+
+    const issue = await this.issueService.createFromSoaItem(
+      tenantId,
+      id,
+      clauseCode,
+      clauseName,
+      dto,
+      req.user.id,
+    );
+
+    return { success: true, data: issue };
+  }
+
+  /**
+   * GET /grc/soa/items/:id/capas
+   * Get CAPAs created from this SOA item
+   * Returns LIST-CONTRACT format with pagination
+   */
+  @Get('items/:id/capas')
+  @Permissions(Permission.GRC_CAPA_READ)
+  @Perf()
+  async getLinkedCapas(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', UuidFormatPipe) id: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const item = await this.soaService.getItem(tenantId, id);
+    if (!item) {
+      throw new NotFoundException(`SOA Item with ID ${id} not found`);
+    }
+
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 5;
+
+    const result = await this.capaService.findBySourceId(
+      tenantId,
+      SourceType.SOA_ITEM,
+      id,
+      pageNum,
+      pageSizeNum,
+    );
+
+    return {
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        page: pageNum,
+        pageSize: pageSizeNum,
+        totalPages: Math.ceil(result.total / pageSizeNum),
+      },
+    };
+  }
+
+  /**
+   * POST /grc/soa/items/:id/capas
+   * Create a CAPA from this SOA item
+   * Creates an Issue first if issueId not provided, then creates CAPA
+   * Sets source fields to track origin
+   */
+  @Post('items/:id/capas')
+  @Permissions(Permission.GRC_CAPA_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createCapaFromItem(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id', UuidFormatPipe) id: string,
+    @Body() dto: CreateCapaFromSoaItemDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const item = await this.soaService.getItem(tenantId, id);
+    if (!item) {
+      throw new NotFoundException(`SOA Item with ID ${id} not found`);
+    }
+
+    const clauseCode: string = item.clause?.code ?? 'Unknown';
+    const clauseName: string = item.clause?.title ?? 'Unknown Clause';
+
+    let issueId = dto.issueId;
+
+    if (!issueId) {
+      const issue = await this.issueService.createFromSoaItem(
+        tenantId,
+        id,
+        clauseCode,
+        clauseName,
+        {
+          title: `SOA Gap: ${clauseCode} - ${clauseName}`,
+          description: `Issue created for CAPA from SOA item gap. Clause: ${clauseCode}`,
+        },
+        req.user.id,
+      );
+      issueId = issue.id;
+    }
+
+    const capa = await this.capaService.createFromSoaItem(
+      tenantId,
+      issueId,
+      id,
+      clauseCode,
+      dto,
+      req.user.id,
+    );
+
+    return { success: true, data: capa };
   }
 }

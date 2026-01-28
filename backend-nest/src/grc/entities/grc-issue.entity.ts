@@ -9,7 +9,13 @@ import {
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
-import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
+import {
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+  IssueSource,
+  SourceType,
+} from '../enums';
 import { GrcRisk } from './grc-risk.entity';
 import { GrcControl } from './grc-control.entity';
 import { GrcCapa } from './grc-capa.entity';
@@ -76,6 +82,24 @@ export class GrcIssue extends BaseEntity {
     default: IssueSource.MANUAL,
   })
   source: IssueSource;
+
+  @Column({
+    name: 'source_type',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceType: SourceType | null;
+
+  @Column({ name: 'source_id', type: 'uuid', nullable: true })
+  @Index()
+  sourceId: string | null;
+
+  @Column({ name: 'source_ref', type: 'varchar', length: 255, nullable: true })
+  sourceRef: string | null;
+
+  @Column({ name: 'source_meta', type: 'jsonb', nullable: true })
+  sourceMeta: Record<string, unknown> | null;
 
   @Column({ name: 'risk_id', type: 'uuid', nullable: true })
   riskId: string | null;
