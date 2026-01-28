@@ -541,6 +541,18 @@ describe('SOA Profiles (e2e)', () => {
   });
 
   describe('UUID Format Validation', () => {
+    // Helper to extract error message from response body (handles different envelope formats)
+    const getErrorMessage = (body: Record<string, unknown>): string => {
+      if (typeof body.message === 'string') return body.message;
+      if (
+        body.error &&
+        typeof (body.error as Record<string, unknown>).message === 'string'
+      ) {
+        return (body.error as Record<string, unknown>).message as string;
+      }
+      return JSON.stringify(body);
+    };
+
     it('should accept non-RFC-4122 UUIDs (demo/seed format) for nested items endpoint', async () => {
       if (!dbConnected || !tenantId) {
         console.log('Skipping test: database not connected');
@@ -555,12 +567,15 @@ describe('SOA Profiles (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get(`/grc/soa/profiles/${demoStyleUuid}/items?page=1&pageSize=10`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .expect(404);
+        .set('x-tenant-id', tenantId);
 
-      // The error should be "not found" not "validation failed"
-      expect(response.body.message).toContain('not found');
-      expect(response.body.message).not.toContain('UUID');
+      // The key assertion: status should be 404 (not found), NOT 400 (validation error)
+      expect(response.status).toBe(404);
+
+      // Verify the error is about "not found", not UUID validation
+      const errorMsg = getErrorMessage(response.body);
+      expect(errorMsg.toLowerCase()).toContain('not found');
+      expect(errorMsg.toLowerCase()).not.toContain('uuid');
     });
 
     it('should accept non-RFC-4122 UUIDs (demo/seed format) for nested statistics endpoint', async () => {
@@ -576,12 +591,15 @@ describe('SOA Profiles (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get(`/grc/soa/profiles/${demoStyleUuid}/statistics`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .expect(404);
+        .set('x-tenant-id', tenantId);
 
-      // The error should be "not found" not "validation failed"
-      expect(response.body.message).toContain('not found');
-      expect(response.body.message).not.toContain('UUID');
+      // The key assertion: status should be 404 (not found), NOT 400 (validation error)
+      expect(response.status).toBe(404);
+
+      // Verify the error is about "not found", not UUID validation
+      const errorMsg = getErrorMessage(response.body);
+      expect(errorMsg.toLowerCase()).toContain('not found');
+      expect(errorMsg.toLowerCase()).not.toContain('uuid');
     });
 
     it('should accept non-RFC-4122 UUIDs in flat items endpoint query param', async () => {
@@ -602,9 +620,8 @@ describe('SOA Profiles (e2e)', () => {
 
       // Should NOT return 400 with "profileId must be a UUID" error
       expect(response.status).not.toBe(400);
-      if (response.body.message) {
-        expect(response.body.message).not.toContain('must be a UUID');
-      }
+      const errorMsg = getErrorMessage(response.body);
+      expect(errorMsg.toLowerCase()).not.toContain('must be a uuid');
     });
 
     it('should reject invalid UUID formats', async () => {
@@ -619,11 +636,14 @@ describe('SOA Profiles (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get(`/grc/soa/profiles/${invalidUuid}/items`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .expect(400);
+        .set('x-tenant-id', tenantId);
 
-      // Should return validation error
-      expect(response.body.message).toContain('UUID');
+      // Should return 400 validation error
+      expect(response.status).toBe(400);
+
+      // Should contain UUID in error message
+      const errorMsg = getErrorMessage(response.body);
+      expect(errorMsg.toLowerCase()).toContain('uuid');
     });
   });
 });
