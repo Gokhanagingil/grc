@@ -91,6 +91,7 @@ describe('Evidence Golden Flow (e2e)', () => {
         type: 'document',
         sourceType: 'manual',
         status: 'draft',
+        location: '/test/evidence/e2e-test',
       };
 
       const response = await request(app.getHttpServer())
@@ -210,6 +211,7 @@ describe('Evidence Golden Flow (e2e)', () => {
             type: 'document',
             sourceType: 'manual',
             status: 'draft',
+            location: '/test/evidence/linkage-test',
           });
         testEvidenceId = createResponse.body.data?.id;
       }
@@ -432,6 +434,7 @@ describe('Evidence Golden Flow (e2e)', () => {
         type: 'document',
         sourceType: 'manual',
         status: 'draft',
+        location: '/test/evidence/standalone',
       };
 
       const response = await request(app.getHttpServer())
@@ -458,6 +461,7 @@ describe('Evidence Golden Flow (e2e)', () => {
         type: 'document',
         sourceType: 'manual',
         status: 'draft',
+        location: '/test/evidence/null-issue',
         issueId: null,
       };
 
