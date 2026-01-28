@@ -545,7 +545,8 @@ async function runSoaSmokeTest() {
       printResult(`GET /grc/soa/profiles/${profileId}`, profileDetailResponse)
     ) {
       passed++;
-      const profile = profileDetailResponse.data as {
+      const rawData = profileDetailResponse.data as Record<string, unknown>;
+      const profile = (rawData?.data ?? rawData) as {
         name?: string;
         status?: string;
         standardId?: string;
@@ -605,20 +606,39 @@ async function runSoaSmokeTest() {
       )
     ) {
       passed++;
-      const stats = statsResponse.data as {
+      const rawStatsData = statsResponse.data as Record<string, unknown>;
+      const stats = (rawStatsData?.data ?? rawStatsData) as {
         totalItems?: number;
-        byApplicability?: Record<string, number>;
-        byImplementationStatus?: Record<string, number>;
+        applicabilityCounts?: Record<string, number>;
+        implementationCounts?: Record<string, number>;
+        evidenceCoverage?: {
+          itemsWithEvidence: number;
+          itemsWithoutEvidence: number;
+        };
+        controlCoverage?: {
+          itemsWithControls: number;
+          itemsWithoutControls: number;
+        };
       };
       console.log(`    Total Items: ${stats.totalItems || 0}`);
-      if (stats.byApplicability) {
+      if (stats.applicabilityCounts) {
         console.log(
-          `    By Applicability: ${JSON.stringify(stats.byApplicability)}`,
+          `    By Applicability: ${JSON.stringify(stats.applicabilityCounts)}`,
         );
       }
-      if (stats.byImplementationStatus) {
+      if (stats.implementationCounts) {
         console.log(
-          `    By Implementation: ${JSON.stringify(stats.byImplementationStatus)}`,
+          `    By Implementation: ${JSON.stringify(stats.implementationCounts)}`,
+        );
+      }
+      if (stats.evidenceCoverage) {
+        console.log(
+          `    Evidence Coverage: ${stats.evidenceCoverage.itemsWithEvidence} with / ${stats.evidenceCoverage.itemsWithoutEvidence} without`,
+        );
+      }
+      if (stats.controlCoverage) {
+        console.log(
+          `    Control Coverage: ${stats.controlCoverage.itemsWithControls} with / ${stats.controlCoverage.itemsWithoutControls} without`,
         );
       }
     } else {

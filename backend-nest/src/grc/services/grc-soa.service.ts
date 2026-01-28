@@ -732,6 +732,121 @@ export class GrcSoaService {
   }
 
   // ============================================================================
+  // Statistics
+  // ============================================================================
+
+  /**
+   * Get statistics for an SOA profile
+   * Returns aggregated counts for applicability, implementation status,
+   * evidence coverage, and control coverage.
+   */
+  async getProfileStatistics(
+    tenantId: string,
+    profileId: string,
+  ): Promise<{
+    totalItems: number;
+    applicabilityCounts: Record<string, number>;
+    implementationCounts: Record<string, number>;
+    evidenceCoverage: {
+      itemsWithEvidence: number;
+      itemsWithoutEvidence: number;
+    };
+    controlCoverage: {
+      itemsWithControls: number;
+      itemsWithoutControls: number;
+    };
+  }> {
+    const profile = await this.profileRepository.findOne({
+      where: { id: profileId, tenantId, isDeleted: false },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(`Profile with ID ${profileId} not found`);
+    }
+
+    const qb = this.itemRepository
+      .createQueryBuilder('item')
+      .where('item.tenantId = :tenantId', { tenantId })
+      .andWhere('item.profileId = :profileId', { profileId })
+      .andWhere('item.isDeleted = :isDeleted', { isDeleted: false });
+
+    const totalItems = await qb.getCount();
+
+    const applicabilityRaw = await this.itemRepository
+      .createQueryBuilder('item')
+      .select('item.applicability', 'applicability')
+      .addSelect('COUNT(*)', 'count')
+      .where('item.tenantId = :tenantId', { tenantId })
+      .andWhere('item.profileId = :profileId', { profileId })
+      .andWhere('item.isDeleted = :isDeleted', { isDeleted: false })
+      .groupBy('item.applicability')
+      .getRawMany<{ applicability: string; count: string }>();
+
+    const applicabilityCounts: Record<string, number> = {};
+    for (const row of applicabilityRaw) {
+      applicabilityCounts[row.applicability] = parseInt(row.count, 10);
+    }
+
+    const implementationRaw = await this.itemRepository
+      .createQueryBuilder('item')
+      .select('item.implementationStatus', 'implementationStatus')
+      .addSelect('COUNT(*)', 'count')
+      .where('item.tenantId = :tenantId', { tenantId })
+      .andWhere('item.profileId = :profileId', { profileId })
+      .andWhere('item.isDeleted = :isDeleted', { isDeleted: false })
+      .groupBy('item.implementationStatus')
+      .getRawMany<{ implementationStatus: string; count: string }>();
+
+    const implementationCounts: Record<string, number> = {};
+    for (const row of implementationRaw) {
+      implementationCounts[row.implementationStatus] = parseInt(row.count, 10);
+    }
+
+    const itemIds = await this.itemRepository
+      .createQueryBuilder('item')
+      .select('item.id')
+      .where('item.tenantId = :tenantId', { tenantId })
+      .andWhere('item.profileId = :profileId', { profileId })
+      .andWhere('item.isDeleted = :isDeleted', { isDeleted: false })
+      .getRawMany<{ item_id: string }>();
+
+    const ids = itemIds.map((r) => r.item_id);
+
+    let itemsWithEvidence = 0;
+    let itemsWithControls = 0;
+
+    if (ids.length > 0) {
+      const evidenceCountResult = await this.itemEvidenceRepository
+        .createQueryBuilder('sie')
+        .select('COUNT(DISTINCT sie.soa_item_id)', 'count')
+        .where('sie.soa_item_id IN (:...ids)', { ids })
+        .getRawOne<{ count: string }>();
+      itemsWithEvidence = parseInt(evidenceCountResult?.count || '0', 10);
+
+      const controlCountResult = await this.itemControlRepository
+        .createQueryBuilder('sic')
+        .select('COUNT(DISTINCT sic.soa_item_id)', 'count')
+        .where('sic.soa_item_id IN (:...ids)', { ids })
+        .getRawOne<{ count: string }>();
+      itemsWithControls = parseInt(controlCountResult?.count || '0', 10);
+    }
+
+    return {
+      totalItems,
+      applicabilityCounts,
+      implementationCounts,
+      evidenceCoverage: {
+        itemsWithEvidence,
+        itemsWithoutEvidence: totalItems - itemsWithEvidence,
+      },
+      controlCoverage: {
+        itemsWithControls,
+        itemsWithoutControls: totalItems - itemsWithControls,
+      },
+    };
+  }
+
+  // ============================================================================
   // Export
   // ============================================================================
 

@@ -221,6 +221,56 @@ export class GrcSoaController {
   }
 
   /**
+   * GET /grc/soa/profiles/:profileId/items
+   * List SOA items for a specific profile with pagination and filtering
+   * Returns LIST-CONTRACT format: { data: { items, total, page, pageSize, totalPages } }
+   */
+  @Get('profiles/:profileId/items')
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
+  @Perf()
+  async listProfileItems(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('profileId', ParseUUIDPipe) profileId: string,
+    @Query() filter: FilterSoaItemDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const profile = await this.soaService.getProfile(tenantId, profileId);
+    if (!profile) {
+      throw new NotFoundException(`SOA Profile with ID ${profileId} not found`);
+    }
+
+    filter.profileId = profileId;
+    const result = await this.soaService.listItems(tenantId, filter);
+    return { success: true, data: result };
+  }
+
+  /**
+   * GET /grc/soa/profiles/:profileId/statistics
+   * Get aggregated statistics for an SOA profile
+   * Returns counts by applicability, implementation status, and coverage metrics
+   */
+  @Get('profiles/:profileId/statistics')
+  @Permissions(Permission.GRC_REQUIREMENT_READ)
+  @Perf()
+  async getProfileStatistics(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('profileId', ParseUUIDPipe) profileId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const stats = await this.soaService.getProfileStatistics(
+      tenantId,
+      profileId,
+    );
+    return { success: true, data: stats };
+  }
+
+  /**
    * GET /grc/soa/profiles/:id/export
    * Export SOA profile to CSV format
    */
