@@ -164,10 +164,21 @@ export enum IssueSeverity {
  * IssueSource - How the issue was created
  * manual: Created manually by a user
  * test_result: Auto-created from a failing test result (Golden Flow)
+ * soa_item: Created from an SOA item gap (SOA Closure Loop)
  */
 export enum IssueSource {
   MANUAL = 'manual',
   TEST_RESULT = 'test_result',
+  SOA_ITEM = 'soa_item',
+}
+
+/**
+ * SourceType - Generic source type for tracking origin of entities
+ * Used by Issue and CAPA to track where they were created from
+ * Extensible for future source types
+ */
+export enum SourceType {
+  SOA_ITEM = 'SOA_ITEM',
 }
 
 // ============================================================================

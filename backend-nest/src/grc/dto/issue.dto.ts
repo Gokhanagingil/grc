@@ -11,7 +11,13 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
+import {
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+  IssueSource,
+  SourceType,
+} from '../enums';
 
 /**
  * DTO for creating a new Issue record
@@ -40,6 +46,23 @@ export class CreateIssueDto {
   @IsOptional()
   @IsEnum(IssueSource)
   source?: IssueSource;
+
+  @IsOptional()
+  @IsEnum(SourceType)
+  sourceType?: SourceType;
+
+  @IsOptional()
+  @IsUUID()
+  sourceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  sourceRef?: string;
+
+  @IsOptional()
+  @IsObject()
+  sourceMeta?: Record<string, unknown>;
 
   @IsOptional()
   @IsUUID()
@@ -267,6 +290,41 @@ export class CreateIssueFromTestResultDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(IssueSeverity)
+  severity?: IssueSeverity;
+
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+}
+
+/**
+ * DTO for creating an Issue from an SOA Item
+ * Used by POST /grc/soa/items/:itemId/issues
+ *
+ * This endpoint auto-generates title if not provided,
+ * sets source fields to track origin from SOA item,
+ * and links the issue to the SOA item's clause.
+ */
+export class CreateIssueFromSoaItemDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(IssueType)
+  type?: IssueType;
 
   @IsOptional()
   @IsEnum(IssueSeverity)

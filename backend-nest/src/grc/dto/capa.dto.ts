@@ -12,7 +12,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CapaType, CapaStatus, CAPAPriority } from '../enums';
+import { CapaType, CapaStatus, CAPAPriority, SourceType } from '../enums';
 
 /**
  * DTO for creating a new CAPA record
@@ -72,6 +72,23 @@ export class CreateCapaDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsEnum(SourceType)
+  sourceType?: SourceType;
+
+  @IsOptional()
+  @IsUUID()
+  sourceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  sourceRef?: string;
+
+  @IsOptional()
+  @IsObject()
+  sourceMeta?: Record<string, unknown>;
 }
 
 /**
@@ -215,4 +232,50 @@ export class CapaFilterDto {
   @IsOptional()
   @IsString()
   filter?: string;
+}
+
+/**
+ * DTO for creating a CAPA from an SOA Item
+ * Used by POST /grc/soa/items/:itemId/capas
+ *
+ * This endpoint creates an Issue first (if not provided),
+ * then creates a CAPA linked to that Issue,
+ * and sets source fields to track origin from SOA item.
+ */
+export class CreateCapaFromSoaItemDto {
+  @IsString()
+  @MaxLength(255)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(CapaType)
+  type?: CapaType;
+
+  @IsOptional()
+  @IsEnum(CAPAPriority)
+  priority?: CAPAPriority;
+
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  rootCauseAnalysis?: string;
+
+  @IsOptional()
+  @IsString()
+  actionPlan?: string;
+
+  @IsOptional()
+  @IsUUID()
+  issueId?: string;
 }

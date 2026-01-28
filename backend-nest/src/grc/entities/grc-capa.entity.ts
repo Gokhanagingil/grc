@@ -9,7 +9,7 @@ import {
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
-import { CapaType, CapaStatus, CAPAPriority } from '../enums';
+import { CapaType, CapaStatus, CAPAPriority, SourceType } from '../enums';
 import { GrcIssue } from './grc-issue.entity';
 import { GrcCapaTask } from './grc-capa-task.entity';
 
@@ -128,6 +128,24 @@ export class GrcCapa extends BaseEntity {
     default: CAPAPriority.MEDIUM,
   })
   priority: CAPAPriority;
+
+  @Column({
+    name: 'source_type',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceType: SourceType | null;
+
+  @Column({ name: 'source_id', type: 'uuid', nullable: true })
+  @Index()
+  sourceId: string | null;
+
+  @Column({ name: 'source_ref', type: 'varchar', length: 255, nullable: true })
+  sourceRef: string | null;
+
+  @Column({ name: 'source_meta', type: 'jsonb', nullable: true })
+  sourceMeta: Record<string, unknown> | null;
 
   // Relationships
   @OneToMany(() => GrcCapaTask, (task) => task.capa)

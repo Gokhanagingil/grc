@@ -6,8 +6,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GrcCapa, GrcIssue, GrcStatusHistory } from '../entities';
-import { CreateCapaDto, UpdateCapaDto, CapaFilterDto } from '../dto/capa.dto';
-import { CapaStatus } from '../enums';
+import {
+  CreateCapaDto,
+  UpdateCapaDto,
+  CapaFilterDto,
+  CreateCapaFromSoaItemDto,
+} from '../dto/capa.dto';
+import { CapaStatus, SourceType } from '../enums';
 import { AuditService } from '../../audit/audit.service';
 import { parseFilterJson } from '../../common/list-query/list-query.parser';
 import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
@@ -253,5 +258,75 @@ export class GrcCapaService {
     });
 
     await this.statusHistoryRepository.save(history);
+  }
+
+  async createFromSoaItem(
+    tenantId: string,
+    issueId: string,
+    soaItemId: string,
+    clauseCode: string,
+    dto: CreateCapaFromSoaItemDto,
+    userId: string,
+  ): Promise<GrcCapa> {
+    const issue = await this.issueRepository.findOne({
+      where: { id: issueId, tenantId, isDeleted: false },
+    });
+
+    if (!issue) {
+      throw new NotFoundException(`Issue with ID ${issueId} not found`);
+    }
+
+    const capa = this.capaRepository.create({
+      ...dto,
+      issueId,
+      tenantId,
+      createdBy: userId,
+      status: CapaStatus.PLANNED,
+      sourceType: SourceType.SOA_ITEM,
+      sourceId: soaItemId,
+      sourceRef: clauseCode,
+      sourceMeta: {
+        createdFromSoaItem: true,
+      },
+    });
+
+    const saved = await this.capaRepository.save(capa);
+
+    await this.recordStatusHistory(
+      tenantId,
+      saved.id,
+      null,
+      saved.status,
+      userId,
+      'CAPA created from SOA item',
+      { source: 'SOA_ITEM', soaItemId },
+    );
+
+    await this.auditService.recordCreate('GrcCapa', saved, userId, tenantId);
+
+    return this.findOne(tenantId, saved.id);
+  }
+
+  async findBySourceId(
+    tenantId: string,
+    sourceType: SourceType,
+    sourceId: string,
+    page = 1,
+    pageSize = 5,
+  ): Promise<{ items: GrcCapa[]; total: number }> {
+    const [items, total] = await this.capaRepository.findAndCount({
+      where: {
+        tenantId,
+        sourceType,
+        sourceId,
+        isDeleted: false,
+      },
+      relations: ['owner', 'issue'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return { items, total };
   }
 }

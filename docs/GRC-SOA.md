@@ -369,6 +369,27 @@ These are the **canonical** endpoints for accessing items and statistics by prof
 | POST | `/grc/soa/items/:id/evidence/:evidenceId` | Link evidence to an item |
 | DELETE | `/grc/soa/items/:id/evidence/:evidenceId` | Unlink evidence from an item |
 
+#### Linked Issues and CAPAs (SOA Closure Loop)
+
+These endpoints support the SOA → Issue/CAPA Closure Loop pattern, allowing Issues and CAPAs to be created directly from SOA items with automatic source tracking.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/grc/soa/items/:id/issues` | List Issues linked to an SOA item (LIST-CONTRACT) |
+| POST | `/grc/soa/items/:id/issues` | Create an Issue from an SOA item with source tracking |
+| GET | `/grc/soa/items/:id/capas` | List CAPAs linked to an SOA item (LIST-CONTRACT) |
+| POST | `/grc/soa/items/:id/capas` | Create a CAPA from an SOA item with source tracking |
+
+When creating Issues or CAPAs from SOA items, the following source fields are automatically populated:
+
+- `sourceType`: Set to `SOA_ITEM`
+- `sourceId`: Set to the SOA item's UUID
+- `sourceRef`: Set to the clause code (e.g., "A.5.1")
+- `sourceMeta`: Contains additional context like clause name
+- `source` (Issue only): Set to `soa_item` for the IssueSource enum
+
+This enables traceability from Issues/CAPAs back to their originating SOA gaps.
+
 ### Example curl Commands
 
 **List profiles:**
