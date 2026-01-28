@@ -43,7 +43,7 @@ import {
   UpdateIssueDto,
   IssueFilterDto,
 } from '../dto/issue.dto';
-import { CreateCapaDto } from '../dto/capa.dto';
+import { CreateCapaDto, CreateCapaForIssueDto } from '../dto/capa.dto';
 import {
   IssueType,
   IssueStatus,
@@ -485,7 +485,7 @@ export class GrcIssueController {
   async createCapaForIssue(
     @Headers('x-tenant-id') tenantId: string,
     @Param('issueId') issueId: string,
-    @Body() dto: Omit<CreateCapaDto, 'issueId'>,
+    @Body() dto: CreateCapaForIssueDto,
     @Request() req: { user: { id: string } },
   ) {
     if (!tenantId) {
@@ -497,7 +497,7 @@ export class GrcIssueController {
     const capaDto: CreateCapaDto = {
       ...dto,
       issueId,
-    } as CreateCapaDto;
+    };
 
     const capa = await this.capaService.create(tenantId, capaDto, req.user.id);
     return { success: true, data: capa };

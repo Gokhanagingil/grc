@@ -55,12 +55,15 @@ export class GrcCapaService {
     dto: CreateCapaDto,
     userId: string,
   ): Promise<GrcCapa> {
-    const issue = await this.issueRepository.findOne({
-      where: { id: dto.issueId, tenantId, isDeleted: false },
-    });
+    // If issueId is provided, verify the issue exists
+    if (dto.issueId) {
+      const issue = await this.issueRepository.findOne({
+        where: { id: dto.issueId, tenantId, isDeleted: false },
+      });
 
-    if (!issue) {
-      throw new NotFoundException(`Issue with ID ${dto.issueId} not found`);
+      if (!issue) {
+        throw new NotFoundException(`Issue with ID ${dto.issueId} not found`);
+      }
     }
 
     const capa = this.capaRepository.create({
@@ -79,7 +82,7 @@ export class GrcCapaService {
       saved.status,
       userId,
       'CAPA created',
-      { source: 'MANUAL' },
+      { source: dto.issueId ? 'MANUAL' : 'STANDALONE' },
     );
 
     await this.auditService.recordCreate('GrcCapa', saved, userId, tenantId);

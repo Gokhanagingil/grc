@@ -25,6 +25,25 @@ const UppercaseEnumTransform = () =>
   );
 
 /**
+ * Transform to normalize optional UUID fields.
+ * Converts empty string, null, "undefined", "null" to undefined BEFORE validation.
+ * This allows the field to pass @IsOptional() validation when these values are sent.
+ */
+const OptionalUuidTransform = () =>
+  Transform(({ value }: { value: unknown }) => {
+    if (
+      value === '' ||
+      value === null ||
+      value === undefined ||
+      value === 'undefined' ||
+      value === 'null'
+    ) {
+      return undefined;
+    }
+    return value;
+  });
+
+/**
  * DTO for creating a new CAPA record
  */
 export class CreateCapaDto {
@@ -36,8 +55,10 @@ export class CreateCapaDto {
   @IsString()
   description?: string;
 
-  @IsUUID()
-  issueId: string;
+  @IsOptional()
+  @OptionalUuidTransform()
+  @IsUUID('all')
+  issueId?: string;
 
   @IsOptional()
   @IsEnum(CapaType)
@@ -293,4 +314,64 @@ export class CreateCapaFromSoaItemDto {
   @IsOptional()
   @IsUUID()
   issueId?: string;
+}
+
+/**
+ * DTO for creating a CAPA linked to an Issue via POST /grc/issues/:issueId/capas
+ * This is a dedicated DTO that ensures proper validation and transforms are applied.
+ * The issueId is provided via the URL path parameter, not the body.
+ */
+export class CreateCapaForIssueDto {
+  @IsString()
+  @MaxLength(255)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(CapaType)
+  type?: CapaType;
+
+  @IsOptional()
+  @IsEnum(CapaStatus)
+  status?: CapaStatus;
+
+  @IsOptional()
+  @UppercaseEnumTransform()
+  @IsEnum(CAPAPriority)
+  priority?: CAPAPriority;
+
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  rootCauseAnalysis?: string;
+
+  @IsOptional()
+  @IsString()
+  actionPlan?: string;
+
+  @IsOptional()
+  @IsString()
+  implementationNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  verificationMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  verificationNotes?: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

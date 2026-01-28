@@ -662,4 +662,178 @@ describe('Closure Loop MVP (e2e)', () => {
       }
     });
   });
+
+  describe('CAPA Creation - issueId Validation', () => {
+    let testIssueId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing issue for testing
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issuesData = issuesResponse.body.data ?? issuesResponse.body;
+      const issues = issuesData.items ?? issuesData;
+      if (Array.isArray(issues) && issues.length > 0) {
+        testIssueId = issues[0].id;
+      }
+    });
+
+    it('should create CAPA without issueId (standalone CAPA)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Standalone CAPA',
+          description: 'Testing CAPA creation without issueId',
+          priority: 'MEDIUM',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - Standalone CAPA',
+      );
+      expect(response.body.data.issueId).toBeNull();
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA with empty string issueId (treated as omitted)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA with empty issueId',
+          description: 'Testing CAPA creation with empty string issueId',
+          issueId: '',
+          priority: 'LOW',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - CAPA with empty issueId',
+      );
+      expect(response.body.data.issueId).toBeNull();
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should return 400 for invalid non-empty issueId that is not a UUID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA with invalid issueId',
+          issueId: 'not-a-uuid',
+          priority: 'HIGH',
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should create CAPA via POST /grc/issues/:issueId/capas with lowercase priority', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA from Issue with lowercase priority',
+          description: 'Testing priority normalization',
+          priority: 'high',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - CAPA from Issue with lowercase priority',
+      );
+      expect(response.body.data).toHaveProperty('issueId', testIssueId);
+      expect(response.body.data).toHaveProperty('priority', 'HIGH');
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA via POST /grc/issues/:issueId/capas with mixed case priority', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA from Issue with mixed case priority',
+          description: 'Testing priority normalization',
+          priority: 'Medium',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('priority', 'MEDIUM');
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
 });
