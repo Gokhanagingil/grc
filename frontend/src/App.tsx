@@ -52,6 +52,7 @@ import { RequirementDetail } from './pages/RequirementDetail';
 import GrcInsights from './pages/GrcInsights';
 import { SoaProfilesList } from './pages/SoaProfilesList';
 import { SoaProfileDetail } from './pages/SoaProfileDetail';
+import { SoaItemDetail } from './pages/SoaItemDetail';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -216,6 +217,7 @@ function App() {
                                     <Route path="standards/clauses/:id" element={<ClauseDetail />} />
                   <Route path="soa" element={<SoaProfilesList />} />
                   <Route path="soa/:id" element={<SoaProfileDetail />} />
+                  <Route path="soa/:profileId/items/:itemId" element={<SoaItemDetail />} />
                   
                                     {/* Legacy /library/* route redirects */}
                   <Route path="library/standards" element={<Navigate to="/standards" replace />} />

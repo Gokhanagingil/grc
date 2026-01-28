@@ -521,6 +521,7 @@ export const API_PATHS = {
       PUBLISH: (id: string) => `/grc/soa/profiles/${id}/publish`,
       INITIALIZE_ITEMS: (id: string) => `/grc/soa/profiles/${id}/initialize-items`,
       EXPORT: (id: string) => `/grc/soa/profiles/${id}/export`,
+      STATISTICS: (id: string) => `/grc/soa/profiles/${id}/statistics`,
     },
     // Item endpoints
     ITEMS: {
@@ -3761,6 +3762,20 @@ export interface SoaItemEvidenceLink {
   createdAt: string;
 }
 
+export interface SoaProfileStatistics {
+  totalItems: number;
+  applicabilityCounts: Record<string, number>;
+  implementationCounts: Record<string, number>;
+  evidenceCoverage: {
+    itemsWithEvidence: number;
+    itemsWithoutEvidence: number;
+  };
+  controlCoverage: {
+    itemsWithControls: number;
+    itemsWithoutControls: number;
+  };
+}
+
 export const soaApi = {
   // Profile operations - returns raw AxiosResponse for useUniversalList compatibility
   listProfiles: (tenantId: string, params?: SoaProfileListParams | Record<string, unknown>) => {
@@ -3812,6 +3827,11 @@ export const soaApi = {
       responseType: 'blob',
     });
     return response.data;
+  },
+
+  getProfileStatistics: async (tenantId: string, profileId: string): Promise<SoaProfileStatistics> => {
+    const response = await api.get(API_PATHS.GRC_SOA.PROFILES.STATISTICS(profileId), withTenantId(tenantId));
+    return unwrapResponse<SoaProfileStatistics>(response);
   },
 
   // Item operations
