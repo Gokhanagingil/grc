@@ -331,6 +331,7 @@ export const EvidenceList: React.FC = () => {
         variant="contained"
         startIcon={<AddIcon />}
         onClick={() => setCreateDialogOpen(true)}
+        data-testid="create-evidence-button"
       >
         Add Evidence
       </Button>
@@ -389,7 +390,7 @@ export const EvidenceList: React.FC = () => {
               onRowClick={handleViewEvidence}
             />
 
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-evidence-dialog">
         <DialogTitle>Add New Evidence</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
@@ -399,6 +400,7 @@ export const EvidenceList: React.FC = () => {
               onChange={(e) => setNewEvidence({ ...newEvidence, name: e.target.value })}
               fullWidth
               required
+              data-testid="evidence-name-input"
             />
             <TextField
               label="Description"
@@ -472,6 +474,7 @@ export const EvidenceList: React.FC = () => {
             onClick={handleCreateEvidence} 
             variant="contained"
             disabled={!newEvidence.name}
+            data-testid="submit-create-evidence-button"
           >
             Create
           </Button>

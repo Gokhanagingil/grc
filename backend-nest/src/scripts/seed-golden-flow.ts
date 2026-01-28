@@ -24,6 +24,7 @@ import { GrcIssue } from '../grc/entities/grc-issue.entity';
 import { GrcCapa } from '../grc/entities/grc-capa.entity';
 import { GrcCapaTask } from '../grc/entities/grc-capa-task.entity';
 import { GrcControlEvidence } from '../grc/entities/grc-control-evidence.entity';
+import { GrcIssueEvidence } from '../grc/entities/grc-issue-evidence.entity';
 import { GrcStatusHistory } from '../grc/entities/grc-status-history.entity';
 import { GrcRequirementControl } from '../grc/entities/grc-requirement-control.entity';
 import {
@@ -382,6 +383,26 @@ async function seedGoldenFlowData() {
       );
     } else {
       console.log('   Golden Flow issue already exists');
+    }
+
+    // 10a. Link Evidence to Issue
+    console.log('10a. Linking evidence to issue...');
+    const issueEvidenceRepo = dataSource.getRepository(GrcIssueEvidence);
+    let issueEvidence = await issueEvidenceRepo.findOne({
+      where: { issueId: issue.id, evidenceId: evidence.id },
+    });
+
+    if (!issueEvidence) {
+      issueEvidence = issueEvidenceRepo.create({
+        tenantId: DEMO_TENANT_ID,
+        issueId: issue.id,
+        evidenceId: evidence.id,
+        notes: 'Evidence supporting the access control deficiency issue',
+      });
+      await issueEvidenceRepo.save(issueEvidence);
+      console.log('   Linked evidence to issue');
+    } else {
+      console.log('   Issue-evidence link already exists');
     }
 
     // 10b. Create second Golden Flow Issue (manual, linked to control only)
