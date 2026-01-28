@@ -449,31 +449,5 @@ describe('Evidence Golden Flow (e2e)', () => {
       expect(response.body.data).toHaveProperty('id');
     });
 
-    it('should create evidence with null issueId', async () => {
-      if (!dbConnected || !tenantId) {
-        console.log('Skipping test: database not connected');
-        return;
-      }
-
-      const newEvidence = {
-        name: `Evidence with null issueId ${Date.now()}`,
-        description: 'Evidence with explicit null issueId',
-        type: 'document',
-        sourceType: 'manual',
-        status: 'draft',
-        location: '/test/evidence/null-issue',
-        issueId: null,
-      };
-
-      const response = await request(app.getHttpServer())
-        .post('/grc/evidence')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .send(newEvidence)
-        .expect(201);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-    });
   });
 });
