@@ -52,6 +52,7 @@ import {
   SoaProfileStatus,
   SoaApplicability,
   SoaImplementationStatus,
+  SoaProfileStatistics,
   CreateSoaProfileDto,
   UpdateSoaProfileDto,
   UpdateSoaItemDto,
@@ -130,7 +131,9 @@ interface ControlOption {
 
 interface EvidenceOption {
   id: string;
-  title: string;
+  name: string;
+  code?: string | null;
+  type?: string;
 }
 
 export const SoaProfileDetail: React.FC = () => {
@@ -189,6 +192,11 @@ export const SoaProfileDetail: React.FC = () => {
 
   // Publish state
   const [publishing, setPublishing] = useState(false);
+
+  // Statistics state
+  const [statistics, setStatistics] = useState<SoaProfileStatistics | null>(null);
+  const [statisticsLoading, setStatisticsLoading] = useState(false);
+  const [statisticsError, setStatisticsError] = useState<string | null>(null);
 
   // Fetch profile
   const fetchProfile = useCallback(async () => {
@@ -266,12 +274,35 @@ export const SoaProfileDetail: React.FC = () => {
 
     try {
       const response = await evidenceApi.list(tenantId, { pageSize: 100 });
-      const { items } = unwrapPaginatedResponse<{ id: string; title: string }>(response);
-      setAvailableEvidence((items || []).map(e => ({ id: e.id, title: e.title })));
+      const { items } = unwrapPaginatedResponse<{ id: string; name: string; code?: string; type?: string }>(response);
+      setAvailableEvidence((items || []).map(e => ({ 
+        id: e.id, 
+        name: e.name || e.id,
+        code: e.code,
+        type: e.type
+      })));
     } catch (err) {
       console.error('Error fetching evidence:', err);
     }
   }, [tenantId]);
+
+  // Fetch statistics
+  const fetchStatistics = useCallback(async () => {
+    if (!id || !tenantId || isNew) return;
+
+    setStatisticsLoading(true);
+    setStatisticsError(null);
+
+    try {
+      const stats = await soaApi.getProfileStatistics(tenantId, id);
+      setStatistics(stats);
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+      setStatisticsError('Failed to load statistics');
+    } finally {
+      setStatisticsLoading(false);
+    }
+  }, [id, tenantId, isNew]);
 
   useEffect(() => {
     fetchProfile();
@@ -288,6 +319,12 @@ export const SoaProfileDetail: React.FC = () => {
     fetchControls();
     fetchEvidence();
   }, [fetchControls, fetchEvidence]);
+
+  useEffect(() => {
+    if (!isNew && profile) {
+      fetchStatistics();
+    }
+  }, [isNew, profile, fetchStatistics]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -563,6 +600,129 @@ export const SoaProfileDetail: React.FC = () => {
         </Alert>
       )}
 
+      {/* Statistics Section */}
+      {!isNew && profile && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Statistics
+            </Typography>
+            {statisticsLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : statisticsError ? (
+              <Alert severity="error" action={
+                <Button color="inherit" size="small" onClick={fetchStatistics}>
+                  Retry
+                </Button>
+              }>
+                {statisticsError}
+              </Alert>
+            ) : statistics ? (
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={2}>
+                  <Box textAlign="center" p={1}>
+                    <Typography variant="h4" color="primary">
+                      {statistics.totalItems}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Items
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.5}>
+                  <Box p={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      By Applicability
+                    </Typography>
+                    {Object.entries(statistics.applicabilityCounts).map(([key, value]) => (
+                      <Box key={key} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                        <Chip
+                          label={formatStatus(key)}
+                          size="small"
+                          color={getApplicabilityColor(key as SoaApplicability)}
+                          sx={{ minWidth: 100 }}
+                        />
+                        <Typography variant="body2" fontWeight="medium">
+                          {value}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.5}>
+                  <Box p={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      By Implementation
+                    </Typography>
+                    {Object.entries(statistics.implementationCounts).map(([key, value]) => (
+                      <Box key={key} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                        <Chip
+                          label={formatStatus(key)}
+                          size="small"
+                          color={getImplementationColor(key as SoaImplementationStatus)}
+                          sx={{ minWidth: 120 }}
+                        />
+                        <Typography variant="body2" fontWeight="medium">
+                          {value}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.5}>
+                  <Box p={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Evidence Coverage
+                    </Typography>
+                    <Box display="flex" justifyContent="space-between" mb={0.5}>
+                      <Typography variant="body2" color="success.main">
+                        With Evidence
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {statistics.evidenceCoverage.itemsWithEvidence}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="warning.main">
+                        Without Evidence
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {statistics.evidenceCoverage.itemsWithoutEvidence}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.5}>
+                  <Box p={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Control Coverage
+                    </Typography>
+                    <Box display="flex" justifyContent="space-between" mb={0.5}>
+                      <Typography variant="body2" color="success.main">
+                        With Controls
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {statistics.controlCoverage.itemsWithControls}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="warning.main">
+                        Without Controls
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {statistics.controlCoverage.itemsWithoutControls}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
@@ -647,7 +807,12 @@ export const SoaProfileDetail: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {items.map((item) => (
-                      <TableRow key={item.id} hover>
+                      <TableRow 
+                        key={item.id} 
+                        hover 
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/soa/${id}/items/${item.id}`)}
+                      >
                         <TableCell>
                           <Typography variant="body2" fontWeight="medium">
                             {item.clause?.code || '-'}
@@ -683,9 +848,9 @@ export const SoaProfileDetail: React.FC = () => {
                         <TableCell>
                           <Chip label={item.evidenceCount || 0} size="small" variant="outlined" />
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Box display="flex" gap={0.5}>
-                            <Tooltip title="Edit Item">
+                            <Tooltip title="Quick Edit">
                               <IconButton size="small" onClick={() => handleEditItem(item)}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
@@ -977,7 +1142,7 @@ export const SoaProfileDetail: React.FC = () => {
             >
               {availableEvidence.map((evidence) => (
                 <MenuItem key={evidence.id} value={evidence.id}>
-                  {evidence.title}
+                  {evidence.code ? `${evidence.code} - ` : ''}{evidence.name}{evidence.type ? ` (${evidence.type})` : ''}
                 </MenuItem>
               ))}
             </Select>
