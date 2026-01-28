@@ -504,6 +504,25 @@ describe('SOA Profiles (e2e)', () => {
       expect(stats.evidenceCoverage).toHaveProperty('itemsWithoutEvidence');
       expect(stats.controlCoverage).toHaveProperty('itemsWithControls');
       expect(stats.controlCoverage).toHaveProperty('itemsWithoutControls');
+
+      // Verify gaps statistics are included
+      expect(stats).toHaveProperty('gaps');
+      expect(stats.gaps).toHaveProperty('missingControls');
+      expect(stats.gaps).toHaveProperty('missingEvidence');
+      expect(stats.gaps).toHaveProperty('applicableNotImplemented');
+
+      // Verify gaps values are numbers
+      expect(typeof stats.gaps.missingControls).toBe('number');
+      expect(typeof stats.gaps.missingEvidence).toBe('number');
+      expect(typeof stats.gaps.applicableNotImplemented).toBe('number');
+
+      // Verify gaps values are consistent with coverage
+      expect(stats.gaps.missingControls).toBe(
+        stats.controlCoverage.itemsWithoutControls,
+      );
+      expect(stats.gaps.missingEvidence).toBe(
+        stats.evidenceCoverage.itemsWithoutEvidence,
+      );
     });
 
     it('should return 404 for non-existent profile', async () => {

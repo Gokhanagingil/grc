@@ -591,6 +591,38 @@ export const SoaItemDetail: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Next Actions Section */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Next Actions
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Box display="flex" gap={2} flexWrap="wrap">
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => navigate(`/issues/new?soaItemId=${itemId}&clauseCode=${encodeURIComponent(item?.clause?.code || '')}`)}
+                >
+                  Create Issue
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => navigate(`/capas/new?soaItemId=${itemId}&clauseCode=${encodeURIComponent(item?.clause?.code || '')}`)}
+                >
+                  Create CAPA
+                </Button>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                Create an Issue to track problems or non-conformities related to this SOA item. 
+                Create a CAPA (Corrective and Preventive Action) to document remediation steps.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       <Dialog open={linkControlDialogOpen} onClose={() => setLinkControlDialogOpen(false)} maxWidth="sm" fullWidth>

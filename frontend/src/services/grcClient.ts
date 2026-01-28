@@ -3774,6 +3774,11 @@ export interface SoaProfileStatistics {
     itemsWithControls: number;
     itemsWithoutControls: number;
   };
+  gaps: {
+    missingControls: number;
+    missingEvidence: number;
+    applicableNotImplemented: number;
+  };
 }
 
 export const soaApi = {

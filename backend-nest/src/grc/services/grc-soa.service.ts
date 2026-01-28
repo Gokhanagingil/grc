@@ -755,6 +755,11 @@ export class GrcSoaService {
       itemsWithControls: number;
       itemsWithoutControls: number;
     };
+    gaps: {
+      missingControls: number;
+      missingEvidence: number;
+      applicableNotImplemented: number;
+    };
   }> {
     const profile = await this.profileRepository.findOne({
       where: { id: profileId, tenantId, isDeleted: false },
@@ -831,6 +836,19 @@ export class GrcSoaService {
       itemsWithControls = parseInt(controlCountResult?.count || '0', 10);
     }
 
+    const applicableNotImplementedResult = await this.itemRepository
+      .createQueryBuilder('item')
+      .where('item.tenantId = :tenantId', { tenantId })
+      .andWhere('item.profileId = :profileId', { profileId })
+      .andWhere('item.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere('item.applicability = :applicability', {
+        applicability: SoaApplicability.APPLICABLE,
+      })
+      .andWhere('item.implementationStatus = :implementationStatus', {
+        implementationStatus: SoaImplementationStatus.NOT_IMPLEMENTED,
+      })
+      .getCount();
+
     return {
       totalItems,
       applicabilityCounts,
@@ -842,6 +860,11 @@ export class GrcSoaService {
       controlCoverage: {
         itemsWithControls,
         itemsWithoutControls: totalItems - itemsWithControls,
+      },
+      gaps: {
+        missingControls: totalItems - itemsWithControls,
+        missingEvidence: totalItems - itemsWithEvidence,
+        applicableNotImplemented: applicableNotImplementedResult,
       },
     };
   }
