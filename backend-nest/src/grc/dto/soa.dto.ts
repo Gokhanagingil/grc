@@ -134,8 +134,9 @@ export class UpdateSoaItemDto {
  * DTO for filtering SOA Items list
  */
 export class FilterSoaItemDto {
+  @IsOptional()
   @IsUUID()
-  profileId: string;
+  profileId?: string;
 
   @IsOptional()
   @Type(() => Number)
