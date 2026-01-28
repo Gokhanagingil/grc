@@ -1,6 +1,6 @@
 # GRC Platform - Staging Maintenance Runbook
 
-**Last Updated:** December 11, 2025  
+**Last Updated:** January 28, 2026  
 **Staging Server:** 46.224.99.150  
 **Deployment Path:** /opt/grc-platform
 
@@ -26,6 +26,135 @@ This runbook documents maintenance procedures for the GRC Platform staging envir
 | PostgreSQL | grc-staging-db | 5432 (internal) |
 | NestJS Backend | grc-staging-backend | 3002 |
 | React Frontend | grc-staging-frontend | 80 |
+
+## Database Volume Stability
+
+This section explains how the staging database volume is configured to prevent "relation does not exist" errors caused by volume drift.
+
+### Background: Why Volume Drift Happens
+
+Docker Compose names volumes using the pattern `{project_name}_{volume_name}`. The project name defaults to the directory name where `docker compose` is invoked, which can vary depending on how the command is run (e.g., from `/opt/grc-platform` vs `/opt/grc-platform/` or via different shell contexts).
+
+This has historically caused incidents where the backend starts against an empty or different database volume, resulting in errors like `relation "nest_system_settings" does not exist`.
+
+### How Volume Stability is Enforced
+
+The `docker-compose.staging.yml` file now includes two safeguards:
+
+1. **Pinned Project Name**: The compose file includes `name: grc-platform` at the top level, ensuring the project name is always consistent regardless of the working directory.
+
+2. **External Volume**: The database volume is configured as external with an explicit name (`grc-platform_grc_staging_postgres_data`), preventing Docker from creating new volumes with different names.
+
+### Canonical Deploy Commands
+
+Always use these commands for staging operations:
+
+```bash
+# Start staging stack
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml up -d"
+
+# Stop staging stack
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml down"
+
+# Rebuild and restart
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml up -d --build --force-recreate"
+
+# View logs
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml logs -f"
+```
+
+### Validating Database Connection
+
+After any deployment, run the validation script to confirm the backend is connected to the correct database:
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && bash ops/staging-db-validate.sh"
+```
+
+This script verifies:
+- All containers are running
+- The correct volume (`grc-platform_grc_staging_postgres_data`) is mounted
+- Database connectivity works
+- Core tables exist (nest_system_settings, nest_users, nest_tenants, grc_risks, grc_policies)
+
+### Identifying the Active Database Volume
+
+To check which volume is currently mounted to the database container:
+
+```bash
+ssh root@46.224.99.150 "docker inspect grc-staging-db --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/postgresql/data\"}}{{.Name}}{{end}}{{end}}'"
+```
+
+Expected output: `grc-platform_grc_staging_postgres_data`
+
+To list all GRC-related volumes on the host:
+
+```bash
+ssh root@46.224.99.150 "docker volume ls | grep -E 'grc|postgres'"
+```
+
+### Safe Volume Cleanup (Manual)
+
+If there are orphaned volumes from previous deployments, you can safely remove them after verifying they are not in use. **Never delete volumes automatically or without verification.**
+
+**Step 1: Identify volumes**
+
+```bash
+ssh root@46.224.99.150 "docker volume ls | grep -E 'grc|postgres'"
+```
+
+Example output showing multiple volumes:
+```
+local     grc-platform_grc_staging_postgres_data   # ACTIVE - DO NOT DELETE
+local     grc-platform_postgres_data_staging       # Orphaned - safe to delete after verification
+local     grc_staging_postgres_data                # Orphaned - safe to delete after verification
+```
+
+**Step 2: Verify the active volume**
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && bash ops/staging-db-validate.sh"
+```
+
+Confirm the output shows `grc-platform_grc_staging_postgres_data` as the mounted volume.
+
+**Step 3: Inspect orphaned volumes before deletion**
+
+Before deleting any volume, inspect it to understand what data it contains:
+
+```bash
+# Check volume creation date and size
+ssh root@46.224.99.150 "docker volume inspect grc-platform_postgres_data_staging"
+
+# Optionally, start a temporary container to inspect contents
+ssh root@46.224.99.150 "docker run --rm -v grc-platform_postgres_data_staging:/data alpine ls -la /data"
+```
+
+**Step 4: Delete orphaned volumes (only after verification)**
+
+```bash
+# Stop the stack first (safety measure)
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml down"
+
+# Delete the orphaned volume
+ssh root@46.224.99.150 "docker volume rm grc-platform_postgres_data_staging"
+
+# Restart the stack
+ssh root@46.224.99.150 "cd /opt/grc-platform && docker compose -f docker-compose.staging.yml up -d"
+
+# Validate
+ssh root@46.224.99.150 "cd /opt/grc-platform && bash ops/staging-db-validate.sh"
+```
+
+### Fresh Host Setup
+
+If deploying to a fresh host where the volume does not exist, create it first:
+
+```bash
+ssh root@NEW_HOST "docker volume create grc-platform_grc_staging_postgres_data"
+```
+
+Then proceed with the normal deployment. The database will be empty and migrations will need to be run.
 
 ## Common Maintenance Tasks
 
