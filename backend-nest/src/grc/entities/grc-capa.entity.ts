@@ -29,12 +29,12 @@ export class GrcCapa extends BaseEntity {
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
-  @Column({ name: 'issue_id', type: 'uuid' })
-  issueId: string;
+  @Column({ name: 'issue_id', type: 'uuid', nullable: true })
+  issueId: string | null;
 
-  @ManyToOne(() => GrcIssue, (issue) => issue.capas, { nullable: false })
+  @ManyToOne(() => GrcIssue, (issue) => issue.capas, { nullable: true })
   @JoinColumn({ name: 'issue_id' })
-  issue: GrcIssue;
+  issue: GrcIssue | null;
 
   @Column({ type: 'text' })
   description: string;
