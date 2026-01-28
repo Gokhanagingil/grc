@@ -2263,7 +2263,7 @@ export interface CreateCapaDto {
   type?: CapaType;
   status?: CapaStatus;
   priority?: CapaPriority;
-  issueId: string;
+  issueId?: string;
   ownerUserId?: string;
   dueDate?: string;
   rootCauseAnalysis?: string;
