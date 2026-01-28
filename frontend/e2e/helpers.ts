@@ -140,6 +140,33 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/issues/:id/controls - GET (linked controls for an issue)
+    // MUST be before the generic /grc/controls handler
+    if (url.match(/\/grc\/issues\/[^/]+\/controls/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked controls (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
+    // Handle grc/issues/:id/test-results - GET (linked test results for an issue)
+    // MUST be before the generic /grc/test-results handler
+    if (url.match(/\/grc\/issues\/[^/]+\/test-results/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked test results (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
+    // Handle grc/issues/:id/evidence - GET (linked evidence for an issue)
+    // MUST be before the generic /grc/evidence handler
+    if (url.match(/\/grc\/issues\/[^/]+\/evidence/) && method === 'GET') {
+      logMock(method, url, true);
+      // Return empty array of linked evidence (not paginated)
+      await route.fulfill(successResponse([]));
+      return;
+    }
+
     // Handle grc/controls - GET (list)
     if (url.includes('/grc/controls') && method === 'GET') {
       logMock(method, url, true);
