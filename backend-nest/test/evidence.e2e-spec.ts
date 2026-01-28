@@ -88,9 +88,9 @@ describe('Evidence Golden Flow (e2e)', () => {
       const newEvidence = {
         name: `E2E Test Evidence ${Date.now()}`,
         description: 'Created by e2e test',
-        type: 'DOCUMENT',
-        sourceType: 'MANUAL',
-        status: 'DRAFT',
+        type: 'document',
+        sourceType: 'manual',
+        status: 'draft',
       };
 
       const response = await request(app.getHttpServer())
@@ -104,8 +104,8 @@ describe('Evidence Golden Flow (e2e)', () => {
       expect(response.body).toHaveProperty('data');
       expect(response.body.data).toHaveProperty('id');
       expect(response.body.data).toHaveProperty('name', newEvidence.name);
-      expect(response.body.data).toHaveProperty('type', newEvidence.type);
-      expect(response.body.data).toHaveProperty('status', newEvidence.status);
+      expect(response.body.data).toHaveProperty('type', 'document');
+      expect(response.body.data).toHaveProperty('status', 'draft');
 
       createdEvidenceId = response.body.data.id;
     });
@@ -139,7 +139,7 @@ describe('Evidence Golden Flow (e2e)', () => {
 
       const updateData = {
         description: 'Updated by e2e test',
-        status: 'APPROVED',
+        status: 'approved',
       };
 
       const response = await request(app.getHttpServer())
@@ -207,9 +207,9 @@ describe('Evidence Golden Flow (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .send({
             name: `Linkage Test Evidence ${Date.now()}`,
-            type: 'DOCUMENT',
-            sourceType: 'MANUAL',
-            status: 'DRAFT',
+            type: 'document',
+            sourceType: 'manual',
+            status: 'draft',
           });
         testEvidenceId = createResponse.body.data?.id;
       }
@@ -429,9 +429,9 @@ describe('Evidence Golden Flow (e2e)', () => {
       const newEvidence = {
         name: `Standalone Evidence ${Date.now()}`,
         description: 'Evidence without linked issue',
-        type: 'DOCUMENT',
-        sourceType: 'MANUAL',
-        status: 'DRAFT',
+        type: 'document',
+        sourceType: 'manual',
+        status: 'draft',
       };
 
       const response = await request(app.getHttpServer())
@@ -455,9 +455,9 @@ describe('Evidence Golden Flow (e2e)', () => {
       const newEvidence = {
         name: `Evidence with null issueId ${Date.now()}`,
         description: 'Evidence with explicit null issueId',
-        type: 'DOCUMENT',
-        sourceType: 'MANUAL',
-        status: 'DRAFT',
+        type: 'document',
+        sourceType: 'manual',
+        status: 'draft',
         issueId: null,
       };
 
