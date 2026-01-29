@@ -44,7 +44,7 @@ export async function setupMockApi(page: Page) {
       policySetVersion: null,
       activeSuites: ['GRC_SUITE'],
       enabledModules: {
-        GRC_SUITE: ['risk', 'policy', 'audit'],
+        GRC_SUITE: ['risk', 'policy', 'audit', 'issue', 'capa', 'evidence', 'control'],
         ITSM_SUITE: [],
       },
       activeFrameworks: ['ISO27001'],

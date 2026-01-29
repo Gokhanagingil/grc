@@ -173,6 +173,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
             onChange={(e) => handleSearchChange(e.target.value)}
             size="small"
             sx={{ minWidth: 250, maxWidth: 350 }}
+            data-testid="list-search"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

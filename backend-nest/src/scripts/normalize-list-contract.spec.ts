@@ -3,9 +3,13 @@
  *
  * Tests the LIST-CONTRACT normalization logic that handles various
  * response envelope formats from the API.
+ *
+ * Note: We import from the utility file instead of smoke-soa.ts to avoid
+ * side effects (dotenv config, console.log) that would cause Jest warnings
+ * about logging after tests complete.
  */
 
-import { normalizeListContract } from './smoke-soa';
+import { normalizeListContract } from '../common/utils/list-contract.util';
 
 describe('normalizeListContract', () => {
   describe('Format C: Raw list-contract { items: [], total, ... }', () => {
