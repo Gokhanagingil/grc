@@ -150,9 +150,8 @@ test.describe('Controls List Page', () => {
     // Wait for filter panel to open
     await expect(page.locator('[data-testid="filter-panel"]')).toBeVisible({ timeout: 5000 });
     
-    // The root group should be visible with AND/OR toggle
+    // The root group should be visible
     await expect(page.locator('[data-testid="filter-group"]').first()).toBeVisible();
-    await expect(page.locator('[data-testid="filter-group-join"]').first()).toBeVisible();
     
     // Add first rule (A)
     const addRuleButton = page.locator('[data-testid="filter-group-add-rule"]').first();

@@ -210,8 +210,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
       const filterPanel = page.getByTestId('filter-panel');
       await expect(filterPanel).toBeVisible({ timeout: 5000 });
       
-      // Verify "Add Condition" button exists
-      const addRuleButton = page.getByTestId('filter-add-rule');
+      // Verify "Add Rule" button exists (filter-group-add-rule in nested group UI)
+      const addRuleButton = page.getByTestId('filter-group-add-rule').first();
       await expect(addRuleButton).toBeVisible({ timeout: 5000 });
       await addRuleButton.click();
       
@@ -250,8 +250,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
       const filterPanel = page.getByTestId('filter-panel');
       await expect(filterPanel).toBeVisible({ timeout: 5000 });
       
-      // Add a condition
-      const addRuleButton = page.getByTestId('filter-add-rule');
+      // Add a condition (filter-group-add-rule in nested group UI)
+      const addRuleButton = page.getByTestId('filter-group-add-rule').first();
       await addRuleButton.click();
       
       // Wait for filter rule
