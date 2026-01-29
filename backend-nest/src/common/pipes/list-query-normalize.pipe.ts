@@ -264,19 +264,37 @@ export interface FilterDecodeResult {
 }
 
 /**
+ * Ensure input is a string (handles array parameter tampering)
+ * HTTP query params can be arrays if same param is passed multiple times
+ *
+ * @param input - Raw input that may be string, array, or other type
+ * @returns String value or empty string if invalid
+ */
+function ensureString(input: unknown): string {
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (Array.isArray(input) && input.length > 0 && typeof input[0] === 'string') {
+    return input[0];
+  }
+  return '';
+}
+
+/**
  * Progressively decode and parse a filter string
  *
  * Strategy:
  * 1. Try JSON.parse directly on the input
  * 2. If fails and string contains URL-encoded patterns (%7B, %22, etc.), decode once and retry
- * 3. Maximum 2 decode attempts to prevent infinite loops
+ * 3. Maximum 3 decode attempts to handle double-encoded strings
  *
- * @param filterString - Raw filter string from query params
+ * @param filterInput - Raw filter input from query params (may be string or array)
  * @returns FilterDecodeResult with parsed filter or error
  */
 export function progressiveFilterDecode(
-  filterString: string,
+  filterInput: string | string[] | unknown,
 ): FilterDecodeResult {
+  const filterString = ensureString(filterInput);
   if (!filterString || filterString.trim() === '') {
     return {
       success: false,
@@ -339,6 +357,7 @@ export function progressiveFilterDecode(
 /**
  * Normalize search parameter
  * Supports both 'q' (legacy) and 'search' (canonical)
+ * Handles array parameter tampering by taking first element
  *
  * @param query - Raw query parameters
  * @returns Normalized search string or undefined
@@ -346,8 +365,9 @@ export function progressiveFilterDecode(
 export function normalizeSearchParam(
   query: Record<string, unknown>,
 ): string | undefined {
-  const search = query.search ?? query.q;
-  if (typeof search === 'string' && search.trim() !== '') {
+  const rawSearch = query.search ?? query.q;
+  const search = ensureString(rawSearch);
+  if (search.trim() !== '') {
     return search.trim();
   }
   return undefined;
@@ -355,14 +375,16 @@ export function normalizeSearchParam(
 
 /**
  * Normalize filter parameter with progressive decoding
+ * Handles array parameter tampering by taking first element
  *
  * @param query - Raw query parameters
  * @returns Parsed filter object or undefined
  * @throws BadRequestException if filter is invalid JSON after decode attempts
  */
 export function normalizeFilterParam(query: Record<string, unknown>): unknown {
-  const filter = query.filter;
-  if (typeof filter !== 'string' || filter.trim() === '') {
+  const rawFilter = query.filter;
+  const filter = ensureString(rawFilter);
+  if (filter.trim() === '') {
     return undefined;
   }
 
