@@ -32,9 +32,12 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
       
-      const searchInput = page.getByTestId('list-search');
-      await expect(searchInput).toBeVisible({ timeout: 5000 });
+      // The list-search testId is on the TextField wrapper, so we need to find the input inside it
+      const searchContainer = page.getByTestId('list-search');
+      await expect(searchContainer).toBeVisible({ timeout: 5000 });
       
+      // Find the actual input element inside the TextField
+      const searchInput = searchContainer.locator('input');
       await searchInput.fill('test search');
       
       await page.waitForTimeout(500);
@@ -101,9 +104,12 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('capa-list-page'))).toBeVisible({ timeout: 10000 });
       
-      const searchInput = page.getByTestId('list-search');
-      await expect(searchInput).toBeVisible({ timeout: 5000 });
+      // The list-search testId is on the TextField wrapper, so we need to find the input inside it
+      const searchContainer = page.getByTestId('list-search');
+      await expect(searchContainer).toBeVisible({ timeout: 5000 });
       
+      // Find the actual input element inside the TextField
+      const searchInput = searchContainer.locator('input');
       await searchInput.fill('test capa');
       
       await page.waitForTimeout(500);
@@ -169,11 +175,16 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
       
-      // Check for table or empty state using data-testid
-      const hasTable = await page.getByTestId('list-table').isVisible().catch(() => false);
+      // Wait for the table to be visible (it's always rendered, even when empty)
+      // The list-table testId is on the Table element which is always present
+      await expect(page.getByTestId('list-table')).toBeVisible({ timeout: 10000 });
+      
+      // Check for table rows or empty state
+      const hasRows = await page.getByTestId('list-row').first().isVisible().catch(() => false);
       const hasEmptyState = await page.getByTestId('list-empty').isVisible().catch(() => false);
       
-      expect(hasTable || hasEmptyState).toBeTruthy();
+      // Either we have rows or an empty state message
+      expect(hasRows || hasEmptyState).toBeTruthy();
     });
   });
 
