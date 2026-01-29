@@ -434,10 +434,9 @@ export class ClosureLoopService {
     }
 
     if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Cannot close CAPA: closure requirements not met',
-        errors,
-      });
+      throw new BadRequestException(
+        `Cannot close CAPA: closure requirements not met. ${errors.join(' ')}`,
+      );
     }
   }
 
@@ -474,15 +473,9 @@ export class ClosureLoopService {
       const capaList = openCapas
         .map((c) => `"${c.title}" (${c.status})`)
         .join(', ');
-      throw new BadRequestException({
-        message: 'Cannot close Issue: not all CAPAs are closed',
-        errors: [
-          `The following CAPAs are not closed: ${capaList}. ` +
-            `Either close all CAPAs first, or provide an override reason.`,
-        ],
-        openCapaCount: openCapas.length,
-        openCapaIds: openCapas.map((c) => c.id),
-      });
+      throw new BadRequestException(
+        `Cannot close Issue: not all CAPAs are closed. The following CAPAs are not closed: ${capaList}. Either close all CAPAs first, or provide an override reason.`,
+      );
     }
   }
 
