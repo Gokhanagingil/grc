@@ -422,6 +422,8 @@ export const AuditList: React.FC = () => {
                       <TableRow 
                         key={audit.id} 
                         hover
+                        data-testid="audit-list-row"
+                        onClick={() => navigate(`/audits/${audit.id}`)}
                         sx={{ 
                           cursor: 'pointer',
                           '&:hover': { backgroundColor: 'action.hover' },
@@ -436,7 +438,10 @@ export const AuditList: React.FC = () => {
                           <Typography 
                             variant="subtitle2" 
                             component="span"
-                            onClick={() => navigate(`/audits/${audit.id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/audits/${audit.id}`);
+                            }}
                             sx={{ 
                               color: 'primary.main',
                               cursor: 'pointer',
@@ -489,11 +494,14 @@ export const AuditList: React.FC = () => {
                                                     </Typography>
                                                   ) : '-'}
                                                 </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Tooltip title="View">
                             <IconButton
                               size="small"
-                              onClick={() => navigate(`/audits/${audit.id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/audits/${audit.id}`);
+                              }}
                             >
                               <ViewIcon />
                             </IconButton>
@@ -501,7 +509,10 @@ export const AuditList: React.FC = () => {
                           <Tooltip title="Edit">
                             <IconButton
                               size="small"
-                              onClick={() => navigate(`/audits/${audit.id}/edit`)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/audits/${audit.id}/edit`);
+                              }}
                             >
                               <EditIcon />
                             </IconButton>
@@ -511,7 +522,10 @@ export const AuditList: React.FC = () => {
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => handleDeleteAudit(audit.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAudit(audit.id);
+                                }}
                               >
                                 <DeleteIcon />
                               </IconButton>

@@ -208,4 +208,116 @@ describe('Standards Library (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('GET /grc/standards/:id/with-clauses', () => {
+    it('should return 400 for invalid UUID (undefined)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/standards/undefined/with-clauses')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(400);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('Validation failed');
+    });
+
+    it('should return 400 for invalid UUID (not-a-uuid)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/standards/not-a-uuid/with-clauses')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(400);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('Validation failed');
+    });
+
+    it('should return 404 for valid UUID that does not exist', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .get('/grc/standards/00000000-0000-0000-0000-000000000999/with-clauses')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+    });
+
+    it('should return 200 with clause tree for existing standard', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // First, get the list of standards to find an existing one
+      const listResponse = await request(app.getHttpServer())
+        .get('/grc/standards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const standards = listResponse.body.data || [];
+
+      if (standards.length === 0) {
+        console.log('Skipping test: no standards available');
+        return;
+      }
+
+      const standardId = standards[0].id;
+
+      const response = await request(app.getHttpServer())
+        .get(`/grc/standards/${standardId}/with-clauses`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('clauseTree');
+      expect(Array.isArray(response.body.data.clauseTree)).toBe(true);
+    });
+  });
+
+  describe('GET /grc/standards/:id', () => {
+    it('should return 400 for invalid UUID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/standards/invalid-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(400);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('Validation failed');
+    });
+
+    it('should return 404 for valid UUID that does not exist', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .get('/grc/standards/00000000-0000-0000-0000-000000000999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(404);
+    });
+  });
 });

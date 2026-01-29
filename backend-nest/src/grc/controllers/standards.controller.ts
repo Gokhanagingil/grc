@@ -13,6 +13,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -89,7 +90,11 @@ export class StandardsController {
   @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
-    @Param('id') id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -111,7 +116,11 @@ export class StandardsController {
   @Perf()
   async findOneWithClauses(
     @Headers('x-tenant-id') tenantId: string,
-    @Param('id') id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');

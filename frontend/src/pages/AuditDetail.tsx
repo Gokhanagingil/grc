@@ -804,7 +804,7 @@ export const AuditDetail: React.FC = () => {
 
   return (
     <ModuleGuard moduleKey="audit">
-      <Box>
+      <Box data-testid="audit-detail-page">
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Box display="flex" alignItems="center" gap={2}>
             <Button startIcon={<BackIcon />} onClick={() => navigate('/audits')}>
