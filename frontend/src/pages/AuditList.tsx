@@ -35,36 +35,6 @@ import {
   countFilterConditions,
 } from '../utils/listQueryUtils';
 
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
-const unwrapAuditResponse = <T,>(response: { data: { success?: boolean; data?: { audits: T[]; pagination: { total: number; page: number; pageSize: number } } } }): PaginatedResponse<T> => {
-  try {
-    if (!response || !response.data) {
-      return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
-    }
-    const data = response.data;
-    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
-      const innerData = (data as { success: boolean; data: { audits: T[]; pagination: { total: number; page: number; pageSize: number } } }).data;
-      return {
-        items: innerData.audits || [],
-        total: innerData.pagination?.total || 0,
-        page: innerData.pagination?.page || 1,
-        pageSize: innerData.pagination?.pageSize || 10,
-        totalPages: Math.ceil((innerData.pagination?.total || 0) / (innerData.pagination?.pageSize || 10)),
-      };
-    }
-    return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
-  } catch (err) {
-    console.error('Error unwrapping response:', err);
-    return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
-  }
-};
 
 interface Audit {
   id: string;
@@ -231,15 +201,14 @@ export const AuditList: React.FC = () => {
     return filters;
   }, [statusFilter, riskLevelFilter, auditTypeFilter, departmentFilter, advancedFilter]);
 
-  const fetchAudits = useCallback(async (params: Record<string, unknown>) => {
+  const fetchAudits = useCallback((params: Record<string, unknown>) => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         queryParams.set(key, String(value));
       }
     });
-    const response = await api.get(`/grc/audits?${queryParams.toString()}`);
-    return unwrapAuditResponse<Audit>(response);
+    return api.get(`/grc/audits?${queryParams.toString()}`);
   }, []);
 
   const isAuthReady = !authLoading && !!tenantId;

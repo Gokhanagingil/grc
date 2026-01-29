@@ -26,7 +26,7 @@ import {
   Warning as IncidentIcon,
 } from '@mui/icons-material';
 import { useSearchParams } from 'react-router-dom';
-import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grcClient';
+import { incidentApi, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { buildListQueryParams } from '../utils';
 import {
@@ -242,10 +242,9 @@ export const IncidentManagement: React.FC = () => {
     return filters;
   }, [statusFilter, priorityFilter, advancedFilter]);
 
-  const fetchIncidents = useCallback(async (params: Record<string, unknown>) => {
+  const fetchIncidents = useCallback((params: Record<string, unknown>) => {
     const apiParams = buildListQueryParams(params);
-    const response = await incidentApi.list(tenantId, apiParams);
-    return unwrapPaginatedResponse<Incident>(response);
+    return incidentApi.list(tenantId, apiParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;

@@ -28,7 +28,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { requirementApi, unwrapPaginatedRequirementResponse } from '../services/grcClient';
+import { requirementApi } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import {
   GenericListPage,
@@ -177,9 +177,8 @@ export const Compliance: React.FC = () => {
     return filters;
   }, [statusFilter, frameworkFilter, advancedFilter]);
 
-  const fetchRequirements = useCallback(async (params: Record<string, unknown>) => {
-    const response = await requirementApi.list(tenantId, params);
-    return unwrapPaginatedRequirementResponse<ComplianceRequirement>(response);
+  const fetchRequirements = useCallback((params: Record<string, unknown>) => {
+    return requirementApi.list(tenantId, params);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -194,31 +194,9 @@ export const ProcessManagement: React.FC = () => {
 
   const [complianceScores, setComplianceScores] = useState<Record<string, ComplianceScore>>({});
 
-  const fetchProcesses = useCallback(async (params: Record<string, unknown>) => {
+  const fetchProcesses = useCallback((params: Record<string, unknown>) => {
     const apiParams = buildListQueryParams(params);
-    const response = await processApi.list(tenantId, apiParams);
-    const result = unwrapPaginatedResponse<Process>(response);
-
-    const scorePromises = result.items.map(async (process) => {
-      try {
-        const scoreResponse = await processApi.getComplianceScore(tenantId, process.id);
-        const score = unwrapResponse<ComplianceScore>(scoreResponse);
-        return { processId: process.id, score };
-      } catch {
-        return { processId: process.id, score: null };
-      }
-    });
-
-    const scores = await Promise.all(scorePromises);
-    const scoreMap: Record<string, ComplianceScore> = {};
-    scores.forEach(({ processId, score }) => {
-      if (score) {
-        scoreMap[processId] = score;
-      }
-    });
-    setComplianceScores(scoreMap);
-
-    return result;
+    return processApi.list(tenantId, apiParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -243,6 +221,34 @@ export const ProcessManagement: React.FC = () => {
     enabled: isAuthReady,
     additionalFilters,
   });
+
+  // Fetch compliance scores for loaded processes
+  useEffect(() => {
+    const fetchScores = async () => {
+      if (!tenantId || items.length === 0) return;
+      
+      const scorePromises = items.map(async (process) => {
+        try {
+          const scoreResponse = await processApi.getComplianceScore(tenantId, process.id);
+          const score = unwrapResponse<ComplianceScore>(scoreResponse);
+          return { processId: process.id, score };
+        } catch {
+          return { processId: process.id, score: null };
+        }
+      });
+
+      const scores = await Promise.all(scorePromises);
+      const scoreMap: Record<string, ComplianceScore> = {};
+      scores.forEach(({ processId, score }) => {
+        if (score) {
+          scoreMap[processId] = score;
+        }
+      });
+      setComplianceScores(scoreMap);
+    };
+
+    fetchScores();
+  }, [tenantId, items]);
 
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);

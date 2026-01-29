@@ -28,7 +28,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { policyApi, unwrapPaginatedPolicyResponse } from '../services/grcClient';
+import { policyApi } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import {
   GenericListPage,
@@ -158,9 +158,8 @@ export const Governance: React.FC = () => {
     return filters;
   }, [statusFilter, advancedFilter]);
 
-  const fetchPolicies = useCallback(async (params: Record<string, unknown>) => {
-    const response = await policyApi.list(tenantId, params);
-    return unwrapPaginatedPolicyResponse<Policy>(response);
+  const fetchPolicies = useCallback((params: Record<string, unknown>) => {
+    return policyApi.list(tenantId, params);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;

@@ -29,7 +29,6 @@ import {
   processViolationApi,
   riskApi,
   processApi,
-  unwrapPaginatedResponse,
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -204,10 +203,9 @@ export const ProcessViolations: React.FC = () => {
     return filters;
   }, [statusFilter, severityFilter, processIdFilter, advancedFilter]);
 
-  const fetchViolations = useCallback(async (params: Record<string, unknown>) => {
+  const fetchViolations = useCallback((params: Record<string, unknown>) => {
     const apiParams = buildListQueryParams(params);
-    const response = await processViolationApi.list(tenantId, apiParams);
-    return unwrapPaginatedResponse<ProcessViolation>(response);
+    return processViolationApi.list(tenantId, apiParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
