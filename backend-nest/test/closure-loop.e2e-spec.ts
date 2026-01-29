@@ -15,6 +15,18 @@ describe('Closure Loop MVP (e2e)', () => {
   const DEMO_ADMIN_PASSWORD =
     process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
 
+  // Helper to extract error message from response body (handles different envelope formats)
+  const getErrorMessage = (body: Record<string, unknown>): string => {
+    if (typeof body.message === 'string') return body.message;
+    if (
+      body.error &&
+      typeof (body.error as Record<string, unknown>).message === 'string'
+    ) {
+      return (body.error as Record<string, unknown>).message as string;
+    }
+    return JSON.stringify(body);
+  };
+
   beforeAll(async () => {
     try {
       const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -1059,9 +1071,8 @@ describe('Closure Loop MVP (e2e)', () => {
 
       // Should return 400 because verification fields are not set
       expect(closeResponse.status).toBe(400);
-      expect(closeResponse.body.message).toContain(
-        'closure requirements not met',
-      );
+      const errorMsg = getErrorMessage(closeResponse.body);
+      expect(errorMsg).toContain('closure requirements not met');
     });
 
     it('should reject CAPA closure with incomplete tasks', async () => {
@@ -1110,9 +1121,8 @@ describe('Closure Loop MVP (e2e)', () => {
 
       // Should return 400 because task is not completed
       expect(closeResponse.status).toBe(400);
-      expect(closeResponse.body.message).toContain(
-        'closure requirements not met',
-      );
+      const errorMsg2 = getErrorMessage(closeResponse.body);
+      expect(errorMsg2).toContain('closure requirements not met');
     });
 
     it('should allow CAPA closure when all tasks completed and verification set', async () => {
@@ -1278,7 +1288,8 @@ describe('Closure Loop MVP (e2e)', () => {
         .send({ status: 'closed', reason: 'Attempting closure' });
 
       expect(closeResponse.status).toBe(400);
-      expect(closeResponse.body.message).toContain('not all CAPAs are closed');
+      const errorMsg3 = getErrorMessage(closeResponse.body);
+      expect(errorMsg3).toContain('not all CAPAs are closed');
     });
 
     it('should allow Issue closure with override reason when CAPA is open', async () => {
