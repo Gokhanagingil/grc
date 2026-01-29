@@ -99,8 +99,14 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
   }, []);
 
   const fetchStandardClauses = useCallback(async (standardId: string) => {
+    if (!standardId || standardId === 'undefined') {
+      console.warn('Cannot fetch clauses: standardId is missing or invalid');
+      setError('Unable to load clauses: standard ID is missing');
+      return;
+    }
     try {
       setLoadingClauses(true);
+      setError('');
       const response = await standardsLibraryApi.getWithClauses(standardId);
       const data = response.data?.data || response.data;
       if (data) {
@@ -111,6 +117,7 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
       }
     } catch (err) {
       console.error('Failed to fetch standard clauses:', err);
+      setError('Failed to load standard clauses. Please try again.');
     } finally {
       setLoadingClauses(false);
     }
@@ -170,6 +177,11 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
   };
 
   const handleSelectStandard = (scopeStandard: AuditScopeStandard) => {
+    if (!scopeStandard.standardId) {
+      console.warn('Cannot select standard: standardId is missing');
+      setError('Unable to load standard: ID is missing');
+      return;
+    }
     fetchStandardClauses(scopeStandard.standardId);
     setSelectedClause(null);
   };
@@ -191,9 +203,9 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
   }
 
   return (
-    <Box>
+    <Box data-testid="audit-standards-tab">
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')} data-testid="standards-tab-error">
           {error}
         </Alert>
       )}
@@ -316,11 +328,13 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
                   <CircularProgress size={24} />
                 </Box>
               ) : selectedStandard ? (
-                <ClauseTree
-                  clauses={selectedStandard.clauseTree}
-                  selectedClauseId={selectedClause?.id}
-                  onClauseSelect={handleSelectClause}
-                />
+                <Box data-testid="clause-tree">
+                  <ClauseTree
+                    clauses={selectedStandard.clauseTree}
+                    selectedClauseId={selectedClause?.id}
+                    onClauseSelect={handleSelectClause}
+                  />
+                </Box>
               ) : (
                 <Box p={2}>
                   <Typography color="textSecondary" variant="body2">
