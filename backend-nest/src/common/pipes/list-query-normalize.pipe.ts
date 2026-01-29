@@ -288,9 +288,9 @@ export function progressiveFilterDecode(
 
   let currentString = filterString;
   let decodeAttempts = 0;
-  const maxAttempts = 2;
+  const maxAttempts = 3;
 
-  while (decodeAttempts < maxAttempts) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const parsed: unknown = JSON.parse(currentString);
       return {
@@ -301,10 +301,10 @@ export function progressiveFilterDecode(
       };
     } catch {
       if (
-        decodeAttempts < maxAttempts - 1 &&
-        (currentString.includes('%7B') ||
-          currentString.includes('%22') ||
-          currentString.includes('%5B'))
+        currentString.includes('%7B') ||
+        currentString.includes('%22') ||
+        currentString.includes('%5B') ||
+        currentString.includes('%25')
       ) {
         try {
           currentString = decodeURIComponent(currentString);
@@ -331,7 +331,7 @@ export function progressiveFilterDecode(
   return {
     success: false,
     decoded: currentString,
-    error: `Failed to parse filter after ${maxAttempts} decode attempts`,
+    error: `Failed to parse filter after ${decodeAttempts} decode attempts`,
     decodeAttempts,
   };
 }
