@@ -59,14 +59,14 @@ describe('List Query Normalize Pipe', () => {
       const result = progressiveFilterDecode('');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Empty filter string');
+      expect(result.error).toContain('Empty or invalid filter string');
     });
 
     it('should fail for whitespace-only filter string', () => {
       const result = progressiveFilterDecode('   ');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Empty filter string');
+      expect(result.error).toContain('Empty or invalid filter string');
     });
 
     it('should handle complex filter tree', () => {

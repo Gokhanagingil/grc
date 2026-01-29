@@ -536,6 +536,7 @@ export const ControlList: React.FC = () => {
       toolbarActions={toolbarActions}
       banner={<GrcFrameworkWarningBanner />}
       minTableWidth={900}
+      testId="control-list-page"
     />
   );
 };
