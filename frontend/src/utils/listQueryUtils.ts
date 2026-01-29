@@ -15,6 +15,8 @@ import {
   isFilterOrGroup,
 } from '../components/common/AdvancedFilter/types';
 
+export type { FilterTree, FilterCondition };
+
 /**
  * Canonical list query state
  * 
