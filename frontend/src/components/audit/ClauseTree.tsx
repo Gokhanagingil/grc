@@ -77,6 +77,7 @@ const ClauseTreeItem: React.FC<ClauseTreeItemProps> = ({
     <>
       <ListItem
         disablePadding
+        data-testid={`clause-item-${clause.id}`}
         sx={{
           pl: level * 2,
           bgcolor: isSelected ? 'action.selected' : 'transparent',
@@ -86,6 +87,7 @@ const ClauseTreeItem: React.FC<ClauseTreeItemProps> = ({
           onClick={handleClick}
           disabled={disabled}
           sx={{ py: 0.5 }}
+          data-testid={`clause-select-${clause.id}`}
         >
           {selectable && (
             <Checkbox

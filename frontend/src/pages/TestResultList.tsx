@@ -18,9 +18,21 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { testResultApi, TestResultData } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 export enum TestResultOutcome {
   PASS = 'PASS',
@@ -63,6 +75,55 @@ const formatDate = (dateString: string | null | undefined): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+const TEST_RESULT_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'result',
+      label: 'Result',
+      type: 'enum',
+      enumValues: Object.values(TestResultOutcome),
+      enumLabels: {
+        [TestResultOutcome.PASS]: 'Pass',
+        [TestResultOutcome.FAIL]: 'Fail',
+        [TestResultOutcome.INCONCLUSIVE]: 'Inconclusive',
+        [TestResultOutcome.NOT_APPLICABLE]: 'Not Applicable',
+      },
+    },
+    {
+      name: 'effectivenessRating',
+      label: 'Effectiveness',
+      type: 'enum',
+      enumValues: Object.values(EffectivenessRating),
+      enumLabels: {
+        [EffectivenessRating.EFFECTIVE]: 'Effective',
+        [EffectivenessRating.PARTIALLY_EFFECTIVE]: 'Partially Effective',
+        [EffectivenessRating.INEFFECTIVE]: 'Ineffective',
+      },
+    },
+    {
+      name: 'testedAt',
+      label: 'Tested Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const TestResultList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -72,11 +133,22 @@ export const TestResultList: React.FC = () => {
   
   const resultFilter = searchParams.get('result') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (resultFilter) filters.result = resultFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
-  }, [resultFilter]);
+  }, [resultFilter, advancedFilter]);
 
   const fetchTestResults = useCallback((params: Record<string, unknown>) => {
     return testResultApi.list(tenantId, params);
@@ -161,6 +233,29 @@ export const TestResultList: React.FC = () => {
     newParams.set('page', '1');
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
   const columns: ColumnDefinition<TestResultData>[] = useMemo(() => [
     {
@@ -260,8 +355,15 @@ export const TestResultList: React.FC = () => {
           ))}
         </Select>
       </FormControl>
+      <FilterBuilderBasic
+        config={TEST_RESULT_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
     </Box>
-  ), [resultFilter, handleResultChange]);
+  ), [resultFilter, handleResultChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
         <GenericListPage<TestResultData>

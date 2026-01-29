@@ -152,6 +152,13 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
       });
       setSuccess('Audit scope updated successfully');
       setAddStandardsDialogOpen(false);
+      
+      // Reset selected standard and clause if the selected standard was removed from scope
+      if (selectedStandard && !selectedStandardIds.includes(selectedStandard.standard.id)) {
+        setSelectedStandard(null);
+        setSelectedClause(null);
+      }
+      
       fetchScope();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -289,6 +296,7 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
                     <ListItem
                       key={scopeStandard.id}
                       disablePadding
+                      data-testid={`standard-item-${scopeStandard.standardId}`}
                       secondaryAction={
                         scopeStandard.isLocked && (
                           <LockIcon fontSize="small" color="action" />
@@ -298,6 +306,7 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
                       <ListItemButton
                         selected={isSelected}
                         onClick={() => handleSelectStandard(scopeStandard)}
+                        data-testid={`standard-select-${scopeStandard.standardId}`}
                       >
                         <ListItemIcon sx={{ minWidth: 36 }}>
                           <StandardIcon fontSize="small" color={isSelected ? 'primary' : 'action'} />
@@ -353,10 +362,10 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
                 </Typography>
               </Box>
               {selectedClause ? (
-                <Box p={2}>
+                <Box p={2} data-testid="clause-details-panel">
                   <Box mb={2}>
                     <Typography variant="overline" color="textSecondary">Code</Typography>
-                    <Typography variant="body1" fontWeight="medium">{selectedClause.code}</Typography>
+                    <Typography variant="body1" fontWeight="medium" data-testid="clause-detail-code">{selectedClause.code}</Typography>
                   </Box>
                   <Box mb={2}>
                     <Typography variant="overline" color="textSecondary">Title</Typography>

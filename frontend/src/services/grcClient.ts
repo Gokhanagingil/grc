@@ -2778,7 +2778,7 @@ export interface AuditScope {
 }
 
 export const standardsLibraryApi = {
-  list: () => api.get(API_PATHS.STANDARDS_LIBRARY.LIST),
+  list: (params?: Record<string, unknown>) => api.get(API_PATHS.STANDARDS_LIBRARY.LIST, { params }),
 
   get: (id: string) => api.get(API_PATHS.STANDARDS_LIBRARY.GET(id)),
 
