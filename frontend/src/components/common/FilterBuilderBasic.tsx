@@ -111,7 +111,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
 
     if (selectedField?.type === 'enum' && selectedField.enumValues) {
       return (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 150 }} data-testid="filter-rule-value">
           <InputLabel>Value</InputLabel>
           <Select
             value={condition.value || ''}
@@ -137,6 +137,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
           onChange={(e) => handleValueChange(e.target.value)}
           sx={{ minWidth: 150 }}
           InputLabelProps={{ shrink: true }}
+          data-testid="filter-rule-value"
         />
       );
     }
@@ -150,13 +151,14 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
           value={condition.value || ''}
           onChange={(e) => handleValueChange(e.target.value)}
           sx={{ minWidth: 120 }}
+          data-testid="filter-rule-value"
         />
       );
     }
 
     if (selectedField?.type === 'boolean') {
       return (
-        <FormControl size="small" sx={{ minWidth: 100 }}>
+        <FormControl size="small" sx={{ minWidth: 100 }} data-testid="filter-rule-value">
           <InputLabel>Value</InputLabel>
           <Select
             value={condition.value?.toString() || ''}
@@ -177,13 +179,14 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
         value={condition.value || ''}
         onChange={(e) => handleValueChange(e.target.value)}
         sx={{ minWidth: 150, flexGrow: 1 }}
+        data-testid="filter-rule-value"
       />
     );
   };
 
   return (
-    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-      <FormControl size="small" sx={{ minWidth: 150 }}>
+    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" data-testid="filter-rule">
+      <FormControl size="small" sx={{ minWidth: 150 }} data-testid="filter-rule-field">
         <InputLabel>Field</InputLabel>
         <Select
           value={condition.field}
@@ -198,7 +201,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: 150 }}>
+      <FormControl size="small" sx={{ minWidth: 150 }} data-testid="filter-rule-operator">
         <InputLabel>Operator</InputLabel>
         <Select
           value={condition.op}
@@ -216,7 +219,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
       {renderValueInput()}
 
       {canRemove && (
-        <IconButton size="small" onClick={onRemove} color="error">
+        <IconButton size="small" onClick={onRemove} color="error" data-testid="filter-rule-remove">
           <DeleteIcon fontSize="small" />
         </IconButton>
       )}
@@ -350,6 +353,7 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
         startIcon={<FilterIcon />}
         onClick={handleOpen}
         color={activeFilterCount > 0 ? 'primary' : 'inherit'}
+        data-testid="filter-open"
       >
         Filter
         {activeFilterCount > 0 && (
@@ -358,11 +362,12 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
             size="small"
             color="default"
             sx={{ ml: 1, height: 20, minWidth: 20 }}
+            data-testid="filter-chip"
           />
         )}
       </Button>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth data-testid="filter-panel">
         <DialogTitle>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={1}>
@@ -375,6 +380,7 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
                 exclusive
                 onChange={handleGroupTypeChange}
                 size="small"
+                data-testid="filter-add-group"
               >
                 <ToggleButton value="and">
                   Match ALL
@@ -397,6 +403,7 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
                 variant="outlined"
                 startIcon={<AddIcon />}
                 onClick={handleAddCondition}
+                data-testid="filter-add-rule"
               >
                 Add Condition
               </Button>
@@ -430,6 +437,7 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
                   startIcon={<AddIcon />}
                   onClick={handleAddCondition}
                   sx={{ alignSelf: 'flex-start' }}
+                  data-testid="filter-add-rule"
                 >
                   Add Condition
                 </Button>
@@ -445,15 +453,16 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={handleClear} color="inherit">
+          <Button onClick={handleClear} color="inherit" data-testid="filter-clear">
             Clear All
           </Button>
           <Box flexGrow={1} />
-          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleClose} data-testid="filter-close">Cancel</Button>
           <Button
             onClick={handleApply}
             variant="contained"
             disabled={conditions.length > 0 && !isValidFilter}
+            data-testid="filter-apply"
           >
             Apply Filter
           </Button>

@@ -195,39 +195,114 @@ test.describe('Universal List Experience Smoke Tests', () => {
   });
 
   test.describe('Filter Encoding', () => {
-    // Skip this test for now - filter UI is not yet fully implemented with data-testid attributes
-    // The test was causing CI timeouts because the filter button doesn't exist in the current UI
-    // TODO: Re-enable this test once filter UI has proper data-testid attributes
-    test.skip('should use single-encoded filter in URL', async ({ page }) => {
-      await page.goto('/issues');
+    test('should have filter UI with proper testids', async ({ page }) => {
+      await page.goto('/controls');
       
       // Wait for page to load
-      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
       
-      // Try to find a filter button using data-testid
-      const filterButton = page.getByTestId('list-filter-button');
+      // Find and click the filter button using data-testid
+      const filterButton = page.getByTestId('filter-open');
       await expect(filterButton).toBeVisible({ timeout: 5000 });
       await filterButton.click();
       
-      // Wait for filter panel to appear and select a status option
-      const statusOption = page.getByTestId('filter-option-status');
-      await expect(statusOption).toBeVisible({ timeout: 5000 });
-      await statusOption.click();
+      // Wait for filter panel to appear
+      const filterPanel = page.getByTestId('filter-panel');
+      await expect(filterPanel).toBeVisible({ timeout: 5000 });
       
-      // Wait for URL to update
+      // Verify "Add Condition" button exists
+      const addRuleButton = page.getByTestId('filter-add-rule');
+      await expect(addRuleButton).toBeVisible({ timeout: 5000 });
+      await addRuleButton.click();
+      
+      // Wait for the filter rule to appear and verify testids
+      const filterRule = page.getByTestId('filter-rule').first();
+      await expect(filterRule).toBeVisible({ timeout: 5000 });
+      
+      // Verify filter rule components have testids
+      await expect(page.getByTestId('filter-rule-field').first()).toBeVisible({ timeout: 5000 });
+      await expect(page.getByTestId('filter-rule-operator').first()).toBeVisible({ timeout: 5000 });
+      
+      // Verify action buttons have testids
+      await expect(page.getByTestId('filter-apply')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByTestId('filter-clear')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByTestId('filter-close')).toBeVisible({ timeout: 5000 });
+      
+      // Close the dialog
+      await page.getByTestId('filter-close').click();
+      
+      // Verify dialog closed
+      await expect(filterPanel).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test('should clear filter conditions when clear button is clicked', async ({ page }) => {
+      await page.goto('/controls');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Open filter panel
+      const filterButton = page.getByTestId('filter-open');
+      await expect(filterButton).toBeVisible({ timeout: 5000 });
+      await filterButton.click();
+      
+      // Wait for filter panel
+      const filterPanel = page.getByTestId('filter-panel');
+      await expect(filterPanel).toBeVisible({ timeout: 5000 });
+      
+      // Add a condition
+      const addRuleButton = page.getByTestId('filter-add-rule');
+      await addRuleButton.click();
+      
+      // Wait for filter rule
+      await expect(page.getByTestId('filter-rule').first()).toBeVisible({ timeout: 5000 });
+      
+      // Click Clear All button - this clears conditions and closes dialog
+      const clearButton = page.getByTestId('filter-clear');
+      await expect(clearButton).toBeVisible({ timeout: 5000 });
+      await clearButton.click();
+      
+      // Wait for dialog to close
       await page.waitForTimeout(500);
       
+      // Verify filter param is not in URL (no filter was applied)
       const url = page.url();
+      expect(url).not.toContain('filter=');
+    });
+
+    test('should show table or empty state on controls page', async ({ page }) => {
+      await page.goto('/controls');
       
-      // If filter param exists, verify it's properly encoded (single-encoded JSON)
-      if (url.includes('filter=')) {
-        const filterParam = new URL(url).searchParams.get('filter');
-        if (filterParam) {
-          const decoded = decodeURIComponent(filterParam);
-          // Should be valid JSON after single decode
-          expect(() => JSON.parse(decoded)).not.toThrow();
-        }
-      }
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Should show either table with rows or empty state (both are valid outcomes)
+      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty'));
+      await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should close filter dialog when cancel button is clicked', async ({ page }) => {
+      await page.goto('/controls');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Open filter panel
+      const filterButton = page.getByTestId('filter-open');
+      await expect(filterButton).toBeVisible({ timeout: 5000 });
+      await filterButton.click();
+      
+      // Wait for filter panel
+      const filterPanel = page.getByTestId('filter-panel');
+      await expect(filterPanel).toBeVisible({ timeout: 5000 });
+      
+      // Click Cancel button
+      const closeButton = page.getByTestId('filter-close');
+      await expect(closeButton).toBeVisible({ timeout: 5000 });
+      await closeButton.click();
+      
+      // Verify dialog closed
+      await expect(filterPanel).not.toBeVisible({ timeout: 5000 });
     });
   });
 });
