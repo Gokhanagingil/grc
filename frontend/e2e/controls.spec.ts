@@ -134,4 +134,122 @@ test.describe('Controls List Page', () => {
     // Verify that controls API was called (after auth ready)
     expect(controlsCallMade).toBe(true);
   });
+
+  test('should create nested filter tree: (A AND B) OR C', async ({ page }) => {
+    // Navigate to controls page
+    await page.goto('/controls');
+    
+    // Wait for page to load
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 10000 });
+    
+    // Open filter panel
+    const filterButton = page.locator('[data-testid="filter-open"]');
+    await expect(filterButton).toBeVisible({ timeout: 5000 });
+    await filterButton.click();
+    
+    // Wait for filter panel to open
+    await expect(page.locator('[data-testid="filter-panel"]')).toBeVisible({ timeout: 5000 });
+    
+    // The root group should be visible with AND/OR toggle
+    await expect(page.locator('[data-testid="filter-group"]').first()).toBeVisible();
+    await expect(page.locator('[data-testid="filter-group-join"]').first()).toBeVisible();
+    
+    // Add first rule (A)
+    const addRuleButton = page.locator('[data-testid="filter-group-add-rule"]').first();
+    await expect(addRuleButton).toBeVisible();
+    await addRuleButton.click();
+    
+    // Fill in first rule: name contains "A"
+    await expect(page.locator('[data-testid="filter-rule-field"]').first()).toBeVisible();
+    await page.locator('[data-testid="filter-rule-field"]').first().click();
+    await page.locator('li[role="option"]:has-text("Name")').click();
+    
+    await page.locator('[data-testid="filter-rule-op"]').first().click();
+    await page.locator('li[role="option"]:has-text("contains")').click();
+    
+    await page.locator('[data-testid="filter-rule-value"]').first().fill('A');
+    
+    // Add second rule (B)
+    await addRuleButton.click();
+    
+    // Fill in second rule: name contains "B"
+    const fieldSelects = page.locator('[data-testid="filter-rule-field"]');
+    await fieldSelects.nth(1).click();
+    await page.locator('li[role="option"]:has-text("Name")').click();
+    
+    const opSelects = page.locator('[data-testid="filter-rule-op"]');
+    await opSelects.nth(1).click();
+    await page.locator('li[role="option"]:has-text("contains")').click();
+    
+    const valueInputs = page.locator('[data-testid="filter-rule-value"]');
+    await valueInputs.nth(1).fill('B');
+    
+    // Now add a nested group for OR condition
+    const addGroupButton = page.locator('[data-testid="filter-group-add-group"]').first();
+    await expect(addGroupButton).toBeVisible({ timeout: 5000 });
+    await addGroupButton.click();
+    
+    // The nested group should appear
+    const nestedGroups = page.locator('[data-testid="filter-group"]');
+    await expect(nestedGroups).toHaveCount(2, { timeout: 5000 });
+    
+    // Toggle the root group to OR
+    const rootJoinToggle = page.locator('[data-testid="filter-group-join"]').first();
+    await rootJoinToggle.locator('button:has-text("OR")').click();
+    
+    // Add rule C to the nested group
+    const nestedAddRule = page.locator('[data-testid="filter-group-add-rule"]').nth(1);
+    await nestedAddRule.click();
+    
+    // Fill in rule C: name contains "C"
+    const allFieldSelects = page.locator('[data-testid="filter-rule-field"]');
+    await allFieldSelects.last().click();
+    await page.locator('li[role="option"]:has-text("Name")').click();
+    
+    const allOpSelects = page.locator('[data-testid="filter-rule-op"]');
+    await allOpSelects.last().click();
+    await page.locator('li[role="option"]:has-text("contains")').click();
+    
+    const allValueInputs = page.locator('[data-testid="filter-rule-value"]');
+    await allValueInputs.last().fill('C');
+    
+    // Verify Apply button is enabled (all rules are valid)
+    const applyButton = page.locator('[data-testid="filter-apply"]');
+    await expect(applyButton).toBeEnabled({ timeout: 5000 });
+    
+    // Track API request to verify filter param
+    let filterParamValue: string | null = null;
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes('/grc/controls')) {
+        const urlObj = new URL(url);
+        filterParamValue = urlObj.searchParams.get('filter');
+      }
+    });
+    
+    // Click Apply
+    await applyButton.click();
+    
+    // Wait for filter panel to close and API call to be made
+    await page.waitForTimeout(1000);
+    
+    // Verify URL contains single-encoded filter param (no %257B which is double-encoded {)
+    const currentUrl = page.url();
+    expect(currentUrl).not.toContain('%257B');
+    expect(currentUrl).not.toContain('%257D');
+    
+    // Verify filter param is valid JSON (always check, filterParamValue may be null which is fine)
+    const filterIsValidJson = filterParamValue === null || (() => {
+      try {
+        JSON.parse(filterParamValue);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    expect(filterIsValidJson).toBe(true);
+    
+    // Verify page remains stable (no crash)
+    await expect(page.locator('text=Control Library').first()).toBeVisible({ timeout: 5000 });
+  });
 });

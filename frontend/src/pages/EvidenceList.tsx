@@ -25,10 +25,21 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { evidenceApi, EvidenceData, CreateEvidenceDto } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
-import { ListToolbar } from '../components/common/ListToolbar';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 export enum EvidenceType {
   DOCUMENT = 'document',
@@ -85,6 +96,77 @@ const formatDate = (dateString: string | null | undefined): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+/**
+ * Evidence filter configuration for the advanced filter builder
+ */
+const EVIDENCE_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: Object.values(EvidenceStatus),
+      enumLabels: {
+        [EvidenceStatus.DRAFT]: 'Draft',
+        [EvidenceStatus.APPROVED]: 'Approved',
+        [EvidenceStatus.RETIRED]: 'Retired',
+      },
+    },
+    {
+      name: 'type',
+      label: 'Type',
+      type: 'enum',
+      enumValues: Object.values(EvidenceType),
+      enumLabels: {
+        [EvidenceType.DOCUMENT]: 'Document',
+        [EvidenceType.SCREENSHOT]: 'Screenshot',
+        [EvidenceType.LOG]: 'Log',
+        [EvidenceType.REPORT]: 'Report',
+        [EvidenceType.CONFIG_EXPORT]: 'Config Export',
+        [EvidenceType.LINK]: 'Link',
+        [EvidenceType.OTHER]: 'Other',
+      },
+    },
+    {
+      name: 'sourceType',
+      label: 'Source Type',
+      type: 'enum',
+      enumValues: Object.values(EvidenceSourceType),
+      enumLabels: {
+        [EvidenceSourceType.MANUAL]: 'Manual',
+        [EvidenceSourceType.URL]: 'URL',
+        [EvidenceSourceType.SYSTEM]: 'System',
+      },
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created At',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated At',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const EvidenceList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -103,12 +185,23 @@ export const EvidenceList: React.FC = () => {
   const statusFilter = searchParams.get('status') || '';
   const typeFilter = searchParams.get('type') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (statusFilter) filters.status = statusFilter;
     if (typeFilter) filters.type = typeFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, advancedFilter]);
 
   const fetchEvidence = useCallback((params: Record<string, unknown>) => {
     return evidenceApi.list(tenantId, params);
@@ -122,13 +215,11 @@ export const EvidenceList: React.FC = () => {
     page,
     pageSize,
     search,
-    sort,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
-    setSort,
     refetch,
   } = useUniversalList<EvidenceData>({
     fetchFn: fetchEvidence,
@@ -299,8 +390,38 @@ export const EvidenceList: React.FC = () => {
     },
   ], [handleViewEvidence, handleDeleteEvidence]);
 
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={EVIDENCE_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -336,59 +457,38 @@ export const EvidenceList: React.FC = () => {
         Add Evidence
       </Button>
     </Box>
-  ), [statusFilter, typeFilter, handleStatusChange, handleTypeChange]);
-
-  const listToolbar = useMemo(() => (
-    <ListToolbar
-      entity="evidence"
-      search={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search evidence..."
-      sort={sort}
-      onSortChange={setSort}
-      onRefresh={refetch}
-      loading={isLoading}
-      onClearFilters={handleClearFilters}
-      filters={getActiveFilters()}
-      onFilterRemove={handleFilterRemove}
-    />
-  ), [search, setSearch, sort, setSort, refetch, isLoading, handleClearFilters, getActiveFilters, handleFilterRemove]);
+  ), [statusFilter, typeFilter, handleStatusChange, handleTypeChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <>
-            <GenericListPage<EvidenceData>
-              title="Evidence Library"
-              icon={<EvidenceIcon />}
-              items={items}
-              columns={columns}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              isLoading={isLoading || authLoading}
-              error={error}
-              search={search}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              onSearchChange={setSearch}
-              onRefresh={refetch}
-              getRowKey={(evidence) => evidence.id}
-              searchPlaceholder="Search evidence..."
-              emptyMessage="No evidence found"
-              emptyFilteredMessage="Try adjusting your filters or search query"
-              filters={getActiveFilters()}
-              onFilterRemove={handleFilterRemove}
-              onClearFilters={handleClearFilters}
-              toolbarActions={toolbarActions}
-              banner={
-                <>
-                  <GrcFrameworkWarningBanner />
-                  {listToolbar}
-                </>
-              }
-              minTableWidth={900}
-              testId="evidence-list-page"
-              onRowClick={handleViewEvidence}
-            />
+      <GenericListPage<EvidenceData>
+        title="Evidence Library"
+        icon={<EvidenceIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(evidence) => evidence.id}
+        searchPlaceholder="Search evidence..."
+        emptyMessage="No evidence found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        banner={<GrcFrameworkWarningBanner />}
+        minTableWidth={900}
+        testId="evidence-list-page"
+        onRowClick={handleViewEvidence}
+      />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-evidence-dialog">
         <DialogTitle>Add New Evidence</DialogTitle>
