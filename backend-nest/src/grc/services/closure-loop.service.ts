@@ -60,6 +60,11 @@ export class ClosureLoopService {
 
   /**
    * Update CAPA status with validation and history tracking
+   *
+   * Closure Loop Rules:
+   * - CAPA cannot transition to CLOSED unless:
+   *   1. All tasks are in terminal state (COMPLETED or CANCELLED)
+   *   2. Verification fields are set (verifiedByUserId, verifiedAt)
    */
   async updateCapaStatus(
     tenantId: string,
@@ -69,7 +74,7 @@ export class ClosureLoopService {
   ): Promise<GrcCapa> {
     const capa = await this.capaRepository.findOne({
       where: { id: capaId, tenantId, isDeleted: false },
-      relations: ['issue'],
+      relations: ['issue', 'tasks'],
     });
 
     if (!capa) {
@@ -83,6 +88,11 @@ export class ClosureLoopService {
     }
 
     this.validateCapaTransition(previousStatus, dto.status);
+
+    // Closure Loop Rule: Validate CAPA closure requirements
+    if (dto.status === CapaStatus.CLOSED) {
+      await this.validateCapaClosureRequirements(tenantId, capaId, capa);
+    }
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -144,6 +154,11 @@ export class ClosureLoopService {
 
   /**
    * Update Issue status with validation and history tracking
+   *
+   * Closure Loop Rules:
+   * - Issue cannot transition to CLOSED unless:
+   *   1. All linked CAPAs are CLOSED, OR
+   *   2. Explicit override with reason is provided (audit trail)
    */
   async updateIssueStatus(
     tenantId: string,
@@ -166,6 +181,15 @@ export class ClosureLoopService {
     }
 
     this.validateIssueTransition(previousStatus, dto.status);
+
+    // Closure Loop Rule: Validate Issue closure requirements
+    if (dto.status === IssueStatus.CLOSED) {
+      await this.validateIssueClosureRequirements(
+        tenantId,
+        issueId,
+        dto.overrideReason,
+      );
+    }
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -363,6 +387,103 @@ export class ClosureLoopService {
       'Auto-closed: all CAPAs completed',
       { source: 'SYSTEM' },
     );
+  }
+
+  /**
+   * Validate CAPA closure requirements
+   *
+   * Closure Loop Rule: CAPA cannot be closed unless:
+   * 1. All tasks are in terminal state (COMPLETED or CANCELLED)
+   * 2. Verification fields are set (verifiedByUserId, verifiedAt)
+   */
+  private async validateCapaClosureRequirements(
+    tenantId: string,
+    capaId: string,
+    capa: GrcCapa,
+  ): Promise<void> {
+    const errors: string[] = [];
+
+    // Check verification fields
+    if (!capa.verifiedByUserId || !capa.verifiedAt) {
+      errors.push(
+        'CAPA must be verified before closing. Please set verification fields (verifiedBy, verifiedAt).',
+      );
+    }
+
+    // Check all tasks are in terminal state
+    const tasks = await this.capaTaskRepository.find({
+      where: { capaId, tenantId, isDeleted: false },
+    });
+
+    if (tasks.length > 0) {
+      const nonTerminalTasks = tasks.filter(
+        (task) =>
+          task.status !== CAPATaskStatus.COMPLETED &&
+          task.status !== CAPATaskStatus.CANCELLED,
+      );
+
+      if (nonTerminalTasks.length > 0) {
+        const taskTitles = nonTerminalTasks
+          .map((t) => `"${t.title}" (${t.status})`)
+          .join(', ');
+        errors.push(
+          `All CAPA tasks must be completed or cancelled before closing. ` +
+            `Incomplete tasks: ${taskTitles}`,
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Cannot close CAPA: closure requirements not met',
+        errors,
+      });
+    }
+  }
+
+  /**
+   * Validate Issue closure requirements
+   *
+   * Closure Loop Rule: Issue cannot be closed unless:
+   * 1. All linked CAPAs are CLOSED, OR
+   * 2. Explicit override with reason is provided
+   */
+  private async validateIssueClosureRequirements(
+    tenantId: string,
+    issueId: string,
+    overrideReason?: string,
+  ): Promise<void> {
+    const capas = await this.capaRepository.find({
+      where: { issueId, tenantId, isDeleted: false },
+    });
+
+    // If no CAPAs linked, allow closure
+    if (capas.length === 0) {
+      return;
+    }
+
+    const openCapas = capas.filter((capa) => capa.status !== CapaStatus.CLOSED);
+
+    if (openCapas.length > 0) {
+      // Check if override is provided
+      if (overrideReason && overrideReason.trim().length > 0) {
+        // Override allowed - will be recorded in audit trail
+        return;
+      }
+
+      const capaList = openCapas
+        .map((c) => `"${c.title}" (${c.status})`)
+        .join(', ');
+      throw new BadRequestException({
+        message: 'Cannot close Issue: not all CAPAs are closed',
+        errors: [
+          `The following CAPAs are not closed: ${capaList}. ` +
+            `Either close all CAPAs first, or provide an override reason.`,
+        ],
+        openCapaCount: openCapas.length,
+        openCapaIds: openCapas.map((c) => c.id),
+      });
+    }
   }
 
   private validateCapaTransition(

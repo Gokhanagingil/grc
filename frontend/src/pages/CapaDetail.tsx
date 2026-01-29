@@ -452,27 +452,27 @@ export const CapaDetail: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} data-testid="capa-verification-panel">
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Verification & Closure</Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Grid container spacing={2}>
                     <Grid item xs={4}><Typography color="text.secondary">Verified At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDateTime(capa.verifiedAt)}</Typography></Grid>
+                    <Grid item xs={8}><Typography data-testid="capa-verified-at">{formatDateTime(capa.verifiedAt)}</Typography></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Verified By</Typography></Grid>
                     <Grid item xs={8}>
-                      <Typography>
+                      <Typography data-testid="capa-verified-by">
                         {capa.verifiedBy 
                           ? `${capa.verifiedBy.firstName || ''} ${capa.verifiedBy.lastName || ''}`
                           : '-'}
                       </Typography>
                     </Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Closed At</Typography></Grid>
-                    <Grid item xs={8}><Typography>{formatDateTime(capa.closedAt)}</Typography></Grid>
+                    <Grid item xs={8}><Typography data-testid="capa-closed-at">{formatDateTime(capa.closedAt)}</Typography></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Closed By</Typography></Grid>
                     <Grid item xs={8}>
-                      <Typography>
+                      <Typography data-testid="capa-closed-by">
                         {capa.closedBy 
                           ? `${capa.closedBy.firstName || ''} ${capa.closedBy.lastName || ''}`
                           : '-'}
@@ -609,7 +609,7 @@ export const CapaDetail: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <Card>
+          <Card data-testid="capa-tasks-panel">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h6">CAPA Tasks</Typography>

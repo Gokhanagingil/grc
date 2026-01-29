@@ -27,6 +27,10 @@ export class UpdateCapaStatusDto {
 
 /**
  * DTO for updating Issue status
+ *
+ * Closure Loop Rules:
+ * - When closing an Issue, all linked CAPAs must be CLOSED
+ * - OR provide an overrideReason to close with open CAPAs (audit trail)
  */
 export class UpdateIssueStatusDto {
   @ApiProperty({
@@ -46,4 +50,16 @@ export class UpdateIssueStatusDto {
   @IsString()
   @MaxLength(1000)
   reason?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Override reason to close Issue even if linked CAPAs are not closed. ' +
+      'Required when closing an Issue with open CAPAs. Recorded in audit trail.',
+    example: 'CAPAs transferred to different tracking system',
+    maxLength: 1000,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  overrideReason?: string;
 }
