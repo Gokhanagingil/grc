@@ -142,9 +142,9 @@ test.describe('Controls List Page', () => {
     // Navigate to controls page
     await page.goto('/controls');
     
-    // Wait for page to load - use table OR empty pattern for stability
+    // Wait for page to load - wait for list table or empty state
     await expect(
-      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]')).or(page.locator('text=Control Library').first())
+      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]'))
     ).toBeVisible({ timeout: 15000 });
     
     // Open filter panel
@@ -270,7 +270,7 @@ test.describe('Controls List Page', () => {
     
     // Wait for list to stabilize (table OR empty state)
     await expect(
-      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]')).or(page.locator('text=Control Library').first())
+      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]'))
     ).toBeVisible({ timeout: 15000 });
     
     // Verify URL contains single-encoded filter param (no %257B which is double-encoded {)
