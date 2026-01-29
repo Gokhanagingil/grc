@@ -26,3 +26,5 @@ export { ListPageShell, getListDataState } from './ListPageShell';
 export type { ListPageShellProps, ListDataState } from './ListPageShell';
 export { DirtyStateIndicator } from './DirtyStateIndicator';
 export type { DirtyStateIndicatorProps } from './DirtyStateIndicator';
+export { UniversalListPage } from './UniversalListPage';
+export type { UniversalListPageProps, FilterFieldConfig, SavedView } from './UniversalListPage';

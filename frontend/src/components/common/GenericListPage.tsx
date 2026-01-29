@@ -155,7 +155,7 @@ export function GenericListPage<T>({
               </TableHead>
               <TableBody>
                 {items.length === 0 ? (
-                  <TableRow>
+                  <TableRow data-testid="empty-state">
                     <TableCell colSpan={columns.length} align="center" sx={{ py: 0, border: 'none' }}>
                       <EmptyState
                         icon={icon ? React.cloneElement(icon, { sx: { fontSize: 64, color: 'text.disabled' } }) : undefined}
@@ -165,12 +165,13 @@ export function GenericListPage<T>({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
+                  items.map((item, index) => (
                     <TableRow 
                       key={getRowKey(item)} 
                       hover
                       onClick={() => onRowClick?.(item)}
                       sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                      data-testid={index === 0 ? 'list-row' : undefined}
                     >
                       {columns.map((column) => (
                         <TableCell key={column.key}>

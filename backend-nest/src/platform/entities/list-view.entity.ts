@@ -77,6 +77,25 @@ export class ListView {
   @Column({ name: 'is_default', type: 'boolean', default: false })
   isDefault: boolean;
 
+  @Column({
+    name: 'default_sort',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  defaultSort: string | null;
+
+  @Column({ name: 'default_filter', type: 'text', nullable: true })
+  defaultFilter: string | null;
+
+  @Column({
+    name: 'default_search',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  defaultSearch: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

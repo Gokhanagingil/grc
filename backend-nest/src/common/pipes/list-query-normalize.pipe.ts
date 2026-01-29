@@ -6,13 +6,19 @@
  *
  * Target Contract (canonical):
  * - page, pageSize: pagination
- * - q: text search
+ * - q or search: text search (both supported, 'search' is canonical)
  * - sort=field:ASC|DESC (canonical format)
- * - filter=<tree-json> (existing standard)
+ * - filter=<tree-json> (advanced filter tree)
  *
  * Legacy inputs supported:
  * - sortBy=<field>
  * - sortOrder=ASC|DESC
+ *
+ * Filter Decoding Strategy (progressive, max 2 attempts):
+ * - Accept filter as URL-encoded JSON once (no double encode expected)
+ * - Attempt 1: Try JSON.parse directly
+ * - If fails and string contains %7B pattern, decode once and retry
+ * - Maximum 2 decode attempts to prevent infinite loops
  *
  * Behavior:
  * - If canonical 'sort' is provided, parse it and set sortBy/sortOrder, ignore legacy params
@@ -245,3 +251,127 @@ export const CapasListQueryPipe = createListQueryNormalizePipe('capas');
 export const RisksListQueryPipe = createListQueryNormalizePipe('risks');
 export const ControlTestsListQueryPipe =
   createListQueryNormalizePipe('control-tests');
+
+/**
+ * Progressive filter decoding result
+ */
+export interface FilterDecodeResult {
+  success: boolean;
+  decoded: string;
+  parsed?: unknown;
+  error?: string;
+  decodeAttempts: number;
+}
+
+/**
+ * Progressively decode and parse a filter string
+ *
+ * Strategy:
+ * 1. Try JSON.parse directly on the input
+ * 2. If fails and string contains URL-encoded patterns (%7B, %22, etc.), decode once and retry
+ * 3. Maximum 2 decode attempts to prevent infinite loops
+ *
+ * @param filterString - Raw filter string from query params
+ * @returns FilterDecodeResult with parsed filter or error
+ */
+export function progressiveFilterDecode(
+  filterString: string,
+): FilterDecodeResult {
+  if (!filterString || filterString.trim() === '') {
+    return {
+      success: false,
+      decoded: filterString,
+      error: 'Empty filter string',
+      decodeAttempts: 0,
+    };
+  }
+
+  let currentString = filterString;
+  let decodeAttempts = 0;
+  const maxAttempts = 2;
+
+  while (decodeAttempts < maxAttempts) {
+    try {
+      const parsed: unknown = JSON.parse(currentString);
+      return {
+        success: true,
+        decoded: currentString,
+        parsed,
+        decodeAttempts,
+      };
+    } catch {
+      if (
+        decodeAttempts < maxAttempts - 1 &&
+        (currentString.includes('%7B') ||
+          currentString.includes('%22') ||
+          currentString.includes('%5B'))
+      ) {
+        try {
+          currentString = decodeURIComponent(currentString);
+          decodeAttempts++;
+        } catch {
+          return {
+            success: false,
+            decoded: currentString,
+            error: 'Failed to decode URI component',
+            decodeAttempts,
+          };
+        }
+      } else {
+        return {
+          success: false,
+          decoded: currentString,
+          error: `Invalid JSON after ${decodeAttempts} decode attempts`,
+          decodeAttempts,
+        };
+      }
+    }
+  }
+
+  return {
+    success: false,
+    decoded: currentString,
+    error: `Failed to parse filter after ${maxAttempts} decode attempts`,
+    decodeAttempts,
+  };
+}
+
+/**
+ * Normalize search parameter
+ * Supports both 'q' (legacy) and 'search' (canonical)
+ *
+ * @param query - Raw query parameters
+ * @returns Normalized search string or undefined
+ */
+export function normalizeSearchParam(
+  query: Record<string, unknown>,
+): string | undefined {
+  const search = query.search ?? query.q;
+  if (typeof search === 'string' && search.trim() !== '') {
+    return search.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Normalize filter parameter with progressive decoding
+ *
+ * @param query - Raw query parameters
+ * @returns Parsed filter object or undefined
+ * @throws BadRequestException if filter is invalid JSON after decode attempts
+ */
+export function normalizeFilterParam(query: Record<string, unknown>): unknown {
+  const filter = query.filter;
+  if (typeof filter !== 'string' || filter.trim() === '') {
+    return undefined;
+  }
+
+  const result = progressiveFilterDecode(filter);
+  if (!result.success) {
+    throw new BadRequestException(
+      `Invalid filter parameter: ${result.error}. Filter must be valid JSON.`,
+    );
+  }
+
+  return result.parsed;
+}

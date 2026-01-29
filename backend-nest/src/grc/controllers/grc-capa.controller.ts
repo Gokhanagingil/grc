@@ -15,7 +15,20 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { normalizeListQuerySort } from '../../common/pipes';
+import {
+  normalizeListQuerySort,
+  progressiveFilterDecode,
+} from '../../common/pipes';
+import { parseFilterJson } from '../../common/list-query/list-query.parser';
+import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
+import {
+  applyFilterTree,
+  applyQuickSearch,
+} from '../../common/list-query/list-query.apply';
+import {
+  CAPA_ALLOWLIST,
+  CAPA_SEARCHABLE_COLUMNS,
+} from '../../common/list-query/list-query.allowlist';
 import {
   ApiTags,
   ApiOperation,
@@ -106,6 +119,7 @@ export class GrcCapaController {
   /**
    * GET /grc/capas
    * List all CAPAs for the current tenant with pagination and filtering
+   * Supports both legacy individual filters and advanced filter tree
    */
   @Get()
   @Permissions(Permission.GRC_CAPA_READ)
@@ -121,7 +135,9 @@ export class GrcCapaController {
     @Query('type') type?: string,
     @Query('priority') priority?: string,
     @Query('issueId') issueId?: string,
-    @Query('q') search?: string,
+    @Query('q') q?: string,
+    @Query('search') search?: string,
+    @Query('filter') filterJson?: string,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -142,6 +158,27 @@ export class GrcCapaController {
       .where('capa.tenantId = :tenantId', { tenantId })
       .andWhere('capa.isDeleted = :isDeleted', { isDeleted: false });
 
+    if (filterJson) {
+      try {
+        const decodeResult = progressiveFilterDecode(filterJson);
+        if (decodeResult.success && decodeResult.decoded) {
+          const parsed = parseFilterJson(decodeResult.decoded);
+          if (parsed.tree) {
+            validateFilterAgainstAllowlist(parsed.tree, CAPA_ALLOWLIST);
+            applyFilterTree(queryBuilder, parsed.tree, CAPA_ALLOWLIST, 'capa');
+          }
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException({
+          message: 'Invalid filter JSON',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
     if (status) {
       queryBuilder.andWhere('capa.status = :status', { status });
     }
@@ -158,10 +195,13 @@ export class GrcCapaController {
       queryBuilder.andWhere('capa.issueId = :issueId', { issueId });
     }
 
-    if (search) {
-      queryBuilder.andWhere(
-        '(capa.title ILIKE :search OR capa.description ILIKE :search OR capa.rootCauseAnalysis ILIKE :search)',
-        { search: `%${search}%` },
+    const searchTerm = q || search;
+    if (searchTerm) {
+      applyQuickSearch(
+        queryBuilder,
+        searchTerm,
+        CAPA_SEARCHABLE_COLUMNS,
+        'capa',
       );
     }
 
