@@ -163,7 +163,7 @@ test.describe('Controls List Page', () => {
     await page.locator('[data-testid="filter-rule-field"]').first().click();
     await page.locator('li[role="option"]:has-text("Name")').click();
     
-    await page.locator('[data-testid="filter-rule-op"]').first().click();
+    await page.locator('[data-testid="filter-rule-operator"]').first().click();
     await page.locator('li[role="option"]:has-text("contains")').click();
     
     await page.locator('[data-testid="filter-rule-value"]').first().fill('A');
@@ -176,7 +176,7 @@ test.describe('Controls List Page', () => {
     await fieldSelects.nth(1).click();
     await page.locator('li[role="option"]:has-text("Name")').click();
     
-    const opSelects = page.locator('[data-testid="filter-rule-op"]');
+    const opSelects = page.locator('[data-testid="filter-rule-operator"]');
     await opSelects.nth(1).click();
     await page.locator('li[role="option"]:has-text("contains")').click();
     
@@ -205,7 +205,7 @@ test.describe('Controls List Page', () => {
     await allFieldSelects.last().click();
     await page.locator('li[role="option"]:has-text("Name")').click();
     
-    const allOpSelects = page.locator('[data-testid="filter-rule-op"]');
+    const allOpSelects = page.locator('[data-testid="filter-rule-operator"]');
     await allOpSelects.last().click();
     await page.locator('li[role="option"]:has-text("contains")').click();
     
