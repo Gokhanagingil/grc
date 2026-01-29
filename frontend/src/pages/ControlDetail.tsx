@@ -380,7 +380,7 @@ export const ControlDetail: React.FC = () => {
     try {
       const response = await controlApi.getEvidences(tenantId, id);
       const data = unwrapResponse<LinkedGrcEvidence[]>(response);
-      setLinkedGrcEvidences(data || []);
+      setLinkedGrcEvidences(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching linked evidences for control:', err);
       setLinkedGrcEvidences([]);
@@ -886,7 +886,7 @@ export const ControlDetail: React.FC = () => {
                 </TableBody>
               </Table>
             ) : (
-              <Alert severity="info">No evidence linked from the GRC Evidence Library yet. Link evidence from the Evidence detail page.</Alert>
+              <Alert severity="info" data-testid="linked-grc-evidences-empty">No evidence linked from the GRC Evidence Library yet. Link evidence from the Evidence detail page.</Alert>
             )}
           </Box>
 

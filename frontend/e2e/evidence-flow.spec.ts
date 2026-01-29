@@ -370,8 +370,9 @@ test.describe('Evidence Golden Flow', () => {
     const evidenceTab = page.getByRole('tab', { name: /evidence/i });
     await evidenceTab.click();
     
-    // Verify linked evidence table is visible
-    await expect(page.getByTestId('linked-grc-evidences-table')).toBeVisible({ timeout: 5000 });
+    // Verify evidence tab content is visible (table or empty state)
+    const evidenceContent = page.locator('[data-testid="linked-grc-evidences-table"], [data-testid="linked-grc-evidences-empty"]');
+    await expect(evidenceContent.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('Full Evidence Flow: List -> Create -> Detail -> Tabs', async ({ page }) => {

@@ -226,9 +226,12 @@ export const EvidenceDetail: React.FC = () => {
         evidenceApi.getTestResults(tenantId, id),
         evidenceApi.getIssues(tenantId, id),
       ]);
-      setLinkedControls(unwrapResponse<LinkedControl[]>(controlsRes) || []);
-      setLinkedTestResults(unwrapResponse<LinkedTestResult[]>(testResultsRes) || []);
-      setLinkedIssues(unwrapResponse<LinkedIssue[]>(issuesRes) || []);
+      const controlsData = unwrapResponse<LinkedControl[]>(controlsRes);
+      const testResultsData = unwrapResponse<LinkedTestResult[]>(testResultsRes);
+      const issuesData = unwrapResponse<LinkedIssue[]>(issuesRes);
+      setLinkedControls(Array.isArray(controlsData) ? controlsData : []);
+      setLinkedTestResults(Array.isArray(testResultsData) ? testResultsData : []);
+      setLinkedIssues(Array.isArray(issuesData) ? issuesData : []);
     } catch (err) {
       console.error('Error fetching linked entities:', err);
     } finally {
