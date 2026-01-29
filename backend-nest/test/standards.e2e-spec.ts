@@ -222,8 +222,10 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(400);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('Validation failed');
+      // Response format: {success: false, error: {code, message}}
+      expect(response.body).toHaveProperty('success', false);
+      const errorMessage = response.body.error?.message || response.body.message;
+      expect(errorMessage).toContain('Validation failed');
     });
 
     it('should return 400 for invalid UUID (not-a-uuid)', async () => {
@@ -238,8 +240,10 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(400);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('Validation failed');
+      // Response format: {success: false, error: {code, message}}
+      expect(response.body).toHaveProperty('success', false);
+      const errorMessage = response.body.error?.message || response.body.message;
+      expect(errorMessage).toContain('Validation failed');
     });
 
     it('should return 404 for valid UUID that does not exist', async () => {
@@ -303,8 +307,10 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(400);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('Validation failed');
+      // Response format: {success: false, error: {code, message}}
+      expect(response.body).toHaveProperty('success', false);
+      const errorMessage = response.body.error?.message || response.body.message;
+      expect(errorMessage).toContain('Validation failed');
     });
 
     it('should return 404 for valid UUID that does not exist', async () => {
