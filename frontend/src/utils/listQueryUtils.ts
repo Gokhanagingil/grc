@@ -240,27 +240,41 @@ export function normalizeFilter(input: FilterTree | FilterCondition | null | und
     return { and: [input] } as FilterAndGroup;
   }
   
-  // Handle AND group - validate and filter children
+  // Handle AND group - validate and recursively normalize children
   if (isFilterAndGroup(input)) {
-    const validChildren = input.and.filter(child => {
+    const validChildren: FilterTree[] = [];
+    for (const child of input.and) {
       if (isFilterCondition(child)) {
-        return isValidCondition(child);
+        if (isValidCondition(child)) {
+          validChildren.push(child);
+        }
+      } else {
+        // Recursively normalize nested groups
+        const normalized = normalizeFilter(child);
+        if (normalized) {
+          validChildren.push(normalized);
+        }
       }
-      // Recursively validate nested groups
-      return isFilterAndGroup(child) || isFilterOrGroup(child);
-    });
+    }
     return { and: validChildren } as FilterAndGroup;
   }
   
-  // Handle OR group - validate and filter children
+  // Handle OR group - validate and recursively normalize children
   if (isFilterOrGroup(input)) {
-    const validChildren = input.or.filter(child => {
+    const validChildren: FilterTree[] = [];
+    for (const child of input.or) {
       if (isFilterCondition(child)) {
-        return isValidCondition(child);
+        if (isValidCondition(child)) {
+          validChildren.push(child);
+        }
+      } else {
+        // Recursively normalize nested groups
+        const normalized = normalizeFilter(child);
+        if (normalized) {
+          validChildren.push(normalized);
+        }
       }
-      // Recursively validate nested groups
-      return isFilterAndGroup(child) || isFilterOrGroup(child);
-    });
+    }
     return { or: validChildren } as FilterTree;
   }
   
