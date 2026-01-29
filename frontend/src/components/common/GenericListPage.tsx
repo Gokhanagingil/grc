@@ -112,9 +112,9 @@ export function GenericListPage<T>({
   }
 
     return (
-      <Box sx={{ p: 3 }} data-testid={testId}>
+      <Box sx={{ p: 3 }} data-testid={testId || 'universal-list-page'}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }} data-testid="list-header-title">
           {icon} {title}
         </Typography>
         {headerActions}
@@ -143,7 +143,7 @@ export function GenericListPage<T>({
       <Card>
         <CardContent>
           <ResponsiveTable minWidth={minTableWidth}>
-            <Table>
+            <Table data-testid="list-table">
               <TableHead>
                 <TableRow>
                   {columns.map((column) => (
@@ -155,7 +155,7 @@ export function GenericListPage<T>({
               </TableHead>
               <TableBody>
                 {items.length === 0 ? (
-                  <TableRow data-testid="empty-state">
+                  <TableRow data-testid="list-empty">
                     <TableCell colSpan={columns.length} align="center" sx={{ py: 0, border: 'none' }}>
                       <EmptyState
                         icon={icon ? React.cloneElement(icon, { sx: { fontSize: 64, color: 'text.disabled' } }) : undefined}
@@ -171,7 +171,7 @@ export function GenericListPage<T>({
                       hover
                       onClick={() => onRowClick?.(item)}
                       sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
-                      data-testid={index === 0 ? 'list-row' : undefined}
+                      data-testid="list-row"
                     >
                       {columns.map((column) => (
                         <TableCell key={column.key}>

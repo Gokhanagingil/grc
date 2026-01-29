@@ -264,51 +264,38 @@ export interface FilterDecodeResult {
 }
 
 /**
- * Ensure input is a string (handles array parameter tampering)
- * HTTP query params can be arrays if same param is passed multiple times
- *
- * @param input - Raw input that may be string, array, or other type
- * @returns String value or empty string if invalid
- */
-function ensureString(input: unknown): string {
-  if (typeof input === 'string') {
-    return input;
-  }
-  if (
-    Array.isArray(input) &&
-    input.length > 0 &&
-    typeof input[0] === 'string'
-  ) {
-    return input[0];
-  }
-  return '';
-}
-
-/**
  * Progressively decode and parse a filter string
  *
  * Strategy:
  * 1. Try JSON.parse directly on the input
  * 2. If fails and string contains URL-encoded patterns (%7B, %22, etc.), decode once and retry
- * 3. Maximum 3 decode attempts to handle double-encoded strings
+ * 3. Maximum 3 decode attempts to prevent infinite loops
  *
- * @param filterInput - Raw filter input from query params (may be string or array)
+ * @param filterString - Raw filter string from query params (handles array case from query params)
  * @returns FilterDecodeResult with parsed filter or error
  */
 export function progressiveFilterDecode(
-  filterInput: unknown,
+  filterString: string | string[],
 ): FilterDecodeResult {
-  const filterString = ensureString(filterInput);
-  if (!filterString || filterString.trim() === '') {
+  // Handle array case (e.g., ?filter=a&filter=b sends array)
+  const normalizedInput = Array.isArray(filterString)
+    ? filterString[0]
+    : filterString;
+
+  if (
+    !normalizedInput ||
+    typeof normalizedInput !== 'string' ||
+    normalizedInput.trim() === ''
+  ) {
     return {
       success: false,
-      decoded: filterString,
-      error: 'Empty filter string',
+      decoded: typeof normalizedInput === 'string' ? normalizedInput : '',
+      error: 'Empty or invalid filter string',
       decodeAttempts: 0,
     };
   }
 
-  let currentString = filterString;
+  let currentString = normalizedInput;
   let decodeAttempts = 0;
   const maxAttempts = 3;
 
@@ -361,7 +348,6 @@ export function progressiveFilterDecode(
 /**
  * Normalize search parameter
  * Supports both 'q' (legacy) and 'search' (canonical)
- * Handles array parameter tampering by taking first element
  *
  * @param query - Raw query parameters
  * @returns Normalized search string or undefined
@@ -369,9 +355,8 @@ export function progressiveFilterDecode(
 export function normalizeSearchParam(
   query: Record<string, unknown>,
 ): string | undefined {
-  const rawSearch = query.search ?? query.q;
-  const search = ensureString(rawSearch);
-  if (search.trim() !== '') {
+  const search = query.search ?? query.q;
+  if (typeof search === 'string' && search.trim() !== '') {
     return search.trim();
   }
   return undefined;
@@ -379,20 +364,25 @@ export function normalizeSearchParam(
 
 /**
  * Normalize filter parameter with progressive decoding
- * Handles array parameter tampering by taking first element
  *
  * @param query - Raw query parameters
  * @returns Parsed filter object or undefined
  * @throws BadRequestException if filter is invalid JSON after decode attempts
  */
 export function normalizeFilterParam(query: Record<string, unknown>): unknown {
-  const rawFilter = query.filter;
-  const filter = ensureString(rawFilter);
-  if (filter.trim() === '') {
+  const filter = query.filter;
+  // Handle both string and array cases (query params can send arrays)
+  if (
+    filter === undefined ||
+    filter === null ||
+    (typeof filter === 'string' && filter.trim() === '') ||
+    (Array.isArray(filter) && filter.length === 0)
+  ) {
     return undefined;
   }
 
-  const result = progressiveFilterDecode(filter);
+  // progressiveFilterDecode handles both string and string[] types
+  const result = progressiveFilterDecode(filter as string | string[]);
   if (!result.success) {
     throw new BadRequestException(
       `Invalid filter parameter: ${result.error}. Filter must be valid JSON.`,
