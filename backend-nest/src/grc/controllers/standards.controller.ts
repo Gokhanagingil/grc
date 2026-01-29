@@ -405,14 +405,19 @@ export class AuditScopeController {
 
   @Post(':auditId/clauses/:clauseId/findings')
   @Permissions(Permission.GRC_AUDIT_WRITE)
+  @HttpCode(HttpStatus.CREATED)
   @Perf()
-  async linkFindingToClause(
+  async createOrLinkFindingToClause(
     @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
     @Param('auditId') auditId: string,
     @Param('clauseId') clauseId: string,
     @Body()
-    linkDto: {
-      issueId: string;
+    dto: {
+      issueId?: string;
+      title?: string;
+      description?: string;
+      severity?: string;
       notes?: string;
     },
   ) {
@@ -420,11 +425,28 @@ export class AuditScopeController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.standardsService.linkFindingToClause(
+    // If issueId is provided, link existing finding to clause
+    if (dto.issueId) {
+      return this.standardsService.linkFindingToClause(
+        tenantId,
+        dto.issueId,
+        clauseId,
+        dto.notes,
+      );
+    }
+
+    // Otherwise, create a new finding and link it to the clause
+    return this.standardsService.createFindingForClause(
       tenantId,
-      linkDto.issueId,
+      req.user.id,
+      auditId,
       clauseId,
-      linkDto.notes,
+      {
+        title: dto.title,
+        description: dto.description,
+        severity: dto.severity,
+        notes: dto.notes,
+      },
     );
   }
 

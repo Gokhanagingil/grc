@@ -27,6 +27,7 @@ import {
   LibraryBooks as StandardIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import {
   standardsLibraryApi,
   auditScopeApi,
@@ -65,6 +66,8 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
   const [savingScope, setSavingScope] = useState(false);
   const [lockingScope, setLockingScope] = useState(false);
   const [loadingClauses, setLoadingClauses] = useState(false);
+  const [creatingFinding, setCreatingFinding] = useState(false);
+  const navigate = useNavigate();
 
   const isScopeLocked = scope?.isLocked || auditStatus === 'in_progress' || auditStatus === 'completed' || auditStatus === 'closed';
 
@@ -199,6 +202,31 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
 
   const getStandardInfo = (standardId: string): StandardData | undefined => {
     return availableStandards.find(s => s.id === standardId);
+  };
+
+  const handleCreateFindingForClause = async () => {
+    if (!selectedClause) return;
+
+    try {
+      setCreatingFinding(true);
+      setError('');
+      const response = await auditScopeApi.createFindingForClause(auditId, selectedClause.id);
+      const data = response.data?.data || response.data;
+      const issueId = data?.issue?.id;
+      
+      if (issueId) {
+        setSuccess(`Finding created successfully for clause ${selectedClause.code}`);
+        navigate(`/issues/${issueId}`);
+      } else {
+        setSuccess('Finding created successfully');
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      console.error('Failed to create finding:', err);
+      setError(error.response?.data?.message || 'Failed to create finding for clause');
+    } finally {
+      setCreatingFinding(false);
+    }
   };
 
   if (loading) {
@@ -401,10 +429,13 @@ export const StandardsScopeTab: React.FC<StandardsScopeTabProps> = ({
                       <Divider sx={{ mb: 2 }} />
                       <Button
                         variant="contained"
-                        startIcon={<AddIcon />}
+                        startIcon={creatingFinding ? <CircularProgress size={16} /> : <AddIcon />}
                         size="small"
+                        onClick={handleCreateFindingForClause}
+                        disabled={creatingFinding}
+                        data-testid="create-finding-for-clause"
                       >
-                        Create Finding for this Clause
+                        {creatingFinding ? 'Creating...' : 'Create Finding for this Clause'}
                       </Button>
                     </Box>
                   )}
