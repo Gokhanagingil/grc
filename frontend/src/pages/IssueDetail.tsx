@@ -823,7 +823,7 @@ export const IssueDetail: React.FC = () => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid item xs={12} data-testid="issue-capas-panel">
                 <Card>
                   <CardContent>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -841,7 +841,7 @@ export const IssueDetail: React.FC = () => {
                     </Box>
                     <Divider sx={{ mb: 2 }} />
                     {linkedCapas.length === 0 ? (
-                      <Typography color="text.secondary">No CAPAs linked to this issue.</Typography>
+                      <Typography color="text.secondary" data-testid="issue-capas-empty">No CAPAs linked to this issue.</Typography>
                     ) : (
                       <Table size="small">
                         <TableHead>

@@ -15,6 +15,18 @@ describe('Closure Loop MVP (e2e)', () => {
   const DEMO_ADMIN_PASSWORD =
     process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
 
+  // Helper to extract error message from response body (handles different envelope formats)
+  const getErrorMessage = (body: Record<string, unknown>): string => {
+    if (typeof body.message === 'string') return body.message;
+    if (
+      body.error &&
+      typeof (body.error as Record<string, unknown>).message === 'string'
+    ) {
+      return (body.error as Record<string, unknown>).message as string;
+    }
+    return JSON.stringify(body);
+  };
+
   beforeAll(async () => {
     try {
       const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -982,6 +994,325 @@ describe('Closure Loop MVP (e2e)', () => {
       } else {
         expect([403]).toContain(response.status);
       }
+    });
+  });
+
+  describe('Closure Loop Validation - CAPA Verification Required', () => {
+    let testCapaId: string;
+    let testTaskId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create a fresh CAPA for closure testing
+      const createCapaResponse = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Closure Test CAPA',
+          description: 'Testing closure validation rules',
+          type: 'corrective',
+          priority: 'medium',
+          status: 'planned',
+        });
+
+      if (createCapaResponse.status === 201) {
+        const capaData =
+          createCapaResponse.body.data ?? createCapaResponse.body;
+        testCapaId = capaData.id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test CAPA
+      if (testCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${testCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should reject CAPA closure without verification fields', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA created');
+        return;
+      }
+
+      // Progress CAPA through valid transitions: planned -> in_progress -> implemented -> verified
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Starting work' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'implemented', reason: 'Implementation complete' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'verified', reason: 'Verified implementation' })
+        .expect(200);
+
+      // Attempt to close without verification fields - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Attempting closure' });
+
+      // Should return 400 because verification fields are not set
+      expect(closeResponse.status).toBe(400);
+      const errorMsg = getErrorMessage(closeResponse.body);
+      expect(errorMsg).toContain('closure requirements not met');
+    });
+
+    it('should reject CAPA closure with incomplete tasks', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA created');
+        return;
+      }
+
+      // Create a task for the CAPA
+      const createTaskResponse = await request(app.getHttpServer())
+        .post('/grc/capa-tasks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          capaId: testCapaId,
+          title: 'E2E Test Task',
+          description: 'Task for closure testing',
+          status: 'PENDING',
+        });
+
+      if (createTaskResponse.status === 201) {
+        const taskData =
+          createTaskResponse.body.data ?? createTaskResponse.body;
+        testTaskId = taskData.id;
+      }
+
+      // Set verification fields on CAPA
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          verifiedAt: new Date().toISOString(),
+          verificationNotes: 'Verified for testing',
+        });
+
+      // Attempt to close with incomplete task - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          status: 'closed',
+          reason: 'Attempting closure with incomplete task',
+        });
+
+      // Should return 400 because task is not completed
+      expect(closeResponse.status).toBe(400);
+      const errorMsg2 = getErrorMessage(closeResponse.body);
+      expect(errorMsg2).toContain('closure requirements not met');
+    });
+
+    it('should allow CAPA closure when all tasks completed and verification set', async () => {
+      if (!dbConnected || !tenantId || !testCapaId || !testTaskId) {
+        console.log(
+          'Skipping test: database not connected or no CAPA/task created',
+        );
+        return;
+      }
+
+      // Complete the task: PENDING -> IN_PROGRESS -> COMPLETED
+      await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'IN_PROGRESS', comment: 'Starting task' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'COMPLETED', comment: 'Task completed' })
+        .expect(200);
+
+      // Now closure should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'All requirements met' });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
+    });
+  });
+
+  describe('Closure Loop Validation - Issue Closure with Open CAPAs', () => {
+    let testIssueId: string;
+    let testCapaId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create a fresh Issue for closure testing
+      const createIssueResponse = await request(app.getHttpServer())
+        .post('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Closure Test Issue',
+          description: 'Testing issue closure validation rules',
+          severity: 'medium',
+          status: 'open',
+        });
+
+      if (createIssueResponse.status === 201) {
+        const issueData =
+          createIssueResponse.body.data ?? createIssueResponse.body;
+        testIssueId = issueData.id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test entities
+      if (testCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${testCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (testIssueId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${testIssueId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should allow Issue closure when no CAPAs are linked', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log(
+          'Skipping test: database not connected or no Issue created',
+        );
+        return;
+      }
+
+      // Progress Issue: open -> in_progress -> resolved
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Starting investigation' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'resolved', reason: 'Issue resolved' })
+        .expect(200);
+
+      // Close Issue (no CAPAs linked) - should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Closing issue' });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
+    });
+
+    it('should reject Issue closure when linked CAPA is not closed', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log(
+          'Skipping test: database not connected or no Issue created',
+        );
+        return;
+      }
+
+      // Reopen the Issue: closed -> in_progress
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Reopening for CAPA test' })
+        .expect(200);
+
+      // Create a CAPA linked to this Issue
+      const createCapaResponse = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Linked CAPA',
+          description: 'CAPA linked to test issue',
+          type: 'corrective',
+          priority: 'medium',
+          status: 'planned',
+          issueId: testIssueId,
+        });
+
+      if (createCapaResponse.status === 201) {
+        const capaData =
+          createCapaResponse.body.data ?? createCapaResponse.body;
+        testCapaId = capaData.id;
+      }
+
+      // Progress Issue to resolved
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'resolved', reason: 'Issue resolved' })
+        .expect(200);
+
+      // Attempt to close Issue with open CAPA - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Attempting closure' });
+
+      expect(closeResponse.status).toBe(400);
+      const errorMsg3 = getErrorMessage(closeResponse.body);
+      expect(errorMsg3).toContain('not all CAPAs are closed');
+    });
+
+    it('should allow Issue closure with override reason when CAPA is open', async () => {
+      if (!dbConnected || !tenantId || !testIssueId || !testCapaId) {
+        console.log(
+          'Skipping test: database not connected or no Issue/CAPA created',
+        );
+        return;
+      }
+
+      // Close Issue with override reason - should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          status: 'closed',
+          reason: 'Closing with override',
+          overrideReason: 'CAPA transferred to external tracking system',
+        });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
     });
   });
 });
