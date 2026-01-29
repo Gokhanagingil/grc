@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -28,7 +29,6 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { incidentApi, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { buildListQueryParams } from '../utils';
 import {
   GenericListPage,
   ColumnDefinition,
@@ -243,8 +243,13 @@ export const IncidentManagement: React.FC = () => {
   }, [statusFilter, priorityFilter, advancedFilter]);
 
   const fetchIncidents = useCallback((params: Record<string, unknown>) => {
-    const apiParams = buildListQueryParams(params);
-    return incidentApi.list(tenantId, apiParams);
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return incidentApi.list(tenantId, queryParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -683,8 +688,15 @@ export const IncidentManagement: React.FC = () => {
         onFilterRemove={handleFilterRemove}
         onClearFilters={handleClearFilters}
         toolbarActions={toolbarActions}
-        createButtonLabel="New Incident"
-        onCreateClick={handleCreateIncident}
+        headerActions={(
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateIncident}
+          >
+            New Incident
+          </Button>
+        )}
         minTableWidth={900}
         testId="incident-list-page"
       />

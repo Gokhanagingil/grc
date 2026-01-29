@@ -195,8 +195,13 @@ export const ProcessManagement: React.FC = () => {
   const [complianceScores, setComplianceScores] = useState<Record<string, ComplianceScore>>({});
 
   const fetchProcesses = useCallback((params: Record<string, unknown>) => {
-    const apiParams = buildListQueryParams(params);
-    return processApi.list(tenantId, apiParams);
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return processApi.list(tenantId, queryParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -775,8 +780,15 @@ export const ProcessManagement: React.FC = () => {
         onFilterRemove={handleFilterRemove}
         onClearFilters={handleClearFilters}
         toolbarActions={toolbarActions}
-        createButtonLabel="New Process"
-        onCreateClick={handleCreateProcess}
+        headerActions={(
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateProcess}
+          >
+            New Process
+          </Button>
+        )}
         minTableWidth={900}
         testId="process-list-page"
       />

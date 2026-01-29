@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
+  Button,
   Chip,
   IconButton,
   Tooltip,
@@ -11,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -613,8 +615,15 @@ export const AuditList: React.FC = () => {
         onFilterRemove={handleFilterRemove}
         onClearFilters={handleClearFilters}
         toolbarActions={toolbarActions}
-        createButtonLabel={canCreate ? "New Audit" : undefined}
-        onCreateClick={canCreate ? handleCreateAudit : undefined}
+        headerActions={canCreate ? (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateAudit}
+          >
+            New Audit
+          </Button>
+        ) : undefined}
         minTableWidth={1000}
         testId="audit-list-page"
       />

@@ -18,6 +18,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -178,7 +179,13 @@ export const Compliance: React.FC = () => {
   }, [statusFilter, frameworkFilter, advancedFilter]);
 
   const fetchRequirements = useCallback((params: Record<string, unknown>) => {
-    return requirementApi.list(tenantId, params);
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return requirementApi.list(tenantId, queryParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -544,8 +551,15 @@ export const Compliance: React.FC = () => {
         onFilterRemove={handleFilterRemove}
         onClearFilters={handleClearFilters}
         toolbarActions={toolbarActions}
-        createButtonLabel="New Requirement"
-        onCreateClick={handleCreateRequirement}
+        headerActions={(
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRequirement}
+          >
+            New Requirement
+          </Button>
+        )}
         minTableWidth={900}
         testId="compliance-list-page"
       />

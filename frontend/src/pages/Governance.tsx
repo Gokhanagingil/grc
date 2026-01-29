@@ -18,6 +18,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -159,7 +160,13 @@ export const Governance: React.FC = () => {
   }, [statusFilter, advancedFilter]);
 
   const fetchPolicies = useCallback((params: Record<string, unknown>) => {
-    return policyApi.list(tenantId, params);
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return policyApi.list(tenantId, queryParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -500,8 +507,15 @@ export const Governance: React.FC = () => {
         onFilterRemove={handleFilterRemove}
         onClearFilters={handleClearFilters}
         toolbarActions={toolbarActions}
-        createButtonLabel="New Policy"
-        onCreateClick={handleCreatePolicy}
+        headerActions={(
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreatePolicy}
+          >
+            New Policy
+          </Button>
+        )}
         minTableWidth={900}
         testId="governance-list-page"
       />

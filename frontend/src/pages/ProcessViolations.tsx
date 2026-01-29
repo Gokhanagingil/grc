@@ -30,9 +30,10 @@ import {
   riskApi,
   processApi,
   unwrapResponse,
+  unwrapPaginatedResponse,
 } from '../services/grcClient';
-import { useAuth } from '../contexts/AuthContext';
 import { buildListQueryParams } from '../utils';
+import { useAuth } from '../contexts/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   GenericListPage,
@@ -204,8 +205,13 @@ export const ProcessViolations: React.FC = () => {
   }, [statusFilter, severityFilter, processIdFilter, advancedFilter]);
 
   const fetchViolations = useCallback((params: Record<string, unknown>) => {
-    const apiParams = buildListQueryParams(params);
-    return processViolationApi.list(tenantId, apiParams);
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return processViolationApi.list(tenantId, queryParams);
   }, [tenantId]);
 
   const isAuthReady = !authLoading && !!tenantId;
@@ -232,8 +238,10 @@ export const ProcessViolations: React.FC = () => {
   });
 
   const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
+  const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
   const [allRisks, setAllRisks] = useState<Risk[]>([]);
   const [selectedRiskId, setSelectedRiskId] = useState<string>('');
   const [processName, setProcessName] = useState<string>('');
