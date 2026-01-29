@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -35,11 +35,12 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { requirementApi, unwrapPaginatedRequirementResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption, FilterBuilderBasic, FilterConfig, FilterTree } from '../components/common';
 import { AuditReportDialog } from '../components/AuditReportDialog';
+import { countFilterConditions } from '../utils/listQueryUtils';
 
 interface ComplianceRequirement {
   id: number;
@@ -57,9 +58,72 @@ interface ComplianceRequirement {
   created_at: string;
 }
 
+const REQUIREMENT_STATUS_VALUES = ['not_started', 'in_progress', 'implemented', 'verified', 'non_compliant'] as const;
+const FRAMEWORK_VALUES = ['iso27001', 'soc2', 'gdpr', 'hipaa', 'pci_dss', 'nist', 'other'] as const;
+
+const REQUIREMENT_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'regulation',
+      label: 'Framework',
+      type: 'enum',
+      enumValues: [...FRAMEWORK_VALUES],
+      enumLabels: {
+        iso27001: 'ISO 27001',
+        soc2: 'SOC 2',
+        gdpr: 'GDPR',
+        hipaa: 'HIPAA',
+        pci_dss: 'PCI DSS',
+        nist: 'NIST',
+        other: 'Other',
+      },
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...REQUIREMENT_STATUS_VALUES],
+      enumLabels: {
+        not_started: 'Not Started',
+        in_progress: 'In Progress',
+        implemented: 'Implemented',
+        verified: 'Verified',
+        non_compliant: 'Non-Compliant',
+      },
+    },
+    {
+      name: 'due_date',
+      label: 'Due Date',
+      type: 'date',
+    },
+    {
+      name: 'created_at',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const Compliance: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [requirements, setRequirements] = useState<ComplianceRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,6 +132,39 @@ export const Compliance: React.FC = () => {
   const [openReportDialog, setOpenReportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  
+  // Advanced filter state
+  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      try {
+        return JSON.parse(decodeURIComponent(filterParam));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const activeFilterCount = useMemo(() => countFilterConditions(advancedFilter), [advancedFilter]);
+
+  const handleApplyAdvancedFilter = useCallback((filter: FilterTree | null) => {
+    setAdvancedFilter(filter);
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      newParams.set('filter', encodeURIComponent(JSON.stringify(filter)));
+    } else {
+      newParams.delete('filter');
+    }
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  const handleClearAdvancedFilter = useCallback(() => {
+    setAdvancedFilter(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -245,21 +342,32 @@ export const Compliance: React.FC = () => {
         onRefresh={fetchRequirements}
         loading={loading}
         actions={
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="not_started">Not Started</MenuItem>
-              <MenuItem value="in_progress">In Progress</MenuItem>
-              <MenuItem value="implemented">Implemented</MenuItem>
-              <MenuItem value="verified">Verified</MenuItem>
-              <MenuItem value="non_compliant">Non-Compliant</MenuItem>
-            </Select>
-          </FormControl>
+          <Box display="flex" gap={1} alignItems="center">
+            <FilterBuilderBasic
+              config={REQUIREMENT_FILTER_CONFIG}
+              initialFilter={advancedFilter}
+              onApply={handleApplyAdvancedFilter}
+              onClear={handleClearAdvancedFilter}
+              activeFilterCount={activeFilterCount}
+              buttonVariant="outlined"
+              buttonSize="small"
+            />
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="not_started">Not Started</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="implemented">Implemented</MenuItem>
+                <MenuItem value="verified">Verified</MenuItem>
+                <MenuItem value="non_compliant">Non-Compliant</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         }
       />
 

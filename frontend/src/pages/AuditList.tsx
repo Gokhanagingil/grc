@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -27,11 +27,12 @@ import {
   Visibility as ViewIcon,
   FactCheck as AuditIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption, FilterBuilderBasic, FilterConfig, FilterTree } from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { api } from '../services/api';
+import { serializeFilterTree, countFilterConditions } from '../utils/listQueryUtils';
 
 const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
   try {
@@ -70,10 +71,92 @@ interface Audit {
   updatedAt: string;
 }
 
+const AUDIT_STATUS_VALUES = ['planned', 'in_progress', 'completed', 'closed', 'cancelled'] as const;
+const AUDIT_RISK_LEVEL_VALUES = ['low', 'medium', 'high', 'critical'] as const;
+const AUDIT_TYPE_VALUES = ['internal', 'external', 'regulatory', 'compliance'] as const;
+
+const AUDIT_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...AUDIT_STATUS_VALUES],
+      enumLabels: {
+        planned: 'Planned',
+        in_progress: 'In Progress',
+        completed: 'Completed',
+        closed: 'Closed',
+        cancelled: 'Cancelled',
+      },
+    },
+    {
+      name: 'riskLevel',
+      label: 'Risk Level',
+      type: 'enum',
+      enumValues: [...AUDIT_RISK_LEVEL_VALUES],
+      enumLabels: {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical',
+      },
+    },
+    {
+      name: 'auditType',
+      label: 'Audit Type',
+      type: 'enum',
+      enumValues: [...AUDIT_TYPE_VALUES],
+      enumLabels: {
+        internal: 'Internal',
+        external: 'External',
+        regulatory: 'Regulatory',
+        compliance: 'Compliance',
+      },
+    },
+    {
+      name: 'department',
+      label: 'Department',
+      type: 'string',
+    },
+    {
+      name: 'plannedStartDate',
+      label: 'Planned Start Date',
+      type: 'date',
+    },
+    {
+      name: 'plannedEndDate',
+      label: 'Planned End Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
 
 export const AuditList: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,22 +178,66 @@ export const AuditList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [departments, setDepartments] = useState<string[]>([]);
+  
+  // Advanced filter state
+  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      try {
+        return JSON.parse(decodeURIComponent(filterParam));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const activeFilterCount = useMemo(() => countFilterConditions(advancedFilter), [advancedFilter]);
+
+  const handleApplyAdvancedFilter = useCallback((filter: FilterTree | null) => {
+    setAdvancedFilter(filter);
+    setPage(0);
+    // Update URL with filter
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      newParams.set('filter', encodeURIComponent(JSON.stringify(filter)));
+    } else {
+      newParams.delete('filter');
+    }
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  const handleClearAdvancedFilter = useCallback(() => {
+    setAdvancedFilter(null);
+    setPage(0);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
 
   const fetchAudits = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
 
-            const params = new URLSearchParams({
-              page: String(page + 1),
-              pageSize: String(rowsPerPage),
-            });
+      const params = new URLSearchParams({
+        page: String(page + 1),
+        pageSize: String(rowsPerPage),
+      });
 
-            if (statusFilter) params.append('status', statusFilter);
-            if (riskLevelFilter) params.append('riskLevel', riskLevelFilter);
-            if (departmentFilter) params.append('department', departmentFilter);
-            if (auditTypeFilter) params.append('auditType', auditTypeFilter);
-            if (searchQuery) params.append('search', searchQuery);
+      if (statusFilter) params.append('status', statusFilter);
+      if (riskLevelFilter) params.append('riskLevel', riskLevelFilter);
+      if (departmentFilter) params.append('department', departmentFilter);
+      if (auditTypeFilter) params.append('auditType', auditTypeFilter);
+      if (searchQuery) params.append('search', searchQuery);
+      
+      // Add advanced filter if present
+      if (advancedFilter) {
+        const serialized = serializeFilterTree(advancedFilter);
+        if (serialized) {
+          params.append('filter', serialized);
+        }
+      }
 
       const response = await api.get(`/grc/audits?${params.toString()}`);
       const data = unwrapResponse<{ audits: Audit[]; pagination: { total: number } }>(response);
@@ -131,7 +258,7 @@ export const AuditList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, statusFilter, riskLevelFilter, departmentFilter, auditTypeFilter, searchQuery]);
+  }, [page, rowsPerPage, statusFilter, riskLevelFilter, departmentFilter, auditTypeFilter, searchQuery, advancedFilter]);
 
   const fetchCanCreate = useCallback(async () => {
     // For admin/manager users, always allow creation regardless of API response
@@ -311,7 +438,16 @@ export const AuditList: React.FC = () => {
           onRefresh={fetchAudits}
           loading={loading}
           actions={
-            <Box display="flex" gap={1} flexWrap="wrap">
+            <Box display="flex" gap={1} flexWrap="wrap" alignItems="center">
+              <FilterBuilderBasic
+                config={AUDIT_FILTER_CONFIG}
+                initialFilter={advancedFilter}
+                onApply={handleApplyAdvancedFilter}
+                onClear={handleClearAdvancedFilter}
+                activeFilterCount={activeFilterCount}
+                buttonVariant="outlined"
+                buttonSize="small"
+              />
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Status</InputLabel>
                 <Select

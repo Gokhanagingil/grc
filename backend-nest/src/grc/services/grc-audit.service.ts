@@ -639,16 +639,29 @@ export class GrcAuditService extends MultiTenantServiceBase<GrcAudit> {
       data: {
         standards: scopeStandards.map((ss) => ({
           id: ss.id,
-          standard: ss.standard,
+          auditId: ss.auditId,
+          standardId: ss.standardId,
+          scopeType: ss.scopeType,
+          isLocked: ss.isLocked,
+          lockedAt: ss.lockedAt,
+          lockedBy: ss.lockedBy,
           notes: ss.notes,
+          standard: ss.standard,
           createdAt: ss.createdAt,
         })),
         clauses: scopeClauses.map((sc) => ({
           id: sc.id,
-          clause: sc.clause,
+          auditId: sc.auditId,
+          clauseId: sc.clauseId,
+          status: sc.status,
+          isLocked: sc.isLocked,
           notes: sc.notes,
+          clause: sc.clause,
           createdAt: sc.createdAt,
         })),
+        isLocked:
+          scopeStandards.some((ss) => ss.isLocked) ||
+          scopeClauses.some((sc) => sc.isLocked),
       },
     };
   }
