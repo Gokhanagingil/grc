@@ -610,9 +610,9 @@ export const ControlDetail: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3 }} data-testid="control-detail-page">
       <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => navigate('/controls')}>
+        <IconButton onClick={() => navigate('/controls')} data-testid="back-button">
           <BackIcon />
         </IconButton>
         <Box flex={1}>

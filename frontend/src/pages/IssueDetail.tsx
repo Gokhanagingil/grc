@@ -760,7 +760,7 @@ export const IssueDetail: React.FC = () => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid item xs={12} data-testid="linked-evidence-section">
                 <Card>
                   <CardContent>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
