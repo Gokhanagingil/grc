@@ -274,7 +274,11 @@ function ensureString(input: unknown): string {
   if (typeof input === 'string') {
     return input;
   }
-  if (Array.isArray(input) && input.length > 0 && typeof input[0] === 'string') {
+  if (
+    Array.isArray(input) &&
+    input.length > 0 &&
+    typeof input[0] === 'string'
+  ) {
     return input[0];
   }
   return '';
@@ -292,7 +296,7 @@ function ensureString(input: unknown): string {
  * @returns FilterDecodeResult with parsed filter or error
  */
 export function progressiveFilterDecode(
-  filterInput: string | string[] | unknown,
+  filterInput: unknown,
 ): FilterDecodeResult {
   const filterString = ensureString(filterInput);
   if (!filterString || filterString.trim() === '') {
