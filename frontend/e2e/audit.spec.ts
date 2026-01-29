@@ -397,5 +397,148 @@ test.describe('Audit Module', () => {
     );
     expect(undefinedErrors).toHaveLength(0);
   });
+
+  /**
+   * Test: Audit Scope & Standards - Standard selection loads clause tree
+   * 
+   * Verifies that when a standard is selected in the Scope & Standards tab:
+   * 1. The clause tree loads and becomes visible
+   * 2. Clicking a clause shows the clause details panel
+   * 3. No undefined/empty ID errors occur in network requests
+   */
+  test('Audit Scope & Standards: standard selection loads clause tree and details', async ({ page }) => {
+    // Track network requests to catch undefined standardId issues
+    const badRequests: string[] = [];
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes('/standards/undefined/') || url.includes('/standards/null/') || url.includes('/standards//')) {
+        badRequests.push(url);
+      }
+    });
+
+    // Collect console errors
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    await page.goto('/audits');
+    await page.waitForURL('/audits');
+    
+    // Wait for page to load
+    await Promise.race([
+      page.getByTestId('page-audit-list-title').waitFor({ timeout: 10000 }),
+      page.locator('text=/Audit Management/i').waitFor({ timeout: 10000 }),
+    ]).catch(() => {});
+
+    // Navigate to an audit detail page
+    const auditRow = page.getByTestId('audit-list-row').first();
+    const auditLink = page.locator('a[href*="/audits/"]').first();
+    
+    let navigatedToDetail = false;
+    if (await auditRow.count() > 0) {
+      await auditRow.click();
+      navigatedToDetail = true;
+    } else if (await auditLink.count() > 0) {
+      await auditLink.click();
+      navigatedToDetail = true;
+    }
+
+    if (!navigatedToDetail) {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'No audits available to test Scope & Standards flow',
+      });
+      return;
+    }
+
+    // Wait for detail page
+    await page.waitForURL(/\/audits\/[^/]+/, { timeout: 5000 }).catch(() => {});
+    
+    // Look for Standards/Scope tab and click it
+    const standardsTab = page.locator('button[role="tab"]').filter({ hasText: /Standards|Scope/i }).first();
+    const tabExists = await standardsTab.count() > 0;
+    
+    if (!tabExists) {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'Standards tab not found in audit detail page',
+      });
+      return;
+    }
+
+    await standardsTab.click();
+    
+    // Wait for the standards tab content to load
+    const standardsTabContent = page.getByTestId('audit-standards-tab');
+    await standardsTabContent.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
+    // Check if there are standards in scope
+    const standardItems = page.locator('[data-testid^="standard-item-"]');
+    const standardCount = await standardItems.count();
+
+    if (standardCount === 0) {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'No standards in audit scope to test clause tree',
+      });
+      // Verify no bad requests were made
+      expect(badRequests).toHaveLength(0);
+      return;
+    }
+
+    // Click on the first standard to load its clauses
+    const firstStandardButton = page.locator('[data-testid^="standard-select-"]').first();
+    await firstStandardButton.click();
+
+    // Wait for clause tree to load
+    const clauseTree = page.getByTestId('clause-tree');
+    await clauseTree.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
+    // Verify clause tree is visible
+    const clauseTreeVisible = await clauseTree.isVisible();
+    expect(clauseTreeVisible).toBeTruthy();
+
+    // Check if there are clauses in the tree
+    const clauseItems = page.locator('[data-testid^="clause-item-"]');
+    const clauseCount = await clauseItems.count();
+
+    if (clauseCount > 0) {
+      // Click on the first clause to show details
+      const firstClauseButton = page.locator('[data-testid^="clause-select-"]').first();
+      await firstClauseButton.click();
+
+      // Wait for clause details panel to appear
+      const clauseDetailsPanel = page.getByTestId('clause-details-panel');
+      await clauseDetailsPanel.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+
+      // Verify clause details panel is visible
+      const detailsPanelVisible = await clauseDetailsPanel.isVisible();
+      expect(detailsPanelVisible).toBeTruthy();
+
+      // Verify clause code is displayed
+      const clauseCode = page.getByTestId('clause-detail-code');
+      const codeVisible = await clauseCode.isVisible();
+      expect(codeVisible).toBeTruthy();
+    } else {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'No clauses found in the standard to test details panel',
+      });
+    }
+
+    // CRITICAL: Verify no requests were made with undefined/null/empty standardId
+    expect(badRequests).toHaveLength(0);
+
+    // Verify no TypeError console errors
+    const typeErrors = consoleErrors.filter(e => 
+      e.includes('TypeError') || 
+      e.includes('Cannot read properties of undefined') ||
+      e.includes('Cannot read properties of null')
+    );
+    expect(typeErrors).toHaveLength(0);
+  });
 });
 

@@ -1,26 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Box,
-  Typography,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
-  Alert,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
   LibraryBooks as StandardsIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { standardsLibraryApi } from '../services/grcClient';
-import { ApiError } from '../services/api';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 interface Standard {
   id: string;
@@ -37,178 +42,278 @@ interface Standard {
   updatedAt: string;
 }
 
-function normalizeStandardsResponse(data: unknown): { items: Standard[]; total: number } {
-  if (!data) {
-    return { items: [], total: 0 };
-  }
-  if (Array.isArray(data)) {
-    return { items: data, total: data.length };
-  }
-  if (typeof data === 'object') {
-    const obj = data as Record<string, unknown>;
-    if (obj.success === true && 'data' in obj) {
-      const innerData = obj.data;
-      const items = Array.isArray(innerData) ? innerData : [];
-      const meta = obj.meta as { total?: number } | undefined;
-      const total = meta?.total ?? items.length;
-      return { items: items as Standard[], total };
-    }
-    if ('items' in obj && Array.isArray(obj.items)) {
-      return { items: obj.items as Standard[], total: (obj.total as number) ?? obj.items.length };
-    }
-    if ('data' in obj && Array.isArray(obj.data)) {
-      return { items: obj.data as Standard[], total: (obj.total as number) ?? obj.data.length };
-    }
-  }
-  return { items: [], total: 0 };
-}
+const DOMAIN_VALUES = ['security', 'privacy', 'compliance', 'governance', 'risk', 'other'] as const;
+
+const STANDARDS_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+    },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'version',
+      label: 'Version',
+      type: 'string',
+    },
+    {
+      name: 'domain',
+      label: 'Domain',
+      type: 'enum',
+      enumValues: [...DOMAIN_VALUES],
+      enumLabels: {
+        security: 'Security',
+        privacy: 'Privacy',
+        compliance: 'Compliance',
+        governance: 'Governance',
+        risk: 'Risk',
+        other: 'Other',
+      },
+    },
+    {
+      name: 'publisher',
+      label: 'Publisher',
+      type: 'string',
+    },
+    {
+      name: 'isActive',
+      label: 'Active',
+      type: 'boolean',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString();
+};
 
 export const StandardsLibrary: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [standards, setStandards] = useState<Standard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
 
-  const fetchStandards = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
+  const advancedFilter = parsedQuery.filterTree;
 
-      const response = await standardsLibraryApi.list();
-      const data = response.data;
-      const normalized = normalizeStandardsResponse(data);
-      setStandards(normalized.items);
-      setLoading(false);
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-        const retryAfter = (err.details?.retryAfter as number) || 60;
-        setError(`Too many requests. Please try again in ${retryAfter} seconds.`);
-        setLoading(false);
-        return;
-      }
-
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      if (error.response?.status === 404) {
-        setStandards([]);
-      } else {
-        setError(error.response?.data?.message || 'Failed to fetch standards');
-      }
-      setLoading(false);
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
     }
+    return filters;
+  }, [advancedFilter]);
+
+  const fetchStandards = useCallback((params: Record<string, unknown>) => {
+    return standardsLibraryApi.list(params);
   }, []);
 
-  useEffect(() => {
-    fetchStandards();
-  }, [fetchStandards]);
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Standard>({
+    fetchFn: fetchStandards,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: true,
+    additionalFilters,
+  });
 
-  const handleViewStandard = (id: string) => {
-    navigate(`/standards/${id}`);
-  };
+  const handleViewStandard = useCallback((standard: Standard) => {
+    navigate(`/standards/${standard.id}`);
+  }, [navigate]);
 
-  if (loading && standards.length === 0) {
-    return <LoadingState message="Loading standards library..." />;
-  }
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    return [];
+  }, []);
 
-  if (error && standards.length === 0) {
-    return (
-      <ErrorState
-        title="Failed to load standards"
-        message={error}
-        onRetry={() => fetchStandards()}
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const columns: ColumnDefinition<Standard>[] = useMemo(() => [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (standard) => (
+        <Typography variant="body2" fontWeight="medium">
+          {standard.code}
+        </Typography>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (standard) => (
+        <Tooltip title={standard.description || ''}>
+          <Typography
+            variant="body2"
+            sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {standard.name}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      key: 'version',
+      header: 'Version',
+      render: (standard) => standard.version || '-',
+    },
+    {
+      key: 'domain',
+      header: 'Domain',
+      render: (standard) => (
+        <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+          {standard.domain || '-'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'publisher',
+      header: 'Publisher',
+      render: (standard) => standard.publisher || '-',
+    },
+    {
+      key: 'isActive',
+      header: 'Status',
+      render: (standard) => (
+        <Chip
+          label={standard.isActive ? 'Active' : 'Inactive'}
+          size="small"
+          color={standard.isActive ? 'success' : 'default'}
+        />
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      render: (standard) => formatDate(standard.createdAt),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (standard) => (
+        <Box display="flex" gap={0.5}>
+          <Tooltip title="View Details">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewStandard(standard);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewStandard]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={STANDARDS_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
       />
-    );
-  }
+    </Box>
+  ), [advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Standards Library</Typography>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Card>
-        <CardContent>
-          <ResponsiveTable minWidth={800}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Version</TableCell>
-                  <TableCell>Domain</TableCell>
-                  <TableCell>Publisher</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {standards.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 0, border: 'none' }}>
-                      <EmptyState
-                        icon={<StandardsIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
-                        title="No standards found"
-                        message="No standards have been seeded yet. An administrator can run 'npm run seed:standards' to populate the standards library, or standards can be imported through the admin interface."
-                        minHeight="200px"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  standards.map((standard) => (
-                    <TableRow 
-                      key={standard.id} 
-                      hover 
-                      onClick={() => handleViewStandard(standard.id)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {standard.code}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>
-                          {standard.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{standard.version || '-'}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                          {standard.domain || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {standard.publisher || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={standard.isActive ? 'Active' : 'Inactive'}
-                          size="small"
-                          color={standard.isActive ? 'success' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleViewStandard(standard.id)}
-                          title="View Details"
-                        >
-                          <ViewIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ResponsiveTable>
-        </CardContent>
-      </Card>
-    </Box>
+    <GenericListPage<Standard>
+      title="Standards Library"
+      icon={<StandardsIcon />}
+      items={items}
+      columns={columns}
+      total={total}
+      page={page}
+      pageSize={pageSize}
+      isLoading={isLoading}
+      error={error}
+      search={search}
+      onPageChange={setPage}
+      onPageSizeChange={setPageSize}
+      onSearchChange={setSearch}
+      onRefresh={refetch}
+      getRowKey={(standard) => standard.id}
+      searchPlaceholder="Search standards..."
+      emptyMessage="No standards found"
+      emptyFilteredMessage="Try adjusting your filters or search query"
+      filters={getActiveFilters()}
+      onFilterRemove={handleFilterRemove}
+      onClearFilters={handleClearFilters}
+      toolbarActions={toolbarActions}
+      minTableWidth={900}
+      testId="standards-library-page"
+      onRowClick={handleViewStandard}
+    />
   );
 };
 
