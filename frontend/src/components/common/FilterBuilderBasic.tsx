@@ -1,9 +1,9 @@
 /**
  * FilterBuilderBasic Component
  *
- * A simplified filter builder that supports creating single conditions
- * and AND/OR groups. This is a streamlined version of AdvancedFilterBuilder
- * designed for the unified list framework.
+ * A filter builder that supports creating conditions and nested AND/OR groups.
+ * This component allows users to build complex filter trees like:
+ * (field contains A AND field contains B) OR field contains C
  *
  * Supported operators:
  * - contains: String contains value
@@ -14,7 +14,7 @@
  * - before: Date is before value
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -39,6 +39,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   FilterList as FilterIcon,
+  FolderOpen as GroupIcon,
 } from '@mui/icons-material';
 import {
   FilterCondition,
@@ -52,9 +53,140 @@ import {
   createEmptyCondition,
   isFilterCondition,
   isFilterAndGroup,
+  isFilterOrGroup,
 } from './AdvancedFilter/types';
 
-type GroupType = 'and' | 'or';
+type JoinType = 'and' | 'or';
+
+/**
+ * Internal representation of a filter node for the UI.
+ * This allows us to track nodes with unique IDs for React keys.
+ */
+interface FilterNodeUI {
+  id: string;
+  type: 'rule' | 'group';
+  join?: JoinType;
+  condition?: FilterCondition;
+  children?: FilterNodeUI[];
+}
+
+let nodeIdCounter = 0;
+function generateNodeId(): string {
+  return `node-${++nodeIdCounter}-${Date.now()}`;
+}
+
+/**
+ * Convert a FilterTree to our internal UI representation
+ */
+function filterTreeToUI(tree: FilterTree | null): FilterNodeUI {
+  if (!tree) {
+    return {
+      id: generateNodeId(),
+      type: 'group',
+      join: 'and',
+      children: [],
+    };
+  }
+
+  if (isFilterCondition(tree)) {
+    return {
+      id: generateNodeId(),
+      type: 'rule',
+      condition: tree,
+    };
+  }
+
+  if (isFilterAndGroup(tree)) {
+    return {
+      id: generateNodeId(),
+      type: 'group',
+      join: 'and',
+      children: tree.and.map(filterTreeToUI),
+    };
+  }
+
+  if (isFilterOrGroup(tree)) {
+    return {
+      id: generateNodeId(),
+      type: 'group',
+      join: 'or',
+      children: tree.or.map(filterTreeToUI),
+    };
+  }
+
+  return {
+    id: generateNodeId(),
+    type: 'group',
+    join: 'and',
+    children: [],
+  };
+}
+
+/**
+ * Convert our internal UI representation back to a FilterTree
+ */
+function uiToFilterTree(node: FilterNodeUI): FilterTree | null {
+  if (node.type === 'rule' && node.condition) {
+    return node.condition;
+  }
+
+  if (node.type === 'group' && node.children) {
+    const validChildren = node.children
+      .map(uiToFilterTree)
+      .filter((child): child is FilterTree => child !== null);
+
+    if (validChildren.length === 0) {
+      return null;
+    }
+
+    if (validChildren.length === 1) {
+      // Wrap single condition in a group for consistency
+      if (node.join === 'or') {
+        return { or: validChildren };
+      }
+      return { and: validChildren };
+    }
+
+    if (node.join === 'or') {
+      return { or: validChildren };
+    }
+    return { and: validChildren };
+  }
+
+  return null;
+}
+
+/**
+ * Count total conditions in a UI node tree
+ */
+function countUIConditions(node: FilterNodeUI): number {
+  if (node.type === 'rule') {
+    return 1;
+  }
+  if (node.children) {
+    return node.children.reduce((sum, child) => sum + countUIConditions(child), 0);
+  }
+  return 0;
+}
+
+/**
+ * Validate that all rules in the tree have valid values
+ */
+function validateUITree(node: FilterNodeUI): boolean {
+  if (node.type === 'rule' && node.condition) {
+    if (isEmptyOperator(node.condition.op)) {
+      return node.condition.field !== '';
+    }
+    return node.condition.field !== '' && node.condition.value !== undefined && node.condition.value !== '';
+  }
+  if (node.type === 'group' && node.children) {
+    if (node.children.length === 0) {
+      return true; // Empty group is valid (will be filtered out)
+    }
+    return node.children.every(validateUITree);
+  }
+  return true;
+}
 
 interface FilterConditionRowProps {
   condition: FilterCondition;
@@ -227,6 +359,194 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({
   );
 };
 
+interface FilterGroupProps {
+  node: FilterNodeUI;
+  fields: FieldDefinition[];
+  onChange: (node: FilterNodeUI) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+  depth: number;
+  maxDepth: number;
+  maxConditions: number;
+  currentConditionCount: number;
+}
+
+const FilterGroup: React.FC<FilterGroupProps> = ({
+  node,
+  fields,
+  onChange,
+  onRemove,
+  canRemove,
+  depth,
+  maxDepth,
+  maxConditions,
+  currentConditionCount,
+}) => {
+  const handleJoinChange = (_: React.MouseEvent<HTMLElement>, newJoin: JoinType | null) => {
+    if (newJoin) {
+      onChange({ ...node, join: newJoin });
+    }
+  };
+
+  const handleAddRule = () => {
+    if (currentConditionCount >= maxConditions) return;
+    const newRule: FilterNodeUI = {
+      id: generateNodeId(),
+      type: 'rule',
+      condition: createEmptyCondition(fields),
+    };
+    onChange({
+      ...node,
+      children: [...(node.children || []), newRule],
+    });
+  };
+
+  const handleAddGroup = () => {
+    if (depth >= maxDepth || currentConditionCount >= maxConditions) return;
+    const newGroup: FilterNodeUI = {
+      id: generateNodeId(),
+      type: 'group',
+      join: 'and',
+      children: [],
+    };
+    onChange({
+      ...node,
+      children: [...(node.children || []), newGroup],
+    });
+  };
+
+  const handleChildChange = (index: number, updatedChild: FilterNodeUI) => {
+    const newChildren = [...(node.children || [])];
+    newChildren[index] = updatedChild;
+    onChange({ ...node, children: newChildren });
+  };
+
+  const handleChildRemove = (index: number) => {
+    const newChildren = (node.children || []).filter((_, i) => i !== index);
+    onChange({ ...node, children: newChildren });
+  };
+
+  const children = node.children || [];
+  const isRoot = depth === 0;
+
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderLeft: isRoot ? 'none' : '3px solid',
+        borderLeftColor: isRoot ? 'transparent' : (node.join === 'or' ? 'warning.main' : 'primary.main'),
+        backgroundColor: isRoot ? 'transparent' : 'action.hover',
+      }}
+      data-testid="filter-group"
+    >
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={children.length > 0 ? 2 : 0}>
+        <Box display="flex" alignItems="center" gap={1}>
+          {!isRoot && <GroupIcon fontSize="small" color="action" />}
+          {children.length > 1 && (
+            <ToggleButtonGroup
+              value={node.join}
+              exclusive
+              onChange={handleJoinChange}
+              size="small"
+              data-testid="filter-group-join"
+            >
+              <ToggleButton value="and" data-testid="filter-group-join-and">
+                AND
+              </ToggleButton>
+              <ToggleButton value="or" data-testid="filter-group-join-or">
+                OR
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+          {children.length <= 1 && !isRoot && (
+            <Typography variant="caption" color="text.secondary">
+              Group
+            </Typography>
+          )}
+        </Box>
+        <Box display="flex" gap={0.5}>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleAddRule}
+            disabled={currentConditionCount >= maxConditions}
+            data-testid="filter-group-add-rule"
+          >
+            Rule
+          </Button>
+          {depth < maxDepth && (
+            <Button
+              size="small"
+              startIcon={<GroupIcon />}
+              onClick={handleAddGroup}
+              disabled={currentConditionCount >= maxConditions}
+              data-testid="filter-group-add-group"
+            >
+              Group
+            </Button>
+          )}
+          {canRemove && (
+            <IconButton
+              size="small"
+              onClick={onRemove}
+              color="error"
+              data-testid="filter-group-remove"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
+      </Box>
+
+      {children.length === 0 ? (
+        <Box textAlign="center" py={2}>
+          <Typography color="text.secondary" variant="body2">
+            {isRoot ? 'No filter conditions. Click "Rule" to add one.' : 'Empty group. Add rules or remove this group.'}
+          </Typography>
+        </Box>
+      ) : (
+        <Stack spacing={1.5}>
+          {children.map((child, index) => (
+            <Box key={child.id}>
+              {index > 0 && (
+                <Typography
+                  variant="caption"
+                  color={node.join === 'or' ? 'warning.main' : 'primary.main'}
+                  sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}
+                >
+                  {node.join === 'and' ? 'AND' : 'OR'}
+                </Typography>
+              )}
+              {child.type === 'rule' && child.condition ? (
+                <FilterConditionRow
+                  condition={child.condition}
+                  fields={fields}
+                  onChange={(condition) => handleChildChange(index, { ...child, condition })}
+                  onRemove={() => handleChildRemove(index)}
+                  canRemove={true}
+                />
+              ) : (
+                <FilterGroup
+                  node={child}
+                  fields={fields}
+                  onChange={(updatedChild) => handleChildChange(index, updatedChild)}
+                  onRemove={() => handleChildRemove(index)}
+                  canRemove={true}
+                  depth={depth + 1}
+                  maxDepth={maxDepth}
+                  maxConditions={maxConditions}
+                  currentConditionCount={currentConditionCount}
+                />
+              )}
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Paper>
+  );
+};
+
 export interface FilterBuilderBasicProps {
   config: FilterConfig;
   initialFilter?: FilterTree | null;
@@ -247,46 +567,53 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
   buttonSize = 'small',
 }) => {
   const [open, setOpen] = useState(false);
-  const [groupType, setGroupType] = useState<GroupType>('and');
-  const [conditions, setConditions] = useState<FilterCondition[]>(() => {
-    if (initialFilter && isFilterAndGroup(initialFilter)) {
-      return initialFilter.and.filter(
-        (item): item is FilterCondition => isFilterCondition(item),
-      );
+  const [rootNode, setRootNode] = useState<FilterNodeUI>(() => {
+    // Initialize with the initial filter or an empty root group
+    if (initialFilter) {
+      const uiTree = filterTreeToUI(initialFilter);
+      // Ensure root is always a group
+      if (uiTree.type === 'rule') {
+        return {
+          id: generateNodeId(),
+          type: 'group',
+          join: 'and',
+          children: [uiTree],
+        };
+      }
+      return uiTree;
     }
-    if (initialFilter && 'or' in initialFilter) {
-      return initialFilter.or.filter(
-        (item): item is FilterCondition => isFilterCondition(item),
-      );
-    }
-    if (initialFilter && isFilterCondition(initialFilter)) {
-      return [initialFilter];
-    }
-    return [];
+    return {
+      id: generateNodeId(),
+      type: 'group',
+      join: 'and',
+      children: [],
+    };
   });
 
   const maxConditions = config.maxConditions || 30;
+  const maxDepth = config.maxDepth || 3;
 
   const handleOpen = () => {
-    if (initialFilter && isFilterAndGroup(initialFilter)) {
-      setGroupType('and');
-      setConditions(
-        initialFilter.and.filter(
-          (item): item is FilterCondition => isFilterCondition(item),
-        ),
-      );
-    } else if (initialFilter && 'or' in initialFilter) {
-      setGroupType('or');
-      setConditions(
-        initialFilter.or.filter(
-          (item): item is FilterCondition => isFilterCondition(item),
-        ),
-      );
-    } else if (initialFilter && isFilterCondition(initialFilter)) {
-      setGroupType('and');
-      setConditions([initialFilter]);
+    // Reset to initial filter when opening
+    if (initialFilter) {
+      const uiTree = filterTreeToUI(initialFilter);
+      if (uiTree.type === 'rule') {
+        setRootNode({
+          id: generateNodeId(),
+          type: 'group',
+          join: 'and',
+          children: [uiTree],
+        });
+      } else {
+        setRootNode(uiTree);
+      }
     } else {
-      setConditions([]);
+      setRootNode({
+        id: generateNodeId(),
+        type: 'group',
+        join: 'and',
+        children: [],
+      });
     }
     setOpen(true);
   };
@@ -295,55 +622,26 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
     setOpen(false);
   };
 
-  const handleAddCondition = useCallback(() => {
-    if (conditions.length < maxConditions) {
-      setConditions((prev) => [...prev, createEmptyCondition(config.fields)]);
-    }
-  }, [conditions.length, maxConditions, config.fields]);
-
-  const handleRemoveCondition = useCallback((index: number) => {
-    setConditions((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleConditionChange = useCallback((index: number, condition: FilterCondition) => {
-    setConditions((prev) => prev.map((c, i) => (i === index ? condition : c)));
-  }, []);
-
-  const handleGroupTypeChange = useCallback((_: React.MouseEvent<HTMLElement>, newType: GroupType | null) => {
-    if (newType) {
-      setGroupType(newType);
-    }
-  }, []);
-
   const handleApply = () => {
-    if (conditions.length === 0) {
-      onApply(null);
-    } else if (conditions.length === 1) {
-      onApply({ and: [conditions[0]] });
-    } else {
-      if (groupType === 'and') {
-        onApply({ and: conditions });
-      } else {
-        onApply({ or: conditions });
-      }
-    }
+    const filterTree = uiToFilterTree(rootNode);
+    onApply(filterTree);
     setOpen(false);
   };
 
   const handleClear = () => {
-    setConditions([]);
+    setRootNode({
+      id: generateNodeId(),
+      type: 'group',
+      join: 'and',
+      children: [],
+    });
     onClear();
     setOpen(false);
   };
 
-  const isValidFilter = useMemo(() => {
-    return conditions.every((c) => {
-      if (isEmptyOperator(c.op)) {
-        return c.field !== '';
-      }
-      return c.field !== '' && c.value !== undefined && c.value !== '';
-    });
-  }, [conditions]);
+  const currentConditionCount = useMemo(() => countUIConditions(rootNode), [rootNode]);
+  const isValidFilter = useMemo(() => validateUITree(rootNode), [rootNode]);
+  const hasConditions = currentConditionCount > 0;
 
   return (
     <>
@@ -369,83 +667,34 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth data-testid="filter-panel">
         <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center" gap={1}>
-              <FilterIcon />
-              <Typography variant="h6">Filter</Typography>
-            </Box>
-            {conditions.length > 1 && (
-              <ToggleButtonGroup
-                value={groupType}
-                exclusive
-                onChange={handleGroupTypeChange}
+          <Box display="flex" alignItems="center" gap={1}>
+            <FilterIcon />
+            <Typography variant="h6">Filter Builder</Typography>
+            {currentConditionCount > 0 && (
+              <Chip
+                label={`${currentConditionCount} condition${currentConditionCount !== 1 ? 's' : ''}`}
                 size="small"
-                data-testid="filter-add-group"
-              >
-                <ToggleButton value="and">
-                  Match ALL
-                </ToggleButton>
-                <ToggleButton value="or">
-                  Match ANY
-                </ToggleButton>
-              </ToggleButtonGroup>
+                color="primary"
+                variant="outlined"
+              />
             )}
           </Box>
         </DialogTitle>
 
         <DialogContent dividers>
-          {conditions.length === 0 ? (
-            <Box textAlign="center" py={4}>
-              <Typography color="text.secondary" gutterBottom>
-                No filter conditions added
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddCondition}
-                data-testid="filter-add-rule"
-              >
-                Add Condition
-              </Button>
-            </Box>
-          ) : (
-            <Stack spacing={2}>
-              {conditions.map((condition, index) => (
-                <Paper key={index} variant="outlined" sx={{ p: 2 }}>
-                  {index > 0 && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: 'block', mb: 1 }}
-                    >
-                      {groupType === 'and' ? 'AND' : 'OR'}
-                    </Typography>
-                  )}
-                  <FilterConditionRow
-                    condition={condition}
-                    fields={config.fields}
-                    onChange={(c) => handleConditionChange(index, c)}
-                    onRemove={() => handleRemoveCondition(index)}
-                    canRemove={true}
-                  />
-                </Paper>
-              ))}
+          <FilterGroup
+            node={rootNode}
+            fields={config.fields}
+            onChange={setRootNode}
+            onRemove={() => {}}
+            canRemove={false}
+            depth={0}
+            maxDepth={maxDepth}
+            maxConditions={maxConditions}
+            currentConditionCount={currentConditionCount}
+          />
 
-              {conditions.length < maxConditions && (
-                <Button
-                  variant="text"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddCondition}
-                  sx={{ alignSelf: 'flex-start' }}
-                  data-testid="filter-add-rule"
-                >
-                  Add Condition
-                </Button>
-              )}
-            </Stack>
-          )}
-
-          {conditions.length >= maxConditions && (
+          {currentConditionCount >= maxConditions && (
             <Typography variant="caption" color="warning.main" sx={{ mt: 2, display: 'block' }}>
               Maximum number of conditions ({maxConditions}) reached
             </Typography>
@@ -461,7 +710,7 @@ export const FilterBuilderBasic: React.FC<FilterBuilderBasicProps> = ({
           <Button
             onClick={handleApply}
             variant="contained"
-            disabled={conditions.length > 0 && !isValidFilter}
+            disabled={hasConditions && !isValidFilter}
             data-testid="filter-apply"
           >
             Apply Filter

@@ -558,4 +558,145 @@ describe('listQueryUtils', () => {
       expect(result.search).toBeUndefined();
     });
   });
+
+  describe('nested filter groups', () => {
+    it('should serialize deeply nested filter tree: (A AND B) OR C', () => {
+      const filter: FilterTree = {
+        or: [
+          {
+            and: [
+              { field: 'name', op: 'contains', value: 'A' },
+              { field: 'name', op: 'contains', value: 'B' },
+            ],
+          },
+          { field: 'name', op: 'contains', value: 'C' },
+        ],
+      };
+      const serialized = serializeFilterTree(filter);
+      expect(serialized).not.toBeNull();
+      expect(() => JSON.parse(serialized!)).not.toThrow();
+      expect(JSON.parse(serialized!)).toEqual(filter);
+    });
+
+    it('should round-trip deeply nested filter through URL params', () => {
+      const filter: FilterTree = {
+        or: [
+          {
+            and: [
+              { field: 'name', op: 'contains', value: 'A' },
+              { field: 'name', op: 'contains', value: 'B' },
+            ],
+          },
+          { field: 'name', op: 'contains', value: 'C' },
+        ],
+      };
+      const params = buildListQueryParams({
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'createdAt:DESC',
+        filterTree: filter,
+      });
+      
+      // Verify no double-encoding
+      const queryString = params.toString();
+      expect(queryString).not.toContain('%257B');
+      expect(queryString).not.toContain('%257D');
+      
+      // Verify round-trip
+      const parsed = parseListQuery(params);
+      expect(parsed.filterTree).toEqual(filter);
+    });
+
+    it('should count conditions in deeply nested groups', () => {
+      const filter: FilterTree = {
+        or: [
+          {
+            and: [
+              { field: 'name', op: 'contains', value: 'A' },
+              { field: 'name', op: 'contains', value: 'B' },
+            ],
+          },
+          { field: 'name', op: 'contains', value: 'C' },
+          {
+            and: [
+              { field: 'status', op: 'is', value: 'active' },
+              {
+                or: [
+                  { field: 'type', op: 'is', value: 'manual' },
+                  { field: 'type', op: 'is', value: 'automated' },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      expect(countFilterConditions(filter)).toBe(6);
+    });
+
+    it('should extract all conditions from deeply nested groups', () => {
+      const filter: FilterTree = {
+        or: [
+          {
+            and: [
+              { field: 'name', op: 'contains', value: 'A' },
+              { field: 'name', op: 'contains', value: 'B' },
+            ],
+          },
+          { field: 'name', op: 'contains', value: 'C' },
+        ],
+      };
+      const conditions = extractFilterConditions(filter);
+      expect(conditions).toHaveLength(3);
+      expect(conditions.map(c => c.value)).toEqual(['A', 'B', 'C']);
+    });
+
+    it('should normalize nested filter with invalid conditions', () => {
+      const filter: FilterTree = {
+        or: [
+          {
+            and: [
+              { field: 'name', op: 'contains', value: 'valid' },
+              { field: '', op: 'contains', value: 'invalid' }, // Invalid - empty field
+            ],
+          },
+          { field: 'status', op: 'is', value: 'active' },
+        ],
+      };
+      const result = normalizeFilter(filter);
+      expect(result).not.toBeNull();
+      // The invalid condition should be filtered out
+      expect(countFilterConditions(result!)).toBe(2);
+    });
+
+    it('should handle triple-nested groups', () => {
+      const filter: FilterTree = {
+        and: [
+          {
+            or: [
+              {
+                and: [
+                  { field: 'a', op: 'is', value: '1' },
+                  { field: 'b', op: 'is', value: '2' },
+                ],
+              },
+              { field: 'c', op: 'is', value: '3' },
+            ],
+          },
+          { field: 'd', op: 'is', value: '4' },
+        ],
+      };
+      
+      // Serialize and parse
+      const serialized = serializeFilterTree(filter);
+      expect(serialized).not.toBeNull();
+      
+      const params = new URLSearchParams({ filter: serialized! });
+      const parsed = parseListQuery(params);
+      expect(parsed.filterTree).toEqual(filter);
+      
+      // Count conditions
+      expect(countFilterConditions(filter)).toBe(4);
+    });
+  });
 });

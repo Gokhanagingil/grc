@@ -26,12 +26,21 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { capaApi, CapaData, CreateCapaDto, CapaStatus, CapaPriority } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
-import { useListData } from '../hooks/useListData';
-import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
-import { FilterConfig } from '../components/common/AdvancedFilter/types';
-import { ListToolbar } from '../components/common/ListToolbar';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 const CAPA_STATUS_VALUES: CapaStatus[] = ['planned', 'in_progress', 'implemented', 'verified', 'rejected', 'closed'];
 const CAPA_PRIORITY_VALUES: CapaPriority[] = ['low', 'medium', 'high', 'critical'];
@@ -135,13 +144,24 @@ export const CapaList: React.FC = () => {
   const priorityFilter = searchParams.get('priority') || '';
   const issueIdFilter = searchParams.get('issueId') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (statusFilter) filters.status = statusFilter;
     if (priorityFilter) filters.priority = priorityFilter;
     if (issueIdFilter) filters.issueId = issueIdFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
-  }, [statusFilter, priorityFilter, issueIdFilter]);
+  }, [statusFilter, priorityFilter, issueIdFilter, advancedFilter]);
 
   const fetchCapas = useCallback((params: Record<string, unknown>) => {
     return capaApi.list(tenantId, params);
@@ -152,28 +172,23 @@ export const CapaList: React.FC = () => {
   const {
     items,
     total,
-    state,
+    page,
+    pageSize,
+    search,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
-    setSort,
-    setFilterTree,
     refetch,
-    filterConditionCount,
-    clearFilterWithNotification,
-  } = useListData<CapaData>({
+  } = useUniversalList<CapaData>({
     fetchFn: fetchCapas,
     defaultPageSize: 10,
     defaultSort: 'createdAt:DESC',
     syncToUrl: true,
     enabled: isAuthReady,
     additionalFilters,
-    entityName: 'CAPAs',
   });
-
-  const { page, pageSize, q: search, sort } = state;
 
   const handleViewCapa = useCallback((capa: CapaData) => {
     navigate(`/capa/${capa.id}`);
@@ -391,18 +406,38 @@ export const CapaList: React.FC = () => {
     },
   ], [handleViewCapa, handleDeleteCapa]);
 
-  const filterButton = useMemo(() => (
-    <AdvancedFilterBuilder
-      config={CAPA_FILTER_CONFIG}
-      initialFilter={state.filterTree}
-      onApply={setFilterTree}
-      onClear={clearFilterWithNotification}
-      activeFilterCount={filterConditionCount}
-    />
-  ), [state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={CAPA_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -440,57 +475,37 @@ export const CapaList: React.FC = () => {
         Add CAPA
       </Button>
     </Box>
-  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange]);
-
-  const listToolbar = useMemo(() => (
-    <ListToolbar
-      entity="capas"
-      search={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search CAPAs..."
-      sort={sort}
-      onSortChange={setSort}
-      onRefresh={refetch}
-      loading={isLoading}
-      filterButton={filterButton}
-      onClearFilters={handleClearFilters}
-      filters={getActiveFilters()}
-      onFilterRemove={handleFilterRemove}
-    />
-  ), [search, setSearch, sort, setSort, refetch, isLoading, filterButton, handleClearFilters, getActiveFilters, handleFilterRemove]);
+  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <>
-            <GenericListPage<CapaData>
-              title="CAPAs"
-              icon={<CapaIcon />}
-              items={items}
-              columns={columns}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              isLoading={isLoading || authLoading}
-              error={error}
-              search={search}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              onRefresh={refetch}
-              getRowKey={(capa) => capa.id}
-              emptyMessage="No CAPAs found"
-              emptyFilteredMessage="Try adjusting your filters or search query"
-              filters={getActiveFilters()}
-              onFilterRemove={handleFilterRemove}
-              onClearFilters={handleClearFilters}
-              toolbarActions={toolbarActions}
-              banner={
-                <>
-                  <GrcFrameworkWarningBanner />
-                  {listToolbar}
-                </>
-              }
-              minTableWidth={1000}
-              testId="capa-list-page"
-            />
+      <GenericListPage<CapaData>
+        title="CAPAs"
+        icon={<CapaIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(capa) => capa.id}
+        searchPlaceholder="Search CAPAs..."
+        emptyMessage="No CAPAs found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        banner={<GrcFrameworkWarningBanner />}
+        minTableWidth={1000}
+        testId="capa-list-page"
+      />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-capa-dialog">
         <DialogTitle>Add New CAPA</DialogTitle>

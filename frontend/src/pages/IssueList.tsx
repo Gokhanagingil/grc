@@ -25,12 +25,21 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { issueApi, IssueData, CreateIssueDto } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
-import { useListData } from '../hooks/useListData';
-import { AdvancedFilterBuilder } from '../components/common/AdvancedFilter/AdvancedFilterBuilder';
-import { FilterConfig } from '../components/common/AdvancedFilter/types';
-import { ListToolbar } from '../components/common/ListToolbar';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 export enum IssueType {
   INTERNAL_AUDIT = 'internal_audit',
@@ -170,13 +179,24 @@ export const IssueList: React.FC = () => {
   const severityFilter = searchParams.get('severity') || '';
   const typeFilter = searchParams.get('type') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (statusFilter) filters.status = statusFilter;
     if (severityFilter) filters.severity = severityFilter;
     if (typeFilter) filters.type = typeFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
-  }, [statusFilter, severityFilter, typeFilter]);
+  }, [statusFilter, severityFilter, typeFilter, advancedFilter]);
 
   const fetchIssues = useCallback((params: Record<string, unknown>) => {
     return issueApi.list(tenantId, params);
@@ -187,28 +207,23 @@ export const IssueList: React.FC = () => {
   const {
     items,
     total,
-    state,
+    page,
+    pageSize,
+    search,
     isLoading,
     error,
     setPage,
     setPageSize,
     setSearch,
-    setSort,
-    setFilterTree,
     refetch,
-    filterConditionCount,
-    clearFilterWithNotification,
-  } = useListData<IssueData>({
+  } = useUniversalList<IssueData>({
     fetchFn: fetchIssues,
     defaultPageSize: 10,
     defaultSort: 'createdAt:DESC',
     syncToUrl: true,
     enabled: isAuthReady,
     additionalFilters,
-    entityName: 'issues',
   });
-
-  const { page, pageSize, q: search, sort } = state;
 
   const handleViewIssue = useCallback((issue: IssueData) => {
     navigate(`/issues/${issue.id}`);
@@ -413,18 +428,38 @@ export const IssueList: React.FC = () => {
     },
   ], [handleViewIssue, handleDeleteIssue]);
 
-  const filterButton = useMemo(() => (
-    <AdvancedFilterBuilder
-      config={ISSUE_FILTER_CONFIG}
-      initialFilter={state.filterTree}
-      onApply={setFilterTree}
-      onClear={clearFilterWithNotification}
-      activeFilterCount={filterConditionCount}
-    />
-  ), [state.filterTree, setFilterTree, clearFilterWithNotification, filterConditionCount]);
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={ISSUE_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -473,58 +508,38 @@ export const IssueList: React.FC = () => {
         Add Issue
       </Button>
     </Box>
-  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange]);
-
-  const listToolbar = useMemo(() => (
-    <ListToolbar
-      entity="issues"
-      search={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search issues..."
-      sort={sort}
-      onSortChange={setSort}
-      onRefresh={refetch}
-      loading={isLoading}
-      filterButton={filterButton}
-      onClearFilters={handleClearFilters}
-      filters={getActiveFilters()}
-      onFilterRemove={handleFilterRemove}
-    />
-  ), [search, setSearch, sort, setSort, refetch, isLoading, filterButton, handleClearFilters, getActiveFilters, handleFilterRemove]);
+  ), [statusFilter, severityFilter, typeFilter, handleStatusChange, handleSeverityChange, handleTypeChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <>
-            <GenericListPage<IssueData>
-              title="Issues"
-              icon={<IssueIcon />}
-              items={items}
-              columns={columns}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              isLoading={isLoading || authLoading}
-              error={error}
-              search={search}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              onRefresh={refetch}
-              getRowKey={(issue) => issue.id}
-              emptyMessage="No issues found"
-              emptyFilteredMessage="Try adjusting your filters or search query"
-              filters={getActiveFilters()}
-              onFilterRemove={handleFilterRemove}
-              onClearFilters={handleClearFilters}
-              toolbarActions={toolbarActions}
-              banner={
-                <>
-                  <GrcFrameworkWarningBanner />
-                  {listToolbar}
-                </>
-              }
-              minTableWidth={1000}
-              testId="issue-list-page"
-              onRowClick={handleViewIssue}
-            />
+      <GenericListPage<IssueData>
+        title="Issues"
+        icon={<IssueIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(issue) => issue.id}
+        searchPlaceholder="Search issues..."
+        emptyMessage="No issues found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        banner={<GrcFrameworkWarningBanner />}
+        minTableWidth={1000}
+        testId="issue-list-page"
+        onRowClick={handleViewIssue}
+      />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-issue-dialog">
         <DialogTitle>Add New Issue</DialogTitle>
