@@ -238,10 +238,8 @@ export const ProcessViolations: React.FC = () => {
   });
 
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
-  const [viewingViolation, setViewingViolation] = useState<ProcessViolation | null>(null);
   const [allRisks, setAllRisks] = useState<Risk[]>([]);
   const [selectedRiskId, setSelectedRiskId] = useState<string>('');
   const [processName, setProcessName] = useState<string>('');
@@ -611,86 +609,6 @@ export const ProcessViolations: React.FC = () => {
         minTableWidth={1000}
         testId="violations-list-page"
       />
-
-      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Violation Details</DialogTitle>
-        <DialogContent>
-          {viewingViolation && (
-            <Box sx={{ pt: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {viewingViolation.title}
-              </Typography>
-              <Typography variant="body1" paragraph>
-                {viewingViolation.description || 'No description provided.'}
-              </Typography>
-
-              <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-                <Chip
-                  label={`Severity: ${SEVERITY_LABELS[viewingViolation.severity] || viewingViolation.severity.toUpperCase()}`}
-                  color={getSeverityColor(viewingViolation.severity)}
-                />
-                <Chip
-                  label={`Status: ${STATUS_LABELS[viewingViolation.status] || viewingViolation.status.toUpperCase().replace('_', ' ')}`}
-                  color={getStatusColor(viewingViolation.status)}
-                />
-              </Box>
-
-              {viewingViolation.control && (
-                <Box mb={2}>
-                  <Typography variant="subtitle2">Control</Typography>
-                  <Typography variant="body2">{viewingViolation.control.name}</Typography>
-                  {viewingViolation.control.process && (
-                    <Typography variant="caption" color="textSecondary">
-                      Process: {viewingViolation.control.process.name}
-                    </Typography>
-                  )}
-                </Box>
-              )}
-
-              {viewingViolation.linkedRisk && (
-                <Box mb={2}>
-                  <Typography variant="subtitle2">Linked Risk</Typography>
-                  <Typography variant="body2">{viewingViolation.linkedRisk.title}</Typography>
-                </Box>
-              )}
-
-              {viewingViolation.dueDate && (
-                <Box mb={2}>
-                  <Typography variant="subtitle2">Due Date</Typography>
-                  <Typography variant="body2">{formatDate(viewingViolation.dueDate)}</Typography>
-                </Box>
-              )}
-
-              {viewingViolation.resolutionNotes && (
-                <Box mb={2}>
-                  <Typography variant="subtitle2">Resolution Notes</Typography>
-                  <Typography variant="body2">{viewingViolation.resolutionNotes}</Typography>
-                </Box>
-              )}
-
-              <Box>
-                <Typography variant="caption" color="textSecondary">
-                  Created: {formatDate(viewingViolation.createdAt)}
-                </Typography>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setOpenViewDialog(false);
-              if (viewingViolation) {
-                handleEditViolation(viewingViolation);
-              }
-            }}
-          >
-            Edit
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Violation</DialogTitle>

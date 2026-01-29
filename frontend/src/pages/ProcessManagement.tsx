@@ -312,8 +312,11 @@ export const ProcessManagement: React.FC = () => {
   }, [tenantId]);
 
   const handleViewProcess = useCallback((process: Process) => {
-    navigate(`/processes/${process.id}`);
-  }, [navigate]);
+    setViewingProcess(process);
+    setTabValue(0);
+    fetchProcessControls(process.id);
+    setOpenViewDialog(true);
+  }, [fetchProcessControls]);
 
   const handleCreateProcess = useCallback(() => {
     setEditingProcess(null);
