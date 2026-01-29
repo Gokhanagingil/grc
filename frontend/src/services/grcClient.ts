@@ -2892,6 +2892,17 @@ export const auditScopeApi = {
 
   unlinkFindingFromClause: (auditId: string, clauseId: string, issueId: string) =>
     api.delete(API_PATHS.AUDIT_SCOPE.UNLINK_FINDING(auditId, clauseId, issueId)),
+
+  createFindingForClause: (
+    auditId: string,
+    clauseId: string,
+    data?: {
+      title?: string;
+      description?: string;
+      severity?: string;
+      notes?: string;
+    }
+  ) => api.post(API_PATHS.AUDIT_SCOPE.LINK_FINDING(auditId, clauseId), data || {}),
 };
 
 // ============================================================================

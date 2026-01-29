@@ -13,6 +13,8 @@ import {
   ClauseScopeStatus,
 } from '../entities/audit-scope-clause.entity';
 import { GrcIssueClause } from '../entities/grc-issue-clause.entity';
+import { GrcIssue } from '../entities/grc-issue.entity';
+import { IssueType, IssueStatus, IssueSeverity, IssueSource } from '../enums';
 
 export interface ClauseTreeNode {
   id: string;
@@ -43,6 +45,8 @@ export class StandardsService extends MultiTenantServiceBase<Standard> {
     private readonly auditScopeClauseRepository: Repository<AuditScopeClause>,
     @InjectRepository(GrcIssueClause)
     private readonly issueClauseRepository: Repository<GrcIssueClause>,
+    @InjectRepository(GrcIssue)
+    private readonly issueRepository: Repository<GrcIssue>,
   ) {
     super(repository);
   }
@@ -409,6 +413,75 @@ export class StandardsService extends MultiTenantServiceBase<Standard> {
       ...standard,
       clauseTree,
     };
+  }
+
+  async createFindingForClause(
+    tenantId: string,
+    userId: string,
+    auditId: string,
+    clauseId: string,
+    data: {
+      title?: string;
+      description?: string;
+      severity?: string;
+      notes?: string;
+    },
+  ): Promise<{ issue: GrcIssue; issueClause: GrcIssueClause }> {
+    const clause = await this.getClause(tenantId, clauseId);
+    if (!clause) {
+      throw new NotFoundException(`Clause with ID ${clauseId} not found`);
+    }
+
+    const title = data.title || `Finding for ${clause.code}: ${clause.title}`;
+    const description =
+      data.description ||
+      `Finding created for clause ${clause.code} (${clause.title}) during audit.`;
+
+    const severityMap: Record<string, IssueSeverity> = {
+      LOW: IssueSeverity.LOW,
+      MEDIUM: IssueSeverity.MEDIUM,
+      HIGH: IssueSeverity.HIGH,
+      CRITICAL: IssueSeverity.CRITICAL,
+    };
+    const severity = data.severity
+      ? severityMap[data.severity.toUpperCase()] || IssueSeverity.MEDIUM
+      : IssueSeverity.MEDIUM;
+
+    const metadata: Record<string, unknown> = {
+      createdFromClause: true,
+      clauseId,
+      clauseCode: clause.code,
+    };
+
+    const issueData: Partial<GrcIssue> = {
+      tenantId,
+      title,
+      description,
+      type: IssueType.INTERNAL_AUDIT,
+      status: IssueStatus.OPEN,
+      severity,
+      source: IssueSource.MANUAL,
+      auditId,
+      discoveredDate: new Date(),
+      raisedByUserId: userId,
+      createdBy: userId,
+      metadata,
+    };
+
+    const issue = this.issueRepository.create(issueData);
+    const savedIssue = await this.issueRepository.save(issue);
+
+    const issueClauseData: Partial<GrcIssueClause> = {
+      tenantId,
+      issueId: savedIssue.id,
+      clauseId,
+      notes: data.notes,
+    };
+    const issueClause = this.issueClauseRepository.create(issueClauseData);
+
+    const savedIssueClause = await this.issueClauseRepository.save(issueClause);
+
+    return { issue: savedIssue, issueClause: savedIssueClause };
   }
 
   async getSummary(tenantId: string): Promise<{

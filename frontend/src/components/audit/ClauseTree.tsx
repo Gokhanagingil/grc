@@ -78,6 +78,7 @@ const ClauseTreeItem: React.FC<ClauseTreeItemProps> = ({
       <ListItem
         disablePadding
         data-testid={`clause-item-${clause.id}`}
+        className="clause-tree-item"
         sx={{
           pl: level * 2,
           bgcolor: isSelected ? 'action.selected' : 'transparent',
