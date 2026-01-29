@@ -9,14 +9,14 @@ test.describe('Universal List Experience Smoke Tests', () => {
 
   test.describe('Issues List', () => {
     test('should load issues list page', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for the universal list page container to be visible
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
     });
 
     test('should have search input', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for page to load first
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
@@ -27,7 +27,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should filter results when typing in search', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
@@ -44,7 +44,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should show empty state or results', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
@@ -57,7 +57,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should navigate to detail page on row click', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
@@ -79,14 +79,14 @@ test.describe('Universal List Experience Smoke Tests', () => {
 
   test.describe('CAPAs List', () => {
     test('should load CAPAs list page', async ({ page }) => {
-      await page.goto('/grc/capas');
+      await page.goto('/capa');
       
       // Wait for the universal list page container to be visible
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('capa-list-page'))).toBeVisible({ timeout: 10000 });
     });
 
     test('should have search input', async ({ page }) => {
-      await page.goto('/grc/capas');
+      await page.goto('/capa');
       
       // Wait for page to load first
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('capa-list-page'))).toBeVisible({ timeout: 10000 });
@@ -96,7 +96,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should filter results when typing in search', async ({ page }) => {
-      await page.goto('/grc/capas');
+      await page.goto('/capa');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('capa-list-page'))).toBeVisible({ timeout: 10000 });
@@ -113,7 +113,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should show empty state or results', async ({ page }) => {
-      await page.goto('/grc/capas');
+      await page.goto('/capa');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('capa-list-page'))).toBeVisible({ timeout: 10000 });
@@ -128,14 +128,14 @@ test.describe('Universal List Experience Smoke Tests', () => {
 
   test.describe('Evidence List', () => {
     test('should load evidence list page', async ({ page }) => {
-      await page.goto('/grc/evidence');
+      await page.goto('/evidence');
       
       // Wait for the universal list page container to be visible
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('evidence-list-page'))).toBeVisible({ timeout: 10000 });
     });
 
     test('should have search input', async ({ page }) => {
-      await page.goto('/grc/evidence');
+      await page.goto('/evidence');
       
       // Wait for page to load first
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('evidence-list-page'))).toBeVisible({ timeout: 10000 });
@@ -147,14 +147,14 @@ test.describe('Universal List Experience Smoke Tests', () => {
 
   test.describe('Controls List', () => {
     test('should load controls list page', async ({ page }) => {
-      await page.goto('/grc/controls');
+      await page.goto('/controls');
       
       // Wait for the universal list page container to be visible
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
     });
 
     test('should have search input', async ({ page }) => {
-      await page.goto('/grc/controls');
+      await page.goto('/controls');
       
       // Wait for page to load first
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
@@ -164,7 +164,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
 
     test('should show table with controls', async ({ page }) => {
-      await page.goto('/grc/controls');
+      await page.goto('/controls');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-list-page'))).toBeVisible({ timeout: 10000 });
@@ -179,7 +179,7 @@ test.describe('Universal List Experience Smoke Tests', () => {
 
   test.describe('Filter Encoding', () => {
     test('should use single-encoded filter in URL', async ({ page }) => {
-      await page.goto('/grc/issues');
+      await page.goto('/issues');
       
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('issue-list-page'))).toBeVisible({ timeout: 10000 });
