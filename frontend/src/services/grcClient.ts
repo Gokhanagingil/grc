@@ -1677,6 +1677,9 @@ export const controlApi = {
       API_PATHS.GRC_CONTROLS.UNLINK_PROCESS(controlId, processId),
       withTenantId(tenantId),
     ),
+
+  getEvidences: (tenantId: string, controlId: string) =>
+    api.get(API_PATHS.GRC_CONTROLS.EVIDENCES(controlId), withTenantId(tenantId)),
 };
 
 // ============================================================================

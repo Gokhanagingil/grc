@@ -40,6 +40,7 @@ import {
   FactCheck as TestResultIcon,
   Warning as IssueIcon,
   Add as AddIcon,
+  AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -54,7 +55,7 @@ import {
   StatusHistoryItem,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState } from '../components/common';
+import { LoadingState, ErrorState, AttachmentPanel } from '../components/common';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -225,9 +226,12 @@ export const EvidenceDetail: React.FC = () => {
         evidenceApi.getTestResults(tenantId, id),
         evidenceApi.getIssues(tenantId, id),
       ]);
-      setLinkedControls(unwrapResponse<LinkedControl[]>(controlsRes) || []);
-      setLinkedTestResults(unwrapResponse<LinkedTestResult[]>(testResultsRes) || []);
-      setLinkedIssues(unwrapResponse<LinkedIssue[]>(issuesRes) || []);
+      const controlsData = unwrapResponse<LinkedControl[]>(controlsRes);
+      const testResultsData = unwrapResponse<LinkedTestResult[]>(testResultsRes);
+      const issuesData = unwrapResponse<LinkedIssue[]>(issuesRes);
+      setLinkedControls(Array.isArray(controlsData) ? controlsData : []);
+      setLinkedTestResults(Array.isArray(testResultsData) ? testResultsData : []);
+      setLinkedIssues(Array.isArray(issuesData) ? issuesData : []);
     } catch (err) {
       console.error('Error fetching linked entities:', err);
     } finally {
@@ -444,11 +448,12 @@ export const EvidenceDetail: React.FC = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
       <Paper sx={{ width: '100%' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="evidence detail tabs">
-          <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" data-testid="overview-tab" />
-          <Tab icon={<LinkIcon />} label="Links" iconPosition="start" data-testid="links-tab" />
-          <Tab icon={<HistoryIcon />} label="History" iconPosition="start" data-testid="history-tab" />
-        </Tabs>
+                <Tabs value={tabValue} onChange={handleTabChange} aria-label="evidence detail tabs">
+                  <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" data-testid="overview-tab" />
+                  <Tab icon={<LinkIcon />} label="Links" iconPosition="start" data-testid="links-tab" />
+                  <Tab icon={<AttachmentIcon />} label="Attachments" iconPosition="start" data-testid="attachments-tab" />
+                  <Tab icon={<HistoryIcon />} label="History" iconPosition="start" data-testid="history-tab" />
+                </Tabs>
 
         <TabPanel value={tabValue} index={0}>
           <Grid container spacing={3}>
@@ -518,7 +523,7 @@ export const EvidenceDetail: React.FC = () => {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={1} data-testid="evidence-panel-links">
           {linksLoading ? (
             <Box display="flex" justifyContent="center" p={3}>
               <CircularProgress />
@@ -721,7 +726,17 @@ export const EvidenceDetail: React.FC = () => {
           )}
         </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={2} data-testid="evidence-panel-attachments">
+          {id && (
+            <AttachmentPanel
+              refTable="grc_evidence"
+              refId={id}
+              readOnly={false}
+            />
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>Status History</Typography>
