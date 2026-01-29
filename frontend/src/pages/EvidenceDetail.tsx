@@ -520,8 +520,7 @@ export const EvidenceDetail: React.FC = () => {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={1}>
-          <Box data-testid="evidence-panel-links">
+        <TabPanel value={tabValue} index={1} data-testid="evidence-panel-links">
           {linksLoading ? (
             <Box display="flex" justifyContent="center" p={3}>
               <CircularProgress />
@@ -722,19 +721,16 @@ export const EvidenceDetail: React.FC = () => {
               </Grid>
             </Grid>
           )}
-          </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
-          <Box data-testid="evidence-panel-attachments">
-            {id && (
-              <AttachmentPanel
-                refTable="grc_evidence"
-                refId={id}
-                readOnly={false}
-              />
-            )}
-          </Box>
+        <TabPanel value={tabValue} index={2} data-testid="evidence-panel-attachments">
+          {id && (
+            <AttachmentPanel
+              refTable="grc_evidence"
+              refId={id}
+              readOnly={false}
+            />
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={3}>
