@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
   Dialog,
@@ -21,14 +14,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert,
-  TablePagination,
   Tooltip,
   Tabs,
   Tab,
   Switch,
   FormControlLabel,
   LinearProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -50,8 +47,21 @@ import {
   EvidenceData,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { buildListQueryParams } from '../utils';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 interface Process {
   id: string;
@@ -97,48 +107,154 @@ const CONTROL_FREQUENCIES = ['daily', 'weekly', 'monthly', 'quarterly', 'annuall
 const RESULT_TYPES = ['boolean', 'numeric', 'qualitative'];
 const PROCESS_CATEGORIES = ['ITSM', 'Security', 'Finance', 'Operations', 'HR', 'Compliance'];
 
+const PROCESS_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'enum',
+      enumValues: [...PROCESS_CATEGORIES],
+    },
+    {
+      name: 'isActive',
+      label: 'Status',
+      type: 'enum',
+      enumValues: ['true', 'false'],
+      enumLabels: {
+        true: 'Active',
+        false: 'Inactive',
+      },
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+const getComplianceColor = (score: number): 'success' | 'warning' | 'error' => {
+  if (score >= 0.8) return 'success';
+  if (score >= 0.5) return 'warning';
+  return 'error';
+};
+
+const formatComplianceScore = (score: number): string => {
+  return `${Math.round(score * 100)}%`;
+};
+
 export const ProcessManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Default values
-  const DEFAULT_SORT = 'createdAt:DESC';
-  const DEFAULT_PAGE = 1;
-  const DEFAULT_PAGE_SIZE = 10;
+  const tenantId = user?.tenantId || '';
 
-  // Read initial values from URL
-  const pageParam = parseInt(searchParams.get('page') || '1', 10);
-  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
-  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
-  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+  const categoryFilter = searchParams.get('category') || '';
+  const activeFilter = searchParams.get('isActive') || '';
 
-  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
 
-  const [processes, setProcesses] = useState<Process[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (categoryFilter) filters.category = categoryFilter;
+    if (activeFilter) filters.isActive = activeFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [categoryFilter, activeFilter, advancedFilter]);
+
+  const [complianceScores, setComplianceScores] = useState<Record<string, ComplianceScore>>({});
+
+  const fetchProcesses = useCallback(async (params: Record<string, unknown>) => {
+    const apiParams = buildListQueryParams(params);
+    const response = await processApi.list(tenantId, apiParams);
+    const result = unwrapPaginatedResponse<Process>(response);
+
+    const scorePromises = result.items.map(async (process) => {
+      try {
+        const scoreResponse = await processApi.getComplianceScore(tenantId, process.id);
+        const score = unwrapResponse<ComplianceScore>(scoreResponse);
+        return { processId: process.id, score };
+      } catch {
+        return { processId: process.id, score: null };
+      }
+    });
+
+    const scores = await Promise.all(scorePromises);
+    const scoreMap: Record<string, ComplianceScore> = {};
+    scores.forEach(({ processId, score }) => {
+      if (score) {
+        scoreMap[processId] = score;
+      }
+    });
+    setComplianceScores(scoreMap);
+
+    return result;
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Process>({
+    fetchFn: fetchProcesses,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openControlDialog, setOpenControlDialog] = useState(false);
   const [openResultDialog, setOpenResultDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
-  const [viewingProcess] = useState<Process | null>(null);
+  const [viewingProcess, setViewingProcess] = useState<Process | null>(null);
   const [editingControl, setEditingControl] = useState<ProcessControl | null>(null);
   const [selectedControlForResult, setSelectedControlForResult] = useState<ProcessControl | null>(null);
-  const [page, setPage] = useState(Math.max(0, pageParam - 1));
-  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
-  const [total, setTotal] = useState(0);
-  const [categoryFilter, setCategoryFilter] = useState<string>((filterParam?.category as string) || '');
-  const [activeFilter, setActiveFilter] = useState<string>((filterParam?.isActive as string) || '');
-  const [sortField, setSortField] = useState(parsedSort.field);
-  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [tabValue, setTabValue] = useState(0);
-
   const [processControls, setProcessControls] = useState<ProcessControl[]>([]);
   const [controlsLoading, setControlsLoading] = useState(false);
-  const [complianceScores, setComplianceScores] = useState<Record<string, ComplianceScore>>({});
   const [availableEvidence, setAvailableEvidence] = useState<EvidenceData[]>([]);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
 
@@ -150,15 +266,15 @@ export const ProcessManagement: React.FC = () => {
     isActive: true,
   });
 
-    const [controlFormData, setControlFormData] = useState({
-      name: '',
-      description: '',
-      isAutomated: false,
-      method: 'walkthrough',
-      frequency: 'monthly',
-      expectedResultType: 'boolean',
-      isActive: true,
-    });
+  const [controlFormData, setControlFormData] = useState({
+    name: '',
+    description: '',
+    isAutomated: false,
+    method: 'walkthrough',
+    frequency: 'monthly',
+    expectedResultType: 'boolean',
+    isActive: true,
+  });
 
   const [controlFormErrors, setControlFormErrors] = useState<{ name?: string }>({});
 
@@ -169,107 +285,6 @@ export const ProcessManagement: React.FC = () => {
     resultValueText: '',
     evidenceReference: '',
   });
-
-  const tenantId = user?.tenantId || '';
-
-  // Build filter object for API (canonical format)
-  const buildFilter = useCallback(() => {
-    const conditions: Array<Record<string, unknown>> = [];
-    
-    if (categoryFilter) {
-      conditions.push({ field: 'category', operator: 'eq', value: categoryFilter });
-    }
-    if (activeFilter !== '') {
-      conditions.push({ field: 'isActive', operator: 'eq', value: activeFilter === 'true' });
-    }
-
-    if (conditions.length === 0) {
-      return null;
-    }
-
-    return { and: conditions };
-  }, [categoryFilter, activeFilter]);
-
-  // Update URL params when filters/sort/page change
-  useEffect(() => {
-    const filter = buildFilter();
-    const sortStr = formatSortToQuery(sortField, sortDirection);
-    
-    const params = buildListQueryParamsWithDefaults(
-      {
-        page: page + 1,
-        pageSize: rowsPerPage,
-        filter,
-        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
-      },
-      {
-        page: DEFAULT_PAGE,
-        pageSize: DEFAULT_PAGE_SIZE,
-        sort: DEFAULT_SORT,
-        filter: null,
-      }
-    );
-
-    setSearchParams(params, { replace: true });
-  }, [page, rowsPerPage, categoryFilter, activeFilter, sortField, sortDirection, buildFilter, setSearchParams]);
-
-  const fetchProcesses = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const filter = buildFilter();
-      const params = buildListQueryParams({
-        page: page + 1,
-        pageSize: rowsPerPage,
-        filter: filter || undefined,
-        sort: { field: sortField, direction: sortDirection },
-        category: categoryFilter || undefined,
-        isActive: activeFilter !== '' ? activeFilter : undefined,
-      });
-
-      const response = await processApi.list(tenantId, params);
-      const result = unwrapPaginatedResponse<Process>(response);
-      setProcesses(result.items);
-      setTotal(result.total);
-
-      const scorePromises = result.items.map(async (process) => {
-        try {
-          const scoreResponse = await processApi.getComplianceScore(tenantId, process.id);
-          const score = unwrapResponse<ComplianceScore>(scoreResponse);
-          return { processId: process.id, score };
-        } catch {
-          return { processId: process.id, score: null };
-        }
-      });
-
-      const scores = await Promise.all(scorePromises);
-      const scoreMap: Record<string, ComplianceScore> = {};
-      scores.forEach(({ processId, score }) => {
-        if (score) {
-          scoreMap[processId] = score;
-        }
-      });
-      setComplianceScores(scoreMap);
-    } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      const status = error.response?.status;
-      const message = error.response?.data?.message;
-
-      if (status === 401) {
-        setError('Session expired. Please login again.');
-      } else if (status === 403) {
-        setError('You do not have permission to view processes.');
-      } else if (status === 404 || status === 502) {
-        setProcesses([]);
-        setTotal(0);
-        console.warn('Process management backend not available');
-      } else {
-        setError(message || 'Failed to fetch processes. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId, page, rowsPerPage, categoryFilter, activeFilter, sortField, sortDirection, buildFilter]);
 
   const fetchProcessControls = useCallback(async (processId: string) => {
     try {
@@ -285,11 +300,11 @@ export const ProcessManagement: React.FC = () => {
     }
   }, [tenantId]);
 
-  useEffect(() => {
-    fetchProcesses();
-  }, [fetchProcesses]);
+  const handleViewProcess = useCallback((process: Process) => {
+    navigate(`/processes/${process.id}`);
+  }, [navigate]);
 
-  const handleCreateProcess = () => {
+  const handleCreateProcess = useCallback(() => {
     setEditingProcess(null);
     setFormData({
       name: '',
@@ -299,9 +314,9 @@ export const ProcessManagement: React.FC = () => {
       isActive: true,
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleEditProcess = (process: Process) => {
+  const handleEditProcess = useCallback((process: Process) => {
     setEditingProcess(process);
     setFormData({
       name: process.name,
@@ -311,17 +326,10 @@ export const ProcessManagement: React.FC = () => {
       isActive: process.isActive,
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleViewProcess = (process: Process) => {
-    navigate(`/processes/${process.id}`);
-  };
-
-  const handleSaveProcess = async () => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
+  const handleSaveProcess = useCallback(async () => {
+    if (!tenantId) return;
 
     try {
       const processData = {
@@ -334,52 +342,44 @@ export const ProcessManagement: React.FC = () => {
 
       if (editingProcess) {
         await processApi.update(tenantId, editingProcess.id, processData);
-        setSuccess('Process updated successfully');
       } else {
         await processApi.create(tenantId, processData);
-        setSuccess('Process created successfully');
       }
 
       setOpenDialog(false);
-      setError('');
-      fetchProcesses();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save process');
+      refetch();
+    } catch (err) {
+      console.error('Failed to save process:', err);
     }
-  };
+  }, [tenantId, formData, editingProcess, refetch]);
 
-  const handleDeleteProcess = async (id: string) => {
+  const handleDeleteProcess = useCallback(async (id: string) => {
     if (window.confirm('Are you sure you want to delete this process?')) {
       try {
         await processApi.delete(tenantId, id);
-        setSuccess('Process deleted successfully');
-        fetchProcesses();
-        setTimeout(() => setSuccess(''), 3000);
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || 'Failed to delete process');
+        refetch();
+      } catch (err) {
+        console.error('Failed to delete process:', err);
       }
     }
-  };
+  }, [tenantId, refetch]);
 
-    const handleCreateControl = () => {
-      setEditingControl(null);
-      setControlFormData({
-        name: '',
-        description: '',
-        isAutomated: false,
-        method: 'walkthrough',
-        frequency: 'monthly',
-        expectedResultType: 'boolean',
-        isActive: true,
-      });
-      setControlFormErrors({});
-      setOpenControlDialog(true);
-    };
+  const handleCreateControl = useCallback(() => {
+    setEditingControl(null);
+    setControlFormData({
+      name: '',
+      description: '',
+      isAutomated: false,
+      method: 'walkthrough',
+      frequency: 'monthly',
+      expectedResultType: 'boolean',
+      isActive: true,
+    });
+    setControlFormErrors({});
+    setOpenControlDialog(true);
+  }, []);
 
-  const handleEditControl = (control: ProcessControl) => {
+  const handleEditControl = useCallback((control: ProcessControl) => {
     setEditingControl(control);
     setControlFormData({
       name: control.name,
@@ -392,13 +392,10 @@ export const ProcessManagement: React.FC = () => {
     });
     setControlFormErrors({});
     setOpenControlDialog(true);
-  };
+  }, []);
 
-  const handleSaveControl = async () => {
-    if (!tenantId || !viewingProcess) {
-      setError('Process context is required');
-      return;
-    }
+  const handleSaveControl = useCallback(async () => {
+    if (!tenantId || !viewingProcess) return;
 
     const errors: { name?: string } = {};
     if (!controlFormData.name.trim()) {
@@ -424,36 +421,29 @@ export const ProcessManagement: React.FC = () => {
 
       if (editingControl) {
         await processControlApi.update(tenantId, editingControl.id, controlData);
-        setSuccess('Control updated successfully');
       } else {
         await processControlApi.create(tenantId, controlData);
-        setSuccess('Control created successfully');
       }
 
       setOpenControlDialog(false);
       fetchProcessControls(viewingProcess.id);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save control');
+    } catch (err) {
+      console.error('Failed to save control:', err);
     }
-  };
+  }, [tenantId, viewingProcess, controlFormData, editingControl, fetchProcessControls]);
 
-  const handleDeleteControl = async (controlId: string) => {
+  const handleDeleteControl = useCallback(async (controlId: string) => {
     if (window.confirm('Are you sure you want to delete this control?')) {
       try {
         await processControlApi.delete(tenantId, controlId);
-        setSuccess('Control deleted successfully');
         if (viewingProcess) {
           fetchProcessControls(viewingProcess.id);
         }
-        setTimeout(() => setSuccess(''), 3000);
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || 'Failed to delete control');
+      } catch (err) {
+        console.error('Failed to delete control:', err);
       }
     }
-  };
+  }, [tenantId, viewingProcess, fetchProcessControls]);
 
   const fetchAvailableEvidence = useCallback(async () => {
     if (!tenantId) return;
@@ -470,7 +460,7 @@ export const ProcessManagement: React.FC = () => {
     }
   }, [tenantId]);
 
-  const handleRecordResult = (control: ProcessControl) => {
+  const handleRecordResult = useCallback((control: ProcessControl) => {
     setSelectedControlForResult(control);
     setResultFormData({
       isCompliant: true,
@@ -481,13 +471,10 @@ export const ProcessManagement: React.FC = () => {
     });
     fetchAvailableEvidence();
     setOpenResultDialog(true);
-  };
+  }, [fetchAvailableEvidence]);
 
-  const handleSaveResult = async () => {
-    if (!tenantId || !selectedControlForResult) {
-      setError('Control context is required');
-      return;
-    }
+  const handleSaveResult = useCallback(async () => {
+    if (!tenantId || !selectedControlForResult) return;
 
     try {
       const resultData: Record<string, unknown> = {
@@ -506,242 +493,287 @@ export const ProcessManagement: React.FC = () => {
       }
 
       await controlResultApi.create(tenantId, resultData);
-      setSuccess(
-        resultFormData.isCompliant
-          ? 'Control result recorded successfully'
-          : 'Control result recorded - Violation created automatically',
-      );
       setOpenResultDialog(false);
-      fetchProcesses();
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to record result');
+      refetch();
+    } catch (err) {
+      console.error('Failed to record result:', err);
     }
-  };
+  }, [tenantId, selectedControlForResult, resultFormData, refetch]);
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  const handleCategoryChange = useCallback((value: string) => {
+    updateFilter('category', value);
+  }, [updateFilter]);
 
-  const getComplianceColor = (score: number): 'success' | 'warning' | 'error' => {
-    if (score >= 0.8) return 'success';
-    if (score >= 0.5) return 'warning';
-    return 'error';
-  };
+  const handleActiveChange = useCallback((value: string) => {
+    updateFilter('isActive', value);
+  }, [updateFilter]);
 
-  const formatComplianceScore = (score: number): string => {
-    return `${Math.round(score * 100)}%`;
-  };
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (categoryFilter) {
+      filters.push({ key: 'category', label: 'Category', value: categoryFilter });
+    }
+    if (activeFilter) {
+      filters.push({ key: 'isActive', label: 'Status', value: activeFilter === 'true' ? 'Active' : 'Inactive' });
+    }
+    return filters;
+  }, [categoryFilter, activeFilter]);
 
-  if (loading) {
-    return <LoadingState message="Loading processes..." />;
-  }
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  if (error && processes.length === 0) {
-    return (
-      <ErrorState
-        title="Failed to load processes"
-        message={error}
-        onRetry={fetchProcesses}
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const columns: ColumnDefinition<Process>[] = useMemo(() => [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (process) => (
+        <Box>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            component="span"
+            onClick={() => handleViewProcess(process)}
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+            }}
+          >
+            {process.name}
+          </Typography>
+          {process.description && (
+            <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200, mt: 0.5 }}>
+              {process.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'code',
+      header: 'Code',
+      render: (process) => <Chip label={process.code} size="small" variant="outlined" />,
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (process) => (
+        <Typography variant="body2" color="textSecondary">
+          {process.ownerUserId ? process.ownerUserId.substring(0, 8) + '...' : 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (process) => process.category || '-',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (process) => (
+        <Chip
+          label={process.isActive ? 'Active' : 'Inactive'}
+          color={process.isActive ? 'success' : 'default'}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'compliance',
+      header: 'Compliance',
+      render: (process) => (
+        complianceScores[process.id] ? (
+          <Tooltip
+            title={`${complianceScores[process.id].compliantResults}/${complianceScores[process.id].totalResults} compliant`}
+          >
+            <Chip
+              label={formatComplianceScore(complianceScores[process.id].complianceScore)}
+              color={getComplianceColor(complianceScores[process.id].complianceScore)}
+              size="small"
+            />
+          </Tooltip>
+        ) : (
+          <Chip label="N/A" size="small" variant="outlined" />
+        )
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (process) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View Details">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewProcess(process);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="View Violations">
+            <IconButton
+              size="small"
+              color="warning"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/violations?processId=${process.id}`);
+              }}
+            >
+              <ViolationIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditProcess(process);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteProcess(process.id);
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewProcess, handleEditProcess, handleDeleteProcess, complianceScores, navigate]);
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={PROCESS_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
       />
-    );
-  }
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Category</InputLabel>
+        <Select
+          value={categoryFilter}
+          label="Category"
+          onChange={(e) => handleCategoryChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          {PROCESS_CATEGORIES.map((cat) => (
+            <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 100 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={activeFilter}
+          label="Status"
+          onChange={(e) => handleActiveChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="true">Active</MenuItem>
+          <MenuItem value="false">Inactive</MenuItem>
+        </Select>
+      </FormControl>
+    </Box>
+  ), [categoryFilter, activeFilter, handleCategoryChange, handleActiveChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Process Management</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateProcess}>
-          New Process
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
-
-      <ListToolbar
-        filters={[
-          ...(categoryFilter ? [{ key: 'category', label: 'Category', value: categoryFilter }] : []),
-          ...(activeFilter ? [{ key: 'isActive', label: 'Status', value: activeFilter === 'true' ? 'Active' : 'Inactive' }] : []),
-        ]}
-        onFilterRemove={(key) => {
-          if (key === 'category') {
-            setCategoryFilter('');
-          } else if (key === 'isActive') {
-            setActiveFilter('');
-          }
-          setPage(0);
-        }}
-        onClearFilters={() => {
-          setCategoryFilter('');
-          setActiveFilter('');
-          setPage(0);
-        }}
-        sort={`${sortField}:${sortDirection}`}
-        onSortChange={(sort: string) => {
-          const [field, direction] = sort.split(':');
-          setSortField(field);
-          setSortDirection(direction as 'ASC' | 'DESC');
-        }}
-        sortOptions={[
-          { field: 'createdAt', label: 'Created Date' },
-          { field: 'updatedAt', label: 'Updated Date' },
-          { field: 'name', label: 'Name' },
-          { field: 'category', label: 'Category' },
-        ]}
-        onRefresh={() => fetchProcesses()}
-        loading={loading}
+    <>
+      <GenericListPage<Process>
+        title="Process Management"
+        icon={<ProcessIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(process) => process.id}
+        onRowClick={handleViewProcess}
+        searchPlaceholder="Search processes..."
+        emptyMessage="No processes found"
+        emptyFilteredMessage="Get started by creating your first business process."
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        createButtonLabel="New Process"
+        onCreateClick={handleCreateProcess}
+        minTableWidth={900}
+        testId="process-list-page"
       />
-
-      <Card>
-        <CardContent>
-          <ResponsiveTable minWidth={900}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Owner</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Compliance</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {processes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 0, border: 'none' }}>
-                      <EmptyState
-                        icon={<ProcessIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
-                        title="No processes found"
-                        message={
-                          tenantId
-                            ? 'Get started by creating your first business process.'
-                            : 'Please select a tenant to view processes.'
-                        }
-                        actionLabel={tenantId ? 'Create Process' : undefined}
-                        onAction={tenantId ? handleCreateProcess : undefined}
-                        minHeight="200px"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  processes.map((process) => (
-                    <TableRow 
-                      key={process.id} 
-                      hover
-                      onClick={() => handleViewProcess(process)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        <Typography variant="subtitle2">{process.name}</Typography>
-                        {process.description && (
-                          <Typography
-                            variant="body2"
-                            color="textSecondary"
-                            noWrap
-                            sx={{ maxWidth: 200 }}
-                          >
-                            {process.description}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={process.code} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="textSecondary">
-                          {process.ownerUserId ? process.ownerUserId.substring(0, 8) + '...' : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{process.category || '-'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={process.isActive ? 'Active' : 'Inactive'}
-                          color={process.isActive ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {complianceScores[process.id] ? (
-                          <Tooltip
-                            title={`${complianceScores[process.id].compliantResults}/${complianceScores[process.id].totalResults} compliant`}
-                          >
-                            <Chip
-                              label={formatComplianceScore(
-                                complianceScores[process.id].complianceScore,
-                              )}
-                              color={getComplianceColor(
-                                complianceScores[process.id].complianceScore,
-                              )}
-                              size="small"
-                            />
-                          </Tooltip>
-                        ) : (
-                          <Chip label="N/A" size="small" variant="outlined" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="View Details">
-                          <IconButton size="small" onClick={() => handleViewProcess(process)}>
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="View Violations">
-                          <IconButton
-                            size="small"
-                            color="warning"
-                            onClick={() => navigate(`/violations?processId=${process.id}`)}
-                          >
-                            <ViolationIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEditProcess(process)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteProcess(process.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ResponsiveTable>
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-          />
-        </CardContent>
-      </Card>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingProcess ? 'Edit Process' : 'Create Process'}</DialogTitle>
@@ -1181,7 +1213,7 @@ export const ProcessManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };
 

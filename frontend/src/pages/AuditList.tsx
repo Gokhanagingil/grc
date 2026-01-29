@@ -1,27 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
-  Alert,
-  TablePagination,
   Tooltip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Typography,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -29,24 +18,51 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption, FilterBuilderBasic, FilterConfig, FilterTree } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterConfig,
+  FilterTree,
+} from '../components/common';
 import { ModuleGuard } from '../components/ModuleGuard';
 import { api } from '../services/api';
-import { serializeFilterTree, countFilterConditions } from '../utils/listQueryUtils';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
-const unwrapResponse = <T,>(response: { data: { success?: boolean; data?: T } | T }): T | null => {
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+const unwrapAuditResponse = <T,>(response: { data: { success?: boolean; data?: { audits: T[]; pagination: { total: number; page: number; pageSize: number } } } }): PaginatedResponse<T> => {
   try {
     if (!response || !response.data) {
-      return null;
+      return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
     }
     const data = response.data;
     if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
-      return (data as { success: boolean; data: T }).data;
+      const innerData = (data as { success: boolean; data: { audits: T[]; pagination: { total: number; page: number; pageSize: number } } }).data;
+      return {
+        items: innerData.audits || [],
+        total: innerData.pagination?.total || 0,
+        page: innerData.pagination?.page || 1,
+        pageSize: innerData.pagination?.pageSize || 10,
+        totalPages: Math.ceil((innerData.pagination?.total || 0) / (innerData.pagination?.pageSize || 10)),
+      };
     }
-    return data as T;
+    return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
   } catch (err) {
     console.error('Error unwrapping response:', err);
-    return null;
+    return { items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
   }
 };
 
@@ -153,142 +169,127 @@ const AUDIT_FILTER_CONFIG: FilterConfig = {
   maxConditions: 10,
 };
 
+const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (status) {
+    case 'planned': return 'default';
+    case 'in_progress': return 'primary';
+    case 'completed': return 'success';
+    case 'closed': return 'info';
+    case 'cancelled': return 'error';
+    default: return 'default';
+  }
+};
+
+const getRiskLevelColor = (level: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (level) {
+    case 'low': return 'success';
+    case 'medium': return 'warning';
+    case 'high': return 'error';
+    case 'critical': return 'error';
+    default: return 'default';
+  }
+};
+
+const formatStatus = (status: string): string => {
+  return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const formatDate = (dateStr: string | null): string => {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString();
+};
+
 export const AuditList: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [audits, setAudits] = useState<Audit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [total, setTotal] = useState(0);
-  
-  // Initialize canCreate based on user role immediately for admin/manager
-  // This ensures the button is visible right away for authorized users
+
+  const tenantId = user?.tenantId || '';
+
+  const statusFilter = searchParams.get('status') || '';
+  const riskLevelFilter = searchParams.get('riskLevel') || '';
+  const auditTypeFilter = searchParams.get('auditType') || '';
+  const departmentFilter = searchParams.get('department') || '';
+
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (riskLevelFilter) filters.riskLevel = riskLevelFilter;
+    if (auditTypeFilter) filters.auditType = auditTypeFilter;
+    if (departmentFilter) filters.department = departmentFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, riskLevelFilter, auditTypeFilter, departmentFilter, advancedFilter]);
+
+  const fetchAudits = useCallback(async (params: Record<string, unknown>) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    const response = await api.get(`/grc/audits?${queryParams.toString()}`);
+    return unwrapAuditResponse<Audit>(response);
+  }, []);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Audit>({
+    fetchFn: fetchAudits,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
   const userRole = user?.role;
   const isAuthorizedRole = userRole === 'admin' || userRole === 'manager';
   const [canCreate, setCanCreate] = useState(isAuthorizedRole);
-
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [riskLevelFilter, setRiskLevelFilter] = useState<string>('');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('');
-  const [auditTypeFilter, setAuditTypeFilter] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
   const [departments, setDepartments] = useState<string[]>([]);
-  
-  // Advanced filter state
-  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(() => {
-    const filterParam = searchParams.get('filter');
-    if (filterParam) {
-      try {
-        return JSON.parse(decodeURIComponent(filterParam));
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-
-  const activeFilterCount = useMemo(() => countFilterConditions(advancedFilter), [advancedFilter]);
-
-  const handleApplyAdvancedFilter = useCallback((filter: FilterTree | null) => {
-    setAdvancedFilter(filter);
-    setPage(0);
-    // Update URL with filter
-    const newParams = new URLSearchParams(searchParams);
-    if (filter) {
-      newParams.set('filter', encodeURIComponent(JSON.stringify(filter)));
-    } else {
-      newParams.delete('filter');
-    }
-    setSearchParams(newParams);
-  }, [searchParams, setSearchParams]);
-
-  const handleClearAdvancedFilter = useCallback(() => {
-    setAdvancedFilter(null);
-    setPage(0);
-    const newParams = new URLSearchParams(searchParams);
-    newParams.delete('filter');
-    setSearchParams(newParams);
-  }, [searchParams, setSearchParams]);
-
-  const fetchAudits = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
-      });
-
-      if (statusFilter) params.append('status', statusFilter);
-      if (riskLevelFilter) params.append('riskLevel', riskLevelFilter);
-      if (departmentFilter) params.append('department', departmentFilter);
-      if (auditTypeFilter) params.append('auditType', auditTypeFilter);
-      if (searchQuery) params.append('search', searchQuery);
-      
-      // Add advanced filter if present
-      if (advancedFilter) {
-        const serialized = serializeFilterTree(advancedFilter);
-        if (serialized) {
-          params.append('filter', serialized);
-        }
-      }
-
-      const response = await api.get(`/grc/audits?${params.toString()}`);
-      const data = unwrapResponse<{ audits: Audit[]; pagination: { total: number } }>(response);
-      if (data) {
-        setAudits(data.audits || []);
-        setTotal(data.pagination?.total || 0);
-      } else {
-        setAudits([]);
-        setTotal(0);
-      }
-    } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      if (error.response?.status === 403) {
-        setError('You do not have permission to view audits.');
-      } else {
-        setError(error.response?.data?.message || 'Failed to fetch audits');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, statusFilter, riskLevelFilter, departmentFilter, auditTypeFilter, searchQuery, advancedFilter]);
 
   const fetchCanCreate = useCallback(async () => {
-    // For admin/manager users, always allow creation regardless of API response
-    // This ensures the button is never hidden due to API issues for authorized users
-    const userRole = user?.role;
     const isAuthorizedByRole = userRole === 'admin' || userRole === 'manager';
-    
     if (isAuthorizedByRole) {
       setCanCreate(true);
       return;
     }
-    
-    // For other users, check with the API
     try {
       const response = await api.get('/grc/audits/can/create');
-      // Handle both envelope format { success: true, data: { allowed: true } } 
-      // and flat format { allowed: true }
       const data = response.data?.data || response.data;
       const allowed = data?.allowed === true;
       setCanCreate(allowed);
     } catch {
-      // On error, deny access for non-admin/manager users
       setCanCreate(false);
     }
-  }, [user?.role]);
+  }, [userRole]);
 
   const fetchDepartments = useCallback(async () => {
     try {
       const response = await api.get('/grc/audits/distinct/department');
-      const data = unwrapResponse<string[]>(response);
+      const data = response.data?.data || response.data;
       setDepartments(data || []);
     } catch {
       setDepartments([]);
@@ -296,396 +297,358 @@ export const AuditList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchAudits();
-  }, [fetchAudits]);
-
-  useEffect(() => {
     fetchCanCreate();
     fetchDepartments();
   }, [fetchCanCreate, fetchDepartments]);
 
-  const handleDeleteAudit = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this audit?')) return;
+  const handleViewAudit = useCallback((audit: Audit) => {
+    navigate(`/audits/${audit.id}`);
+  }, [navigate]);
 
+  const handleCreateAudit = useCallback(() => {
+    navigate('/audits/new');
+  }, [navigate]);
+
+  const handleDeleteAudit = useCallback(async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this audit?')) return;
     try {
       await api.delete(`/grc/audits/${id}`);
-      setSuccess('Audit deleted successfully');
-      fetchAudits();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      if (error.response?.status === 403) {
-        setError('You do not have permission to delete this audit.');
-      } else {
-        setError(error.response?.data?.message || 'Failed to delete audit');
+      refetch();
+    } catch (err) {
+      console.error('Failed to delete audit:', err);
+    }
+  }, [refetch]);
+
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleStatusChange = useCallback((value: string) => {
+    updateFilter('status', value);
+  }, [updateFilter]);
+
+  const handleRiskLevelChange = useCallback((value: string) => {
+    updateFilter('riskLevel', value);
+  }, [updateFilter]);
+
+  const handleAuditTypeChange = useCallback((value: string) => {
+    updateFilter('auditType', value);
+  }, [updateFilter]);
+
+  const handleDepartmentChange = useCallback((value: string) => {
+    updateFilter('department', value);
+  }, [updateFilter]);
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: formatStatus(statusFilter) });
+    }
+    if (riskLevelFilter) {
+      filters.push({ key: 'riskLevel', label: 'Risk', value: riskLevelFilter.charAt(0).toUpperCase() + riskLevelFilter.slice(1) });
+    }
+    if (auditTypeFilter) {
+      filters.push({ key: 'auditType', label: 'Type', value: auditTypeFilter.charAt(0).toUpperCase() + auditTypeFilter.slice(1) });
+    }
+    if (departmentFilter) {
+      filters.push({ key: 'department', label: 'Dept', value: departmentFilter });
+    }
+    return filters;
+  }, [statusFilter, riskLevelFilter, auditTypeFilter, departmentFilter]);
+
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
       }
+    } else {
+      newParams.delete('filter');
     }
-  };
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
-  const clearFilters = () => {
-    setStatusFilter('');
-    setRiskLevelFilter('');
-    setDepartmentFilter('');
-    setAuditTypeFilter('');
-    setSearchQuery('');
-    setPage(0);
-  };
-
-  const hasFilters = statusFilter || riskLevelFilter || departmentFilter || auditTypeFilter || searchQuery;
-
-  const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'planned': return 'default';
-      case 'in_progress': return 'primary';
-      case 'completed': return 'success';
-      case 'closed': return 'info';
-      default: return 'default';
-    }
-  };
-
-  const getRiskLevelColor = (level: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (level) {
-      case 'low': return 'success';
-      case 'medium': return 'warning';
-      case 'high': return 'error';
-      case 'critical': return 'error';
-      default: return 'default';
-    }
-  };
-
-  const formatStatus = (status: string): string => {
-    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
-
-  const formatDate = (dateStr: string | null): string => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString();
-  };
-
-  if (loading && audits.length === 0) {
-    return (
-      <ModuleGuard moduleKey="audit">
-        <LoadingState message="Loading audits..." />
-      </ModuleGuard>
-    );
-  }
-
-  if (error && audits.length === 0) {
-    return (
-      <ModuleGuard moduleKey="audit">
-        <ErrorState
-          title="Failed to load audits"
-          message={error}
-          onRetry={fetchAudits}
+  const columns: ColumnDefinition<Audit>[] = useMemo(() => [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (audit) => (
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+          {audit.code || '-'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (audit) => (
+        <Box>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            component="span"
+            onClick={() => handleViewAudit(audit)}
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+            }}
+          >
+            {audit.name}
+          </Typography>
+          {audit.description && (
+            <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200, mt: 0.5 }}>
+              {audit.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'auditType',
+      header: 'Type',
+      render: (audit) => (
+        <Chip
+          label={audit.auditType.charAt(0).toUpperCase() + audit.auditType.slice(1)}
+          size="small"
+          variant="outlined"
         />
-      </ModuleGuard>
-    );
-  }
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (audit) => (
+        <Chip
+          label={formatStatus(audit.status)}
+          size="small"
+          color={getStatusColor(audit.status)}
+        />
+      ),
+    },
+    {
+      key: 'riskLevel',
+      header: 'Risk Level',
+      render: (audit) => (
+        <Chip
+          label={audit.riskLevel.charAt(0).toUpperCase() + audit.riskLevel.slice(1)}
+          size="small"
+          color={getRiskLevelColor(audit.riskLevel)}
+        />
+      ),
+    },
+    {
+      key: 'department',
+      header: 'Department',
+      render: (audit) => audit.department || '-',
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (audit) => (
+        audit.owner?.firstName && audit.owner?.lastName
+          ? `${audit.owner.firstName} ${audit.owner.lastName}`
+          : '-'
+      ),
+    },
+    {
+      key: 'plannedDates',
+      header: 'Planned Dates',
+      render: (audit) => (
+        audit.plannedStartDate || audit.plannedEndDate ? (
+          <Typography variant="body2">
+            {formatDate(audit.plannedStartDate)} - {formatDate(audit.plannedEndDate)}
+          </Typography>
+        ) : '-'
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (audit) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewAudit(audit);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/audits/${audit.id}/edit`);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          {(user?.role === 'admin' || user?.role === 'manager') && (
+            <Tooltip title="Delete">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteAudit(audit.id);
+                }}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ], [handleViewAudit, handleDeleteAudit, navigate, user?.role]);
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} flexWrap="wrap" alignItems="center">
+      <FilterBuilderBasic
+        config={AUDIT_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Status"
+          onChange={(e) => handleStatusChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="planned">Planned</MenuItem>
+          <MenuItem value="in_progress">In Progress</MenuItem>
+          <MenuItem value="completed">Completed</MenuItem>
+          <MenuItem value="closed">Closed</MenuItem>
+          <MenuItem value="cancelled">Cancelled</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Risk Level</InputLabel>
+        <Select
+          value={riskLevelFilter}
+          label="Risk Level"
+          onChange={(e) => handleRiskLevelChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="low">Low</MenuItem>
+          <MenuItem value="medium">Medium</MenuItem>
+          <MenuItem value="high">High</MenuItem>
+          <MenuItem value="critical">Critical</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 100 }}>
+        <InputLabel>Type</InputLabel>
+        <Select
+          value={auditTypeFilter}
+          label="Type"
+          onChange={(e) => handleAuditTypeChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="internal">Internal</MenuItem>
+          <MenuItem value="external">External</MenuItem>
+          <MenuItem value="regulatory">Regulatory</MenuItem>
+          <MenuItem value="compliance">Compliance</MenuItem>
+        </Select>
+      </FormControl>
+      {departments.length > 0 && (
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>Department</InputLabel>
+          <Select
+            value={departmentFilter}
+            label="Department"
+            onChange={(e) => handleDepartmentChange(e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            {departments.map((dept) => (
+              <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+    </Box>
+  ), [statusFilter, riskLevelFilter, auditTypeFilter, departmentFilter, departments, handleStatusChange, handleRiskLevelChange, handleAuditTypeChange, handleDepartmentChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <ModuleGuard moduleKey="audit">
-      <Box>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4" data-testid="page-audit-list-title">Audit Management</Typography>
-          {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/audits/new')}
-              data-testid="btn-create-audit"
-            >
-              New Audit
-            </Button>
-          )}
-        </Box>
-
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-
-        {/* Toolbar with Search and Filters */}
-        <TableToolbar
-          searchValue={searchQuery}
-          onSearchChange={(value) => {
-            setSearchQuery(value);
-            setPage(0);
-          }}
-          searchPlaceholder="Search audits..."
-          filters={[
-            ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
-            ...(riskLevelFilter ? [{ key: 'riskLevel', label: 'Risk', value: riskLevelFilter.charAt(0).toUpperCase() + riskLevelFilter.slice(1) }] : []),
-            ...(auditTypeFilter ? [{ key: 'auditType', label: 'Type', value: auditTypeFilter.charAt(0).toUpperCase() + auditTypeFilter.slice(1) }] : []),
-            ...(departmentFilter ? [{ key: 'department', label: 'Dept', value: departmentFilter }] : []),
-          ] as FilterOption[]}
-          onFilterRemove={(key) => {
-            if (key === 'status') { setStatusFilter(''); setPage(0); }
-            if (key === 'riskLevel') { setRiskLevelFilter(''); setPage(0); }
-            if (key === 'auditType') { setAuditTypeFilter(''); setPage(0); }
-            if (key === 'department') { setDepartmentFilter(''); setPage(0); }
-          }}
-          onClearFilters={() => {
-            clearFilters();
-            setPage(0);
-          }}
-          onRefresh={fetchAudits}
-          loading={loading}
-          actions={
-            <Box display="flex" gap={1} flexWrap="wrap" alignItems="center">
-              <FilterBuilderBasic
-                config={AUDIT_FILTER_CONFIG}
-                initialFilter={advancedFilter}
-                onApply={handleApplyAdvancedFilter}
-                onClear={handleClearAdvancedFilter}
-                activeFilterCount={activeFilterCount}
-                buttonVariant="outlined"
-                buttonSize="small"
-              />
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setPage(0);
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="planned">Planned</MenuItem>
-                  <MenuItem value="in_progress">In Progress</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
-                  <MenuItem value="closed">Closed</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Risk Level</InputLabel>
-                <Select
-                  value={riskLevelFilter}
-                  label="Risk Level"
-                  onChange={(e) => {
-                    setRiskLevelFilter(e.target.value);
-                    setPage(0);
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="low">Low</MenuItem>
-                  <MenuItem value="medium">Medium</MenuItem>
-                  <MenuItem value="high">High</MenuItem>
-                  <MenuItem value="critical">Critical</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <InputLabel>Type</InputLabel>
-                <Select
-                  value={auditTypeFilter}
-                  label="Type"
-                  onChange={(e) => {
-                    setAuditTypeFilter(e.target.value);
-                    setPage(0);
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="internal">Internal</MenuItem>
-                  <MenuItem value="external">External</MenuItem>
-                </Select>
-              </FormControl>
-
-              {departments.length > 0 && (
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel>Department</InputLabel>
-                  <Select
-                    value={departmentFilter}
-                    label="Department"
-                    onChange={(e) => {
-                      setDepartmentFilter(e.target.value);
-                      setPage(0);
-                    }}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {departments.map((dept) => (
-                      <MenuItem key={dept} value={dept}>{dept}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-            </Box>
-          }
-        />
-
-        <Card>
-          <CardContent>
-            <ResponsiveTable minWidth={1000}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Code</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Risk Level</TableCell>
-                    <TableCell>Department</TableCell>
-                    <TableCell>Owner</TableCell>
-                    <TableCell>Planned Dates</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {audits.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 0, border: 'none' }}>
-                        <EmptyState
-                          icon={<AuditIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
-                          title="No audits found"
-                          message={hasFilters ? 'Try adjusting your filters.' : 'Get started by creating your first audit.'}
-                          actionLabel={canCreate && !hasFilters ? 'Create Audit' : undefined}
-                          onAction={canCreate && !hasFilters ? () => navigate('/audits/new') : undefined}
-                          minHeight="200px"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    audits.map((audit) => (
-                      <TableRow 
-                        key={audit.id} 
-                        hover
-                        data-testid="audit-list-row"
-                        onClick={() => navigate(`/audits/${audit.id}`)}
-                        sx={{ 
-                          cursor: 'pointer',
-                          '&:hover': { backgroundColor: 'action.hover' },
-                        }}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                            {audit.code || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography 
-                            variant="subtitle2" 
-                            component="span"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/audits/${audit.id}`);
-                            }}
-                            sx={{ 
-                              color: 'primary.main',
-                              cursor: 'pointer',
-                              '&:hover': { 
-                                textDecoration: 'underline',
-                                color: 'primary.dark',
-                              },
-                              fontWeight: 500,
-                            }}
-                          >
-                            {audit.name}
-                          </Typography>
-                          {audit.description && (
-                            <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
-                              {audit.description}
-                            </Typography>
-                          )}
-                        </TableCell>
-                                                <TableCell>
-                                                  <Chip
-                                                    label={audit.auditType.charAt(0).toUpperCase() + audit.auditType.slice(1)}
-                                                    size="small"
-                                                    variant="outlined"
-                                                  />
-                                                </TableCell>
-                                                <TableCell>
-                                                  <Chip
-                                                    label={formatStatus(audit.status)}
-                                                    size="small"
-                                                    color={getStatusColor(audit.status)}
-                                                  />
-                                                </TableCell>
-                                                <TableCell>
-                                                  <Chip
-                                                    label={audit.riskLevel.charAt(0).toUpperCase() + audit.riskLevel.slice(1)}
-                                                    size="small"
-                                                    color={getRiskLevelColor(audit.riskLevel)}
-                                                  />
-                                                </TableCell>
-                                                <TableCell>{audit.department || '-'}</TableCell>
-                                                <TableCell>
-                                                  {audit.owner?.firstName && audit.owner?.lastName
-                                                    ? `${audit.owner.firstName} ${audit.owner.lastName}`
-                                                    : '-'}
-                                                </TableCell>
-                                                <TableCell>
-                                                  {audit.plannedStartDate || audit.plannedEndDate ? (
-                                                    <Typography variant="body2">
-                                                      {formatDate(audit.plannedStartDate)} - {formatDate(audit.plannedEndDate)}
-                                                    </Typography>
-                                                  ) : '-'}
-                                                </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Tooltip title="View">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/audits/${audit.id}`);
-                              }}
-                            >
-                              <ViewIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/audits/${audit.id}/edit`);
-                              }}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          {(user?.role === 'admin' || user?.role === 'manager') && (
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteAudit(audit.id);
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </ResponsiveTable>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              component="div"
-              count={total}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </CardContent>
-        </Card>
-      </Box>
+      <GenericListPage<Audit>
+        title="Audit Management"
+        icon={<AuditIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(audit) => audit.id}
+        onRowClick={handleViewAudit}
+        searchPlaceholder="Search audits..."
+        emptyMessage="No audits found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        createButtonLabel={canCreate ? "New Audit" : undefined}
+        onCreateClick={canCreate ? handleCreateAudit : undefined}
+        minTableWidth={1000}
+        testId="audit-list-page"
+      />
     </ModuleGuard>
   );
 };

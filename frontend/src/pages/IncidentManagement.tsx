@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
   Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
   Dialog,
@@ -22,12 +15,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert,
-  TablePagination,
   Tooltip,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -38,9 +28,21 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { incidentApi, unwrapPaginatedResponse, SuiteType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError } from '../services/api';
-import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import { buildListQueryParams } from '../utils';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 import { SuiteGate } from '../components/onboarding';
 
 export enum IncidentCategory {
@@ -85,6 +87,106 @@ export enum IncidentSource {
   SELF_SERVICE = 'self_service',
 }
 
+const INCIDENT_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'shortDescription',
+      label: 'Short Description',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: Object.values(IncidentStatus),
+      enumLabels: {
+        [IncidentStatus.OPEN]: 'Open',
+        [IncidentStatus.IN_PROGRESS]: 'In Progress',
+        [IncidentStatus.RESOLVED]: 'Resolved',
+        [IncidentStatus.CLOSED]: 'Closed',
+      },
+    },
+    {
+      name: 'priority',
+      label: 'Priority',
+      type: 'enum',
+      enumValues: Object.values(IncidentPriority),
+      enumLabels: {
+        [IncidentPriority.P1]: 'P1',
+        [IncidentPriority.P2]: 'P2',
+        [IncidentPriority.P3]: 'P3',
+        [IncidentPriority.P4]: 'P4',
+      },
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'enum',
+      enumValues: Object.values(IncidentCategory),
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+const getPriorityColor = (priority: IncidentPriority): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  switch (priority) {
+    case IncidentPriority.P1: return 'error';
+    case IncidentPriority.P2: return 'warning';
+    case IncidentPriority.P3: return 'info';
+    case IncidentPriority.P4: return 'success';
+    default: return 'default';
+  }
+};
+
+const getStatusColor = (status: IncidentStatus): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  switch (status) {
+    case IncidentStatus.OPEN: return 'error';
+    case IncidentStatus.IN_PROGRESS: return 'warning';
+    case IncidentStatus.RESOLVED: return 'info';
+    case IncidentStatus.CLOSED: return 'success';
+    default: return 'default';
+  }
+};
+
+const formatPriority = (priority: IncidentPriority): string => {
+  return priority.toUpperCase();
+};
+
+const formatStatus = (status: IncidentStatus): string => {
+  return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const formatCategory = (category: IncidentCategory): string => {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+};
+
+const formatImpact = (impact: IncidentImpact): string => {
+  return impact.charAt(0).toUpperCase() + impact.slice(1);
+};
+
+const formatUrgency = (urgency: IncidentUrgency): string => {
+  return urgency.charAt(0).toUpperCase() + urgency.slice(1);
+};
+
+const formatSource = (source: IncidentSource): string => {
+  return source.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
 interface Incident {
   id: string;
   tenantId: string;
@@ -114,27 +216,61 @@ interface Incident {
 }
 
 export const IncidentManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Default values
-  const DEFAULT_SORT = 'createdAt:DESC';
-  const DEFAULT_PAGE = 1;
-  const DEFAULT_PAGE_SIZE = 10;
+  const tenantId = user?.tenantId || '';
 
-  // Read initial values from URL
-  const pageParam = parseInt(searchParams.get('page') || '1', 10);
-  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
-  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
-  const searchParam = searchParams.get('search') || '';
-  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
+  const statusFilter = searchParams.get('status') || '';
+  const priorityFilter = searchParams.get('priority') || '';
 
-  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
 
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (priorityFilter) filters.priority = priorityFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, priorityFilter, advancedFilter]);
+
+  const fetchIncidents = useCallback(async (params: Record<string, unknown>) => {
+    const apiParams = buildListQueryParams(params);
+    const response = await incidentApi.list(tenantId, apiParams);
+    return unwrapPaginatedResponse<Incident>(response);
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Incident>({
+    fetchFn: fetchIncidents,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openResolveDialog, setOpenResolveDialog] = useState(false);
@@ -142,14 +278,6 @@ export const IncidentManagement: React.FC = () => {
   const [viewingIncident, setViewingIncident] = useState<Incident | null>(null);
   const [resolvingIncident, setResolvingIncident] = useState<Incident | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
-  const [page, setPage] = useState(Math.max(0, pageParam - 1));
-  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
-  const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>((filterParam?.status as IncidentStatus | '') || '');
-  const [priorityFilter, setPriorityFilter] = useState<IncidentPriority | ''>((filterParam?.priority as IncidentPriority | '') || '');
-  const [searchFilter, setSearchFilter] = useState(searchParam);
-  const [sortField, setSortField] = useState(parsedSort.field);
-  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
   const [formData, setFormData] = useState({
     shortDescription: '',
     description: '',
@@ -161,155 +289,7 @@ export const IncidentManagement: React.FC = () => {
     status: IncidentStatus.OPEN,
   });
 
-  const tenantId = user?.tenantId || '';
-
-  // Build filter object for API (canonical format)
-  const buildFilter = useCallback((status: IncidentStatus | '', priority: IncidentPriority | '') => {
-    const conditions: Array<Record<string, unknown>> = [];
-    
-    if (status) {
-      conditions.push({ field: 'status', operator: 'eq', value: status });
-    }
-    if (priority) {
-      conditions.push({ field: 'priority', operator: 'eq', value: priority });
-    }
-
-    if (conditions.length === 0) {
-      return null;
-    }
-
-    return { and: conditions };
-  }, []);
-
-  // Ref to store last query params string for deduplication
-  const lastQueryParamsRef = useRef<string>('');
-
-  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
-  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
-  useEffect(() => {
-    // Step 1: Update URL params when local state changes (no fetch here)
-    const filter = buildFilter(statusFilter, priorityFilter);
-    const sortStr = formatSortToQuery(sortField, sortDirection);
-    
-    const urlParams = buildListQueryParamsWithDefaults(
-      {
-        page: page + 1,
-        pageSize: rowsPerPage,
-        filter,
-        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
-        search: searchFilter || null,
-      },
-      {
-        page: DEFAULT_PAGE,
-        pageSize: DEFAULT_PAGE_SIZE,
-        sort: DEFAULT_SORT,
-        filter: null,
-      }
-    );
-
-    // Build query string for comparison (dedupe)
-    const queryString = new URLSearchParams(urlParams).toString();
-    
-    // Only update URL if it changed (prevents unnecessary updates)
-    const currentUrlParams = searchParams.toString();
-    if (queryString !== currentUrlParams) {
-      setSearchParams(new URLSearchParams(urlParams), { replace: true });
-    }
-  }, [page, rowsPerPage, statusFilter, priorityFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
-
-  // Fetch incidents function with dedupe and cancellation support
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const fetchIncidents = useCallback(async (force = false) => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-
-    // Read values from URL (single source of truth)
-    const currentPage = parseInt(searchParams.get('page') || '1', 10);
-    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
-    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
-    const currentSearch = searchParams.get('search') || '';
-    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
-    const currentStatusFilter = (currentFilterParam?.status as IncidentStatus | '') || '';
-    const currentPriorityFilter = (currentFilterParam?.priority as IncidentPriority | '') || '';
-
-    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
-
-    // Build query params string for deduplication
-    const filter = buildFilter(currentStatusFilter, currentPriorityFilter);
-    const apiParams = buildListQueryParams({
-      page: currentPage,
-      pageSize: currentPageSize,
-      filter: filter || undefined,
-      sort: { field: parsedSort.field, direction: parsedSort.direction },
-      search: currentSearch || undefined,
-    });
-    const queryString = new URLSearchParams(apiParams).toString();
-
-    // Dedupe: Skip fetch if query params haven't changed (unless forced)
-    if (!force && queryString === lastQueryParamsRef.current) {
-      return;
-    }
-    lastQueryParamsRef.current = queryString;
-
-    // Cancel previous request if still in flight
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-
-    try {
-      setLoading(true);
-      setError('');
-
-      const response = await incidentApi.list(tenantId, apiParams);
-
-      // Check if request was cancelled
-      if (abortControllerRef.current?.signal.aborted) {
-        return;
-      }
-
-      // Handle NestJS response format using centralized unwrapper
-      const result = unwrapPaginatedResponse<Incident>(response);
-      setIncidents(result.items);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      // Ignore cancellation errors (AbortController or axios CancelToken)
-      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
-        return;
-      }
-      // Check if it's an axios cancellation
-      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
-        return;
-      }
-
-      // Handle 429 Rate Limit errors with user-friendly message
-      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-        const retryAfter = (err.details?.retryAfter as number) || 60;
-        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
-        // Don't clear incidents - keep previous data (don't update setIncidents)
-        setLoading(false);
-        return;
-      }
-
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch incidents');
-    } finally {
-      if (!abortControllerRef.current?.signal.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
-
-  // Fetch incidents when URL params change (single source of truth)
-  useEffect(() => {
-    fetchIncidents(false);
-  }, [fetchIncidents]);
-
-  const handleCreateIncident = () => {
+  const handleCreateIncident = useCallback(() => {
     setEditingIncident(null);
     setFormData({
       shortDescription: '',
@@ -322,9 +302,9 @@ export const IncidentManagement: React.FC = () => {
       status: IncidentStatus.OPEN,
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleEditIncident = (incident: Incident) => {
+  const handleEditIncident = useCallback((incident: Incident) => {
     setEditingIncident(incident);
     setFormData({
       shortDescription: incident.shortDescription,
@@ -337,18 +317,15 @@ export const IncidentManagement: React.FC = () => {
       status: incident.status,
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleViewIncident = (incident: Incident) => {
+  const handleViewIncident = useCallback((incident: Incident) => {
     setViewingIncident(incident);
     setOpenViewDialog(true);
-  };
+  }, []);
 
-  const handleSaveIncident = async () => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
+  const handleSaveIncident = useCallback(async () => {
+    if (!tenantId) return;
 
     try {
       const incidentData = {
@@ -362,333 +339,356 @@ export const IncidentManagement: React.FC = () => {
         status: editingIncident ? formData.status : undefined,
       };
 
-      // Use centralized API client - no more /nest/ prefix
       if (editingIncident) {
         await incidentApi.update(tenantId, editingIncident.id, incidentData);
-        setSuccess('Incident updated successfully');
       } else {
         await incidentApi.create(tenantId, incidentData);
-        setSuccess('Incident created successfully');
       }
 
       setOpenDialog(false);
-      setError('');
-      fetchIncidents(true); // Force refresh after create/update
-
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save incident');
+      refetch();
+    } catch (err) {
+      console.error('Failed to save incident:', err);
     }
-  };
+  }, [tenantId, formData, editingIncident, refetch]);
 
-  const handleDeleteIncident = async (id: string) => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
+  const handleDeleteIncident = useCallback(async (id: string) => {
+    if (!tenantId) return;
 
     if (window.confirm('Are you sure you want to delete this incident?')) {
       try {
-        // Use centralized API client - no more /nest/ prefix
         await incidentApi.delete(tenantId, id);
-        setSuccess('Incident deleted successfully');
-        fetchIncidents(true); // Force refresh after delete
-
-        setTimeout(() => setSuccess(''), 3000);
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || 'Failed to delete incident');
+        refetch();
+      } catch (err) {
+        console.error('Failed to delete incident:', err);
       }
     }
-  };
+  }, [tenantId, refetch]);
 
-  const handleResolveIncident = (incident: Incident) => {
+  const handleResolveIncident = useCallback((incident: Incident) => {
     setResolvingIncident(incident);
     setResolutionNotes('');
     setOpenResolveDialog(true);
-  };
+  }, []);
 
-  const handleConfirmResolve = async () => {
-    if (!tenantId || !resolvingIncident) {
-      return;
-    }
+  const handleConfirmResolve = useCallback(async () => {
+    if (!tenantId || !resolvingIncident) return;
 
     try {
-      // Use centralized API client - no more /nest/ prefix
       await incidentApi.resolve(tenantId, resolvingIncident.id, resolutionNotes);
-      setSuccess('Incident resolved successfully');
       setOpenResolveDialog(false);
-      fetchIncidents(true); // Force refresh after resolve
-
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to resolve incident');
+      refetch();
+    } catch (err) {
+      console.error('Failed to resolve incident:', err);
     }
-  };
+  }, [tenantId, resolvingIncident, resolutionNotes, refetch]);
 
-  const handleCloseIncident = async (incident: Incident) => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      return;
-    }
+  const handleCloseIncident = useCallback(async (incident: Incident) => {
+    if (!tenantId) return;
 
     if (incident.status !== IncidentStatus.RESOLVED) {
-      setError('Incident must be resolved before closing');
       return;
     }
 
     try {
-      // Use centralized API client - no more /nest/ prefix
       await incidentApi.close(tenantId, incident.id);
-      setSuccess('Incident closed successfully');
-      fetchIncidents(true); // Force refresh after close
-
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to close incident');
+      refetch();
+    } catch (err) {
+      console.error('Failed to close incident:', err);
     }
-  };
+  }, [tenantId, refetch]);
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const getPriorityColor = (priority: IncidentPriority): 'error' | 'warning' | 'info' | 'success' | 'default' => {
-    switch (priority) {
-      case IncidentPriority.P1: return 'error';
-      case IncidentPriority.P2: return 'warning';
-      case IncidentPriority.P3: return 'info';
-      case IncidentPriority.P4: return 'success';
-      default: return 'default';
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
     }
-  };
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const getStatusColor = (status: IncidentStatus): 'error' | 'warning' | 'info' | 'success' | 'default' => {
-    switch (status) {
-      case IncidentStatus.OPEN: return 'error';
-      case IncidentStatus.IN_PROGRESS: return 'warning';
-      case IncidentStatus.RESOLVED: return 'info';
-      case IncidentStatus.CLOSED: return 'success';
-      default: return 'default';
+  const handleStatusChange = useCallback((value: string) => {
+    updateFilter('status', value);
+  }, [updateFilter]);
+
+  const handlePriorityChange = useCallback((value: string) => {
+    updateFilter('priority', value);
+  }, [updateFilter]);
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: formatStatus(statusFilter as IncidentStatus) });
     }
-  };
+    if (priorityFilter) {
+      filters.push({ key: 'priority', label: 'Priority', value: formatPriority(priorityFilter as IncidentPriority) });
+    }
+    return filters;
+  }, [statusFilter, priorityFilter]);
 
-  const formatPriority = (priority: IncidentPriority): string => {
-    return priority.toUpperCase();
-  };
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const formatStatus = (status: IncidentStatus): string => {
-    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const formatCategory = (category: IncidentCategory): string => {
-    return category.charAt(0).toUpperCase() + category.slice(1);
-  };
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const formatImpact = (impact: IncidentImpact): string => {
-    return impact.charAt(0).toUpperCase() + impact.slice(1);
-  };
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const formatUrgency = (urgency: IncidentUrgency): string => {
-    return urgency.charAt(0).toUpperCase() + urgency.slice(1);
-  };
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
 
-  const formatSource = (source: IncidentSource): string => {
-    return source.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
+  const columns: ColumnDefinition<Incident>[] = useMemo(() => [
+    {
+      key: 'number',
+      header: 'Number',
+      render: (incident) => (
+        <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+          {incident.number}
+        </Typography>
+      ),
+    },
+    {
+      key: 'shortDescription',
+      header: 'Short Description',
+      render: (incident) => (
+        <Box>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            component="span"
+            onClick={() => handleViewIncident(incident)}
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+            }}
+          >
+            {incident.shortDescription}
+          </Typography>
+          {incident.description && (
+            <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200, mt: 0.5 }}>
+              {incident.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'priority',
+      header: 'Priority',
+      render: (incident) => (
+        <Chip
+          label={formatPriority(incident.priority)}
+          color={getPriorityColor(incident.priority)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (incident) => (
+        <Chip
+          label={formatStatus(incident.status)}
+          color={getStatusColor(incident.status)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (incident) => formatCategory(incident.category),
+    },
+    {
+      key: 'assignmentGroup',
+      header: 'Assignment Group',
+      render: (incident) => incident.assignmentGroup || '-',
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      render: (incident) => new Date(incident.createdAt).toLocaleDateString(),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (incident) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewIncident(incident);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditIncident(incident);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          {incident.status !== IncidentStatus.RESOLVED && incident.status !== IncidentStatus.CLOSED && (
+            <Tooltip title="Resolve">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleResolveIncident(incident);
+                }}
+              >
+                <ResolveIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          {incident.status === IncidentStatus.RESOLVED && (
+            <Tooltip title="Close">
+              <IconButton
+                size="small"
+                color="success"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseIncident(incident);
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteIncident(incident.id);
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewIncident, handleEditIncident, handleResolveIncident, handleCloseIncident, handleDeleteIncident]);
 
-  if (loading) {
-    return <LoadingState message="Loading incidents..." />;
-  }
-
-  if (error && incidents.length === 0) {
-    return (
-      <ErrorState
-        title="Failed to load incidents"
-        message={error}
-        onRetry={fetchIncidents}
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={INCIDENT_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
       />
-    );
-  }
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Status"
+          onChange={(e) => handleStatusChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value={IncidentStatus.OPEN}>Open</MenuItem>
+          <MenuItem value={IncidentStatus.IN_PROGRESS}>In Progress</MenuItem>
+          <MenuItem value={IncidentStatus.RESOLVED}>Resolved</MenuItem>
+          <MenuItem value={IncidentStatus.CLOSED}>Closed</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 100 }}>
+        <InputLabel>Priority</InputLabel>
+        <Select
+          value={priorityFilter}
+          label="Priority"
+          onChange={(e) => handlePriorityChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value={IncidentPriority.P1}>P1</MenuItem>
+          <MenuItem value={IncidentPriority.P2}>P2</MenuItem>
+          <MenuItem value={IncidentPriority.P3}>P3</MenuItem>
+          <MenuItem value={IncidentPriority.P4}>P4</MenuItem>
+        </Select>
+      </FormControl>
+    </Box>
+  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Incident Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateIncident}
-        >
-          New Incident
-        </Button>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-
-      <ListToolbar
-        search={searchFilter}
-        onSearchChange={(value) => {
-          setSearchFilter(value);
-          setPage(0);
-        }}
+    <>
+      <GenericListPage<Incident>
+        title="Incident Management"
+        icon={<IncidentIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(incident) => incident.id}
+        onRowClick={handleViewIncident}
         searchPlaceholder="Search incidents..."
-        filters={[
-          ...(statusFilter ? [{ key: 'status', label: 'Status', value: formatStatus(statusFilter) }] : []),
-          ...(priorityFilter ? [{ key: 'priority', label: 'Priority', value: formatPriority(priorityFilter) }] : []),
-        ]}
-        onFilterRemove={(key) => {
-          if (key === 'status') {
-            setStatusFilter('');
-          } else if (key === 'priority') {
-            setPriorityFilter('');
-          }
-          setPage(0);
-        }}
-        onClearFilters={() => {
-          setStatusFilter('');
-          setPriorityFilter('');
-          setSearchFilter('');
-          setPage(0);
-        }}
-        sort={`${sortField}:${sortDirection}`}
-        onSortChange={(sort: string) => {
-          const [field, direction] = sort.split(':');
-          setSortField(field);
-          setSortDirection(direction as 'ASC' | 'DESC');
-        }}
-        sortOptions={[
-          { field: 'createdAt', label: 'Created Date' },
-          { field: 'updatedAt', label: 'Updated Date' },
-          { field: 'priority', label: 'Priority' },
-          { field: 'status', label: 'Status' },
-        ]}
-        onRefresh={() => fetchIncidents(true)}
-        loading={loading}
+        emptyMessage="No incidents found"
+        emptyFilteredMessage="No incidents have been reported yet."
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        createButtonLabel="New Incident"
+        onCreateClick={handleCreateIncident}
+        minTableWidth={900}
+        testId="incident-list-page"
       />
-
-      <Card>
-        <CardContent>
-          <ResponsiveTable minWidth={900}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Number</TableCell>
-                  <TableCell>Short Description</TableCell>
-                  <TableCell>Priority</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Assignment Group</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {incidents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
-                      <EmptyState
-                        icon={<IncidentIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
-                        title="No incidents found"
-                        message={tenantId ? 'No incidents have been reported yet.' : 'Please select a tenant to view incidents.'}
-                        actionLabel={tenantId ? 'Report Incident' : undefined}
-                        onAction={tenantId ? handleCreateIncident : undefined}
-                        minHeight="200px"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  incidents.map((incident) => (
-                    <TableRow key={incident.id} hover>
-                      <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
-                          {incident.number}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="subtitle2">{incident.shortDescription}</Typography>
-                        {incident.description && (
-                          <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
-                            {incident.description}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={formatPriority(incident.priority)}
-                          color={getPriorityColor(incident.priority)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={formatStatus(incident.status)}
-                          color={getStatusColor(incident.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{formatCategory(incident.category)}</TableCell>
-                      <TableCell>{incident.assignmentGroup || '-'}</TableCell>
-                      <TableCell>
-                        {new Date(incident.createdAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="View">
-                          <IconButton size="small" onClick={() => handleViewIncident(incident)}>
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEditIncident(incident)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        {incident.status !== IncidentStatus.RESOLVED && incident.status !== IncidentStatus.CLOSED && (
-                          <Tooltip title="Resolve">
-                            <IconButton size="small" onClick={() => handleResolveIncident(incident)} color="primary">
-                              <ResolveIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {incident.status === IncidentStatus.RESOLVED && (
-                          <Tooltip title="Close">
-                            <IconButton size="small" onClick={() => handleCloseIncident(incident)} color="success">
-                              <CloseIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Delete">
-                          <IconButton size="small" onClick={() => handleDeleteIncident(incident.id)} color="error">
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ResponsiveTable>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={total}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </CardContent>
-      </Card>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>
@@ -924,6 +924,6 @@ export const IncidentManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };

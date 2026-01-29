@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
   Dialog,
@@ -21,8 +14,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert,
-  TablePagination,
   Tooltip,
 } from '@mui/material';
 import {
@@ -42,10 +33,22 @@ import {
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError } from '../services/api';
-import { buildListQueryParams, buildListQueryParamsWithDefaults, parseFilterFromQuery, parseSortFromQuery, formatSortToQuery } from '../utils';
+import { buildListQueryParams } from '../utils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, ListToolbar } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 interface ProcessViolation {
   id: string;
@@ -84,6 +87,7 @@ interface Risk {
 
 // Backend expects lowercase enum values
 const VIOLATION_STATUSES = ['open', 'in_progress', 'resolved'];
+const SEVERITY_VALUES = ['low', 'medium', 'high', 'critical'] as const;
 
 // Display labels for UI (uppercase for display)
 const SEVERITY_LABELS: Record<string, string> = {
@@ -99,280 +103,192 @@ const STATUS_LABELS: Record<string, string> = {
   resolved: 'RESOLVED',
 };
 
+const VIOLATION_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'severity',
+      label: 'Severity',
+      type: 'enum',
+      enumValues: [...SEVERITY_VALUES],
+      enumLabels: SEVERITY_LABELS,
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...VIOLATION_STATUSES],
+      enumLabels: STATUS_LABELS,
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+    {
+      name: 'updatedAt',
+      label: 'Updated Date',
+      type: 'date',
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  const normalizedSeverity = severity.toLowerCase();
+  switch (normalizedSeverity) {
+    case 'critical': return 'error';
+    case 'high': return 'warning';
+    case 'medium': return 'info';
+    case 'low': return 'success';
+    default: return 'default';
+  }
+};
+
+const getStatusColor = (status: string): 'error' | 'warning' | 'success' | 'default' => {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'resolved': return 'success';
+    case 'in_progress': return 'warning';
+    case 'open': return 'error';
+    default: return 'default';
+  }
+};
+
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString();
+};
+
 export const ProcessViolations: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Default values - ProcessViolations için özel
-  const DEFAULT_SORT = 'createdAt:DESC';
-  const DEFAULT_PAGE = 1;
-  const DEFAULT_PAGE_SIZE = 10;
+  const tenantId = user?.tenantId || '';
 
-  // Read initial values from URL
-  const pageParam = parseInt(searchParams.get('page') || '1', 10);
-  const pageSizeParam = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
-  const sortParam = searchParams.get('sort') || DEFAULT_SORT;
-  const searchParam = searchParams.get('search') || '';
-  const filterParam = parseFilterFromQuery(searchParams.get('filter'));
-  const processIdFromUrl = searchParams.get('processId') || '';
+  const statusFilter = searchParams.get('status') || '';
+  const severityFilter = searchParams.get('severity') || '';
+  const processIdFilter = searchParams.get('processId') || '';
 
-  const parsedSort = parseSortFromQuery(sortParam) || { field: 'createdAt', direction: 'DESC' as const };
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
 
-  const [violations, setViolations] = useState<ProcessViolation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (severityFilter) filters.severity = severityFilter;
+    if (processIdFilter) filters.processId = processIdFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, severityFilter, processIdFilter, advancedFilter]);
+
+  const fetchViolations = useCallback(async (params: Record<string, unknown>) => {
+    const apiParams = buildListQueryParams(params);
+    const response = await processViolationApi.list(tenantId, apiParams);
+    return unwrapPaginatedResponse<ProcessViolation>(response);
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<ProcessViolation>({
+    fetchFn: fetchViolations,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openLinkRiskDialog, setOpenLinkRiskDialog] = useState(false);
-  const [viewingViolation] = useState<ProcessViolation | null>(null);
   const [editingViolation, setEditingViolation] = useState<ProcessViolation | null>(null);
-  const [page, setPage] = useState(Math.max(0, pageParam - 1));
-  const [rowsPerPage, setRowsPerPage] = useState(pageSizeParam);
-  const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<string>((filterParam?.status as string) || '');
-  const [severityFilter, setSeverityFilter] = useState<string>((filterParam?.severity as string) || '');
-  const [processFilter, setProcessFilter] = useState<string>(processIdFromUrl || (filterParam?.processId as string) || '');
+  const [allRisks, setAllRisks] = useState<Risk[]>([]);
+  const [selectedRiskId, setSelectedRiskId] = useState<string>('');
   const [processName, setProcessName] = useState<string>('');
-  const [searchFilter, setSearchFilter] = useState<string>(searchParam);
-  const [sortField, setSortField] = useState(parsedSort.field);
-  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>(parsedSort.direction);
-    const [allRisks, setAllRisks] = useState<Risk[]>([]);
-    const [selectedRiskId, setSelectedRiskId] = useState<string>('');
-
   const [editFormData, setEditFormData] = useState({
     status: 'open',
     dueDate: null as Date | null,
     resolutionNotes: '',
   });
 
-  const tenantId = user?.tenantId || '';
-
-  // Build filter object for API (canonical format)
-  const buildFilter = useCallback((status: string, severity: string, processId: string) => {
-    const conditions: Array<Record<string, unknown>> = [];
-    
-    if (status) {
-      conditions.push({ field: 'status', operator: 'eq', value: status });
-    }
-    if (severity) {
-      conditions.push({ field: 'severity', operator: 'eq', value: severity });
-    }
-    if (processId) {
-      conditions.push({ field: 'processId', operator: 'eq', value: processId });
-    }
-
-    if (conditions.length === 0) {
-      return null;
-    }
-
-    return { and: conditions };
-  }, []);
-
-  // Ref to store last query params string for deduplication
-  const lastQueryParamsRef = useRef<string>('');
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Single useEffect: Update URL when state changes, then fetch when URL/searchParams change
-  // This prevents double-fetch loops by using URL as single source of truth for fetch trigger
-  useEffect(() => {
-    // Step 1: Update URL params when local state changes (no fetch here)
-    const filter = buildFilter(statusFilter, severityFilter, processFilter);
-    const sortStr = formatSortToQuery(sortField, sortDirection);
-    
-    const urlParams = buildListQueryParamsWithDefaults(
-      {
-        page: page + 1,
-        pageSize: rowsPerPage,
-        filter,
-        sort: sortStr !== DEFAULT_SORT ? sortStr : null,
-        search: searchFilter || null,
-        processId: processFilter || null, // processId özel durum - URL'de ayrı tutuluyor
-      },
-      {
-        page: DEFAULT_PAGE,
-        pageSize: DEFAULT_PAGE_SIZE,
-        sort: DEFAULT_SORT,
-        filter: null,
-      }
-    );
-
-    // processId özel durum - filter içinde de var ama URL'de ayrı da tutuluyor
-    if (processFilter) {
-      urlParams.set('processId', processFilter);
-    } else {
-      urlParams.delete('processId');
-    }
-
-    // Build query string for comparison (dedupe)
-    const queryString = urlParams.toString();
-    
-    // Only update URL if it changed (prevents unnecessary updates)
-    const currentUrlParams = searchParams.toString();
-    if (queryString !== currentUrlParams) {
-      setSearchParams(urlParams, { replace: true });
-    }
-  }, [page, rowsPerPage, statusFilter, severityFilter, processFilter, searchFilter, sortField, sortDirection, buildFilter, setSearchParams, searchParams]);
-
-  // Fetch violations function with dedupe and cancellation support
-  const fetchViolations = useCallback(async (force = false) => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-
-    // Read values from URL (single source of truth)
-    const currentPage = parseInt(searchParams.get('page') || '1', 10);
-    const currentPageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
-    const currentSort = searchParams.get('sort') || DEFAULT_SORT;
-    const currentSearch = searchParams.get('search') || '';
-    const currentFilterParam = parseFilterFromQuery(searchParams.get('filter'));
-    const currentStatusFilter = (currentFilterParam?.status as string) || '';
-    const currentSeverityFilter = (currentFilterParam?.severity as string) || '';
-    const currentProcessFilter = searchParams.get('processId') || (currentFilterParam?.processId as string) || '';
-
-    const parsedSort = parseSortFromQuery(currentSort) || { field: 'createdAt', direction: 'DESC' as const };
-
-    // Build query params string for deduplication
-    const filter = buildFilter(currentStatusFilter, currentSeverityFilter, currentProcessFilter);
-    const apiParams = buildListQueryParams({
-      page: currentPage,
-      pageSize: currentPageSize,
-      filter: filter || undefined,
-      sort: { field: parsedSort.field, direction: parsedSort.direction },
-      search: currentSearch || undefined,
-      status: currentStatusFilter || undefined,
-      severity: currentSeverityFilter || undefined,
-      processId: currentProcessFilter || undefined,
-    });
-    const queryString = new URLSearchParams(apiParams).toString();
-
-    // Dedupe: Skip fetch if query params haven't changed (unless forced)
-    if (!force && queryString === lastQueryParamsRef.current) {
-      return;
-    }
-    lastQueryParamsRef.current = queryString;
-
-    // Cancel previous request if still in flight
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-
+  const fetchAllRisks = useCallback(async () => {
+    if (!tenantId) return;
     try {
-      setLoading(true);
-      setError('');
-
-      const response = await processViolationApi.list(tenantId, apiParams);
-
-      // Check if request was cancelled
-      if (abortControllerRef.current?.signal.aborted) {
-        return;
-      }
-
-      const result = unwrapPaginatedResponse<ProcessViolation>(response);
-      setViolations(result.items);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      // Ignore cancellation errors (AbortController or axios CancelToken)
-      if (err && typeof err === 'object' && 'name' in err && (err.name === 'AbortError' || err.name === 'CanceledError')) {
-        return;
-      }
-      // Check if it's an axios cancellation
-      if (err && typeof err === 'object' && 'message' in err && String(err.message).includes('cancel')) {
-        return;
-      }
-
-      // Handle 429 Rate Limit errors with user-friendly message
-      if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-        const retryAfter = (err.details?.retryAfter as number) || 60;
-        setError(`Çok fazla istek yapıldı. ${retryAfter} saniye sonra tekrar deneyin. (Önceki veriler korunuyor)`);
-        setLoading(false);
-        return;
-      }
-
-      const error = err as { response?: { status?: number; data?: { message?: string } } };
-      const status = error.response?.status;
-      const message = error.response?.data?.message;
-
-      if (status === 401) {
-        setError('Session expired. Please login again.');
-      } else if (status === 403) {
-        setError('You do not have permission to view violations.');
-      } else if (status === 404 || status === 502) {
-        setViolations([]);
-        setTotal(0);
-        console.warn('Process violations backend not available');
-      } else {
-        setError(message || 'Failed to fetch violations. Please try again.');
-      }
-    } finally {
-      if (!abortControllerRef.current?.signal.aborted) {
-        setLoading(false);
-      }
+      const response = await riskApi.list(tenantId, buildListQueryParams({ pageSize: 100 }));
+      const result = unwrapPaginatedResponse<Risk>(response);
+      setAllRisks(result.items || []);
+    } catch (err) {
+      console.error('Failed to fetch risks:', err);
+      setAllRisks([]);
     }
-  }, [tenantId, searchParams, buildFilter, DEFAULT_SORT, DEFAULT_PAGE_SIZE]);
+  }, [tenantId]);
 
-  // Fetch violations when URL params change (single source of truth)
-  useEffect(() => {
-    fetchViolations(false);
-  }, [fetchViolations]);
-
-    const fetchAllRisks = useCallback(async () => {
-      if (!tenantId) {
-        console.warn('Cannot fetch risks: tenantId is not available');
-        return;
-      }
-      try {
-        const response = await riskApi.list(tenantId, buildListQueryParams({ pageSize: 100 }));
-        const result = unwrapPaginatedResponse<Risk>(response);
-        setAllRisks(result.items || []);
-      } catch (err) {
-        console.error('Failed to fetch risks:', err);
-        setAllRisks([]);
-      }
-    }, [tenantId]);
-
-    // Fetch process name when processFilter changes
-    const fetchProcessName = useCallback(async (processId: string) => {
-      if (!tenantId || !processId) {
-        setProcessName('');
-        return;
-      }
-      try {
-        const response = await processApi.get(tenantId, processId);
-        const process = unwrapResponse<{ name: string }>(response);
-        setProcessName(process?.name || '');
-      } catch (err) {
-        console.error('Failed to fetch process name:', err);
-        setProcessName('');
-      }
-    }, [tenantId]);
-
-    useEffect(() => {
-      if (processFilter) {
-        fetchProcessName(processFilter);
-      } else {
-        setProcessName('');
-      }
-    }, [processFilter, fetchProcessName]);
-
-  useEffect(() => {
-    fetchViolations();
-  }, [fetchViolations]);
+  const fetchProcessName = useCallback(async (processId: string) => {
+    if (!tenantId || !processId) {
+      setProcessName('');
+      return;
+    }
+    try {
+      const response = await processApi.get(tenantId, processId);
+      const process = unwrapResponse<{ name: string }>(response);
+      setProcessName(process?.name || '');
+    } catch (err) {
+      console.error('Failed to fetch process name:', err);
+      setProcessName('');
+    }
+  }, [tenantId]);
 
   useEffect(() => {
     fetchAllRisks();
   }, [fetchAllRisks]);
 
-  const handleViewViolation = (violation: ProcessViolation) => {
-    navigate(`/violations/${violation.id}`);
-  };
+  useEffect(() => {
+    if (processIdFilter) {
+      fetchProcessName(processIdFilter);
+    } else {
+      setProcessName('');
+    }
+  }, [processIdFilter, fetchProcessName]);
 
-  const handleEditViolation = (violation: ProcessViolation) => {
+  const handleViewViolation = useCallback((violation: ProcessViolation) => {
+    navigate(`/violations/${violation.id}`);
+  }, [navigate]);
+
+  const handleEditViolation = useCallback((violation: ProcessViolation) => {
     setEditingViolation(violation);
     setEditFormData({
       status: violation.status,
@@ -380,13 +296,10 @@ export const ProcessViolations: React.FC = () => {
       resolutionNotes: violation.resolutionNotes || '',
     });
     setOpenEditDialog(true);
-  };
+  }, []);
 
-  const handleSaveViolation = async () => {
-    if (!tenantId || !editingViolation) {
-      setError('Violation context is required');
-      return;
-    }
+  const handleSaveViolation = useCallback(async () => {
+    if (!tenantId || !editingViolation) return;
 
     try {
       const updateData = {
@@ -396,286 +309,302 @@ export const ProcessViolations: React.FC = () => {
       };
 
       await processViolationApi.update(tenantId, editingViolation.id, updateData);
-      setSuccess('Violation updated successfully');
       setOpenEditDialog(false);
-      fetchViolations(true); // Force refresh after update/delete
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to update violation');
+      refetch();
+    } catch (err) {
+      console.error('Failed to update violation:', err);
     }
-  };
+  }, [tenantId, editingViolation, editFormData, refetch]);
 
-  const handleOpenLinkRisk = (violation: ProcessViolation) => {
+  const handleOpenLinkRisk = useCallback((violation: ProcessViolation) => {
     setEditingViolation(violation);
     setSelectedRiskId(violation.linkedRiskId || '');
     setOpenLinkRiskDialog(true);
-  };
+  }, []);
 
-  const handleLinkRisk = async () => {
-    if (!tenantId || !editingViolation) {
-      setError('Violation context is required');
-      return;
-    }
+  const handleLinkRisk = useCallback(async () => {
+    if (!tenantId || !editingViolation) return;
 
     try {
       if (selectedRiskId) {
         await processViolationApi.linkRisk(tenantId, editingViolation.id, selectedRiskId);
-        setSuccess('Risk linked successfully');
       } else {
         await processViolationApi.unlinkRisk(tenantId, editingViolation.id);
-        setSuccess('Risk unlinked successfully');
       }
       setOpenLinkRiskDialog(false);
-      fetchViolations(true); // Force refresh after update/delete
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to link/unlink risk');
+      refetch();
+    } catch (err) {
+      console.error('Failed to link/unlink risk:', err);
     }
-  };
+  }, [tenantId, editingViolation, selectedRiskId, refetch]);
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
-    const normalizedSeverity = severity.toLowerCase();
-    switch (normalizedSeverity) {
-      case 'critical':
-        return 'error';
-      case 'high':
-        return 'warning';
-      case 'medium':
-        return 'info';
-      case 'low':
-        return 'success';
-      default:
-        return 'default';
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
     }
-  };
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  const getStatusColor = (status: string): 'error' | 'warning' | 'success' | 'default' => {
-    const normalizedStatus = status.toLowerCase();
-    switch (normalizedStatus) {
-      case 'resolved':
-        return 'success';
-      case 'in_progress':
-        return 'warning';
-      case 'open':
-        return 'error';
-      default:
-        return 'default';
+  const handleStatusChange = useCallback((value: string) => {
+    updateFilter('status', value);
+  }, [updateFilter]);
+
+  const handleSeverityChange = useCallback((value: string) => {
+    updateFilter('severity', value);
+  }, [updateFilter]);
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: STATUS_LABELS[statusFilter] || statusFilter.toUpperCase().replace('_', ' ') });
     }
-  };
+    if (severityFilter) {
+      filters.push({ key: 'severity', label: 'Severity', value: SEVERITY_LABELS[severityFilter] || severityFilter.toUpperCase() });
+    }
+    if (processIdFilter) {
+      filters.push({ key: 'processId', label: 'Process', value: processName || processIdFilter.substring(0, 8) + '...' });
+    }
+    return filters;
+  }, [statusFilter, severityFilter, processIdFilter, processName]);
 
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString();
-  };
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  if (loading) {
-    return <LoadingState message="Loading violations..." />;
-  }
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  if (error && violations.length === 0) {
-    return (
-      <ErrorState
-        title="Failed to load violations"
-        message={error}
-        onRetry={fetchViolations}
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const columns: ColumnDefinition<ProcessViolation>[] = useMemo(() => [
+    {
+      key: 'title',
+      header: 'Title',
+      render: (violation) => (
+        <Box>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            component="span"
+            onClick={() => handleViewViolation(violation)}
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+            }}
+          >
+            {violation.title}
+          </Typography>
+          {violation.description && (
+            <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200, mt: 0.5 }}>
+              {violation.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'process',
+      header: 'Process',
+      render: (violation) => violation.control?.process?.name || '-',
+    },
+    {
+      key: 'control',
+      header: 'Control',
+      render: (violation) => violation.control?.name || '-',
+    },
+    {
+      key: 'severity',
+      header: 'Severity',
+      render: (violation) => (
+        <Chip
+          label={SEVERITY_LABELS[violation.severity] || violation.severity.toUpperCase()}
+          color={getSeverityColor(violation.severity)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (violation) => (
+        <Chip
+          label={STATUS_LABELS[violation.status] || violation.status.toUpperCase().replace('_', ' ')}
+          color={getStatusColor(violation.status)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (violation) => (
+        <Typography variant="body2" color="textSecondary">
+          {violation.ownerUserId ? violation.ownerUserId.substring(0, 8) + '...' : 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'dueDate',
+      header: 'Due Date',
+      render: (violation) => formatDate(violation.dueDate),
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      render: (violation) => formatDate(violation.createdAt),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (violation) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View Details">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewViolation(violation);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditViolation(violation);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={violation.linkedRiskId ? 'Change Linked Risk' : 'Link Risk'}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenLinkRisk(violation);
+              }}
+            >
+              <LinkIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewViolation, handleEditViolation, handleOpenLinkRisk]);
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={VIOLATION_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
       />
-    );
-  }
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Status"
+          onChange={(e) => handleStatusChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="open">Open</MenuItem>
+          <MenuItem value="in_progress">In Progress</MenuItem>
+          <MenuItem value="resolved">Resolved</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Severity</InputLabel>
+        <Select
+          value={severityFilter}
+          label="Severity"
+          onChange={(e) => handleSeverityChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="low">Low</MenuItem>
+          <MenuItem value="medium">Medium</MenuItem>
+          <MenuItem value="high">High</MenuItem>
+          <MenuItem value="critical">Critical</MenuItem>
+        </Select>
+      </FormControl>
+    </Box>
+  ), [statusFilter, severityFilter, handleStatusChange, handleSeverityChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Process Violations</Typography>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
-
-      <ListToolbar
-        search={searchFilter}
-        onSearchChange={(value) => {
-          setSearchFilter(value);
-          setPage(0);
-        }}
+    <>
+      <GenericListPage<ProcessViolation>
+        title="Process Violations"
+        icon={<ViolationIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(violation) => violation.id}
+        onRowClick={handleViewViolation}
         searchPlaceholder="Search violations..."
-        filters={[
-          ...(statusFilter ? [{ key: 'status', label: 'Status', value: STATUS_LABELS[statusFilter] || statusFilter.toUpperCase().replace('_', ' ') }] : []),
-          ...(severityFilter ? [{ key: 'severity', label: 'Severity', value: SEVERITY_LABELS[severityFilter] || severityFilter.toUpperCase() }] : []),
-          ...(processFilter ? [{ key: 'processId', label: 'Process', value: processName || processFilter.substring(0, 8) + '...' }] : []),
-        ]}
-        onFilterRemove={(key) => {
-          if (key === 'status') setStatusFilter('');
-          if (key === 'severity') setSeverityFilter('');
-          if (key === 'processId') setProcessFilter('');
-          setPage(0);
-        }}
-        onClearFilters={() => {
-          setStatusFilter('');
-          setSeverityFilter('');
-          setProcessFilter('');
-          setSearchFilter('');
-          setPage(0);
-        }}
-        sort={`${sortField}:${sortDirection}`}
-        onSortChange={(sort: string) => {
-          const [field, direction] = sort.split(':');
-          setSortField(field);
-          setSortDirection(direction as 'ASC' | 'DESC');
-        }}
-        sortOptions={[
-          { field: 'createdAt', label: 'Created Date' },
-          { field: 'updatedAt', label: 'Updated Date' },
-          { field: 'severity', label: 'Severity' },
-          { field: 'status', label: 'Status' },
-          { field: 'title', label: 'Title' },
-        ]}
-        onRefresh={() => fetchViolations(true)}
-        loading={loading}
+        emptyMessage="No violations found"
+        emptyFilteredMessage="Violations are automatically created when control results are non-compliant."
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        minTableWidth={1000}
+        testId="violations-list-page"
       />
-
-      <Card>
-        <CardContent>
-          <ResponsiveTable minWidth={1000}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Process</TableCell>
-                  <TableCell>Control</TableCell>
-                  <TableCell>Severity</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Owner</TableCell>
-                  <TableCell>Due Date</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {violations.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 0, border: 'none' }}>
-                      <EmptyState
-                        icon={<ViolationIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
-                        title="No violations found"
-                        message="Violations are automatically created when control results are non-compliant."
-                        minHeight="200px"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  violations
-                    .filter((v) => {
-                      if (!searchFilter) return true;
-                      const search = searchFilter.toLowerCase();
-                      return (
-                        v.title.toLowerCase().includes(search) ||
-                        (v.description && v.description.toLowerCase().includes(search))
-                      );
-                    })
-                    .map((violation) => (
-                    <TableRow 
-                      key={violation.id} 
-                      hover
-                      onClick={() => handleViewViolation(violation)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        <Typography variant="subtitle2">{violation.title}</Typography>
-                        {violation.description && (
-                          <Typography
-                            variant="body2"
-                            color="textSecondary"
-                            noWrap
-                            sx={{ maxWidth: 200 }}
-                          >
-                            {violation.description}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {violation.control?.process?.name || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {violation.control?.name || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={SEVERITY_LABELS[violation.severity] || violation.severity.toUpperCase()}
-                          color={getSeverityColor(violation.severity)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={STATUS_LABELS[violation.status] || violation.status.toUpperCase().replace('_', ' ')}
-                          color={getStatusColor(violation.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="textSecondary">
-                          {violation.ownerUserId ? violation.ownerUserId.substring(0, 8) + '...' : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(violation.dueDate)}</TableCell>
-                      <TableCell>{formatDate(violation.createdAt)}</TableCell>
-                      <TableCell>
-                        <Tooltip title="View Details">
-                          <IconButton size="small" onClick={() => handleViewViolation(violation)}>
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEditViolation(violation)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={violation.linkedRiskId ? 'Change Linked Risk' : 'Link Risk'}>
-                          <IconButton size="small" onClick={() => handleOpenLinkRisk(violation)}>
-                            <LinkIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ResponsiveTable>
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-          />
-        </CardContent>
-      </Card>
 
       <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Violation Details</DialogTitle>
@@ -839,7 +768,7 @@ export const ProcessViolations: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };
 
