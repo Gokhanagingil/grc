@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -35,11 +35,12 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { policyApi, unwrapPaginatedPolicyResponse } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption } from '../components/common';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable, TableToolbar, FilterOption, FilterBuilderBasic, FilterConfig, FilterTree } from '../components/common';
 import { PolicyVersionsTab } from '../components/PolicyVersionsTab';
+import { countFilterConditions } from '../utils/listQueryUtils';
 
 interface Policy {
   id: number;
@@ -55,9 +56,64 @@ interface Policy {
   created_at: string;
 }
 
+const POLICY_STATUS_VALUES = ['draft', 'active', 'archived'] as const;
+
+const POLICY_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'string',
+    },
+    {
+      name: 'version',
+      label: 'Version',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...POLICY_STATUS_VALUES],
+      enumLabels: {
+        draft: 'Draft',
+        active: 'Active',
+        archived: 'Archived',
+      },
+    },
+    {
+      name: 'effective_date',
+      label: 'Effective Date',
+      type: 'date',
+    },
+    {
+      name: 'review_date',
+      label: 'Review Date',
+      type: 'date',
+    },
+    {
+      name: 'created_at',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const Governance: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,6 +123,39 @@ export const Governance: React.FC = () => {
   const [selectedPolicyForVersions, setSelectedPolicyForVersions] = useState<Policy | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  
+  // Advanced filter state
+  const [advancedFilter, setAdvancedFilter] = useState<FilterTree | null>(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      try {
+        return JSON.parse(decodeURIComponent(filterParam));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const activeFilterCount = useMemo(() => countFilterConditions(advancedFilter), [advancedFilter]);
+
+  const handleApplyAdvancedFilter = useCallback((filter: FilterTree | null) => {
+    setAdvancedFilter(filter);
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      newParams.set('filter', encodeURIComponent(JSON.stringify(filter)));
+    } else {
+      newParams.delete('filter');
+    }
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  const handleClearAdvancedFilter = useCallback(() => {
+    setAdvancedFilter(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -235,19 +324,30 @@ export const Governance: React.FC = () => {
         onRefresh={fetchPolicies}
         loading={loading}
         actions={
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="archived">Archived</MenuItem>
-            </Select>
-          </FormControl>
+          <Box display="flex" gap={1} alignItems="center">
+            <FilterBuilderBasic
+              config={POLICY_FILTER_CONFIG}
+              initialFilter={advancedFilter}
+              onApply={handleApplyAdvancedFilter}
+              onClear={handleClearAdvancedFilter}
+              activeFilterCount={activeFilterCount}
+              buttonVariant="outlined"
+              buttonSize="small"
+            />
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="draft">Draft</MenuItem>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="archived">Archived</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         }
       />
 
