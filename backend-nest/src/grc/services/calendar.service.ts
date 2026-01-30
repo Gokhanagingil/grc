@@ -172,7 +172,7 @@ export class CalendarService {
 
     if (status) {
       queryBuilder.andWhere('capa.status = :status', {
-        status: status.toUpperCase(),
+        status: status.toLowerCase(),
       });
     }
 
@@ -220,7 +220,7 @@ export class CalendarService {
 
     if (status) {
       queryBuilder.andWhere('task.status = :status', {
-        status: status.toUpperCase(),
+        status: status.toLowerCase(),
       });
     }
 
