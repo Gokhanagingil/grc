@@ -15,17 +15,8 @@ import {
   Select,
   MenuItem,
   Tooltip,
-  Tabs,
-  Tab,
   Switch,
   FormControlLabel,
-  LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,21 +24,14 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   AccountTree as ProcessIcon,
-  PlayArrow as RecordIcon,
   Warning as ViolationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   processApi,
-  processControlApi,
-  controlResultApi,
-  evidenceApi,
-  unwrapPaginatedResponse,
   unwrapResponse,
-  EvidenceData,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { buildListQueryParams } from '../utils';
 import {
   GenericListPage,
   ColumnDefinition,
@@ -76,23 +60,6 @@ interface Process {
   updatedAt: string;
 }
 
-interface ProcessControl {
-  id: string;
-  tenantId: string;
-  processId: string;
-  name: string;
-  description: string | null;
-  isAutomated: boolean;
-  method: string;
-  frequency: string;
-  expectedResultType: string;
-  parameters: Record<string, unknown> | null;
-  isActive: boolean;
-  ownerUserId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface ComplianceScore {
   processId: string;
   processName: string;
@@ -102,9 +69,6 @@ interface ComplianceScore {
   nonCompliantResults: number;
 }
 
-const CONTROL_METHODS = ['script', 'sampling', 'interview', 'walkthrough', 'observation'];
-const CONTROL_FREQUENCIES = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'event_driven'];
-const RESULT_TYPES = ['boolean', 'numeric', 'qualitative'];
 const PROCESS_CATEGORIES = ['ITSM', 'Security', 'Finance', 'Operations', 'HR', 'Compliance'];
 
 const PROCESS_FILTER_CONFIG: FilterConfig = {
@@ -256,18 +220,7 @@ export const ProcessManagement: React.FC = () => {
   }, [tenantId, items]);
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [openViewDialog, setOpenViewDialog] = useState(false);
-  const [openControlDialog, setOpenControlDialog] = useState(false);
-  const [openResultDialog, setOpenResultDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
-  const [viewingProcess, setViewingProcess] = useState<Process | null>(null);
-  const [editingControl, setEditingControl] = useState<ProcessControl | null>(null);
-  const [selectedControlForResult, setSelectedControlForResult] = useState<ProcessControl | null>(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [processControls, setProcessControls] = useState<ProcessControl[]>([]);
-  const [controlsLoading, setControlsLoading] = useState(false);
-  const [availableEvidence, setAvailableEvidence] = useState<EvidenceData[]>([]);
-  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -277,46 +230,9 @@ export const ProcessManagement: React.FC = () => {
     isActive: true,
   });
 
-  const [controlFormData, setControlFormData] = useState({
-    name: '',
-    description: '',
-    isAutomated: false,
-    method: 'walkthrough',
-    frequency: 'monthly',
-    expectedResultType: 'boolean',
-    isActive: true,
-  });
-
-  const [controlFormErrors, setControlFormErrors] = useState<{ name?: string }>({});
-
-  const [resultFormData, setResultFormData] = useState({
-    isCompliant: true,
-    resultValueBoolean: true,
-    resultValueNumber: 0,
-    resultValueText: '',
-    evidenceReference: '',
-  });
-
-  const fetchProcessControls = useCallback(async (processId: string) => {
-    try {
-      setControlsLoading(true);
-      const response = await processControlApi.list(tenantId, buildListQueryParams({ processId }));
-      const result = unwrapPaginatedResponse<ProcessControl>(response);
-      setProcessControls(result.items);
-    } catch (err) {
-      console.error('Failed to fetch process controls:', err);
-      setProcessControls([]);
-    } finally {
-      setControlsLoading(false);
-    }
-  }, [tenantId]);
-
   const handleViewProcess = useCallback((process: Process) => {
-    setViewingProcess(process);
-    setTabValue(0);
-    fetchProcessControls(process.id);
-    setOpenViewDialog(true);
-  }, [fetchProcessControls]);
+    navigate(`/processes/${process.id}`);
+  }, [navigate]);
 
   const handleCreateProcess = useCallback(() => {
     setEditingProcess(null);
@@ -377,142 +293,6 @@ export const ProcessManagement: React.FC = () => {
       }
     }
   }, [tenantId, refetch]);
-
-  const handleCreateControl = useCallback(() => {
-    setEditingControl(null);
-    setControlFormData({
-      name: '',
-      description: '',
-      isAutomated: false,
-      method: 'walkthrough',
-      frequency: 'monthly',
-      expectedResultType: 'boolean',
-      isActive: true,
-    });
-    setControlFormErrors({});
-    setOpenControlDialog(true);
-  }, []);
-
-  const handleEditControl = useCallback((control: ProcessControl) => {
-    setEditingControl(control);
-    setControlFormData({
-      name: control.name,
-      description: control.description || '',
-      isAutomated: control.isAutomated,
-      method: control.method,
-      frequency: control.frequency,
-      expectedResultType: control.expectedResultType,
-      isActive: control.isActive,
-    });
-    setControlFormErrors({});
-    setOpenControlDialog(true);
-  }, []);
-
-  const handleSaveControl = useCallback(async () => {
-    if (!tenantId || !viewingProcess) return;
-
-    const errors: { name?: string } = {};
-    if (!controlFormData.name.trim()) {
-      errors.name = 'Control name is required';
-    }
-    if (Object.keys(errors).length > 0) {
-      setControlFormErrors(errors);
-      return;
-    }
-    setControlFormErrors({});
-
-    try {
-      const controlData = {
-        processId: viewingProcess.id,
-        name: controlFormData.name,
-        description: controlFormData.description || undefined,
-        isAutomated: controlFormData.isAutomated,
-        method: controlFormData.method,
-        frequency: controlFormData.frequency,
-        expectedResultType: controlFormData.expectedResultType,
-        isActive: controlFormData.isActive,
-      };
-
-      if (editingControl) {
-        await processControlApi.update(tenantId, editingControl.id, controlData);
-      } else {
-        await processControlApi.create(tenantId, controlData);
-      }
-
-      setOpenControlDialog(false);
-      fetchProcessControls(viewingProcess.id);
-    } catch (err) {
-      console.error('Failed to save control:', err);
-    }
-  }, [tenantId, viewingProcess, controlFormData, editingControl, fetchProcessControls]);
-
-  const handleDeleteControl = useCallback(async (controlId: string) => {
-    if (window.confirm('Are you sure you want to delete this control?')) {
-      try {
-        await processControlApi.delete(tenantId, controlId);
-        if (viewingProcess) {
-          fetchProcessControls(viewingProcess.id);
-        }
-      } catch (err) {
-        console.error('Failed to delete control:', err);
-      }
-    }
-  }, [tenantId, viewingProcess, fetchProcessControls]);
-
-  const fetchAvailableEvidence = useCallback(async () => {
-    if (!tenantId) return;
-    setEvidenceLoading(true);
-    try {
-      const response = await evidenceApi.list(tenantId, { pageSize: 100 });
-      const data = unwrapPaginatedResponse<EvidenceData>(response);
-      setAvailableEvidence(data.items || []);
-    } catch (err) {
-      console.error('Failed to fetch evidence:', err);
-      setAvailableEvidence([]);
-    } finally {
-      setEvidenceLoading(false);
-    }
-  }, [tenantId]);
-
-  const handleRecordResult = useCallback((control: ProcessControl) => {
-    setSelectedControlForResult(control);
-    setResultFormData({
-      isCompliant: true,
-      resultValueBoolean: true,
-      resultValueNumber: 0,
-      resultValueText: '',
-      evidenceReference: '',
-    });
-    fetchAvailableEvidence();
-    setOpenResultDialog(true);
-  }, [fetchAvailableEvidence]);
-
-  const handleSaveResult = useCallback(async () => {
-    if (!tenantId || !selectedControlForResult) return;
-
-    try {
-      const resultData: Record<string, unknown> = {
-        controlId: selectedControlForResult.id,
-        isCompliant: resultFormData.isCompliant,
-        source: 'MANUAL',
-        evidenceReference: resultFormData.evidenceReference || undefined,
-      };
-
-      if (selectedControlForResult.expectedResultType === 'BOOLEAN') {
-        resultData.resultValueBoolean = resultFormData.resultValueBoolean;
-      } else if (selectedControlForResult.expectedResultType === 'NUMERIC') {
-        resultData.resultValueNumber = resultFormData.resultValueNumber;
-      } else {
-        resultData.resultValueText = resultFormData.resultValueText;
-      }
-
-      await controlResultApi.create(tenantId, resultData);
-      setOpenResultDialog(false);
-      refetch();
-    } catch (err) {
-      console.error('Failed to record result:', err);
-    }
-  }, [tenantId, selectedControlForResult, resultFormData, refetch]);
 
   const updateFilter = useCallback((key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -853,384 +633,6 @@ export const ProcessManagement: React.FC = () => {
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button onClick={handleSaveProcess} variant="contained" disabled={!formData.name || !formData.code}>
             {editingProcess ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={openViewDialog}
-        onClose={() => setOpenViewDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          {viewingProcess?.name}
-          <Chip
-            label={viewingProcess?.code}
-            size="small"
-            variant="outlined"
-            sx={{ ml: 2 }}
-          />
-        </DialogTitle>
-        <DialogContent>
-          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} sx={{ mb: 2 }}>
-            <Tab label="Details" />
-            <Tab label="Controls" />
-          </Tabs>
-
-          {tabValue === 0 && viewingProcess && (
-            <Box>
-              <Typography variant="body1" paragraph>
-                {viewingProcess.description || 'No description provided.'}
-              </Typography>
-              <Box display="flex" gap={2} flexWrap="wrap">
-                <Chip
-                  label={`Category: ${viewingProcess.category || 'None'}`}
-                  variant="outlined"
-                />
-                <Chip
-                  label={viewingProcess.isActive ? 'Active' : 'Inactive'}
-                  color={viewingProcess.isActive ? 'success' : 'default'}
-                />
-                {complianceScores[viewingProcess.id] && (
-                  <Chip
-                    label={`Compliance: ${formatComplianceScore(complianceScores[viewingProcess.id].complianceScore)}`}
-                    color={getComplianceColor(complianceScores[viewingProcess.id].complianceScore)}
-                  />
-                )}
-              </Box>
-            </Box>
-          )}
-
-          {tabValue === 1 && (
-            <Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Process Controls</Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={handleCreateControl}
-                  size="small"
-                >
-                  Add Control
-                </Button>
-              </Box>
-
-              {controlsLoading ? (
-                <LinearProgress />
-              ) : processControls.length === 0 ? (
-                <Typography color="textSecondary">
-                  No controls defined for this process.
-                </Typography>
-              ) : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Automated</TableCell>
-                      <TableCell>Method</TableCell>
-                      <TableCell>Frequency</TableCell>
-                      <TableCell>Expected Result</TableCell>
-                      <TableCell>Owner</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {processControls.map((control) => (
-                      <TableRow key={control.id}>
-                        <TableCell>
-                          <Typography variant="body2">{control.name}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={control.isAutomated ? 'Yes' : 'No'}
-                            size="small"
-                            color={control.isAutomated ? 'info' : 'default'}
-                            variant={control.isAutomated ? 'filled' : 'outlined'}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.method || '-'}</TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.frequency?.replace('_', ' ') || '-'}</TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{control.expectedResultType || '-'}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="textSecondary">
-                            {control.ownerUserId ? control.ownerUserId.substring(0, 8) + '...' : 'N/A'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={control.isActive ? 'Active' : 'Inactive'}
-                            color={control.isActive ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Tooltip title="Record Result">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRecordResult(control)}
-                              color="primary"
-                            >
-                              <RecordIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => handleEditControl(control)}>
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteControl(control.id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={openControlDialog}
-        onClose={() => setOpenControlDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{editingControl ? 'Edit Control' : 'Add Control'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Name"
-              value={controlFormData.name}
-              onChange={(e) => {
-                setControlFormData({ ...controlFormData, name: e.target.value });
-                if (controlFormErrors.name && e.target.value.trim()) {
-                  setControlFormErrors({});
-                }
-              }}
-              fullWidth
-              required
-              error={!!controlFormErrors.name}
-              helperText={controlFormErrors.name}
-            />
-            <TextField
-              label="Description"
-              value={controlFormData.description}
-              onChange={(e) =>
-                setControlFormData({ ...controlFormData, description: e.target.value })
-              }
-              fullWidth
-              multiline
-              rows={2}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Method</InputLabel>
-              <Select
-                value={controlFormData.method}
-                label="Method"
-                onChange={(e) =>
-                  setControlFormData({ ...controlFormData, method: e.target.value })
-                }
-              >
-                {CONTROL_METHODS.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Frequency</InputLabel>
-              <Select
-                value={controlFormData.frequency}
-                label="Frequency"
-                onChange={(e) =>
-                  setControlFormData({ ...controlFormData, frequency: e.target.value })
-                }
-              >
-                {CONTROL_FREQUENCIES.map((f) => (
-                  <MenuItem key={f} value={f}>
-                    {f.replace('_', ' ')}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Expected Result Type</InputLabel>
-              <Select
-                value={controlFormData.expectedResultType}
-                label="Expected Result Type"
-                onChange={(e) =>
-                  setControlFormData({ ...controlFormData, expectedResultType: e.target.value })
-                }
-              >
-                {RESULT_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    {t}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={controlFormData.isAutomated}
-                  onChange={(e) =>
-                    setControlFormData({ ...controlFormData, isAutomated: e.target.checked })
-                  }
-                />
-              }
-              label="Automated"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={controlFormData.isActive}
-                  onChange={(e) =>
-                    setControlFormData({ ...controlFormData, isActive: e.target.checked })
-                  }
-                />
-              }
-              label="Active"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenControlDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleSaveControl}
-            variant="contained"
-            disabled={!controlFormData.name}
-          >
-            {editingControl ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={openResultDialog}
-        onClose={() => setOpenResultDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Record Control Result</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {selectedControlForResult && (
-              <Alert severity="info">
-                Recording result for: <strong>{selectedControlForResult.name}</strong>
-                <br />
-                Expected type: {selectedControlForResult.expectedResultType}
-              </Alert>
-            )}
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={resultFormData.isCompliant}
-                  onChange={(e) =>
-                    setResultFormData({ ...resultFormData, isCompliant: e.target.checked })
-                  }
-                />
-              }
-              label="Compliant"
-            />
-
-            {!resultFormData.isCompliant && (
-              <Alert severity="warning">
-                A violation will be automatically created for non-compliant results.
-              </Alert>
-            )}
-
-            {selectedControlForResult?.expectedResultType === 'BOOLEAN' && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={resultFormData.resultValueBoolean}
-                    onChange={(e) =>
-                      setResultFormData({
-                        ...resultFormData,
-                        resultValueBoolean: e.target.checked,
-                      })
-                    }
-                  />
-                }
-                label="Result Value (Pass/Fail)"
-              />
-            )}
-
-            {selectedControlForResult?.expectedResultType === 'NUMERIC' && (
-              <TextField
-                label="Result Value (Number)"
-                type="number"
-                value={resultFormData.resultValueNumber}
-                onChange={(e) =>
-                  setResultFormData({
-                    ...resultFormData,
-                    resultValueNumber: parseFloat(e.target.value) || 0,
-                  })
-                }
-                fullWidth
-              />
-            )}
-
-            {selectedControlForResult?.expectedResultType === 'QUALITATIVE' && (
-              <TextField
-                label="Result Value (Text)"
-                value={resultFormData.resultValueText}
-                onChange={(e) =>
-                  setResultFormData({ ...resultFormData, resultValueText: e.target.value })
-                }
-                fullWidth
-                multiline
-                rows={2}
-              />
-            )}
-
-            <FormControl fullWidth>
-              <InputLabel>Evidence Reference</InputLabel>
-              <Select
-                value={resultFormData.evidenceReference}
-                label="Evidence Reference"
-                onChange={(e) =>
-                  setResultFormData({ ...resultFormData, evidenceReference: e.target.value })
-                }
-                disabled={evidenceLoading}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {availableEvidence.map((evidence) => (
-                  <MenuItem key={evidence.id} value={evidence.id}>
-                    {evidence.name} ({evidence.type})
-                  </MenuItem>
-                ))}
-              </Select>
-              {evidenceLoading && <LinearProgress sx={{ mt: 1 }} />}
-              {!evidenceLoading && availableEvidence.length === 0 && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                  No evidence records found. Create evidence first in the Evidence module.
-                </Typography>
-              )}
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenResultDialog(false)}>Cancel</Button>
-          <Button onClick={handleSaveResult} variant="contained">
-            Record Result
           </Button>
         </DialogActions>
       </Dialog>

@@ -315,6 +315,55 @@ export class GrcIssueController {
     return this.issueService.getLinkedEvidence(tenantId, issueId);
   }
 
+  @Get(':issueId/controls')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  @ApiOperation({
+    summary: 'Get linked controls for an issue',
+    description: 'Returns all controls linked to a specific issue',
+  })
+  @ApiResponse({ status: 200, description: 'Controls retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Perf()
+  async getLinkedControls(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const controls = await this.issueService.getLinkedControls(
+      tenantId,
+      issueId,
+    );
+    return { success: true, data: controls };
+  }
+
+  @Get(':issueId/test-results')
+  @Permissions(Permission.GRC_ISSUE_READ)
+  @ApiOperation({
+    summary: 'Get linked test results for an issue',
+    description: 'Returns all test results linked to a specific issue',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test results retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Issue not found' })
+  @Perf()
+  async getLinkedTestResults(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('issueId') issueId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    const testResults = await this.issueService.getLinkedTestResults(
+      tenantId,
+      issueId,
+    );
+    return { success: true, data: testResults };
+  }
+
   /**
    * POST /grc/issues/:issueId/clauses
    * Link an existing issue (finding) to a standard clause

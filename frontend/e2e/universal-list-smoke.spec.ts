@@ -194,6 +194,88 @@ test.describe('Universal List Experience Smoke Tests', () => {
     });
   });
 
+  test.describe('Process Management List', () => {
+    test('should load process management list page', async ({ page }) => {
+      await page.goto('/processes');
+      
+      // Wait for the universal list page container to be visible
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('process-list-page'))).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should have search input', async ({ page }) => {
+      await page.goto('/processes');
+      
+      // Wait for page to load first
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('process-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      const searchInput = page.getByTestId('list-search');
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    });
+
+    test('should navigate to detail page on row click', async ({ page }) => {
+      await page.goto('/processes');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('process-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Check for list rows using data-testid
+      const firstRow = page.getByTestId('list-row').first();
+      const rowExists = await firstRow.isVisible().catch(() => false);
+      
+      if (rowExists) {
+        await firstRow.click();
+        
+        // Wait for navigation
+        await page.waitForTimeout(1000);
+        
+        // Verify URL changed to detail page (not modal)
+        const url = page.url();
+        expect(url.includes('/processes/')).toBeTruthy();
+      }
+    });
+
+    test('should show table or empty state', async ({ page }) => {
+      await page.goto('/processes');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('process-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Wait for either table or empty state to appear
+      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty'));
+      await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
+    });
+  });
+
+  test.describe('Control Tests List', () => {
+    test('should load control tests list page', async ({ page }) => {
+      await page.goto('/control-tests');
+      
+      // Wait for the universal list page container to be visible
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-test-list-page'))).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should have search input', async ({ page }) => {
+      await page.goto('/control-tests');
+      
+      // Wait for page to load first
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-test-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      const searchInput = page.getByTestId('list-search');
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    });
+
+    test('should show table or empty state', async ({ page }) => {
+      await page.goto('/control-tests');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-test-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Wait for either table or empty state to appear
+      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty'));
+      await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
+    });
+  });
+
   test.describe('Filter Encoding', () => {
     test('should have filter UI with proper testids', async ({ page }) => {
       await page.goto('/controls');
