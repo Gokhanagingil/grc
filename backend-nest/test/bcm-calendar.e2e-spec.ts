@@ -417,8 +417,17 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
         const response = await request(app.getHttpServer())
           .get('/grc/calendar/events')
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+          })
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -433,8 +442,17 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
         await request(app.getHttpServer())
           .get('/grc/calendar/events')
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+          })
           .set('x-tenant-id', tenantId)
           .expect(401);
       });
@@ -445,8 +463,17 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
         await request(app.getHttpServer())
           .get('/grc/calendar/events')
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+          })
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(400);
       });
@@ -457,16 +484,16 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - 1);
-        const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + 1);
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
 
         const response = await request(app.getHttpServer())
           .get('/grc/calendar/events')
           .query({
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
+            start: start.toISOString(),
+            end: end.toISOString(),
           })
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
@@ -482,9 +509,18 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
         const response = await request(app.getHttpServer())
           .get('/grc/calendar/events')
-          .query({ type: 'bcm_exercise' })
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+            types: 'bcm_exercise',
+          })
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -505,9 +541,18 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
         const response = await request(app.getHttpServer())
           .get('/grc/calendar/events')
-          .query({ status: 'PLANNED' })
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+            status: 'PLANNED',
+          })
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -556,9 +601,18 @@ describe('BCM and Calendar Operations (e2e)', () => {
 
         if (createResponse.status === 201) {
           // Now check calendar events
+          const start = new Date();
+          start.setMonth(start.getMonth() - 1);
+          const end = new Date();
+          end.setMonth(end.getMonth() + 1);
+
           const response = await request(app.getHttpServer())
             .get('/grc/calendar/events')
-            .query({ type: 'bcm_exercise' })
+            .query({
+              start: start.toISOString(),
+              end: end.toISOString(),
+              types: 'bcm_exercise',
+            })
             .set('Authorization', `Bearer ${adminToken}`)
             .set('x-tenant-id', tenantId)
             .expect(200);
