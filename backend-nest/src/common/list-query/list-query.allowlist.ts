@@ -255,6 +255,199 @@ export const EVIDENCE_SEARCHABLE_COLUMNS = [
 ];
 
 /**
+ * BCM Service entity field definitions
+ */
+const BCM_SERVICE_FIELDS: FieldDefinition[] = [
+  { name: 'name', type: 'string' },
+  { name: 'description', type: 'string' },
+  {
+    name: 'status',
+    type: 'enum',
+    enumValues: ['DRAFT', 'ACTIVE', 'ARCHIVED'],
+    caseInsensitive: true,
+  },
+  {
+    name: 'criticalityTier',
+    column: 'criticality_tier',
+    type: 'enum',
+    enumValues: ['TIER_0', 'TIER_1', 'TIER_2', 'TIER_3'],
+    caseInsensitive: true,
+  },
+  { name: 'createdAt', column: 'created_at', type: 'date' },
+  { name: 'updatedAt', column: 'updated_at', type: 'date' },
+  {
+    name: 'businessOwnerUserId',
+    column: 'business_owner_user_id',
+    type: 'uuid',
+  },
+  { name: 'itOwnerUserId', column: 'it_owner_user_id', type: 'uuid' },
+];
+
+/**
+ * BCM Service entity allowlist configuration
+ */
+export const BCM_SERVICE_ALLOWLIST: EntityAllowlist = {
+  entityName: 'BcmService',
+  fields: BCM_SERVICE_FIELDS,
+  dotWalkPaths: [],
+};
+
+/**
+ * BCM Service searchable columns for quick search
+ */
+export const BCM_SERVICE_SEARCHABLE_COLUMNS = [
+  { column: 'name' },
+  { column: 'description' },
+];
+
+/**
+ * BCM BIA entity field definitions
+ */
+const BCM_BIA_FIELDS: FieldDefinition[] = [
+  { name: 'assumptions', type: 'string' },
+  { name: 'dependencies', type: 'string' },
+  { name: 'notes', type: 'string' },
+  {
+    name: 'status',
+    type: 'enum',
+    enumValues: ['DRAFT', 'REVIEWED', 'APPROVED'],
+    caseInsensitive: true,
+  },
+  {
+    name: 'criticalityTier',
+    column: 'criticality_tier',
+    type: 'enum',
+    enumValues: ['TIER_0', 'TIER_1', 'TIER_2', 'TIER_3'],
+    caseInsensitive: true,
+  },
+  { name: 'rtoMinutes', column: 'rto_minutes', type: 'number' },
+  { name: 'rpoMinutes', column: 'rpo_minutes', type: 'number' },
+  { name: 'mtpdMinutes', column: 'mtpd_minutes', type: 'number' },
+  {
+    name: 'overallImpactScore',
+    column: 'overall_impact_score',
+    type: 'number',
+  },
+  { name: 'createdAt', column: 'created_at', type: 'date' },
+  { name: 'updatedAt', column: 'updated_at', type: 'date' },
+  { name: 'serviceId', column: 'service_id', type: 'uuid' },
+];
+
+/**
+ * BCM BIA entity allowlist configuration
+ */
+export const BCM_BIA_ALLOWLIST: EntityAllowlist = {
+  entityName: 'BcmBia',
+  fields: BCM_BIA_FIELDS,
+  dotWalkPaths: ['service.name'],
+};
+
+/**
+ * BCM BIA searchable columns for quick search
+ */
+export const BCM_BIA_SEARCHABLE_COLUMNS = [
+  { column: 'assumptions' },
+  { column: 'dependencies' },
+  { column: 'notes' },
+];
+
+/**
+ * BCM Plan entity field definitions
+ */
+const BCM_PLAN_FIELDS: FieldDefinition[] = [
+  { name: 'summary', type: 'string' },
+  { name: 'triggers', type: 'string' },
+  { name: 'recoverySteps', column: 'recovery_steps', type: 'string' },
+  {
+    name: 'planType',
+    column: 'plan_type',
+    type: 'enum',
+    enumValues: ['BCP', 'DRP', 'IT_CONTINUITY'],
+    caseInsensitive: true,
+  },
+  {
+    name: 'status',
+    type: 'enum',
+    enumValues: ['DRAFT', 'APPROVED', 'ACTIVE', 'RETIRED'],
+    caseInsensitive: true,
+  },
+  { name: 'createdAt', column: 'created_at', type: 'date' },
+  { name: 'updatedAt', column: 'updated_at', type: 'date' },
+  { name: 'approvedAt', column: 'approved_at', type: 'date' },
+  { name: 'serviceId', column: 'service_id', type: 'uuid' },
+  { name: 'ownerUserId', column: 'owner_user_id', type: 'uuid' },
+  { name: 'approverUserId', column: 'approver_user_id', type: 'uuid' },
+];
+
+/**
+ * BCM Plan entity allowlist configuration
+ */
+export const BCM_PLAN_ALLOWLIST: EntityAllowlist = {
+  entityName: 'BcmPlan',
+  fields: BCM_PLAN_FIELDS,
+  dotWalkPaths: ['service.name'],
+};
+
+/**
+ * BCM Plan searchable columns for quick search
+ */
+export const BCM_PLAN_SEARCHABLE_COLUMNS = [
+  { column: 'summary' },
+  { column: 'triggers' },
+];
+
+/**
+ * BCM Exercise entity field definitions
+ */
+const BCM_EXERCISE_FIELDS: FieldDefinition[] = [
+  { name: 'summary', type: 'string' },
+  { name: 'lessonsLearned', column: 'lessons_learned', type: 'string' },
+  {
+    name: 'exerciseType',
+    column: 'exercise_type',
+    type: 'enum',
+    enumValues: ['TABLETOP', 'FAILOVER', 'RESTORE', 'COMMS'],
+    caseInsensitive: true,
+  },
+  {
+    name: 'status',
+    type: 'enum',
+    enumValues: ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+    caseInsensitive: true,
+  },
+  {
+    name: 'outcome',
+    type: 'enum',
+    enumValues: ['PASS', 'PARTIAL', 'FAIL'],
+    caseInsensitive: true,
+  },
+  { name: 'scheduledAt', column: 'scheduled_at', type: 'date' },
+  { name: 'startedAt', column: 'started_at', type: 'date' },
+  { name: 'completedAt', column: 'completed_at', type: 'date' },
+  { name: 'createdAt', column: 'created_at', type: 'date' },
+  { name: 'updatedAt', column: 'updated_at', type: 'date' },
+  { name: 'serviceId', column: 'service_id', type: 'uuid' },
+  { name: 'planId', column: 'plan_id', type: 'uuid' },
+];
+
+/**
+ * BCM Exercise entity allowlist configuration
+ */
+export const BCM_EXERCISE_ALLOWLIST: EntityAllowlist = {
+  entityName: 'BcmExercise',
+  fields: BCM_EXERCISE_FIELDS,
+  dotWalkPaths: ['service.name', 'plan.summary'],
+};
+
+/**
+ * BCM Exercise searchable columns for quick search
+ */
+export const BCM_EXERCISE_SEARCHABLE_COLUMNS = [
+  { column: 'summary' },
+  { column: 'lessons_learned' },
+];
+
+/**
  * Registry of all entity allowlists
  * Supports both singular and plural entity names for API flexibility
  */
@@ -264,10 +457,18 @@ const ALLOWLIST_REGISTRY: Record<string, EntityAllowlist> = {
   issue: ISSUE_ALLOWLIST,
   capa: CAPA_ALLOWLIST,
   evidence: EVIDENCE_ALLOWLIST,
+  bcmservice: BCM_SERVICE_ALLOWLIST,
+  bcmbia: BCM_BIA_ALLOWLIST,
+  bcmplan: BCM_PLAN_ALLOWLIST,
+  bcmexercise: BCM_EXERCISE_ALLOWLIST,
   // Plural aliases (for API convenience)
   controls: CONTROL_ALLOWLIST,
   issues: ISSUE_ALLOWLIST,
   capas: CAPA_ALLOWLIST,
+  bcmservices: BCM_SERVICE_ALLOWLIST,
+  bcmbias: BCM_BIA_ALLOWLIST,
+  bcmplans: BCM_PLAN_ALLOWLIST,
+  bcmexercises: BCM_EXERCISE_ALLOWLIST,
 };
 
 /**

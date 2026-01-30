@@ -32,6 +32,14 @@ import {
 import { BcmCriticalityTier, BcmBiaStatus, BcmServiceStatus } from '../enums';
 import { AuditService } from '../../audit/audit.service';
 import { parseFilterJson } from '../../common/list-query/list-query.parser';
+import { validateFilterAgainstAllowlist } from '../../common/list-query/list-query.validator';
+import { applyFilterTree } from '../../common/list-query/list-query.apply';
+import {
+  BCM_SERVICE_ALLOWLIST,
+  BCM_BIA_ALLOWLIST,
+  BCM_PLAN_ALLOWLIST,
+  BCM_EXERCISE_ALLOWLIST,
+} from '../../common/list-query/list-query.allowlist';
 
 /**
  * BCM Service - Business Continuity Management
@@ -152,9 +160,18 @@ export class BcmModuleService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          this.applyServiceFilterTree(queryBuilder, parsed.tree);
+          validateFilterAgainstAllowlist(parsed.tree, BCM_SERVICE_ALLOWLIST);
+          applyFilterTree(
+            queryBuilder,
+            parsed.tree,
+            BCM_SERVICE_ALLOWLIST,
+            'service',
+          );
         }
       } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
         throw new BadRequestException({
           message: 'Invalid filter JSON',
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -270,14 +287,6 @@ export class BcmModuleService {
     );
   }
 
-  private applyServiceFilterTree(
-    queryBuilder: ReturnType<Repository<BcmService>['createQueryBuilder']>,
-    tree: { and?: unknown[]; or?: unknown[] },
-  ): void {
-    const allowedFields = ['name', 'status', 'criticalityTier', 'createdAt'];
-    this.applyGenericFilterTree(queryBuilder, tree, allowedFields, 'service');
-  }
-
   // ============================================================================
   // BCM BIA Operations
   // ============================================================================
@@ -338,9 +347,13 @@ export class BcmModuleService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          this.applyBiaFilterTree(queryBuilder, parsed.tree);
+          validateFilterAgainstAllowlist(parsed.tree, BCM_BIA_ALLOWLIST);
+          applyFilterTree(queryBuilder, parsed.tree, BCM_BIA_ALLOWLIST, 'bia');
         }
       } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
         throw new BadRequestException({
           message: 'Invalid filter JSON',
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -519,21 +532,6 @@ export class BcmModuleService {
     return BcmCriticalityTier.TIER_3;
   }
 
-  private applyBiaFilterTree(
-    queryBuilder: ReturnType<Repository<BcmBia>['createQueryBuilder']>,
-    tree: { and?: unknown[]; or?: unknown[] },
-  ): void {
-    const allowedFields = [
-      'status',
-      'criticalityTier',
-      'rtoMinutes',
-      'rpoMinutes',
-      'overallImpactScore',
-      'createdAt',
-    ];
-    this.applyGenericFilterTree(queryBuilder, tree, allowedFields, 'bia');
-  }
-
   // ============================================================================
   // BCM Plan Operations
   // ============================================================================
@@ -587,9 +585,18 @@ export class BcmModuleService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          this.applyPlanFilterTree(queryBuilder, parsed.tree);
+          validateFilterAgainstAllowlist(parsed.tree, BCM_PLAN_ALLOWLIST);
+          applyFilterTree(
+            queryBuilder,
+            parsed.tree,
+            BCM_PLAN_ALLOWLIST,
+            'plan',
+          );
         }
       } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
         throw new BadRequestException({
           message: 'Invalid filter JSON',
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -704,20 +711,6 @@ export class BcmModuleService {
 
     await this.planRepository.save(plan);
     await this.auditService.recordDelete('BcmPlan', plan, userId, tenantId);
-  }
-
-  private applyPlanFilterTree(
-    queryBuilder: ReturnType<Repository<BcmPlan>['createQueryBuilder']>,
-    tree: { and?: unknown[]; or?: unknown[] },
-  ): void {
-    const allowedFields = [
-      'name',
-      'status',
-      'planType',
-      'approvedAt',
-      'createdAt',
-    ];
-    this.applyGenericFilterTree(queryBuilder, tree, allowedFields, 'plan');
   }
 
   // ============================================================================
@@ -928,9 +921,18 @@ export class BcmModuleService {
       try {
         const parsed = parseFilterJson(filterJson);
         if (parsed.tree) {
-          this.applyExerciseFilterTree(queryBuilder, parsed.tree);
+          validateFilterAgainstAllowlist(parsed.tree, BCM_EXERCISE_ALLOWLIST);
+          applyFilterTree(
+            queryBuilder,
+            parsed.tree,
+            BCM_EXERCISE_ALLOWLIST,
+            'exercise',
+          );
         }
       } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
         throw new BadRequestException({
           message: 'Invalid filter JSON',
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -1070,144 +1072,5 @@ export class BcmModuleService {
       userId,
       tenantId,
     );
-  }
-
-  private applyExerciseFilterTree(
-    queryBuilder: ReturnType<Repository<BcmExercise>['createQueryBuilder']>,
-    tree: { and?: unknown[]; or?: unknown[] },
-  ): void {
-    const allowedFields = [
-      'name',
-      'status',
-      'exerciseType',
-      'outcome',
-      'scheduledAt',
-      'completedAt',
-      'createdAt',
-    ];
-    this.applyGenericFilterTree(queryBuilder, tree, allowedFields, 'exercise');
-  }
-
-  // ============================================================================
-  // Generic Filter Tree Helper
-  // ============================================================================
-
-  private applyGenericFilterTree(
-    queryBuilder: ReturnType<Repository<unknown>['createQueryBuilder']>,
-    tree: { and?: unknown[]; or?: unknown[] },
-    allowedFields: string[],
-    alias: string,
-  ): void {
-    const buildCondition = (
-      condition: { field: string; op: string; value: unknown },
-      paramIndex: number,
-    ): { sql: string; params: Record<string, unknown> } | null => {
-      if (!allowedFields.includes(condition.field)) {
-        return null;
-      }
-
-      const paramName = `filter_${paramIndex}`;
-      const fieldRef = `${alias}.${condition.field}`;
-
-      switch (condition.op) {
-        case 'is':
-        case 'eq':
-          return {
-            sql: `${fieldRef} = :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'is_not':
-        case 'neq':
-          return {
-            sql: `${fieldRef} != :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'contains':
-          return {
-            sql: `LOWER(${fieldRef}) LIKE LOWER(:${paramName})`,
-            params: { [paramName]: `%${String(condition.value)}%` },
-          };
-        case 'gt':
-          return {
-            sql: `${fieldRef} > :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'gte':
-          return {
-            sql: `${fieldRef} >= :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'lt':
-          return {
-            sql: `${fieldRef} < :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'lte':
-          return {
-            sql: `${fieldRef} <= :${paramName}`,
-            params: { [paramName]: condition.value },
-          };
-        case 'in':
-          return {
-            sql: `${fieldRef} IN (:...${paramName})`,
-            params: { [paramName]: condition.value },
-          };
-        default:
-          return null;
-      }
-    };
-
-    let paramCounter = 0;
-
-    const processGroup = (group: {
-      and?: unknown[];
-      or?: unknown[];
-    }): { sql: string; params: Record<string, unknown> } | null => {
-      const conditions: { sql: string; params: Record<string, unknown> }[] = [];
-
-      const items = group.and || group.or || [];
-      const operator = group.and ? ' AND ' : ' OR ';
-
-      for (const item of items) {
-        const typedItem = item as {
-          field?: string;
-          op?: string;
-          value?: unknown;
-          and?: unknown[];
-          or?: unknown[];
-        };
-        if (typedItem.field && typedItem.op) {
-          const result = buildCondition(
-            typedItem as { field: string; op: string; value: unknown },
-            paramCounter++,
-          );
-          if (result) {
-            conditions.push(result);
-          }
-        } else if (typedItem.and || typedItem.or) {
-          const nested = processGroup(typedItem);
-          if (nested) {
-            conditions.push(nested);
-          }
-        }
-      }
-
-      if (conditions.length === 0) {
-        return null;
-      }
-
-      const sql = conditions.map((c) => `(${c.sql})`).join(operator);
-      const params = conditions.reduce(
-        (acc, c) => ({ ...acc, ...c.params }),
-        {},
-      );
-
-      return { sql, params };
-    };
-
-    const result = processGroup(tree);
-    if (result) {
-      queryBuilder.andWhere(`(${result.sql})`, result.params);
-    }
   }
 }
