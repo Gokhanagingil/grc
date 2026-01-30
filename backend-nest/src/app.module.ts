@@ -229,10 +229,16 @@ import { StructuredLoggerService } from './common/logger';
       useClass: PerformanceInterceptor,
     },
     // Global response transform interceptor for standard success responses
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: ResponseTransformInterceptor,
-    },
+    // Can be disabled in test environment via DISABLE_RESPONSE_ENVELOPE=true
+    // This allows tests to receive raw responses without the { success, data } wrapper
+    ...(process.env.DISABLE_RESPONSE_ENVELOPE === 'true'
+      ? []
+      : [
+          {
+            provide: APP_INTERCEPTOR,
+            useClass: ResponseTransformInterceptor,
+          },
+        ]),
   ],
 })
 export class AppModule implements NestModule {

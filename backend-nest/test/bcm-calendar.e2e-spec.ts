@@ -286,17 +286,28 @@ describe('BCM and Calendar Operations (e2e)', () => {
         }
 
         // First create a service to link the exercise to
+        // Include all fields to ensure service creation succeeds
         const serviceResponse = await request(app.getHttpServer())
           .post('/grc/bcm/services')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .send({ name: 'Service for Exercise Test' });
+          .send({
+            name: 'Service for Exercise Test',
+            description: 'Test service for BCM exercise E2E tests',
+            criticalityTier: 'TIER_2',
+            status: 'ACTIVE',
+          });
 
         const serviceData = serviceResponse.body.data ?? serviceResponse.body;
         const testServiceId = serviceData?.id;
 
         if (!testServiceId) {
           console.log('Skipping test: could not create service for exercise');
+          console.log(
+            'Service creation response:',
+            serviceResponse.status,
+            serviceResponse.body,
+          );
           return;
         }
 
@@ -548,17 +559,30 @@ describe('BCM and Calendar Operations (e2e)', () => {
         }
 
         // First create a service to link the exercise to
+        // Include all fields to ensure service creation succeeds
         const serviceResponse = await request(app.getHttpServer())
           .post('/grc/bcm/services')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .send({ name: 'Service for Calendar Test' });
+          .send({
+            name: 'Service for Calendar Test',
+            description: 'Test service for calendar E2E tests',
+            criticalityTier: 'TIER_2',
+            status: 'ACTIVE',
+          });
 
         const serviceData = serviceResponse.body.data ?? serviceResponse.body;
         const testServiceId = serviceData?.id;
 
         if (!testServiceId) {
-          console.log('Skipping test: could not create service for calendar exercise test');
+          console.log(
+            'Skipping test: could not create service for calendar exercise test',
+          );
+          console.log(
+            'Service creation response:',
+            serviceResponse.status,
+            serviceResponse.body,
+          );
           return;
         }
 
