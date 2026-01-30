@@ -93,6 +93,61 @@ docker compose -f docker-compose.staging.yml restart backend
 docker exec grc-staging-db psql -U postgres -d grc_platform -c "\\dt"
 ```
 
+## CI Smoke DB Bootstrap Order
+
+The CI "Staging Smoke Tests" job in `backend-nest-ci.yml` uses a deterministic startup order to ensure reliable test execution on fresh runners. This section documents the bootstrap sequence.
+
+### CI Smoke Test Sequence
+
+The workflow uses a dedicated `ci-smoke` compose project name for isolation:
+
+1. **Start DB only** - `docker compose -p ci-smoke up -d db`
+2. **Wait for pg_isready** - Ensures PostgreSQL is accepting connections
+3. **Build and start backend** - `docker compose -p ci-smoke up -d --build backend`
+4. **Verify dist scripts exist** - Checks `migration-run.js`, `seed-grc.js`, `seed-platform-builder.js`
+5. **Run migrations** - `node dist/scripts/migration-run.js`
+6. **Seed GRC data** - `node dist/scripts/seed-grc.js` (creates demo tenant, user, GRC entities)
+7. **Seed Platform Builder** - `node dist/scripts/seed-platform-builder.js` (creates sys_db_object, etc.)
+8. **Validate DB state** - Verifies critical tables exist before smoke tests
+9. **Run smoke tests** - Health checks, login, onboarding context, menu
+10. **Cleanup (always)** - `docker compose -p ci-smoke down -v --remove-orphans`
+
+### Expected Log Messages
+
+Before smoke tests begin, the CI logs should show:
+
+- `"Successfully executed ... migration(s)"` - From migration-run.js
+- `"Demo tenant"` or `"GRC Demo Data Seed Complete"` - From seed-grc.js  
+- `"Platform Builder demo data seeded successfully"` or `"Table: u_vendor"` - From seed-platform-builder.js
+
+### Fail-Fast Behavior
+
+If migrations or seeds fail, the workflow:
+1. Dumps backend container logs (last 200 lines)
+2. Dumps database container logs (last 100 lines)
+3. Runs DB validation query to show which tables exist
+4. Exits with failure code
+
+### Required Tables for Smoke Tests
+
+The DB validation step checks for these tables:
+- `nest_tenants` - Multi-tenant organizations
+- `nest_users` - User accounts
+- `nest_system_settings` - System configuration
+- `sys_db_object` - Platform Builder table definitions
+- `sys_dictionary` - Platform Builder field definitions
+- `dynamic_records` - Platform Builder data storage
+
+### Debugging CI Smoke Failures
+
+If CI smoke tests fail with "Demo tenant not found" or "table does not exist":
+
+1. Check the CI logs for the "Step 4: Run migrations" output
+2. Look for the "Step 5: Seed GRC demo data" output
+3. Verify the "Step 7: Validate DB state" shows all required tables
+4. If tables are missing, check if migrations ran successfully
+5. If seeds failed, check if the demo tenant was created first (seed-grc.js must run before seed-platform-builder.js)
+
 ## Access Information
 
 | Resource | Value |
