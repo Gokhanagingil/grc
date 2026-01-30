@@ -269,7 +269,12 @@ describe('BCM and Calendar Operations (e2e)', () => {
         .post('/grc/bcm/services')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
-        .send({ name: 'Service for Sub-Resource Tests', status: 'ACTIVE' });
+        .send({
+          name: 'Service for Sub-Resource Tests',
+          description: 'Test service for BCM sub-resource e2e tests',
+          criticalityTier: 'TIER_1',
+          status: 'ACTIVE',
+        });
 
       const serviceData = serviceResponse.body.data ?? serviceResponse.body;
       testServiceId = serviceData?.id;
@@ -523,7 +528,12 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .post('/grc/bcm/services')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
-          .send({ name: 'Other Service for Isolation Test', status: 'ACTIVE' });
+          .send({
+            name: 'Other Service for Isolation Test',
+            description: 'Test service for isolation test',
+            criticalityTier: 'TIER_2',
+            status: 'ACTIVE',
+          });
 
         const otherServiceData =
           otherServiceResponse.body.data ?? otherServiceResponse.body;
