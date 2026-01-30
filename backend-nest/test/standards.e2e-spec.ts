@@ -276,7 +276,8 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      const standards = listResponse.body.data || [];
+      // Response is in LIST-CONTRACT format: { success: true, data: { items: [...], total, ... } }
+      const standards = listResponse.body.data?.items || [];
 
       if (standards.length === 0) {
         console.log('Skipping test: no standards available');
