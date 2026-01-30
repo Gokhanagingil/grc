@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -26,6 +27,8 @@ import { Perf } from '../../common/decorators';
 @Controller('grc/standards')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class StandardsController {
+  private readonly logger = new Logger(StandardsController.name);
+
   constructor(private readonly standardsService: StandardsService) {}
 
   @Get()
@@ -37,6 +40,12 @@ export class StandardsController {
     }
 
     const items = await this.standardsService.findAllActiveForTenant(tenantId);
+
+    // Debug logging for list endpoint diagnostics (safe - no secrets)
+    this.logger.debug(
+      `[LIST] tenantId=${tenantId}, page=1, pageSize=${items.length}, total=${items.length}, responseKeys=items,total,page,pageSize,totalPages`,
+    );
+
     return {
       items,
       total: items.length,

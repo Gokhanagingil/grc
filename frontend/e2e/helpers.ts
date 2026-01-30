@@ -289,9 +289,13 @@ export async function setupMockApi(page: Page) {
         await route.fulfill(successResponse(mockAudit));
       } else {
         // List endpoint - include mock audit for smoke test
+        // Use LIST-CONTRACT format: { items, total, page, pageSize, totalPages }
         await route.fulfill(successResponse({
-          audits: [mockAudit],
-          pagination: { total: 1, page: 1, pageSize: 10, totalPages: 1 },
+          items: [mockAudit],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+          totalPages: 1,
         }));
       }
       return;

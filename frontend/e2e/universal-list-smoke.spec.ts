@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from './helpers';
+import { login, setupMockApi, expectListLoaded } from './helpers';
 
 test.describe('Universal List Experience Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -273,6 +273,85 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for either table or empty state to appear (use first() to handle multiple matches)
       const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty')).first();
       await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
+    });
+  });
+
+  test.describe('Standards List (Regression PR #305)', () => {
+    test('should load standards library list page', async ({ page }) => {
+      await page.goto('/library/standards');
+      
+      // Wait for the universal list page container to be visible
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('standards-list-page'))).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should show table or empty state', async ({ page }) => {
+      await page.goto('/library/standards');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('standards-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Wait for either table or empty state to appear
+      const result = await expectListLoaded(page);
+      expect(['table', 'empty']).toContain(result);
+    });
+
+    test('should have search input', async ({ page }) => {
+      await page.goto('/library/standards');
+      
+      // Wait for page to load first
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('standards-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      const searchInput = page.getByTestId('list-search');
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    });
+  });
+
+  test.describe('Audits List (Regression PR #305)', () => {
+    test('should load audits list page', async ({ page }) => {
+      await page.goto('/audits');
+      
+      // Wait for the universal list page container to be visible
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('audit-list-page'))).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should show table or empty state', async ({ page }) => {
+      await page.goto('/audits');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('audit-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // Wait for either table or empty state to appear
+      const result = await expectListLoaded(page);
+      expect(['table', 'empty']).toContain(result);
+    });
+
+    test('should have search input', async ({ page }) => {
+      await page.goto('/audits');
+      
+      // Wait for page to load first
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('audit-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      const searchInput = page.getByTestId('list-search');
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    });
+
+    test('should display audit items when data exists (mock API)', async ({ page }) => {
+      await page.goto('/audits');
+      
+      // Wait for page to load
+      await expect(page.getByTestId('universal-list-page').or(page.getByTestId('audit-list-page'))).toBeVisible({ timeout: 10000 });
+      
+      // With mock API enabled, we should have at least one audit
+      // Wait for the list to load (table or empty)
+      const result = await expectListLoaded(page);
+      
+      // If mock API is enabled, we expect to see the table with data
+      if (process.env.E2E_MOCK_API === '1') {
+        expect(result).toBe('table');
+        // Verify at least one row exists
+        const firstRow = page.getByTestId('list-row').first();
+        await expect(firstRow).toBeVisible({ timeout: 5000 });
+      }
     });
   });
 

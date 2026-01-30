@@ -14,6 +14,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -49,6 +50,8 @@ import { IssueSeverity, IssueStatus } from '../enums';
 @Controller('grc/audits')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class GrcAuditController {
+  private readonly logger = new Logger(GrcAuditController.name);
+
   constructor(private readonly auditService: GrcAuditService) {}
 
   /**
@@ -68,15 +71,19 @@ export class GrcAuditController {
 
     const result = await this.auditService.findWithFilters(tenantId, filterDto);
 
-    // Return in format expected by frontend
+    // Debug logging for list endpoint diagnostics (safe - no secrets)
+    this.logger.debug(
+      `[LIST] tenantId=${tenantId}, page=${result.page}, pageSize=${result.pageSize}, total=${result.total}, responseKeys=items,total,page,pageSize,totalPages`,
+    );
+
+    // Return in LIST-CONTRACT format expected by useUniversalList
+    // The ResponseTransformInterceptor will wrap this in { success: true, data: ... }
     return {
-      audits: result.items,
-      pagination: {
-        page: result.page,
-        pageSize: result.pageSize,
-        total: result.total,
-        totalPages: result.totalPages,
-      },
+      items: result.items,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
     };
   }
 
