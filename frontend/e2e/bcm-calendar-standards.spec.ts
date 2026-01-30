@@ -126,7 +126,7 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
 
   // ==================== CALENDAR ====================
   test.describe('GRC Calendar Page', () => {
-    test('Calendar page loads successfully', async ({ page }) => {
+    test('Calendar page loads successfully without error', async ({ page }) => {
       await page.goto('/calendar');
       
       // Wait for calendar to load - look for calendar page container
@@ -137,6 +137,9 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
       const pageContent = await page.textContent('body');
       expect(pageContent).not.toContain('Cannot GET');
       expect(pageContent).not.toContain('404');
+      
+      // CRITICAL: Verify "Failed to load calendar events" error does NOT appear
+      expect(pageContent).not.toContain('Failed to load calendar events');
     });
 
     test('Calendar page has month navigation controls', async ({ page }) => {
@@ -169,6 +172,56 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
       
       // Calendar should still be visible after navigation
       await expect(calendarPage).toBeVisible();
+    });
+  });
+
+  // ==================== BCM SERVICE DETAIL TABS ====================
+  test.describe('BCM Service Detail Tabs', () => {
+    test('Service detail page loads with tabs for BIA, Plans, and Exercises', async ({ page }) => {
+      // First navigate to services list
+      await page.goto('/bcm/services');
+      
+      // Wait for page to load
+      await page.waitForTimeout(2000);
+      
+      // Try to click on a service if one exists
+      const serviceRow = page.locator('tr[data-testid^="service-row-"], tbody tr').first();
+      const serviceExists = await serviceRow.isVisible().catch(() => false);
+      
+      if (serviceExists) {
+        // Click on the service to go to detail page
+        await serviceRow.click();
+        
+        // Wait for detail page to load
+        await page.waitForTimeout(1000);
+        
+        // Verify tabs are present
+        const biaTab = page.getByTestId('tab-bia');
+        const plansTab = page.getByTestId('tab-plans');
+        const exercisesTab = page.getByTestId('tab-exercises');
+        
+        await expect(biaTab).toBeVisible({ timeout: 10000 });
+        await expect(plansTab).toBeVisible({ timeout: 5000 });
+        await expect(exercisesTab).toBeVisible({ timeout: 5000 });
+        
+        // Click on BIA tab and verify no error
+        await biaTab.click();
+        await page.waitForTimeout(500);
+        let pageContent = await page.textContent('body');
+        expect(pageContent).not.toContain('Failed to load');
+        
+        // Click on Plans tab and verify no error
+        await plansTab.click();
+        await page.waitForTimeout(500);
+        pageContent = await page.textContent('body');
+        expect(pageContent).not.toContain('Failed to load');
+        
+        // Click on Exercises tab and verify no error
+        await exercisesTab.click();
+        await page.waitForTimeout(500);
+        pageContent = await page.textContent('body');
+        expect(pageContent).not.toContain('Failed to load');
+      }
     });
   });
 

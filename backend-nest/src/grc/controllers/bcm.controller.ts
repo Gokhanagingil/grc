@@ -244,10 +244,12 @@ export class BcmController {
   }
 
   // Service nested endpoints for BIAs, Plans, Exercises
+  // These endpoints return LIST CONTRACT format for consistency with useUniversalList
   @Get('services/:id/bias')
   @ApiOperation({
     summary: 'Get BIAs for Service',
-    description: 'Returns all BIAs linked to a specific service',
+    description:
+      'Returns all BIAs linked to a specific service in LIST CONTRACT format',
   })
   @ApiResponse({ status: 200, description: 'BIAs retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
@@ -262,13 +264,21 @@ export class BcmController {
     }
 
     const bias = await this.bcmService.findBiasByService(tenantId, serviceId);
-    return { success: true, data: bias };
+    // Return LIST CONTRACT format for frontend compatibility
+    return {
+      items: bias,
+      total: bias.length,
+      page: 1,
+      pageSize: bias.length || 20,
+      totalPages: 1,
+    };
   }
 
   @Get('services/:id/plans')
   @ApiOperation({
     summary: 'Get Plans for Service',
-    description: 'Returns all plans linked to a specific service',
+    description:
+      'Returns all plans linked to a specific service in LIST CONTRACT format',
   })
   @ApiResponse({ status: 200, description: 'Plans retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
@@ -283,13 +293,21 @@ export class BcmController {
     }
 
     const plans = await this.bcmService.findPlansByService(tenantId, serviceId);
-    return { success: true, data: plans };
+    // Return LIST CONTRACT format for frontend compatibility
+    return {
+      items: plans,
+      total: plans.length,
+      page: 1,
+      pageSize: plans.length || 20,
+      totalPages: 1,
+    };
   }
 
   @Get('services/:id/exercises')
   @ApiOperation({
     summary: 'Get Exercises for Service',
-    description: 'Returns all exercises linked to a specific service',
+    description:
+      'Returns all exercises linked to a specific service in LIST CONTRACT format',
   })
   @ApiResponse({ status: 200, description: 'Exercises retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
@@ -307,7 +325,14 @@ export class BcmController {
       tenantId,
       serviceId,
     );
-    return { success: true, data: exercises };
+    // Return LIST CONTRACT format for frontend compatibility
+    return {
+      items: exercises,
+      total: exercises.length,
+      page: 1,
+      pageSize: exercises.length || 20,
+      totalPages: 1,
+    };
   }
 
   // ============================================================================
@@ -576,7 +601,8 @@ export class BcmController {
   @Get('plans/:id/steps')
   @ApiOperation({
     summary: 'Get Steps for Plan',
-    description: 'Returns all steps for a specific plan, ordered by step order',
+    description:
+      'Returns all steps for a specific plan in LIST CONTRACT format, ordered by step order',
   })
   @ApiResponse({ status: 200, description: 'Steps retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Plan not found' })
@@ -591,7 +617,14 @@ export class BcmController {
     }
 
     const steps = await this.bcmService.findStepsByPlan(tenantId, planId);
-    return { success: true, data: steps };
+    // Return LIST CONTRACT format for frontend compatibility
+    return {
+      items: steps,
+      total: steps.length,
+      page: 1,
+      pageSize: steps.length || 20,
+      totalPages: 1,
+    };
   }
 
   // ============================================================================

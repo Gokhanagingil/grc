@@ -254,6 +254,308 @@ describe('BCM and Calendar Operations (e2e)', () => {
     });
   });
 
+  // ==================== BCM SERVICE SUB-RESOURCES (LIST CONTRACT) ====================
+  describe('BCM Service Sub-Resources', () => {
+    let testServiceId: string;
+    let createdBiaId: string;
+    let createdPlanId: string;
+    let createdExerciseId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create a service for sub-resource tests
+      const serviceResponse = await request(app.getHttpServer())
+        .post('/grc/bcm/services')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ name: 'Service for Sub-Resource Tests', status: 'ACTIVE' });
+
+      const serviceData = serviceResponse.body.data ?? serviceResponse.body;
+      testServiceId = serviceData?.id;
+    });
+
+    afterAll(async () => {
+      if (!dbConnected || !tenantId || !testServiceId) return;
+
+      // Clean up created resources
+      if (createdExerciseId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/bcm/exercises/${createdExerciseId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (createdPlanId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/bcm/plans/${createdPlanId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (createdBiaId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/bcm/bias/${createdBiaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      await request(app.getHttpServer())
+        .delete(`/grc/bcm/services/${testServiceId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+    });
+
+    describe('GET /grc/bcm/services/:id/bias (LIST CONTRACT)', () => {
+      it('should return BIAs in LIST CONTRACT format', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/bias`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Verify LIST CONTRACT format
+        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('total');
+        expect(response.body).toHaveProperty('page');
+        expect(response.body).toHaveProperty('pageSize');
+        expect(Array.isArray(response.body.items)).toBe(true);
+      });
+    });
+
+    describe('POST /grc/bcm/services/:id/bias', () => {
+      it('should create a BIA linked to the service', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const newBia = {
+          rtoMinutes: 60,
+          rpoMinutes: 30,
+          impactOperational: 3,
+          impactFinancial: 2,
+          impactRegulatory: 1,
+          impactReputational: 2,
+          status: 'DRAFT',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post(`/grc/bcm/services/${testServiceId}/bias`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newBia)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('serviceId', testServiceId);
+        createdBiaId = data.id;
+      });
+
+      it('should show created BIA in service BIA list', async () => {
+        if (!dbConnected || !tenantId || !testServiceId || !createdBiaId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/bias`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(
+          response.body.items.some(
+            (b: { id: string }) => b.id === createdBiaId,
+          ),
+        ).toBe(true);
+      });
+    });
+
+    describe('GET /grc/bcm/services/:id/plans (LIST CONTRACT)', () => {
+      it('should return Plans in LIST CONTRACT format', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/plans`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Verify LIST CONTRACT format
+        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('total');
+        expect(response.body).toHaveProperty('page');
+        expect(response.body).toHaveProperty('pageSize');
+        expect(Array.isArray(response.body.items)).toBe(true);
+      });
+    });
+
+    describe('POST /grc/bcm/services/:id/plans', () => {
+      it('should create a Plan linked to the service', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const newPlan = {
+          name: 'Test Recovery Plan',
+          planType: 'BCP',
+          status: 'DRAFT',
+          summary: 'Test plan for e2e tests',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post(`/grc/bcm/services/${testServiceId}/plans`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newPlan)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('serviceId', testServiceId);
+        createdPlanId = data.id;
+      });
+
+      it('should show created Plan in service plans list', async () => {
+        if (!dbConnected || !tenantId || !testServiceId || !createdPlanId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/plans`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(
+          response.body.items.some(
+            (p: { id: string }) => p.id === createdPlanId,
+          ),
+        ).toBe(true);
+      });
+    });
+
+    describe('GET /grc/bcm/services/:id/exercises (LIST CONTRACT)', () => {
+      it('should return Exercises in LIST CONTRACT format', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/exercises`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        // Verify LIST CONTRACT format
+        expect(response.body).toHaveProperty('items');
+        expect(response.body).toHaveProperty('total');
+        expect(response.body).toHaveProperty('page');
+        expect(response.body).toHaveProperty('pageSize');
+        expect(Array.isArray(response.body.items)).toBe(true);
+      });
+    });
+
+    describe('POST /grc/bcm/services/:id/exercises', () => {
+      it('should create an Exercise linked to the service', async () => {
+        if (!dbConnected || !tenantId || !testServiceId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const newExercise = {
+          name: 'Test Exercise',
+          exerciseType: 'TABLETOP',
+          status: 'PLANNED',
+          scheduledAt: new Date().toISOString(),
+        };
+
+        const response = await request(app.getHttpServer())
+          .post(`/grc/bcm/services/${testServiceId}/exercises`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(newExercise)
+          .expect(201);
+
+        const data = response.body.data ?? response.body;
+        expect(data).toHaveProperty('id');
+        expect(data).toHaveProperty('serviceId', testServiceId);
+        createdExerciseId = data.id;
+      });
+
+      it('should show created Exercise in service exercises list', async () => {
+        if (!dbConnected || !tenantId || !testServiceId || !createdExerciseId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${testServiceId}/exercises`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(
+          response.body.items.some(
+            (e: { id: string }) => e.id === createdExerciseId,
+          ),
+        ).toBe(true);
+      });
+
+      it('should NOT show service exercise in another service exercises list', async () => {
+        if (!dbConnected || !tenantId || !testServiceId || !createdExerciseId) {
+          console.log('Skipping test: prerequisites not met');
+          return;
+        }
+
+        // Create another service
+        const otherServiceResponse = await request(app.getHttpServer())
+          .post('/grc/bcm/services')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ name: 'Other Service for Isolation Test', status: 'ACTIVE' });
+
+        const otherServiceData =
+          otherServiceResponse.body.data ?? otherServiceResponse.body;
+        const otherServiceId = otherServiceData?.id;
+
+        if (!otherServiceId) {
+          console.log('Skipping test: could not create other service');
+          return;
+        }
+
+        // Verify the exercise from testServiceId does NOT appear in otherServiceId's list
+        const response = await request(app.getHttpServer())
+          .get(`/grc/bcm/services/${otherServiceId}/exercises`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(
+          response.body.items.some(
+            (e: { id: string }) => e.id === createdExerciseId,
+          ),
+        ).toBe(false);
+
+        // Clean up other service
+        await request(app.getHttpServer())
+          .delete(`/grc/bcm/services/${otherServiceId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      });
+    });
+  });
+
   // ==================== BCM EXERCISES ====================
   describe('BCM Exercises', () => {
     let createdExerciseId: string;
@@ -558,7 +860,9 @@ describe('BCM and Calendar Operations (e2e)', () => {
         const testServiceId = serviceData?.id;
 
         if (!testServiceId) {
-          console.log('Skipping test: could not create service for calendar exercise test');
+          console.log(
+            'Skipping test: could not create service for calendar exercise test',
+          );
           return;
         }
 
