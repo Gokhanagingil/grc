@@ -384,11 +384,12 @@ export async function setupMockApi(page: Page) {
 
     // Handle platform/modules/enabled - GET
     // useModules hook expects: { enabledModules: string[] }
+    // Note: 'compliance' is required for Controls menu item, 'audit' for Audits, etc.
     if (url.includes('/platform/modules/enabled') && method === 'GET') {
       logMock(method, url, true);
       await route.fulfill(successResponse({
         tenantId: 'test-tenant-id',
-        enabledModules: ['risk', 'policy', 'audit', 'issue', 'capa', 'evidence', 'control'],
+        enabledModules: ['risk', 'policy', 'audit', 'issue', 'capa', 'evidence', 'control', 'compliance'],
       }));
       return;
     }
