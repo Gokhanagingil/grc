@@ -55,6 +55,9 @@ import {
   BugReport as FindingsIcon,
   TrendingUp as InsightsIcon,
   KeyboardArrowDown as ArrowDownIcon,
+  BusinessCenter as BcmIcon,
+  CalendarMonth as CalendarIcon,
+  FitnessCenter as ExerciseIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
@@ -79,6 +82,7 @@ interface NavMenuItem {
   roles?: ('admin' | 'manager' | 'user')[];
   moduleKey?: string;
   children?: NavMenuChild[];
+  testId?: string;
 }
 
 interface NavMenuGroup {
@@ -223,6 +227,38 @@ const grcMenuGroups: NavMenuGroup[] = [
         text: 'Coverage', 
         icon: <ComplianceDashboardIcon />, 
         path: '/coverage',
+      },
+    ],
+  },
+  {
+    id: 'bcm',
+    text: 'BCM',
+    icon: <BcmIcon />,
+    items: [
+      { 
+        text: 'Services', 
+        icon: <BcmIcon />, 
+        path: '/bcm/services',
+        testId: 'sidebar-bcm-services',
+      },
+      { 
+        text: 'Exercises', 
+        icon: <ExerciseIcon />, 
+        path: '/bcm/exercises',
+        testId: 'sidebar-bcm-exercises',
+      },
+    ],
+  },
+  {
+    id: 'calendar',
+    text: 'Calendar',
+    icon: <CalendarIcon />,
+    items: [
+      { 
+        text: 'GRC Calendar', 
+        icon: <CalendarIcon />, 
+        path: '/calendar',
+        testId: 'sidebar-calendar',
       },
     ],
   },
@@ -713,7 +749,7 @@ export const Layout: React.FC = () => {
         {filteredGroups.map((group) => {
           // Generate stable test IDs for navigation groups
           // GRC groups use 'nav-group-grc-{subgroup}' pattern, admin uses 'nav-admin'
-          const isGrcGroup = ['library', 'assurance', 'findings', 'risk', 'insights'].includes(group.id);
+          const isGrcGroup = ['library', 'assurance', 'findings', 'risk', 'insights', 'bcm', 'calendar'].includes(group.id);
           const groupTestId = group.id === 'admin' ? 'nav-admin' : (isGrcGroup ? `nav-group-grc-${group.id}` : `nav-group-${group.id}`);
           return (
             <React.Fragment key={group.id}>
@@ -736,7 +772,9 @@ export const Layout: React.FC = () => {
                     const itemKey = `${group.id}-${item.text}`;
                     const hasChildren = item.children && item.children.length > 0;
                     let testId: string | undefined;
-                    if (item.path === '/audits') {
+                    if (item.testId) {
+                      testId = item.testId;
+                    } else if (item.path === '/audits') {
                       testId = 'nav-audit';
                     } else if (item.path.startsWith('/admin')) {
                       testId = undefined;
