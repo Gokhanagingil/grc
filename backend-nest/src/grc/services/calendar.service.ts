@@ -5,6 +5,7 @@ import { BcmExercise } from '../entities/bcm-exercise.entity';
 import { GrcCapa } from '../entities/grc-capa.entity';
 import { GrcCapaTask } from '../entities/grc-capa-task.entity';
 import { CalendarEventSourceType } from '../enums';
+import { safeToIso } from '../../common/utils/date.util';
 
 export interface CalendarEvent {
   id: string;
@@ -131,24 +132,32 @@ export class CalendarService {
 
     const exercises = await queryBuilder.getMany();
 
-    return exercises.map((exercise) => ({
-      id: `${CalendarEventSourceType.BCM_EXERCISE}:${exercise.id}`,
-      sourceType: CalendarEventSourceType.BCM_EXERCISE,
-      sourceId: exercise.id,
-      title: exercise.name,
-      startAt: exercise.scheduledAt?.toISOString() || '',
-      endAt: exercise.completedAt?.toISOString() || null,
-      status: exercise.status,
-      severity: null,
-      priority: null,
-      ownerUserId: null,
-      url: `/bcm/services/${exercise.serviceId}?tab=exercises`,
-      metadata: {
-        exerciseType: exercise.exerciseType,
-        outcome: exercise.outcome,
-        serviceId: exercise.serviceId,
-      },
-    }));
+    const events: CalendarEvent[] = [];
+    for (const exercise of exercises) {
+      const startAt = safeToIso(exercise.scheduledAt);
+      if (!startAt) {
+        continue;
+      }
+      events.push({
+        id: `${CalendarEventSourceType.BCM_EXERCISE}:${exercise.id}`,
+        sourceType: CalendarEventSourceType.BCM_EXERCISE,
+        sourceId: exercise.id,
+        title: exercise.name,
+        startAt,
+        endAt: safeToIso(exercise.completedAt),
+        status: exercise.status,
+        severity: null,
+        priority: null,
+        ownerUserId: null,
+        url: `/bcm/services/${exercise.serviceId}?tab=exercises`,
+        metadata: {
+          exerciseType: exercise.exerciseType,
+          outcome: exercise.outcome,
+          serviceId: exercise.serviceId,
+        },
+      });
+    }
+    return events;
   }
 
   private async getCapaEvents(
@@ -178,23 +187,31 @@ export class CalendarService {
 
     const capas = await queryBuilder.getMany();
 
-    return capas.map((capa) => ({
-      id: `${CalendarEventSourceType.CAPA}:${capa.id}`,
-      sourceType: CalendarEventSourceType.CAPA,
-      sourceId: capa.id,
-      title: capa.title || 'Untitled CAPA',
-      startAt: capa.dueDate?.toISOString() || '',
-      endAt: null,
-      status: capa.status,
-      severity: null,
-      priority: capa.priority,
-      ownerUserId: capa.ownerUserId,
-      url: `/capa/${capa.id}`,
-      metadata: {
-        type: capa.type,
-        issueId: capa.issueId,
-      },
-    }));
+    const events: CalendarEvent[] = [];
+    for (const capa of capas) {
+      const startAt = safeToIso(capa.dueDate);
+      if (!startAt) {
+        continue;
+      }
+      events.push({
+        id: `${CalendarEventSourceType.CAPA}:${capa.id}`,
+        sourceType: CalendarEventSourceType.CAPA,
+        sourceId: capa.id,
+        title: capa.title || 'Untitled CAPA',
+        startAt,
+        endAt: null,
+        status: capa.status,
+        severity: null,
+        priority: capa.priority,
+        ownerUserId: capa.ownerUserId,
+        url: `/capa/${capa.id}`,
+        metadata: {
+          type: capa.type,
+          issueId: capa.issueId,
+        },
+      });
+    }
+    return events;
   }
 
   private async getCapaTaskEvents(
@@ -226,21 +243,29 @@ export class CalendarService {
 
     const tasks = await queryBuilder.getMany();
 
-    return tasks.map((task) => ({
-      id: `${CalendarEventSourceType.CAPA_TASK}:${task.id}`,
-      sourceType: CalendarEventSourceType.CAPA_TASK,
-      sourceId: task.id,
-      title: task.title,
-      startAt: task.dueDate?.toISOString() || '',
-      endAt: null,
-      status: task.status,
-      severity: null,
-      priority: null,
-      ownerUserId: task.assigneeUserId,
-      url: `/capa/${task.capaId}`,
-      metadata: {
-        capaId: task.capaId,
-      },
-    }));
+    const events: CalendarEvent[] = [];
+    for (const task of tasks) {
+      const startAt = safeToIso(task.dueDate);
+      if (!startAt) {
+        continue;
+      }
+      events.push({
+        id: `${CalendarEventSourceType.CAPA_TASK}:${task.id}`,
+        sourceType: CalendarEventSourceType.CAPA_TASK,
+        sourceId: task.id,
+        title: task.title,
+        startAt,
+        endAt: null,
+        status: task.status,
+        severity: null,
+        priority: null,
+        ownerUserId: task.assigneeUserId,
+        url: `/capa/${task.capaId}`,
+        metadata: {
+          capaId: task.capaId,
+        },
+      });
+    }
+    return events;
   }
 }

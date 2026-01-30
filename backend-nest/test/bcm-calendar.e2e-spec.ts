@@ -551,6 +551,61 @@ describe('BCM and Calendar Operations (e2e)', () => {
       // Status filtering should be done per event type using the 'types' parameter.
     });
 
+    describe('Calendar date handling regression', () => {
+      it('should return 200 even when CAPA tasks have legacy string dates', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const start = new Date('2026-01-01T00:00:00.000Z');
+        const end = new Date('2026-02-01T00:00:00.000Z');
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/calendar/events')
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+            page: 1,
+            pageSize: 5,
+          })
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+      });
+
+      it('should not throw when processing CAPA_TASK events', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        const end = new Date();
+        end.setMonth(end.getMonth() + 1);
+
+        const response = await request(app.getHttpServer())
+          .get('/grc/calendar/events')
+          .query({
+            start: start.toISOString(),
+            end: end.toISOString(),
+            types: 'capa_task',
+          })
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(response.body).toHaveProperty('success', true);
+        const data = response.body.data ?? response.body;
+        expect(Array.isArray(data)).toBe(true);
+      });
+    });
+
     describe('Calendar event types', () => {
       it('should include BCM exercises in calendar events', async () => {
         if (!dbConnected || !tenantId) {
