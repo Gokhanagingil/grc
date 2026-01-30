@@ -523,6 +523,41 @@ export class GrcIssueService {
     });
   }
 
+  async getLinkedControls(
+    tenantId: string,
+    issueId: string,
+  ): Promise<GrcControl[]> {
+    const issue = await this.findOne(tenantId, issueId);
+
+    if (!issue.controlId) {
+      return [];
+    }
+
+    const control = await this.controlRepository.findOne({
+      where: { id: issue.controlId, tenantId, isDeleted: false },
+    });
+
+    return control ? [control] : [];
+  }
+
+  async getLinkedTestResults(
+    tenantId: string,
+    issueId: string,
+  ): Promise<GrcTestResult[]> {
+    const issue = await this.findOne(tenantId, issueId);
+
+    if (!issue.testResultId) {
+      return [];
+    }
+
+    const testResult = await this.testResultRepository.findOne({
+      where: { id: issue.testResultId, tenantId, isDeleted: false },
+      relations: ['control', 'controlTest'],
+    });
+
+    return testResult ? [testResult] : [];
+  }
+
   /**
    * Create an Issue from a Test Result
    *

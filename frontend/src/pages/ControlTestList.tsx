@@ -18,9 +18,21 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { controlTestApi, ControlTestData, ControlTestStatus, ControlTestType } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GenericListPage, ColumnDefinition, FilterOption } from '../components/common';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterConfig,
+  FilterTree,
+} from '../components/common';
 import { GrcFrameworkWarningBanner } from '../components/onboarding';
 import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 const getStatusColor = (status: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
   switch (status) {
@@ -59,6 +71,55 @@ const formatDate = (dateString: string | null | undefined): string => {
 const STATUS_OPTIONS: ControlTestStatus[] = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 const TEST_TYPE_OPTIONS: ControlTestType[] = ['DESIGN', 'OPERATING_EFFECTIVENESS', 'BOTH'];
 
+const CONTROL_TEST_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...STATUS_OPTIONS],
+      enumLabels: {
+        PLANNED: 'Planned',
+        IN_PROGRESS: 'In Progress',
+        COMPLETED: 'Completed',
+        CANCELLED: 'Cancelled',
+      },
+    },
+    {
+      name: 'testType',
+      label: 'Test Type',
+      type: 'enum',
+      enumValues: [...TEST_TYPE_OPTIONS],
+      enumLabels: {
+        DESIGN: 'Design',
+        OPERATING_EFFECTIVENESS: 'Operating Effectiveness',
+        BOTH: 'Both',
+      },
+    },
+    {
+      name: 'scheduledDate',
+      label: 'Scheduled Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
 export const ControlTestList: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -69,12 +130,23 @@ export const ControlTestList: React.FC = () => {
   const statusFilter = searchParams.get('status') || '';
   const testTypeFilter = searchParams.get('testType') || '';
 
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
   const additionalFilters = useMemo(() => {
     const filters: Record<string, unknown> = {};
     if (statusFilter) filters.status = statusFilter;
     if (testTypeFilter) filters.testType = testTypeFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
     return filters;
-  }, [statusFilter, testTypeFilter]);
+  }, [statusFilter, testTypeFilter, advancedFilter]);
 
   const fetchControlTests = useCallback((params: Record<string, unknown>) => {
     return controlTestApi.list(tenantId, params);
@@ -167,6 +239,29 @@ export const ControlTestList: React.FC = () => {
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
   const columns: ColumnDefinition<ControlTestData>[] = useMemo(() => [
     {
       key: 'name',
@@ -252,6 +347,13 @@ export const ControlTestList: React.FC = () => {
 
   const toolbarActions = useMemo(() => (
     <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={CONTROL_TEST_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -279,7 +381,7 @@ export const ControlTestList: React.FC = () => {
         </Select>
       </FormControl>
     </Box>
-  ), [statusFilter, testTypeFilter, handleStatusChange, handleTestTypeChange]);
+  ), [statusFilter, testTypeFilter, handleStatusChange, handleTestTypeChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
     <GenericListPage<ControlTestData>
