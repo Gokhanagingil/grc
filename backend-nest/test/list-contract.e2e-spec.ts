@@ -1081,4 +1081,112 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
       expect(auditIds).toContain(createdAuditId);
     });
   });
+
+  describe('BCM Endpoints - LIST-CONTRACT Compliance', () => {
+    it('GET /grc/bcm/services should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/bcm/services')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('GET /grc/bcm/exercises should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/bcm/exercises')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('GET /grc/bcm/bias should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/bcm/bias')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('GET /grc/bcm/plans should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/bcm/plans')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('BCM service creation and list retrieval should work correctly', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Create a BCM service with all required fields
+      const createResponse = await request(app.getHttpServer())
+        .post('/grc/bcm/services')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          name: `Test BCM Service ${Date.now()}`,
+          description: 'Test service for LIST-CONTRACT regression test',
+          criticalityTier: 'TIER_2',
+          status: 'ACTIVE',
+        })
+        .expect(201);
+
+      const createdServiceId =
+        createResponse.body.data?.id || createResponse.body.id;
+      expect(createdServiceId).toBeDefined();
+
+      // Fetch the list and verify the created service appears
+      const listResponse = await request(app.getHttpServer())
+        .get('/grc/bcm/services')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(listResponse);
+
+      // Verify the created service is in the list
+      const serviceIds = listResponse.body.data.items.map(
+        (service: { id: string }) => service.id,
+      );
+      expect(serviceIds).toContain(createdServiceId);
+
+      // Clean up - delete the created service
+      await request(app.getHttpServer())
+        .delete(`/grc/bcm/services/${createdServiceId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(204);
+    });
+  });
 });
