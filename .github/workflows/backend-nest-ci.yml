@@ -167,6 +167,42 @@ jobs:
           echo "SUCCESS: No dist/migrations/index.js found"
           echo "Migration files in dist/migrations/:"
           ls -la dist/migrations/ 2>/dev/null || echo "No migrations directory"
+      
+      - name: Verify critical scripts exist in dist
+        run: |
+          # CRITICAL: These scripts must exist in dist for production/staging to work
+          # The Docker container only has dist/ - no ts-node or src/ directory
+          # Risk Level: P1 (High) - Missing scripts cause staging smoke tests to fail
+          
+          MISSING_SCRIPTS=""
+          
+          # Check migration-run.js (used by staging smoke tests and deploy workflow)
+          if [ ! -f "dist/scripts/migration-run.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/migration-run.js\n"
+          fi
+          
+          # Check seed-onboarding.js (used by staging smoke tests)
+          if [ ! -f "dist/scripts/seed-onboarding.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-onboarding.js\n"
+          fi
+          
+          # Check data-source.js (used by TypeORM migration commands)
+          if [ ! -f "dist/data-source.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/data-source.js\n"
+          fi
+          
+          if [ -n "$MISSING_SCRIPTS" ]; then
+            echo "ERROR: Critical scripts missing from dist!"
+            echo "The following files must exist for production/staging:"
+            echo -e "$MISSING_SCRIPTS"
+            echo ""
+            echo "Ensure these files are included in tsconfig.json and built correctly."
+            exit 1
+          fi
+          
+          echo "SUCCESS: All critical scripts exist in dist"
+          echo "Scripts verified:"
+          ls -la dist/scripts/migration-run.js dist/scripts/seed-onboarding.js dist/data-source.js
 
   # ---------------------------------------------------------------------------
   # Unit Tests - Jest Unit Tests
@@ -686,7 +722,9 @@ jobs:
       
       - name: Run migrations in container
         run: |
-          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run migration:run'; then
+          # IMPORTANT: In production container, use migration:run:prod (node dist/scripts/migration-run.js)
+          # The container does NOT have ts-node or src/ directory - only dist/ exists
+          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js'; then
             echo "FAIL: Migration failed. Dumping logs for debugging..."
             echo "=== Backend logs ==="
             docker compose -f docker-compose.smoke.yml logs backend
@@ -698,7 +736,9 @@ jobs:
       
       - name: Seed demo data
         run: |
-          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'npm run seed:onboarding'; then
+          # IMPORTANT: In production container, use seed:onboarding (node dist/scripts/seed-onboarding.js)
+          # The container does NOT have ts-node or src/ directory - only dist/ exists
+          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-onboarding.js'; then
             echo "FAIL: Seeding failed. Dumping logs for debugging..."
             echo "=== Backend logs ==="
             docker compose -f docker-compose.smoke.yml logs backend

@@ -28,6 +28,7 @@ const access = promisify(fs.access);
 export class LocalFsAdapter implements StorageAdapter {
   private readonly logger = new Logger(LocalFsAdapter.name);
   private readonly basePath: string;
+  private storageAvailable = false;
 
   constructor(private readonly configService: ConfigService) {
     const configuredPath = this.configService.get<string>(
@@ -36,8 +37,12 @@ export class LocalFsAdapter implements StorageAdapter {
     if (configuredPath) {
       this.basePath = configuredPath;
     } else {
+      // In production, prefer /app/data (writable in container) over /data (may not be mounted)
+      // Fallback chain: ATTACHMENT_STORAGE_PATH > /app/data (prod) > ./uploads (dev)
       this.basePath =
-        process.env.NODE_ENV === 'production' ? '/data/uploads' : './uploads';
+        process.env.NODE_ENV === 'production'
+          ? '/app/data/uploads'
+          : './uploads';
     }
     this.initializeStorage();
   }
@@ -54,14 +59,58 @@ export class LocalFsAdapter implements StorageAdapter {
 
   /**
    * Ensure the base storage directory exists
+   *
+   * This method handles permission errors gracefully to prevent app crashes
+   * when storage is not needed for core flows. Storage operations will fail
+   * at runtime if the directory cannot be created, but the app will start.
    */
   private async ensureBaseDirectory(): Promise<void> {
     try {
       await mkdir(this.basePath, { recursive: true });
+      this.storageAvailable = true;
       this.logger.log(`Storage directory initialized: ${this.basePath}`);
     } catch (error) {
-      this.logger.error(`Failed to create storage directory: ${error}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorCode = (error as NodeJS.ErrnoException).code;
+
+      if (errorCode === 'EACCES') {
+        // Permission denied - log warning but don't crash the app
+        // Storage features will fail at runtime, but core app functionality continues
+        this.logger.warn(
+          `Storage directory permission denied: ${this.basePath}. ` +
+            `File upload/download features will not work. ` +
+            `To fix: mount a writable volume to ${this.basePath} or set ATTACHMENT_STORAGE_PATH env var.`,
+        );
+      } else if (errorCode === 'ENOENT') {
+        // Parent directory doesn't exist - try to create it
+        this.logger.warn(
+          `Storage parent directory does not exist: ${this.basePath}. ` +
+            `Attempting to create parent directories...`,
+        );
+        try {
+          await mkdir(path.dirname(this.basePath), { recursive: true });
+          await mkdir(this.basePath, { recursive: true });
+          this.storageAvailable = true;
+          this.logger.log(`Storage directory created: ${this.basePath}`);
+        } catch (retryError) {
+          this.logger.error(
+            `Failed to create storage directory after retry: ${retryError}`,
+          );
+        }
+      } else {
+        this.logger.error(
+          `Failed to create storage directory: ${errorMessage} (code: ${errorCode})`,
+        );
+      }
     }
+  }
+
+  /**
+   * Check if storage is available for use
+   */
+  isStorageAvailable(): boolean {
+    return this.storageAvailable;
   }
 
   /**

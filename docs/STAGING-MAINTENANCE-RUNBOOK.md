@@ -1,12 +1,97 @@
 # GRC Platform - Staging Maintenance Runbook
 
-**Last Updated:** January 28, 2026  
+**Last Updated:** January 30, 2026  
 **Staging Server:** 46.224.99.150  
 **Deployment Path:** /opt/grc-platform
 
 ## Overview
 
 This runbook documents maintenance procedures for the GRC Platform staging environment. Use these procedures for database resets, reseeding, troubleshooting, and routine maintenance.
+
+## Deterministic Startup Order (CRITICAL)
+
+For staging to start reliably without "relation does not exist" errors, follow this exact order:
+
+### Correct Startup Sequence
+
+1. **Start database first** (wait for healthy)
+2. **Start backend** (will start with warnings if tables missing)
+3. **Run migrations** (creates/updates all tables)
+4. **Run seeds** (populates demo data if needed)
+5. **Verify health** (all endpoints should return 200)
+
+### Quick Reference Commands
+
+```bash
+# SSH to staging
+ssh root@46.224.99.150
+cd /opt/grc-platform
+
+# Step 1: Show pending migrations (diagnostic)
+docker compose -f docker-compose.staging.yml exec -T backend \
+  npx typeorm migration:show -d dist/data-source.js
+
+# Step 2: Run pending migrations
+docker compose -f docker-compose.staging.yml exec -T backend \
+  npx typeorm migration:run -d dist/data-source.js
+
+# Step 3: Seed demo data (if needed, idempotent)
+docker compose -f docker-compose.staging.yml exec -T backend \
+  node dist/scripts/seed-onboarding.js
+
+# Step 4: Verify health
+curl -s http://localhost:3002/health/ready | jq '.data.checks.database'
+```
+
+### Important Notes on Production Scripts
+
+The Docker container does NOT have `ts-node` or the `src/` directory - only `dist/` exists. Always use these commands in production/staging:
+
+| Task | Correct Command | Wrong Command |
+|------|-----------------|---------------|
+| Run migrations | `node dist/scripts/migration-run.js` | `npm run migration:run` (uses ts-node) |
+| Show migrations | `npx typeorm migration:show -d dist/data-source.js` | `npm run migration:show` |
+| Seed onboarding | `node dist/scripts/seed-onboarding.js` | `npm run seed:onboarding:dev` |
+| Seed standards | `node dist/scripts/seed-standards.js` | `npm run seed:standards:dev` |
+
+### Required Tables
+
+After migrations, these tables must exist:
+
+**Core Tables:**
+- `nest_tenants` - Multi-tenant organizations
+- `nest_users` - User accounts
+- `nest_system_settings` - System configuration
+- `nest_audit_logs` - Audit trail
+
+**GRC Tables:**
+- `grc_risks`, `grc_policies`, `grc_requirements`, `grc_controls`
+- `grc_evidence`, `grc_issues`, `grc_capas`, `grc_audits`
+
+**Platform Builder Tables:**
+- `sys_db_object` - Dynamic table definitions
+- `sys_dictionary` - Field definitions
+- `dynamic_records` - Dynamic data storage
+
+### Troubleshooting Missing Tables
+
+If you see errors like `relation "nest_system_settings" does not exist`:
+
+```bash
+# 1. Check migration status
+docker compose -f docker-compose.staging.yml exec -T backend \
+  npx typeorm migration:show -d dist/data-source.js
+
+# 2. Run any pending migrations
+docker compose -f docker-compose.staging.yml exec -T backend \
+  npx typeorm migration:run -d dist/data-source.js
+
+# 3. Restart backend to pick up new tables
+docker compose -f docker-compose.staging.yml restart backend
+
+# 4. Verify tables exist
+docker exec grc-staging-db psql -U postgres -d grc_platform -c "\\dt"
+```
 
 ## Access Information
 
