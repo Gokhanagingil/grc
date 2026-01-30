@@ -182,7 +182,7 @@ export class CalendarService {
       id: `${CalendarEventSourceType.CAPA}:${capa.id}`,
       sourceType: CalendarEventSourceType.CAPA,
       sourceId: capa.id,
-      title: capa.title,
+      title: capa.title || 'Untitled CAPA',
       startAt: capa.dueDate?.toISOString() || '',
       endAt: null,
       status: capa.status,
