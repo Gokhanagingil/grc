@@ -470,57 +470,57 @@ export function UniversalListPage<T>({
 
       <Card>
         <CardContent>
-          <ResponsiveTable minWidth={minTableWidth}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableCell key={column.key} style={{ width: column.width }}>
-                      {column.header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.length === 0 ? (
-                  <TableRow data-testid="empty-state">
-                    <TableCell colSpan={columns.length} align="center" sx={{ py: 0, border: 'none' }}>
-                      <EmptyState
-                        icon={icon ? React.cloneElement(icon, { sx: { fontSize: 64, color: 'text.disabled' } }) : undefined}
-                        title={emptyMessage}
-                        message={hasFiltersOrSearch ? emptyFilteredMessage : undefined}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  items.map((item, index) => (
-                    <TableRow
-                      key={getRowKey(item)}
-                      hover
-                      onClick={() => onRowClick?.(item)}
-                      sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
-                      data-testid={index === 0 ? 'list-row' : undefined}
-                    >
+          {items.length === 0 ? (
+            <Box data-testid="list-empty">
+              <EmptyState
+                icon={icon ? React.cloneElement(icon, { sx: { fontSize: 64, color: 'text.disabled' } }) : undefined}
+                title={emptyMessage}
+                message={hasFiltersOrSearch ? emptyFilteredMessage : undefined}
+              />
+            </Box>
+          ) : (
+            <>
+              <ResponsiveTable minWidth={minTableWidth}>
+                <Table data-testid="list-table">
+                  <TableHead>
+                    <TableRow>
                       {columns.map((column) => (
-                        <TableCell key={column.key}>
-                          {column.render(item)}
+                        <TableCell key={column.key} style={{ width: column.width }}>
+                          {column.header}
                         </TableCell>
                       ))}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ResponsiveTable>
-          <TablePagination
-            component="div"
-            count={total}
-            page={page - 1}
-            onPageChange={handleChangePage}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={rowsPerPageOptions}
-          />
+                  </TableHead>
+                  <TableBody>
+                    {items.map((item, index) => (
+                      <TableRow
+                        key={getRowKey(item)}
+                        hover
+                        onClick={() => onRowClick?.(item)}
+                        sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                        data-testid={index === 0 ? 'list-row' : undefined}
+                      >
+                        {columns.map((column) => (
+                          <TableCell key={column.key}>
+                            {column.render(item)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ResponsiveTable>
+              <TablePagination
+                component="div"
+                count={total}
+                page={page - 1}
+                onPageChange={handleChangePage}
+                rowsPerPage={pageSize}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={rowsPerPageOptions}
+              />
+            </>
+          )}
         </CardContent>
       </Card>
     </Box>

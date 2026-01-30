@@ -1,8 +1,28 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { SystemSetting } from './system-setting.entity';
 import { TenantSetting } from './tenant-setting.entity';
+
+/**
+ * Check if a QueryFailedError indicates a missing relation (table does not exist).
+ * This is used to gracefully handle cases where migrations haven't run yet.
+ *
+ * @param error - The error to check
+ * @param relationName - The expected relation/table name (e.g., 'nest_system_settings')
+ * @returns true if the error indicates the specified relation is missing
+ */
+export function isMissingRelation(
+  error: unknown,
+  relationName: string,
+): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+  const message = error.message || '';
+  // PostgreSQL error pattern: relation "table_name" does not exist
+  return message.includes(`relation "${relationName}" does not exist`);
+}
 
 /**
  * Settings Service
@@ -12,6 +32,8 @@ import { TenantSetting } from './tenant-setting.entity';
  */
 @Injectable()
 export class SettingsService implements OnModuleInit {
+  private readonly logger = new Logger(SettingsService.name);
+
   constructor(
     @InjectRepository(SystemSetting)
     private readonly systemSettingRepository: Repository<SystemSetting>,
@@ -184,7 +206,9 @@ export class SettingsService implements OnModuleInit {
   }
 
   /**
-   * Seed default system settings
+   * Seed default system settings.
+   * Gracefully handles the case where the nest_system_settings table doesn't exist yet
+   * (e.g., migrations haven't run). This prevents the app from crashing on boot.
    */
   private async seedDefaultSettings(): Promise<void> {
     const defaultSettings = [
@@ -226,16 +250,28 @@ export class SettingsService implements OnModuleInit {
       },
     ];
 
-    for (const setting of defaultSettings) {
-      const existing = await this.systemSettingRepository.findOne({
-        where: { key: setting.key },
-      });
+    try {
+      for (const setting of defaultSettings) {
+        const existing = await this.systemSettingRepository.findOne({
+          where: { key: setting.key },
+        });
 
-      if (!existing) {
-        await this.systemSettingRepository.save(
-          this.systemSettingRepository.create(setting),
-        );
+        if (!existing) {
+          await this.systemSettingRepository.save(
+            this.systemSettingRepository.create(setting),
+          );
+        }
       }
+    } catch (error) {
+      if (isMissingRelation(error, 'nest_system_settings')) {
+        this.logger.warn(
+          'Table nest_system_settings does not exist. ' +
+            'Skipping default settings seeding. ' +
+            'Run migrations to create the table.',
+        );
+        return;
+      }
+      throw error;
     }
   }
 }

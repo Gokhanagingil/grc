@@ -866,3 +866,38 @@ export async function waitForApiResponse(page: Page, urlPattern: string | RegExp
   );
 }
 
+/**
+ * Wait for list page to be loaded and verify exactly one of list-table or list-empty is visible.
+ * This helper avoids Playwright strict mode violations by ensuring only one element exists.
+ * 
+ * The GenericListPage and UniversalListPage components now conditionally render:
+ * - data-testid="list-table" when items.length > 0
+ * - data-testid="list-empty" when items.length === 0
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait for the list to load (default: 15000ms)
+ * @returns 'table' if list-table is visible, 'empty' if list-empty is visible
+ */
+export async function expectListLoaded(page: Page, timeout = 15000): Promise<'table' | 'empty'> {
+  const listTable = page.locator('[data-testid="list-table"]');
+  const listEmpty = page.locator('[data-testid="list-empty"]');
+
+  await expect.poll(
+    async () => {
+      const tableCount = await listTable.count();
+      const emptyCount = await listEmpty.count();
+      return tableCount + emptyCount;
+    },
+    { timeout, message: 'Expected exactly one of list-table or list-empty to be present' }
+  ).toBe(1);
+
+  const tableVisible = await listTable.count() > 0;
+  if (tableVisible) {
+    await expect(listTable).toBeVisible({ timeout: 5000 });
+    return 'table';
+  } else {
+    await expect(listEmpty).toBeVisible({ timeout: 5000 });
+    return 'empty';
+  }
+}
+
