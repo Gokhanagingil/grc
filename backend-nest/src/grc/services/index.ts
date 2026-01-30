@@ -66,3 +66,9 @@ export {
 
 // Framework Activation Services
 export { GrcFrameworksService, FrameworkDto } from './grc-frameworks.service';
+
+// BCM (Business Continuity Management) Services
+export { BcmModuleService } from './bcm.service';
+
+// Calendar Services
+export { CalendarService } from './calendar.service';

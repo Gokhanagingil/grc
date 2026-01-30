@@ -104,3 +104,22 @@ export {
   SOA_PROFILE_SORTABLE_FIELDS,
   SOA_ITEM_SORTABLE_FIELDS,
 } from './soa.dto';
+
+// BCM (Business Continuity Management) DTOs
+export {
+  CreateBcmServiceDto,
+  UpdateBcmServiceDto,
+  BcmServiceFilterDto,
+  CreateBcmBiaDto,
+  UpdateBcmBiaDto,
+  BcmBiaFilterDto,
+  CreateBcmPlanDto,
+  UpdateBcmPlanDto,
+  BcmPlanFilterDto,
+  CreateBcmPlanStepDto,
+  UpdateBcmPlanStepDto,
+  BcmPlanStepFilterDto,
+  CreateBcmExerciseDto,
+  UpdateBcmExerciseDto,
+  BcmExerciseFilterDto,
+} from './bcm.dto';

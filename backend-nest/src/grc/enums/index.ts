@@ -612,3 +612,118 @@ export enum SoaImplementationStatus {
   PLANNED = 'PLANNED',
   NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
 }
+
+// ============================================================================
+// BCM (Business Continuity Management) Enums
+// ============================================================================
+
+/**
+ * BcmServiceStatus - Status of a BCM service
+ * Values match PostgreSQL enum: bcm_services_status_enum
+ */
+export enum BcmServiceStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+/**
+ * BcmCriticalityTier - Criticality tier for BCM services and BIAs
+ * Values match PostgreSQL enum: bcm_criticality_tier_enum
+ */
+export enum BcmCriticalityTier {
+  TIER_0 = 'TIER_0',
+  TIER_1 = 'TIER_1',
+  TIER_2 = 'TIER_2',
+  TIER_3 = 'TIER_3',
+}
+
+/**
+ * BcmBiaStatus - Status of a Business Impact Analysis
+ * Values match PostgreSQL enum: bcm_bias_status_enum
+ */
+export enum BcmBiaStatus {
+  DRAFT = 'DRAFT',
+  REVIEWED = 'REVIEWED',
+  APPROVED = 'APPROVED',
+}
+
+/**
+ * BcmPlanType - Type of BCM plan
+ * Values match PostgreSQL enum: bcm_plans_plan_type_enum
+ */
+export enum BcmPlanType {
+  BCP = 'BCP',
+  DRP = 'DRP',
+  IT_CONTINUITY = 'IT_CONTINUITY',
+}
+
+/**
+ * BcmPlanStatus - Status of a BCM plan
+ * Values match PostgreSQL enum: bcm_plans_status_enum
+ */
+export enum BcmPlanStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  ACTIVE = 'ACTIVE',
+  RETIRED = 'RETIRED',
+}
+
+/**
+ * BcmPlanStepStatus - Status of a BCM plan step
+ * Values match PostgreSQL enum: bcm_plan_steps_status_enum
+ */
+export enum BcmPlanStepStatus {
+  PLANNED = 'PLANNED',
+  READY = 'READY',
+  DEPRECATED = 'DEPRECATED',
+}
+
+/**
+ * BcmExerciseType - Type of BCM exercise
+ * Values match PostgreSQL enum: bcm_exercises_exercise_type_enum
+ */
+export enum BcmExerciseType {
+  TABLETOP = 'TABLETOP',
+  FAILOVER = 'FAILOVER',
+  RESTORE = 'RESTORE',
+  COMMS = 'COMMS',
+}
+
+/**
+ * BcmExerciseStatus - Status of a BCM exercise
+ * Values match PostgreSQL enum: bcm_exercises_status_enum
+ */
+export enum BcmExerciseStatus {
+  PLANNED = 'PLANNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+/**
+ * BcmExerciseOutcome - Outcome of a BCM exercise
+ * Values match PostgreSQL enum: bcm_exercises_outcome_enum
+ */
+export enum BcmExerciseOutcome {
+  PASS = 'PASS',
+  PARTIAL = 'PARTIAL',
+  FAIL = 'FAIL',
+}
+
+// ============================================================================
+// Calendar Enums
+// ============================================================================
+
+/**
+ * CalendarEventSourceType - Source type for calendar events
+ * Used to identify the origin of calendar events
+ */
+export enum CalendarEventSourceType {
+  AUDIT = 'AUDIT',
+  CAPA = 'CAPA',
+  CAPA_TASK = 'CAPA_TASK',
+  BCM_EXERCISE = 'BCM_EXERCISE',
+  POLICY_REVIEW = 'POLICY_REVIEW',
+  EVIDENCE_REVIEW = 'EVIDENCE_REVIEW',
+}

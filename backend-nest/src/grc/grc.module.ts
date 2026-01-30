@@ -70,6 +70,12 @@ import {
   GrcSoaItem,
   GrcSoaItemControl,
   GrcSoaItemEvidence,
+  // BCM (Business Continuity Management) entities
+  BcmService,
+  BcmBia,
+  BcmPlan,
+  BcmPlanStep,
+  BcmExercise,
 } from './entities';
 
 // Services
@@ -125,6 +131,12 @@ import { CodeGeneratorService } from './services/code-generator.service';
 
 // SOA (Statement of Applicability) services
 import { GrcSoaService } from './services/grc-soa.service';
+
+// BCM (Business Continuity Management) services
+import { BcmModuleService } from './services/bcm.service';
+
+// Calendar services
+import { CalendarService } from './services/calendar.service';
 
 // Controllers
 import {
@@ -183,6 +195,12 @@ import { DynamicDataController } from './controllers/dynamic-data.controller';
 
 // SOA (Statement of Applicability) controllers
 import { GrcSoaController } from './controllers/grc-soa.controller';
+
+// BCM (Business Continuity Management) controllers
+import { BcmController } from './controllers/bcm.controller';
+
+// Calendar controllers
+import { CalendarController } from './controllers/calendar.controller';
 
 /**
  * GRC Module
@@ -269,6 +287,12 @@ import { GrcSoaController } from './controllers/grc-soa.controller';
       GrcSoaItem,
       GrcSoaItemControl,
       GrcSoaItemEvidence,
+      // BCM (Business Continuity Management) entities
+      BcmService,
+      BcmBia,
+      BcmPlan,
+      BcmPlanStep,
+      BcmExercise,
     ]),
     AuditModule,
     AuthModule,
@@ -324,6 +348,10 @@ import { GrcSoaController } from './controllers/grc-soa.controller';
     CodeGeneratorService,
     // SOA (Statement of Applicability) services
     GrcSoaService,
+    // BCM (Business Continuity Management) services
+    BcmModuleService,
+    // Calendar services
+    CalendarService,
   ],
   controllers: [
     // Core controllers
@@ -377,6 +405,10 @@ import { GrcSoaController } from './controllers/grc-soa.controller';
     DynamicDataController,
     // SOA (Statement of Applicability) controllers
     GrcSoaController,
+    // BCM (Business Continuity Management) controllers
+    BcmController,
+    // Calendar controllers
+    CalendarController,
   ],
   exports: [
     // Universal List Service (platform-level)
@@ -426,6 +458,8 @@ import { GrcSoaController } from './controllers/grc-soa.controller';
     CodeGeneratorService,
     // SOA (Statement of Applicability) services
     GrcSoaService,
+    // BCM (Business Continuity Management) services
+    BcmModuleService,
   ],
 })
 export class GrcModule {}
