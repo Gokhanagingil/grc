@@ -4239,10 +4239,8 @@ export const bcmApi = {
   },
 
   // Services
-  listServices: async (tenantId: string, params?: BcmListParams & { status?: BcmServiceStatus; criticalityTier?: BcmCriticalityTier }) => {
-    const response = await api.get(API_PATHS.GRC_BCM.SERVICES.LIST, { ...withTenantId(tenantId), params });
-    return unwrapPaginatedResponse<BcmServiceData>(response);
-  },
+  listServices: (tenantId: string, params?: BcmListParams & { status?: BcmServiceStatus; criticalityTier?: BcmCriticalityTier }) =>
+    api.get(API_PATHS.GRC_BCM.SERVICES.LIST, { ...withTenantId(tenantId), params }),
 
   getService: async (tenantId: string, id: string): Promise<BcmServiceData> => {
     const response = await api.get(API_PATHS.GRC_BCM.SERVICES.GET(id), withTenantId(tenantId));
@@ -4359,10 +4357,8 @@ export const bcmApi = {
   },
 
   // Exercises
-  listExercises: async (tenantId: string, params?: BcmListParams & { serviceId?: string; planId?: string; exerciseType?: BcmExerciseType; status?: BcmExerciseStatus; outcome?: BcmExerciseOutcome }) => {
-    const response = await api.get(API_PATHS.GRC_BCM.EXERCISES.LIST, { ...withTenantId(tenantId), params });
-    return unwrapPaginatedResponse<BcmExerciseData>(response);
-  },
+  listExercises: (tenantId: string, params?: BcmListParams & { serviceId?: string; planId?: string; exerciseType?: BcmExerciseType; status?: BcmExerciseStatus; outcome?: BcmExerciseOutcome }) =>
+    api.get(API_PATHS.GRC_BCM.EXERCISES.LIST, { ...withTenantId(tenantId), params }),
 
   getExercise: async (tenantId: string, id: string): Promise<BcmExerciseData> => {
     const response = await api.get(API_PATHS.GRC_BCM.EXERCISES.GET(id), withTenantId(tenantId));

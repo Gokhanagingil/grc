@@ -252,7 +252,7 @@ export const BcmServiceDetail: React.FC = () => {
     try {
       const updated = await bcmApi.updateService(tenantId, id, {
         name: editedService.name,
-        description: editedService.description,
+        description: editedService.description ?? undefined,
         status: editedService.status as BcmServiceStatus,
         criticalityTier: editedService.criticalityTier as BcmCriticalityTier,
         tags: editedService.tags,

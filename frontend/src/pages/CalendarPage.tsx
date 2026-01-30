@@ -27,8 +27,6 @@ import {
   Today as TodayIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +38,7 @@ const SOURCE_TYPE_LABELS: Record<CalendarEventSourceType, string> = {
   CAPA_TASK: 'CAPA Task',
   AUDIT: 'Audit',
   POLICY_REVIEW: 'Policy Review',
+  EVIDENCE_REVIEW: 'Evidence Review',
 };
 
 const SOURCE_TYPE_COLORS: Record<CalendarEventSourceType, 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'> = {
@@ -48,6 +47,7 @@ const SOURCE_TYPE_COLORS: Record<CalendarEventSourceType, 'primary' | 'secondary
   CAPA_TASK: 'warning',
   AUDIT: 'primary',
   POLICY_REVIEW: 'secondary',
+  EVIDENCE_REVIEW: 'success',
 };
 
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'> = {
@@ -67,7 +67,8 @@ const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error
 
 export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
   
   const [events, setEvents] = useState<CalendarEventData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,14 +88,14 @@ export const CalendarPage: React.FC = () => {
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
       
-      const response = await calendarApi.getEvents({
+      const response = await calendarApi.getEvents(tenantId, {
         start: start.toISOString(),
         end: end.toISOString(),
         types: selectedTypes.length > 0 ? selectedTypes : undefined,
         status: statusFilter || undefined,
       });
       
-      setEvents(response.data || []);
+      setEvents(response || []);
     } catch (err) {
       console.error('Failed to fetch calendar events:', err);
       setError('Failed to load calendar events. Please try again.');
@@ -157,8 +158,7 @@ export const CalendarPage: React.FC = () => {
   const groupedEvents = groupEventsByDate(events);
   
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }} data-testid="calendar-page">
+    <Box sx={{ p: 3 }} data-testid="calendar-page">
         <Typography variant="h4" gutterBottom>
           GRC Calendar
         </Typography>
@@ -318,8 +318,7 @@ export const CalendarPage: React.FC = () => {
             ))}
           </Box>
         )}
-      </Box>
-    </LocalizationProvider>
+    </Box>
   );
 };
 
