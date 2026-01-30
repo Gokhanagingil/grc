@@ -687,28 +687,37 @@ export async function setupMockApi(page: Page) {
     }
 
     // Handle grc/calendar/events - GET (GRC Calendar events)
+    // CalendarEventData interface expects: id, sourceType, sourceId, title, startAt, endAt, status, severity, priority, ownerUserId, url, metadata
     if (url.includes('/grc/calendar/events') && method === 'GET') {
       logMock(method, url, true);
       const mockCalendarEvents = [
         {
           id: 'cal-event-001',
+          sourceType: 'BCM_EXERCISE',
+          sourceId: 'mock-bcm-exercise-001',
           title: 'Mock BCM Exercise',
-          type: 'bcm_exercise',
+          startAt: '2024-03-15T10:00:00Z',
+          endAt: '2024-03-15T12:00:00Z',
           status: 'PLANNED',
-          startDate: '2024-03-15T10:00:00Z',
-          endDate: '2024-03-15T12:00:00Z',
-          entityId: 'mock-bcm-exercise-001',
-          entityType: 'bcm_exercise',
+          severity: null,
+          priority: null,
+          ownerUserId: null,
+          url: '/bcm/exercises/mock-bcm-exercise-001',
+          metadata: null,
         },
         {
           id: 'cal-event-002',
+          sourceType: 'CAPA',
+          sourceId: 'mock-capa-001',
           title: 'Mock CAPA Due',
-          type: 'capa',
-          status: 'planned',
-          startDate: '2024-02-15T00:00:00Z',
-          endDate: '2024-02-15T23:59:59Z',
-          entityId: 'mock-capa-001',
-          entityType: 'capa',
+          startAt: '2024-02-15T00:00:00Z',
+          endAt: '2024-02-15T23:59:59Z',
+          status: 'open',
+          severity: null,
+          priority: null,
+          ownerUserId: null,
+          url: '/findings/capas/mock-capa-001',
+          metadata: null,
         },
       ];
       await route.fulfill(successResponse(mockCalendarEvents));

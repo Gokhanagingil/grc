@@ -113,12 +113,14 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
       expect(pageContent).not.toContain('404');
     });
 
-    test('BCM Exercises page has Add button', async ({ page }) => {
+    test('BCM Exercises page has filter controls', async ({ page }) => {
+      // NOTE: BCM Exercises are created from the Service detail page, not the list page.
+      // This test verifies the list page has filter controls instead of an Add button.
       await page.goto('/bcm/exercises');
       
-      // Look for an Add/Create button
-      const addButton = page.locator('button:has-text("Add"), button:has-text("Create"), button:has-text("New"), [data-testid*="add"], [data-testid*="create"]');
-      await expect(addButton.first()).toBeVisible({ timeout: 10000 });
+      // Look for filter controls (status and type dropdowns)
+      const filterControls = page.locator('[data-testid="bcm-exercise-status-filter"], [data-testid="bcm-exercise-type-filter"]');
+      await expect(filterControls.first()).toBeVisible({ timeout: 10000 });
     });
   });
 
@@ -127,8 +129,8 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
     test('Calendar page loads successfully', async ({ page }) => {
       await page.goto('/calendar');
       
-      // Wait for calendar to load - look for calendar container or month view
-      const calendarContainer = page.locator('[data-testid="calendar-container"], [class*="calendar"], .fc, .MuiPaper-root');
+      // Wait for calendar to load - look for calendar page container
+      const calendarContainer = page.locator('[data-testid="calendar-page"], [data-testid="calendar-filters"], .MuiPaper-root');
       await expect(calendarContainer.first()).toBeVisible({ timeout: 15000 });
       
       // Verify no error message is shown
@@ -140,29 +142,33 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
     test('Calendar page has month navigation controls', async ({ page }) => {
       await page.goto('/calendar');
       
-      // Look for navigation buttons (prev/next month)
-      const navButtons = page.locator('button:has-text("Previous"), button:has-text("Next"), button:has-text("Today"), [aria-label*="previous"], [aria-label*="next"], .fc-prev-button, .fc-next-button');
-      await expect(navButtons.first()).toBeVisible({ timeout: 10000 });
+      // Look for navigation buttons using data-testid attributes
+      const prevButton = page.getByTestId('calendar-prev-month');
+      const nextButton = page.getByTestId('calendar-next-month');
+      const todayButton = page.getByTestId('calendar-today');
+      
+      await expect(prevButton).toBeVisible({ timeout: 10000 });
+      await expect(nextButton).toBeVisible({ timeout: 10000 });
+      await expect(todayButton).toBeVisible({ timeout: 10000 });
     });
 
     test('Calendar page can switch months', async ({ page }) => {
       await page.goto('/calendar');
       
       // Wait for calendar to load
-      await page.waitForTimeout(2000);
+      const calendarPage = page.getByTestId('calendar-page');
+      await expect(calendarPage).toBeVisible({ timeout: 10000 });
       
-      // Find and click next month button
-      const nextButton = page.locator('button:has-text("Next"), [aria-label*="next"], .fc-next-button, button[title*="next"]').first();
+      // Find and click next month button using data-testid
+      const nextButton = page.getByTestId('calendar-next-month');
+      await expect(nextButton).toBeVisible({ timeout: 5000 });
+      await nextButton.click();
       
-      if (await nextButton.isVisible()) {
-        await nextButton.click();
-        // Wait for calendar to update
-        await page.waitForTimeout(1000);
-        
-        // Calendar should still be visible after navigation
-        const calendarContainer = page.locator('[data-testid="calendar-container"], [class*="calendar"], .fc, .MuiPaper-root');
-        await expect(calendarContainer.first()).toBeVisible();
-      }
+      // Wait for calendar to update
+      await page.waitForTimeout(500);
+      
+      // Calendar should still be visible after navigation
+      await expect(calendarPage).toBeVisible();
     });
   });
 
