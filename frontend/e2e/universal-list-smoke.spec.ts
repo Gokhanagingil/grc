@@ -310,8 +310,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
         .or(page.locator('input[type="text"]').first());
       
       // Search may or may not be present depending on page implementation
-      const isVisible = await searchInput.isVisible().catch(() => false);
       // Just verify page loaded without error - search is optional
+      await searchInput.isVisible().catch(() => false);
       expect(true).toBe(true);
     });
   });
@@ -320,12 +320,9 @@ test.describe('Universal List Experience Smoke Tests', () => {
     test('should load audits list page', async ({ page }) => {
       await page.goto('/audits');
       
-      // Wait for page content to load - look for heading or table/empty state
-      const pageLoaded = page.locator('h1, h2, [role="heading"]').filter({ hasText: /audit/i }).first()
-        .or(page.getByTestId('list-table'))
-        .or(page.getByTestId('list-empty'))
-        .or(page.locator('table'));
-      await expect(pageLoaded).toBeVisible({ timeout: 15000 });
+      // Wait for either table or empty state to appear using deterministic helper
+      const result = await expectListLoaded(page);
+      expect(['table', 'empty']).toContain(result);
     });
 
     test('should show table or empty state', async ({ page }) => {
@@ -349,8 +346,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
         .or(page.locator('input[type="text"]').first());
       
       // Search may or may not be present depending on page implementation
-      const isVisible = await searchInput.isVisible().catch(() => false);
       // Just verify page loaded without error - search is optional
+      await searchInput.isVisible().catch(() => false);
       expect(true).toBe(true);
     });
 

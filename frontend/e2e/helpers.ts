@@ -383,23 +383,43 @@ export async function setupMockApi(page: Page) {
     }
 
     // Handle platform/modules/enabled - GET
+    // useModules hook expects: { enabledModules: string[] }
     if (url.includes('/platform/modules/enabled') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse(['risk', 'policy', 'audit']));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        enabledModules: ['risk', 'policy', 'audit', 'issue', 'capa', 'evidence', 'control'],
+      }));
       return;
     }
 
     // Handle platform/modules/status - GET
+    // useModules hook expects: { modules: ModuleStatus[] }
     if (url.includes('/platform/modules/status') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse({}));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        modules: [
+          { key: 'risk', enabled: true, status: 'active' },
+          { key: 'policy', enabled: true, status: 'active' },
+          { key: 'audit', enabled: true, status: 'active' },
+          { key: 'issue', enabled: true, status: 'active' },
+          { key: 'capa', enabled: true, status: 'active' },
+          { key: 'evidence', enabled: true, status: 'active' },
+          { key: 'control', enabled: true, status: 'active' },
+        ],
+      }));
       return;
     }
 
     // Handle platform/modules/menu - GET
+    // useModules hook expects: { menuItems: MenuItem[] }
     if (url.includes('/platform/modules/menu') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse([]));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        menuItems: [],
+      }));
       return;
     }
 
