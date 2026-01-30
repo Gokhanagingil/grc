@@ -587,11 +587,22 @@ jobs:
           DEMO_ADMIN_PASSWORD: TestPassword123!
 
   # ---------------------------------------------------------------------------
-  # Staging Smoke Tests - Lightweight health checks in docker-compose
+  # Staging Smoke Tests - Deterministic DB bootstrap with docker-compose
   # ---------------------------------------------------------------------------
   # This job validates critical endpoints work correctly in a docker-compose
-  # environment that mirrors staging. It runs after main merge or manual dispatch.
+  # environment that mirrors staging. Uses a dedicated ci-smoke project name
+  # to ensure isolation and deterministic startup order.
   # 
+  # Deterministic Startup Order:
+  #   1. Start DB only and wait for pg_isready
+  #   2. Verify critical dist scripts exist
+  #   3. Run migrations (node dist/scripts/migration-run.js)
+  #   4. Run seed-grc.js (creates demo tenant, user, GRC data)
+  #   5. Run seed-platform-builder.js (creates Platform Builder tables)
+  #   6. Validate DB state (critical tables exist)
+  #   7. Run smoke tests
+  #   8. Cleanup (always)
+  #
   # Tests performed:
   #   1. GET /health/live = 200
   #   2. GET /health/ready = 200 and executed >= 13 migrations
@@ -669,84 +680,275 @@ jobs:
       - name: Validate docker-compose configuration
         run: |
           echo "=== Validating docker-compose.smoke.yml ==="
-          docker compose -f docker-compose.smoke.yml config
+          docker compose -p ci-smoke -f docker-compose.smoke.yml config
           echo "=== Configuration valid ==="
       
-      - name: Start services with docker-compose
+      # =========================================================================
+      # Step 1: Start DB only and wait for pg_isready (Deterministic Order)
+      # =========================================================================
+      - name: "Step 1: Start database and wait for ready"
         run: |
-          echo "=== Starting services ==="
-          docker compose -f docker-compose.smoke.yml up -d --build
-          echo "=== Initial container status ==="
-          docker compose -f docker-compose.smoke.yml ps
-          echo "Waiting for services to initialize..."
-          sleep 30
+          echo "=== Starting database only (ci-smoke project) ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml up -d db
+          
+          echo "=== Waiting for PostgreSQL to be ready ==="
+          for i in {1..30}; do
+            if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db pg_isready -U grc_staging -d grc_staging; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet, waiting 2 seconds..."
+            sleep 2
+            
+            if [ $i -eq 30 ]; then
+              echo "ERROR: PostgreSQL did not become ready within 60 seconds"
+              echo "=== Database Logs ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 db || true
+              exit 1
+            fi
+          done
       
-      - name: Wait for backend to be healthy
+      # =========================================================================
+      # Step 2: Build and start backend
+      # =========================================================================
+      - name: "Step 2: Build and start backend"
         run: |
-          echo "Waiting for backend health..."
+          echo "=== Building and starting backend ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml up -d --build backend
+          
+          echo "=== Waiting for backend to be healthy ==="
           for i in {1..30}; do
             # Check if container is still running
-            BACKEND_STATUS=$(docker compose -f docker-compose.smoke.yml ps backend --format json 2>/dev/null | jq -r '.[0].State // .State // "unknown"' 2>/dev/null || echo "unknown")
+            BACKEND_STATUS=$(docker compose -p ci-smoke -f docker-compose.smoke.yml ps backend --format json 2>/dev/null | jq -r '.[0].State // .State // "unknown"' 2>/dev/null || echo "unknown")
             if [ "$BACKEND_STATUS" = "exited" ] || [ "$BACKEND_STATUS" = "dead" ]; then
               echo "ERROR: Backend container has exited unexpectedly!"
               echo "=== Container Status ==="
-              docker compose -f docker-compose.smoke.yml ps
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
               echo "=== Backend Logs (last 200 lines) ==="
-              docker compose -f docker-compose.smoke.yml logs --no-color --tail=200 backend
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend
               echo "=== Database Logs (last 50 lines) ==="
-              docker compose -f docker-compose.smoke.yml logs --no-color --tail=50 db
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=50 db
               exit 1
             fi
             
             if curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
               echo "Backend is healthy!"
-              echo "=== Final container status ==="
-              docker compose -f docker-compose.smoke.yml ps
+              echo "=== Container status ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
               break
             fi
             echo "Attempt $i/30: Backend not ready (status: $BACKEND_STATUS), waiting 5 seconds..."
             sleep 5
             
-            # On last attempt, dump logs for debugging
             if [ $i -eq 30 ]; then
               echo "ERROR: Backend did not become healthy after 30 attempts"
               echo "=== Container Status ==="
-              docker compose -f docker-compose.smoke.yml ps
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
               echo "=== Backend Logs (last 200 lines) ==="
-              docker compose -f docker-compose.smoke.yml logs --no-color --tail=200 backend
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend
               echo "=== Database Logs (last 50 lines) ==="
-              docker compose -f docker-compose.smoke.yml logs --no-color --tail=50 db
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=50 db
               exit 1
             fi
           done
       
-      - name: Run migrations in container
+      # =========================================================================
+      # Step 3: Verify critical dist scripts exist (PR310 regression check)
+      # =========================================================================
+      - name: "Step 3: Verify critical dist scripts exist"
         run: |
-          # IMPORTANT: In production container, use migration:run:prod (node dist/scripts/migration-run.js)
-          # The container does NOT have ts-node or src/ directory - only dist/ exists
-          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js'; then
-            echo "FAIL: Migration failed. Dumping logs for debugging..."
-            echo "=== Backend logs ==="
-            docker compose -f docker-compose.smoke.yml logs backend
-            echo "=== Database logs ==="
-            docker compose -f docker-compose.smoke.yml logs db
+          echo "=== Verifying critical dist scripts exist in container ==="
+          
+          MISSING_SCRIPTS=""
+          
+          # Check migration-run.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/migration-run.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/migration-run.js\n"
+          else
+            echo "  [OK] dist/scripts/migration-run.js exists"
+          fi
+          
+          # Check seed-grc.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/seed-grc.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-grc.js\n"
+          else
+            echo "  [OK] dist/scripts/seed-grc.js exists"
+          fi
+          
+          # Check seed-platform-builder.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/seed-platform-builder.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-platform-builder.js\n"
+          else
+            echo "  [OK] dist/scripts/seed-platform-builder.js exists"
+          fi
+          
+          # Check data-source.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/data-source.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/data-source.js\n"
+          else
+            echo "  [OK] dist/data-source.js exists"
+          fi
+          
+          if [ -n "$MISSING_SCRIPTS" ]; then
+            echo ""
+            echo "ERROR: Critical scripts missing from dist!"
+            echo "The following files must exist for staging smoke tests:"
+            echo -e "$MISSING_SCRIPTS"
+            echo ""
+            echo "=== Backend Logs ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 backend || true
             exit 1
           fi
-          sleep 5
+          
+          echo ""
+          echo "All critical dist scripts verified!"
       
-      - name: Seed demo data
+      # =========================================================================
+      # Step 4: Run migrations (fail-fast with log dump)
+      # =========================================================================
+      - name: "Step 4: Run migrations"
         run: |
-          # IMPORTANT: In production container, use seed:onboarding (node dist/scripts/seed-onboarding.js)
-          # The container does NOT have ts-node or src/ directory - only dist/ exists
-          if ! docker compose -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-onboarding.js'; then
-            echo "FAIL: Seeding failed. Dumping logs for debugging..."
-            echo "=== Backend logs ==="
-            docker compose -f docker-compose.smoke.yml logs backend
-            echo "=== Database logs ==="
-            docker compose -f docker-compose.smoke.yml logs db
+          echo "=== Running migrations (node dist/scripts/migration-run.js) ==="
+          
+          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js' 2>&1 | tee /tmp/migration.log; then
+            echo ""
+            echo "Migrations completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "Successfully executed" /tmp/migration.log; then
+              echo "  [VERIFIED] Found 'Successfully executed ... migration(s)' in output"
+            else
+              echo "  [WARNING] Did not find expected 'Successfully executed' message"
+            fi
+          else
+            echo ""
+            echo "FAIL: Migration failed!"
+            echo ""
+            echo "=== Migration Output ==="
+            cat /tmp/migration.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            echo ""
+            echo "=== DB Critical Tables Check ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('nest_tenants','nest_users','nest_system_settings','nest_audit_logs','sys_db_object','sys_dictionary','dynamic_records');" || true
             exit 1
           fi
-          sleep 5
+      
+      # =========================================================================
+      # Step 5: Run seed-grc.js (creates demo tenant, user, GRC data)
+      # =========================================================================
+      - name: "Step 5: Seed GRC demo data"
+        run: |
+          echo "=== Running seed-grc.js ==="
+          
+          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-grc.js' 2>&1 | tee /tmp/seed-grc.log; then
+            echo ""
+            echo "GRC seed completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "GRC Demo Data Seed Complete" /tmp/seed-grc.log || grep -q "Demo tenant" /tmp/seed-grc.log; then
+              echo "  [VERIFIED] Found expected seed completion message"
+            else
+              echo "  [WARNING] Did not find expected seed completion message"
+            fi
+          else
+            echo ""
+            echo "FAIL: GRC seed failed!"
+            echo ""
+            echo "=== Seed Output ==="
+            cat /tmp/seed-grc.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            echo ""
+            echo "=== DB Tenant Check ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT count(*) FROM nest_tenants;" || true
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 6: Run seed-platform-builder.js (creates Platform Builder tables)
+      # =========================================================================
+      - name: "Step 6: Seed Platform Builder demo data"
+        run: |
+          echo "=== Running seed-platform-builder.js ==="
+          
+          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-platform-builder.js' 2>&1 | tee /tmp/seed-pb.log; then
+            echo ""
+            echo "Platform Builder seed completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "Platform Builder demo data seeded successfully" /tmp/seed-pb.log || grep -q "Table: u_vendor" /tmp/seed-pb.log; then
+              echo "  [VERIFIED] Found expected Platform Builder seed message"
+            else
+              echo "  [WARNING] Did not find expected Platform Builder seed message"
+            fi
+          else
+            echo ""
+            echo "FAIL: Platform Builder seed failed!"
+            echo ""
+            echo "=== Seed Output ==="
+            cat /tmp/seed-pb.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 7: Validate DB state before smoke tests
+      # =========================================================================
+      - name: "Step 7: Validate DB state"
+        run: |
+          echo "=== Validating DB state before smoke tests ==="
+          
+          # Check tenant count
+          echo ""
+          echo "--- Tenant Count ---"
+          docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT count(*) as tenant_count FROM nest_tenants;"
+          
+          # Check critical tables exist
+          echo ""
+          echo "--- Critical Tables Check ---"
+          TABLES_RESULT=$(docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('nest_tenants','nest_users','nest_system_settings','nest_audit_logs','sys_db_object','sys_dictionary','dynamic_records') ORDER BY tablename;")
+          
+          echo "Found tables:"
+          echo "$TABLES_RESULT"
+          
+          # Verify all required tables exist
+          REQUIRED_TABLES="nest_tenants nest_users nest_system_settings sys_db_object sys_dictionary dynamic_records"
+          MISSING_TABLES=""
+          
+          for table in $REQUIRED_TABLES; do
+            if echo "$TABLES_RESULT" | grep -q "$table"; then
+              echo "  [OK] $table exists"
+            else
+              MISSING_TABLES="${MISSING_TABLES} $table"
+              echo "  [MISSING] $table"
+            fi
+          done
+          
+          if [ -n "$MISSING_TABLES" ]; then
+            echo ""
+            echo "ERROR: Required tables missing:$MISSING_TABLES"
+            echo ""
+            echo "=== All Public Tables ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"
+            exit 1
+          fi
+          
+          echo ""
+          echo "All required tables exist!"
       
       - name: "Smoke Test 1: GET /health/live = 200"
         run: |
@@ -812,6 +1014,7 @@ jobs:
           fi
           
           echo "Login successful, token obtained"
+          echo "  Tenant ID: $TENANT_ID"
           
           # Get onboarding context
           CONTEXT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -873,7 +1076,12 @@ jobs:
           
           echo "PASS: /platform/modules/menu/nested returned 200 with $SUITES_COUNT suites"
       
+      # =========================================================================
+      # Cleanup - Always runs (even on failure)
+      # =========================================================================
       - name: Cleanup docker-compose
         if: always()
         run: |
-          docker compose -f docker-compose.smoke.yml down -v --remove-orphans || true
+          echo "=== Cleaning up ci-smoke project ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml down -v --remove-orphans || true
+          echo "Cleanup complete."
