@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi, waitForApiResponse } from './helpers';
+import { login, setupMockApi, waitForApiResponse, expectListLoaded } from './helpers';
 
 /**
  * Controls List E2E Tests
@@ -143,9 +143,7 @@ test.describe('Controls List Page', () => {
     await page.goto('/controls');
     
     // Wait for page to load - wait for list table or empty state
-    await expect(
-      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]'))
-    ).toBeVisible({ timeout: 15000 });
+    await expectListLoaded(page);
     
     // Open filter panel
     const filterButton = page.locator('[data-testid="filter-open"]');
@@ -269,11 +267,9 @@ test.describe('Controls List Page', () => {
     await expect(page.locator('[data-testid="filter-panel"]')).not.toBeVisible({ timeout: 15000 });
     
     // Wait for list to stabilize (table OR empty state)
-    await expect(
-      page.locator('[data-testid="list-table"]').or(page.locator('[data-testid="list-empty"]'))
-    ).toBeVisible({ timeout: 15000 });
+    await expectListLoaded(page);
     
-    // Verify URL contains single-encoded filter param (no %257B which is double-encoded {)
+    // Verify URL contains single-encoded filter param(no %257B which is double-encoded {)
     const currentUrl = page.url();
     expect(currentUrl).not.toContain('%257B');
     expect(currentUrl).not.toContain('%257D');
