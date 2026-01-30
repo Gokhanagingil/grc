@@ -357,6 +357,70 @@ jobs:
             done
             
             # =============================================================================
+            # Database Migrations - Auto-run pending migrations
+            # =============================================================================
+            echo ""
+            echo "=== Database Migrations ==="
+            echo "MIGRATIONS: RUNNING"
+            
+            # Run migrations inside backend container
+            if docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:run -d dist/data-source.js 2>&1; then
+              echo "MIGRATIONS: OK - Migrations completed successfully"
+            else
+              echo "MIGRATIONS: FAILED - Migration run failed"
+              echo ""
+              echo "=== Migration Status (migration:show) ==="
+              docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:show -d dist/data-source.js 2>&1 || true
+              echo ""
+              echo "=== Backend Logs (last 100 lines) ==="
+              docker compose -f docker-compose.staging.yml logs --tail=100 backend || true
+              exit 1
+            fi
+            
+            # Verify no pending migrations via /health/ready
+            echo ""
+            echo "Verifying migration status via /health/ready..."
+            HEALTH_RESPONSE=$(curl -sf http://localhost:3002/health/ready 2>/dev/null || echo '{}')
+            
+            if command -v jq &> /dev/null; then
+              PENDING_COUNT=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.pending // .migrationStatus.pending // "unknown"' 2>/dev/null || echo "unknown")
+              EXECUTED_COUNT=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.executed // .migrationStatus.executed // "unknown"' 2>/dev/null || echo "unknown")
+              LAST_MIGRATION=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.lastMigration // .migrationStatus.lastMigration // "unknown"' 2>/dev/null || echo "unknown")
+              
+              echo "  Pending migrations: $PENDING_COUNT"
+              echo "  Executed migrations: $EXECUTED_COUNT"
+              echo "  Last migration: $LAST_MIGRATION"
+              
+              if [ "$PENDING_COUNT" = "0" ]; then
+                echo "MIGRATIONS: VERIFIED - No pending migrations"
+              elif [ "$PENDING_COUNT" = "unknown" ]; then
+                echo "MIGRATIONS: WARNING - Could not verify pending count (continuing)"
+              else
+                echo "MIGRATIONS: FAILED - Still have $PENDING_COUNT pending migrations"
+                echo ""
+                echo "=== Migration Status (migration:show) ==="
+                docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:show -d dist/data-source.js 2>&1 || true
+                exit 1
+              fi
+            else
+              echo "  jq not available, skipping detailed migration verification"
+              echo "MIGRATIONS: OK (unverified)"
+            fi
+            
+            # =============================================================================
+            # Standards Seed - Ensure standards library is populated (idempotent)
+            # =============================================================================
+            echo ""
+            echo "=== Standards Seed ==="
+            echo "Running standards seed (idempotent - safe to re-run)..."
+            
+            if docker compose -f docker-compose.staging.yml exec -T backend node dist/scripts/seed-standards.js 2>&1; then
+              echo "STANDARDS_SEED: OK"
+            else
+              echo "STANDARDS_SEED: WARNING - Seed script failed (non-fatal, continuing)"
+            fi
+            
+            # =============================================================================
             # Security Smoke Tests - Tenant Isolation Verification
             # =============================================================================
             echo "=== Security Smoke Tests ==="

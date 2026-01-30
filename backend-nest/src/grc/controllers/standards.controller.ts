@@ -36,7 +36,14 @@ export class StandardsController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.standardsService.findAllActiveForTenant(tenantId);
+    const items = await this.standardsService.findAllActiveForTenant(tenantId);
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: items.length,
+      totalPages: 1,
+    };
   }
 
   @Get('summary')

@@ -627,6 +627,157 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/bcm/services - GET (BCM Services list and detail pages)
+    if (url.includes('/grc/bcm/services') && method === 'GET') {
+      logMock(method, url, true);
+      const mockBcmService = {
+        id: 'mock-bcm-service-001',
+        tenantId: 'test-tenant-id',
+        name: 'Mock Critical Business Service',
+        description: 'A critical business service for E2E testing',
+        criticality: 'HIGH',
+        rtoHours: 4,
+        rpoHours: 1,
+        mtpdHours: 24,
+        tier: 1,
+        status: 'ACTIVE',
+        createdAt: '2024-01-15T00:00:00Z',
+        updatedAt: '2024-01-15T00:00:00Z',
+      };
+      if (url.match(/\/grc\/bcm\/services\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockBcmService));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockBcmService],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/bcm/exercises - GET (BCM Exercises list and detail pages)
+    if (url.includes('/grc/bcm/exercises') && method === 'GET') {
+      logMock(method, url, true);
+      const mockBcmExercise = {
+        id: 'mock-bcm-exercise-001',
+        tenantId: 'test-tenant-id',
+        name: 'Mock Tabletop Exercise',
+        description: 'A tabletop exercise for E2E testing',
+        exerciseType: 'TABLETOP',
+        status: 'PLANNED',
+        scheduledDate: '2024-03-15T10:00:00Z',
+        createdAt: '2024-01-15T00:00:00Z',
+        updatedAt: '2024-01-15T00:00:00Z',
+      };
+      if (url.match(/\/grc\/bcm\/exercises\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockBcmExercise));
+      } else {
+        await route.fulfill(successResponse({
+          items: [mockBcmExercise],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/calendar/events - GET (GRC Calendar events)
+    // CalendarEventData interface expects: id, sourceType, sourceId, title, startAt, endAt, status, severity, priority, ownerUserId, url, metadata
+    if (url.includes('/grc/calendar/events') && method === 'GET') {
+      logMock(method, url, true);
+      const mockCalendarEvents = [
+        {
+          id: 'cal-event-001',
+          sourceType: 'BCM_EXERCISE',
+          sourceId: 'mock-bcm-exercise-001',
+          title: 'Mock BCM Exercise',
+          startAt: '2024-03-15T10:00:00Z',
+          endAt: '2024-03-15T12:00:00Z',
+          status: 'PLANNED',
+          severity: null,
+          priority: null,
+          ownerUserId: null,
+          url: '/bcm/exercises/mock-bcm-exercise-001',
+          metadata: null,
+        },
+        {
+          id: 'cal-event-002',
+          sourceType: 'CAPA',
+          sourceId: 'mock-capa-001',
+          title: 'Mock CAPA Due',
+          startAt: '2024-02-15T00:00:00Z',
+          endAt: '2024-02-15T23:59:59Z',
+          status: 'open',
+          severity: null,
+          priority: null,
+          ownerUserId: null,
+          url: '/findings/capas/mock-capa-001',
+          metadata: null,
+        },
+      ];
+      await route.fulfill(successResponse(mockCalendarEvents));
+      return;
+    }
+
+    // Handle grc/standards - GET (Standards library list and detail pages)
+    if (url.includes('/grc/standards') && method === 'GET') {
+      logMock(method, url, true);
+      const mockStandards = [
+        {
+          id: 'mock-standard-iso27001',
+          tenantId: 'test-tenant-id',
+          code: 'ISO27001',
+          name: 'ISO/IEC 27001:2022',
+          version: '2022',
+          domain: 'security',
+          description: 'Information security management systems',
+          publisher: 'ISO/IEC',
+          isActive: true,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+        {
+          id: 'mock-standard-iso20000',
+          tenantId: 'test-tenant-id',
+          code: 'ISO20000',
+          name: 'ISO/IEC 20000-1:2018',
+          version: '2018',
+          domain: 'compliance',
+          description: 'IT Service Management System Requirements',
+          publisher: 'ISO/IEC',
+          isActive: true,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      ];
+      if (url.match(/\/grc\/standards\/[^/?]+$/)) {
+        await route.fulfill(successResponse(mockStandards[0]));
+      } else if (url.match(/\/grc\/standards\/[^/?]+\/clauses/)) {
+        // Standards clauses endpoint
+        await route.fulfill(successResponse({
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 20,
+          totalPages: 0,
+        }));
+      } else {
+        await route.fulfill(successResponse({
+          items: mockStandards,
+          total: mockStandards.length,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        }));
+      }
+      return;
+    }
+
     // Generic fallback for other API endpoints
     if (method === 'GET') {
       logMock(method, url, true);
