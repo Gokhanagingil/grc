@@ -913,4 +913,172 @@ describe('LIST-CONTRACT Compliance (e2e)', () => {
       expect(response.body.data.page).toBeDefined();
     });
   });
+
+  describe('Standards List Endpoint - LIST-CONTRACT (Regression PR #305)', () => {
+    it('GET /grc/standards should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/standards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('GET /grc/standards should have items array (not direct array)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/standards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      // Verify LIST-CONTRACT format: { success: true, data: { items: [...], total, page, pageSize, totalPages } }
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(false);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('page');
+      expect(response.body.data).toHaveProperty('pageSize');
+      expect(response.body.data).toHaveProperty('totalPages');
+    });
+
+    it('GET /grc/standards should respect tenant isolation', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Request without tenant header should fail
+      await request(app.getHttpServer())
+        .get('/grc/standards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+  });
+
+  describe('Audits List Endpoint - LIST-CONTRACT (Regression PR #305)', () => {
+    it('GET /grc/audits should return LIST-CONTRACT compliant response', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/audits')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(response);
+    });
+
+    it('GET /grc/audits should have items array (not audits or direct array)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/audits')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      // Verify LIST-CONTRACT format: { success: true, data: { items: [...], total, page, pageSize, totalPages } }
+      // NOT the old format: { success: true, data: { audits: [...], pagination: {...} } }
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(false);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+      expect(response.body.data).not.toHaveProperty('audits'); // Old format had 'audits' key
+      expect(response.body.data).not.toHaveProperty('pagination'); // Old format had nested 'pagination'
+      expect(response.body.data).toHaveProperty('total');
+      expect(response.body.data).toHaveProperty('page');
+      expect(response.body.data).toHaveProperty('pageSize');
+      expect(response.body.data).toHaveProperty('totalPages');
+    });
+
+    it('GET /grc/audits with pagination should return correct page info', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .get('/grc/audits?page=1&pageSize=5')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      expect(response.body.data.page).toBe(1);
+      expect(response.body.data.pageSize).toBe(5);
+      expect(response.body.data.items.length).toBeLessThanOrEqual(5);
+    });
+
+    it('GET /grc/audits should respect tenant isolation', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Request without tenant header should fail
+      await request(app.getHttpServer())
+        .get('/grc/audits')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('POST /grc/audits then GET /grc/audits should show created audit in list', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Create a new audit
+      const createResponse = await request(app.getHttpServer())
+        .post('/grc/audits')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          name: `Test Audit ${Date.now()}`,
+          description: 'Test audit for LIST-CONTRACT regression test',
+          auditType: 'internal',
+          status: 'planned',
+          riskLevel: 'low',
+        })
+        .expect(201);
+
+      const createdAuditId =
+        createResponse.body.data?.id || createResponse.body.id;
+      expect(createdAuditId).toBeDefined();
+
+      // Fetch the list and verify the created audit appears
+      const listResponse = await request(app.getHttpServer())
+        .get('/grc/audits')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      assertListContract(listResponse);
+
+      // Verify the created audit is in the list
+      const auditIds = listResponse.body.data.items.map(
+        (audit: { id: string }) => audit.id,
+      );
+      expect(auditIds).toContain(createdAuditId);
+    });
+  });
 });

@@ -81,10 +81,12 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      // Response should be in standard envelope format
+      // Response should be in LIST-CONTRACT format
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(false);
+      expect(response.body.data).toHaveProperty('items');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
     });
 
     it('should return 401 without token', async () => {
@@ -224,7 +226,8 @@ describe('Standards Library (e2e)', () => {
 
       // Response format: {success: false, error: {code, message}}
       expect(response.body).toHaveProperty('success', false);
-      const errorMessage = response.body.error?.message || response.body.message;
+      const errorMessage =
+        response.body.error?.message || response.body.message;
       expect(errorMessage).toContain('Validation failed');
     });
 
@@ -242,7 +245,8 @@ describe('Standards Library (e2e)', () => {
 
       // Response format: {success: false, error: {code, message}}
       expect(response.body).toHaveProperty('success', false);
-      const errorMessage = response.body.error?.message || response.body.message;
+      const errorMessage =
+        response.body.error?.message || response.body.message;
       expect(errorMessage).toContain('Validation failed');
     });
 
@@ -272,7 +276,8 @@ describe('Standards Library (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .expect(200);
 
-      const standards = listResponse.body.data || [];
+      // Response is in LIST-CONTRACT format: { success: true, data: { items: [...], total, ... } }
+      const standards = listResponse.body.data?.items || [];
 
       if (standards.length === 0) {
         console.log('Skipping test: no standards available');
@@ -309,7 +314,8 @@ describe('Standards Library (e2e)', () => {
 
       // Response format: {success: false, error: {code, message}}
       expect(response.body).toHaveProperty('success', false);
-      const errorMessage = response.body.error?.message || response.body.message;
+      const errorMessage =
+        response.body.error?.message || response.body.message;
       expect(errorMessage).toContain('Validation failed');
     });
 

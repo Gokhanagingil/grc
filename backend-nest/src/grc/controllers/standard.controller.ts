@@ -8,6 +8,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
@@ -29,11 +30,14 @@ import { CreateStandardDto } from '../dto/create-standard.dto';
 @Controller('grc/standards')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class StandardController {
+  private readonly logger = new Logger(StandardController.name);
+
   constructor(private readonly dataSource: DataSource) {}
 
   /**
    * GET /grc/standards
    * List all standards for the current tenant
+   * Returns LIST-CONTRACT format: { items, total, page, pageSize, totalPages }
    */
   @Get()
   @Permissions(Permission.GRC_AUDIT_READ)
@@ -44,7 +48,7 @@ export class StandardController {
     }
 
     const standardRepo = this.dataSource.getRepository(Standard);
-    const standards = await standardRepo.find({
+    const items = await standardRepo.find({
       where: {
         tenantId,
         isDeleted: false,
@@ -55,12 +59,19 @@ export class StandardController {
       },
     });
 
+    // Debug logging for list endpoint diagnostics (safe - no secrets)
+    this.logger.debug(
+      `[LIST] tenantId=${tenantId}, page=1, pageSize=${items.length}, total=${items.length}, responseKeys=items,total,page,pageSize,totalPages`,
+    );
+
+    // Return in LIST-CONTRACT format expected by useUniversalList
+    // The ResponseTransformInterceptor will wrap this in { success: true, data: ... }
     return {
-      success: true,
-      data: standards,
-      meta: {
-        total: standards.length,
-      },
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: items.length,
+      totalPages: 1,
     };
   }
 

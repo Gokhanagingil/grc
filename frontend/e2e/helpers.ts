@@ -289,9 +289,13 @@ export async function setupMockApi(page: Page) {
         await route.fulfill(successResponse(mockAudit));
       } else {
         // List endpoint - include mock audit for smoke test
+        // Use LIST-CONTRACT format: { items, total, page, pageSize, totalPages }
         await route.fulfill(successResponse({
-          audits: [mockAudit],
-          pagination: { total: 1, page: 1, pageSize: 10, totalPages: 1 },
+          items: [mockAudit],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+          totalPages: 1,
         }));
       }
       return;
@@ -379,23 +383,44 @@ export async function setupMockApi(page: Page) {
     }
 
     // Handle platform/modules/enabled - GET
+    // useModules hook expects: { enabledModules: string[] }
+    // Note: 'compliance' is required for Controls menu item, 'audit' for Audits, etc.
     if (url.includes('/platform/modules/enabled') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse(['risk', 'policy', 'audit']));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        enabledModules: ['risk', 'policy', 'audit', 'issue', 'capa', 'evidence', 'control', 'compliance'],
+      }));
       return;
     }
 
     // Handle platform/modules/status - GET
+    // useModules hook expects: { modules: ModuleStatus[] }
     if (url.includes('/platform/modules/status') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse({}));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        modules: [
+          { key: 'risk', enabled: true, status: 'active' },
+          { key: 'policy', enabled: true, status: 'active' },
+          { key: 'audit', enabled: true, status: 'active' },
+          { key: 'issue', enabled: true, status: 'active' },
+          { key: 'capa', enabled: true, status: 'active' },
+          { key: 'evidence', enabled: true, status: 'active' },
+          { key: 'control', enabled: true, status: 'active' },
+        ],
+      }));
       return;
     }
 
     // Handle platform/modules/menu - GET
+    // useModules hook expects: { menuItems: MenuItem[] }
     if (url.includes('/platform/modules/menu') && method === 'GET') {
       logMock(method, url, true);
-      await route.fulfill(successResponse([]));
+      await route.fulfill(successResponse({
+        tenantId: 'test-tenant-id',
+        menuItems: [],
+      }));
       return;
     }
 
