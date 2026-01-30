@@ -538,6 +538,60 @@ export const API_PATHS = {
       CREATE_CAPA: (itemId: string) => `/grc/soa/items/${itemId}/capas`,
     },
   },
+
+  // BCM (Business Continuity Management) endpoints
+  GRC_BCM: {
+    FILTERS: '/grc/bcm/filters',
+    // Service endpoints
+    SERVICES: {
+      LIST: '/grc/bcm/services',
+      CREATE: '/grc/bcm/services',
+      GET: (id: string) => `/grc/bcm/services/${id}`,
+      UPDATE: (id: string) => `/grc/bcm/services/${id}`,
+      DELETE: (id: string) => `/grc/bcm/services/${id}`,
+      BIAS: (id: string) => `/grc/bcm/services/${id}/bias`,
+      PLANS: (id: string) => `/grc/bcm/services/${id}/plans`,
+      EXERCISES: (id: string) => `/grc/bcm/services/${id}/exercises`,
+    },
+    // BIA endpoints
+    BIAS: {
+      LIST: '/grc/bcm/bias',
+      CREATE: '/grc/bcm/bias',
+      GET: (id: string) => `/grc/bcm/bias/${id}`,
+      UPDATE: (id: string) => `/grc/bcm/bias/${id}`,
+      DELETE: (id: string) => `/grc/bcm/bias/${id}`,
+    },
+    // Plan endpoints
+    PLANS: {
+      LIST: '/grc/bcm/plans',
+      CREATE: '/grc/bcm/plans',
+      GET: (id: string) => `/grc/bcm/plans/${id}`,
+      UPDATE: (id: string) => `/grc/bcm/plans/${id}`,
+      DELETE: (id: string) => `/grc/bcm/plans/${id}`,
+      STEPS: (id: string) => `/grc/bcm/plans/${id}/steps`,
+    },
+    // Plan Step endpoints
+    PLAN_STEPS: {
+      LIST: '/grc/bcm/plan-steps',
+      CREATE: '/grc/bcm/plan-steps',
+      GET: (id: string) => `/grc/bcm/plan-steps/${id}`,
+      UPDATE: (id: string) => `/grc/bcm/plan-steps/${id}`,
+      DELETE: (id: string) => `/grc/bcm/plan-steps/${id}`,
+    },
+    // Exercise endpoints
+    EXERCISES: {
+      LIST: '/grc/bcm/exercises',
+      CREATE: '/grc/bcm/exercises',
+      GET: (id: string) => `/grc/bcm/exercises/${id}`,
+      UPDATE: (id: string) => `/grc/bcm/exercises/${id}`,
+      DELETE: (id: string) => `/grc/bcm/exercises/${id}`,
+    },
+  },
+
+  // Calendar endpoints
+  GRC_CALENDAR: {
+    EVENTS: '/grc/calendar/events',
+  },
 } as const;
 
 // ============================================================================
@@ -3928,5 +3982,449 @@ export const soaApi = {
   createCapaFromItem: async (tenantId: string, itemId: string, data: { title: string; description?: string; type?: string; priority?: string; ownerUserId?: string; dueDate?: string; issueId?: string }): Promise<CapaData> => {
     const response = await api.post(API_PATHS.GRC_SOA.ITEMS.CREATE_CAPA(itemId), data, withTenantId(tenantId));
     return unwrapResponse<CapaData>(response);
+  },
+};
+
+// ============================================================================
+// BCM (Business Continuity Management) API
+// ============================================================================
+
+export type BcmServiceStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+export type BcmCriticalityTier = 'TIER_0' | 'TIER_1' | 'TIER_2' | 'TIER_3';
+export type BcmBiaStatus = 'DRAFT' | 'REVIEWED' | 'APPROVED';
+export type BcmPlanType = 'BCP' | 'DRP' | 'IT_CONTINUITY';
+export type BcmPlanStatus = 'DRAFT' | 'APPROVED' | 'ACTIVE' | 'RETIRED';
+export type BcmPlanStepStatus = 'PLANNED' | 'READY' | 'DEPRECATED';
+export type BcmExerciseType = 'TABLETOP' | 'FAILOVER' | 'RESTORE' | 'COMMS';
+export type BcmExerciseStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type BcmExerciseOutcome = 'PASS' | 'PARTIAL' | 'FAIL';
+
+export interface BcmServiceData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  status: BcmServiceStatus;
+  criticalityTier: BcmCriticalityTier | null;
+  businessOwnerUserId: string | null;
+  itOwnerUserId: string | null;
+  tags: string[];
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+export interface CreateBcmServiceDto {
+  name: string;
+  description?: string;
+  status?: BcmServiceStatus;
+  criticalityTier?: BcmCriticalityTier;
+  businessOwnerUserId?: string;
+  itOwnerUserId?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateBcmServiceDto {
+  name?: string;
+  description?: string;
+  status?: BcmServiceStatus;
+  criticalityTier?: BcmCriticalityTier;
+  businessOwnerUserId?: string;
+  itOwnerUserId?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface BcmBiaData {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  rtoMinutes: number;
+  rpoMinutes: number;
+  mtpdMinutes: number | null;
+  impactOperational: number;
+  impactFinancial: number;
+  impactRegulatory: number;
+  impactReputational: number;
+  overallImpactScore: number;
+  criticalityTier: BcmCriticalityTier;
+  assumptions: string | null;
+  dependencies: string | null;
+  notes: string | null;
+  status: BcmBiaStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  service?: BcmServiceData;
+}
+
+export interface CreateBcmBiaDto {
+  serviceId: string;
+  rtoMinutes: number;
+  rpoMinutes: number;
+  mtpdMinutes?: number;
+  impactOperational: number;
+  impactFinancial: number;
+  impactRegulatory: number;
+  impactReputational: number;
+  assumptions?: string;
+  dependencies?: string;
+  notes?: string;
+  status?: BcmBiaStatus;
+}
+
+export interface UpdateBcmBiaDto {
+  rtoMinutes?: number;
+  rpoMinutes?: number;
+  mtpdMinutes?: number;
+  impactOperational?: number;
+  impactFinancial?: number;
+  impactRegulatory?: number;
+  impactReputational?: number;
+  assumptions?: string;
+  dependencies?: string;
+  notes?: string;
+  status?: BcmBiaStatus;
+}
+
+export interface BcmPlanData {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  name: string;
+  planType: BcmPlanType;
+  status: BcmPlanStatus;
+  ownerUserId: string | null;
+  approverUserId: string | null;
+  approvedAt: string | null;
+  summary: string | null;
+  triggers: string | null;
+  recoverySteps: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  service?: BcmServiceData;
+  steps?: BcmPlanStepData[];
+}
+
+export interface CreateBcmPlanDto {
+  serviceId: string;
+  name: string;
+  planType: BcmPlanType;
+  status?: BcmPlanStatus;
+  ownerUserId?: string;
+  approverUserId?: string;
+  summary?: string;
+  triggers?: string;
+  recoverySteps?: string;
+}
+
+export interface UpdateBcmPlanDto {
+  name?: string;
+  planType?: BcmPlanType;
+  status?: BcmPlanStatus;
+  ownerUserId?: string;
+  approverUserId?: string;
+  approvedAt?: string;
+  summary?: string;
+  triggers?: string;
+  recoverySteps?: string;
+}
+
+export interface BcmPlanStepData {
+  id: string;
+  tenantId: string;
+  planId: string;
+  order: number;
+  title: string;
+  description: string | null;
+  roleResponsible: string | null;
+  estimatedMinutes: number | null;
+  status: BcmPlanStepStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  plan?: BcmPlanData;
+}
+
+export interface CreateBcmPlanStepDto {
+  planId: string;
+  order: number;
+  title: string;
+  description?: string;
+  roleResponsible?: string;
+  estimatedMinutes?: number;
+  status?: BcmPlanStepStatus;
+}
+
+export interface UpdateBcmPlanStepDto {
+  order?: number;
+  title?: string;
+  description?: string;
+  roleResponsible?: string;
+  estimatedMinutes?: number;
+  status?: BcmPlanStepStatus;
+}
+
+export interface BcmExerciseData {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  planId: string | null;
+  name: string;
+  exerciseType: BcmExerciseType;
+  status: BcmExerciseStatus;
+  scheduledAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  outcome: BcmExerciseOutcome | null;
+  summary: string | null;
+  lessonsLearned: string | null;
+  linkedIssueId: string | null;
+  linkedCapaId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  service?: BcmServiceData;
+  plan?: BcmPlanData;
+}
+
+export interface CreateBcmExerciseDto {
+  serviceId: string;
+  planId?: string;
+  name: string;
+  exerciseType: BcmExerciseType;
+  status?: BcmExerciseStatus;
+  scheduledAt?: string;
+  summary?: string;
+  linkedIssueId?: string;
+  linkedCapaId?: string;
+}
+
+export interface UpdateBcmExerciseDto {
+  planId?: string;
+  name?: string;
+  exerciseType?: BcmExerciseType;
+  status?: BcmExerciseStatus;
+  scheduledAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  outcome?: BcmExerciseOutcome;
+  summary?: string;
+  lessonsLearned?: string;
+  linkedIssueId?: string;
+  linkedCapaId?: string;
+}
+
+export interface BcmListParams {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  search?: string;
+  filter?: string;
+}
+
+export const bcmApi = {
+  // Filter metadata
+  getFilters: async (tenantId: string) => {
+    const response = await api.get(API_PATHS.GRC_BCM.FILTERS, withTenantId(tenantId));
+    return unwrapResponse<Record<string, unknown>>(response);
+  },
+
+  // Services
+  listServices: (tenantId: string, params?: BcmListParams & { status?: BcmServiceStatus; criticalityTier?: BcmCriticalityTier }) =>
+    api.get(API_PATHS.GRC_BCM.SERVICES.LIST, { ...withTenantId(tenantId), params }),
+
+  getService: async (tenantId: string, id: string): Promise<BcmServiceData> => {
+    const response = await api.get(API_PATHS.GRC_BCM.SERVICES.GET(id), withTenantId(tenantId));
+    return unwrapResponse<BcmServiceData>(response);
+  },
+
+  createService: async (tenantId: string, data: CreateBcmServiceDto): Promise<BcmServiceData> => {
+    const response = await api.post(API_PATHS.GRC_BCM.SERVICES.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<BcmServiceData>(response);
+  },
+
+  updateService: async (tenantId: string, id: string, data: UpdateBcmServiceDto): Promise<BcmServiceData> => {
+    const response = await api.patch(API_PATHS.GRC_BCM.SERVICES.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<BcmServiceData>(response);
+  },
+
+  deleteService: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_BCM.SERVICES.DELETE(id), withTenantId(tenantId));
+  },
+
+  getServiceBias: async (tenantId: string, serviceId: string) => {
+    const response = await api.get(API_PATHS.GRC_BCM.SERVICES.BIAS(serviceId), withTenantId(tenantId));
+    return unwrapPaginatedResponse<BcmBiaData>(response);
+  },
+
+  getServicePlans: async (tenantId: string, serviceId: string) => {
+    const response = await api.get(API_PATHS.GRC_BCM.SERVICES.PLANS(serviceId), withTenantId(tenantId));
+    return unwrapPaginatedResponse<BcmPlanData>(response);
+  },
+
+  getServiceExercises: async (tenantId: string, serviceId: string) => {
+    const response = await api.get(API_PATHS.GRC_BCM.SERVICES.EXERCISES(serviceId), withTenantId(tenantId));
+    return unwrapPaginatedResponse<BcmExerciseData>(response);
+  },
+
+  // BIAs
+  listBias: async (tenantId: string, params?: BcmListParams & { serviceId?: string; status?: BcmBiaStatus; criticalityTier?: BcmCriticalityTier }) => {
+    const response = await api.get(API_PATHS.GRC_BCM.BIAS.LIST, { ...withTenantId(tenantId), params });
+    return unwrapPaginatedResponse<BcmBiaData>(response);
+  },
+
+  getBia: async (tenantId: string, id: string): Promise<BcmBiaData> => {
+    const response = await api.get(API_PATHS.GRC_BCM.BIAS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<BcmBiaData>(response);
+  },
+
+  createBia: async (tenantId: string, data: CreateBcmBiaDto): Promise<BcmBiaData> => {
+    const response = await api.post(API_PATHS.GRC_BCM.BIAS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<BcmBiaData>(response);
+  },
+
+  updateBia: async (tenantId: string, id: string, data: UpdateBcmBiaDto): Promise<BcmBiaData> => {
+    const response = await api.patch(API_PATHS.GRC_BCM.BIAS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<BcmBiaData>(response);
+  },
+
+  deleteBia: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_BCM.BIAS.DELETE(id), withTenantId(tenantId));
+  },
+
+  // Plans
+  listPlans: async (tenantId: string, params?: BcmListParams & { serviceId?: string; planType?: BcmPlanType; status?: BcmPlanStatus }) => {
+    const response = await api.get(API_PATHS.GRC_BCM.PLANS.LIST, { ...withTenantId(tenantId), params });
+    return unwrapPaginatedResponse<BcmPlanData>(response);
+  },
+
+  getPlan: async (tenantId: string, id: string): Promise<BcmPlanData> => {
+    const response = await api.get(API_PATHS.GRC_BCM.PLANS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<BcmPlanData>(response);
+  },
+
+  createPlan: async (tenantId: string, data: CreateBcmPlanDto): Promise<BcmPlanData> => {
+    const response = await api.post(API_PATHS.GRC_BCM.PLANS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<BcmPlanData>(response);
+  },
+
+  updatePlan: async (tenantId: string, id: string, data: UpdateBcmPlanDto): Promise<BcmPlanData> => {
+    const response = await api.patch(API_PATHS.GRC_BCM.PLANS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<BcmPlanData>(response);
+  },
+
+  deletePlan: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_BCM.PLANS.DELETE(id), withTenantId(tenantId));
+  },
+
+  getPlanSteps: async (tenantId: string, planId: string) => {
+    const response = await api.get(API_PATHS.GRC_BCM.PLANS.STEPS(planId), withTenantId(tenantId));
+    return unwrapPaginatedResponse<BcmPlanStepData>(response);
+  },
+
+  // Plan Steps
+  listPlanSteps: async (tenantId: string, params?: BcmListParams & { planId?: string; status?: BcmPlanStepStatus }) => {
+    const response = await api.get(API_PATHS.GRC_BCM.PLAN_STEPS.LIST, { ...withTenantId(tenantId), params });
+    return unwrapPaginatedResponse<BcmPlanStepData>(response);
+  },
+
+  getPlanStep: async (tenantId: string, id: string): Promise<BcmPlanStepData> => {
+    const response = await api.get(API_PATHS.GRC_BCM.PLAN_STEPS.GET(id), withTenantId(tenantId));
+    return unwrapResponse<BcmPlanStepData>(response);
+  },
+
+  createPlanStep: async (tenantId: string, data: CreateBcmPlanStepDto): Promise<BcmPlanStepData> => {
+    const response = await api.post(API_PATHS.GRC_BCM.PLAN_STEPS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<BcmPlanStepData>(response);
+  },
+
+  updatePlanStep: async (tenantId: string, id: string, data: UpdateBcmPlanStepDto): Promise<BcmPlanStepData> => {
+    const response = await api.patch(API_PATHS.GRC_BCM.PLAN_STEPS.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<BcmPlanStepData>(response);
+  },
+
+  deletePlanStep: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_BCM.PLAN_STEPS.DELETE(id), withTenantId(tenantId));
+  },
+
+  // Exercises
+  listExercises: (tenantId: string, params?: BcmListParams & { serviceId?: string; planId?: string; exerciseType?: BcmExerciseType; status?: BcmExerciseStatus; outcome?: BcmExerciseOutcome }) =>
+    api.get(API_PATHS.GRC_BCM.EXERCISES.LIST, { ...withTenantId(tenantId), params }),
+
+  getExercise: async (tenantId: string, id: string): Promise<BcmExerciseData> => {
+    const response = await api.get(API_PATHS.GRC_BCM.EXERCISES.GET(id), withTenantId(tenantId));
+    return unwrapResponse<BcmExerciseData>(response);
+  },
+
+  createExercise: async (tenantId: string, data: CreateBcmExerciseDto): Promise<BcmExerciseData> => {
+    const response = await api.post(API_PATHS.GRC_BCM.EXERCISES.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<BcmExerciseData>(response);
+  },
+
+  updateExercise: async (tenantId: string, id: string, data: UpdateBcmExerciseDto): Promise<BcmExerciseData> => {
+    const response = await api.patch(API_PATHS.GRC_BCM.EXERCISES.UPDATE(id), data, withTenantId(tenantId));
+    return unwrapResponse<BcmExerciseData>(response);
+  },
+
+  deleteExercise: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.GRC_BCM.EXERCISES.DELETE(id), withTenantId(tenantId));
+  },
+};
+
+// ============================================================================
+// GRC Calendar API
+// ============================================================================
+
+export type CalendarEventSourceType = 'AUDIT' | 'CAPA' | 'CAPA_TASK' | 'BCM_EXERCISE' | 'POLICY_REVIEW' | 'EVIDENCE_REVIEW';
+
+export interface CalendarEventData {
+  id: string;
+  sourceType: CalendarEventSourceType;
+  sourceId: string;
+  title: string;
+  startAt: string;
+  endAt: string | null;
+  status: string;
+  severity: string | null;
+  priority: string | null;
+  ownerUserId: string | null;
+  url: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface CalendarEventsParams {
+  start: string;
+  end: string;
+  types?: CalendarEventSourceType[];
+  ownerUserId?: string;
+  status?: string;
+}
+
+export const calendarApi = {
+  getEvents: async (tenantId: string, params: CalendarEventsParams): Promise<CalendarEventData[]> => {
+    const queryParams: Record<string, unknown> = {
+      start: params.start,
+      end: params.end,
+    };
+    if (params.types && params.types.length > 0) {
+      queryParams.types = params.types.join(',');
+    }
+    if (params.ownerUserId) {
+      queryParams.ownerUserId = params.ownerUserId;
+    }
+    if (params.status) {
+      queryParams.status = params.status;
+    }
+    const response = await api.get(API_PATHS.GRC_CALENDAR.EVENTS, { ...withTenantId(tenantId), params: queryParams });
+    return unwrapResponse<CalendarEventData[]>(response);
   },
 };

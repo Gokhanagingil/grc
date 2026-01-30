@@ -61,3 +61,9 @@ export { ListOptionsController } from './list-options.controller';
 
 // Export Controller (CSV Export with XSS protection)
 export { ExportController } from './export.controller';
+
+// BCM (Business Continuity Management) Controllers
+export { BcmController } from './bcm.controller';
+
+// Calendar Controllers
+export { CalendarController } from './calendar.controller';

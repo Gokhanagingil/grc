@@ -97,3 +97,10 @@ export { GrcSoaProfile } from './grc-soa-profile.entity';
 export { GrcSoaItem } from './grc-soa-item.entity';
 export { GrcSoaItemControl } from './grc-soa-item-control.entity';
 export { GrcSoaItemEvidence } from './grc-soa-item-evidence.entity';
+
+// BCM (Business Continuity Management) Entities
+export { BcmService } from './bcm-service.entity';
+export { BcmBia } from './bcm-bia.entity';
+export { BcmPlan } from './bcm-plan.entity';
+export { BcmPlanStep } from './bcm-plan-step.entity';
+export { BcmExercise } from './bcm-exercise.entity';

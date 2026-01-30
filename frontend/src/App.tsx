@@ -53,6 +53,10 @@ import GrcInsights from './pages/GrcInsights';
 import { SoaProfilesList } from './pages/SoaProfilesList';
 import { SoaProfileDetail } from './pages/SoaProfileDetail';
 import { SoaItemDetail } from './pages/SoaItemDetail';
+import { BcmServiceList } from './pages/BcmServiceList';
+import { BcmServiceDetail } from './pages/BcmServiceDetail';
+import { BcmExerciseList } from './pages/BcmExerciseList';
+import { CalendarPage } from './pages/CalendarPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -218,6 +222,14 @@ function App() {
                   <Route path="soa" element={<SoaProfilesList />} />
                   <Route path="soa/:id" element={<SoaProfileDetail />} />
                   <Route path="soa/:profileId/items/:itemId" element={<SoaItemDetail />} />
+                  
+                  {/* BCM (Business Continuity Management) Routes */}
+                  <Route path="bcm/services" element={<BcmServiceList />} />
+                  <Route path="bcm/services/:id" element={<BcmServiceDetail />} />
+                  <Route path="bcm/exercises" element={<BcmExerciseList />} />
+                  
+                  {/* GRC Calendar Route */}
+                  <Route path="calendar" element={<CalendarPage />} />
                   
                                     {/* Legacy /library/* route redirects */}
                   <Route path="library/standards" element={<Navigate to="/standards" replace />} />
