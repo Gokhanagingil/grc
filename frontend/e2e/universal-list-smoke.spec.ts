@@ -240,8 +240,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('process-list-page'))).toBeVisible({ timeout: 10000 });
       
-      // Wait for either table or empty state to appear
-      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty'));
+      // Wait for either table or empty state to appear (use first() to handle multiple matches)
+      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty')).first();
       await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
     });
   });
@@ -270,8 +270,8 @@ test.describe('Universal List Experience Smoke Tests', () => {
       // Wait for page to load
       await expect(page.getByTestId('universal-list-page').or(page.getByTestId('control-test-list-page'))).toBeVisible({ timeout: 10000 });
       
-      // Wait for either table or empty state to appear
-      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty'));
+      // Wait for either table or empty state to appear (use first() to handle multiple matches)
+      const tableOrEmpty = page.getByTestId('list-table').or(page.getByTestId('list-empty')).first();
       await expect(tableOrEmpty).toBeVisible({ timeout: 10000 });
     });
   });
