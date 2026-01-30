@@ -321,12 +321,15 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope {success: true, data: {...}}
+        const body = response.body.data ?? response.body;
+
         // Verify LIST CONTRACT format
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        expect(body).toHaveProperty('items');
+        expect(body).toHaveProperty('total');
+        expect(body).toHaveProperty('page');
+        expect(body).toHaveProperty('pageSize');
+        expect(Array.isArray(body.items)).toBe(true);
       });
     });
 
@@ -372,10 +375,10 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope
+        const body = response.body.data ?? response.body;
         expect(
-          response.body.items.some(
-            (b: { id: string }) => b.id === createdBiaId,
-          ),
+          body.items.some((b: { id: string }) => b.id === createdBiaId),
         ).toBe(true);
       });
     });
@@ -393,12 +396,15 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope {success: true, data: {...}}
+        const body = response.body.data ?? response.body;
+
         // Verify LIST CONTRACT format
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        expect(body).toHaveProperty('items');
+        expect(body).toHaveProperty('total');
+        expect(body).toHaveProperty('page');
+        expect(body).toHaveProperty('pageSize');
+        expect(Array.isArray(body.items)).toBe(true);
       });
     });
 
@@ -441,10 +447,10 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope
+        const body = response.body.data ?? response.body;
         expect(
-          response.body.items.some(
-            (p: { id: string }) => p.id === createdPlanId,
-          ),
+          body.items.some((p: { id: string }) => p.id === createdPlanId),
         ).toBe(true);
       });
     });
@@ -462,12 +468,15 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope {success: true, data: {...}}
+        const body = response.body.data ?? response.body;
+
         // Verify LIST CONTRACT format
-        expect(response.body).toHaveProperty('items');
-        expect(response.body).toHaveProperty('total');
-        expect(response.body).toHaveProperty('page');
-        expect(response.body).toHaveProperty('pageSize');
-        expect(Array.isArray(response.body.items)).toBe(true);
+        expect(body).toHaveProperty('items');
+        expect(body).toHaveProperty('total');
+        expect(body).toHaveProperty('page');
+        expect(body).toHaveProperty('pageSize');
+        expect(Array.isArray(body.items)).toBe(true);
       });
     });
 
@@ -510,10 +519,10 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope
+        const body = response.body.data ?? response.body;
         expect(
-          response.body.items.some(
-            (e: { id: string }) => e.id === createdExerciseId,
-          ),
+          body.items.some((e: { id: string }) => e.id === createdExerciseId),
         ).toBe(true);
       });
 
@@ -551,10 +560,10 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .expect(200);
 
+        // Response may be wrapped in ApiEnvelope
+        const body = response.body.data ?? response.body;
         expect(
-          response.body.items.some(
-            (e: { id: string }) => e.id === createdExerciseId,
-          ),
+          body.items.some((e: { id: string }) => e.id === createdExerciseId),
         ).toBe(false);
 
         // Clean up other service
