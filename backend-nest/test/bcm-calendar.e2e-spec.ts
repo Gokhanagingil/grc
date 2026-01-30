@@ -115,10 +115,8 @@ describe('BCM and Calendar Operations (e2e)', () => {
         const newService = {
           name: 'Test BCM Service - E2E',
           description: 'A test BCM service created by e2e tests',
-          criticality: 'HIGH',
-          rtoHours: 4,
-          rpoHours: 1,
-          mtpdHours: 24,
+          criticalityTier: 'TIER_1',
+          status: 'ACTIVE',
         };
 
         const response = await request(app.getHttpServer())
@@ -200,7 +198,7 @@ describe('BCM and Calendar Operations (e2e)', () => {
 
         const updateData = {
           name: 'Test BCM Service - E2E Updated',
-          criticality: 'CRITICAL',
+          criticalityTier: 'TIER_2',
         };
 
         const response = await request(app.getHttpServer())
@@ -287,12 +285,27 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
+        // First create a service to link the exercise to
+        const serviceResponse = await request(app.getHttpServer())
+          .post('/grc/bcm/services')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ name: 'Service for Exercise Test' });
+
+        const serviceData = serviceResponse.body.data ?? serviceResponse.body;
+        const testServiceId = serviceData?.id;
+
+        if (!testServiceId) {
+          console.log('Skipping test: could not create service for exercise');
+          return;
+        }
+
         const newExercise = {
           name: 'Test BCM Exercise - E2E',
-          description: 'A test BCM exercise created by e2e tests',
+          serviceId: testServiceId,
           exerciseType: 'TABLETOP',
           status: 'PLANNED',
-          scheduledDate: new Date().toISOString(),
+          scheduledAt: new Date().toISOString(),
         };
 
         const response = await request(app.getHttpServer())
@@ -511,13 +524,28 @@ describe('BCM and Calendar Operations (e2e)', () => {
           return;
         }
 
-        // First create a BCM exercise
+        // First create a service to link the exercise to
+        const serviceResponse = await request(app.getHttpServer())
+          .post('/grc/bcm/services')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ name: 'Service for Calendar Test' });
+
+        const serviceData = serviceResponse.body.data ?? serviceResponse.body;
+        const testServiceId = serviceData?.id;
+
+        if (!testServiceId) {
+          console.log('Skipping test: could not create service for calendar exercise test');
+          return;
+        }
+
+        // Now create a BCM exercise linked to the service
         const newExercise = {
           name: 'Calendar Test Exercise',
-          description: 'Exercise for calendar test',
+          serviceId: testServiceId,
           exerciseType: 'TABLETOP',
           status: 'PLANNED',
-          scheduledDate: new Date().toISOString(),
+          scheduledAt: new Date().toISOString(),
         };
 
         const createResponse = await request(app.getHttpServer())
