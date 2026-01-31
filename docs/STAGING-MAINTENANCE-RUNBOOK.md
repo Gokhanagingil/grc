@@ -1781,6 +1781,206 @@ The script is **idempotent** - it can be run multiple times safely:
 4. **Use environment variables** for credentials (never hardcode)
 5. **Run script from repo root** or ensure correct working directory
 
+## RC1 Validation Checklist
+
+This section provides a comprehensive checklist for validating the RC1 release on staging. Run these checks after any deployment to ensure the platform is functioning correctly.
+
+### Quick Validation (5 minutes)
+
+Run the automated Golden Flow verification script:
+
+```bash
+# SSH to staging
+ssh root@46.224.99.150
+
+# Run the RC1 Golden Flow verification
+cd /opt/grc-platform
+bash ops/rc1-golden-flow-verify.sh
+```
+
+**Expected Output:** All tests should show `[PASS]` with a final `RESULT: PASSED` message.
+
+### Manual Validation Checklist
+
+If automated verification passes, perform these manual checks for complete validation:
+
+#### 1. Health Endpoints
+
+```bash
+# Liveness check
+curl -s http://46.224.99.150:3002/health/live | jq '.status'
+# Expected: "OK"
+
+# Readiness check (includes DB)
+curl -s http://46.224.99.150:3002/health/ready | jq '.data.checks.database'
+# Expected: "connected"
+
+# Auth configuration
+curl -s http://46.224.99.150:3002/health/auth | jq '.data'
+# Expected: REFRESH_TOKEN_EXPIRES_IN configured: true
+```
+
+#### 2. Authentication Flow
+
+```bash
+# Login and get token
+TOKEN=$(curl -s -X POST http://46.224.99.150/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@grc-platform.local","password":"TestPassword123!"}' \
+  | jq -r '.data.accessToken // .accessToken')
+
+# Verify token is valid (not empty)
+echo "Token obtained: ${TOKEN:0:20}..."
+```
+
+**Security Note:** Never log full tokens. The above command only shows the first 20 characters.
+
+#### 3. Core GRC Endpoints
+
+```bash
+TENANT_ID="00000000-0000-0000-0000-000000000001"
+
+# Controls list
+curl -s "http://46.224.99.150/api/grc/controls?page=1&pageSize=5" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .data.total, page: .data.page, itemCount: (.data.items | length)}'
+
+# Risks list
+curl -s "http://46.224.99.150/api/grc/risks?page=1&pageSize=5" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .data.total, page: .data.page, itemCount: (.data.items | length)}'
+
+# Policies list
+curl -s "http://46.224.99.150/api/grc/policies?page=1&pageSize=5" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .data.total, page: .data.page}'
+```
+
+**Expected:** All endpoints return HTTP 200 with LIST-CONTRACT format (`items`, `total`, `page`, `pageSize`, `totalPages`).
+
+#### 4. BCM Module
+
+```bash
+# BCM Services
+curl -s "http://46.224.99.150/api/grc/bcm/services?page=1&pageSize=5" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .total, itemCount: (.items | length)}'
+
+# BCM Exercises
+curl -s "http://46.224.99.150/api/grc/bcm/exercises?page=1&pageSize=5" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .total, itemCount: (.items | length)}'
+```
+
+#### 5. Calendar Events
+
+```bash
+# Get calendar events for current quarter
+START=$(date -u +"%Y-%m-01T00:00:00Z")
+END=$(date -u -d "+3 months" +"%Y-%m-01T00:00:00Z" 2>/dev/null || date -u +"%Y-12-31T23:59:59Z")
+
+curl -s "http://46.224.99.150/api/grc/calendar/events?start=${START}&end=${END}" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{success: .success, eventCount: (.data | length)}'
+```
+
+#### 6. Platform Builder
+
+```bash
+# Admin tables
+curl -s "http://46.224.99.150/api/grc/admin/tables?page=1&pageSize=10" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  | jq '{total: .data.total, tables: [.data.items[].name]}'
+```
+
+### UI Smoke Test (Manual)
+
+1. Open http://46.224.99.150 in a browser
+2. Login with `admin@grc-platform.local` / `TestPassword123!`
+3. Verify dashboard loads without errors
+4. Navigate to GRC Library → Controls
+5. Verify search input is visible and functional
+6. Navigate to GRC Library → Risks
+7. Click "New Risk" and verify the form opens
+8. Navigate to BCM → Services
+9. Verify the BCM module loads
+
+### Playwright Smoke Tests
+
+Run the automated UI tests from a machine with Node.js:
+
+```bash
+cd /path/to/grc/frontend
+npm ci --legacy-peer-deps
+npx playwright install --with-deps chromium
+E2E_BASE_URL=http://46.224.99.150 npx playwright test e2e/smoke/ --project=staging
+```
+
+**Expected:** All smoke tests pass.
+
+### Post-Deployment Verification Summary
+
+| Check | Command/Action | Expected Result |
+|-------|----------------|-----------------|
+| Health Live | `curl /health/live` | `{"status":"OK"}` |
+| Health Ready | `curl /health/ready` | Database connected |
+| Login | POST `/api/auth/login` | Token returned |
+| Controls List | GET `/api/grc/controls` | HTTP 200, LIST-CONTRACT |
+| Risks List | GET `/api/grc/risks` | HTTP 200, LIST-CONTRACT |
+| BCM Services | GET `/api/grc/bcm/services` | HTTP 200, LIST-CONTRACT |
+| Calendar | GET `/api/grc/calendar/events` | HTTP 200, events array |
+| UI Login | Browser login | Dashboard loads |
+| UI Controls | Navigate to Controls | List page loads |
+
+### Troubleshooting RC1 Validation Failures
+
+**Authentication Fails (401)**
+- Check if demo user exists: `docker exec grc-staging-db psql -U postgres -d grc_platform -c "SELECT email FROM nest_users WHERE email='admin@grc-platform.local'"`
+- Verify JWT_SECRET is set in backend environment
+- Check backend logs: `docker logs grc-staging-backend --tail 100`
+
+**Missing Tenant Header (400)**
+- Ensure `x-tenant-id` header is included in all API requests
+- Verify tenant exists: `docker exec grc-staging-db psql -U postgres -d grc_platform -c "SELECT id, name FROM nest_tenants"`
+
+**Database Errors (500)**
+- Run migrations: `docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:run -d dist/data-source.js`
+- Check database connectivity: `curl http://46.224.99.150:3002/health/db`
+
+**Empty Lists (0 items)**
+- This may be expected if no demo data is seeded
+- Run seed scripts if needed: `docker compose -f docker-compose.staging.yml exec -T backend node dist/scripts/seed-grc.js`
+
+### RC1 Validation Evidence
+
+After successful validation, capture evidence for audit purposes:
+
+```bash
+# Create evidence directory
+EVIDENCE_DIR="/opt/grc-platform/evidence/rc1-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$EVIDENCE_DIR"
+
+# Run golden flow and capture output
+bash ops/rc1-golden-flow-verify.sh > "$EVIDENCE_DIR/golden-flow.log" 2>&1
+
+# Capture health check responses
+curl -s http://46.224.99.150:3002/health/ready > "$EVIDENCE_DIR/health-ready.json"
+curl -s http://46.224.99.150:3002/health/auth > "$EVIDENCE_DIR/health-auth.json"
+
+# Create summary
+echo "RC1 Validation completed at $(date)" > "$EVIDENCE_DIR/summary.txt"
+echo "Golden Flow: $(grep -c PASS $EVIDENCE_DIR/golden-flow.log) passed" >> "$EVIDENCE_DIR/summary.txt"
+
+echo "Evidence saved to: $EVIDENCE_DIR"
+```
+
 ## Contact
 
 For issues with staging environment, contact the platform team or refer to the main repository documentation.

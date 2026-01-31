@@ -1,0 +1,206 @@
+name: RC1 Staging Smoke Tests
+
+on:
+  # Manual trigger with optional parameters
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: 'Staging URL to test against'
+        required: false
+        default: 'http://46.224.99.150'
+      run_playwright:
+        description: 'Run Playwright UI tests'
+        required: false
+        default: 'true'
+      run_api_verify:
+        description: 'Run API verification script'
+        required: false
+        default: 'true'
+
+  # Run after deploy-staging workflow completes
+  workflow_run:
+    workflows: ["Deploy to Staging"]
+    types:
+      - completed
+
+jobs:
+  # API Smoke Tests using the golden flow verify script
+  api-smoke:
+    name: API Golden Flow Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_api_verify == 'true' || github.event_name == 'workflow_run' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set staging URL
+        id: staging-url
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "STAGING_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
+          else
+            echo "STAGING_URL=http://46.224.99.150" >> $GITHUB_ENV
+          fi
+
+      - name: Run Golden Flow Verification
+        id: golden-flow
+        continue-on-error: true
+        run: |
+          chmod +x ops/rc1-golden-flow-verify.sh
+          bash ops/rc1-golden-flow-verify.sh 2>&1 | tee golden-flow-output.txt
+        env:
+          STAGING_URL: ${{ env.STAGING_URL }}
+          DEMO_ADMIN_EMAIL: ${{ secrets.E2E_EMAIL || 'admin@grc-platform.local' }}
+          DEMO_ADMIN_PASSWORD: ${{ secrets.E2E_PASSWORD || 'TestPassword123!' }}
+          DEMO_TENANT_ID: '00000000-0000-0000-0000-000000000001'
+
+      - name: Upload Golden Flow Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-flow-results
+          path: golden-flow-output.txt
+          retention-days: 14
+
+      - name: Report Golden Flow Status
+        if: always()
+        run: |
+          echo "## Golden Flow Verification Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.golden-flow.outcome }}" == "success" ]; then
+            echo "✅ **Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat golden-flow-output.txt >> $GITHUB_STEP_SUMMARY || echo "No output captured" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # Playwright UI Smoke Tests
+  playwright-smoke:
+    name: Playwright UI Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_playwright == 'true' || github.event_name == 'workflow_run' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Set staging URL
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "E2E_BASE_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
+          else
+            echo "E2E_BASE_URL=http://46.224.99.150" >> $GITHUB_ENV
+          fi
+
+      - name: Run Playwright Smoke Tests
+        id: playwright-tests
+        continue-on-error: true
+        working-directory: ./frontend
+        run: |
+          npx playwright test e2e/smoke/ --project=staging --reporter=list,html 2>&1 | tee playwright-output.txt
+        env:
+          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL || 'admin@grc-platform.local' }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'TestPassword123!' }}
+          # Do NOT use mock API for staging tests - we want real backend
+          E2E_MOCK_API: '0'
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-artifacts
+          path: |
+            frontend/test-results/
+          retention-days: 14
+
+      - name: Report Playwright Status
+        if: always()
+        run: |
+          echo "## Playwright Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.playwright-tests.outcome }}" == "success" ]; then
+            echo "✅ **Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Output (last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -100 frontend/playwright-output.txt >> $GITHUB_STEP_SUMMARY || echo "No output captured" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # Summary job that reports overall status
+  summary:
+    name: Smoke Test Summary
+    runs-on: ubuntu-latest
+    needs: [api-smoke, playwright-smoke]
+    if: always()
+    
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# RC1 Staging Smoke Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.api-smoke.result }}" == "success" ]; then
+            echo "| API Golden Flow | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.api-smoke.result }}" == "skipped" ]; then
+            echo "| API Golden Flow | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| API Golden Flow | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.playwright-smoke.result }}" == "success" ]; then
+            echo "| Playwright UI | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.playwright-smoke.result }}" == "skipped" ]; then
+            echo "| Playwright UI | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Playwright UI | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Staging URL:** ${{ github.event.inputs.staging_url || 'http://46.224.99.150' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for failures
+        if: ${{ needs.api-smoke.result == 'failure' || needs.playwright-smoke.result == 'failure' }}
+        run: |
+          echo "::warning::One or more smoke tests failed. Check the artifacts for details."
+          # Note: We don't fail the workflow here to keep it non-blocking
+          # Remove the 'continue-on-error' from individual jobs if you want strict enforcement
