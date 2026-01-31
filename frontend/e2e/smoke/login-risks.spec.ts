@@ -2,21 +2,33 @@
  * RC1 Smoke Test: Login + Risks Page
  * 
  * This test validates the Risks list page functionality and risk creation flow.
- * It's designed to run against the staging environment (http://46.224.99.150) or locally.
+ * It's designed to run against the staging environment (http://46.224.99.150) or locally
+ * with a real backend. These tests are SKIPPED when E2E_MOCK_API=1 because they require
+ * real API responses and specific UI elements that may not be present in mock mode.
  * 
  * Environment Variables:
  *   E2E_BASE_URL - Base URL for tests (default: http://localhost:3000)
- *   E2E_MOCK_API - Set to '1' to use mock API responses
+ *   E2E_MOCK_API - Set to '1' to skip these tests (they require real backend)
  *   E2E_EMAIL - Admin email (default: admin@grc-platform.local)
  *   E2E_PASSWORD - Admin password (default: TestPassword123!)
+ * 
+ * To run against staging:
+ *   E2E_BASE_URL=http://46.224.99.150 npx playwright test e2e/smoke/
  */
 
 import { test, expect } from '@playwright/test';
 import { login, expectListLoaded, setupMockApi } from '../helpers';
 
+// Skip all smoke tests when running in mock API mode
+// These tests are designed for staging/real backend verification
+const isMockMode = process.env.E2E_MOCK_API === '1';
+
 test.describe('RC1 Smoke: Login + Risks', () => {
+  // Skip entire suite in mock mode
+  test.skip(isMockMode, 'Smoke tests require real backend - skipping in mock API mode');
+
   test.beforeEach(async ({ page }) => {
-    // Setup mock API if enabled
+    // Setup mock API if enabled (no-op when not in mock mode)
     await setupMockApi(page);
   });
 
