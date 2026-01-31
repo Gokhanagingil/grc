@@ -379,6 +379,73 @@ health_checks() {
 }
 
 # =============================================================================
+# E.1) Uploads Directory Verification
+# =============================================================================
+verify_uploads_directory() {
+  log_info "=== Uploads Directory Verification ==="
+
+  # Check if /app/data/uploads exists
+  log_info "Checking /app/data/uploads directory..."
+  local uploads_check
+  set +e
+  uploads_check=$(docker exec "${BACKEND_CONTAINER}" sh -c 'ls -ld /app/data/uploads 2>&1')
+  local uploads_exit_code=$?
+  set -e
+
+  echo "UPLOADS ls_check: ${uploads_check}" >> "${RAW_LOG}"
+
+  if [ ${uploads_exit_code} -ne 0 ]; then
+    log_error "Uploads directory does not exist: /app/data/uploads"
+    log_error "Output: ${uploads_check}"
+    echo "UPLOADS directory_exists=false" >> "${RAW_LOG}"
+    exit 6
+  fi
+
+  log_info "Directory exists: ${uploads_check}"
+  echo "UPLOADS directory_exists=true" >> "${RAW_LOG}"
+
+  # Test write access
+  log_info "Testing write access to /app/data/uploads..."
+  local write_test
+  set +e
+  write_test=$(docker exec "${BACKEND_CONTAINER}" sh -c 'echo ok > /app/data/uploads/.deploy-write-test && cat /app/data/uploads/.deploy-write-test && rm /app/data/uploads/.deploy-write-test 2>&1')
+  local write_exit_code=$?
+  set -e
+
+  echo "UPLOADS write_test_output: ${write_test}" >> "${RAW_LOG}"
+
+  if [ ${write_exit_code} -ne 0 ] || [ "${write_test}" != "ok" ]; then
+    log_error "Uploads directory is not writable: /app/data/uploads"
+    log_error "Write test output: ${write_test}"
+    echo "UPLOADS writable=false" >> "${RAW_LOG}"
+    exit 6
+  fi
+
+  log_info "Write test passed"
+  echo "UPLOADS writable=true" >> "${RAW_LOG}"
+
+  # Check if fallback is being used (warning only, not a failure)
+  log_info "Checking storage initialization logs..."
+  local storage_logs
+  set +e
+  storage_logs=$(docker logs "${BACKEND_CONTAINER}" 2>&1 | grep -i "storage\|fallback" | tail -5 || echo "")
+  set -e
+
+  echo "UPLOADS storage_logs: ${storage_logs}" >> "${RAW_LOG}"
+
+  if echo "${storage_logs}" | grep -qi "fallback"; then
+    log_warn "Storage is using fallback path (/tmp/uploads) - this may indicate a volume mount issue"
+    log_warn "Check that grc_uploads volume is properly mounted to /app/data/uploads"
+    echo "UPLOADS using_fallback=true" >> "${RAW_LOG}"
+  else
+    log_info "Storage is using primary path (no fallback detected)"
+    echo "UPLOADS using_fallback=false" >> "${RAW_LOG}"
+  fi
+
+  log_info "Uploads directory verification passed"
+}
+
+# =============================================================================
 # F) Smoke Tests
 # =============================================================================
 
@@ -1046,6 +1113,7 @@ main() {
   build_and_up
   preflight_check
   health_checks
+  verify_uploads_directory
   smoke_tests
   generate_evidence
 
