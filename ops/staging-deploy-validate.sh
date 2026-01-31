@@ -446,6 +446,96 @@ verify_uploads_directory() {
 }
 
 # =============================================================================
+# E.2) SSL/HTTPS Verification (Optional - only when HTTPS override is active)
+# =============================================================================
+# This verification runs only when the staging HTTPS override is active.
+# It checks:
+#   1. Frontend container is listening on port 443
+#   2. SSL certificate files exist inside the frontend container
+#   3. Nginx configuration is valid (nginx -t)
+#
+# This function is non-blocking - it logs warnings but does not fail the deploy
+# if HTTPS is not configured (HTTP-only mode is valid for dev/CI).
+verify_ssl_configuration() {
+  log_info "=== SSL/HTTPS Configuration Verification ==="
+
+  # Check if frontend is listening on port 443
+  log_info "Checking if frontend listens on port 443..."
+  local port_443_check
+  set +e
+  port_443_check=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'netstat -tlnp 2>/dev/null | grep ":443" || ss -tlnp 2>/dev/null | grep ":443" || echo ""' 2>&1)
+  set -e
+
+  echo "SSL port_443_check: ${port_443_check}" >> "${RAW_LOG}"
+
+  if [ -z "${port_443_check}" ]; then
+    log_warn "Frontend is NOT listening on port 443 (HTTPS not enabled)"
+    log_warn "This is expected for HTTP-only mode (dev/CI)"
+    echo "SSL https_enabled=false" >> "${RAW_LOG}"
+    log_info "SSL verification skipped (HTTP-only mode)"
+    return 0
+  fi
+
+  log_info "Frontend is listening on port 443"
+  echo "SSL https_enabled=true" >> "${RAW_LOG}"
+
+  # Check if SSL certificate files exist
+  log_info "Checking SSL certificate files..."
+  local cert_check key_check
+  set +e
+  cert_check=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'test -f /etc/nginx/ssl/origin-cert.pem && echo "exists" || echo "missing"' 2>&1)
+  key_check=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'test -f /etc/nginx/ssl/origin-key.pem && echo "exists" || echo "missing"' 2>&1)
+  set -e
+
+  echo "SSL cert_file: ${cert_check}" >> "${RAW_LOG}"
+  echo "SSL key_file: ${key_check}" >> "${RAW_LOG}"
+
+  if [ "${cert_check}" != "exists" ]; then
+    log_error "SSL certificate not found: /etc/nginx/ssl/origin-cert.pem"
+    echo "SSL cert_exists=false" >> "${RAW_LOG}"
+  else
+    log_info "SSL certificate found: /etc/nginx/ssl/origin-cert.pem"
+    echo "SSL cert_exists=true" >> "${RAW_LOG}"
+  fi
+
+  if [ "${key_check}" != "exists" ]; then
+    log_error "SSL key not found: /etc/nginx/ssl/origin-key.pem"
+    echo "SSL key_exists=false" >> "${RAW_LOG}"
+  else
+    log_info "SSL key found: /etc/nginx/ssl/origin-key.pem"
+    echo "SSL key_exists=true" >> "${RAW_LOG}"
+  fi
+
+  # Verify nginx configuration
+  log_info "Verifying nginx configuration..."
+  local nginx_test
+  set +e
+  nginx_test=$(docker exec "${FRONTEND_CONTAINER}" nginx -t 2>&1)
+  local nginx_exit_code=$?
+  set -e
+
+  echo "SSL nginx_test: ${nginx_test}" >> "${RAW_LOG}"
+
+  if [ ${nginx_exit_code} -ne 0 ]; then
+    log_error "Nginx configuration test failed"
+    log_error "${nginx_test}"
+    echo "SSL nginx_config_valid=false" >> "${RAW_LOG}"
+  else
+    log_info "Nginx configuration is valid"
+    echo "SSL nginx_config_valid=true" >> "${RAW_LOG}"
+  fi
+
+  # Summary
+  if [ "${cert_check}" = "exists" ] && [ "${key_check}" = "exists" ] && [ ${nginx_exit_code} -eq 0 ]; then
+    log_info "SSL/HTTPS configuration verification passed"
+    echo "SSL verification_status=PASSED" >> "${RAW_LOG}"
+  else
+    log_warn "SSL/HTTPS configuration has issues - check logs above"
+    echo "SSL verification_status=ISSUES" >> "${RAW_LOG}"
+  fi
+}
+
+# =============================================================================
 # F) Smoke Tests
 # =============================================================================
 
@@ -1114,6 +1204,7 @@ main() {
   preflight_check
   health_checks
   verify_uploads_directory
+  verify_ssl_configuration
   smoke_tests
   generate_evidence
 
