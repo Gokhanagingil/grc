@@ -14,6 +14,9 @@
  * Uses deterministic IDs and titles for consistency.
  */
 
+// Disable job scheduling for seed scripts to ensure deterministic exit
+process.env.JOBS_ENABLED = 'false';
+
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
