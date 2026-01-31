@@ -18,7 +18,13 @@ const access = promisify(fs.access);
  * Suitable for development and staging environments.
  *
  * Configuration:
- * - ATTACHMENT_STORAGE_PATH: Base directory for file storage (default: ./uploads)
+ * - ATTACHMENT_STORAGE_PATH: Base directory for file storage
+ *
+ * Path Resolution Order:
+ * 1. ATTACHMENT_STORAGE_PATH env var (if set)
+ * 2. /app/data/uploads (production default, writable in container)
+ * 3. /tmp/uploads (fallback on EACCES permission errors)
+ * 4. ./uploads (development default)
  *
  * Security:
  * - Validates storage keys to prevent path traversal attacks
@@ -27,8 +33,16 @@ const access = promisify(fs.access);
 @Injectable()
 export class LocalFsAdapter implements StorageAdapter {
   private readonly logger = new Logger(LocalFsAdapter.name);
-  private readonly basePath: string;
+  private basePath: string;
   private storageAvailable = false;
+  private usingFallback = false;
+
+  /** Default production path inside container */
+  static readonly DEFAULT_PRODUCTION_PATH = '/app/data/uploads';
+  /** Fallback path when primary path has permission issues */
+  static readonly FALLBACK_PATH = '/tmp/uploads';
+  /** Default development path */
+  static readonly DEFAULT_DEV_PATH = './uploads';
 
   constructor(private readonly configService: ConfigService) {
     const configuredPath = this.configService.get<string>(
@@ -37,12 +51,12 @@ export class LocalFsAdapter implements StorageAdapter {
     if (configuredPath) {
       this.basePath = configuredPath;
     } else {
-      // In production, prefer /app/data (writable in container) over /data (may not be mounted)
-      // Fallback chain: ATTACHMENT_STORAGE_PATH > /app/data (prod) > ./uploads (dev)
+      // In production, prefer /app/data/uploads (writable in container)
+      // In development, use ./uploads
       this.basePath =
         process.env.NODE_ENV === 'production'
-          ? '/app/data/uploads'
-          : './uploads';
+          ? LocalFsAdapter.DEFAULT_PRODUCTION_PATH
+          : LocalFsAdapter.DEFAULT_DEV_PATH;
     }
     this.initializeStorage();
   }
@@ -60,28 +74,48 @@ export class LocalFsAdapter implements StorageAdapter {
   /**
    * Ensure the base storage directory exists
    *
-   * This method handles permission errors gracefully to prevent app crashes
-   * when storage is not needed for core flows. Storage operations will fail
-   * at runtime if the directory cannot be created, but the app will start.
+   * This method handles permission errors gracefully with fallback to /tmp/uploads.
+   * If the primary path fails with EACCES, it will attempt to use the fallback path.
+   * This ensures storage works in CI smoke tests and ephemeral containers.
    */
   private async ensureBaseDirectory(): Promise<void> {
+    const originalPath = this.basePath;
+
     try {
       await mkdir(this.basePath, { recursive: true });
+      // Verify we can actually write to the directory
+      this.verifyWriteAccess(this.basePath);
       this.storageAvailable = true;
       this.logger.log(`Storage directory initialized: ${this.basePath}`);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
       const errorCode = (error as NodeJS.ErrnoException).code;
 
-      if (errorCode === 'EACCES') {
-        // Permission denied - log warning but don't crash the app
-        // Storage features will fail at runtime, but core app functionality continues
+      if (errorCode === 'EACCES' || errorCode === 'EROFS') {
+        // Permission denied or read-only filesystem - try fallback to /tmp/uploads
         this.logger.warn(
-          `Storage directory permission denied: ${this.basePath}. ` +
-            `File upload/download features will not work. ` +
-            `To fix: mount a writable volume to ${this.basePath} or set ATTACHMENT_STORAGE_PATH env var.`,
+          `Storage directory permission denied: ${originalPath} (${errorCode}). ` +
+            `Falling back to ${LocalFsAdapter.FALLBACK_PATH}`,
         );
+
+        try {
+          this.basePath = LocalFsAdapter.FALLBACK_PATH;
+          await mkdir(this.basePath, { recursive: true });
+          this.verifyWriteAccess(this.basePath);
+          this.storageAvailable = true;
+          this.usingFallback = true;
+          this.logger.log(
+            `Storage directory initialized with fallback: ${this.basePath} ` +
+              `(original path ${originalPath} was not writable)`,
+          );
+        } catch (fallbackError) {
+          const fallbackCode = (fallbackError as NodeJS.ErrnoException).code;
+          this.logger.error(
+            `Failed to initialize fallback storage directory ${LocalFsAdapter.FALLBACK_PATH}: ` +
+              `${fallbackCode || fallbackError}. File upload/download features will not work.`,
+          );
+          // Restore original path for error messages
+          this.basePath = originalPath;
+        }
       } else if (errorCode === 'ENOENT') {
         // Parent directory doesn't exist - try to create it
         this.logger.warn(
@@ -91,19 +125,85 @@ export class LocalFsAdapter implements StorageAdapter {
         try {
           await mkdir(path.dirname(this.basePath), { recursive: true });
           await mkdir(this.basePath, { recursive: true });
+          this.verifyWriteAccess(this.basePath);
           this.storageAvailable = true;
           this.logger.log(`Storage directory created: ${this.basePath}`);
         } catch (retryError) {
-          this.logger.error(
-            `Failed to create storage directory after retry: ${retryError}`,
-          );
+          const retryCode = (retryError as NodeJS.ErrnoException).code;
+          // If retry fails with permission error, try fallback
+          if (retryCode === 'EACCES' || retryCode === 'EROFS') {
+            await this.tryFallbackPath(originalPath);
+          } else {
+            this.logger.error(
+              `Failed to create storage directory after retry: ${retryError}`,
+            );
+          }
         }
       } else {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.logger.error(
           `Failed to create storage directory: ${errorMessage} (code: ${errorCode})`,
         );
       }
     }
+  }
+
+  /**
+   * Verify write access to a directory by creating and removing a test file
+   */
+  private verifyWriteAccess(dirPath: string): void {
+    const testFile = path.join(dirPath, '.write-test');
+    try {
+      fs.writeFileSync(testFile, 'ok');
+      fs.unlinkSync(testFile);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      throw Object.assign(new Error(`Cannot write to ${dirPath}`), {
+        code: code || 'EACCES',
+      });
+    }
+  }
+
+  /**
+   * Attempt to use the fallback path when primary path fails
+   */
+  private async tryFallbackPath(originalPath: string): Promise<void> {
+    this.logger.warn(
+      `Primary storage path ${originalPath} not writable. ` +
+        `Falling back to ${LocalFsAdapter.FALLBACK_PATH}`,
+    );
+
+    try {
+      this.basePath = LocalFsAdapter.FALLBACK_PATH;
+      await mkdir(this.basePath, { recursive: true });
+      this.verifyWriteAccess(this.basePath);
+      this.storageAvailable = true;
+      this.usingFallback = true;
+      this.logger.log(
+        `Storage directory initialized with fallback: ${this.basePath}`,
+      );
+    } catch (fallbackError) {
+      this.logger.error(
+        `Failed to initialize fallback storage: ${fallbackError}. ` +
+          `File upload/download features will not work.`,
+      );
+      this.basePath = originalPath;
+    }
+  }
+
+  /**
+   * Check if storage is using the fallback path
+   */
+  isUsingFallback(): boolean {
+    return this.usingFallback;
+  }
+
+  /**
+   * Get the current storage base path
+   */
+  getBasePath(): string {
+    return this.basePath;
   }
 
   /**

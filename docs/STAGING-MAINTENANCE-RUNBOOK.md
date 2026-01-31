@@ -148,6 +148,96 @@ If CI smoke tests fail with "Demo tenant not found" or "table does not exist":
 4. If tables are missing, check if migrations ran successfully
 5. If seeds failed, check if the demo tenant was created first (seed-grc.js must run before seed-platform-builder.js)
 
+## Attachment Storage Path Rules
+
+The `LocalFsAdapter` handles file storage for attachments (evidence, documents, etc.). The storage path is determined using a predictable fallback chain to ensure storage works across different environments.
+
+### Path Resolution Order
+
+1. **ATTACHMENT_STORAGE_PATH** (env var) - If set, this path is used
+2. **/app/data/uploads** (production default) - Default path inside the container
+3. **/tmp/uploads** (fallback) - Used when primary path has permission issues (EACCES)
+4. **./uploads** (development default) - Used in non-production environments
+
+### Environment-Specific Behavior
+
+| Environment | Default Path | Fallback |
+|-------------|--------------|----------|
+| Production (container) | `/app/data/uploads` | `/tmp/uploads` |
+| Development | `./uploads` | `/tmp/uploads` |
+| CI Smoke Tests | `/app/data/uploads` (volume mounted) | `/tmp/uploads` |
+
+### Staging Configuration
+
+In `docker-compose.staging.yml`, the backend mounts a host directory for persistent storage:
+
+```yaml
+backend:
+  volumes:
+    - ./staging-data:/app/data
+```
+
+This ensures `/app/data/uploads` is writable and persists across container restarts.
+
+### CI Smoke Upload Volume
+
+The CI smoke tests use a named Docker volume to ensure the upload directory is writable:
+
+```yaml
+backend:
+  volumes:
+    - ci_smoke_uploads:/app/data/uploads
+
+volumes:
+  ci_smoke_uploads: {}
+```
+
+The CI workflow also includes a write verification step (Step 8) that:
+1. Writes a test file to `/app/data/uploads/.write-test`
+2. Removes the test file
+3. Fails fast with diagnostic output if the directory is not writable
+
+### Dockerfile Configuration
+
+The backend Dockerfile creates the upload directory with proper ownership:
+
+```dockerfile
+RUN mkdir -p /app/data/uploads && chown -R nestjs:nodejs /app/data
+```
+
+This ensures the directory exists and is writable by the `nestjs` user (uid 1001) even when no volume is mounted.
+
+### Troubleshooting Storage Issues
+
+If you see storage-related errors:
+
+```bash
+# Check if the upload directory exists and is writable
+docker compose -f docker-compose.staging.yml exec -T backend sh -c 'ls -la /app/data/uploads/'
+
+# Check current user
+docker compose -f docker-compose.staging.yml exec -T backend sh -c 'id'
+
+# Test write access
+docker compose -f docker-compose.staging.yml exec -T backend sh -c 'touch /app/data/uploads/.test && rm /app/data/uploads/.test && echo "OK"'
+
+# Check if fallback is being used (look for log message)
+docker logs grc-staging-backend 2>&1 | grep -i "fallback\|storage"
+```
+
+### Overriding Storage Path
+
+To use a custom storage path, set the `ATTACHMENT_STORAGE_PATH` environment variable:
+
+```yaml
+# In docker-compose.staging.yml
+backend:
+  environment:
+    ATTACHMENT_STORAGE_PATH: /custom/path/uploads
+  volumes:
+    - ./custom-storage:/custom/path
+```
+
 ## Access Information
 
 | Resource | Value |
