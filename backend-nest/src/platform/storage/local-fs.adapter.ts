@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { promisify } from 'util';
 import { StorageAdapter, StorageMetadata } from './storage-adapter.interface';
 
@@ -150,15 +151,25 @@ export class LocalFsAdapter implements StorageAdapter {
   }
 
   /**
-   * Verify write access to a directory by creating and removing a test file
+   * Verify write access to a directory by creating and removing a test file.
+   * Uses a cryptographically random filename to prevent symlink attacks.
    */
   private verifyWriteAccess(dirPath: string): void {
-    const testFile = path.join(dirPath, '.write-test');
+    // Use random suffix to prevent predictable filename attacks (CWE-377)
+    const randomSuffix = crypto.randomBytes(16).toString('hex');
+    const testFile = path.join(dirPath, `.write-test-${randomSuffix}`);
     try {
-      fs.writeFileSync(testFile, 'ok');
+      // Use exclusive flag to fail if file already exists (prevents race conditions)
+      fs.writeFileSync(testFile, 'ok', { flag: 'wx', mode: 0o600 });
       fs.unlinkSync(testFile);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
+      // Clean up test file if it was created but unlink failed
+      try {
+        fs.unlinkSync(testFile);
+      } catch {
+        // Ignore cleanup errors
+      }
       throw Object.assign(new Error(`Cannot write to ${dirPath}`), {
         code: code || 'EACCES',
       });
