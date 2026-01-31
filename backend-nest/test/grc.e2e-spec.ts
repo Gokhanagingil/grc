@@ -314,6 +314,181 @@ describe('GRC CRUD Operations (e2e)', () => {
         expect(data).toHaveProperty('byStatus');
       });
     });
+
+    describe('Risk-Control Link/Unlink', () => {
+      let testRiskId: string;
+      let testControlId: string;
+
+      beforeAll(async () => {
+        if (!dbConnected || !tenantId) {
+          return;
+        }
+
+        // Create a test risk for link/unlink tests
+        const riskResponse = await request(app.getHttpServer())
+          .post('/grc/risks')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            title: 'Test Risk for Control Linking',
+            description: 'Risk for testing control link/unlink',
+            category: 'Testing',
+            severity: 'high',
+            likelihood: 'possible',
+            status: 'identified',
+          });
+
+        const riskData = riskResponse.body.data ?? riskResponse.body;
+        testRiskId = riskData?.id;
+
+        // Create a test control for link/unlink tests
+        const controlResponse = await request(app.getHttpServer())
+          .post('/grc/controls')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            name: 'Test Control for Risk Linking',
+            code: 'CTL-LINK-TEST',
+            description: 'Control for testing risk-control linking',
+            category: 'Testing',
+            status: 'implemented',
+          });
+
+        const controlData = controlResponse.body.data ?? controlResponse.body;
+        testControlId = controlData?.id;
+      });
+
+      afterAll(async () => {
+        if (!dbConnected || !tenantId) {
+          return;
+        }
+
+        // Clean up: delete created entities
+        if (testRiskId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/risks/${testRiskId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+        if (testControlId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/controls/${testControlId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+      });
+
+      describe('POST /grc/risks/:riskId/controls/:controlId', () => {
+        it('should link a control to a risk', async () => {
+          if (!dbConnected || !tenantId || !testRiskId || !testControlId) {
+            console.log(
+              'Skipping test: database not connected or entities not created',
+            );
+            return;
+          }
+
+          await request(app.getHttpServer())
+            .post(`/grc/risks/${testRiskId}/controls/${testControlId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(200);
+        });
+
+        it('should return 404 for non-existent risk', async () => {
+          if (!dbConnected || !tenantId || !testControlId) {
+            console.log('Skipping test: database not connected');
+            return;
+          }
+
+          await request(app.getHttpServer())
+            .post(
+              `/grc/risks/00000000-0000-0000-0000-000000000000/controls/${testControlId}`,
+            )
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(404);
+        });
+
+        it('should return 404 for non-existent control', async () => {
+          if (!dbConnected || !tenantId || !testRiskId) {
+            console.log('Skipping test: database not connected');
+            return;
+          }
+
+          await request(app.getHttpServer())
+            .post(
+              `/grc/risks/${testRiskId}/controls/00000000-0000-0000-0000-000000000000`,
+            )
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(404);
+        });
+      });
+
+      describe('GET /grc/risks/:id/controls/list', () => {
+        it('should return linked controls for a risk', async () => {
+          if (!dbConnected || !tenantId || !testRiskId) {
+            console.log('Skipping test: database not connected or no risk');
+            return;
+          }
+
+          const response = await request(app.getHttpServer())
+            .get(`/grc/risks/${testRiskId}/controls/list`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(200);
+
+          expect(response.body).toHaveProperty('success', true);
+          expect(response.body).toHaveProperty('data');
+          expect(Array.isArray(response.body.data)).toBe(true);
+
+          // Should contain the linked control
+          if (testControlId) {
+            const linkedControl = response.body.data.find(
+              (c: { id: string }) => c.id === testControlId,
+            );
+            expect(linkedControl).toBeDefined();
+          }
+        });
+      });
+
+      describe('DELETE /grc/risks/:riskId/controls/:controlId', () => {
+        it('should unlink a control from a risk', async () => {
+          if (!dbConnected || !tenantId || !testRiskId || !testControlId) {
+            console.log(
+              'Skipping test: database not connected or entities not created',
+            );
+            return;
+          }
+
+          await request(app.getHttpServer())
+            .delete(`/grc/risks/${testRiskId}/controls/${testControlId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(204);
+        });
+
+        it('should no longer show unlinked control in list', async () => {
+          if (!dbConnected || !tenantId || !testRiskId || !testControlId) {
+            console.log(
+              'Skipping test: database not connected or entities not created',
+            );
+            return;
+          }
+
+          const response = await request(app.getHttpServer())
+            .get(`/grc/risks/${testRiskId}/controls/list`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId)
+            .expect(200);
+
+          const linkedControl = response.body.data.find(
+            (c: { id: string }) => c.id === testControlId,
+          );
+          expect(linkedControl).toBeUndefined();
+        });
+      });
+    });
   });
 
   // ==================== POLICIES ====================

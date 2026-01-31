@@ -262,7 +262,16 @@ export class BcmController {
     }
 
     const bias = await this.bcmService.findBiasByService(tenantId, serviceId);
-    return { success: true, data: bias };
+    return {
+      success: true,
+      data: {
+        items: bias,
+        total: bias.length,
+        page: 1,
+        pageSize: bias.length,
+        totalPages: 1,
+      },
+    };
   }
 
   @Get('services/:id/plans')
@@ -283,7 +292,16 @@ export class BcmController {
     }
 
     const plans = await this.bcmService.findPlansByService(tenantId, serviceId);
-    return { success: true, data: plans };
+    return {
+      success: true,
+      data: {
+        items: plans,
+        total: plans.length,
+        page: 1,
+        pageSize: plans.length,
+        totalPages: 1,
+      },
+    };
   }
 
   @Get('services/:id/exercises')
@@ -307,7 +325,16 @@ export class BcmController {
       tenantId,
       serviceId,
     );
-    return { success: true, data: exercises };
+    return {
+      success: true,
+      data: {
+        items: exercises,
+        total: exercises.length,
+        page: 1,
+        pageSize: exercises.length,
+        totalPages: 1,
+      },
+    };
   }
 
   // ============================================================================
@@ -591,7 +618,16 @@ export class BcmController {
     }
 
     const steps = await this.bcmService.findStepsByPlan(tenantId, planId);
-    return { success: true, data: steps };
+    return {
+      success: true,
+      data: {
+        items: steps,
+        total: steps.length,
+        page: 1,
+        pageSize: steps.length,
+        totalPages: 1,
+      },
+    };
   }
 
   // ============================================================================

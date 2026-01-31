@@ -7,8 +7,10 @@ import { GrcRisk } from '../entities/grc-risk.entity';
 import { GrcRiskHistory } from '../entities/history';
 import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
+import { GrcRiskControl } from '../entities/grc-risk-control.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { GrcControl } from '../entities/grc-control.entity';
 import {
   RiskCreatedEvent,
   RiskUpdatedEvent,
@@ -49,6 +51,10 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     private readonly policyRepository: Repository<GrcPolicy>,
     @InjectRepository(GrcRequirement)
     private readonly requirementRepository: Repository<GrcRequirement>,
+    @InjectRepository(GrcRiskControl)
+    private readonly riskControlRepository: Repository<GrcRiskControl>,
+    @InjectRepository(GrcControl)
+    private readonly controlRepository: Repository<GrcControl>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly universalListService?: UniversalListService,
@@ -748,5 +754,101 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       linkedPoliciesCount: policiesCount,
       linkedRequirementsCount: requirementsCount,
     };
+  }
+
+  // ============================================================================
+  // Control Relationship Management Methods
+  // ============================================================================
+
+  /**
+   * Link a control to a risk
+   * Creates a new risk-control mapping if it doesn't exist
+   */
+  async linkControl(
+    tenantId: string,
+    riskId: string,
+    controlId: string,
+  ): Promise<GrcRiskControl> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const control = await this.controlRepository.findOne({
+      where: { id: controlId, tenantId, isDeleted: false },
+    });
+    if (!control) {
+      throw new NotFoundException(`Control with ID ${controlId} not found`);
+    }
+
+    const existing = await this.riskControlRepository.findOne({
+      where: { tenantId, riskId, controlId },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const riskControl = this.riskControlRepository.create({
+      tenantId,
+      riskId,
+      controlId,
+    });
+
+    return this.riskControlRepository.save(riskControl);
+  }
+
+  /**
+   * Unlink a control from a risk
+   * Removes the risk-control mapping
+   */
+  async unlinkControl(
+    tenantId: string,
+    riskId: string,
+    controlId: string,
+  ): Promise<boolean> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const result = await this.riskControlRepository.delete({
+      tenantId,
+      riskId,
+      controlId,
+    });
+
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Get controls linked to a risk
+   */
+  async getLinkedControls(
+    tenantId: string,
+    riskId: string,
+  ): Promise<GrcControl[]> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const riskControls = await this.riskControlRepository.find({
+      where: { tenantId, riskId },
+      relations: ['control'],
+    });
+
+    return riskControls
+      .map((rc) => rc.control)
+      .filter((c) => c && !c.isDeleted);
+  }
+
+  /**
+   * Calculate risk score based on likelihood and impact
+   * Score = likelihoodValue (1-5) * impactValue (1-4)
+   */
+  calculateScore(likelihood: RiskLikelihood, impact: RiskSeverity): number {
+    const likelihoodValue = this.likelihoodToNumber(likelihood);
+    const impactValue = this.severityToNumber(impact);
+    return likelihoodValue * impactValue;
   }
 }
