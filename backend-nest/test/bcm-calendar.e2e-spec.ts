@@ -349,10 +349,10 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .set('x-tenant-id', tenantId)
           .send({
             serviceId: testServiceId,
-            rtoHours: 4,
-            rpoHours: 1,
-            mtpdHours: 24,
-            impactAnalysis: 'Test impact analysis',
+            rtoMinutes: 240,
+            rpoMinutes: 60,
+            mtpdMinutes: 1440,
+            notes: 'Test impact analysis',
           })
           .expect(201);
 
@@ -410,7 +410,7 @@ describe('BCM and Calendar Operations (e2e)', () => {
           .send({
             serviceId: testServiceId,
             name: 'Test Recovery Plan',
-            planType: 'RECOVERY',
+            planType: 'BCP',
             status: 'DRAFT',
           })
           .expect(201);
