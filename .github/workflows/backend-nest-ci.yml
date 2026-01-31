@@ -666,6 +666,8 @@ jobs:
                 - .env.smoke
               ports:
                 - "3002:3002"
+              volumes:
+                - ci_smoke_uploads:/app/data/uploads
               depends_on:
                 db:
                   condition: service_healthy
@@ -675,6 +677,9 @@ jobs:
                 timeout: 5s
                 retries: 10
                 start_period: 30s
+          
+          volumes:
+            ci_smoke_uploads: {}
           EOF
       
       - name: Validate docker-compose configuration
@@ -949,6 +954,37 @@ jobs:
           
           echo ""
           echo "All required tables exist!"
+      
+      # =========================================================================
+      # Step 8: Verify upload directory is writable (storage determinism check)
+      # =========================================================================
+      - name: "Step 8: Verify upload directory is writable"
+        run: |
+          echo "=== Verifying /app/data/uploads is writable ==="
+          
+          # Write a test file to verify the upload directory is writable
+          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node -e "require(\"fs\").writeFileSync(\"/app/data/uploads/.write-test\",\"ok\")"'; then
+            echo "  [OK] Write test succeeded"
+            
+            # Clean up the test file
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'rm -f /app/data/uploads/.write-test' || true
+            echo "  [OK] Test file cleaned up"
+          else
+            echo ""
+            echo "FAIL: /app/data/uploads is not writable!"
+            echo "This indicates a permission issue with the upload directory."
+            echo ""
+            echo "=== Directory permissions ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'ls -la /app/data/ 2>/dev/null || echo "/app/data does not exist"'
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'ls -la /app/data/uploads/ 2>/dev/null || echo "/app/data/uploads does not exist"'
+            echo ""
+            echo "=== Current user ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'id'
+            exit 1
+          fi
+          
+          echo ""
+          echo "Upload directory write check passed!"
       
       - name: "Smoke Test 1: GET /health/live = 200"
         run: |
