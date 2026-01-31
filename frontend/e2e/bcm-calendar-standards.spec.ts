@@ -98,6 +98,46 @@ test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
     });
   });
 
+  // ==================== BCM SERVICE DETAIL ====================
+  test.describe('BCM Service Detail Page', () => {
+    test('BCM Service Detail page loads with tabs showing counts', async ({ page }) => {
+      // First go to services list
+      await page.goto('/bcm/services');
+      
+      // Wait for page to load
+      await page.waitForTimeout(2000);
+      
+      // Try to click on a service row if available
+      const serviceRow = page.locator('tr[data-testid*="service-row"], tbody tr').first();
+      const rowCount = await serviceRow.count();
+      
+      if (rowCount > 0) {
+        await serviceRow.click();
+        
+        // Wait for detail page to load
+        await page.waitForURL(/\/bcm\/services\/.+/);
+        
+        // Verify tabs are visible with counts (BIA, Plans, Exercises)
+        const biaTab = page.getByTestId('tab-bia');
+        const plansTab = page.getByTestId('tab-plans');
+        const exercisesTab = page.getByTestId('tab-exercises');
+        
+        await expect(biaTab).toBeVisible({ timeout: 10000 });
+        await expect(plansTab).toBeVisible({ timeout: 5000 });
+        await expect(exercisesTab).toBeVisible({ timeout: 5000 });
+        
+        // Verify tabs show counts (format: "BIA (N)")
+        const biaText = await biaTab.textContent();
+        const plansText = await plansTab.textContent();
+        const exercisesText = await exercisesTab.textContent();
+        
+        expect(biaText).toMatch(/BIA \(\d+\)/);
+        expect(plansText).toMatch(/Plans \(\d+\)/);
+        expect(exercisesText).toMatch(/Exercises \(\d+\)/);
+      }
+    });
+  });
+
   // ==================== BCM EXERCISES ====================
   test.describe('BCM Exercises Page', () => {
     test('BCM Exercises page loads and shows list or empty state', async ({ page }) => {

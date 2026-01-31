@@ -241,6 +241,13 @@ export const BcmServiceDetail: React.FC = () => {
     fetchService();
   }, [fetchService]);
 
+  // Fetch related data when component mounts and when id/tenantId changes
+  // This ensures tab counts are accurate from the start
+  useEffect(() => {
+    fetchRelatedData();
+  }, [fetchRelatedData]);
+
+  // Also refetch when tab changes (for lazy loading if needed in future)
   useEffect(() => {
     if (tabValue > 0) {
       fetchRelatedData();
