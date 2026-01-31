@@ -547,14 +547,22 @@ verify_uploads_directory() {
 }
 
 # =============================================================================
-# E.2) SSL/HTTPS Verification (Optional - only when HTTPS override is active)
+# E.2) SSL/HTTPS Verification (RC1 Hardening - Curl-Based Source of Truth)
 # =============================================================================
-# This verification runs only when the staging HTTPS override is active.
-# It checks:
-#   1. Frontend container is listening on port 443 (via ss -lnt inside container)
+# This verification runs when the staging HTTPS override is active (HTTPS_MODE=1).
+# 
+# Key Design Principles (RC1):
+#   1. HTTPS_MODE is determined by override file presence (existing logic)
+#   2. Port 443 listening check is a HELPER SIGNAL only (ss/netstat/nginx fallbacks)
+#   3. SOURCE OF TRUTH = curl endpoint verification (https://localhost)
+#   4. Wait loop for HTTPS readiness (max 45s, 2s interval)
+#   5. No false-negative WARN when curl succeeds but ss/netstat fails
+#
+# Checks performed:
+#   1. Port 443 listening status (informational - may fail if tools missing)
 #   2. SSL certificate files exist inside the frontend container
 #   3. Nginx configuration is valid (nginx -t)
-#   4. HTTPS endpoints respond correctly (when enabled)
+#   4. HTTPS endpoints respond correctly via curl (SOURCE OF TRUTH)
 #
 # This function is non-blocking - it logs warnings but does not fail the deploy
 # if HTTPS is not configured (HTTP-only mode is valid for dev/CI).
@@ -564,34 +572,186 @@ verify_uploads_directory() {
 # =============================================================================
 HTTPS_ENABLED="false"
 
+# Helper function: Check if port 443 is listening inside the frontend container
+# Uses fallback chain: ss -> netstat -> nginx -T
+# Returns: 0 if listening, 1 if not listening, 2 if unknown (tools missing)
+# Sets: PORT_443_STATUS ("listening", "not_listening", "unknown")
+# Sets: PORT_443_TOOL ("ss", "netstat", "nginx", "none")
+is_port_listening_in_frontend_container() {
+  local result=""
+  PORT_443_STATUS="unknown"
+  PORT_443_TOOL="none"
+  
+  set +e
+  
+  # Try ss first (most common)
+  if docker exec "${FRONTEND_CONTAINER}" sh -c 'command -v ss >/dev/null 2>&1' 2>/dev/null; then
+    result=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'ss -lnt 2>/dev/null | grep -E ":443\s" && echo "FOUND" || echo "NOT_FOUND"' 2>&1)
+    PORT_443_TOOL="ss"
+    if echo "${result}" | grep -q "FOUND"; then
+      PORT_443_STATUS="listening"
+      set -e
+      return 0
+    elif echo "${result}" | grep -q "NOT_FOUND"; then
+      PORT_443_STATUS="not_listening"
+      set -e
+      return 1
+    fi
+  fi
+  
+  # Try netstat as fallback
+  if docker exec "${FRONTEND_CONTAINER}" sh -c 'command -v netstat >/dev/null 2>&1' 2>/dev/null; then
+    result=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'netstat -lnt 2>/dev/null | grep -E ":443\s" && echo "FOUND" || echo "NOT_FOUND"' 2>&1)
+    PORT_443_TOOL="netstat"
+    if echo "${result}" | grep -q "FOUND"; then
+      PORT_443_STATUS="listening"
+      set -e
+      return 0
+    elif echo "${result}" | grep -q "NOT_FOUND"; then
+      PORT_443_STATUS="not_listening"
+      set -e
+      return 1
+    fi
+  fi
+  
+  # Try nginx -T as last resort (check if listen 443 is configured)
+  if docker exec "${FRONTEND_CONTAINER}" sh -c 'command -v nginx >/dev/null 2>&1' 2>/dev/null; then
+    result=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'nginx -T 2>/dev/null | grep -E "listen\s+443" && echo "FOUND" || echo "NOT_FOUND"' 2>&1)
+    PORT_443_TOOL="nginx"
+    if echo "${result}" | grep -q "FOUND"; then
+      PORT_443_STATUS="listening"
+      set -e
+      return 0
+    elif echo "${result}" | grep -q "NOT_FOUND"; then
+      PORT_443_STATUS="not_listening"
+      set -e
+      return 1
+    fi
+  fi
+  
+  # No tools available
+  PORT_443_STATUS="unknown"
+  PORT_443_TOOL="none"
+  set -e
+  return 2
+}
+
+# Helper function: Wait for HTTPS to be ready via curl
+# Polls https://localhost with max wait time and interval
+# Returns: 0 if HTTPS responds with 200/301/302, 1 if timeout
+# Sets: HTTPS_CURL_STATUS ("ok", "failed")
+# Sets: HTTPS_CURL_CODE (HTTP status code or "000" for connection error)
+wait_for_https_ready() {
+  local max_wait="${1:-45}"
+  local interval="${2:-2}"
+  local elapsed=0
+  local http_code="000"
+  
+  HTTPS_CURL_STATUS="failed"
+  HTTPS_CURL_CODE="000"
+  
+  log_info "Waiting for HTTPS to be ready (max ${max_wait}s, ${interval}s interval)..."
+  
+  while [ ${elapsed} -lt ${max_wait} ]; do
+    set +e
+    # Use curl inside the frontend container to test HTTPS
+    http_code=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'curl -k -s -o /dev/null -w "%{http_code}" https://localhost/ 2>/dev/null || echo "000"' 2>&1)
+    set -e
+    
+    # Clean up http_code (remove any whitespace/newlines)
+    http_code=$(echo "${http_code}" | tr -d '[:space:]')
+    
+    # Check for success codes (200, 301, 302)
+    if [ "${http_code}" = "200" ] || [ "${http_code}" = "301" ] || [ "${http_code}" = "302" ]; then
+      HTTPS_CURL_STATUS="ok"
+      HTTPS_CURL_CODE="${http_code}"
+      log_info "HTTPS ready after ${elapsed}s (HTTP ${http_code})"
+      return 0
+    fi
+    
+    sleep ${interval}
+    elapsed=$((elapsed + interval))
+    echo -n "."
+  done
+  echo ""
+  
+  HTTPS_CURL_STATUS="failed"
+  HTTPS_CURL_CODE="${http_code}"
+  return 1
+}
+
 verify_ssl_configuration() {
   log_info "=== SSL/HTTPS Configuration Verification ==="
 
-  # Check if frontend is listening on port 443 using ss inside the container
-  # This is the most reliable method as it checks from within the container
-  log_info "Checking if frontend listens on port 443 (container-based check)..."
-  local port_443_check
-  set +e
-  # Use ss -lnt which is more portable than netstat
-  port_443_check=$(dc exec -T frontend sh -lc 'ss -lnt | grep -q ":443 " && echo "listening" || echo ""' 2>&1)
-  set -e
-
-  echo "SSL port_443_check: ${port_443_check}" >> "${RAW_LOG}"
-
-  if [ "${port_443_check}" != "listening" ]; then
-    log_warn "Frontend is NOT listening on port 443 (HTTPS not enabled)"
-    log_warn "This is expected for HTTP-only mode (dev/CI)"
+  # Step 1: Check HTTPS_MODE (determined by override file presence in init_compose_args)
+  if [ "${HTTPS_MODE}" != "1" ]; then
+    log_info "HTTPS mode not enabled (no override file found)"
+    log_info "This is expected for HTTP-only mode (dev/CI)"
+    echo "SSL https_mode=false" >> "${RAW_LOG}"
     echo "SSL https_enabled=false" >> "${RAW_LOG}"
     HTTPS_ENABLED="false"
     log_info "SSL verification skipped (HTTP-only mode)"
     return 0
   fi
+  
+  log_info "HTTPS mode enabled (override file present)"
+  echo "SSL https_mode=true" >> "${RAW_LOG}"
 
-  log_info "Frontend is listening on port 443 - HTTPS enabled"
-  echo "SSL https_enabled=true" >> "${RAW_LOG}"
-  HTTPS_ENABLED="true"
+  # Step 2: Port 443 listening check (INFORMATIONAL ONLY - not source of truth)
+  log_info "Checking port 443 status (informational)..."
+  local port_check_result
+  set +e
+  is_port_listening_in_frontend_container
+  port_check_result=$?
+  set -e
+  
+  echo "SSL port_443_status=${PORT_443_STATUS}" >> "${RAW_LOG}"
+  echo "SSL port_443_tool=${PORT_443_TOOL}" >> "${RAW_LOG}"
+  
+  case "${PORT_443_STATUS}" in
+    "listening")
+      log_info "Frontend 443 status: listening (detected via ${PORT_443_TOOL})"
+      ;;
+    "not_listening")
+      log_info "Frontend 443 status: not listening (detected via ${PORT_443_TOOL})"
+      ;;
+    "unknown")
+      log_info "Frontend 443 status: unknown (tools missing: ss/netstat/nginx not available)"
+      ;;
+  esac
 
-  # Check if SSL certificate files exist
+  # Step 3: Wait for HTTPS to be ready via curl (SOURCE OF TRUTH)
+  local https_ready=false
+  if wait_for_https_ready 45 2; then
+    https_ready=true
+    echo "SSL https_curl_status=ok" >> "${RAW_LOG}"
+    echo "SSL https_curl_code=${HTTPS_CURL_CODE}" >> "${RAW_LOG}"
+  else
+    echo "SSL https_curl_status=failed" >> "${RAW_LOG}"
+    echo "SSL https_curl_code=${HTTPS_CURL_CODE}" >> "${RAW_LOG}"
+  fi
+
+  # Step 4: Determine HTTPS_ENABLED based on curl result (source of truth)
+  if [ "${https_ready}" = "true" ]; then
+    log_info "HTTPS verified via curl (localhost) - HTTP ${HTTPS_CURL_CODE}"
+    HTTPS_ENABLED="true"
+    echo "SSL https_enabled=true" >> "${RAW_LOG}"
+  else
+    # HTTPS mode expected but curl failed - this is a real issue
+    HTTPS_ENABLED="false"
+    echo "SSL https_enabled=false" >> "${RAW_LOG}"
+    
+    if [ "${PORT_443_STATUS}" = "listening" ]; then
+      log_warn "443 listening but HTTPS endpoint not responding (curl failed with ${HTTPS_CURL_CODE})"
+      log_warn "Check nginx configuration and certificate mounts"
+    else
+      log_warn "HTTPS mode expected but not active (override present)"
+      log_warn "Check cert mounts & nginx config"
+    fi
+    # Continue with additional diagnostics but don't fail the deploy
+  fi
+
+  # Step 5: Check SSL certificate files (diagnostic info)
   log_info "Checking SSL certificate files..."
   local cert_check key_check
   set +e
@@ -599,11 +759,11 @@ verify_ssl_configuration() {
   key_check=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'test -f /etc/nginx/ssl/origin-key.pem && echo "exists" || echo "missing"' 2>&1)
   set -e
 
-  echo "SSL cert_file: ${cert_check}" >> "${RAW_LOG}"
-  echo "SSL key_file: ${key_check}" >> "${RAW_LOG}"
+  echo "SSL cert_file=${cert_check}" >> "${RAW_LOG}"
+  echo "SSL key_file=${key_check}" >> "${RAW_LOG}"
 
   if [ "${cert_check}" != "exists" ]; then
-    log_error "SSL certificate not found: /etc/nginx/ssl/origin-cert.pem"
+    log_warn "SSL certificate not found: /etc/nginx/ssl/origin-cert.pem"
     echo "SSL cert_exists=false" >> "${RAW_LOG}"
   else
     log_info "SSL certificate found: /etc/nginx/ssl/origin-cert.pem"
@@ -611,14 +771,14 @@ verify_ssl_configuration() {
   fi
 
   if [ "${key_check}" != "exists" ]; then
-    log_error "SSL key not found: /etc/nginx/ssl/origin-key.pem"
+    log_warn "SSL key not found: /etc/nginx/ssl/origin-key.pem"
     echo "SSL key_exists=false" >> "${RAW_LOG}"
   else
     log_info "SSL key found: /etc/nginx/ssl/origin-key.pem"
     echo "SSL key_exists=true" >> "${RAW_LOG}"
   fi
 
-  # Verify nginx configuration
+  # Step 6: Verify nginx configuration
   log_info "Verifying nginx configuration..."
   local nginx_test
   set +e
@@ -629,36 +789,19 @@ verify_ssl_configuration() {
   echo "SSL nginx_test: ${nginx_test}" >> "${RAW_LOG}"
 
   if [ ${nginx_exit_code} -ne 0 ]; then
-    log_error "Nginx configuration test failed"
-    log_error "${nginx_test}"
+    log_warn "Nginx configuration test failed"
+    log_warn "${nginx_test}"
     echo "SSL nginx_config_valid=false" >> "${RAW_LOG}"
   else
     log_info "Nginx configuration is valid"
     echo "SSL nginx_config_valid=true" >> "${RAW_LOG}"
   fi
 
-  # Test HTTPS endpoints (only if certs exist and nginx is valid)
-  if [ "${cert_check}" = "exists" ] && [ "${key_check}" = "exists" ] && [ ${nginx_exit_code} -eq 0 ]; then
-    log_info "Testing HTTPS endpoints..."
-    
-    # Test HTTPS root endpoint from inside frontend container
-    # Using curl with -k to skip certificate verification (self-signed/origin cert)
-    local https_root_test https_api_test
+  # Step 7: Test HTTPS API endpoint (only if HTTPS is working)
+  if [ "${HTTPS_ENABLED}" = "true" ]; then
+    log_info "Testing HTTPS API endpoint..."
+    local https_api_test
     set +e
-    
-    # Test https://localhost (frontend)
-    log_info "Testing https://localhost..."
-    https_root_test=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'curl -sSI https://localhost -k 2>&1 | head -n 5' 2>&1 || echo "curl failed")
-    echo "SSL https_root_test:" >> "${RAW_LOG}"
-    echo "${https_root_test}" >> "${RAW_LOG}"
-    
-    if echo "${https_root_test}" | grep -qE "^HTTP.*200|^HTTP.*301|^HTTP.*302"; then
-      log_info "HTTPS root endpoint: OK"
-      echo "SSL https_root_status=OK" >> "${RAW_LOG}"
-    else
-      log_warn "HTTPS root endpoint returned unexpected response"
-      echo "SSL https_root_status=UNEXPECTED" >> "${RAW_LOG}"
-    fi
     
     # Test https://localhost/api/health/ready (backend via nginx proxy)
     log_info "Testing https://localhost/api/health/ready..."
@@ -681,6 +824,27 @@ verify_ssl_configuration() {
   else
     log_warn "SSL/HTTPS configuration has issues - check logs above"
     echo "SSL verification_status=ISSUES" >> "${RAW_LOG}"
+  fi
+  
+  # Step 8: Optional soft-check for public domain (bonus - WARN only)
+  if [ "${HTTPS_ENABLED}" = "true" ]; then
+    log_info "Testing public HTTPS endpoint (soft-check, WARN only)..."
+    local public_https_test
+    set +e
+    # Test from inside container to avoid DNS issues on host
+    public_https_test=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 https://niles-grc.com/ 2>/dev/null || echo "000"' 2>&1)
+    set -e
+    
+    public_https_test=$(echo "${public_https_test}" | tr -d '[:space:]')
+    echo "SSL public_https_code=${public_https_test}" >> "${RAW_LOG}"
+    
+    if [ "${public_https_test}" = "200" ] || [ "${public_https_test}" = "301" ] || [ "${public_https_test}" = "302" ]; then
+      log_info "Public HTTPS (niles-grc.com): OK (HTTP ${public_https_test})"
+    elif [ "${public_https_test}" = "000" ]; then
+      log_info "Public HTTPS (niles-grc.com): skipped (DNS/network not available)"
+    else
+      log_warn "Public HTTPS (niles-grc.com): unexpected response (HTTP ${public_https_test})"
+    fi
   fi
 }
 

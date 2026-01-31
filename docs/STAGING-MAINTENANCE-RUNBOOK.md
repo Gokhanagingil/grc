@@ -459,6 +459,43 @@ curl -s http://localhost:3002/health/ready
 - Verify origin certificate is valid and not expired
 - Verify certificate is properly mounted in container
 
+### HTTPS Verification (RC1 Hardening)
+
+The `staging-deploy-validate.sh` script uses a curl-based approach for HTTPS verification. This is the source of truth for determining if HTTPS is working correctly. Container tools like `ss` or `netstat` may not be available in minimal container images, so the script uses a fallback chain for port status checks (informational only).
+
+**Key Points:**
+- HTTPS verification is curl-based; container tools (ss/netstat) may be missing
+- Port 443 status is informational only - curl result is the source of truth
+- Wait loop polls HTTPS endpoint for up to 45 seconds before declaring failure
+
+**Troubleshooting HTTPS Detection:**
+
+```bash
+# 1. Test HTTPS directly with curl (source of truth)
+curl -kI https://localhost/
+
+# 2. Check nginx configuration for listen 443
+docker compose -f docker-compose.staging.yml exec -T frontend nginx -T | grep 'listen 443'
+
+# 3. Check host-level port binding
+sudo ss -lntp | grep :443
+
+# 4. Check if override file is present (enables HTTPS mode)
+ls -la _local_ignored/docker-compose.staging.override.yml
+```
+
+**Expected Log Output (HTTPS Mode):**
+```
+[INFO] HTTPS mode enabled (override file present)
+[INFO] Frontend 443 status: listening (detected via ss)
+  OR
+[INFO] Frontend 443 status: unknown (tools missing: ss/netstat/nginx not available)
+[INFO] HTTPS ready after Xs (HTTP 200)
+[INFO] HTTPS verified via curl (localhost) - HTTP 200
+```
+
+If you see `[WARN] HTTPS mode expected but not active`, check certificate mounts and nginx configuration.
+
 ### Reverting to HTTP-Only Mode
 
 To disable HTTPS and revert to HTTP-only mode:
