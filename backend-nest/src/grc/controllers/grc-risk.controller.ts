@@ -346,4 +346,70 @@ export class GrcRiskController {
 
     return this.riskService.getLinkedRequirements(tenantId, id);
   }
+
+  // ============================================================================
+  // Control Relationship Management Endpoints
+  // ============================================================================
+
+  /**
+   * POST /grc/risks/:riskId/controls/:controlId
+   * Link a control to a risk
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Post(':riskId/controls/:controlId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async linkControl(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('controlId') controlId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.linkControl(tenantId, riskId, controlId);
+    return { success: true, message: 'Control linked successfully' };
+  }
+
+  /**
+   * DELETE /grc/risks/:riskId/controls/:controlId
+   * Unlink a control from a risk
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Delete(':riskId/controls/:controlId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async unlinkControl(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('controlId') controlId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.unlinkControl(tenantId, riskId, controlId);
+  }
+
+  /**
+   * GET /grc/risks/:id/controls
+   * Get controls linked to a risk
+   */
+  @Get(':id/controls/list')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getLinkedControls(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const controls = await this.riskService.getLinkedControls(tenantId, id);
+    return { success: true, data: controls };
+  }
 }

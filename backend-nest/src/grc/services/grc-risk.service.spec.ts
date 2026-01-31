@@ -7,9 +7,13 @@ import { GrcRisk } from '../entities/grc-risk.entity';
 import { GrcRiskHistory } from '../entities/history';
 import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
+import { GrcRiskControl } from '../entities/grc-risk-control.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
+import { GrcControl } from '../entities/grc-control.entity';
 import { AuditService } from '../../audit/audit.service';
+import { UniversalListService } from '../../common';
+import { CodeGeneratorService } from './code-generator.service';
 import { RiskSeverity, RiskLikelihood, RiskStatus } from '../enums';
 
 describe('GrcRiskService', () => {
@@ -92,6 +96,19 @@ describe('GrcRiskService', () => {
       findOne: jest.fn(),
     };
 
+    const mockRiskControlRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    };
+
+    const mockControlRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+    };
+
     const mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -100,6 +117,14 @@ describe('GrcRiskService', () => {
       recordCreate: jest.fn(),
       recordUpdate: jest.fn(),
       recordDelete: jest.fn(),
+    };
+
+    const mockUniversalListService = {
+      findWithFilters: jest.fn(),
+    };
+
+    const mockCodeGeneratorService = {
+      generateCode: jest.fn().mockResolvedValue('RISK-001'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -130,12 +155,28 @@ describe('GrcRiskService', () => {
           useValue: mockRequirementRepository,
         },
         {
+          provide: getRepositoryToken(GrcRiskControl),
+          useValue: mockRiskControlRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcControl),
+          useValue: mockControlRepository,
+        },
+        {
           provide: EventEmitter2,
           useValue: mockEventEmitter,
         },
         {
           provide: AuditService,
           useValue: mockAuditService,
+        },
+        {
+          provide: UniversalListService,
+          useValue: mockUniversalListService,
+        },
+        {
+          provide: CodeGeneratorService,
+          useValue: mockCodeGeneratorService,
         },
       ],
     }).compile();
