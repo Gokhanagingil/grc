@@ -310,7 +310,191 @@ backend:
 |-----------|------|------|
 | PostgreSQL | grc-staging-db | 5432 (internal) |
 | NestJS Backend | grc-staging-backend | 3002 |
-| React Frontend | grc-staging-frontend | 80 |
+| React Frontend | grc-staging-frontend | 80, 443 (with HTTPS override) |
+
+## HTTPS/SSL Configuration (Cloudflare Origin SSL)
+
+This section documents how to enable HTTPS on the staging server using Cloudflare Origin SSL certificates. The configuration uses a staging override file to mount certificates without polluting the repository.
+
+### Overview
+
+The GRC Platform supports HTTPS via Cloudflare Full (strict) SSL mode:
+
+- **Domain**: niles-grc.com, www.niles-grc.com, api.niles-grc.com
+- **Cloudflare SSL Mode**: Full (strict)
+- **Origin Certificate**: Cloudflare-issued origin certificate
+- **Certificate Location**: `/etc/ssl/niles/` on the staging server
+
+### Why Use an Override File?
+
+The HTTPS configuration uses a Docker Compose override file (`_local_ignored/docker-compose.staging.override.yml`) for several reasons:
+
+1. **CI/Dev Compatibility**: The base `docker-compose.staging.yml` works without certificates (HTTP-only mode)
+2. **No Secrets in Repo**: Certificate paths are server-specific and not committed
+3. **Clean Separation**: Production SSL config is isolated from development config
+
+### Prerequisites
+
+Before enabling HTTPS, ensure:
+
+1. **Cloudflare Origin Certificate** exists on the server:
+   ```bash
+   ls -la /etc/ssl/niles/
+   # Should show:
+   # origin-cert.pem
+   # origin-key.pem
+   ```
+
+2. **Cloudflare DNS** is configured:
+   - A record: `@` -> `46.224.99.150` (proxied)
+   - A record: `api` -> `46.224.99.150` (proxied)
+   - CNAME record: `www` -> `niles-grc.com` (proxied)
+
+3. **Cloudflare SSL Mode** is set to "Full (strict)"
+
+4. **Firewall** allows port 443:
+   ```bash
+   sudo ufw allow 443/tcp
+   ```
+
+### Setting Up the Override File
+
+The override file should be created at `_local_ignored/docker-compose.staging.override.yml` on the staging server. This path is gitignored.
+
+**Step 1: Create the override directory (if not exists)**
+
+```bash
+ssh root@46.224.99.150 "cd /opt/grc-platform && mkdir -p _local_ignored"
+```
+
+**Step 2: Create the override file**
+
+```bash
+ssh root@46.224.99.150 "cat > /opt/grc-platform/_local_ignored/docker-compose.staging.override.yml << 'EOF'
+services:
+  frontend:
+    ports:
+      - \"80:80\"
+      - \"443:443\"
+    volumes:
+      - ./frontend/nginx-https.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/ssl/niles/origin-cert.pem:/etc/nginx/ssl/origin-cert.pem:ro
+      - /etc/ssl/niles/origin-key.pem:/etc/nginx/ssl/origin-key.pem:ro
+EOF"
+```
+
+### Deploying with HTTPS
+
+Use the combined compose command to deploy with HTTPS enabled:
+
+```bash
+cd /opt/grc-platform
+docker compose -f docker-compose.staging.yml \
+               -f _local_ignored/docker-compose.staging.override.yml \
+               up -d --build --force-recreate frontend
+```
+
+### Verification Commands
+
+After deploying with HTTPS, verify the configuration:
+
+```bash
+# Check ports are listening
+sudo ss -lntp | egrep ':80|:443|:3002'
+
+# Verify nginx configuration inside container
+docker compose -f docker-compose.staging.yml exec -T frontend nginx -t
+
+# Test HTTPS endpoints
+curl -I https://niles-grc.com
+curl -I https://niles-grc.com/api/health/ready
+curl -I https://api.niles-grc.com/health/ready
+
+# Test HTTP redirect
+curl -I http://niles-grc.com
+# Should return 301 redirect to https://
+```
+
+### Expected Results
+
+| Test | Expected Result |
+|------|-----------------|
+| `curl -I https://niles-grc.com` | HTTP 200 (SPA index.html) |
+| `curl -I https://niles-grc.com/api/health/ready` | HTTP 200 (backend health) |
+| `curl -I https://api.niles-grc.com/health/ready` | HTTP 200 (backend health) |
+| `curl -I http://niles-grc.com` | HTTP 301 redirect to HTTPS |
+| `nginx -t` | "syntax is ok" |
+
+### Troubleshooting HTTPS Issues
+
+**Certificate not found errors:**
+```bash
+# Check if certs exist on host
+ls -la /etc/ssl/niles/
+
+# Check if certs are mounted in container
+docker exec grc-staging-frontend ls -la /etc/nginx/ssl/
+```
+
+**Nginx won't start:**
+```bash
+# Check nginx error log
+docker logs grc-staging-frontend
+
+# Test nginx config
+docker exec grc-staging-frontend nginx -t
+```
+
+**502 Bad Gateway:**
+```bash
+# Check if backend is running
+docker ps | grep backend
+
+# Check backend health
+curl -s http://localhost:3002/health/ready
+```
+
+**Cloudflare 525 SSL Handshake Failed:**
+- Verify Cloudflare SSL mode is "Full (strict)" (not "Flexible")
+- Verify origin certificate is valid and not expired
+- Verify certificate is properly mounted in container
+
+### Reverting to HTTP-Only Mode
+
+To disable HTTPS and revert to HTTP-only mode:
+
+```bash
+cd /opt/grc-platform
+docker compose -f docker-compose.staging.yml up -d --build --force-recreate frontend
+```
+
+This uses only the base compose file without the HTTPS override.
+
+### Certificate Renewal
+
+Cloudflare Origin Certificates are valid for 15 years by default. When renewal is needed:
+
+1. Generate new certificate in Cloudflare dashboard (SSL/TLS > Origin Server)
+2. Replace files on server:
+   ```bash
+   # Backup old certs
+   sudo cp /etc/ssl/niles/origin-cert.pem /etc/ssl/niles/origin-cert.pem.bak
+   sudo cp /etc/ssl/niles/origin-key.pem /etc/ssl/niles/origin-key.pem.bak
+   
+   # Install new certs (paste content from Cloudflare)
+   sudo nano /etc/ssl/niles/origin-cert.pem
+   sudo nano /etc/ssl/niles/origin-key.pem
+   
+   # Set permissions
+   sudo chmod 644 /etc/ssl/niles/origin-cert.pem
+   sudo chmod 600 /etc/ssl/niles/origin-key.pem
+   ```
+3. Restart frontend container:
+   ```bash
+   docker compose -f docker-compose.staging.yml \
+                  -f _local_ignored/docker-compose.staging.override.yml \
+                  restart frontend
+   ```
 
 ## Database Volume Stability
 
