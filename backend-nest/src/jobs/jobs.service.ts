@@ -39,12 +39,23 @@ export interface JobsStatusSummary {
   recentRuns: JobRunSummary[];
 }
 
+/**
+ * Check if jobs are enabled via environment variable.
+ * Set JOBS_ENABLED=false to disable job scheduling (useful for seed scripts).
+ */
+function isJobsEnabled(): boolean {
+  const envValue = process.env.JOBS_ENABLED;
+  // Default to true if not set, only disable if explicitly set to 'false'
+  return envValue?.toLowerCase() !== 'false';
+}
+
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger: StructuredLoggerService;
   private readonly registry: Map<string, JobRegistryEntry> = new Map();
   private readonly scheduledIntervals: Map<string, NodeJS.Timeout> = new Map();
   private isShuttingDown = false;
+  private readonly jobsEnabled: boolean;
 
   constructor(
     @InjectRepository(JobRun)
@@ -52,12 +63,22 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   ) {
     this.logger = new StructuredLoggerService();
     this.logger.setContext('JobsService');
+    this.jobsEnabled = isJobsEnabled();
   }
 
   onModuleInit(): void {
     this.logger.log('Jobs service initialized', {
       registeredJobs: this.registry.size,
+      jobsEnabled: this.jobsEnabled,
     });
+
+    // Skip job scheduling if JOBS_ENABLED=false
+    if (!this.jobsEnabled) {
+      this.logger.log(
+        'Job scheduling disabled via JOBS_ENABLED=false environment variable',
+      );
+      return;
+    }
 
     for (const [name, entry] of this.registry) {
       if (entry.job.config.runOnStartup && entry.job.config.enabled) {
@@ -129,6 +150,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
         });
       }
     }, intervalMs);
+
+    // Call unref() so the interval doesn't keep the Node event loop alive
+    // This allows the process to exit cleanly when app.close() is called
+    interval.unref();
 
     this.scheduledIntervals.set(name, interval);
 

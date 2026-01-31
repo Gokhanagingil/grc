@@ -813,9 +813,11 @@ jobs:
       # =========================================================================
       - name: "Step 4: Run migrations"
         run: |
+          set -euo pipefail
           echo "=== Running migrations (node dist/scripts/migration-run.js) ==="
           
-          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js' 2>&1 | tee /tmp/migration.log; then
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js' 2>&1 | tee /tmp/migration.log; then
             echo ""
             echo "Migrations completed successfully!"
             
@@ -848,9 +850,11 @@ jobs:
       # =========================================================================
       - name: "Step 5: Seed GRC demo data"
         run: |
+          set -euo pipefail
           echo "=== Running seed-grc.js ==="
           
-          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-grc.js' 2>&1 | tee /tmp/seed-grc.log; then
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-grc.js' 2>&1 | tee /tmp/seed-grc.log; then
             echo ""
             echo "GRC seed completed successfully!"
             
@@ -883,9 +887,11 @@ jobs:
       # =========================================================================
       - name: "Step 6: Seed Platform Builder demo data"
         run: |
+          set -euo pipefail
           echo "=== Running seed-platform-builder.js ==="
           
-          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-platform-builder.js' 2>&1 | tee /tmp/seed-pb.log; then
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-platform-builder.js' 2>&1 | tee /tmp/seed-pb.log; then
             echo ""
             echo "Platform Builder seed completed successfully!"
             

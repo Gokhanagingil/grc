@@ -9,6 +9,9 @@
  * This script is idempotent - it checks for existing data before creating.
  */
 
+// Disable job scheduling for seed scripts to ensure deterministic exit
+process.env.JOBS_ENABLED = 'false';
+
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -281,4 +284,10 @@ async function seedPlatformBuilderData() {
   }
 }
 
-void seedPlatformBuilderData();
+// Run the seed with explicit process.exit() for deterministic termination
+seedPlatformBuilderData()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
