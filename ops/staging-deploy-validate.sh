@@ -37,9 +37,14 @@ DEMO_TENANT_ID="00000000-0000-0000-0000-000000000001"
 STAGING_TENANT_ID="${STAGING_TENANT_ID:-${DEMO_TENANT_ID}}"
 
 # Compose file paths (COMPOSE_ARGS initialized after logging functions)
-COMPOSE_OVERRIDE_FILE="${REPO_ROOT}/_local_ignored/docker-compose.staging.override.yml"
-COMPOSE_BASE_FILE="${REPO_ROOT}/docker-compose.staging.yml"
+BASE_COMPOSE="${REPO_ROOT}/docker-compose.staging.yml"
+OVERRIDE_COMPOSE="${REPO_ROOT}/_local_ignored/docker-compose.staging.override.yml"
 COMPOSE_ARGS=()
+HTTPS_MODE=0
+
+# Validate-only mode (for CI regression testing)
+# Set VALIDATE_ONLY=1 or DRY_RUN=1 to skip build/start steps
+VALIDATE_ONLY="${VALIDATE_ONLY:-${DRY_RUN:-0}}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -66,25 +71,48 @@ log_error() {
 # Determine docker compose arguments based on environment and override file presence.
 # Priority:
 #   1. If COMPOSE_FILE env var is set by user, use plain docker compose (respects user's setting)
-#   2. If _local_ignored/docker-compose.staging.override.yml exists, use both files
-#   3. Otherwise, use only docker-compose.staging.yml
+#   2. If _local_ignored/docker-compose.staging.override.yml exists, use both files (HTTPS mode)
+#   3. Otherwise, use only docker-compose.staging.yml (HTTP mode)
 #
 # This allows automatic HTTPS support when the override file is present on staging.
 # =============================================================================
 init_compose_args() {
   if [ -n "${COMPOSE_FILE:-}" ]; then
     # User has set COMPOSE_FILE env var - let docker compose use it directly
-    log_info "COMPOSE_FILE env var is set, using docker compose defaults"
+    log_info "COMPOSE_FILE env var is set (legacy mode), using docker compose defaults"
+    log_info "  COMPOSE_FILE=${COMPOSE_FILE}"
     COMPOSE_ARGS=()
-  elif [ -f "${COMPOSE_OVERRIDE_FILE}" ]; then
-    # Override file exists - use both base and override
+    HTTPS_MODE=0
+  elif [ -f "${OVERRIDE_COMPOSE}" ]; then
+    # Override file exists - use both base and override (HTTPS mode)
     log_info "Found staging override file, enabling HTTPS mode"
-    COMPOSE_ARGS=(-f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERRIDE_FILE}")
+    log_info "  Base: ${BASE_COMPOSE}"
+    log_info "  Override: ${OVERRIDE_COMPOSE}"
+    COMPOSE_ARGS=(-f "${BASE_COMPOSE}" -f "${OVERRIDE_COMPOSE}")
+    HTTPS_MODE=1
   else
     # No override - use base file only (HTTP mode)
     log_info "No override file found, using HTTP mode"
-    COMPOSE_ARGS=(-f "${COMPOSE_BASE_FILE}")
+    log_info "  Base: ${BASE_COMPOSE}"
+    COMPOSE_ARGS=(-f "${BASE_COMPOSE}")
+    HTTPS_MODE=0
   fi
+  
+  # Validate base compose file exists (required in all modes except legacy COMPOSE_FILE)
+  if [ -z "${COMPOSE_FILE:-}" ] && [ ! -f "${BASE_COMPOSE}" ]; then
+    log_error "Base compose file not found: ${BASE_COMPOSE}"
+    exit 2
+  fi
+}
+
+# =============================================================================
+# Docker Compose Helper
+# =============================================================================
+# Wrapper function for docker compose that applies the correct compose files.
+# Usage: dc up -d --build backend frontend
+# =============================================================================
+dc() {
+  docker compose "${COMPOSE_ARGS[@]}" "$@"
 }
 
 # =============================================================================
@@ -215,11 +243,8 @@ pre_checks() {
     exit 2
   fi
 
-  # Check compose file
-  if [ ! -f "${COMPOSE_FILE}" ]; then
-    log_error "Compose file not found: ${COMPOSE_FILE}"
-    exit 2
-  fi
+  # Note: Compose file validation is now done in init_compose_args() which runs before pre_checks()
+  # This ensures COMPOSE_FILE is never accessed while unbound under set -u
 
   # Get git metadata
   local git_commit git_branch
@@ -280,7 +305,7 @@ build_and_up() {
   log_info "=== Build and Start Containers ==="
 
   # Build and start backend and frontend (not db)
-  if ! docker compose "${COMPOSE_ARGS[@]}" up -d --build backend frontend; then
+  if ! dc up -d --build backend frontend; then
     log_error "docker compose up failed"
     exit 4
   fi
@@ -290,7 +315,7 @@ build_and_up() {
 
   # Get container status
   log_info "Container status:"
-  docker compose "${COMPOSE_ARGS[@]}" ps >> "${RAW_LOG}" 2>&1 || true
+  dc ps >> "${RAW_LOG}" 2>&1 || true
 
   # Wait for backend health (max 90s)
   log_info "Waiting for backend to be ready (max 90s)..."
@@ -328,7 +353,7 @@ preflight_check() {
   log_info "=== Preflight Check (Memory) ==="
 
   local preflight_output
-  preflight_output=$(docker compose "${COMPOSE_ARGS[@]}" exec -T backend sh -lc "node dist/scripts/check-memory.js" 2>&1 || true)
+  preflight_output=$(dc exec -T backend sh -lc "node dist/scripts/check-memory.js" 2>&1 || true)
 
   echo "${preflight_output}" >> "${RAW_LOG}"
 
@@ -548,7 +573,7 @@ verify_ssl_configuration() {
   local port_443_check
   set +e
   # Use ss -lnt which is more portable than netstat
-  port_443_check=$(docker compose "${COMPOSE_ARGS[@]}" exec -T frontend sh -lc 'ss -lnt | grep -q ":443 " && echo "listening" || echo ""' 2>&1)
+  port_443_check=$(dc exec -T frontend sh -lc 'ss -lnt | grep -q ":443 " && echo "listening" || echo ""' 2>&1)
   set -e
 
   echo "SSL port_443_check: ${port_443_check}" >> "${RAW_LOG}"
@@ -1190,7 +1215,7 @@ generate_evidence() {
 
   # Get container status as text (store as string - avoid forcing JSON parsing across compose versions)
   local container_status_text
-  container_status_text=$(docker compose "${COMPOSE_ARGS[@]}" ps 2>&1 || echo "")
+  container_status_text=$(dc ps 2>&1 || echo "")
 
   # Get docker image IDs
   local backend_image frontend_image
@@ -1264,7 +1289,7 @@ EOF
 ## Container Status
 
 \`\`\`
-$(docker compose "${COMPOSE_ARGS[@]}" ps)
+$(dc ps)
 \`\`\`
 
 ## Docker Images
@@ -1325,7 +1350,68 @@ main() {
   start_time=$(date +%s)
 
   # Initialize compose args (determines HTTP vs HTTPS mode)
+  # This MUST run before any other steps to avoid COMPOSE_FILE unbound errors
   init_compose_args
+
+  # Handle VALIDATE_ONLY mode (for CI regression testing)
+  if [ "${VALIDATE_ONLY}" = "1" ]; then
+    log_info "=== VALIDATE_ONLY mode enabled ==="
+    log_info "Skipping build/start steps, running pre-checks and compose arg validation only"
+    log_info ""
+    log_info "Compose configuration:"
+    log_info "  HTTPS_MODE: ${HTTPS_MODE}"
+    log_info "  BASE_COMPOSE: ${BASE_COMPOSE}"
+    log_info "  OVERRIDE_COMPOSE: ${OVERRIDE_COMPOSE}"
+    log_info "  COMPOSE_ARGS: ${COMPOSE_ARGS[*]:-<empty - using COMPOSE_FILE env var>}"
+    log_info "  COMPOSE_FILE: ${COMPOSE_FILE:-<not set>}"
+    log_info ""
+    
+    # Run minimal pre-checks (OS, git, docker availability)
+    log_info "=== Pre-checks (validate-only mode) ==="
+    
+    # Check OS (must be Linux)
+    if [[ "$(uname)" != "Linux" ]]; then
+      log_error "This script must run on Linux (detected: $(uname))"
+      exit 2
+    fi
+    log_info "OS check: Linux"
+    
+    # Check docker
+    if ! command -v docker &> /dev/null; then
+      log_error "docker command not found"
+      exit 2
+    fi
+    log_info "Docker check: available"
+    
+    # Check docker compose
+    if ! docker compose version &> /dev/null; then
+      log_error "docker compose command not found"
+      exit 2
+    fi
+    log_info "Docker Compose check: available"
+    
+    # Verify compose files exist (if not using COMPOSE_FILE env var)
+    if [ -z "${COMPOSE_FILE:-}" ]; then
+      if [ ! -f "${BASE_COMPOSE}" ]; then
+        log_error "Base compose file not found: ${BASE_COMPOSE}"
+        exit 2
+      fi
+      log_info "Base compose file: exists"
+      
+      if [ -f "${OVERRIDE_COMPOSE}" ]; then
+        log_info "Override compose file: exists (HTTPS mode)"
+      else
+        log_info "Override compose file: not found (HTTP mode)"
+      fi
+    else
+      log_info "Using COMPOSE_FILE env var (legacy mode)"
+    fi
+    
+    log_info ""
+    log_info "=== VALIDATE_ONLY completed successfully ==="
+    log_info "Compose arg resolution works correctly."
+    exit 0
+  fi
 
   # Initialize evidence
   init_evidence

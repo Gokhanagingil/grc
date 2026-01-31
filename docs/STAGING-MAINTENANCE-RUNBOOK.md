@@ -488,13 +488,53 @@ The script automatically:
 - Runs health checks, SSL verification (if HTTPS enabled), and smoke tests (if credentials available)
 - Generates an evidence pack in `evidence/staging-YYYYMMDD-HHMMSS/`
 
-### HTTPS Override Detection
+### Compose File Precedence
 
-The script uses the following priority for compose file selection:
+The script uses a safe compose-args builder that avoids unbound variable errors under strict mode (`set -euo pipefail`). The precedence for compose file selection is:
 
-1. **COMPOSE_FILE env var set**: Uses docker compose defaults (respects user's setting)
-2. **Override file exists**: Uses both `docker-compose.staging.yml` and `_local_ignored/docker-compose.staging.override.yml`
-3. **No override**: Uses only `docker-compose.staging.yml` (HTTP mode)
+1. **COMPOSE_FILE env var set (legacy mode)**: If `COMPOSE_FILE` is explicitly set, the script uses docker compose defaults and respects the user's setting. This is useful for advanced users who want full control.
+
+2. **Override file exists (HTTPS mode)**: If `_local_ignored/docker-compose.staging.override.yml` exists, the script automatically uses both files:
+   - Base: `docker-compose.staging.yml`
+   - Override: `_local_ignored/docker-compose.staging.override.yml`
+   - Sets `HTTPS_MODE=1` for SSL verification
+
+3. **No override (HTTP mode)**: Uses only `docker-compose.staging.yml` for HTTP-only deployments (dev/CI environments).
+
+### Example Commands
+
+```bash
+# Default usage (auto-detects HTTPS override if present)
+bash ops/staging-deploy-validate.sh
+
+# Explicit COMPOSE_FILE (legacy mode - overrides auto-detection)
+COMPOSE_FILE="docker-compose.staging.yml:_local_ignored/docker-compose.staging.override.yml" \
+  bash ops/staging-deploy-validate.sh
+
+# Validate-only mode (for CI regression testing - skips build/start)
+VALIDATE_ONLY=1 bash ops/staging-deploy-validate.sh
+
+# Dry-run mode (alias for VALIDATE_ONLY)
+DRY_RUN=1 bash ops/staging-deploy-validate.sh
+```
+
+### VALIDATE_ONLY Mode (Regression Guard)
+
+The script supports a `VALIDATE_ONLY=1` (or `DRY_RUN=1`) mode that:
+- Skips build/start steps
+- Executes pre-checks and compose arg resolution
+- Prints which compose files are being used
+- Exits 0 if compose arg resolution works correctly
+
+This mode is designed for CI regression testing to ensure the script doesn't fail with unbound variable errors when `COMPOSE_FILE` is not set.
+
+```bash
+# Run in CI to verify compose arg resolution
+unset COMPOSE_FILE
+VALIDATE_ONLY=1 bash ops/staging-deploy-validate.sh
+```
+
+A dedicated test script is available at `ops/tests/test-compose-file-unbound.sh` that runs multiple regression tests.
 
 When HTTPS is enabled, the script performs additional checks:
 - Verifies port 443 is listening inside the frontend container
