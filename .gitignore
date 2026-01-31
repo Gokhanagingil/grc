@@ -115,3 +115,7 @@ evidence/
 # local deploy keys (DO NOT COMMIT)
 grc_staging_deploy_key
 grc_staging_deploy_key.pub
+
+# Staging local data directories (created on staging host, not in repo)
+staging-data/
+_local_ignored/

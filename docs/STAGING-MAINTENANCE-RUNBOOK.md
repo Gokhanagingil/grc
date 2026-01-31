@@ -167,17 +167,72 @@ The `LocalFsAdapter` handles file storage for attachments (evidence, documents, 
 | Development | `./uploads` | `/tmp/uploads` |
 | CI Smoke Tests | `/app/data/uploads` (volume mounted) | `/tmp/uploads` |
 
-### Staging Configuration
+### Staging Uploads Persistence
 
-In `docker-compose.staging.yml`, the backend mounts a host directory for persistent storage:
+In staging, the backend uses a **named Docker volume** for uploads to ensure the directory is always writable, regardless of bind mount permissions on the host.
+
+**Root Cause of Permission Issues:**
+When using a bind mount (`./staging-data:/app/data`), the host directory's ownership overrides the container's `/app/data` directory. If the host directory is owned by `root:root`, the container user (`nestjs:1001`) cannot write to `/app/data/uploads`, causing the LocalFsAdapter to fall back to `/tmp/uploads`.
+
+**Solution:**
+The `docker-compose.staging.yml` uses a named volume that sub-mounts `/app/data/uploads`, which takes precedence over the bind mount:
 
 ```yaml
 backend:
   volumes:
-    - ./staging-data:/app/data
+    - ./staging-data:/app/data           # Bind mount for general data
+    - grc_uploads:/app/data/uploads      # Named volume for uploads (writable)
+
+volumes:
+  grc_uploads:  # Named volume - always writable by container user
 ```
 
-This ensures `/app/data/uploads` is writable and persists across container restarts.
+**Why Named Volume Works:**
+Named volumes are managed by Docker and have proper permissions for the container user. The sub-mount at `/app/data/uploads` takes precedence over the parent bind mount at `/app/data`, ensuring uploads are always writable.
+
+**Verification Commands:**
+
+```bash
+# SSH to staging
+ssh root@46.224.99.150
+cd /opt/grc-platform
+
+# Verify uploads directory exists and is writable
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'ls -ld /app/data/uploads'
+
+# Test write access
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'echo ok > /app/data/uploads/.write-test && cat /app/data/uploads/.write-test && rm /app/data/uploads/.write-test && echo "Write test passed"'
+
+# Check if fallback is being used (should NOT see fallback log in normal operation)
+docker logs grc-staging-backend 2>&1 | grep -i "fallback\|storage"
+```
+
+**Expected Output:**
+- `ls -ld /app/data/uploads` should show the directory owned by `nestjs` (uid 1001)
+- Write test should output "ok" followed by "Write test passed"
+- Storage logs should show "Storage directory initialized: /app/data/uploads" (NOT fallback)
+
+**Troubleshooting Fallback:**
+If you see "Falling back to /tmp/uploads" in the logs:
+
+1. Check if the named volume is mounted:
+   ```bash
+   docker inspect grc-staging-backend --format '{{json .Mounts}}' | jq '.[] | select(.Destination=="/app/data/uploads")'
+   ```
+
+2. Verify docker-compose.staging.yml has the `grc_uploads` volume defined
+
+3. Recreate the container to pick up volume changes:
+   ```bash
+   docker compose -f docker-compose.staging.yml up -d --force-recreate backend
+   ```
+
+4. If the volume is corrupted, remove and recreate:
+   ```bash
+   docker compose -f docker-compose.staging.yml down
+   docker volume rm grc-platform_grc_uploads || true
+   docker compose -f docker-compose.staging.yml up -d
+   ```
 
 ### CI Smoke Upload Volume
 
