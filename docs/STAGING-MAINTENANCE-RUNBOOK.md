@@ -470,6 +470,99 @@ docker compose -f docker-compose.staging.yml up -d --build --force-recreate fron
 
 This uses only the base compose file without the HTTPS override.
 
+## Validate (HTTPS + Smoke Credentials)
+
+The `ops/staging-deploy-validate.sh` script provides a single-command deployment and validation workflow that automatically detects HTTPS configuration and smoke test credentials.
+
+### Basic Usage
+
+```bash
+# Run from the repository root on the staging server
+cd /opt/grc-platform
+bash ops/staging-deploy-validate.sh
+```
+
+The script automatically:
+- Detects if `_local_ignored/docker-compose.staging.override.yml` exists and enables HTTPS mode
+- Loads smoke test credentials from environment variables or `_local_ignored/staging-smoke.env`
+- Runs health checks, SSL verification (if HTTPS enabled), and smoke tests (if credentials available)
+- Generates an evidence pack in `evidence/staging-YYYYMMDD-HHMMSS/`
+
+### HTTPS Override Detection
+
+The script uses the following priority for compose file selection:
+
+1. **COMPOSE_FILE env var set**: Uses docker compose defaults (respects user's setting)
+2. **Override file exists**: Uses both `docker-compose.staging.yml` and `_local_ignored/docker-compose.staging.override.yml`
+3. **No override**: Uses only `docker-compose.staging.yml` (HTTP mode)
+
+When HTTPS is enabled, the script performs additional checks:
+- Verifies port 443 is listening inside the frontend container
+- Checks SSL certificate files exist
+- Validates nginx configuration
+- Tests HTTPS endpoints (`https://localhost` and `https://localhost/api/health/ready`)
+
+### Smoke Test Credentials
+
+Credentials can be provided in two ways:
+
+**Option 1: Environment Variables**
+```bash
+export STAGING_ADMIN_EMAIL="admin@example.com"
+export STAGING_ADMIN_PASSWORD="your-secure-password"
+bash ops/staging-deploy-validate.sh
+```
+
+**Option 2: Credentials File**
+
+Create `_local_ignored/staging-smoke.env` with:
+```bash
+STAGING_ADMIN_EMAIL=admin@example.com
+STAGING_ADMIN_PASSWORD=your-secure-password
+```
+
+Set secure permissions:
+```bash
+chmod 600 _local_ignored/staging-smoke.env
+```
+
+The script will automatically source this file if environment variables are not set.
+
+**If no credentials are available**, smoke tests are skipped with a warning, but the deployment validation continues and does not fail.
+
+### Behavior Summary
+
+| Override File | Credentials | Result |
+|---------------|-------------|--------|
+| Exists | Available | HTTPS mode, full smoke tests |
+| Exists | Not available | HTTPS mode, smoke tests skipped |
+| Not exists | Available | HTTP mode, full smoke tests |
+| Not exists | Not available | HTTP mode, smoke tests skipped |
+
+### Example Output
+
+```
+[INFO] === GRC Platform Staging Deploy & Validate ===
+[INFO] Found staging override file, enabling HTTPS mode
+[INFO] === Pre-checks ===
+...
+[INFO] === SSL/HTTPS Configuration Verification ===
+[INFO] Frontend is listening on port 443 - HTTPS enabled
+[INFO] SSL certificate found: /etc/nginx/ssl/origin-cert.pem
+[INFO] SSL key found: /etc/nginx/ssl/origin-key.pem
+[INFO] Nginx configuration is valid
+[INFO] Testing HTTPS endpoints...
+[INFO] HTTPS root endpoint: OK
+[INFO] HTTPS API health endpoint: OK
+[INFO] SSL/HTTPS configuration verification passed
+[INFO] === Smoke Tests ===
+[INFO] Loading smoke credentials from /opt/grc-platform/_local_ignored/staging-smoke.env
+[INFO] Smoke credentials loaded successfully
+...
+[INFO] All smoke tests passed
+[INFO] === Deployment Complete ===
+```
+
 ### Certificate Renewal
 
 Cloudflare Origin Certificates are valid for 15 years by default. When renewal is needed:
