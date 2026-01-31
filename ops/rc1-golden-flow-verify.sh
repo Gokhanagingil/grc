@@ -331,14 +331,16 @@ test_bcm_bia_create() {
     return 0
   fi
   
-  local timestamp=$(date +%s)
   local bia_data="{
     \"serviceId\": \"$SERVICE_ID\",
-    \"name\": \"RC1 Golden Flow Test BIA - $timestamp\",
+    \"rtoMinutes\": 240,
+    \"rpoMinutes\": 60,
+    \"mtpdMinutes\": 480,
+    \"impactOperational\": 3,
+    \"impactFinancial\": 3,
+    \"impactReputational\": 2,
     \"status\": \"DRAFT\",
-    \"financialImpact\": 3,
-    \"operationalImpact\": 3,
-    \"reputationalImpact\": 2
+    \"notes\": \"Automated test BIA created by rc1-golden-flow-verify.sh\"
   }"
   
   local response
