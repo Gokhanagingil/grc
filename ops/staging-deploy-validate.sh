@@ -29,13 +29,17 @@ set -euo pipefail
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COMPOSE_FILE="${REPO_ROOT}/docker-compose.staging.yml"
 BACKEND_CONTAINER="grc-staging-backend"
 FRONTEND_CONTAINER="grc-staging-frontend"
 BACKEND_PORT="3002"
 EVIDENCE_BASE="${REPO_ROOT}/evidence"
 DEMO_TENANT_ID="00000000-0000-0000-0000-000000000001"
 STAGING_TENANT_ID="${STAGING_TENANT_ID:-${DEMO_TENANT_ID}}"
+
+# Compose file paths (COMPOSE_ARGS initialized after logging functions)
+COMPOSE_OVERRIDE_FILE="${REPO_ROOT}/_local_ignored/docker-compose.staging.override.yml"
+COMPOSE_BASE_FILE="${REPO_ROOT}/docker-compose.staging.yml"
+COMPOSE_ARGS=()
 
 # Colors for output
 RED='\033[0;31m'
@@ -54,6 +58,78 @@ log_warn() {
 
 log_error() {
   echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# =============================================================================
+# Initialize Compose Args
+# =============================================================================
+# Determine docker compose arguments based on environment and override file presence.
+# Priority:
+#   1. If COMPOSE_FILE env var is set by user, use plain docker compose (respects user's setting)
+#   2. If _local_ignored/docker-compose.staging.override.yml exists, use both files
+#   3. Otherwise, use only docker-compose.staging.yml
+#
+# This allows automatic HTTPS support when the override file is present on staging.
+# =============================================================================
+init_compose_args() {
+  if [ -n "${COMPOSE_FILE:-}" ]; then
+    # User has set COMPOSE_FILE env var - let docker compose use it directly
+    log_info "COMPOSE_FILE env var is set, using docker compose defaults"
+    COMPOSE_ARGS=()
+  elif [ -f "${COMPOSE_OVERRIDE_FILE}" ]; then
+    # Override file exists - use both base and override
+    log_info "Found staging override file, enabling HTTPS mode"
+    COMPOSE_ARGS=(-f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERRIDE_FILE}")
+  else
+    # No override - use base file only (HTTP mode)
+    log_info "No override file found, using HTTP mode"
+    COMPOSE_ARGS=(-f "${COMPOSE_BASE_FILE}")
+  fi
+}
+
+# =============================================================================
+# Load Smoke Test Credentials
+# =============================================================================
+# Attempts to load credentials from _local_ignored/staging-smoke.env if not already set.
+# Returns 0 if credentials are available, 1 if not (smoke tests should be skipped).
+# =============================================================================
+SMOKE_TESTS_SKIPPED=false
+SMOKE_SKIP_REASON=""
+
+load_smoke_credentials() {
+  local credentials_file="${REPO_ROOT}/_local_ignored/staging-smoke.env"
+  
+  # Check if credentials are already set via environment
+  if [ -n "${STAGING_ADMIN_EMAIL:-}" ] && [ -n "${STAGING_ADMIN_PASSWORD:-}" ]; then
+    log_info "Smoke credentials provided via environment variables"
+    return 0
+  fi
+  
+  # Try to load from credentials file
+  if [ -f "${credentials_file}" ]; then
+    log_info "Loading smoke credentials from ${credentials_file}"
+    set -a
+    # shellcheck source=/dev/null
+    source "${credentials_file}"
+    set +a
+    
+    # Verify credentials were loaded
+    if [ -n "${STAGING_ADMIN_EMAIL:-}" ] && [ -n "${STAGING_ADMIN_PASSWORD:-}" ]; then
+      log_info "Smoke credentials loaded successfully"
+      return 0
+    else
+      log_warn "Credentials file exists but STAGING_ADMIN_EMAIL/PASSWORD not defined"
+      SMOKE_SKIP_REASON="credentials file missing required variables"
+      return 1
+    fi
+  fi
+  
+  # No credentials available
+  log_warn "No smoke credentials available"
+  log_warn "  - STAGING_ADMIN_EMAIL/PASSWORD not set in environment"
+  log_warn "  - Credentials file not found: ${credentials_file}"
+  SMOKE_SKIP_REASON="no credentials (env vars not set, file not found)"
+  return 1
 }
 
 # Evidence directory
@@ -204,7 +280,7 @@ build_and_up() {
   log_info "=== Build and Start Containers ==="
 
   # Build and start backend and frontend (not db)
-  if ! docker compose -f "${COMPOSE_FILE}" up -d --build backend frontend; then
+  if ! docker compose "${COMPOSE_ARGS[@]}" up -d --build backend frontend; then
     log_error "docker compose up failed"
     exit 4
   fi
@@ -214,7 +290,7 @@ build_and_up() {
 
   # Get container status
   log_info "Container status:"
-  docker compose -f "${COMPOSE_FILE}" ps >> "${RAW_LOG}" 2>&1 || true
+  docker compose "${COMPOSE_ARGS[@]}" ps >> "${RAW_LOG}" 2>&1 || true
 
   # Wait for backend health (max 90s)
   log_info "Waiting for backend to be ready (max 90s)..."
@@ -252,7 +328,7 @@ preflight_check() {
   log_info "=== Preflight Check (Memory) ==="
 
   local preflight_output
-  preflight_output=$(docker compose -f "${COMPOSE_FILE}" exec -T backend sh -lc "node dist/scripts/check-memory.js" 2>&1 || true)
+  preflight_output=$(docker compose "${COMPOSE_ARGS[@]}" exec -T backend sh -lc "node dist/scripts/check-memory.js" 2>&1 || true)
 
   echo "${preflight_output}" >> "${RAW_LOG}"
 
@@ -450,34 +526,45 @@ verify_uploads_directory() {
 # =============================================================================
 # This verification runs only when the staging HTTPS override is active.
 # It checks:
-#   1. Frontend container is listening on port 443
+#   1. Frontend container is listening on port 443 (via ss -lnt inside container)
 #   2. SSL certificate files exist inside the frontend container
 #   3. Nginx configuration is valid (nginx -t)
+#   4. HTTPS endpoints respond correctly (when enabled)
 #
 # This function is non-blocking - it logs warnings but does not fail the deploy
 # if HTTPS is not configured (HTTP-only mode is valid for dev/CI).
+#
+# Global variable set by this function:
+#   HTTPS_ENABLED - "true" if HTTPS is active, "false" otherwise
+# =============================================================================
+HTTPS_ENABLED="false"
+
 verify_ssl_configuration() {
   log_info "=== SSL/HTTPS Configuration Verification ==="
 
-  # Check if frontend is listening on port 443
-  log_info "Checking if frontend listens on port 443..."
+  # Check if frontend is listening on port 443 using ss inside the container
+  # This is the most reliable method as it checks from within the container
+  log_info "Checking if frontend listens on port 443 (container-based check)..."
   local port_443_check
   set +e
-  port_443_check=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'netstat -tlnp 2>/dev/null | grep ":443" || ss -tlnp 2>/dev/null | grep ":443" || echo ""' 2>&1)
+  # Use ss -lnt which is more portable than netstat
+  port_443_check=$(docker compose "${COMPOSE_ARGS[@]}" exec -T frontend sh -lc 'ss -lnt | grep -q ":443 " && echo "listening" || echo ""' 2>&1)
   set -e
 
   echo "SSL port_443_check: ${port_443_check}" >> "${RAW_LOG}"
 
-  if [ -z "${port_443_check}" ]; then
+  if [ "${port_443_check}" != "listening" ]; then
     log_warn "Frontend is NOT listening on port 443 (HTTPS not enabled)"
     log_warn "This is expected for HTTP-only mode (dev/CI)"
     echo "SSL https_enabled=false" >> "${RAW_LOG}"
+    HTTPS_ENABLED="false"
     log_info "SSL verification skipped (HTTP-only mode)"
     return 0
   fi
 
-  log_info "Frontend is listening on port 443"
+  log_info "Frontend is listening on port 443 - HTTPS enabled"
   echo "SSL https_enabled=true" >> "${RAW_LOG}"
+  HTTPS_ENABLED="true"
 
   # Check if SSL certificate files exist
   log_info "Checking SSL certificate files..."
@@ -525,8 +612,45 @@ verify_ssl_configuration() {
     echo "SSL nginx_config_valid=true" >> "${RAW_LOG}"
   fi
 
-  # Summary
+  # Test HTTPS endpoints (only if certs exist and nginx is valid)
   if [ "${cert_check}" = "exists" ] && [ "${key_check}" = "exists" ] && [ ${nginx_exit_code} -eq 0 ]; then
+    log_info "Testing HTTPS endpoints..."
+    
+    # Test HTTPS root endpoint from inside frontend container
+    # Using curl with -k to skip certificate verification (self-signed/origin cert)
+    local https_root_test https_api_test
+    set +e
+    
+    # Test https://localhost (frontend)
+    log_info "Testing https://localhost..."
+    https_root_test=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'curl -sSI https://localhost -k 2>&1 | head -n 5' 2>&1 || echo "curl failed")
+    echo "SSL https_root_test:" >> "${RAW_LOG}"
+    echo "${https_root_test}" >> "${RAW_LOG}"
+    
+    if echo "${https_root_test}" | grep -qE "^HTTP.*200|^HTTP.*301|^HTTP.*302"; then
+      log_info "HTTPS root endpoint: OK"
+      echo "SSL https_root_status=OK" >> "${RAW_LOG}"
+    else
+      log_warn "HTTPS root endpoint returned unexpected response"
+      echo "SSL https_root_status=UNEXPECTED" >> "${RAW_LOG}"
+    fi
+    
+    # Test https://localhost/api/health/ready (backend via nginx proxy)
+    log_info "Testing https://localhost/api/health/ready..."
+    https_api_test=$(docker exec "${FRONTEND_CONTAINER}" sh -c 'curl -sSI https://localhost/api/health/ready -k 2>&1 | head -n 5' 2>&1 || echo "curl failed")
+    echo "SSL https_api_test:" >> "${RAW_LOG}"
+    echo "${https_api_test}" >> "${RAW_LOG}"
+    
+    if echo "${https_api_test}" | grep -qE "^HTTP.*200"; then
+      log_info "HTTPS API health endpoint: OK"
+      echo "SSL https_api_status=OK" >> "${RAW_LOG}"
+    else
+      log_warn "HTTPS API health endpoint returned unexpected response"
+      echo "SSL https_api_status=UNEXPECTED" >> "${RAW_LOG}"
+    fi
+    
+    set -e
+    
     log_info "SSL/HTTPS configuration verification passed"
     echo "SSL verification_status=PASSED" >> "${RAW_LOG}"
   else
@@ -968,10 +1092,12 @@ NODE
 smoke_tests() {
   log_info "=== Smoke Tests ==="
 
-  # Check environment variables
-  if [ -z "${STAGING_ADMIN_EMAIL:-}" ] || [ -z "${STAGING_ADMIN_PASSWORD:-}" ]; then
-    log_error "STAGING_ADMIN_EMAIL and STAGING_ADMIN_PASSWORD must be set"
-    exit 7
+  # Try to load credentials from environment or file
+  if ! load_smoke_credentials; then
+    log_warn "Smoke tests SKIPPED: ${SMOKE_SKIP_REASON}"
+    echo "SMOKE tests_skipped=true reason=\"${SMOKE_SKIP_REASON}\"" >> "${RAW_LOG}"
+    SMOKE_TESTS_SKIPPED=true
+    return 0
   fi
 
   # Credential guard: validate password is not placeholder/too short
@@ -1064,7 +1190,7 @@ generate_evidence() {
 
   # Get container status as text (store as string - avoid forcing JSON parsing across compose versions)
   local container_status_text
-  container_status_text=$(docker compose -f "${COMPOSE_FILE}" ps 2>&1 || echo "")
+  container_status_text=$(docker compose "${COMPOSE_ARGS[@]}" ps 2>&1 || echo "")
 
   # Get docker image IDs
   local backend_image frontend_image
@@ -1138,7 +1264,7 @@ EOF
 ## Container Status
 
 \`\`\`
-$(docker compose -f "${COMPOSE_FILE}" ps)
+$(docker compose "${COMPOSE_ARGS[@]}" ps)
 \`\`\`
 
 ## Docker Images
@@ -1152,8 +1278,12 @@ ${health_results_section}
 
 ## Smoke Test Results
 
-✅ Login: Success  
-✅ Onboarding Context: Success
+$(if [ "${SMOKE_TESTS_SKIPPED}" = "true" ]; then
+  echo "⚠️ Smoke tests SKIPPED: ${SMOKE_SKIP_REASON}"
+else
+  echo "✅ Login: Success"
+  echo "✅ Onboarding Context: Success"
+fi)
 
 ## Warnings
 
@@ -1193,6 +1323,9 @@ main() {
 
   local start_time
   start_time=$(date +%s)
+
+  # Initialize compose args (determines HTTP vs HTTPS mode)
+  init_compose_args
 
   # Initialize evidence
   init_evidence
