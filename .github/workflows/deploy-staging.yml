@@ -1,19 +1,22 @@
 # =============================================================================
 # GRC Platform - Staging Deployment Workflow
 # =============================================================================
-# Deploys to Hetzner staging server (46.224.99.150)
+# Deploys to staging server (configured via secrets)
 #
 # Triggers:
 #   - Manual workflow dispatch
 #   - Push to main branch (optional, can be enabled)
 #
 # Secrets Required:
-#   - STAGING_SSH_HOST: 46.224.99.150
+#   - STAGING_SSH_HOST: Your staging server hostname or IP
 #   - STAGING_SSH_USER: root (or grcdeploy)
 #   - STAGING_SSH_KEY_B64: Base64-encoded private SSH key (preferred)
 #     To create: base64 -w 0 ~/.ssh/grc_staging (Linux)
 #     Fallback:  base64 ~/.ssh/grc_staging | tr -d '\n' (macOS/other)
 #   - (Legacy) STAGING_SSH_KEY: Plain text SSH key (deprecated, use B64 version)
+#   - DEMO_ADMIN_EMAIL: Admin email for smoke tests
+#   - DEMO_ADMIN_PASSWORD: Admin password for smoke tests
+#   - DEMO_TENANT_ID: Tenant ID for smoke tests
 #
 # Deployment Path: /opt/grc-platform
 # =============================================================================
@@ -110,7 +113,7 @@ jobs:
           # Validate: must be hostname or IP (alphanumeric, dots, hyphens only)
           if ! echo "$HOST" | grep -qE '^[A-Za-z0-9.-]+$'; then
             echo "ERROR: Invalid STAGING_SSH_HOST format"
-            echo "  Expected: hostname or IP address (e.g., 46.224.99.150 or staging.example.com)"
+            echo "  Expected: hostname or IP address (e.g., staging.example.com or 192.0.2.1)"
             echo "  Must contain only: letters, numbers, dots, and hyphens"
             echo "  Must NOT contain: scheme (http://), port (:22), path (/path), or special characters"
             exit 1

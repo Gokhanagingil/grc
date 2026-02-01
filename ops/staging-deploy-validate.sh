@@ -33,8 +33,8 @@ BACKEND_CONTAINER="grc-staging-backend"
 FRONTEND_CONTAINER="grc-staging-frontend"
 BACKEND_PORT="3002"
 EVIDENCE_BASE="${REPO_ROOT}/evidence"
-DEMO_TENANT_ID="00000000-0000-0000-0000-000000000001"
-STAGING_TENANT_ID="${STAGING_TENANT_ID:-${DEMO_TENANT_ID}}"
+# Tenant ID must be provided via environment variable - no hardcoded defaults
+STAGING_TENANT_ID="${STAGING_TENANT_ID:-${DEMO_TENANT_ID:-}}"
 
 # Compose file paths (COMPOSE_ARGS initialized after logging functions)
 BASE_COMPOSE="${REPO_ROOT}/docker-compose.staging.yml"
