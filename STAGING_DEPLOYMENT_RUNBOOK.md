@@ -1,5 +1,22 @@
 # GRC Platform - Staging Deployment Runbook
 
+> **Environment Variables Required**
+> 
+> Before running any commands in this runbook, set the following environment variables:
+> ```bash
+> export STAGING_HOST="your-staging-hostname-or-ip"  # e.g., niles-grc.com
+> export STAGING_BASE_URL="https://$STAGING_HOST"    # Full URL with protocol
+> ```
+> 
+> For smoke tests and verification scripts, also set:
+> ```bash
+> export DEMO_TENANT_ID="your-tenant-uuid"
+> export DEMO_ADMIN_EMAIL="admin@example.com"
+> export DEMO_ADMIN_PASSWORD="your-secure-password"
+> ```
+
+---
+
 > **New Automated Deploy Script Available**
 > 
 > For a fully automated, validated deployment, use the new deploy script:
@@ -199,7 +216,7 @@ X clauses seeded
 
 ## 🚀 Çalıştırma
 
-Staging host'ta (46.224.99.150) root veya grcdeploy kullanıcısı ile:
+Staging host'ta ($STAGING_HOST) root veya grcdeploy kullanıcısı ile:
 
 ```bash
 cd /opt/grc-platform
@@ -223,19 +240,19 @@ echo "STAGING VALIDATION - API Reverse Proxy" && \
 echo "==========================================" && \
 echo "" && \
 echo "=== 1. Backend Health via Proxy (/health) ===" && \
-curl -I http://46.224.99.150/health 2>&1 && \
+curl -I http://$STAGING_HOST/health 2>&1 && \
 echo "" && \
 echo "=== 2. Auth Login Endpoint (/auth/login) ===" && \
-curl -I http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 && \
+curl -I http://$STAGING_HOST/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 && \
 echo "" && \
 echo "=== 3. Audit Logs Endpoint (/audit-logs) ===" && \
-curl -I http://46.224.99.150/audit-logs 2>&1 && \
+curl -I http://$STAGING_HOST/audit-logs 2>&1 && \
 echo "" && \
 echo "=== 4. GRC Risks Endpoint (/grc/risks) ===" && \
-curl -I http://46.224.99.150/grc/risks 2>&1 && \
+curl -I http://$STAGING_HOST/grc/risks 2>&1 && \
 echo "" && \
 echo "=== 5. Frontend Health (/frontend-health) ===" && \
-curl -i http://46.224.99.150/frontend-health 2>&1 | head -10 && \
+curl -i http://$STAGING_HOST/frontend-health 2>&1 | head -10 && \
 echo "" && \
 echo "==========================================" && \
 echo "Validation completed" && \
@@ -251,19 +268,19 @@ echo "STAGING VALIDATION - API Reverse Proxy (Full Response)" && \
 echo "==========================================" && \
 echo "" && \
 echo "=== 1. Backend Health via Proxy (/health) ===" && \
-curl -i http://46.224.99.150/health 2>&1 | head -20 && \
+curl -i http://$STAGING_HOST/health 2>&1 | head -20 && \
 echo "" && \
 echo "=== 2. Auth Login Endpoint (/auth/login) ===" && \
-curl -i http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 | head -20 && \
+curl -i http://$STAGING_HOST/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 | head -20 && \
 echo "" && \
 echo "=== 3. Audit Logs Endpoint (/audit-logs) ===" && \
-curl -i http://46.224.99.150/audit-logs 2>&1 | head -20 && \
+curl -i http://$STAGING_HOST/audit-logs 2>&1 | head -20 && \
 echo "" && \
 echo "=== 4. GRC Risks Endpoint (/grc/risks) ===" && \
-curl -i http://46.224.99.150/grc/risks 2>&1 | head -20 && \
+curl -i http://$STAGING_HOST/grc/risks 2>&1 | head -20 && \
 echo "" && \
 echo "=== 5. Frontend Health (/frontend-health) ===" && \
-curl -i http://46.224.99.150/frontend-health 2>&1 | head -10 && \
+curl -i http://$STAGING_HOST/frontend-health 2>&1 | head -10 && \
 echo "" && \
 echo "==========================================" && \
 echo "Validation completed" && \
@@ -312,10 +329,10 @@ Staging ortamında E2E testleri çalıştırmak için:
 cd frontend
 
 # Staging URL'i set et ve testleri çalıştır
-E2E_BASE_URL=http://46.224.99.150 npx playwright test --project=staging
+E2E_BASE_URL=http://$STAGING_HOST npx playwright test --project=staging
 
 # Veya tüm testleri staging URL ile
-E2E_BASE_URL=http://46.224.99.150 npx playwright test
+E2E_BASE_URL=http://$STAGING_HOST npx playwright test
 ```
 
 **Not**: `playwright.config.ts` içinde `staging` project tanımlı olmalı. Eğer yoksa, default project kullanılır.
@@ -326,19 +343,19 @@ Staging host'a SSH yapmadan local'den doğrulama (sadece Content-Type kontrolü)
 
 ```bash
 # Backend health (proxied) - Content-Type: application/json OLMALI
-curl -I http://46.224.99.150/health 2>&1 | grep -E "(HTTP|Content-Type)"
+curl -I http://$STAGING_HOST/health 2>&1 | grep -E "(HTTP|Content-Type)"
 
 # Auth login (should be JSON, not HTML) - Content-Type: application/json OLMALI
-curl -I http://46.224.99.150/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 | grep -E "(HTTP|Content-Type)"
+curl -I http://$STAGING_HOST/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' 2>&1 | grep -E "(HTTP|Content-Type)"
 
 # Audit logs (should be JSON, not HTML) - Content-Type: application/json OLMALI
-curl -I http://46.224.99.150/audit-logs 2>&1 | grep -E "(HTTP|Content-Type)"
+curl -I http://$STAGING_HOST/audit-logs 2>&1 | grep -E "(HTTP|Content-Type)"
 
 # GRC risks (should be JSON, not HTML) - Content-Type: application/json OLMALI
-curl -I http://46.224.99.150/grc/risks 2>&1 | grep -E "(HTTP|Content-Type)"
+curl -I http://$STAGING_HOST/grc/risks 2>&1 | grep -E "(HTTP|Content-Type)"
 
 # Frontend health - Content-Type: text/plain OLMALI
-curl -i http://46.224.99.150/frontend-health 2>&1 | grep -E "(HTTP|Content-Type|healthy)"
+curl -i http://$STAGING_HOST/frontend-health 2>&1 | grep -E "(HTTP|Content-Type|healthy)"
 ```
 
 ### Beklenen Sonuçlar
@@ -411,21 +428,21 @@ docker compose -f docker-compose.staging.yml ps frontend
 Deployment sonrası aşağıdaki checklist'i kontrol edin:
 
 **API Endpoints (CRITICAL - text/html OLMAMALI):**
-- [ ] `curl -i http://46.224.99.150/health` → `Content-Type: application/json` (text/html değil)
-- [ ] `curl -i http://46.224.99.150/auth/login -X POST ...` → `Content-Type: application/json` (text/html değil)
-- [ ] `curl -i http://46.224.99.150/audit-logs` → `Content-Type: application/json` (text/html değil)
-- [ ] `curl -i http://46.224.99.150/grc/risks` → `Content-Type: application/json` (text/html değil)
+- [ ] `curl -i http://$STAGING_HOST/health` → `Content-Type: application/json` (text/html değil)
+- [ ] `curl -i http://$STAGING_HOST/auth/login -X POST ...` → `Content-Type: application/json` (text/html değil)
+- [ ] `curl -i http://$STAGING_HOST/audit-logs` → `Content-Type: application/json` (text/html değil)
+- [ ] `curl -i http://$STAGING_HOST/grc/risks` → `Content-Type: application/json` (text/html değil)
 
 **Frontend Health:**
-- [ ] `curl -i http://46.224.99.150/frontend-health` → `200 OK`, `healthy\n`
+- [ ] `curl -i http://$STAGING_HOST/frontend-health` → `200 OK`, `healthy\n`
 
 **Browser UI:**
-- [ ] Browser'da `http://46.224.99.150` açılıyor ve UI yükleniyor
+- [ ] Browser'da `http://$STAGING_HOST` açılıyor ve UI yükleniyor
 - [ ] Browser console'da API çağrıları başarılı (401/403 beklenir, ama JSON response)
-- [ ] Network tab'de API istekleri `http://46.224.99.150/auth/login` gibi relative URL'ler kullanıyor (port yok, same-origin)
+- [ ] Network tab'de API istekleri `http://$STAGING_HOST/auth/login` gibi relative URL'ler kullanıyor (port yok, same-origin)
 
 **E2E Tests:**
-- [ ] `E2E_BASE_URL=http://46.224.99.150 npx playwright test --project=staging` başarılı
+- [ ] `E2E_BASE_URL=http://$STAGING_HOST npx playwright test --project=staging` başarılı
 
 ---
 

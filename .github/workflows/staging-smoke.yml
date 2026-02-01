@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       staging_url:
-        description: 'Staging URL to test against'
+        description: 'Staging URL to test against (defaults to STAGING_BASE_URL secret)'
         required: false
-        default: 'http://46.224.99.150'
+        default: ''
       run_playwright:
         description: 'Run Playwright UI tests'
         required: false
@@ -38,10 +38,14 @@ jobs:
       - name: Set staging URL
         id: staging-url
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          # Priority: workflow input > secret > fail with error
+          if [ -n "${{ github.event.inputs.staging_url }}" ]; then
             echo "STAGING_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
+            echo "STAGING_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
           else
-            echo "STAGING_URL=http://46.224.99.150" >> $GITHUB_ENV
+            echo "ERROR: No staging URL configured. Set STAGING_BASE_URL secret or provide staging_url input." >&2
+            exit 1
           fi
 
       - name: Run Golden Flow Verification
@@ -52,9 +56,10 @@ jobs:
           bash ops/rc1-golden-flow-verify.sh 2>&1 | tee golden-flow-output.txt
         env:
           STAGING_URL: ${{ env.STAGING_URL }}
-          DEMO_ADMIN_EMAIL: ${{ secrets.E2E_EMAIL || 'admin@grc-platform.local' }}
-          DEMO_ADMIN_PASSWORD: ${{ secrets.E2E_PASSWORD || 'TestPassword123!' }}
-          DEMO_TENANT_ID: '00000000-0000-0000-0000-000000000001'
+          STAGING_BASE_URL: ${{ env.STAGING_URL }}
+          DEMO_ADMIN_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL }}
+          DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+          DEMO_TENANT_ID: ${{ secrets.DEMO_TENANT_ID }}
 
       - name: Upload Golden Flow Results
         if: always()
@@ -108,10 +113,14 @@ jobs:
 
       - name: Set staging URL
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          # Priority: workflow input > secret > fail with error
+          if [ -n "${{ github.event.inputs.staging_url }}" ]; then
             echo "E2E_BASE_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
+            echo "E2E_BASE_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
           else
-            echo "E2E_BASE_URL=http://46.224.99.150" >> $GITHUB_ENV
+            echo "ERROR: No staging URL configured. Set STAGING_BASE_URL secret or provide staging_url input." >&2
+            exit 1
           fi
 
       - name: Run Playwright Smoke Tests
@@ -122,8 +131,8 @@ jobs:
           npx playwright test e2e/smoke/ --project=staging --reporter=list,html 2>&1 | tee playwright-output.txt
         env:
           E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL || 'admin@grc-platform.local' }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'TestPassword123!' }}
+          E2E_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
           # Do NOT use mock API for staging tests - we want real backend
           E2E_MOCK_API: '0'
 
@@ -192,7 +201,7 @@ jobs:
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Staging URL:** ${{ github.event.inputs.staging_url || 'http://46.224.99.150' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Staging URL:** ${{ github.event.inputs.staging_url || secrets.STAGING_BASE_URL || '(not configured)' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

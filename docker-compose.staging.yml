@@ -18,11 +18,11 @@
 #   Logs:     docker compose -f docker-compose.staging.yml logs -f
 #   Validate: bash ops/staging-db-validate.sh
 #
-# After starting, access:
-#   - Frontend: http://46.224.99.150
-#   - Backend API: http://46.224.99.150:3002 (direct) or http://46.224.99.150/* (via nginx proxy)
-#   - Backend Health: http://46.224.99.150/health (proxied to backend)
-#   - Frontend Health: http://46.224.99.150/frontend-health
+# After starting, access (replace with your STAGING_BASE_URL):
+#   - Frontend: https://niles-grc.com (or your staging domain)
+#   - Backend API: https://niles-grc.com/api/* (via nginx proxy)
+#   - Backend Health: https://niles-grc.com/api/health/live (proxied to backend)
+#   - Frontend Health: https://niles-grc.com/frontend-health
 #
 # =============================================================================
 
@@ -85,8 +85,8 @@ services:
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET}}
       REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
       
-      # CORS - Allow staging domain
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://46.224.99.150,http://localhost:3000,http://localhost:3001,http://localhost:3002}
+      # CORS - Allow staging domain (set via environment or use localhost defaults for dev)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002}
       
       # Demo admin (staging)
       DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL}

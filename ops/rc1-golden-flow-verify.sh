@@ -8,26 +8,75 @@
 # Usage:
 #   bash ops/rc1-golden-flow-verify.sh [--staging-url URL] [--cleanup]
 #
-# Environment Variables:
-#   STAGING_URL        - Base URL for staging (default: http://46.224.99.150)
-#   DEMO_ADMIN_EMAIL   - Admin email (default: admin@grc-platform.local)
-#   DEMO_ADMIN_PASSWORD - Admin password (default: TestPassword123!)
-#   DEMO_TENANT_ID     - Tenant ID (default: 00000000-0000-0000-0000-000000000001)
+# Environment Variables (REQUIRED - no defaults for security):
+#   STAGING_BASE_URL   - Base URL for staging (e.g., https://niles-grc.com)
+#   DEMO_ADMIN_EMAIL   - Admin email for authentication
+#   DEMO_ADMIN_PASSWORD - Admin password for authentication
+#   DEMO_TENANT_ID     - Tenant ID for API requests
+#
+# Optional Environment Variables:
+#   STAGING_URL        - Alias for STAGING_BASE_URL (for backwards compatibility)
+#   CLEANUP            - Set to "true" to delete test entities after verification
 #
 # Exit Codes:
 #   0 - All tests passed
 #   1 - One or more tests failed
 #   2 - Authentication failed
 #   3 - Critical endpoint failure
+#   4 - Missing required environment variables
 # =============================================================================
 
 set -euo pipefail
 
-# Configuration
-STAGING_URL="${STAGING_URL:-http://46.224.99.150}"
-DEMO_ADMIN_EMAIL="${DEMO_ADMIN_EMAIL:-admin@grc-platform.local}"
-DEMO_ADMIN_PASSWORD="${DEMO_ADMIN_PASSWORD:-TestPassword123!}"
-DEMO_TENANT_ID="${DEMO_TENANT_ID:-00000000-0000-0000-0000-000000000001}"
+# =============================================================================
+# Environment Variable Validation
+# =============================================================================
+# Require explicit configuration - no hardcoded defaults for security
+validate_env() {
+  local missing=()
+  
+  # STAGING_BASE_URL or STAGING_URL must be set
+  if [ -z "${STAGING_BASE_URL:-}" ] && [ -z "${STAGING_URL:-}" ]; then
+    missing+=("STAGING_BASE_URL")
+  fi
+  
+  if [ -z "${DEMO_ADMIN_EMAIL:-}" ]; then
+    missing+=("DEMO_ADMIN_EMAIL")
+  fi
+  
+  if [ -z "${DEMO_ADMIN_PASSWORD:-}" ]; then
+    missing+=("DEMO_ADMIN_PASSWORD")
+  fi
+  
+  if [ -z "${DEMO_TENANT_ID:-}" ]; then
+    missing+=("DEMO_TENANT_ID")
+  fi
+  
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    for var in "${missing[@]}"; do
+      echo "  - $var" >&2
+    done
+    echo "" >&2
+    echo "Example usage:" >&2
+    echo "  export STAGING_BASE_URL=\"https://niles-grc.com\"" >&2
+    echo "  export DEMO_TENANT_ID=\"your-tenant-uuid\"" >&2
+    echo "  export DEMO_ADMIN_EMAIL=\"admin@example.com\"" >&2
+    echo "  export DEMO_ADMIN_PASSWORD=\"your-secure-password\"" >&2
+    echo "  bash ops/rc1-golden-flow-verify.sh" >&2
+    exit 4
+  fi
+}
+
+# Validate environment before proceeding
+validate_env
+
+# Configuration (from environment - no hardcoded defaults)
+# Support both STAGING_BASE_URL (preferred) and STAGING_URL (legacy)
+STAGING_URL="${STAGING_BASE_URL:-${STAGING_URL}}"
+DEMO_ADMIN_EMAIL="${DEMO_ADMIN_EMAIL}"
+DEMO_ADMIN_PASSWORD="${DEMO_ADMIN_PASSWORD}"
+DEMO_TENANT_ID="${DEMO_TENANT_ID}"
 CLEANUP="${CLEANUP:-false}"
 
 # Colors

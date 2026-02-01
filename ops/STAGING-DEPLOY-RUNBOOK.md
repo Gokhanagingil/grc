@@ -8,26 +8,29 @@ The following secrets must be configured in the repository settings (Settings > 
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `STAGING_SSH_HOST` | IP address or hostname of the staging server (see format requirements below) | `46.224.99.150` |
+| `STAGING_SSH_HOST` | IP address or hostname of the staging server (see format requirements below) | `staging.example.com` |
 | `STAGING_SSH_USER` | SSH username for deployment | `root` or `grcdeploy` |
 | `STAGING_SSH_KEY_B64` | Base64-encoded private SSH key (preferred) | See generation instructions below |
 | `STAGING_SSH_KEY` | Plain text SSH key (legacy, deprecated) | N/A - use B64 version |
+| `DEMO_ADMIN_EMAIL` | Admin email for smoke tests | `admin@example.com` |
+| `DEMO_ADMIN_PASSWORD` | Admin password for smoke tests | (secure password) |
+| `DEMO_TENANT_ID` | Tenant ID for smoke tests | (valid UUID) |
 
 ### STAGING_SSH_HOST Format Requirements
 
 The `STAGING_SSH_HOST` secret must be a **hostname or IP address only**. The workflow will sanitize the value but will fail if the format is invalid after sanitization.
 
 **Valid formats:**
-- `46.224.99.150` (IP address)
+- `192.0.2.1` (IP address - use your actual staging IP)
 - `staging.example.com` (hostname)
 - `my-server.domain.org` (hostname with hyphens)
 
 **Invalid formats (will cause errors):**
-- `http://46.224.99.150` (has scheme - will be stripped but avoid)
+- `http://192.0.2.1` (has scheme - will be stripped but avoid)
 - `https://staging.example.com` (has scheme)
-- `46.224.99.150:22` (has port - will be stripped but avoid)
+- `192.0.2.1:22` (has port - will be stripped but avoid)
 - `staging.example.com/path` (has path)
-- `user@46.224.99.150` (has username - use STAGING_SSH_USER instead)
+- `user@192.0.2.1` (has username - use STAGING_SSH_USER instead)
 
 The workflow automatically sanitizes the host by:
 1. Removing whitespace, carriage returns, tabs, and newlines
@@ -100,9 +103,9 @@ Frontend health check passed
 ...
 SECURITY_SMOKE_TESTS: PASSED - All tests executed and passed
 === Deployment Complete ===
-Frontend: http://46.224.99.150
-Backend API: http://46.224.99.150:3002
-Backend Health: http://46.224.99.150:3002/health/live
+Frontend: https://niles-grc.com (or your STAGING_BASE_URL)
+Backend API: https://api.niles-grc.com (or STAGING_BASE_URL/api)
+Backend Health: https://niles-grc.com/api/health/live
 ```
 
 ## Troubleshooting
@@ -182,7 +185,7 @@ Troubleshooting hints:
 **Solution:**
 1. Test SSH access manually from your local machine:
    ```bash
-   ssh -i ~/.ssh/grc_staging root@46.224.99.150 "echo OK"
+   ssh -i ~/.ssh/grc_staging $STAGING_SSH_USER@$STAGING_SSH_HOST "echo OK"
    ```
 2. If manual SSH works, verify the base64 encoding is correct
 3. Check that the public key is in the server's `~/.ssh/authorized_keys`
@@ -268,8 +271,8 @@ These tests require `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD` to be set in th
 If the GitHub Actions workflow is unavailable, you can deploy manually:
 
 ```bash
-# SSH to the staging server
-ssh root@46.224.99.150
+# SSH to the staging server (use your configured credentials)
+ssh $STAGING_SSH_USER@$STAGING_SSH_HOST
 
 # Navigate to the deployment directory
 cd /opt/grc-platform
