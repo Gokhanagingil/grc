@@ -20,17 +20,25 @@ import {
   Button,
   Stack,
   SelectChangeEvent,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Today as TodayIcon,
   Refresh as RefreshIcon,
+  ViewList as ViewListIcon,
+  CalendarMonth as CalendarMonthIcon,
 } from '@mui/icons-material';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { calendarApi, CalendarEventData, CalendarEventSourceType } from '../services/grcClient';
+import { CalendarGrid } from '../components/calendar/CalendarGrid';
+import { EventDetailDrawer } from '../components/calendar/EventDetailDrawer';
+
+type ViewMode = 'list' | 'calendar';
 
 const SOURCE_TYPE_LABELS: Record<CalendarEventSourceType, string> = {
   BCM_EXERCISE: 'BCM Exercise',
@@ -77,6 +85,9 @@ export const CalendarPage: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedTypes, setSelectedTypes] = useState<CalendarEventSourceType[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventData | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   
   const fetchEvents = useCallback(async () => {
     if (!tenantId) return;
@@ -130,9 +141,23 @@ export const CalendarPage: React.FC = () => {
   };
   
   const handleEventClick = (event: CalendarEventData) => {
-    if (event.url) {
+    if (viewMode === 'calendar') {
+      setSelectedEvent(event);
+      setDrawerOpen(true);
+    } else if (event.url) {
       navigate(event.url);
     }
+  };
+  
+  const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
+    if (newMode !== null) {
+      setViewMode(newMode);
+    }
+  };
+  
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
+    setSelectedEvent(null);
   };
   
   const groupEventsByDate = (events: CalendarEventData[]) => {
@@ -227,6 +252,24 @@ export const CalendarPage: React.FC = () => {
             <IconButton onClick={fetchEvents} title="Refresh" data-testid="calendar-refresh">
               <RefreshIcon />
             </IconButton>
+            
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              size="small"
+              aria-label="view mode"
+              data-testid="calendar-view-toggle"
+            >
+              <ToggleButton value="list" aria-label="list view" data-testid="view-mode-list">
+                <ViewListIcon sx={{ mr: 0.5 }} />
+                List
+              </ToggleButton>
+              <ToggleButton value="calendar" aria-label="calendar view" data-testid="view-mode-calendar">
+                <CalendarMonthIcon sx={{ mr: 0.5 }} />
+                Calendar
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Stack>
         </Paper>
         
@@ -240,6 +283,23 @@ export const CalendarPage: React.FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : viewMode === 'calendar' ? (
+          events.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                No events found for {format(currentMonth, 'MMMM yyyy')}.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Try adjusting your filters or selecting a different month.
+              </Typography>
+            </Paper>
+          ) : (
+            <CalendarGrid
+              currentMonth={currentMonth}
+              events={events}
+              onEventClick={handleEventClick}
+            />
+          )
         ) : events.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">
@@ -250,7 +310,7 @@ export const CalendarPage: React.FC = () => {
             </Typography>
           </Paper>
         ) : (
-          <Box>
+          <Box data-testid="calendar-list-view">
             {groupedEvents.map(({ date, dateLabel, events }) => (
               <Paper key={date} sx={{ mb: 2 }}>
                 <Box sx={{ bgcolor: 'grey.100', px: 2, py: 1 }}>
@@ -318,6 +378,12 @@ export const CalendarPage: React.FC = () => {
             ))}
           </Box>
         )}
+        
+        <EventDetailDrawer
+          event={selectedEvent}
+          open={drawerOpen}
+          onClose={handleDrawerClose}
+        />
     </Box>
   );
 };
