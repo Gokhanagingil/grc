@@ -1,10 +1,12 @@
 # GRC Platform - Staging Deployment Runbook
 
-This document provides operational guidance for the "Deploy to Staging" GitHub Actions workflow.
+This document provides operational guidance for the "Deploy to Staging" GitHub Actions workflow and the "RC1 Staging Smoke Tests" workflow.
 
 ## Required GitHub Secrets
 
 The following secrets must be configured in the repository settings (Settings > Secrets and variables > Actions):
+
+### Deployment Secrets
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
@@ -12,9 +14,32 @@ The following secrets must be configured in the repository settings (Settings > 
 | `STAGING_SSH_USER` | SSH username for deployment | `root` or `grcdeploy` |
 | `STAGING_SSH_KEY_B64` | Base64-encoded private SSH key (preferred) | See generation instructions below |
 | `STAGING_SSH_KEY` | Plain text SSH key (legacy, deprecated) | N/A - use B64 version |
+
+### Staging URL Secrets (for RC1 Smoke Tests and Playwright)
+
+| Secret Name | Description | Example Value | Required |
+|-------------|-------------|---------------|----------|
+| `STAGING_BASE_URL` | Base URL for staging environment | `https://niles-grc.com` | Yes |
+| `STAGING_URL` | Legacy alias for STAGING_BASE_URL | `https://niles-grc.com` | No (fallback) |
+
+The staging URL is resolved with the following priority (highest to lowest):
+1. Workflow dispatch input `staging_url` (manual trigger)
+2. Workflow dispatch input `staging_base_url` (alias)
+3. Repository secret `STAGING_BASE_URL`
+4. Repository secret `STAGING_URL` (legacy)
+5. Repository variable `STAGING_BASE_URL` (optional fallback)
+
+The URL is automatically normalized: `https://` is added if missing, and trailing slashes are removed.
+
+### Smoke Test Credentials
+
+| Secret Name | Description | Example Value |
+|-------------|-------------|---------------|
 | `DEMO_ADMIN_EMAIL` | Admin email for smoke tests | `admin@example.com` |
 | `DEMO_ADMIN_PASSWORD` | Admin password for smoke tests | (secure password) |
 | `DEMO_TENANT_ID` | Tenant ID for smoke tests | (valid UUID) |
+
+Note: Cloudflare or tunnel configurations do not change the requirement for these secrets. The URL simply points to wherever the staging environment is accessible.
 
 ### STAGING_SSH_HOST Format Requirements
 
@@ -109,6 +134,29 @@ Backend Health: https://niles-grc.com/api/health/live
 ```
 
 ## Troubleshooting
+
+### Error: No staging URL configured (RC1 Smoke Tests / Playwright)
+
+**Symptom:**
+```
+ERROR: No staging URL configured.
+
+To fix this, do ONE of the following:
+  1. Set Actions secret STAGING_BASE_URL (e.g., https://niles-grc.com)
+  2. Pass workflow input staging_url when triggering manually
+
+Configuration location: Settings > Secrets and variables > Actions
+```
+
+**Root Cause:**
+The RC1 Staging Smoke Tests or Playwright UI Smoke Tests workflow could not find a staging URL from any of the supported sources (workflow input, secrets, or variables).
+
+**Solution:**
+1. Go to repository Settings > Secrets and variables > Actions
+2. Add a new secret named `STAGING_BASE_URL` with the full URL of your staging environment (e.g., `https://niles-grc.com`)
+3. Re-run the workflow
+
+Alternatively, when triggering the workflow manually, you can provide the `staging_url` input parameter.
 
 ### Error: Missing required GitHub secrets
 
