@@ -8,6 +8,7 @@ import { GrcRiskHistory } from '../entities/history';
 import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
 import { GrcRiskControl } from '../entities/grc-risk-control.entity';
+import { GrcRiskAssessment } from '../entities/grc-risk-assessment.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { GrcControl } from '../entities/grc-control.entity';
@@ -16,7 +17,18 @@ import {
   RiskUpdatedEvent,
   RiskDeletedEvent,
 } from '../events';
-import { RiskStatus, RiskSeverity, RiskLikelihood } from '../enums';
+import {
+  RiskStatus,
+  RiskSeverity,
+  RiskLikelihood,
+  AssessmentType,
+  ControlEffectiveness,
+} from '../enums';
+import {
+  calculateScoreAndBand,
+  aggregateRisksToHeatmap,
+  HeatmapData,
+} from '../utils/risk-scoring.util';
 import {
   RiskFilterDto,
   RISK_SORTABLE_FIELDS,
@@ -55,6 +67,8 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     private readonly riskControlRepository: Repository<GrcRiskControl>,
     @InjectRepository(GrcControl)
     private readonly controlRepository: Repository<GrcControl>,
+    @InjectRepository(GrcRiskAssessment)
+    private readonly assessmentRepository: Repository<GrcRiskAssessment>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly universalListService?: UniversalListService,
@@ -850,5 +864,233 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     const likelihoodValue = this.likelihoodToNumber(likelihood);
     const impactValue = this.severityToNumber(impact);
     return likelihoodValue * impactValue;
+  }
+
+  // ============================================================================
+  // Risk Assessment Methods (MVP+)
+  // ============================================================================
+
+  /**
+   * Create a risk assessment and update the risk's current scores
+   */
+  async createAssessment(
+    tenantId: string,
+    userId: string,
+    riskId: string,
+    data: {
+      assessmentType: AssessmentType;
+      likelihood: number;
+      impact: number;
+      rationale?: string;
+      assessedAt?: Date;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<GrcRiskAssessment> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    // Calculate score and band
+    const { score, band } = calculateScoreAndBand(data.likelihood, data.impact);
+
+    // Create assessment record
+    const assessment = this.assessmentRepository.create({
+      tenantId,
+      riskId,
+      assessmentType: data.assessmentType,
+      likelihood: data.likelihood,
+      impact: data.impact,
+      score,
+      band,
+      rationale: data.rationale ?? null,
+      assessedAt: data.assessedAt ?? new Date(),
+      assessedByUserId: userId,
+      metadata: data.metadata ?? null,
+      createdBy: userId,
+    });
+
+    const savedAssessment = await this.assessmentRepository.save(assessment);
+
+    // Update risk's current scores based on assessment type
+    const updateData: Partial<GrcRisk> = {};
+    if (data.assessmentType === AssessmentType.INHERENT) {
+      updateData.inherentLikelihood = data.likelihood;
+      updateData.inherentImpact = data.impact;
+      updateData.inherentScore = score;
+      updateData.inherentBand = band;
+    } else {
+      updateData.residualLikelihood = data.likelihood;
+      updateData.residualImpact = data.impact;
+      updateData.residualScore = score;
+      updateData.residualBand = band;
+    }
+
+    await this.updateRisk(tenantId, userId, riskId, updateData);
+
+    return savedAssessment;
+  }
+
+  /**
+   * Get assessment history for a risk
+   */
+  async getAssessments(
+    tenantId: string,
+    riskId: string,
+    options?: {
+      assessmentType?: AssessmentType;
+      limit?: number;
+    },
+  ): Promise<GrcRiskAssessment[]> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const qb = this.assessmentRepository.createQueryBuilder('assessment');
+    qb.where('assessment.tenantId = :tenantId', { tenantId });
+    qb.andWhere('assessment.riskId = :riskId', { riskId });
+    qb.andWhere('assessment.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (options?.assessmentType) {
+      qb.andWhere('assessment.assessmentType = :assessmentType', {
+        assessmentType: options.assessmentType,
+      });
+    }
+
+    qb.orderBy('assessment.assessedAt', 'DESC');
+
+    if (options?.limit) {
+      qb.take(options.limit);
+    }
+
+    return qb.getMany();
+  }
+
+  // ============================================================================
+  // Heatmap Methods (MVP+)
+  // ============================================================================
+
+  /**
+   * Get heatmap data for risks
+   * Returns 5x5 grid counts for inherent and residual scores
+   */
+  async getHeatmap(tenantId: string): Promise<HeatmapData> {
+    const risks = await this.findAllActiveForTenant(tenantId);
+    return aggregateRisksToHeatmap(risks);
+  }
+
+  /**
+   * Get risk detail with assessments and linked controls
+   */
+  async getRiskDetail(
+    tenantId: string,
+    riskId: string,
+  ): Promise<{
+    risk: GrcRisk;
+    assessments: GrcRiskAssessment[];
+    linkedControls: Array<{
+      control: GrcControl;
+      effectivenessRating: ControlEffectiveness;
+      notes: string | null;
+    }>;
+  } | null> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      return null;
+    }
+
+    const [assessments, riskControls] = await Promise.all([
+      this.getAssessments(tenantId, riskId, { limit: 10 }),
+      this.riskControlRepository.find({
+        where: { tenantId, riskId },
+        relations: ['control'],
+      }),
+    ]);
+
+    const linkedControls = riskControls
+      .filter((rc) => rc.control && !rc.control.isDeleted)
+      .map((rc) => ({
+        control: rc.control,
+        effectivenessRating: rc.effectivenessRating,
+        notes: rc.notes,
+      }));
+
+    return {
+      risk,
+      assessments,
+      linkedControls,
+    };
+  }
+
+  /**
+   * Link a control to a risk with effectiveness rating
+   */
+  async linkControlWithEffectiveness(
+    tenantId: string,
+    riskId: string,
+    controlId: string,
+    effectivenessRating?: ControlEffectiveness,
+    notes?: string,
+  ): Promise<GrcRiskControl> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const control = await this.controlRepository.findOne({
+      where: { id: controlId, tenantId, isDeleted: false },
+    });
+    if (!control) {
+      throw new NotFoundException(`Control with ID ${controlId} not found`);
+    }
+
+    const existing = await this.riskControlRepository.findOne({
+      where: { tenantId, riskId, controlId },
+    });
+
+    if (existing) {
+      // Update existing link
+      existing.effectivenessRating =
+        effectivenessRating ?? ControlEffectiveness.UNKNOWN;
+      existing.notes = notes ?? existing.notes;
+      return this.riskControlRepository.save(existing);
+    }
+
+    const riskControl = this.riskControlRepository.create({
+      tenantId,
+      riskId,
+      controlId,
+      effectivenessRating: effectivenessRating ?? ControlEffectiveness.UNKNOWN,
+      notes: notes ?? null,
+    });
+
+    return this.riskControlRepository.save(riskControl);
+  }
+
+  /**
+   * Update control link effectiveness
+   */
+  async updateControlEffectiveness(
+    tenantId: string,
+    riskId: string,
+    controlId: string,
+    effectivenessRating: ControlEffectiveness,
+    notes?: string,
+  ): Promise<GrcRiskControl | null> {
+    const existing = await this.riskControlRepository.findOne({
+      where: { tenantId, riskId, controlId },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    existing.effectivenessRating = effectivenessRating;
+    if (notes !== undefined) {
+      existing.notes = notes;
+    }
+
+    return this.riskControlRepository.save(existing);
   }
 }

@@ -6,6 +6,8 @@
 
 // Core Entities
 export { GrcRisk } from './grc-risk.entity';
+export { GrcRiskCategory } from './grc-risk-category.entity';
+export { GrcRiskAssessment } from './grc-risk-assessment.entity';
 export { GrcControl } from './grc-control.entity';
 export { GrcPolicy } from './grc-policy.entity';
 export { GrcRequirement } from './grc-requirement.entity';

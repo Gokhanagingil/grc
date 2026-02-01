@@ -28,9 +28,12 @@ import {
   RiskFilterDto,
   LinkPoliciesDto,
   LinkRequirementsDto,
+  CreateRiskAssessmentDto,
+  LinkRiskControlDto,
 } from '../dto';
 import { Perf } from '../../common/decorators';
 import { RisksListQueryPipe } from '../../common/pipes';
+import { AssessmentType } from '../enums';
 
 /**
  * GRC Risk Controller
@@ -411,5 +414,168 @@ export class GrcRiskController {
 
     const controls = await this.riskService.getLinkedControls(tenantId, id);
     return { success: true, data: controls };
+  }
+
+  // ============================================================================
+  // MVP+ Risk Assessment Endpoints
+  // ============================================================================
+
+  /**
+   * GET /grc/risks/heatmap
+   * Get heatmap data for risks (5x5 grid aggregation)
+   */
+  @Get('heatmap')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getHeatmap(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const heatmap = await this.riskService.getHeatmap(tenantId);
+    return { success: true, data: heatmap };
+  }
+
+  /**
+   * GET /grc/risks/:id/detail
+   * Get risk detail with assessments and linked controls
+   */
+  @Get(':id/detail')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getRiskDetail(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const detail = await this.riskService.getRiskDetail(tenantId, id);
+    if (!detail) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
+
+    return { success: true, data: detail };
+  }
+
+  /**
+   * POST /grc/risks/:id/assessments
+   * Create a new risk assessment
+   */
+  @Post(':id/assessments')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createAssessment(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() createAssessmentDto: CreateRiskAssessmentDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const assessment = await this.riskService.createAssessment(
+      tenantId,
+      req.user.id,
+      id,
+      createAssessmentDto,
+    );
+
+    return { success: true, data: assessment };
+  }
+
+  /**
+   * GET /grc/risks/:id/assessments
+   * Get assessment history for a risk
+   */
+  @Get(':id/assessments')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getAssessments(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Query('type') assessmentType?: AssessmentType,
+    @Query('limit') limit?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const assessments = await this.riskService.getAssessments(tenantId, id, {
+      assessmentType,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+
+    return { success: true, data: assessments };
+  }
+
+  /**
+   * POST /grc/risks/:riskId/controls/:controlId/link
+   * Link a control to a risk with effectiveness rating
+   */
+  @Post(':riskId/controls/:controlId/link')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async linkControlWithEffectiveness(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('controlId') controlId: string,
+    @Body() linkDto: LinkRiskControlDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const link = await this.riskService.linkControlWithEffectiveness(
+      tenantId,
+      riskId,
+      controlId,
+      linkDto.effectivenessRating,
+      linkDto.notes,
+    );
+
+    return { success: true, data: link };
+  }
+
+  /**
+   * PATCH /grc/risks/:riskId/controls/:controlId/effectiveness
+   * Update control link effectiveness
+   */
+  @Patch(':riskId/controls/:controlId/effectiveness')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @Perf()
+  async updateControlEffectiveness(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('controlId') controlId: string,
+    @Body() linkDto: LinkRiskControlDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    if (!linkDto.effectivenessRating) {
+      throw new BadRequestException('effectivenessRating is required');
+    }
+
+    const link = await this.riskService.updateControlEffectiveness(
+      tenantId,
+      riskId,
+      controlId,
+      linkDto.effectivenessRating,
+      linkDto.notes,
+    );
+
+    if (!link) {
+      throw new NotFoundException(
+        `Control link not found for risk ${riskId} and control ${controlId}`,
+      );
+    }
+
+    return { success: true, data: link };
   }
 }

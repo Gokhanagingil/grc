@@ -12,7 +12,14 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { RiskSeverity, RiskLikelihood, RiskStatus } from '../enums';
+import {
+  RiskSeverity,
+  RiskLikelihood,
+  RiskStatus,
+  RiskType,
+  RiskAppetite,
+  TreatmentStrategy,
+} from '../enums';
 
 /**
  * Update Risk DTO
@@ -35,6 +42,14 @@ export class UpdateRiskDto {
   @MaxLength(100, { message: 'Category must not exceed 100 characters' })
   category?: string;
 
+  @IsUUID('4', { message: 'Risk category ID must be a valid UUID' })
+  @IsOptional()
+  riskCategoryId?: string | null;
+
+  @IsEnum(RiskType, { message: 'Invalid risk type value' })
+  @IsOptional()
+  riskType?: RiskType | null;
+
   @IsEnum(RiskSeverity, { message: 'Invalid severity value' })
   @IsOptional()
   severity?: RiskSeverity;
@@ -53,18 +68,71 @@ export class UpdateRiskDto {
   @IsOptional()
   score?: number;
 
+  @IsInt({ message: 'Inherent likelihood must be an integer' })
+  @Min(1, { message: 'Inherent likelihood must be at least 1' })
+  @Max(5, { message: 'Inherent likelihood must not exceed 5' })
+  @IsOptional()
+  inherentLikelihood?: number | null;
+
+  @IsInt({ message: 'Inherent impact must be an integer' })
+  @Min(1, { message: 'Inherent impact must be at least 1' })
+  @Max(5, { message: 'Inherent impact must not exceed 5' })
+  @IsOptional()
+  inherentImpact?: number | null;
+
+  @IsInt({ message: 'Residual likelihood must be an integer' })
+  @Min(1, { message: 'Residual likelihood must be at least 1' })
+  @Max(5, { message: 'Residual likelihood must not exceed 5' })
+  @IsOptional()
+  residualLikelihood?: number | null;
+
+  @IsInt({ message: 'Residual impact must be an integer' })
+  @Min(1, { message: 'Residual impact must be at least 1' })
+  @Max(5, { message: 'Residual impact must not exceed 5' })
+  @IsOptional()
+  residualImpact?: number | null;
+
+  @IsEnum(RiskAppetite, { message: 'Invalid risk appetite value' })
+  @IsOptional()
+  riskAppetite?: RiskAppetite | null;
+
+  @IsEnum(TreatmentStrategy, { message: 'Invalid treatment strategy value' })
+  @IsOptional()
+  treatmentStrategy?: TreatmentStrategy | null;
+
+  @IsString({ message: 'Treatment plan must be a string' })
+  @IsOptional()
+  treatmentPlan?: string | null;
+
   @IsEnum(RiskStatus, { message: 'Invalid status value' })
   @IsOptional()
   status?: RiskStatus;
 
   @IsUUID('4', { message: 'Owner user ID must be a valid UUID' })
   @IsOptional()
-  ownerUserId?: string;
+  ownerUserId?: string | null;
+
+  @IsString({ message: 'Owner display name must be a string' })
+  @IsOptional()
+  @MaxLength(255, {
+    message: 'Owner display name must not exceed 255 characters',
+  })
+  ownerDisplayName?: string | null;
 
   @Type(() => Date)
   @IsDate({ message: 'Due date must be a valid date' })
   @IsOptional()
-  dueDate?: Date;
+  dueDate?: Date | null;
+
+  @Type(() => Date)
+  @IsDate({ message: 'Target date must be a valid date' })
+  @IsOptional()
+  targetDate?: Date | null;
+
+  @Type(() => Date)
+  @IsDate({ message: 'Last reviewed at must be a valid date' })
+  @IsOptional()
+  lastReviewedAt?: Date | null;
 
   @IsString({ message: 'Mitigation plan must be a string' })
   @IsOptional()

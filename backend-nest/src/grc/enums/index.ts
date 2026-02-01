@@ -51,9 +51,79 @@ export enum RiskStatus {
   DRAFT = 'draft',
   IDENTIFIED = 'identified',
   ASSESSED = 'assessed',
+  TREATMENT_PLANNED = 'treatment_planned',
+  TREATING = 'treating',
   MITIGATING = 'mitigating',
+  MONITORED = 'monitored',
   ACCEPTED = 'accepted',
   CLOSED = 'closed',
+}
+
+/**
+ * RiskType - Classification of risk by domain
+ * Values match PostgreSQL enum: grc_risks_risk_type_enum
+ */
+export enum RiskType {
+  STRATEGIC = 'strategic',
+  OPERATIONAL = 'operational',
+  COMPLIANCE = 'compliance',
+  FINANCIAL = 'financial',
+  TECHNOLOGY = 'technology',
+  CYBER = 'cyber',
+  THIRD_PARTY = 'third_party',
+  OTHER = 'other',
+}
+
+/**
+ * RiskAppetite - Risk appetite band
+ * Values match PostgreSQL enum: grc_risks_risk_appetite_enum
+ */
+export enum RiskAppetite {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
+/**
+ * TreatmentStrategy - Risk treatment strategy
+ * Values match PostgreSQL enum: grc_risks_treatment_strategy_enum
+ */
+export enum TreatmentStrategy {
+  AVOID = 'avoid',
+  MITIGATE = 'mitigate',
+  TRANSFER = 'transfer',
+  ACCEPT = 'accept',
+}
+
+/**
+ * AssessmentType - Type of risk assessment
+ * Values match PostgreSQL enum: grc_risk_assessments_assessment_type_enum
+ */
+export enum AssessmentType {
+  INHERENT = 'inherent',
+  RESIDUAL = 'residual',
+}
+
+/**
+ * ControlEffectiveness - Effectiveness of a control in mitigating risk
+ * Values match PostgreSQL enum: grc_risk_controls_effectiveness_enum
+ */
+export enum ControlEffectiveness {
+  UNKNOWN = 'unknown',
+  EFFECTIVE = 'effective',
+  PARTIALLY_EFFECTIVE = 'partially_effective',
+  INEFFECTIVE = 'ineffective',
+}
+
+/**
+ * RiskBand - Risk score band for heatmap visualization
+ * Computed from score: 1-4 Low, 5-9 Medium, 10-15 High, 16-25 Critical
+ */
+export enum RiskBand {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
 }
 
 // ============================================================================
