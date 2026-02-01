@@ -8,6 +8,10 @@ on:
         description: 'Staging URL to test against (defaults to STAGING_BASE_URL secret)'
         required: false
         default: ''
+      staging_base_url:
+        description: 'Alias for staging_url (for compatibility)'
+        required: false
+        default: ''
       run_playwright:
         description: 'Run Playwright UI tests'
         required: false
@@ -35,18 +39,87 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set staging URL
-        id: staging-url
+      - name: Resolve Staging URL
+        id: resolve-staging-url
+        env:
+          INPUT_STAGING_URL: ${{ github.event.inputs.staging_url }}
+          INPUT_STAGING_BASE_URL: ${{ github.event.inputs.staging_base_url }}
+          SECRET_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          SECRET_STAGING_URL: ${{ secrets.STAGING_URL }}
+          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
         run: |
-          # Priority: workflow input > secret > fail with error
-          if [ -n "${{ github.event.inputs.staging_url }}" ]; then
-            echo "STAGING_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
-          elif [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
-            echo "STAGING_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
-          else
-            echo "ERROR: No staging URL configured. Set STAGING_BASE_URL secret or provide staging_url input." >&2
+          # =============================================================================
+          # Resolve Staging URL with Priority (highest to lowest):
+          #   1. workflow_dispatch input: staging_url
+          #   2. workflow_dispatch input: staging_base_url (alias)
+          #   3. repo secret: STAGING_BASE_URL
+          #   4. repo secret: STAGING_URL (legacy)
+          #   5. repo variable: STAGING_BASE_URL (optional fallback)
+          # =============================================================================
+          
+          RESOLVED_URL=""
+          SOURCE=""
+          
+          if [ -n "$INPUT_STAGING_URL" ]; then
+            RESOLVED_URL="$INPUT_STAGING_URL"
+            SOURCE="workflow input (staging_url)"
+          elif [ -n "$INPUT_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$INPUT_STAGING_BASE_URL"
+            SOURCE="workflow input (staging_base_url)"
+          elif [ -n "$SECRET_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$SECRET_STAGING_BASE_URL"
+            SOURCE="secret (STAGING_BASE_URL)"
+          elif [ -n "$SECRET_STAGING_URL" ]; then
+            RESOLVED_URL="$SECRET_STAGING_URL"
+            SOURCE="secret (STAGING_URL - legacy)"
+          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$VAR_STAGING_BASE_URL"
+            SOURCE="variable (STAGING_BASE_URL)"
+          fi
+          
+          # Fail fast with actionable instructions if no URL found
+          if [ -z "$RESOLVED_URL" ]; then
+            echo "::error::No staging URL configured."
+            echo ""
+            echo "ERROR: No staging URL configured."
+            echo ""
+            echo "To fix this, do ONE of the following:"
+            echo "  1. Set Actions secret STAGING_BASE_URL (e.g., https://niles-grc.com)"
+            echo "  2. Pass workflow input staging_url when triggering manually"
+            echo ""
+            echo "Configuration location: Settings > Secrets and variables > Actions"
             exit 1
           fi
+          
+          # =============================================================================
+          # Normalize URL
+          # =============================================================================
+          
+          # Add https:// if no scheme present
+          if [[ ! "$RESOLVED_URL" =~ ^https?:// ]]; then
+            RESOLVED_URL="https://$RESOLVED_URL"
+            echo "Normalized: Added https:// scheme"
+          fi
+          
+          # Remove trailing slash
+          RESOLVED_URL="${RESOLVED_URL%/}"
+          
+          # Extract host for safe logging (never echo full URL which may contain secrets)
+          HOST=$(echo "$RESOLVED_URL" | sed -E 's|^https?://||' | cut -d'/' -f1)
+          
+          echo "Staging URL resolved from: $SOURCE"
+          echo "Normalized host: $HOST"
+          
+          # =============================================================================
+          # Export environment variables for subsequent steps
+          # =============================================================================
+          echo "STAGING_URL=$RESOLVED_URL" >> $GITHUB_ENV
+          echo "STAGING_BASE_URL=$RESOLVED_URL" >> $GITHUB_ENV
+          echo "API_BASE_URL=${RESOLVED_URL}/api" >> $GITHUB_ENV
+          
+          # Set step outputs for use in other jobs
+          echo "staging_url=$RESOLVED_URL" >> $GITHUB_OUTPUT
+          echo "host=$HOST" >> $GITHUB_OUTPUT
 
       - name: Run Golden Flow Verification
         id: golden-flow
@@ -111,17 +184,87 @@ jobs:
         working-directory: ./frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Set staging URL
+      - name: Resolve Staging URL
+        id: resolve-staging-url
+        env:
+          INPUT_STAGING_URL: ${{ github.event.inputs.staging_url }}
+          INPUT_STAGING_BASE_URL: ${{ github.event.inputs.staging_base_url }}
+          SECRET_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          SECRET_STAGING_URL: ${{ secrets.STAGING_URL }}
+          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
         run: |
-          # Priority: workflow input > secret > fail with error
-          if [ -n "${{ github.event.inputs.staging_url }}" ]; then
-            echo "E2E_BASE_URL=${{ github.event.inputs.staging_url }}" >> $GITHUB_ENV
-          elif [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
-            echo "E2E_BASE_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
-          else
-            echo "ERROR: No staging URL configured. Set STAGING_BASE_URL secret or provide staging_url input." >&2
+          # =============================================================================
+          # Resolve Staging URL with Priority (highest to lowest):
+          #   1. workflow_dispatch input: staging_url
+          #   2. workflow_dispatch input: staging_base_url (alias)
+          #   3. repo secret: STAGING_BASE_URL
+          #   4. repo secret: STAGING_URL (legacy)
+          #   5. repo variable: STAGING_BASE_URL (optional fallback)
+          # =============================================================================
+          
+          RESOLVED_URL=""
+          SOURCE=""
+          
+          if [ -n "$INPUT_STAGING_URL" ]; then
+            RESOLVED_URL="$INPUT_STAGING_URL"
+            SOURCE="workflow input (staging_url)"
+          elif [ -n "$INPUT_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$INPUT_STAGING_BASE_URL"
+            SOURCE="workflow input (staging_base_url)"
+          elif [ -n "$SECRET_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$SECRET_STAGING_BASE_URL"
+            SOURCE="secret (STAGING_BASE_URL)"
+          elif [ -n "$SECRET_STAGING_URL" ]; then
+            RESOLVED_URL="$SECRET_STAGING_URL"
+            SOURCE="secret (STAGING_URL - legacy)"
+          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$VAR_STAGING_BASE_URL"
+            SOURCE="variable (STAGING_BASE_URL)"
+          fi
+          
+          # Fail fast with actionable instructions if no URL found
+          if [ -z "$RESOLVED_URL" ]; then
+            echo "::error::No staging URL configured."
+            echo ""
+            echo "ERROR: No staging URL configured."
+            echo ""
+            echo "To fix this, do ONE of the following:"
+            echo "  1. Set Actions secret STAGING_BASE_URL (e.g., https://niles-grc.com)"
+            echo "  2. Pass workflow input staging_url when triggering manually"
+            echo ""
+            echo "Configuration location: Settings > Secrets and variables > Actions"
             exit 1
           fi
+          
+          # =============================================================================
+          # Normalize URL
+          # =============================================================================
+          
+          # Add https:// if no scheme present
+          if [[ ! "$RESOLVED_URL" =~ ^https?:// ]]; then
+            RESOLVED_URL="https://$RESOLVED_URL"
+            echo "Normalized: Added https:// scheme"
+          fi
+          
+          # Remove trailing slash
+          RESOLVED_URL="${RESOLVED_URL%/}"
+          
+          # Extract host for safe logging (never echo full URL which may contain secrets)
+          HOST=$(echo "$RESOLVED_URL" | sed -E 's|^https?://||' | cut -d'/' -f1)
+          
+          echo "Staging URL resolved from: $SOURCE"
+          echo "Normalized host: $HOST"
+          
+          # =============================================================================
+          # Export environment variables for subsequent steps
+          # =============================================================================
+          echo "E2E_BASE_URL=$RESOLVED_URL" >> $GITHUB_ENV
+          echo "STAGING_URL=$RESOLVED_URL" >> $GITHUB_ENV
+          echo "STAGING_BASE_URL=$RESOLVED_URL" >> $GITHUB_ENV
+          
+          # Set step outputs for use in other jobs
+          echo "staging_url=$RESOLVED_URL" >> $GITHUB_OUTPUT
+          echo "host=$HOST" >> $GITHUB_OUTPUT
 
       - name: Run Playwright Smoke Tests
         id: playwright-tests
@@ -200,8 +343,6 @@ jobs:
             echo "| Playwright UI | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
           
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Staging URL:** ${{ github.event.inputs.staging_url || secrets.STAGING_BASE_URL || '(not configured)' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
