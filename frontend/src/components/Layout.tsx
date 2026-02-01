@@ -649,6 +649,38 @@ export const Layout: React.FC = () => {
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* NILES Logo Header */}
+      <Box 
+        sx={{ 
+          p: 2, 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1.5,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box
+          component="img"
+          src="/brand/niles-icon.svg"
+          alt="NILES"
+          sx={{ 
+            width: 28, 
+            height: 28,
+          }}
+        />
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 600, 
+            color: 'primary.main',
+            letterSpacing: '0.02em',
+          }}
+        >
+          NILES
+        </Typography>
+      </Box>
+      
       {/* Domain Switcher Header */}
       <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography 

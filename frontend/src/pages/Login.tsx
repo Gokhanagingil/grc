@@ -47,8 +47,26 @@ export const Login: React.FC = () => {
       >
         <Paper elevation={3} sx={{ width: '100%' }}>
           <Box component="form" onSubmit={handleLogin} sx={{ p: 3 }} data-testid="form-login">
-            <Typography component="h1" variant="h5" align="center" gutterBottom data-testid="page-login-title">
-              GRC Platform Login
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mb: 2 }}>
+              <Box
+                component="img"
+                src="/brand/niles-icon.svg"
+                alt="NILES"
+                sx={{ width: 36, height: 36 }}
+              />
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontWeight: 600, 
+                  color: 'primary.main',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                NILES
+              </Typography>
+            </Box>
+            <Typography component="h1" variant="h6" align="center" gutterBottom data-testid="page-login-title" sx={{ color: 'text.secondary' }}>
+              Sign in to continue
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <TextField

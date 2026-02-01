@@ -7,7 +7,7 @@ test.describe('Authentication', () => {
     
     // Check page title
     await expect(page.getByTestId('page-login-title')).toBeVisible();
-    await expect(page.getByTestId('page-login-title')).toContainText('GRC Platform Login');
+    await expect(page.getByTestId('page-login-title')).toContainText('Sign in to continue');
     
     // Check form elements are present
     await expect(page.getByTestId('form-login')).toBeVisible();
