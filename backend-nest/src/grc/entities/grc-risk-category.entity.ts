@@ -33,7 +33,7 @@ export class GrcRiskCategory extends BaseEntity {
   @Column({ type: 'varchar', length: 7, nullable: true })
   color: string | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number;
 
   @OneToMany(() => GrcRisk, (risk) => risk.riskCategory)
