@@ -213,6 +213,23 @@ export class GrcRiskController {
   }
 
   /**
+   * GET /grc/risks/heatmap
+   * Get heatmap data for risks (5x5 grid aggregation)
+   * NOTE: This route MUST be defined before :id routes to prevent "heatmap" being matched as a UUID
+   */
+  @Get('heatmap')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getHeatmap(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const heatmap = await this.riskService.getHeatmap(tenantId);
+    return { success: true, data: heatmap };
+  }
+
+  /**
    * GET /grc/risks/:id
    * Get a specific risk by ID
    */
@@ -421,22 +438,6 @@ export class GrcRiskController {
   // ============================================================================
   // MVP+ Risk Assessment Endpoints
   // ============================================================================
-
-  /**
-   * GET /grc/risks/heatmap
-   * Get heatmap data for risks (5x5 grid aggregation)
-   */
-  @Get('heatmap')
-  @Permissions(Permission.GRC_RISK_READ)
-  @Perf()
-  async getHeatmap(@Headers('x-tenant-id') tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
-
-    const heatmap = await this.riskService.getHeatmap(tenantId);
-    return { success: true, data: heatmap };
-  }
 
   /**
    * GET /grc/risks/:id/detail
