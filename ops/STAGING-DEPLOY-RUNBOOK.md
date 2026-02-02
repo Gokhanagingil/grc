@@ -404,6 +404,61 @@ ERROR: Docker Compose deployment failed
 | Backend (auth) | `http://localhost:3002/health/auth` | HTTP 200 |
 | Frontend | `http://localhost/health` | HTTP 200 |
 
+## DB Migration Health Check (in container)
+
+After deployment, verify that all migrations have been applied and the database schema is up to date.
+
+### Check Migration Status
+
+Run inside the backend container to see which migrations have been executed:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run migration:show'
+```
+
+**Expected output**: All migrations should show `[X]` (executed). Example:
+```
+[X] CreateTenantsTable1730000000000
+[X] AddUserRoles1730000000001
+...
+[X] LatestMigration1738000000000
+```
+
+### Run Pending Migrations
+
+If there are pending migrations (shown without `[X]`), run them:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run migration:run'
+```
+
+**Expected output** (when no pending migrations):
+```
+No migrations are pending
+```
+
+### Alternative Direct Commands
+
+If the npm scripts don't work, you can use the TypeORM CLI directly with the dist data source:
+
+```bash
+# Show migrations
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npx typeorm migration:show -d dist/data-source.js'
+
+# Run migrations
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npx typeorm migration:run -d dist/data-source.js'
+```
+
+### Seeding Standards Data
+
+The standards seed is idempotent and can be run safely multiple times:
+
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc 'npm run seed:standards'
+```
+
+This seeds the demo tenant with standard frameworks (ISO 27001, SOC 2, etc.) and their clauses.
+
 ## Security Smoke Tests
 
 The workflow includes security smoke tests that verify tenant isolation:
