@@ -133,6 +133,106 @@ Backend API: https://api.niles-grc.com (or STAGING_BASE_URL/api)
 Backend Health: https://niles-grc.com/api/health/live
 ```
 
+## Disk Space Management
+
+The deployment workflow includes automatic disk space checks and safe cleanup to prevent "no space left on device" errors during docker build.
+
+### How the Disk Preflight Works
+
+Before running `docker compose up --build`, the workflow:
+
+1. **Checks available disk space** on root (`/`) and docker data directory (`/var/lib/docker` or `/var`)
+2. **Compares against threshold** (default: 6GB, configurable via `DISK_FREE_GB_MIN` env var)
+3. **Runs safe cleanup** if below threshold (see commands below)
+4. **Fails fast** with actionable error message if still insufficient after cleanup
+
+### Detecting Disk Pressure Manually
+
+SSH to the staging server and run:
+
+```bash
+# Check filesystem usage
+df -h
+
+# Check Docker-specific disk usage
+docker system df
+
+# Find largest directories
+du -sh /* | sort -hr | head -20
+du -sh /var/* | sort -hr | head -20
+```
+
+### Safe Cleanup Commands
+
+These commands are safe to run and will NOT delete database volumes:
+
+```bash
+# 1. Remove stopped containers
+docker container prune -f
+
+# 2. Remove unused networks
+docker network prune -f
+
+# 3. Remove all build cache
+docker builder prune -af
+
+# 4. Remove all unused images (not just dangling)
+docker image prune -af
+```
+
+**Run all four in sequence:**
+```bash
+docker container prune -f && \
+docker network prune -f && \
+docker builder prune -af && \
+docker image prune -af
+```
+
+### WARNING: Do NOT Use Volume Prune
+
+**NEVER run `docker volume prune`** on the staging server. This command will delete the PostgreSQL database volume and cause **permanent data loss**.
+
+The database volume (`grc-platform_grc_staging_postgres_data`) contains all staging data and must be preserved.
+
+### What To Do If Still Not Enough Space
+
+If the automatic cleanup doesn't free enough space, you need to take manual action:
+
+1. **Expand the disk** - Increase the staging server's disk size via your cloud provider console
+
+2. **Clear old logs** - Remove old system and application logs:
+   ```bash
+   # Clear old journal logs (keep last 7 days)
+   sudo journalctl --vacuum-time=7d
+   
+   # Remove compressed log archives
+   sudo find /var/log -type f -name '*.gz' -delete
+   
+   # Truncate large log files (careful - loses log history)
+   sudo truncate -s 0 /var/log/*.log
+   ```
+
+3. **Investigate large files** - Find and remove unnecessary large files:
+   ```bash
+   # Find files larger than 100MB
+   sudo find / -type f -size +100M -exec ls -lh {} \; 2>/dev/null
+   
+   # Check for old backup files
+   sudo find / -name "*.bak" -o -name "*.backup" -o -name "*.old" 2>/dev/null
+   ```
+
+4. **Contact infrastructure team** - If disk expansion is needed, coordinate with your infrastructure/DevOps team
+
+### Configuring the Disk Threshold
+
+The minimum free space threshold can be adjusted by modifying the `DISK_FREE_GB_MIN` environment variable in `.github/workflows/deploy-staging.yml`:
+
+```yaml
+env:
+  DEPLOY_PATH: /opt/grc-platform
+  DISK_FREE_GB_MIN: 6  # Change this value (in GB)
+```
+
 ## Troubleshooting
 
 ### Error: No staging URL configured (RC1 Smoke Tests / Playwright)
