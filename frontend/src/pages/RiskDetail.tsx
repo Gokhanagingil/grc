@@ -790,6 +790,25 @@ export const RiskDetail: React.FC = () => {
                           </Grid>
                         </>
                       )}
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                      </Grid>
+                      <Grid item xs={4}><Typography color="text.secondary">Appetite Status</Typography></Grid>
+                      <Grid item xs={8}>
+                        {(() => {
+                          const DEFAULT_APPETITE = 9;
+                          const effectiveScore = risk?.residualScore ?? risk?.inherentScore ?? risk?.riskScore ?? 0;
+                          const isAboveAppetite = effectiveScore > DEFAULT_APPETITE;
+                          return (
+                            <Chip
+                              label={isAboveAppetite ? 'Above Appetite' : 'Within Appetite'}
+                              color={isAboveAppetite ? 'error' : 'success'}
+                              size="small"
+                              sx={{ fontWeight: 'medium' }}
+                            />
+                          );
+                        })()}
+                      </Grid>
                     </Grid>
                   </CardContent>
                 </Card>

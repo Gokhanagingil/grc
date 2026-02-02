@@ -53,6 +53,9 @@ export const API_PATHS = {
       TREATMENT_ACTIONS: (riskId: string) => `/grc/risks/${riskId}/treatment/actions`,
       TREATMENT_ACTION: (riskId: string, actionId: string) => `/grc/risks/${riskId}/treatment/actions/${actionId}`,
       TREATMENT_SUMMARY: (riskId: string) => `/grc/risks/${riskId}/treatment/summary`,
+      // Risk Appetite endpoints
+      ABOVE_APPETITE: '/grc/risks/above-appetite',
+      STATS_WITH_APPETITE: '/grc/risks/stats-with-appetite',
     },
 
   // GRC Policy endpoints (NestJS backend at /grc/policies)
@@ -973,6 +976,19 @@ export const riskApi = {
 
   getTreatmentSummary: (tenantId: string, riskId: string) =>
     api.get(API_PATHS.GRC_RISKS.TREATMENT_SUMMARY(riskId), withTenantId(tenantId)),
+
+  // Risk Appetite methods
+  getRisksAboveAppetite: (tenantId: string, appetiteScore: number, params?: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) => {
+    const queryParams = new URLSearchParams({ appetiteScore: String(appetiteScore) });
+    if (params?.page) queryParams.set('page', String(params.page));
+    if (params?.pageSize) queryParams.set('pageSize', String(params.pageSize));
+    if (params?.sortBy) queryParams.set('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.set('sortOrder', params.sortOrder);
+    return api.get(`${API_PATHS.GRC_RISKS.ABOVE_APPETITE}?${queryParams}`, withTenantId(tenantId));
+  },
+
+  getStatsWithAppetite: (tenantId: string, appetiteScore: number) =>
+    api.get(`${API_PATHS.GRC_RISKS.STATS_WITH_APPETITE}?appetiteScore=${appetiteScore}`, withTenantId(tenantId)),
 };
 
 // ============================================================================
