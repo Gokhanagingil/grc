@@ -164,10 +164,9 @@ export const RiskDetail: React.FC = () => {
     likelihood: 'possible',
     impact: 'moderate',
     status: 'identified',
-    owner: '',
-    mitigationStrategy: '',
-    residualRisk: '',
-    reviewDate: '',
+    ownerDisplayName: '',
+    mitigationPlan: '',
+    lastReviewedAt: '',
   });
 
   const fetchRisk = useCallback(async () => {
@@ -188,10 +187,11 @@ export const RiskDetail: React.FC = () => {
         likelihood: data.likelihood,
         impact: data.impact,
         status: data.status,
-        owner: data.owner || '',
-        mitigationStrategy: data.mitigationStrategy || '',
-        residualRisk: data.residualRisk || '',
-        reviewDate: data.reviewDate ? data.reviewDate.split('T')[0] : '',
+        ownerDisplayName: (data as unknown as { ownerDisplayName?: string }).ownerDisplayName || '',
+        mitigationPlan: (data as unknown as { mitigationPlan?: string }).mitigationPlan || '',
+        lastReviewedAt: (data as unknown as { lastReviewedAt?: string }).lastReviewedAt
+          ? (data as unknown as { lastReviewedAt: string }).lastReviewedAt.split('T')[0]
+          : '',
       });
     } catch (err) {
       console.error('Error fetching risk:', err);
@@ -247,10 +247,9 @@ export const RiskDetail: React.FC = () => {
         likelihood: formData.likelihood,
         impact: formData.impact,
         status: formData.status,
-        owner: formData.owner || undefined,
-        mitigationStrategy: formData.mitigationStrategy || undefined,
-        residualRisk: formData.residualRisk || undefined,
-        reviewDate: formData.reviewDate || undefined,
+        ownerDisplayName: formData.ownerDisplayName || undefined,
+        mitigationPlan: formData.mitigationPlan || undefined,
+        lastReviewedAt: formData.lastReviewedAt || undefined,
       };
 
       if (isNewRisk) {
@@ -436,16 +435,16 @@ export const RiskDetail: React.FC = () => {
                 <TextField
                   fullWidth
                   label="Owner"
-                  value={formData.owner}
-                  onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                  value={formData.ownerDisplayName}
+                  onChange={(e) => setFormData({ ...formData, ownerDisplayName: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Mitigation Strategy"
-                  value={formData.mitigationStrategy}
-                  onChange={(e) => setFormData({ ...formData, mitigationStrategy: e.target.value })}
+                  label="Mitigation Plan"
+                  value={formData.mitigationPlan}
+                  onChange={(e) => setFormData({ ...formData, mitigationPlan: e.target.value })}
                   multiline
                   rows={2}
                 />
@@ -453,18 +452,10 @@ export const RiskDetail: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Residual Risk"
-                  value={formData.residualRisk}
-                  onChange={(e) => setFormData({ ...formData, residualRisk: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Review Date"
+                  label="Last Reviewed"
                   type="date"
-                  value={formData.reviewDate}
-                  onChange={(e) => setFormData({ ...formData, reviewDate: e.target.value })}
+                  value={formData.lastReviewedAt}
+                  onChange={(e) => setFormData({ ...formData, lastReviewedAt: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -823,16 +814,16 @@ export const RiskDetail: React.FC = () => {
                 <TextField
                   fullWidth
                   label="Owner"
-                  value={formData.owner}
-                  onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                  value={formData.ownerDisplayName}
+                  onChange={(e) => setFormData({ ...formData, ownerDisplayName: e.target.value })}
                 />
               </Grid>
             </Grid>
             <TextField
               fullWidth
-              label="Mitigation Strategy"
-              value={formData.mitigationStrategy}
-              onChange={(e) => setFormData({ ...formData, mitigationStrategy: e.target.value })}
+              label="Mitigation Plan"
+              value={formData.mitigationPlan}
+              onChange={(e) => setFormData({ ...formData, mitigationPlan: e.target.value })}
               multiline
               rows={2}
             />
@@ -840,18 +831,10 @@ export const RiskDetail: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Residual Risk"
-                  value={formData.residualRisk}
-                  onChange={(e) => setFormData({ ...formData, residualRisk: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Review Date"
+                  label="Last Reviewed"
                   type="date"
-                  value={formData.reviewDate}
-                  onChange={(e) => setFormData({ ...formData, reviewDate: e.target.value })}
+                  value={formData.lastReviewedAt}
+                  onChange={(e) => setFormData({ ...formData, lastReviewedAt: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>

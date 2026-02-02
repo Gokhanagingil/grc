@@ -30,6 +30,10 @@ import {
   calculateScoreAndBand,
   aggregateRisksToHeatmap,
   HeatmapData,
+  calculateResidualScore,
+  calculateResidualComponents,
+  getRiskBand,
+  ControlLinkData,
 } from '../utils/risk-scoring.util';
 import {
   RiskFilterDto,
@@ -404,6 +408,8 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       dueDateFrom,
       dueDateTo,
       search,
+      inherentLikelihood,
+      inherentImpact,
     } = filterDto;
 
     const qb = this.repository.createQueryBuilder('risk');
@@ -458,6 +464,17 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
         '(risk.title ILIKE :search OR risk.description ILIKE :search)',
         { search: `%${search}%` },
       );
+    }
+
+    // Numeric filters for heatmap drill-down
+    if (inherentLikelihood !== undefined) {
+      qb.andWhere('risk.inherentLikelihood = :inherentLikelihood', {
+        inherentLikelihood,
+      });
+    }
+
+    if (inherentImpact !== undefined) {
+      qb.andWhere('risk.inherentImpact = :inherentImpact', { inherentImpact });
     }
 
     // Get total count before pagination
@@ -684,6 +701,65 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
   }
 
   /**
+   * Link a single policy to a risk (idempotent)
+   */
+  async linkPolicy(
+    tenantId: string,
+    riskId: string,
+    policyId: string,
+  ): Promise<GrcRiskPolicy> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const policy = await this.policyRepository.findOne({
+      where: { id: policyId, tenantId, isDeleted: false },
+    });
+    if (!policy) {
+      throw new NotFoundException(`Policy with ID ${policyId} not found`);
+    }
+
+    // Check if link already exists (idempotent)
+    const existing = await this.riskPolicyRepository.findOne({
+      where: { tenantId, riskId, policyId },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const riskPolicy = this.riskPolicyRepository.create({
+      tenantId,
+      riskId,
+      policyId,
+    });
+
+    return this.riskPolicyRepository.save(riskPolicy);
+  }
+
+  /**
+   * Unlink a single policy from a risk
+   */
+  async unlinkPolicy(
+    tenantId: string,
+    riskId: string,
+    policyId: string,
+  ): Promise<boolean> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    const result = await this.riskPolicyRepository.delete({
+      tenantId,
+      riskId,
+      policyId,
+    });
+
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
    * Link requirements to a risk
    * Replaces existing requirement links with the new set
    */
@@ -812,7 +888,12 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       controlId,
     });
 
-    return this.riskControlRepository.save(riskControl);
+    const savedLink = await this.riskControlRepository.save(riskControl);
+
+    // Recalculate residual risk after linking control
+    await this.recalculateResidualRisk(tenantId, riskId);
+
+    return savedLink;
   }
 
   /**
@@ -835,7 +916,14 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       controlId,
     });
 
-    return (result.affected ?? 0) > 0;
+    const wasDeleted = (result.affected ?? 0) > 0;
+
+    // Recalculate residual risk after unlinking control
+    if (wasDeleted) {
+      await this.recalculateResidualRisk(tenantId, riskId);
+    }
+
+    return wasDeleted;
   }
 
   /**
@@ -1058,7 +1146,12 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       existing.effectivenessRating =
         effectivenessRating ?? ControlEffectiveness.UNKNOWN;
       existing.notes = notes ?? existing.notes;
-      return this.riskControlRepository.save(existing);
+      const savedLink = await this.riskControlRepository.save(existing);
+
+      // Recalculate residual risk after updating effectiveness
+      await this.recalculateResidualRisk(tenantId, riskId);
+
+      return savedLink;
     }
 
     const riskControl = this.riskControlRepository.create({
@@ -1069,7 +1162,12 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       notes: notes ?? null,
     });
 
-    return this.riskControlRepository.save(riskControl);
+    const savedLink = await this.riskControlRepository.save(riskControl);
+
+    // Recalculate residual risk after linking control
+    await this.recalculateResidualRisk(tenantId, riskId);
+
+    return savedLink;
   }
 
   /**
@@ -1095,7 +1193,140 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       existing.notes = notes;
     }
 
-    return this.riskControlRepository.save(existing);
+    const savedLink = await this.riskControlRepository.save(existing);
+
+    // Recalculate residual risk after updating effectiveness
+    await this.recalculateResidualRisk(tenantId, riskId);
+
+    return savedLink;
+  }
+
+  // ============================================================================
+  // Residual Risk Calculation Methods
+  // ============================================================================
+
+  /**
+   * Recalculate residual risk for a risk based on linked controls
+   * Uses diminishing returns model with effectiveness ratings
+   *
+   * @param tenantId - Tenant ID
+   * @param riskId - Risk ID
+   * @returns Updated risk with recalculated residual scores
+   */
+  async recalculateResidualRisk(
+    tenantId: string,
+    riskId: string,
+  ): Promise<GrcRisk | null> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      return null;
+    }
+
+    // Get inherent score (use stored value or calculate from likelihood/impact)
+    let inherentScore = risk.inherentScore;
+    if (inherentScore === null || inherentScore === undefined) {
+      if (risk.inherentLikelihood && risk.inherentImpact) {
+        inherentScore = risk.inherentLikelihood * risk.inherentImpact;
+      } else {
+        // Fall back to enum-based calculation
+        const likelihoodValue = this.likelihoodToNumber(risk.likelihood);
+        const impactValue = this.severityToNumber(risk.impact);
+        inherentScore = likelihoodValue * impactValue;
+      }
+    }
+
+    // Get all linked controls with their effectiveness ratings
+    const riskControls = await this.riskControlRepository.find({
+      where: { tenantId, riskId },
+    });
+
+    // Convert to ControlLinkData format
+    const controlLinks: ControlLinkData[] = riskControls.map((rc) => ({
+      effectivenessRating:
+        rc.effectivenessRating || ControlEffectiveness.UNKNOWN,
+      coverage: 1.0, // Default coverage, can be extended later
+    }));
+
+    // Calculate residual score using diminishing returns model
+    const residualScore = calculateResidualScore(inherentScore, controlLinks);
+
+    // Calculate residual likelihood and impact components
+    const inherentLikelihood =
+      risk.inherentLikelihood || this.likelihoodToNumber(risk.likelihood);
+    const inherentImpact =
+      risk.inherentImpact || this.severityToNumber(risk.impact);
+    const { residualLikelihood, residualImpact } = calculateResidualComponents(
+      inherentLikelihood,
+      inherentImpact,
+      residualScore,
+    );
+
+    // Get residual band
+    const residualBand = getRiskBand(residualScore);
+
+    // Update risk with new residual values
+    await this.repository.update(
+      { id: riskId, tenantId },
+      {
+        residualScore,
+        residualLikelihood,
+        residualImpact,
+        residualBand,
+      },
+    );
+
+    // Return updated risk
+    return this.findOneActiveForTenant(tenantId, riskId);
+  }
+
+  /**
+   * Get linked controls with effectiveness for residual calculation display
+   */
+  async getLinkedControlsWithEffectiveness(
+    tenantId: string,
+    riskId: string,
+  ): Promise<
+    Array<{
+      controlId: string;
+      controlTitle: string;
+      effectivenessRating: ControlEffectiveness;
+      reductionFactor: number;
+    }>
+  > {
+    const riskControls = await this.riskControlRepository.find({
+      where: { tenantId, riskId },
+      relations: ['control'],
+    });
+
+    const EFFECTIVENESS_REDUCTION: Record<ControlEffectiveness, number> = {
+      [ControlEffectiveness.EFFECTIVE]: 0.35,
+      [ControlEffectiveness.PARTIALLY_EFFECTIVE]: 0.2,
+      [ControlEffectiveness.INEFFECTIVE]: 0.1,
+      [ControlEffectiveness.UNKNOWN]: 0.05,
+    };
+
+    const result: Array<{
+      controlId: string;
+      controlTitle: string;
+      effectivenessRating: ControlEffectiveness;
+      reductionFactor: number;
+    }> = [];
+
+    for (const rc of riskControls) {
+      const ctrl = rc.control;
+      if (ctrl && !ctrl.isDeleted) {
+        const effectivenessRating =
+          rc.effectivenessRating || ControlEffectiveness.UNKNOWN;
+        result.push({
+          controlId: rc.controlId,
+          controlTitle: ctrl.name,
+          effectivenessRating,
+          reductionFactor: EFFECTIVENESS_REDUCTION[effectivenessRating],
+        });
+      }
+    }
+
+    return result;
   }
 
   // ============================================================================

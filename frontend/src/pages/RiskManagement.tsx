@@ -253,8 +253,8 @@ export const RiskManagement: React.FC = () => {
 
     const statusFilter = searchParams.get('status') || '';
     const severityFilter = searchParams.get('severity') || '';
-    const likelihoodFilter = searchParams.get('likelihood') || '';
-    const impactFilter = searchParams.get('impact') || '';
+    const inherentLikelihoodFilter = searchParams.get('inherentLikelihood') || '';
+    const inherentImpactFilter = searchParams.get('inherentImpact') || '';
     const advancedFilter = parsedQuery.filterTree;
 
     // Build additional filters from URL params
@@ -262,14 +262,14 @@ export const RiskManagement: React.FC = () => {
       const filters: Record<string, unknown> = {};
       if (statusFilter) filters.status = statusFilter;
       if (severityFilter) filters.severity = severityFilter;
-      if (likelihoodFilter) filters.likelihood = likelihoodFilter;
-      if (impactFilter) filters.impact = impactFilter;
+      if (inherentLikelihoodFilter) filters.inherentLikelihood = inherentLikelihoodFilter;
+      if (inherentImpactFilter) filters.inherentImpact = inherentImpactFilter;
       if (advancedFilter) {
         const serialized = serializeFilterTree(advancedFilter);
         if (serialized) filters.filter = serialized;
       }
       return filters;
-    }, [statusFilter, severityFilter, likelihoodFilter, impactFilter, advancedFilter]);
+    }, [statusFilter, severityFilter, inherentLikelihoodFilter, inherentImpactFilter, advancedFilter]);
 
   // Fetch function for useUniversalList
   // Note: riskApi.list expects URLSearchParams, so we convert the params object
@@ -385,12 +385,12 @@ export const RiskManagement: React.FC = () => {
       }
     }, [tenantId]);
 
-    // Handle heatmap cell click - filter risks by likelihood and impact
+    // Handle heatmap cell click - filter risks by inherent likelihood and impact
     const handleHeatmapCellClick = useCallback((likelihood: number, impact: number) => {
       setHeatmapFilter({ likelihood, impact });
       const newParams = new URLSearchParams(searchParams);
-      newParams.set('likelihood', String(likelihood));
-      newParams.set('impact', String(impact));
+      newParams.set('inherentLikelihood', String(likelihood));
+      newParams.set('inherentImpact', String(impact));
       newParams.set('page', '1');
       setSearchParams(newParams, { replace: true });
     }, [searchParams, setSearchParams]);
@@ -399,8 +399,8 @@ export const RiskManagement: React.FC = () => {
     const handleClearHeatmapFilter = useCallback(() => {
       setHeatmapFilter(null);
       const newParams = new URLSearchParams(searchParams);
-      newParams.delete('likelihood');
-      newParams.delete('impact');
+      newParams.delete('inherentLikelihood');
+      newParams.delete('inherentImpact');
       newParams.set('page', '1');
       setSearchParams(newParams, { replace: true });
     }, [searchParams, setSearchParams]);
@@ -419,8 +419,8 @@ export const RiskManagement: React.FC = () => {
 
     // Sync heatmap filter from URL params
     useEffect(() => {
-      const likelihoodParam = searchParams.get('likelihood');
-      const impactParam = searchParams.get('impact');
+      const likelihoodParam = searchParams.get('inherentLikelihood');
+      const impactParam = searchParams.get('inherentImpact');
       if (likelihoodParam && impactParam) {
         setHeatmapFilter({
           likelihood: parseInt(likelihoodParam, 10),

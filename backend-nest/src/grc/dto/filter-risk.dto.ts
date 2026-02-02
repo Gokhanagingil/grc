@@ -4,7 +4,11 @@ import {
   IsEnum,
   IsUUID,
   IsDateString,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RiskStatus, RiskSeverity, RiskLikelihood } from '../enums';
 import { PaginationQueryDto } from './pagination.dto';
 
@@ -58,6 +62,20 @@ export class RiskFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Inherent likelihood must be an integer' })
+  @Min(1, { message: 'Inherent likelihood must be at least 1' })
+  @Max(5, { message: 'Inherent likelihood must not exceed 5' })
+  inherentLikelihood?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Inherent impact must be an integer' })
+  @Min(1, { message: 'Inherent impact must be at least 1' })
+  @Max(5, { message: 'Inherent impact must not exceed 5' })
+  inherentImpact?: number;
 }
 
 /**
