@@ -46,6 +46,7 @@ export const API_PATHS = {
       LINK_CONTROL_WITH_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/link`,
       UPDATE_CONTROL_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness`,
       POLICIES: (id: string) => `/grc/risks/${id}/policies`,
+      LINK_POLICY: (riskId: string, policyId: string) => `/grc/risks/${riskId}/policies/${policyId}`,
       REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
       ASSESSMENTS: (id: string) => `/grc/risks/${id}/assessments`,
       // Treatment Plan endpoints
@@ -942,7 +943,13 @@ export const riskApi = {
   linkPolicies: (tenantId: string, riskId: string, policyIds: string[]) =>
     api.post(API_PATHS.GRC_RISKS.POLICIES(riskId), { policyIds }, withTenantId(tenantId)),
 
-  getLinkedRequirements: (tenantId: string, riskId: string) =>
+  linkPolicy: (tenantId: string, riskId: string, policyId: string) =>
+    api.post(API_PATHS.GRC_RISKS.LINK_POLICY(riskId, policyId), {}, withTenantId(tenantId)),
+
+  unlinkPolicy: (tenantId: string, riskId: string, policyId: string) =>
+    api.delete(API_PATHS.GRC_RISKS.LINK_POLICY(riskId, policyId), withTenantId(tenantId)),
+
+  getLinkedRequirements:(tenantId: string, riskId: string) =>
     api.get(API_PATHS.GRC_RISKS.REQUIREMENTS(riskId), withTenantId(tenantId)),
 
   linkRequirements: (tenantId: string, riskId: string, requirementIds: string[]) =>
