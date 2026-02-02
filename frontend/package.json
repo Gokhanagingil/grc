@@ -26,13 +26,14 @@
     "typescript": "^5.9.3",
     "web-vitals": "^5.1.0"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:e2e": "playwright test",
-    "eject": "react-scripts eject"
-  },
+    "scripts": {
+      "start": "react-scripts start",
+      "build": "react-scripts build",
+      "test": "react-scripts test",
+      "test:e2e": "playwright test",
+      "eject": "react-scripts eject",
+      "generate:favicons": "node ops/generate-favicons.js"
+    },
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -54,6 +55,8 @@
   "devDependencies": {
     "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2"
+    "@testing-library/react": "^16.3.2",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   }
 }
