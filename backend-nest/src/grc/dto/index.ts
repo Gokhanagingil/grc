@@ -15,6 +15,13 @@ export {
 export { CreateRiskDto } from './create-risk.dto';
 export { UpdateRiskDto } from './update-risk.dto';
 export { RiskFilterDto, RISK_SORTABLE_FIELDS } from './filter-risk.dto';
+export { CreateRiskCategoryDto } from './create-risk-category.dto';
+export { UpdateRiskCategoryDto } from './update-risk-category.dto';
+export { CreateRiskAssessmentDto } from './create-risk-assessment.dto';
+export {
+  LinkRiskControlDto,
+  UpdateRiskControlLinkDto,
+} from './link-risk-control.dto';
 
 // Policy DTOs
 export { CreatePolicyDto } from './create-policy.dto';

@@ -3,7 +3,7 @@ import { MappingEntityBase } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { GrcRisk } from './grc-risk.entity';
 import { GrcControl } from './grc-control.entity';
-import { RelationshipType } from '../enums';
+import { RelationshipType, ControlEffectiveness } from '../enums';
 
 /**
  * GRC Risk-Control Mapping Entity
@@ -48,6 +48,14 @@ export class GrcRiskControl extends MappingEntityBase {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   effectiveness: string | null;
+
+  @Column({
+    name: 'effectiveness_rating',
+    type: 'enum',
+    enum: ControlEffectiveness,
+    default: ControlEffectiveness.UNKNOWN,
+  })
+  effectivenessRating: ControlEffectiveness;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

@@ -10,6 +10,8 @@ import { UserViewPreference } from '../common/entities/user-view-preference.enti
 // Entities
 import {
   GrcRisk,
+  GrcRiskCategory,
+  GrcRiskAssessment,
   GrcControl,
   GrcPolicy,
   GrcRequirement,
@@ -223,6 +225,8 @@ import { CalendarController } from './controllers/calendar.controller';
     TypeOrmModule.forFeature([
       // Core entities
       GrcRisk,
+      GrcRiskCategory,
+      GrcRiskAssessment,
       GrcControl,
       GrcPolicy,
       GrcRequirement,

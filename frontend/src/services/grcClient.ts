@@ -38,9 +38,16 @@ export const API_PATHS = {
     SUMMARY: '/grc/risks/summary',
     STATISTICS: '/grc/risks/statistics',
     HIGH_SEVERITY: '/grc/risks/high-severity',
+    HEATMAP: '/grc/risks/heatmap',
+    DETAIL: (id: string) => `/grc/risks/${id}/detail`,
     CONTROLS: (id: string) => `/grc/risks/${id}/controls`,
+    CONTROLS_LIST: (id: string) => `/grc/risks/${id}/controls/list`,
+    LINK_CONTROL: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}`,
+    LINK_CONTROL_WITH_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/link`,
+    UPDATE_CONTROL_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness`,
     POLICIES: (id: string) => `/grc/risks/${id}/policies`,
     REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
+    ASSESSMENTS: (id: string) => `/grc/risks/${id}/assessments`,
   },
 
   // GRC Policy endpoints (NestJS backend at /grc/policies)
@@ -880,6 +887,9 @@ export const riskApi = {
   get: (tenantId: string, id: string) => 
     api.get(API_PATHS.GRC_RISKS.GET(id), withTenantId(tenantId)),
   
+  getDetail: (tenantId: string, id: string) => 
+    api.get(API_PATHS.GRC_RISKS.DETAIL(id), withTenantId(tenantId)),
+  
   create: (tenantId: string, data: Record<string, unknown>) => 
     api.post(API_PATHS.GRC_RISKS.CREATE, data, withTenantId(tenantId)),
   
@@ -897,6 +907,29 @@ export const riskApi = {
   
   highSeverity: (tenantId: string) => 
     api.get(API_PATHS.GRC_RISKS.HIGH_SEVERITY, withTenantId(tenantId)),
+
+  heatmap: (tenantId: string) =>
+    api.get(API_PATHS.GRC_RISKS.HEATMAP, withTenantId(tenantId)),
+
+  // Assessment management
+  createAssessment: (tenantId: string, riskId: string, data: Record<string, unknown>) =>
+    api.post(API_PATHS.GRC_RISKS.ASSESSMENTS(riskId), data, withTenantId(tenantId)),
+
+  getAssessments: (tenantId: string, riskId: string, params?: URLSearchParams) =>
+    api.get(`${API_PATHS.GRC_RISKS.ASSESSMENTS(riskId)}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
+
+  // Control management
+  getLinkedControls: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.CONTROLS(riskId), withTenantId(tenantId)),
+
+  linkControl: (tenantId: string, riskId: string, controlId: string, data?: Record<string, unknown>) =>
+    api.post(API_PATHS.GRC_RISKS.LINK_CONTROL_WITH_EFFECTIVENESS(riskId, controlId), data || {}, withTenantId(tenantId)),
+
+  unlinkControl: (tenantId: string, riskId: string, controlId: string) =>
+    api.delete(API_PATHS.GRC_RISKS.LINK_CONTROL(riskId, controlId), withTenantId(tenantId)),
+
+  updateControlEffectiveness: (tenantId: string, riskId: string, controlId: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.GRC_RISKS.UPDATE_CONTROL_EFFECTIVENESS(riskId, controlId), data, withTenantId(tenantId)),
 
   // Relationship management
   getLinkedPolicies: (tenantId: string, riskId: string) =>
