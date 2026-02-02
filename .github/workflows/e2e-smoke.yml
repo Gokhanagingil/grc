@@ -29,6 +29,11 @@ on:
       - 'backend-nest/**'
       - '.github/workflows/e2e-smoke.yml'
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20.x'
   WORKING_DIRECTORY: ./backend-nest

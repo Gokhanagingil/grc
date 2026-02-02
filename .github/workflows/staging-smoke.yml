@@ -27,6 +27,11 @@ on:
     types:
       - completed
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # API Smoke Tests using the golden flow verify script
   api-smoke:

@@ -15,6 +15,15 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions - only what's needed for CI
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     name: Lint & Test

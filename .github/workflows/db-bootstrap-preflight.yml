@@ -40,6 +40,11 @@ on:
       - 'backend-nest/src/**/*.entity.ts'
       - '.github/workflows/db-bootstrap-preflight.yml'
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20.x'
   WORKING_DIRECTORY: ./backend-nest
