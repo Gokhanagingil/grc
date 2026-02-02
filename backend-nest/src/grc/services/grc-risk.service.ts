@@ -1534,4 +1534,138 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
         .length,
     };
   }
+
+  /**
+   * Get risks above appetite threshold
+   * Uses residualScore if available, otherwise inherentScore
+   */
+  async getRisksAboveAppetite(
+    tenantId: string,
+    appetiteScore: number,
+    options: {
+      page?: number;
+      pageSize?: number;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+    } = {},
+  ): Promise<PaginatedResponse<GrcRisk>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'residualScore',
+      sortOrder = 'DESC',
+    } = options;
+
+    const queryBuilder = this.repository
+      .createQueryBuilder('risk')
+      .where('risk.tenantId = :tenantId', { tenantId })
+      .andWhere('risk.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere(
+        '(risk.residualScore > :appetiteScore OR (risk.residualScore IS NULL AND risk.inherentScore > :appetiteScore))',
+        { appetiteScore },
+      );
+
+    const total = await queryBuilder.getCount();
+
+    const validSortFields = [
+      'residualScore',
+      'inherentScore',
+      'title',
+      'createdAt',
+      'updatedAt',
+    ];
+    const safeSortBy = validSortFields.includes(sortBy)
+      ? sortBy
+      : 'residualScore';
+
+    const risks = await queryBuilder
+      .orderBy(`risk.${safeSortBy}`, sortOrder)
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+
+    return createPaginatedResponse(risks, total, page, pageSize);
+  }
+
+  /**
+   * Get count of risks above appetite threshold
+   */
+  async getAboveAppetiteCount(
+    tenantId: string,
+    appetiteScore: number,
+  ): Promise<number> {
+    return this.repository
+      .createQueryBuilder('risk')
+      .where('risk.tenantId = :tenantId', { tenantId })
+      .andWhere('risk.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere(
+        '(risk.residualScore > :appetiteScore OR (risk.residualScore IS NULL AND risk.inherentScore > :appetiteScore))',
+        { appetiteScore },
+      )
+      .getCount();
+  }
+
+  /**
+   * Get risk statistics including above-appetite count
+   */
+  async getStatsWithAppetite(
+    tenantId: string,
+    appetiteScore: number,
+  ): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    bySeverity: Record<string, number>;
+    aboveAppetiteCount: number;
+    appetiteScore: number;
+    averageResidualScore: number | null;
+    averageInherentScore: number | null;
+  }> {
+    const risks = await this.repository.find({
+      where: { tenantId, isDeleted: false },
+      select: ['status', 'severity', 'residualScore', 'inherentScore'],
+    });
+
+    const byStatus: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
+    let aboveAppetiteCount = 0;
+    let totalResidual = 0;
+    let residualCount = 0;
+    let totalInherent = 0;
+    let inherentCount = 0;
+
+    for (const risk of risks) {
+      byStatus[risk.status] = (byStatus[risk.status] || 0) + 1;
+      bySeverity[risk.severity] = (bySeverity[risk.severity] || 0) + 1;
+
+      const effectiveScore = risk.residualScore ?? risk.inherentScore;
+      if (effectiveScore !== null && effectiveScore > appetiteScore) {
+        aboveAppetiteCount++;
+      }
+
+      if (risk.residualScore !== null) {
+        totalResidual += risk.residualScore;
+        residualCount++;
+      }
+      if (risk.inherentScore !== null) {
+        totalInherent += risk.inherentScore;
+        inherentCount++;
+      }
+    }
+
+    return {
+      total: risks.length,
+      byStatus,
+      bySeverity,
+      aboveAppetiteCount,
+      appetiteScore,
+      averageResidualScore:
+        residualCount > 0
+          ? Math.round((totalResidual / residualCount) * 10) / 10
+          : null,
+      averageInherentScore:
+        inherentCount > 0
+          ? Math.round((totalInherent / inherentCount) * 10) / 10
+          : null,
+    };
+  }
 }

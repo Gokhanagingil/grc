@@ -876,4 +876,76 @@ export class GrcRiskController {
 
     return { success: true, data: summary };
   }
+
+  /**
+   * GET /grc/risks/above-appetite
+   * Get risks above the tenant's risk appetite threshold
+   * Query params: appetiteScore (required), page, pageSize, sortBy, sortOrder
+   */
+  @Get('above-appetite')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getRisksAboveAppetite(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('appetiteScore') appetiteScoreStr: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const appetiteScore = parseInt(appetiteScoreStr, 10);
+    if (isNaN(appetiteScore) || appetiteScore < 1 || appetiteScore > 25) {
+      throw new BadRequestException(
+        'appetiteScore must be a number between 1 and 25',
+      );
+    }
+
+    const result = await this.riskService.getRisksAboveAppetite(
+      tenantId,
+      appetiteScore,
+      {
+        page: page ? parseInt(page, 10) : 1,
+        pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+        sortBy: sortBy || 'residualScore',
+        sortOrder: sortOrder || 'DESC',
+      },
+    );
+
+    return { success: true, ...result };
+  }
+
+  /**
+   * GET /grc/risks/stats-with-appetite
+   * Get risk statistics including above-appetite count
+   * Query params: appetiteScore (required)
+   */
+  @Get('stats-with-appetite')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getStatsWithAppetite(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('appetiteScore') appetiteScoreStr: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const appetiteScore = parseInt(appetiteScoreStr, 10);
+    if (isNaN(appetiteScore) || appetiteScore < 1 || appetiteScore > 25) {
+      throw new BadRequestException(
+        'appetiteScore must be a number between 1 and 25',
+      );
+    }
+
+    const stats = await this.riskService.getStatsWithAppetite(
+      tenantId,
+      appetiteScore,
+    );
+
+    return { success: true, data: stats };
+  }
 }
