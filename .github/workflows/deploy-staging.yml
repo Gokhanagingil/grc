@@ -241,7 +241,7 @@ jobs:
       # Step 5: Deploy to staging server
       # =========================================================================
       - name: Deploy to staging server
-        uses: appleboy/ssh-action@v1.2.4
+        uses: appleboy/ssh-action@v1.2.5
         env:
           DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
           STAGING_HOST: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
