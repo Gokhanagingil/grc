@@ -77,6 +77,13 @@ interface Risk {
   reviewDate: string | null;
   createdAt: string;
   updatedAt: string;
+  // New residual risk fields
+  inherentLikelihood: number | null;
+  inherentImpact: number | null;
+  inherentScore: number | null;
+  residualLikelihood: number | null;
+  residualImpact: number | null;
+  residualScore: number | null;
 }
 
 interface LinkedPolicy {
@@ -709,17 +716,32 @@ export const RiskDetail: React.FC = () => {
                       <Grid item xs={8}>
                         <Typography sx={{ textTransform: 'capitalize' }}>
                           {risk?.likelihood?.replace('_', ' ') || '-'}
+                          {risk?.inherentLikelihood && ` (${risk.inherentLikelihood}/5)`}
                         </Typography>
                       </Grid>
                       <Grid item xs={4}><Typography color="text.secondary">Impact</Typography></Grid>
                       <Grid item xs={8}>
                         <Typography sx={{ textTransform: 'capitalize' }}>
                           {risk?.impact || '-'}
+                          {risk?.inherentImpact && ` (${risk.inherentImpact}/5)`}
                         </Typography>
                       </Grid>
-                      <Grid item xs={4}><Typography color="text.secondary">Risk Score</Typography></Grid>
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                      </Grid>
+                      <Grid item xs={4}><Typography color="text.secondary" fontWeight="medium">Inherent Risk</Typography></Grid>
                       <Grid item xs={8}>
-                        {risk?.riskScore !== null && risk?.riskScore !== undefined ? (
+                        {risk?.inherentScore !== null && risk?.inherentScore !== undefined ? (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min((risk.inherentScore / 25) * 100, 100)}
+                              color={getRiskScoreColor(risk.inherentScore)}
+                              sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            />
+                            <Typography fontWeight="bold">{risk.inherentScore}</Typography>
+                          </Box>
+                        ) : risk?.riskScore !== null && risk?.riskScore !== undefined ? (
                           <Box display="flex" alignItems="center" gap={1}>
                             <LinearProgress
                               variant="determinate"
@@ -733,8 +755,41 @@ export const RiskDetail: React.FC = () => {
                           <Typography>-</Typography>
                         )}
                       </Grid>
-                      <Grid item xs={4}><Typography color="text.secondary">Residual Risk</Typography></Grid>
-                      <Grid item xs={8}><Typography>{risk?.residualRisk || '-'}</Typography></Grid>
+                      <Grid item xs={4}><Typography color="text.secondary" fontWeight="medium">Residual Risk</Typography></Grid>
+                      <Grid item xs={8}>
+                        {risk?.residualScore !== null && risk?.residualScore !== undefined ? (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min((risk.residualScore / 25) * 100, 100)}
+                              color={getRiskScoreColor(risk.residualScore)}
+                              sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            />
+                            <Tooltip title={`Residual: ${risk.residualScore} (Inherent: ${risk.inherentScore || risk.riskScore || '-'})`}>
+                              <Typography fontWeight="bold" color={getRiskScoreColor(risk.residualScore) + '.main'}>
+                                {risk.residualScore}
+                              </Typography>
+                            </Tooltip>
+                          </Box>
+                        ) : (
+                          <Typography color="text.secondary">
+                            {linkedControls.length === 0 ? 'Link controls to calculate' : 'Calculating...'}
+                          </Typography>
+                        )}
+                      </Grid>
+                      {risk?.residualScore !== null && risk?.inherentScore !== null && risk.residualScore < (risk.inherentScore || 0) && (
+                        <>
+                          <Grid item xs={4}><Typography color="text.secondary">Risk Reduction</Typography></Grid>
+                          <Grid item xs={8}>
+                            <Chip
+                              label={`-${Math.round(((risk.inherentScore || 0) - risk.residualScore) / (risk.inherentScore || 1) * 100)}%`}
+                              color="success"
+                              size="small"
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                          </Grid>
+                        </>
+                      )}
                     </Grid>
                   </CardContent>
                 </Card>
