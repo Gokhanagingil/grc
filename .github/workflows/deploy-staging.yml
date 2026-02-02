@@ -32,6 +32,9 @@ on:
 
 env:
   DEPLOY_PATH: /opt/grc-platform
+  # Minimum free disk space (GB) required before docker build
+  # If below threshold, safe cleanup is attempted automatically
+  DISK_FREE_GB_MIN: 6
 
 jobs:
   deploy:
@@ -242,11 +245,12 @@ jobs:
         env:
           DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
           STAGING_HOST: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
+          DISK_FREE_GB_MIN: ${{ env.DISK_FREE_GB_MIN }}
         with:
           host: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key_path: ${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}
-          envs: DEPLOY_PATH,STAGING_HOST
+          envs: DEPLOY_PATH,STAGING_HOST,DISK_FREE_GB_MIN
           script: |
             set -euo pipefail
             
@@ -299,14 +303,159 @@ jobs:
             docker --version
             docker compose version || docker-compose --version
             
+            # =============================================================================
+            # Disk Preflight + Safe Cleanup
+            # =============================================================================
+            # Prevents "no space left on device" errors during docker build by:
+            # 1. Checking available disk space
+            # 2. Running safe cleanup if below threshold (NO volume prune - protects DB)
+            # 3. Failing fast with actionable message if still insufficient
+            # =============================================================================
+            echo ""
+            echo "=== Disk Preflight Check ==="
+            
+            # Configurable threshold (default 6GB)
+            DISK_THRESHOLD_GB="${DISK_FREE_GB_MIN:-6}"
+            echo "Minimum required free space: ${DISK_THRESHOLD_GB}GB"
+            
+            # Function to get free space in GB for a path
+            get_free_space_gb() {
+              local path="$1"
+              # df outputs in 1K blocks, convert to GB
+              df -P "$path" 2>/dev/null | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
+            }
+            
+            # Function to check if we have enough space
+            check_disk_space() {
+              local required_gb="$1"
+              local root_free_gb
+              local docker_free_gb
+              
+              # Check root filesystem
+              root_free_gb=$(get_free_space_gb "/")
+              echo "  Root (/) free space: ${root_free_gb}GB"
+              
+              # Check docker data directory if it exists on separate mount
+              if [ -d "/var/lib/docker" ]; then
+                docker_free_gb=$(get_free_space_gb "/var/lib/docker")
+                echo "  Docker (/var/lib/docker) free space: ${docker_free_gb}GB"
+              elif [ -d "/var" ]; then
+                docker_free_gb=$(get_free_space_gb "/var")
+                echo "  /var free space: ${docker_free_gb}GB"
+              else
+                docker_free_gb="$root_free_gb"
+              fi
+              
+              # Check if either is below threshold (use awk for float comparison)
+              local root_ok docker_ok
+              root_ok=$(awk "BEGIN {print ($root_free_gb >= $required_gb) ? 1 : 0}")
+              docker_ok=$(awk "BEGIN {print ($docker_free_gb >= $required_gb) ? 1 : 0}")
+              
+              if [ "$root_ok" -eq 1 ] && [ "$docker_ok" -eq 1 ]; then
+                return 0  # Enough space
+              else
+                return 1  # Not enough space
+              fi
+            }
+            
+            # Print initial diagnostics
+            echo ""
+            echo "--- Initial Disk Diagnostics ---"
+            echo "Filesystem usage (df -h):"
+            df -h
+            echo ""
+            echo "Docker disk usage (docker system df):"
+            docker system df
+            echo ""
+            
+            # Check if we have enough space
+            if check_disk_space "$DISK_THRESHOLD_GB"; then
+              echo ""
+              echo "DISK_PREFLIGHT: OK - Sufficient disk space available"
+            else
+              echo ""
+              echo "DISK_PREFLIGHT: WARNING - Below ${DISK_THRESHOLD_GB}GB threshold, running safe cleanup..."
+              echo ""
+              echo "--- Running Safe Docker Cleanup (NO volumes) ---"
+              echo "NOTE: Volume prune is NOT run to protect database volumes"
+              echo ""
+              
+              # Safe cleanup commands (NO volume prune)
+              echo "1. Pruning stopped containers..."
+              docker container prune -f || true
+              
+              echo "2. Pruning unused networks..."
+              docker network prune -f || true
+              
+              echo "3. Pruning build cache..."
+              docker builder prune -af || true
+              
+              echo "4. Pruning dangling and unused images..."
+              docker image prune -af || true
+              
+              echo ""
+              echo "--- Post-Cleanup Disk Diagnostics ---"
+              echo "Filesystem usage (df -h):"
+              df -h
+              echo ""
+              echo "Docker disk usage (docker system df):"
+              docker system df
+              echo ""
+              
+              # Re-check disk space after cleanup
+              if check_disk_space "$DISK_THRESHOLD_GB"; then
+                echo ""
+                echo "DISK_PREFLIGHT: OK - Cleanup freed sufficient space"
+              else
+                echo ""
+                echo "============================================================"
+                echo "DISK_PREFLIGHT: FAILED - Still below ${DISK_THRESHOLD_GB}GB threshold"
+                echo "============================================================"
+                echo ""
+                echo "ACTIONABLE STEPS TO RESOLVE:"
+                echo ""
+                echo "1. EXPAND DISK: Increase the staging server's disk size"
+                echo "   - Check cloud provider console for disk resize options"
+                echo ""
+                echo "2. REMOVE OLD LOGS: Clear old application/system logs"
+                echo "   - sudo journalctl --vacuum-time=7d"
+                echo "   - sudo find /var/log -type f -name '*.gz' -delete"
+                echo "   - sudo truncate -s 0 /var/log/*.log"
+                echo ""
+                echo "3. MANUAL CLEANUP: SSH to server and investigate"
+                echo "   - du -sh /* | sort -hr | head -20"
+                echo "   - du -sh /var/* | sort -hr | head -20"
+                echo ""
+                echo "WARNING: Do NOT run 'docker volume prune' - this will DELETE"
+                echo "         database volumes and cause DATA LOSS!"
+                echo ""
+                echo "============================================================"
+                exit 1
+              fi
+            fi
+            
+            echo ""
+            
             # Deploy with Docker Compose
             echo "=== Deploying with Docker Compose ==="
             docker compose -f docker-compose.staging.yml up -d --build --force-recreate || {
+              echo ""
               echo "ERROR: Docker Compose deployment failed"
-              echo "=== Container Status ==="
+              echo ""
+              echo "=== Failure Diagnostics ==="
+              echo ""
+              echo "--- Container Status ---"
               docker compose -f docker-compose.staging.yml ps || true
-              echo "=== Recent Logs (last 200 lines) ==="
+              echo ""
+              echo "--- Container Logs (last 200 lines) ---"
               docker compose -f docker-compose.staging.yml logs --tail=200 backend frontend db || true
+              echo ""
+              echo "--- Disk Usage (df -h) ---"
+              df -h || true
+              echo ""
+              echo "--- Docker Disk Usage ---"
+              docker system df || true
+              echo ""
               exit 1
             }
             
