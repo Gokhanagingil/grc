@@ -24,6 +24,7 @@ import { GrcRiskPolicy } from './grc-risk-policy.entity';
 import { GrcRiskRequirement } from './grc-risk-requirement.entity';
 import { GrcRiskCategory } from './grc-risk-category.entity';
 import { GrcRiskAssessment } from './grc-risk-assessment.entity';
+import { GrcRiskTreatmentAction } from './grc-risk-treatment-action.entity';
 
 /**
  * GRC Risk Entity
@@ -207,4 +208,7 @@ export class GrcRisk extends BaseEntity {
 
   @OneToMany(() => GrcRiskAssessment, (assessment) => assessment.risk)
   assessments: GrcRiskAssessment[];
+
+  @OneToMany(() => GrcRiskTreatmentAction, (action) => action.risk)
+  treatmentActions: GrcRiskTreatmentAction[];
 }

@@ -130,3 +130,9 @@ export {
   UpdateBcmExerciseDto,
   BcmExerciseFilterDto,
 } from './bcm.dto';
+
+// Risk Treatment Action DTOs
+export {
+  CreateTreatmentActionDto,
+  UpdateTreatmentActionDto,
+} from './treatment-action.dto';

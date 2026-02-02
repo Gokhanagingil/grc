@@ -78,6 +78,27 @@ Links risks to controls with effectiveness tracking.
 | effectivenessRating | ENUM | UNKNOWN, EFFECTIVE, PARTIALLY_EFFECTIVE, INEFFECTIVE |
 | notes | TEXT | Notes about the linkage |
 
+#### GrcRiskTreatmentAction
+Represents an action/task within a risk treatment plan.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID | Primary key |
+| tenantId | UUID | Tenant identifier (FK to nest_tenants) |
+| riskId | UUID | FK to GrcRisk (CASCADE delete) |
+| title | VARCHAR(255) | Action title (required) |
+| description | TEXT | Detailed description |
+| status | ENUM | PLANNED, IN_PROGRESS, COMPLETED, CANCELLED |
+| ownerUserId | UUID | FK to users table (nullable) |
+| ownerDisplayName | VARCHAR(255) | Fallback display name for owner |
+| dueDate | DATE | Target completion date |
+| completedAt | TIMESTAMP | Actual completion timestamp |
+| progressPct | INT (0-100) | Progress percentage |
+| evidenceLink | VARCHAR(1024) | Link to evidence (metadata only) |
+| sortOrder | INT | Ordering field for display |
+| notes | TEXT | Additional notes |
+| metadata | JSONB | Additional custom metadata |
+
 ## Scoring & Banding Rules
 
 ### Risk Score Calculation
@@ -133,6 +154,17 @@ All endpoints require:
 | POST | /api/grc/risks/:id/assessments | Create assessment (updates risk scores) |
 | GET | /api/grc/risks/:id/assessments | Get assessment history |
 
+### Treatment Actions
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/grc/risks/:riskId/treatment/actions | List treatment actions for a risk |
+| POST | /api/grc/risks/:riskId/treatment/actions | Create a treatment action |
+| GET | /api/grc/risks/:riskId/treatment/actions/:actionId | Get a specific treatment action |
+| PATCH | /api/grc/risks/:riskId/treatment/actions/:actionId | Update a treatment action |
+| DELETE | /api/grc/risks/:riskId/treatment/actions/:actionId | Delete a treatment action |
+| GET | /api/grc/risks/:riskId/treatment/summary | Get treatment plan summary (counts by status) |
+
 ### Analytics
 
 | Method | Endpoint | Description |
@@ -178,6 +210,34 @@ curl http://localhost:3002/grc/risks/heatmap \
   -H "x-tenant-id: 00000000-0000-0000-0000-000000000001"
 ```
 
+#### Create Treatment Action
+```bash
+curl -X POST http://localhost:3002/grc/risks/<risk-id>/treatment/actions \
+  -H "Authorization: Bearer <token>" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Implement encryption at rest",
+    "description": "Enable AES-256 encryption for all customer data",
+    "status": "PLANNED",
+    "ownerDisplayName": "Security Team",
+    "dueDate": "2026-03-15",
+    "progressPct": 0
+  }'
+```
+
+#### Update Treatment Action Status
+```bash
+curl -X PATCH http://localhost:3002/grc/risks/<risk-id>/treatment/actions/<action-id> \
+  -H "Authorization: Bearer <token>" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "COMPLETED",
+    "progressPct": 100
+  }'
+```
+
 ## UI Flows
 
 ### Risk List Page (/risks)
@@ -197,21 +257,22 @@ Tabbed interface with:
    - Status and dates
    - Current inherent and residual scores with band indicators
 
-2. **Assessment Tab**
-   - Current assessment summary
-   - Assessment history table
-   - "Add Assessment" button to record new assessment
-
-3. **Controls Tab**
-   - List of linked controls with effectiveness ratings
+2. **Relations Tab**
+   - Linked policies list
+   - Linked controls list with effectiveness ratings
    - Link/unlink controls
-   - Update effectiveness ratings
 
-4. **Treatment Tab**
-   - Treatment strategy selection
-   - Treatment plan text
-   - Target date
-   - Last reviewed date
+3. **Treatment Plan Tab**
+   - Progress summary card showing completed/total actions
+   - Treatment actions table with columns: Title, Owner, Due Date, Progress, Status, Actions
+   - Quick status update buttons (Start, Complete)
+   - Add/Edit/Delete treatment actions
+   - Each action tracks: title, description, status (PLANNED/IN_PROGRESS/COMPLETED/CANCELLED), owner, due date, progress percentage, evidence link, notes
+
+4. **Timeline Tab**
+   - Created timestamp
+   - Last updated timestamp
+   - Next review date
 
 ### Risk Heatmap Widget
 - 5×5 grid visualization

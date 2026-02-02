@@ -782,6 +782,21 @@ export enum BcmExerciseOutcome {
 }
 
 // ============================================================================
+// Risk Treatment Action Enums
+// ============================================================================
+
+/**
+ * TreatmentActionStatus - Status of a risk treatment action
+ * Values match PostgreSQL enum: grc_risk_treatment_actions_status_enum
+ */
+export enum TreatmentActionStatus {
+  PLANNED = 'PLANNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+// ============================================================================
 // Calendar Enums
 // ============================================================================
 
