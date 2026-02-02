@@ -37,6 +37,7 @@ import {
   Info as InfoIcon,
   Policy as PolicyIcon,
   Security as ControlIcon,
+  Assignment as TreatmentIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -45,6 +46,7 @@ import {
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
+import { TreatmentPlanTab } from '../components/risk';
 
 interface Risk {
   id: string;
@@ -483,11 +485,12 @@ export const RiskDetail: React.FC = () => {
         </Card>
       ) : (
         <Paper sx={{ width: '100%' }}>
-          <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" />
-            <Tab icon={<PolicyIcon />} label="Relations" iconPosition="start" />
-            <Tab icon={<HistoryIcon />} label="Timeline" iconPosition="start" />
-          </Tabs>
+                    <Tabs value={tabValue} onChange={handleTabChange}>
+                      <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" />
+                      <Tab icon={<PolicyIcon />} label="Relations" iconPosition="start" />
+                      <Tab icon={<TreatmentIcon />} label="Treatment Plan" iconPosition="start" />
+                      <Tab icon={<HistoryIcon />} label="Timeline" iconPosition="start" />
+                    </Tabs>
 
           <TabPanel value={tabValue} index={0}>
             <Grid container spacing={3}>
@@ -673,12 +676,18 @@ export const RiskDetail: React.FC = () => {
                 </Card>
               </Grid>
             </Grid>
-          </TabPanel>
+                    </TabPanel>
 
-          <TabPanel value={tabValue} index={2}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Timeline</Typography>
+                    <TabPanel value={tabValue} index={2}>
+                      {risk && (
+                        <TreatmentPlanTab riskId={risk.id} tenantId={risk.tenantId} />
+                      )}
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={3}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>Timeline</Typography>
                 <Divider sx={{ mb: 2 }} />
                 <Box sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
                   <Box sx={{ mb: 2 }}>

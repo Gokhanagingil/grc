@@ -9,6 +9,7 @@ import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
 import { GrcRiskControl } from '../entities/grc-risk-control.entity';
 import { GrcRiskAssessment } from '../entities/grc-risk-assessment.entity';
+import { GrcRiskTreatmentAction } from '../entities/grc-risk-treatment-action.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { GrcControl } from '../entities/grc-control.entity';
@@ -124,6 +125,24 @@ describe('GrcRiskService', () => {
       }),
     };
 
+    const mockTreatmentActionRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+        getMany: jest.fn().mockResolvedValue([]),
+        getRawOne: jest.fn().mockResolvedValue({ max: 0 }),
+      }),
+    };
+
     const mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -180,6 +199,10 @@ describe('GrcRiskService', () => {
         {
           provide: getRepositoryToken(GrcRiskAssessment),
           useValue: mockAssessmentRepository,
+        },
+        {
+          provide: getRepositoryToken(GrcRiskTreatmentAction),
+          useValue: mockTreatmentActionRepository,
         },
         {
           provide: EventEmitter2,

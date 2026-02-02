@@ -29,26 +29,30 @@ export const API_PATHS = {
   },
 
   // GRC Risk endpoints (NestJS backend at /grc/risks)
-  GRC_RISKS: {
-    LIST: '/grc/risks',
-    CREATE: '/grc/risks',
-    GET: (id: string) => `/grc/risks/${id}`,
-    UPDATE: (id: string) => `/grc/risks/${id}`,
-    DELETE: (id: string) => `/grc/risks/${id}`,
-    SUMMARY: '/grc/risks/summary',
-    STATISTICS: '/grc/risks/statistics',
-    HIGH_SEVERITY: '/grc/risks/high-severity',
-    HEATMAP: '/grc/risks/heatmap',
-    DETAIL: (id: string) => `/grc/risks/${id}/detail`,
-    CONTROLS: (id: string) => `/grc/risks/${id}/controls`,
-    CONTROLS_LIST: (id: string) => `/grc/risks/${id}/controls/list`,
-    LINK_CONTROL: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}`,
-    LINK_CONTROL_WITH_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/link`,
-    UPDATE_CONTROL_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness`,
-    POLICIES: (id: string) => `/grc/risks/${id}/policies`,
-    REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
-    ASSESSMENTS: (id: string) => `/grc/risks/${id}/assessments`,
-  },
+    GRC_RISKS: {
+      LIST: '/grc/risks',
+      CREATE: '/grc/risks',
+      GET: (id: string) => `/grc/risks/${id}`,
+      UPDATE: (id: string) => `/grc/risks/${id}`,
+      DELETE: (id: string) => `/grc/risks/${id}`,
+      SUMMARY: '/grc/risks/summary',
+      STATISTICS: '/grc/risks/statistics',
+      HIGH_SEVERITY: '/grc/risks/high-severity',
+      HEATMAP: '/grc/risks/heatmap',
+      DETAIL: (id: string) => `/grc/risks/${id}/detail`,
+      CONTROLS: (id: string) => `/grc/risks/${id}/controls`,
+      CONTROLS_LIST: (id: string) => `/grc/risks/${id}/controls/list`,
+      LINK_CONTROL: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}`,
+      LINK_CONTROL_WITH_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/link`,
+      UPDATE_CONTROL_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness`,
+      POLICIES: (id: string) => `/grc/risks/${id}/policies`,
+      REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
+      ASSESSMENTS: (id: string) => `/grc/risks/${id}/assessments`,
+      // Treatment Plan endpoints
+      TREATMENT_ACTIONS: (riskId: string) => `/grc/risks/${riskId}/treatment/actions`,
+      TREATMENT_ACTION: (riskId: string, actionId: string) => `/grc/risks/${riskId}/treatment/actions/${actionId}`,
+      TREATMENT_SUMMARY: (riskId: string) => `/grc/risks/${riskId}/treatment/summary`,
+    },
 
   // GRC Policy endpoints (NestJS backend at /grc/policies)
   GRC_POLICIES: {
@@ -943,6 +947,25 @@ export const riskApi = {
 
   linkRequirements: (tenantId: string, riskId: string, requirementIds: string[]) =>
     api.post(API_PATHS.GRC_RISKS.REQUIREMENTS(riskId), { requirementIds }, withTenantId(tenantId)),
+
+  // Treatment Plan management
+  getTreatmentActions: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.TREATMENT_ACTIONS(riskId), withTenantId(tenantId)),
+
+  getTreatmentAction: (tenantId: string, riskId: string, actionId: string) =>
+    api.get(API_PATHS.GRC_RISKS.TREATMENT_ACTION(riskId, actionId), withTenantId(tenantId)),
+
+  createTreatmentAction: (tenantId: string, riskId: string, data: Record<string, unknown>) =>
+    api.post(API_PATHS.GRC_RISKS.TREATMENT_ACTIONS(riskId), data, withTenantId(tenantId)),
+
+  updateTreatmentAction: (tenantId: string, riskId: string, actionId: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.GRC_RISKS.TREATMENT_ACTION(riskId, actionId), data, withTenantId(tenantId)),
+
+  deleteTreatmentAction: (tenantId: string, riskId: string, actionId: string) =>
+    api.delete(API_PATHS.GRC_RISKS.TREATMENT_ACTION(riskId, actionId), withTenantId(tenantId)),
+
+  getTreatmentSummary: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.TREATMENT_SUMMARY(riskId), withTenantId(tenantId)),
 };
 
 // ============================================================================

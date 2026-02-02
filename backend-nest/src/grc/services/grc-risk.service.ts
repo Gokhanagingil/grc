@@ -9,6 +9,7 @@ import { GrcRiskPolicy } from '../entities/grc-risk-policy.entity';
 import { GrcRiskRequirement } from '../entities/grc-risk-requirement.entity';
 import { GrcRiskControl } from '../entities/grc-risk-control.entity';
 import { GrcRiskAssessment } from '../entities/grc-risk-assessment.entity';
+import { GrcRiskTreatmentAction } from '../entities/grc-risk-treatment-action.entity';
 import { GrcPolicy } from '../entities/grc-policy.entity';
 import { GrcRequirement } from '../entities/grc-requirement.entity';
 import { GrcControl } from '../entities/grc-control.entity';
@@ -23,6 +24,7 @@ import {
   RiskLikelihood,
   AssessmentType,
   ControlEffectiveness,
+  TreatmentActionStatus,
 } from '../enums';
 import {
   calculateScoreAndBand,
@@ -69,6 +71,8 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     private readonly controlRepository: Repository<GrcControl>,
     @InjectRepository(GrcRiskAssessment)
     private readonly assessmentRepository: Repository<GrcRiskAssessment>,
+    @InjectRepository(GrcRiskTreatmentAction)
+    private readonly treatmentActionRepository: Repository<GrcRiskTreatmentAction>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly universalListService?: UniversalListService,
@@ -1092,5 +1096,211 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     }
 
     return this.riskControlRepository.save(existing);
+  }
+
+  // ============================================================================
+  // Treatment Action Methods
+  // ============================================================================
+
+  /**
+   * Get all treatment actions for a risk
+   */
+  async getTreatmentActions(
+    tenantId: string,
+    riskId: string,
+  ): Promise<GrcRiskTreatmentAction[]> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    return this.treatmentActionRepository.find({
+      where: { tenantId, riskId, isDeleted: false },
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * Get a single treatment action
+   */
+  async getTreatmentAction(
+    tenantId: string,
+    riskId: string,
+    actionId: string,
+  ): Promise<GrcRiskTreatmentAction | null> {
+    return this.treatmentActionRepository.findOne({
+      where: { id: actionId, tenantId, riskId, isDeleted: false },
+    });
+  }
+
+  /**
+   * Create a treatment action for a risk
+   */
+  async createTreatmentAction(
+    tenantId: string,
+    userId: string,
+    riskId: string,
+    data: {
+      title: string;
+      description?: string;
+      status?: TreatmentActionStatus;
+      ownerUserId?: string;
+      ownerDisplayName?: string;
+      dueDate?: Date;
+      progressPct?: number;
+      evidenceLink?: string;
+      sortOrder?: number;
+      notes?: string;
+    },
+  ): Promise<GrcRiskTreatmentAction> {
+    const risk = await this.findOneActiveForTenant(tenantId, riskId);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    // Get max sort order if not provided
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const existingActions = await this.treatmentActionRepository.find({
+        where: { tenantId, riskId, isDeleted: false },
+        select: ['sortOrder'],
+        order: { sortOrder: 'DESC' },
+        take: 1,
+      });
+      sortOrder =
+        existingActions.length > 0 ? existingActions[0].sortOrder + 1 : 0;
+    }
+
+    const action = this.treatmentActionRepository.create({
+      tenantId,
+      riskId,
+      title: data.title,
+      description: data.description ?? null,
+      status: data.status ?? TreatmentActionStatus.PLANNED,
+      ownerUserId: data.ownerUserId ?? null,
+      ownerDisplayName: data.ownerDisplayName ?? null,
+      dueDate: data.dueDate ?? null,
+      progressPct: data.progressPct ?? 0,
+      evidenceLink: data.evidenceLink ?? null,
+      sortOrder,
+      notes: data.notes ?? null,
+      createdBy: userId,
+      isDeleted: false,
+    });
+
+    return this.treatmentActionRepository.save(action);
+  }
+
+  /**
+   * Update a treatment action
+   */
+  async updateTreatmentAction(
+    tenantId: string,
+    userId: string,
+    riskId: string,
+    actionId: string,
+    data: {
+      title?: string;
+      description?: string;
+      status?: TreatmentActionStatus;
+      ownerUserId?: string;
+      ownerDisplayName?: string;
+      dueDate?: Date | null;
+      completedAt?: Date | null;
+      progressPct?: number;
+      evidenceLink?: string;
+      sortOrder?: number;
+      notes?: string;
+    },
+  ): Promise<GrcRiskTreatmentAction | null> {
+    const action = await this.treatmentActionRepository.findOne({
+      where: { id: actionId, tenantId, riskId, isDeleted: false },
+    });
+
+    if (!action) {
+      return null;
+    }
+
+    // Update fields
+    if (data.title !== undefined) action.title = data.title;
+    if (data.description !== undefined) action.description = data.description;
+    if (data.status !== undefined) {
+      action.status = data.status;
+      // Auto-set completedAt when status changes to COMPLETED
+      if (
+        data.status === TreatmentActionStatus.COMPLETED &&
+        !action.completedAt
+      ) {
+        action.completedAt = new Date();
+        action.progressPct = 100;
+      }
+    }
+    if (data.ownerUserId !== undefined) action.ownerUserId = data.ownerUserId;
+    if (data.ownerDisplayName !== undefined)
+      action.ownerDisplayName = data.ownerDisplayName;
+    if (data.dueDate !== undefined) action.dueDate = data.dueDate;
+    if (data.completedAt !== undefined) action.completedAt = data.completedAt;
+    if (data.progressPct !== undefined) action.progressPct = data.progressPct;
+    if (data.evidenceLink !== undefined)
+      action.evidenceLink = data.evidenceLink;
+    if (data.sortOrder !== undefined) action.sortOrder = data.sortOrder;
+    if (data.notes !== undefined) action.notes = data.notes;
+    action.updatedBy = userId;
+
+    return this.treatmentActionRepository.save(action);
+  }
+
+  /**
+   * Delete a treatment action (soft delete)
+   */
+  async deleteTreatmentAction(
+    tenantId: string,
+    userId: string,
+    riskId: string,
+    actionId: string,
+  ): Promise<boolean> {
+    const action = await this.treatmentActionRepository.findOne({
+      where: { id: actionId, tenantId, riskId, isDeleted: false },
+    });
+
+    if (!action) {
+      return false;
+    }
+
+    action.isDeleted = true;
+    action.updatedBy = userId;
+    await this.treatmentActionRepository.save(action);
+
+    return true;
+  }
+
+  /**
+   * Get treatment action count for a risk
+   */
+  async getTreatmentActionCount(
+    tenantId: string,
+    riskId: string,
+  ): Promise<{
+    total: number;
+    completed: number;
+    inProgress: number;
+    planned: number;
+  }> {
+    const actions = await this.treatmentActionRepository.find({
+      where: { tenantId, riskId, isDeleted: false },
+      select: ['status'],
+    });
+
+    return {
+      total: actions.length,
+      completed: actions.filter(
+        (a) => a.status === TreatmentActionStatus.COMPLETED,
+      ).length,
+      inProgress: actions.filter(
+        (a) => a.status === TreatmentActionStatus.IN_PROGRESS,
+      ).length,
+      planned: actions.filter((a) => a.status === TreatmentActionStatus.PLANNED)
+        .length,
+    };
   }
 }

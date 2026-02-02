@@ -53,6 +53,7 @@ import {
   FilterTree,
 } from '../components/common';
 import { FeatureGate, GrcFrameworkWarningBanner } from '../components/onboarding';
+import { RiskHeatmap, HeatmapData } from '../components/risk';
 import { useUniversalList } from '../hooks/useUniversalList';
 import {
   parseListQuery,
@@ -232,10 +233,16 @@ export const RiskManagement: React.FC = () => {
   const [linkedRequirements, setLinkedRequirements] = useState<Requirement[]>([]);
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
   const [selectedRequirementIds, setSelectedRequirementIds] = useState<string[]>([]);
-  const [relationshipLoading, setRelationshipLoading] = useState(false);
-  const [relationshipSaving, setRelationshipSaving] = useState(false);
+    const [relationshipLoading, setRelationshipLoading] = useState(false);
+    const [relationshipSaving, setRelationshipSaving] = useState(false);
 
-  // Get tenant ID from user context
+    // Heatmap state
+    const [heatmapData, setHeatmapData] = useState<HeatmapData | null>(null);
+    const [heatmapLoading, setHeatmapLoading] = useState(false);
+    const [showHeatmap, setShowHeatmap] = useState(true);
+    const [heatmapFilter, setHeatmapFilter] = useState<{ likelihood: number; impact: number } | null>(null);
+
+    // Get tenant ID from user context
   const tenantId = user?.tenantId || '';
 
   // Parse URL query params for unified list state
@@ -244,21 +251,25 @@ export const RiskManagement: React.FC = () => {
     sort: 'createdAt:DESC',
   }), [searchParams]);
 
-  const statusFilter = searchParams.get('status') || '';
-  const severityFilter = searchParams.get('severity') || '';
-  const advancedFilter = parsedQuery.filterTree;
+    const statusFilter = searchParams.get('status') || '';
+    const severityFilter = searchParams.get('severity') || '';
+    const likelihoodFilter = searchParams.get('likelihood') || '';
+    const impactFilter = searchParams.get('impact') || '';
+    const advancedFilter = parsedQuery.filterTree;
 
-  // Build additional filters from URL params
-  const additionalFilters = useMemo(() => {
-    const filters: Record<string, unknown> = {};
-    if (statusFilter) filters.status = statusFilter;
-    if (severityFilter) filters.severity = severityFilter;
-    if (advancedFilter) {
-      const serialized = serializeFilterTree(advancedFilter);
-      if (serialized) filters.filter = serialized;
-    }
-    return filters;
-  }, [statusFilter, severityFilter, advancedFilter]);
+    // Build additional filters from URL params
+    const additionalFilters = useMemo(() => {
+      const filters: Record<string, unknown> = {};
+      if (statusFilter) filters.status = statusFilter;
+      if (severityFilter) filters.severity = severityFilter;
+      if (likelihoodFilter) filters.likelihood = likelihoodFilter;
+      if (impactFilter) filters.impact = impactFilter;
+      if (advancedFilter) {
+        const serialized = serializeFilterTree(advancedFilter);
+        if (serialized) filters.filter = serialized;
+      }
+      return filters;
+    }, [statusFilter, severityFilter, likelihoodFilter, impactFilter, advancedFilter]);
 
   // Fetch function for useUniversalList
   // Note: riskApi.list expects URLSearchParams, so we convert the params object
@@ -359,12 +370,68 @@ export const RiskManagement: React.FC = () => {
     }
   };
 
-  // Fetch all policies/requirements on mount
-  useEffect(() => {
-    fetchAllPoliciesAndRequirements();
-  }, [fetchAllPoliciesAndRequirements]);
+    // Fetch heatmap data
+    const fetchHeatmap = useCallback(async () => {
+      if (!tenantId) return;
+      setHeatmapLoading(true);
+      try {
+        const response = await riskApi.heatmap(tenantId);
+        const data = unwrapResponse<HeatmapData>(response);
+        setHeatmapData(data);
+      } catch (err) {
+        console.error('Failed to fetch heatmap data:', err);
+      } finally {
+        setHeatmapLoading(false);
+      }
+    }, [tenantId]);
 
-  const handleCreateRisk = () => {
+    // Handle heatmap cell click - filter risks by likelihood and impact
+    const handleHeatmapCellClick = useCallback((likelihood: number, impact: number) => {
+      setHeatmapFilter({ likelihood, impact });
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('likelihood', String(likelihood));
+      newParams.set('impact', String(impact));
+      newParams.set('page', '1');
+      setSearchParams(newParams, { replace: true });
+    }, [searchParams, setSearchParams]);
+
+    // Clear heatmap filter
+    const handleClearHeatmapFilter = useCallback(() => {
+      setHeatmapFilter(null);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('likelihood');
+      newParams.delete('impact');
+      newParams.set('page', '1');
+      setSearchParams(newParams, { replace: true });
+    }, [searchParams, setSearchParams]);
+
+    // Fetch all policies/requirements on mount
+    useEffect(() => {
+      fetchAllPoliciesAndRequirements();
+    }, [fetchAllPoliciesAndRequirements]);
+
+    // Fetch heatmap data on mount and when risks change
+    useEffect(() => {
+      if (isAuthReady) {
+        fetchHeatmap();
+      }
+    }, [isAuthReady, fetchHeatmap]);
+
+    // Sync heatmap filter from URL params
+    useEffect(() => {
+      const likelihoodParam = searchParams.get('likelihood');
+      const impactParam = searchParams.get('impact');
+      if (likelihoodParam && impactParam) {
+        setHeatmapFilter({
+          likelihood: parseInt(likelihoodParam, 10),
+          impact: parseInt(impactParam, 10),
+        });
+      } else {
+        setHeatmapFilter(null);
+      }
+    }, [searchParams]);
+
+    const handleCreateRisk = () => {
     setEditingRisk(null);
     setFormData({
       title: '',
@@ -616,10 +683,60 @@ export const RiskManagement: React.FC = () => {
         {/* Onboarding Framework Warning Banner */}
         <GrcFrameworkWarningBanner />
 
-        {displayError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{displayError}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
+              {displayError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{displayError}</Alert>}
+              {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      {/* Toolbar with Search and Filters - Using Unified List Framework */}
+              {/* Heatmap Filter Banner */}
+              {heatmapFilter && (
+                <Alert
+                  severity="info"
+                  sx={{ mb: 2 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={handleClearHeatmapFilter}>
+                      Clear Filter
+                    </Button>
+                  }
+                >
+                  Showing risks with Likelihood: {heatmapFilter.likelihood} and Impact: {heatmapFilter.impact}
+                </Alert>
+              )}
+
+              {/* Risk Heatmap - Collapsible */}
+              {showHeatmap && !heatmapFilter && (
+                <Grid container spacing={3} sx={{ mb: 3 }}>
+                  <Grid item xs={12} md={6}>
+                    <RiskHeatmap
+                      data={heatmapData}
+                      loading={heatmapLoading}
+                      type="inherent"
+                      onCellClick={handleHeatmapCellClick}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <RiskHeatmap
+                      data={heatmapData}
+                      loading={heatmapLoading}
+                      type="residual"
+                      onCellClick={handleHeatmapCellClick}
+                    />
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Toggle Heatmap Button */}
+              {!heatmapFilter && (
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setShowHeatmap(!showHeatmap)}
+                  >
+                    {showHeatmap ? 'Hide Heatmap' : 'Show Heatmap'}
+                  </Button>
+                </Box>
+              )}
+
+            {/* Toolbar with Search and Filters - Using Unified List Framework */}
       <ListToolbar
         search={search}
         onSearchChange={setSearch}

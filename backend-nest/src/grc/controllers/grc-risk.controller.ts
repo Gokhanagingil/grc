@@ -30,6 +30,8 @@ import {
   LinkRequirementsDto,
   CreateRiskAssessmentDto,
   LinkRiskControlDto,
+  CreateTreatmentActionDto,
+  UpdateTreatmentActionDto,
 } from '../dto';
 import { Perf } from '../../common/decorators';
 import { RisksListQueryPipe } from '../../common/pipes';
@@ -577,5 +579,205 @@ export class GrcRiskController {
     }
 
     return { success: true, data: link };
+  }
+
+  // ============================================================================
+  // Treatment Action Endpoints
+  // ============================================================================
+
+  /**
+   * GET /grc/risks/:riskId/treatment/actions
+   * Get all treatment actions for a risk
+   */
+  @Get(':riskId/treatment/actions')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getTreatmentActions(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const actions = await this.riskService.getTreatmentActions(
+      tenantId,
+      riskId,
+    );
+    return { success: true, data: actions };
+  }
+
+  /**
+   * POST /grc/risks/:riskId/treatment/actions
+   * Create a new treatment action for a risk
+   */
+  @Post(':riskId/treatment/actions')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async createTreatmentAction(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('riskId') riskId: string,
+    @Body() createDto: CreateTreatmentActionDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const action = await this.riskService.createTreatmentAction(
+      tenantId,
+      req.user.id,
+      riskId,
+      {
+        title: createDto.title,
+        description: createDto.description,
+        status: createDto.status,
+        ownerUserId: createDto.ownerUserId,
+        ownerDisplayName: createDto.ownerDisplayName,
+        dueDate: createDto.dueDate ? new Date(createDto.dueDate) : undefined,
+        progressPct: createDto.progressPct,
+        evidenceLink: createDto.evidenceLink,
+        sortOrder: createDto.sortOrder,
+        notes: createDto.notes,
+      },
+    );
+
+    return { success: true, data: action };
+  }
+
+  /**
+   * GET /grc/risks/:riskId/treatment/actions/:actionId
+   * Get a specific treatment action
+   */
+  @Get(':riskId/treatment/actions/:actionId')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getTreatmentAction(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('actionId') actionId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const action = await this.riskService.getTreatmentAction(
+      tenantId,
+      riskId,
+      actionId,
+    );
+
+    if (!action) {
+      throw new NotFoundException(
+        `Treatment action with ID ${actionId} not found`,
+      );
+    }
+
+    return { success: true, data: action };
+  }
+
+  /**
+   * PATCH /grc/risks/:riskId/treatment/actions/:actionId
+   * Update a treatment action
+   */
+  @Patch(':riskId/treatment/actions/:actionId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @Perf()
+  async updateTreatmentAction(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('riskId') riskId: string,
+    @Param('actionId') actionId: string,
+    @Body() updateDto: UpdateTreatmentActionDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const action = await this.riskService.updateTreatmentAction(
+      tenantId,
+      req.user.id,
+      riskId,
+      actionId,
+      {
+        title: updateDto.title,
+        description: updateDto.description,
+        status: updateDto.status,
+        ownerUserId: updateDto.ownerUserId,
+        ownerDisplayName: updateDto.ownerDisplayName,
+        dueDate: updateDto.dueDate ? new Date(updateDto.dueDate) : undefined,
+        completedAt: updateDto.completedAt
+          ? new Date(updateDto.completedAt)
+          : undefined,
+        progressPct: updateDto.progressPct,
+        evidenceLink: updateDto.evidenceLink,
+        sortOrder: updateDto.sortOrder,
+        notes: updateDto.notes,
+      },
+    );
+
+    if (!action) {
+      throw new NotFoundException(
+        `Treatment action with ID ${actionId} not found`,
+      );
+    }
+
+    return { success: true, data: action };
+  }
+
+  /**
+   * DELETE /grc/risks/:riskId/treatment/actions/:actionId
+   * Delete a treatment action (soft delete)
+   */
+  @Delete(':riskId/treatment/actions/:actionId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async deleteTreatmentAction(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('riskId') riskId: string,
+    @Param('actionId') actionId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const deleted = await this.riskService.deleteTreatmentAction(
+      tenantId,
+      req.user.id,
+      riskId,
+      actionId,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException(
+        `Treatment action with ID ${actionId} not found`,
+      );
+    }
+  }
+
+  /**
+   * GET /grc/risks/:riskId/treatment/summary
+   * Get treatment action summary/counts for a risk
+   */
+  @Get(':riskId/treatment/summary')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getTreatmentSummary(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const summary = await this.riskService.getTreatmentActionCount(
+      tenantId,
+      riskId,
+    );
+
+    return { success: true, data: summary };
   }
 }
