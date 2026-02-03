@@ -321,7 +321,8 @@ export class GrcRiskController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.riskService.getLinkedPolicies(tenantId, id);
+    const policies = await this.riskService.getLinkedPolicies(tenantId, id);
+    return { success: true, data: policies };
   }
 
   /**
@@ -409,7 +410,11 @@ export class GrcRiskController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.riskService.getLinkedRequirements(tenantId, id);
+    const requirements = await this.riskService.getLinkedRequirements(
+      tenantId,
+      id,
+    );
+    return { success: true, data: requirements };
   }
 
   // ============================================================================

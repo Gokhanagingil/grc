@@ -722,6 +722,54 @@ export function unwrapResponse<T>(response: { data: unknown }): T {
 }
 
 /**
+ * Safely unwrap a response and ensure it's an array
+ * Handles multiple response shapes:
+ * - { success: true, data: [...] } (NestJS envelope with array)
+ * - { success: true, data: { items: [...] } } (NestJS paginated envelope)
+ * - [...] (flat array)
+ * - { items: [...] } (flat paginated)
+ * Returns empty array if data is not array-like
+ */
+export function unwrapArrayResponse<T>(response: { data: unknown }): T[] {
+  const unwrapped = unwrapResponse<unknown>(response);
+  
+  // If it's already an array, return it
+  if (Array.isArray(unwrapped)) {
+    return unwrapped as T[];
+  }
+  
+  // If it's an object with items array (paginated response)
+  if (unwrapped && typeof unwrapped === 'object' && 'items' in unwrapped) {
+    const items = (unwrapped as { items: unknown }).items;
+    if (Array.isArray(items)) {
+      return items as T[];
+    }
+  }
+  
+  // If it's an object with data array (double-wrapped)
+  if (unwrapped && typeof unwrapped === 'object' && 'data' in unwrapped) {
+    const data = (unwrapped as { data: unknown }).data;
+    if (Array.isArray(data)) {
+      return data as T[];
+    }
+  }
+  
+  // Return empty array as fallback
+  return [];
+}
+
+/**
+ * Ensure a value is an array, with safe fallback
+ * Use this when you're not sure if a value is an array
+ */
+export function ensureArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+  return [];
+}
+
+/**
  * Transform policy response from backend format (name) to frontend format (title)
  * Also maps summary to description and snake_case date fields
  */
@@ -926,9 +974,10 @@ export const riskApi = {
   getAssessments: (tenantId: string, riskId: string, params?: URLSearchParams) =>
     api.get(`${API_PATHS.GRC_RISKS.ASSESSMENTS(riskId)}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
 
-  // Control management
+  // Control management - use CONTROLS_LIST endpoint which returns { success: true, data: controls[] }
+  // Note: CONTROLS endpoint returns the risk object with controls relation, not the controls array
   getLinkedControls: (tenantId: string, riskId: string) =>
-    api.get(API_PATHS.GRC_RISKS.CONTROLS(riskId), withTenantId(tenantId)),
+    api.get(API_PATHS.GRC_RISKS.CONTROLS_LIST(riskId), withTenantId(tenantId)),
 
   linkControl: (tenantId: string, riskId: string, controlId: string, data?: Record<string, unknown>) =>
     api.post(API_PATHS.GRC_RISKS.LINK_CONTROL_WITH_EFFECTIVENESS(riskId, controlId), data || {}, withTenantId(tenantId)),
