@@ -113,6 +113,13 @@ interface LinkedControl {
   status: string;
 }
 
+interface ControlWithEffectiveness {
+  controlId: string;
+  controlTitle: string;
+  effectivenessRating: 'unknown' | 'effective' | 'partially_effective' | 'ineffective';
+  reductionFactor: number;
+}
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -223,6 +230,11 @@ export const RiskDetail: React.FC = () => {
   const [controlSearchTerm, setControlSearchTerm] = useState('');
   const [selectedControlIds, setSelectedControlIds] = useState<string[]>([]);
   const [linkingControl, setLinkingControl] = useState(false);
+
+  // Mitigation summary state
+  const [controlsWithEffectiveness, setControlsWithEffectiveness] = useState<ControlWithEffectiveness[]>([]);
+  const [effectivenessLoading, setEffectivenessLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -399,6 +411,7 @@ export const RiskDetail: React.FC = () => {
       setSelectedControlIds([]);
       setLinkControlModalOpen(false);
       fetchRelations();
+      fetchControlsWithEffectiveness();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Failed to link controls:', err);
@@ -415,10 +428,47 @@ export const RiskDetail: React.FC = () => {
       await riskApi.unlinkControl(tenantId, id, controlId);
       setSuccess('Control unlinked successfully');
       fetchRelations();
+      fetchControlsWithEffectiveness();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Failed to unlink control:', err);
       setError('Failed to unlink control. Please try again.');
+    }
+  };
+
+  // Fetch controls with effectiveness ratings for mitigation summary
+  const fetchControlsWithEffectiveness = useCallback(async () => {
+    if (!id || !tenantId) return;
+    setEffectivenessLoading(true);
+    try {
+      const response = await riskApi.getControlsWithEffectiveness(tenantId, id);
+      const data = unwrapArrayResponse(response.data);
+      setControlsWithEffectiveness(data as ControlWithEffectiveness[]);
+    } catch (err) {
+      console.error('Failed to fetch controls with effectiveness:', err);
+      setControlsWithEffectiveness([]);
+    } finally {
+      setEffectivenessLoading(false);
+    }
+  }, [id, tenantId]);
+
+  // Recalculate residual risk
+  const handleRecalculateResidual = async () => {
+    if (!id || !tenantId) return;
+    setRecalculating(true);
+    try {
+      const response = await riskApi.recalculateResidual(tenantId, id);
+      const updatedRisk = unwrapResponse(response.data);
+      if (updatedRisk) {
+        setRisk(updatedRisk as Risk);
+        setSuccess('Residual risk recalculated successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to recalculate residual risk:', err);
+      setError('Failed to recalculate residual risk. Please try again.');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -467,6 +517,13 @@ export const RiskDetail: React.FC = () => {
       fetchRelations();
     }
   }, [tabValue, fetchRelations]);
+
+  // Fetch controls with effectiveness when risk is loaded (for Overview tab mitigation summary)
+  useEffect(() => {
+    if (risk && !isNewRisk) {
+      fetchControlsWithEffectiveness();
+    }
+  }, [risk, isNewRisk, fetchControlsWithEffectiveness]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -908,6 +965,100 @@ export const RiskDetail: React.FC = () => {
                   </Card>
                 </Grid>
               )}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                      <Typography variant="h6">
+                        <ControlIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        Mitigation Summary
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleRecalculateResidual}
+                        disabled={recalculating || controlsWithEffectiveness.length === 0}
+                        data-testid="recalculate-residual-button"
+                      >
+                        {recalculating ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+                        {recalculating ? 'Recalculating...' : 'Recalculate Residual'}
+                      </Button>
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+                    {effectivenessLoading ? (
+                      <LinearProgress />
+                    ) : controlsWithEffectiveness.length === 0 ? (
+                      <Box textAlign="center" py={3}>
+                        <Typography color="text.secondary" gutterBottom>
+                          No controls linked to this risk.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Link controls in the Relations tab to reduce residual risk.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <>
+                        <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Controls Linked</Typography>
+                              <Typography variant="h6">{controlsWithEffectiveness.length}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Estimated Mitigation</Typography>
+                              <Typography variant="h6" color="success.main">
+                                {(() => {
+                                  const totalReduction = controlsWithEffectiveness.reduce((acc, ctrl) => {
+                                    return acc + (1 - acc) * ctrl.reductionFactor;
+                                  }, 0);
+                                  return `${Math.round(totalReduction * 100)}%`;
+                                })()}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                        <Typography variant="subtitle2" gutterBottom>Linked Controls with Effectiveness</Typography>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Control</TableCell>
+                              <TableCell>Effectiveness</TableCell>
+                              <TableCell align="right">Reduction Factor</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {controlsWithEffectiveness.map((ctrl) => (
+                              <TableRow key={ctrl.controlId} hover>
+                                <TableCell>
+                                  <Link to={`/controls/${ctrl.controlId}`} style={{ textDecoration: 'none' }}>
+                                    <Typography color="primary">{ctrl.controlTitle}</Typography>
+                                  </Link>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={formatStatus(ctrl.effectivenessRating)}
+                                    size="small"
+                                    color={
+                                      ctrl.effectivenessRating === 'effective' ? 'success' :
+                                      ctrl.effectivenessRating === 'partially_effective' ? 'warning' :
+                                      ctrl.effectivenessRating === 'ineffective' ? 'error' : 'default'
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {Math.round(ctrl.reductionFactor * 100)}%
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
           </TabPanel>
 
