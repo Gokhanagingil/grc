@@ -56,6 +56,9 @@ export const API_PATHS = {
       // Risk Appetite endpoints
       ABOVE_APPETITE: '/grc/risks/above-appetite',
       STATS_WITH_APPETITE: '/grc/risks/stats-with-appetite',
+      // Residual Risk calculation endpoints
+      RECALCULATE_RESIDUAL: (riskId: string) => `/grc/risks/${riskId}/recalculate-residual`,
+      CONTROLS_EFFECTIVENESS: (riskId: string) => `/grc/risks/${riskId}/controls/effectiveness`,
     },
 
   // GRC Policy endpoints (NestJS backend at /grc/policies)
@@ -1038,6 +1041,13 @@ export const riskApi = {
 
   getStatsWithAppetite: (tenantId: string, appetiteScore: number) =>
     api.get(`${API_PATHS.GRC_RISKS.STATS_WITH_APPETITE}?appetiteScore=${appetiteScore}`, withTenantId(tenantId)),
+
+  // Residual Risk calculation methods
+  recalculateResidual: (tenantId: string, riskId: string) =>
+    api.post(API_PATHS.GRC_RISKS.RECALCULATE_RESIDUAL(riskId), {}, withTenantId(tenantId)),
+
+  getControlsWithEffectiveness: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.CONTROLS_EFFECTIVENESS(riskId), withTenantId(tenantId)),
 };
 
 // ============================================================================

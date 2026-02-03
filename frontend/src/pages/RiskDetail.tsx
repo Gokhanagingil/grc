@@ -75,23 +75,34 @@ interface Risk {
   riskScore: number | null;
   status: string;
   owner: string | null;
+  ownerDisplayName: string | null;
   mitigationStrategy: string | null;
   residualRisk: string | null;
   reviewDate: string | null;
   createdAt: string;
   updatedAt: string;
-  // New residual risk fields
+  // Residual risk fields
   inherentLikelihood: number | null;
   inherentImpact: number | null;
   inherentScore: number | null;
   residualLikelihood: number | null;
   residualImpact: number | null;
   residualScore: number | null;
+  // ITIL lifecycle fields
+  treatmentStrategy: string | null;
+  nextReviewAt: string | null;
+  reviewIntervalDays: number | null;
+  acceptanceReason: string | null;
+  acceptedByUserId: string | null;
+  acceptedAt: string | null;
 }
 
 interface LinkedPolicy {
   id: string;
-  title: string;
+  name: string;
+  title?: string; // Some endpoints may return title instead of name
+  code: string | null;
+  version?: string;
   status: string;
 }
 
@@ -100,6 +111,13 @@ interface LinkedControl {
   name: string;
   code: string | null;
   status: string;
+}
+
+interface ControlWithEffectiveness {
+  controlId: string;
+  controlTitle: string;
+  effectivenessRating: 'unknown' | 'effective' | 'partially_effective' | 'ineffective';
+  reductionFactor: number;
 }
 
 interface TabPanelProps {
@@ -119,8 +137,9 @@ function TabPanel(props: TabPanelProps) {
 
 const SEVERITY_OPTIONS = ['low', 'medium', 'high', 'critical'];
 const LIKELIHOOD_OPTIONS = ['rare', 'unlikely', 'possible', 'likely', 'almost_certain'];
-const IMPACT_OPTIONS = ['negligible', 'minor', 'moderate', 'major', 'catastrophic'];
-const STATUS_OPTIONS = ['identified', 'assessed', 'mitigated', 'accepted', 'closed'];
+// Impact uses the same RiskSeverity enum as severity in the backend
+const IMPACT_OPTIONS = ['low', 'medium', 'high', 'critical'];
+const STATUS_OPTIONS = ['draft', 'identified', 'assessed', 'treatment_planned', 'treating', 'mitigating', 'monitored', 'accepted', 'closed'];
 const CATEGORY_OPTIONS = ['Operational', 'Financial', 'Strategic', 'Compliance', 'Technology', 'Reputational'];
 
 const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
@@ -159,6 +178,23 @@ const formatDateTime = (dateString: string | null | undefined): string => {
   return new Date(dateString).toLocaleString();
 };
 
+/**
+ * Get display label for a policy
+ * Priority: code + name, or just name, with version if available
+ */
+const getPolicyDisplayLabel = (policy: LinkedPolicy): string => {
+  const name = policy.name || policy.title || 'Unnamed Policy';
+  const parts: string[] = [];
+  if (policy.code) {
+    parts.push(`[${policy.code}]`);
+  }
+  parts.push(name);
+  if (policy.version) {
+    parts.push(`v${policy.version}`);
+  }
+  return parts.join(' ');
+};
+
 export const RiskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -195,17 +231,27 @@ export const RiskDetail: React.FC = () => {
   const [selectedControlIds, setSelectedControlIds] = useState<string[]>([]);
   const [linkingControl, setLinkingControl] = useState(false);
 
+  // Mitigation summary state
+  const [controlsWithEffectiveness, setControlsWithEffectiveness] = useState<ControlWithEffectiveness[]>([]);
+  const [effectivenessLoading, setEffectivenessLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
     severity: 'medium',
     likelihood: 'possible',
-    impact: 'moderate',
+    impact: 'medium',
     status: 'identified',
     ownerDisplayName: '',
     mitigationPlan: '',
     lastReviewedAt: '',
+    // ITIL lifecycle fields
+    treatmentStrategy: '',
+    nextReviewAt: '',
+    reviewIntervalDays: '',
+    acceptanceReason: '',
   });
 
   const fetchRisk = useCallback(async () => {
@@ -226,11 +272,16 @@ export const RiskDetail: React.FC = () => {
         likelihood: data.likelihood,
         impact: data.impact,
         status: data.status,
-        ownerDisplayName: (data as unknown as { ownerDisplayName?: string }).ownerDisplayName || '',
+        ownerDisplayName: data.ownerDisplayName || '',
         mitigationPlan: (data as unknown as { mitigationPlan?: string }).mitigationPlan || '',
         lastReviewedAt: (data as unknown as { lastReviewedAt?: string }).lastReviewedAt
           ? (data as unknown as { lastReviewedAt: string }).lastReviewedAt.split('T')[0]
           : '',
+        // ITIL lifecycle fields
+        treatmentStrategy: data.treatmentStrategy || '',
+        nextReviewAt: data.nextReviewAt ? data.nextReviewAt.split('T')[0] : '',
+        reviewIntervalDays: data.reviewIntervalDays?.toString() || '',
+        acceptanceReason: data.acceptanceReason || '',
       });
     } catch (err) {
       console.error('Error fetching risk:', err);
@@ -360,6 +411,7 @@ export const RiskDetail: React.FC = () => {
       setSelectedControlIds([]);
       setLinkControlModalOpen(false);
       fetchRelations();
+      fetchControlsWithEffectiveness();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Failed to link controls:', err);
@@ -376,10 +428,47 @@ export const RiskDetail: React.FC = () => {
       await riskApi.unlinkControl(tenantId, id, controlId);
       setSuccess('Control unlinked successfully');
       fetchRelations();
+      fetchControlsWithEffectiveness();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Failed to unlink control:', err);
       setError('Failed to unlink control. Please try again.');
+    }
+  };
+
+  // Fetch controls with effectiveness ratings for mitigation summary
+  const fetchControlsWithEffectiveness = useCallback(async () => {
+    if (!id || !tenantId) return;
+    setEffectivenessLoading(true);
+    try {
+      const response = await riskApi.getControlsWithEffectiveness(tenantId, id);
+      const data = unwrapArrayResponse(response.data);
+      setControlsWithEffectiveness(data as ControlWithEffectiveness[]);
+    } catch (err) {
+      console.error('Failed to fetch controls with effectiveness:', err);
+      setControlsWithEffectiveness([]);
+    } finally {
+      setEffectivenessLoading(false);
+    }
+  }, [id, tenantId]);
+
+  // Recalculate residual risk
+  const handleRecalculateResidual = async () => {
+    if (!id || !tenantId) return;
+    setRecalculating(true);
+    try {
+      const response = await riskApi.recalculateResidual(tenantId, id);
+      const updatedRisk = unwrapResponse(response.data);
+      if (updatedRisk) {
+        setRisk(updatedRisk as Risk);
+        setSuccess('Residual risk recalculated successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to recalculate residual risk:', err);
+      setError('Failed to recalculate residual risk. Please try again.');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -429,6 +518,13 @@ export const RiskDetail: React.FC = () => {
     }
   }, [tabValue, fetchRelations]);
 
+  // Fetch controls with effectiveness when risk is loaded (for Overview tab mitigation summary)
+  useEffect(() => {
+    if (risk && !isNewRisk) {
+      fetchControlsWithEffectiveness();
+    }
+  }, [risk, isNewRisk, fetchControlsWithEffectiveness]);
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -441,7 +537,7 @@ export const RiskDetail: React.FC = () => {
 
     setSaving(true);
     try {
-      const riskData = {
+      const riskData: Record<string, unknown> = {
         title: formData.title,
         description: formData.description || undefined,
         category: formData.category || undefined,
@@ -452,6 +548,11 @@ export const RiskDetail: React.FC = () => {
         ownerDisplayName: formData.ownerDisplayName || undefined,
         mitigationPlan: formData.mitigationPlan || undefined,
         lastReviewedAt: formData.lastReviewedAt || undefined,
+        // ITIL lifecycle fields
+        treatmentStrategy: formData.treatmentStrategy || undefined,
+        nextReviewAt: formData.nextReviewAt || undefined,
+        reviewIntervalDays: formData.reviewIntervalDays ? parseInt(formData.reviewIntervalDays, 10) : undefined,
+        acceptanceReason: formData.treatmentStrategy === 'accept' ? formData.acceptanceReason || undefined : undefined,
       };
 
       if (isNewRisk) {
@@ -467,8 +568,26 @@ export const RiskDetail: React.FC = () => {
       }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save risk');
+      const error = err as { 
+        response?: { 
+          status?: number;
+          data?: { message?: string | string[]; error?: string } 
+        } 
+      };
+      // Build a more informative error message
+      let errorMessage = 'Failed to save risk';
+      if (error.response?.data?.message) {
+        const msg = error.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join(', ') : msg;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      // Add status code context for debugging
+      if (error.response?.status) {
+        errorMessage = `[${error.response.status}] ${errorMessage}`;
+      }
+      setError(errorMessage);
+      console.error('Risk save error:', error.response?.data || error);
     } finally {
       setSaving(false);
     }
@@ -846,6 +965,100 @@ export const RiskDetail: React.FC = () => {
                   </Card>
                 </Grid>
               )}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                      <Typography variant="h6">
+                        <ControlIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        Mitigation Summary
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleRecalculateResidual}
+                        disabled={recalculating || controlsWithEffectiveness.length === 0}
+                        data-testid="recalculate-residual-button"
+                      >
+                        {recalculating ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+                        {recalculating ? 'Recalculating...' : 'Recalculate Residual'}
+                      </Button>
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+                    {effectivenessLoading ? (
+                      <LinearProgress />
+                    ) : controlsWithEffectiveness.length === 0 ? (
+                      <Box textAlign="center" py={3}>
+                        <Typography color="text.secondary" gutterBottom>
+                          No controls linked to this risk.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Link controls in the Relations tab to reduce residual risk.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <>
+                        <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Controls Linked</Typography>
+                              <Typography variant="h6">{controlsWithEffectiveness.length}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Estimated Mitigation</Typography>
+                              <Typography variant="h6" color="success.main">
+                                {(() => {
+                                  const totalReduction = controlsWithEffectiveness.reduce((acc, ctrl) => {
+                                    return acc + (1 - acc) * ctrl.reductionFactor;
+                                  }, 0);
+                                  return `${Math.round(totalReduction * 100)}%`;
+                                })()}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                        <Typography variant="subtitle2" gutterBottom>Linked Controls with Effectiveness</Typography>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Control</TableCell>
+                              <TableCell>Effectiveness</TableCell>
+                              <TableCell align="right">Reduction Factor</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {controlsWithEffectiveness.map((ctrl) => (
+                              <TableRow key={ctrl.controlId} hover>
+                                <TableCell>
+                                  <Link to={`/controls/${ctrl.controlId}`} style={{ textDecoration: 'none' }}>
+                                    <Typography color="primary">{ctrl.controlTitle}</Typography>
+                                  </Link>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={formatStatus(ctrl.effectivenessRating)}
+                                    size="small"
+                                    color={
+                                      ctrl.effectivenessRating === 'effective' ? 'success' :
+                                      ctrl.effectivenessRating === 'partially_effective' ? 'warning' :
+                                      ctrl.effectivenessRating === 'ineffective' ? 'error' : 'default'
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {Math.round(ctrl.reductionFactor * 100)}%
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
           </TabPanel>
 
@@ -885,7 +1098,7 @@ export const RiskDetail: React.FC = () => {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell>Title</TableCell>
+                            <TableCell>Policy</TableCell>
                             <TableCell>Status</TableCell>
                             <TableCell align="right">Actions</TableCell>
                           </TableRow>
@@ -895,7 +1108,7 @@ export const RiskDetail: React.FC = () => {
                             <TableRow key={policy.id} hover>
                               <TableCell>
                                 <Link to={`/policies/${policy.id}`} style={{ textDecoration: 'none' }}>
-                                  <Typography color="primary">{policy.title}</Typography>
+                                  <Typography color="primary">{getPolicyDisplayLabel(policy)}</Typography>
                                 </Link>
                               </TableCell>
                               <TableCell>
@@ -1166,6 +1379,65 @@ export const RiskDetail: React.FC = () => {
                 />
               </Grid>
             </Grid>
+
+            {/* ITIL Lifecycle Fields */}
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, color: 'text.secondary' }}>
+              Treatment & Review
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Treatment Strategy</InputLabel>
+                  <Select
+                    value={formData.treatmentStrategy}
+                    label="Treatment Strategy"
+                    onChange={(e) => setFormData({ ...formData, treatmentStrategy: e.target.value })}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="avoid">Avoid</MenuItem>
+                    <MenuItem value="mitigate">Mitigate</MenuItem>
+                    <MenuItem value="transfer">Transfer</MenuItem>
+                    <MenuItem value="accept">Accept</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Next Review Date"
+                  type="date"
+                  value={formData.nextReviewAt}
+                  onChange={(e) => setFormData({ ...formData, nextReviewAt: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText={formData.nextReviewAt && new Date(formData.nextReviewAt) < new Date() ? 'Overdue!' : ''}
+                  error={formData.nextReviewAt ? new Date(formData.nextReviewAt) < new Date() : false}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Review Interval (days)"
+                  type="number"
+                  value={formData.reviewIntervalDays}
+                  onChange={(e) => setFormData({ ...formData, reviewIntervalDays: e.target.value })}
+                  inputProps={{ min: 1, max: 365 }}
+                  helperText="How often should this risk be reviewed?"
+                />
+              </Grid>
+              {formData.treatmentStrategy === 'accept' && (
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Acceptance Reason"
+                    value={formData.acceptanceReason}
+                    onChange={(e) => setFormData({ ...formData, acceptanceReason: e.target.value })}
+                    multiline
+                    rows={2}
+                    helperText="Required when accepting a risk - explain why the risk is being accepted"
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1235,7 +1507,7 @@ export const RiskDetail: React.FC = () => {
                       }}
                     />
                     <ListItemText
-                      primary={policy.title}
+                      primary={getPolicyDisplayLabel(policy)}
                       secondary={formatStatus(policy.status)}
                     />
                   </ListItem>

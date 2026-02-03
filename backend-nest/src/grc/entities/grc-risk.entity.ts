@@ -185,6 +185,25 @@ export class GrcRisk extends BaseEntity {
   @Column({ name: 'last_reviewed_at', type: 'timestamptz', nullable: true })
   lastReviewedAt: Date | null;
 
+  @Column({ name: 'next_review_at', type: 'date', nullable: true })
+  nextReviewAt: Date | null;
+
+  @Column({ name: 'review_interval_days', type: 'int', nullable: true })
+  reviewIntervalDays: number | null;
+
+  @Column({ name: 'acceptance_reason', type: 'text', nullable: true })
+  acceptanceReason: string | null;
+
+  @Column({ name: 'accepted_by_user_id', type: 'uuid', nullable: true })
+  acceptedByUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'accepted_by_user_id' })
+  acceptedBy: User | null;
+
+  @Column({ name: 'accepted_at', type: 'timestamptz', nullable: true })
+  acceptedAt: Date | null;
+
   @Column({ name: 'mitigation_plan', type: 'text', nullable: true })
   mitigationPlan: string | null;
 

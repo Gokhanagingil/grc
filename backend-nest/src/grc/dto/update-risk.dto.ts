@@ -134,6 +134,30 @@ export class UpdateRiskDto {
   @IsOptional()
   lastReviewedAt?: Date | null;
 
+  @Type(() => Date)
+  @IsDate({ message: 'Next review at must be a valid date' })
+  @IsOptional()
+  nextReviewAt?: Date | null;
+
+  @IsInt({ message: 'Review interval days must be an integer' })
+  @Min(1, { message: 'Review interval days must be at least 1' })
+  @Max(365, { message: 'Review interval days must not exceed 365' })
+  @IsOptional()
+  reviewIntervalDays?: number | null;
+
+  @IsString({ message: 'Acceptance reason must be a string' })
+  @IsOptional()
+  acceptanceReason?: string | null;
+
+  @IsUUID('4', { message: 'Accepted by user ID must be a valid UUID' })
+  @IsOptional()
+  acceptedByUserId?: string | null;
+
+  @Type(() => Date)
+  @IsDate({ message: 'Accepted at must be a valid date' })
+  @IsOptional()
+  acceptedAt?: Date | null;
+
   @IsString({ message: 'Mitigation plan must be a string' })
   @IsOptional()
   mitigationPlan?: string;
