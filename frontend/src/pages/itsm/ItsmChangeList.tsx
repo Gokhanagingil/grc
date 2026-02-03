@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -7,7 +7,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { GenericListPage } from '../../components/common/GenericListPage';
+import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -90,29 +90,29 @@ export const ItsmChangeList: React.FC = () => {
     fetchChanges();
   }, [fetchChanges]);
 
-  const columns = [
+  const columns: ColumnDefinition<ItsmChange>[] = useMemo(() => [
     {
-      id: 'number',
-      label: 'Number',
-      render: (row: ItsmChange) => (
+      key: 'number',
+      header: 'Number',
+      render: (row) => (
         <Typography variant="body2" fontWeight={500}>
           {row.number}
         </Typography>
       ),
     },
     {
-      id: 'title',
-      label: 'Title',
-      render: (row: ItsmChange) => (
+      key: 'title',
+      header: 'Title',
+      render: (row) => (
         <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
           {row.title}
         </Typography>
       ),
     },
     {
-      id: 'type',
-      label: 'Type',
-      render: (row: ItsmChange) => (
+      key: 'type',
+      header: 'Type',
+      render: (row) => (
         <Chip
           label={row.type}
           size="small"
@@ -122,9 +122,9 @@ export const ItsmChangeList: React.FC = () => {
       ),
     },
     {
-      id: 'state',
-      label: 'State',
-      render: (row: ItsmChange) => (
+      key: 'state',
+      header: 'State',
+      render: (row) => (
         <Chip
           label={row.state}
           size="small"
@@ -133,9 +133,9 @@ export const ItsmChangeList: React.FC = () => {
       ),
     },
     {
-      id: 'risk',
-      label: 'Risk',
-      render: (row: ItsmChange) => (
+      key: 'risk',
+      header: 'Risk',
+      render: (row) => (
         <Chip
           label={row.risk}
           size="small"
@@ -145,9 +145,9 @@ export const ItsmChangeList: React.FC = () => {
       ),
     },
     {
-      id: 'approvalStatus',
-      label: 'Approval',
-      render: (row: ItsmChange) => (
+      key: 'approvalStatus',
+      header: 'Approval',
+      render: (row) => (
         <Chip
           label={row.approvalStatus.replace('_', ' ')}
           size="small"
@@ -157,24 +157,24 @@ export const ItsmChangeList: React.FC = () => {
       ),
     },
     {
-      id: 'service',
-      label: 'Service',
-      render: (row: ItsmChange) => (
+      key: 'service',
+      header: 'Service',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {row.service?.name || '-'}
         </Typography>
       ),
     },
     {
-      id: 'updatedAt',
-      label: 'Last Updated',
-      render: (row: ItsmChange) => (
+      key: 'updatedAt',
+      header: 'Last Updated',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {new Date(row.updatedAt).toLocaleDateString()}
         </Typography>
       ),
     },
-  ];
+  ], []);
 
   return (
     <Box>
@@ -191,10 +191,12 @@ export const ItsmChangeList: React.FC = () => {
         </Button>
       </Box>
 
-      <GenericListPage
+      <GenericListPage<ItsmChange>
+        title="Changes"
         items={changes}
         columns={columns}
-        loading={loading}
+        isLoading={loading}
+        error={null}
         total={total}
         page={page}
         pageSize={pageSize}
@@ -202,9 +204,11 @@ export const ItsmChangeList: React.FC = () => {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         onSearchChange={setSearch}
+        onRefresh={fetchChanges}
         onRowClick={(row) => navigate(`/itsm/changes/${row.id}`)}
         emptyMessage="No changes found"
         searchPlaceholder="Search changes..."
+        getRowKey={(row) => row.id}
       />
     </Box>
   );

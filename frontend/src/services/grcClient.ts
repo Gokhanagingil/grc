@@ -230,6 +230,9 @@ export const API_PATHS = {
       GET: (id: string) => `/grc/itsm/incidents/${id}`,
       UPDATE: (id: string) => `/grc/itsm/incidents/${id}`,
       DELETE: (id: string) => `/grc/itsm/incidents/${id}`,
+      // Incident lifecycle actions
+      RESOLVE: (id: string) => `/grc/itsm/incidents/${id}/resolve`,
+      CLOSE: (id: string) => `/grc/itsm/incidents/${id}/close`,
       // GRC Bridge - Risk/Control linking
       RISKS: (id: string) => `/grc/itsm/incidents/${id}/risks`,
       LINK_RISK: (incidentId: string, riskId: string) => `/grc/itsm/incidents/${incidentId}/risks/${riskId}`,
@@ -1532,6 +1535,12 @@ export const incidentApi = {
   
   delete: (tenantId: string, id: string) => 
     api.delete(API_PATHS.ITSM.INCIDENTS.DELETE(id), withTenantId(tenantId)),
+  
+  resolve: (tenantId: string, id: string, resolutionNotes?: string) => 
+    api.post(API_PATHS.ITSM.INCIDENTS.RESOLVE(id), { resolutionNotes }, withTenantId(tenantId)),
+  
+  close: (tenantId: string, id: string) => 
+    api.post(API_PATHS.ITSM.INCIDENTS.CLOSE(id), {}, withTenantId(tenantId)),
 };
 
 // ============================================================================

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -7,7 +7,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { GenericListPage } from '../../components/common/GenericListPage';
+import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -70,29 +70,29 @@ export const ItsmServiceList: React.FC = () => {
     fetchServices();
   }, [fetchServices]);
 
-  const columns = [
+  const columns: ColumnDefinition<ItsmService>[] = useMemo(() => [
     {
-      id: 'name',
-      label: 'Name',
-      render: (row: ItsmService) => (
+      key: 'name',
+      header: 'Name',
+      render: (row) => (
         <Typography variant="body2" fontWeight={500}>
           {row.name}
         </Typography>
       ),
     },
     {
-      id: 'description',
-      label: 'Description',
-      render: (row: ItsmService) => (
+      key: 'description',
+      header: 'Description',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
           {row.description || '-'}
         </Typography>
       ),
     },
     {
-      id: 'criticality',
-      label: 'Criticality',
-      render: (row: ItsmService) => (
+      key: 'criticality',
+      header: 'Criticality',
+      render: (row) => (
         <Chip
           label={row.criticality}
           size="small"
@@ -101,9 +101,9 @@ export const ItsmServiceList: React.FC = () => {
       ),
     },
     {
-      id: 'status',
-      label: 'Status',
-      render: (row: ItsmService) => (
+      key: 'status',
+      header: 'Status',
+      render: (row) => (
         <Chip
           label={row.status}
           size="small"
@@ -113,15 +113,15 @@ export const ItsmServiceList: React.FC = () => {
       ),
     },
     {
-      id: 'updatedAt',
-      label: 'Last Updated',
-      render: (row: ItsmService) => (
+      key: 'updatedAt',
+      header: 'Last Updated',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {new Date(row.updatedAt).toLocaleDateString()}
         </Typography>
       ),
     },
-  ];
+  ], []);
 
   return (
     <Box>
@@ -138,10 +138,12 @@ export const ItsmServiceList: React.FC = () => {
         </Button>
       </Box>
 
-      <GenericListPage
+      <GenericListPage<ItsmService>
+        title="ITSM Services"
         items={services}
         columns={columns}
-        loading={loading}
+        isLoading={loading}
+        error={null}
         total={total}
         page={page}
         pageSize={pageSize}
@@ -149,9 +151,11 @@ export const ItsmServiceList: React.FC = () => {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         onSearchChange={setSearch}
+        onRefresh={fetchServices}
         onRowClick={(row) => navigate(`/itsm/services/${row.id}`)}
         emptyMessage="No ITSM services found"
         searchPlaceholder="Search services..."
+        getRowKey={(row) => row.id}
       />
     </Box>
   );

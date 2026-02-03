@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -7,7 +7,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon, Warning as WarningIcon } from '@mui/icons-material';
-import { GenericListPage } from '../../components/common/GenericListPage';
+import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -77,11 +77,11 @@ export const ItsmIncidentList: React.FC = () => {
     fetchIncidents();
   }, [fetchIncidents]);
 
-  const columns = [
+  const columns: ColumnDefinition<ItsmIncident>[] = useMemo(() => [
     {
-      id: 'number',
-      label: 'Number',
-      render: (row: ItsmIncident) => (
+      key: 'number',
+      header: 'Number',
+      render: (row) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" fontWeight={500}>
             {row.number}
@@ -99,18 +99,18 @@ export const ItsmIncidentList: React.FC = () => {
       ),
     },
     {
-      id: 'shortDescription',
-      label: 'Short Description',
-      render: (row: ItsmIncident) => (
+      key: 'shortDescription',
+      header: 'Short Description',
+      render: (row) => (
         <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>
           {row.shortDescription}
         </Typography>
       ),
     },
     {
-      id: 'state',
-      label: 'State',
-      render: (row: ItsmIncident) => (
+      key: 'state',
+      header: 'State',
+      render: (row) => (
         <Chip
           label={row.state.replace('_', ' ')}
           size="small"
@@ -119,9 +119,9 @@ export const ItsmIncidentList: React.FC = () => {
       ),
     },
     {
-      id: 'priority',
-      label: 'Priority',
-      render: (row: ItsmIncident) => (
+      key: 'priority',
+      header: 'Priority',
+      render: (row) => (
         <Chip
           label={row.priority}
           size="small"
@@ -131,33 +131,33 @@ export const ItsmIncidentList: React.FC = () => {
       ),
     },
     {
-      id: 'service',
-      label: 'Service',
-      render: (row: ItsmIncident) => (
+      key: 'service',
+      header: 'Service',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {row.service?.name || '-'}
         </Typography>
       ),
     },
     {
-      id: 'assignee',
-      label: 'Assignee',
-      render: (row: ItsmIncident) => (
+      key: 'assignee',
+      header: 'Assignee',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {row.assignee ? `${row.assignee.firstName} ${row.assignee.lastName}` : 'Unassigned'}
         </Typography>
       ),
     },
     {
-      id: 'updatedAt',
-      label: 'Last Updated',
-      render: (row: ItsmIncident) => (
+      key: 'updatedAt',
+      header: 'Last Updated',
+      render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {new Date(row.updatedAt).toLocaleDateString()}
         </Typography>
       ),
     },
-  ];
+  ], []);
 
   return (
     <Box>
@@ -174,10 +174,12 @@ export const ItsmIncidentList: React.FC = () => {
         </Button>
       </Box>
 
-      <GenericListPage
+      <GenericListPage<ItsmIncident>
+        title="Incidents"
         items={incidents}
         columns={columns}
-        loading={loading}
+        isLoading={loading}
+        error={null}
         total={total}
         page={page}
         pageSize={pageSize}
@@ -185,9 +187,11 @@ export const ItsmIncidentList: React.FC = () => {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         onSearchChange={setSearch}
+        onRefresh={fetchIncidents}
         onRowClick={(row) => navigate(`/itsm/incidents/${row.id}`)}
         emptyMessage="No incidents found"
         searchPlaceholder="Search incidents..."
+        getRowKey={(row) => row.id}
       />
     </Box>
   );
