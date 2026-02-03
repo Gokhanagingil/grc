@@ -96,10 +96,13 @@ interface NavMenuGroup {
 // Domain types for the domain switcher
 type DomainType = 'grc' | 'itsm';
 
+// Storage key for module preference
+const MODULE_PREFERENCE_KEY = 'grc_preferred_module';
+
 // Domain configuration
 const domains: { id: DomainType; label: string; icon: React.ReactNode; enabled: boolean }[] = [
   { id: 'grc', label: 'GRC', icon: <GrcIcon />, enabled: true },
-  { id: 'itsm', label: 'ITSM', icon: <ItsmIcon />, enabled: false }, // Disabled for now, placeholder for future
+  { id: 'itsm', label: 'ITSM', icon: <ItsmIcon />, enabled: true },
 ];
 
 // Standalone items (not in groups) - shown regardless of domain
@@ -264,41 +267,44 @@ const grcMenuGroups: NavMenuGroup[] = [
   },
 ];
 
-// ITSM domain menu groups (placeholder for future)
+// ITSM domain menu groups - ITIL v5 aligned
 const itsmMenuGroups: NavMenuGroup[] = [
   {
-    id: 'incidents',
-    text: 'Incidents',
-    icon: <IncidentIcon />,
+    id: 'itsm-service-management',
+    text: 'Service Management',
+    icon: <ItsmIcon />,
     items: [
       { 
-        text: 'Incident List', 
-        icon: <IncidentIcon />, 
-        path: '/incidents',
+        text: 'Services', 
+        icon: <ItsmIcon />, 
+        path: '/itsm/services',
+        testId: 'nav-itsm-services',
       },
     ],
   },
   {
-    id: 'problems',
-    text: 'Problems',
+    id: 'itsm-incidents',
+    text: 'Incident Management',
     icon: <IncidentIcon />,
     items: [
       { 
-        text: 'Problem List', 
+        text: 'Incidents', 
         icon: <IncidentIcon />, 
-        path: '/problems',
+        path: '/itsm/incidents',
+        testId: 'nav-itsm-incidents',
       },
     ],
   },
   {
-    id: 'changes',
-    text: 'Changes',
-    icon: <IncidentIcon />,
+    id: 'itsm-changes',
+    text: 'Change Management',
+    icon: <SettingsIcon />,
     items: [
       { 
-        text: 'Change List', 
-        icon: <IncidentIcon />, 
-        path: '/changes',
+        text: 'Changes', 
+        icon: <SettingsIcon />, 
+        path: '/itsm/changes',
+        testId: 'nav-itsm-changes',
       },
     ],
   },
@@ -357,16 +363,29 @@ export const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
-  const [currentDomain, setCurrentDomain] = useState<DomainType>('grc');
+  // Load initial domain from localStorage or default to 'grc'
+  const [currentDomain, setCurrentDomain] = useState<DomainType>(() => {
+    try {
+      const saved = localStorage.getItem(MODULE_PREFERENCE_KEY);
+      if (saved === 'grc' || saved === 'itsm') {
+        return saved;
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+    return 'grc';
+  });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     library: true,
     assurance: false,
     findings: false,
     risk: false,
     insights: false,
-    incidents: false,
-    problems: false,
-    changes: false,
+    bcm: false,
+    calendar: false,
+    'itsm-service-management': false,
+    'itsm-incidents': false,
+    'itsm-changes': false,
     dashboards: false,
     admin: false,
   });
@@ -378,10 +397,18 @@ export const Layout: React.FC = () => {
   // Get menu groups for current domain
   const domainMenuGroups = useMemo(() => getMenuGroupsForDomain(currentDomain), [currentDomain]);
   
-  // Handle domain change
+  // Handle domain change with localStorage persistence
   const handleDomainChange = (event: SelectChangeEvent<DomainType>) => {
     const newDomain = event.target.value as DomainType;
     setCurrentDomain(newDomain);
+    
+    // Persist to localStorage
+    try {
+      localStorage.setItem(MODULE_PREFERENCE_KEY, newDomain);
+    } catch {
+      // Ignore localStorage errors
+    }
+    
     // Reset expanded groups when switching domains
     setExpandedGroups({
       library: newDomain === 'grc',
@@ -389,9 +416,11 @@ export const Layout: React.FC = () => {
       findings: false,
       risk: false,
       insights: false,
-      incidents: newDomain === 'itsm',
-      problems: false,
-      changes: false,
+      bcm: false,
+      calendar: false,
+      'itsm-service-management': newDomain === 'itsm',
+      'itsm-incidents': false,
+      'itsm-changes': false,
       dashboards: false,
       admin: false,
     });

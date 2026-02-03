@@ -213,17 +213,49 @@ export const API_PATHS = {
     FILTERS: '/grc/dashboard/filters',
   },
 
-  // ITSM Incident endpoints
-  ITSM_INCIDENTS: {
-    LIST: '/itsm/incidents',
-    CREATE: '/itsm/incidents',
-    GET: (id: string) => `/itsm/incidents/${id}`,
-    UPDATE: (id: string) => `/itsm/incidents/${id}`,
-    DELETE: (id: string) => `/itsm/incidents/${id}`,
-    SUMMARY: '/itsm/incidents/summary',
-    STATISTICS: '/itsm/incidents/statistics',
-    RESOLVE: (id: string) => `/itsm/incidents/${id}/resolve`,
-    CLOSE: (id: string) => `/itsm/incidents/${id}/close`,
+  // ITSM (IT Service Management) endpoints - ITIL v5 aligned
+  ITSM: {
+    // ITSM Service endpoints
+    SERVICES: {
+      LIST: '/grc/itsm/services',
+      CREATE: '/grc/itsm/services',
+      GET: (id: string) => `/grc/itsm/services/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/services/${id}`,
+      DELETE: (id: string) => `/grc/itsm/services/${id}`,
+    },
+    // ITSM Incident endpoints
+    INCIDENTS: {
+      LIST: '/grc/itsm/incidents',
+      CREATE: '/grc/itsm/incidents',
+      GET: (id: string) => `/grc/itsm/incidents/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/incidents/${id}`,
+      DELETE: (id: string) => `/grc/itsm/incidents/${id}`,
+      // Incident lifecycle actions
+      RESOLVE: (id: string) => `/grc/itsm/incidents/${id}/resolve`,
+      CLOSE: (id: string) => `/grc/itsm/incidents/${id}/close`,
+      // GRC Bridge - Risk/Control linking
+      RISKS: (id: string) => `/grc/itsm/incidents/${id}/risks`,
+      LINK_RISK: (incidentId: string, riskId: string) => `/grc/itsm/incidents/${incidentId}/risks/${riskId}`,
+      UNLINK_RISK: (incidentId: string, riskId: string) => `/grc/itsm/incidents/${incidentId}/risks/${riskId}`,
+      CONTROLS: (id: string) => `/grc/itsm/incidents/${id}/controls`,
+      LINK_CONTROL: (incidentId: string, controlId: string) => `/grc/itsm/incidents/${incidentId}/controls/${controlId}`,
+      UNLINK_CONTROL: (incidentId: string, controlId: string) => `/grc/itsm/incidents/${incidentId}/controls/${controlId}`,
+    },
+    // ITSM Change endpoints
+    CHANGES: {
+      LIST: '/grc/itsm/changes',
+      CREATE: '/grc/itsm/changes',
+      GET: (id: string) => `/grc/itsm/changes/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/changes/${id}`,
+      DELETE: (id: string) => `/grc/itsm/changes/${id}`,
+      // GRC Bridge - Risk/Control linking
+      RISKS: (id: string) => `/grc/itsm/changes/${id}/risks`,
+      LINK_RISK: (changeId: string, riskId: string) => `/grc/itsm/changes/${changeId}/risks/${riskId}`,
+      UNLINK_RISK: (changeId: string, riskId: string) => `/grc/itsm/changes/${changeId}/risks/${riskId}`,
+      CONTROLS: (id: string) => `/grc/itsm/changes/${id}/controls`,
+      LINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
+      UNLINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1278,36 +1310,237 @@ export const requirementApi = {
 };
 
 // ============================================================================
-// ITSM Incident API
+// ITSM API (IT Service Management) - ITIL v5 aligned
 // ============================================================================
 
+// Type definitions for ITSM entities
+export interface ItsmServiceData {
+  id: string;
+  name: string;
+  description?: string;
+  criticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
+  ownerUserId?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmServiceDto {
+  name: string;
+  description?: string;
+  criticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status?: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
+  ownerUserId?: string;
+}
+
+export interface UpdateItsmServiceDto {
+  name?: string;
+  description?: string;
+  criticality?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status?: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
+  ownerUserId?: string;
+}
+
+export interface ItsmIncidentData {
+  id: string;
+  number: string;
+  shortDescription: string;
+  description?: string;
+  state: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+  impact: 'HIGH' | 'MEDIUM' | 'LOW';
+  urgency: 'HIGH' | 'MEDIUM' | 'LOW';
+  category?: string;
+  riskReviewRequired: boolean;
+  serviceId?: string;
+  service?: ItsmServiceData;
+  assigneeId?: string;
+  requesterId?: string;
+  resolutionNotes?: string;
+  openedAt?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmIncidentDto {
+  shortDescription: string;
+  description?: string;
+  state?: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority?: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
+  urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
+  category?: string;
+  serviceId?: string;
+  assigneeId?: string;
+  requesterId?: string;
+}
+
+export interface UpdateItsmIncidentDto {
+  shortDescription?: string;
+  description?: string;
+  state?: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority?: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
+  urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
+  category?: string;
+  resolutionNotes?: string;
+  serviceId?: string;
+  assigneeId?: string;
+}
+
+export interface ItsmChangeData {
+  id: string;
+  number: string;
+  title: string;
+  description?: string;
+  type: 'STANDARD' | 'NORMAL' | 'EMERGENCY';
+  state: 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED';
+  risk: 'LOW' | 'MEDIUM' | 'HIGH';
+  approvalStatus: 'NOT_REQUESTED' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  implementationPlan?: string;
+  backoutPlan?: string;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
+  actualStartAt?: string;
+  actualEndAt?: string;
+  serviceId?: string;
+  service?: ItsmServiceData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmChangeDto {
+  title: string;
+  description?: string;
+  type?: 'STANDARD' | 'NORMAL' | 'EMERGENCY';
+  state?: 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED';
+  risk?: 'LOW' | 'MEDIUM' | 'HIGH';
+  approvalStatus?: 'NOT_REQUESTED' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  implementationPlan?: string;
+  backoutPlan?: string;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
+  serviceId?: string;
+}
+
+export interface UpdateItsmChangeDto {
+  title?: string;
+  description?: string;
+  type?: 'STANDARD' | 'NORMAL' | 'EMERGENCY';
+  state?: 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED';
+  risk?: 'LOW' | 'MEDIUM' | 'HIGH';
+  approvalStatus?: 'NOT_REQUESTED' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  implementationPlan?: string;
+  backoutPlan?: string;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
+}
+
+export interface ItsmListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  state?: string;
+  priority?: string;
+  type?: string;
+}
+
+// ITSM API object with all endpoints
+export const itsmApi = {
+  // ITSM Services
+  services: {
+    list: (params?: ItsmListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.SERVICES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.SERVICES.GET(id)),
+    create: (data: CreateItsmServiceDto) => api.post(API_PATHS.ITSM.SERVICES.CREATE, data),
+    update: (id: string, data: UpdateItsmServiceDto) => api.patch(API_PATHS.ITSM.SERVICES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.SERVICES.DELETE(id)),
+  },
+
+  // ITSM Incidents
+  incidents: {
+    list: (params?: ItsmListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.state) searchParams.set('state', params.state);
+      if (params?.priority) searchParams.set('priority', params.priority);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.INCIDENTS.GET(id)),
+    create: (data: CreateItsmIncidentDto) => api.post(API_PATHS.ITSM.INCIDENTS.CREATE, data),
+    update: (id: string, data: UpdateItsmIncidentDto) => api.patch(API_PATHS.ITSM.INCIDENTS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.INCIDENTS.DELETE(id)),
+    // GRC Bridge - Risk linking
+    getLinkedRisks: (incidentId: string) => api.get(API_PATHS.ITSM.INCIDENTS.RISKS(incidentId)),
+    linkRisk: (incidentId: string, riskId: string) => api.post(API_PATHS.ITSM.INCIDENTS.LINK_RISK(incidentId, riskId), {}),
+    unlinkRisk: (incidentId: string, riskId: string) => api.delete(API_PATHS.ITSM.INCIDENTS.UNLINK_RISK(incidentId, riskId)),
+    // GRC Bridge - Control linking
+    getLinkedControls: (incidentId: string) => api.get(API_PATHS.ITSM.INCIDENTS.CONTROLS(incidentId)),
+    linkControl: (incidentId: string, controlId: string) => api.post(API_PATHS.ITSM.INCIDENTS.LINK_CONTROL(incidentId, controlId), {}),
+    unlinkControl: (incidentId: string, controlId: string) => api.delete(API_PATHS.ITSM.INCIDENTS.UNLINK_CONTROL(incidentId, controlId)),
+  },
+
+  // ITSM Changes
+  changes: {
+    list: (params?: ItsmListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.state) searchParams.set('state', params.state);
+      if (params?.type) searchParams.set('type', params.type);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.CHANGES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.CHANGES.GET(id)),
+    create: (data: CreateItsmChangeDto) => api.post(API_PATHS.ITSM.CHANGES.CREATE, data),
+    update: (id: string, data: UpdateItsmChangeDto) => api.patch(API_PATHS.ITSM.CHANGES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.CHANGES.DELETE(id)),
+    // GRC Bridge - Risk linking
+    getLinkedRisks: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.RISKS(changeId)),
+    linkRisk: (changeId: string, riskId: string) => api.post(API_PATHS.ITSM.CHANGES.LINK_RISK(changeId, riskId), {}),
+    unlinkRisk: (changeId: string, riskId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_RISK(changeId, riskId)),
+    // GRC Bridge - Control linking
+    getLinkedControls: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.CONTROLS(changeId)),
+    linkControl: (changeId: string, controlId: string) => api.post(API_PATHS.ITSM.CHANGES.LINK_CONTROL(changeId, controlId), {}),
+    unlinkControl: (changeId: string, controlId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_CONTROL(changeId, controlId)),
+  },
+};
+
+// Legacy incidentApi for backward compatibility (deprecated, use itsmApi.incidents instead)
 export const incidentApi = {
   list: (tenantId: string, params?: URLSearchParams) => 
-    api.get(`${API_PATHS.ITSM_INCIDENTS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
+    api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
   
   get: (tenantId: string, id: string) => 
-    api.get(API_PATHS.ITSM_INCIDENTS.GET(id), withTenantId(tenantId)),
+    api.get(API_PATHS.ITSM.INCIDENTS.GET(id), withTenantId(tenantId)),
   
   create: (tenantId: string, data: Record<string, unknown>) => 
-    api.post(API_PATHS.ITSM_INCIDENTS.CREATE, data, withTenantId(tenantId)),
+    api.post(API_PATHS.ITSM.INCIDENTS.CREATE, data, withTenantId(tenantId)),
   
   update: (tenantId: string, id: string, data: Record<string, unknown>) => 
-    api.patch(API_PATHS.ITSM_INCIDENTS.UPDATE(id), data, withTenantId(tenantId)),
+    api.patch(API_PATHS.ITSM.INCIDENTS.UPDATE(id), data, withTenantId(tenantId)),
   
   delete: (tenantId: string, id: string) => 
-    api.delete(API_PATHS.ITSM_INCIDENTS.DELETE(id), withTenantId(tenantId)),
-  
-  summary: (tenantId: string) => 
-    api.get(API_PATHS.ITSM_INCIDENTS.SUMMARY, withTenantId(tenantId)),
-  
-  statistics: (tenantId: string) => 
-    api.get(API_PATHS.ITSM_INCIDENTS.STATISTICS, withTenantId(tenantId)),
+    api.delete(API_PATHS.ITSM.INCIDENTS.DELETE(id), withTenantId(tenantId)),
   
   resolve: (tenantId: string, id: string, resolutionNotes?: string) => 
-    api.post(API_PATHS.ITSM_INCIDENTS.RESOLVE(id), { resolutionNotes }, withTenantId(tenantId)),
+    api.post(API_PATHS.ITSM.INCIDENTS.RESOLVE(id), { resolutionNotes }, withTenantId(tenantId)),
   
   close: (tenantId: string, id: string) => 
-    api.post(API_PATHS.ITSM_INCIDENTS.CLOSE(id), {}, withTenantId(tenantId)),
+    api.post(API_PATHS.ITSM.INCIDENTS.CLOSE(id), {}, withTenantId(tenantId)),
 };
 
 // ============================================================================

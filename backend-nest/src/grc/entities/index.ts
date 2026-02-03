@@ -107,3 +107,14 @@ export { BcmBia } from './bcm-bia.entity';
 export { BcmPlan } from './bcm-plan.entity';
 export { BcmPlanStep } from './bcm-plan-step.entity';
 export { BcmExercise } from './bcm-exercise.entity';
+
+// ITSM (IT Service Management) Entities - ITIL v5 aligned
+export { ItsmService } from './itsm-service.entity';
+export { ItsmIncident } from './itsm-incident.entity';
+export { ItsmChange } from './itsm-change.entity';
+
+// ITSM-GRC Bridge Entities
+export { ItsmIncidentRisk } from './itsm-incident-risk.entity';
+export { ItsmIncidentControl } from './itsm-incident-control.entity';
+export { ItsmChangeRisk } from './itsm-change-risk.entity';
+export { ItsmChangeControl } from './itsm-change-control.entity';

@@ -72,3 +72,8 @@ export { BcmModuleService } from './bcm.service';
 
 // Calendar Services
 export { CalendarService } from './calendar.service';
+
+// ITSM (IT Service Management) Services - ITIL v5 aligned
+export { ItsmServiceService } from './itsm-service.service';
+export { ItsmIncidentService } from './itsm-incident.service';
+export { ItsmChangeService } from './itsm-change.service';

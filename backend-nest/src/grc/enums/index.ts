@@ -812,3 +812,115 @@ export enum CalendarEventSourceType {
   POLICY_REVIEW = 'POLICY_REVIEW',
   EVIDENCE_REVIEW = 'EVIDENCE_REVIEW',
 }
+
+// ============================================================================
+// ITSM Enums (ITIL v5 aligned)
+// ============================================================================
+
+/**
+ * ItsmIncidentState - Lifecycle states for ITSM incidents
+ * Values match PostgreSQL enum: itsm_incidents_state_enum
+ */
+export enum ItsmIncidentState {
+  NEW = 'NEW',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+/**
+ * ItsmIncidentImpact - Business impact level of an incident
+ * Values match PostgreSQL enum: itsm_incidents_impact_enum
+ */
+export enum ItsmIncidentImpact {
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+/**
+ * ItsmIncidentUrgency - Time sensitivity of an incident
+ * Values match PostgreSQL enum: itsm_incidents_urgency_enum
+ */
+export enum ItsmIncidentUrgency {
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+/**
+ * ItsmIncidentPriority - Priority level (derived from impact + urgency)
+ * Values match PostgreSQL enum: itsm_incidents_priority_enum
+ */
+export enum ItsmIncidentPriority {
+  P1 = 'P1',
+  P2 = 'P2',
+  P3 = 'P3',
+  P4 = 'P4',
+  P5 = 'P5',
+}
+
+/**
+ * ItsmChangeType - Type of change request (ITIL v5)
+ * Values match PostgreSQL enum: itsm_changes_type_enum
+ */
+export enum ItsmChangeType {
+  STANDARD = 'STANDARD',
+  NORMAL = 'NORMAL',
+  EMERGENCY = 'EMERGENCY',
+}
+
+/**
+ * ItsmChangeState - Lifecycle states for ITSM changes
+ * Values match PostgreSQL enum: itsm_changes_state_enum
+ */
+export enum ItsmChangeState {
+  DRAFT = 'DRAFT',
+  ASSESS = 'ASSESS',
+  AUTHORIZE = 'AUTHORIZE',
+  IMPLEMENT = 'IMPLEMENT',
+  REVIEW = 'REVIEW',
+  CLOSED = 'CLOSED',
+}
+
+/**
+ * ItsmChangeRiskLevel - Risk level of a change
+ * Values match PostgreSQL enum: itsm_changes_risk_enum
+ */
+export enum ItsmChangeRiskLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+}
+
+/**
+ * ItsmApprovalStatus - Approval status for changes
+ * Values match PostgreSQL enum: itsm_changes_approval_status_enum
+ */
+export enum ItsmApprovalStatus {
+  NOT_REQUESTED = 'NOT_REQUESTED',
+  REQUESTED = 'REQUESTED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+/**
+ * ItsmServiceCriticality - Criticality level of an ITSM service
+ * Values match PostgreSQL enum: itsm_services_criticality_enum
+ */
+export enum ItsmServiceCriticality {
+  CRITICAL = 'CRITICAL',
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+/**
+ * ItsmServiceStatus - Status of an ITSM service
+ * Values match PostgreSQL enum: itsm_services_status_enum
+ */
+export enum ItsmServiceStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  DEPRECATED = 'DEPRECATED',
+}
