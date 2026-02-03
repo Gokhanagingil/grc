@@ -777,12 +777,12 @@ export const RiskDetail: React.FC = () => {
                           </Typography>
                         )}
                       </Grid>
-                      {risk?.residualScore !== null && risk?.inherentScore !== null && risk.residualScore < (risk.inherentScore || 0) && (
+                      {typeof risk?.residualScore === 'number' && typeof risk?.inherentScore === 'number' && risk.residualScore < risk.inherentScore && (
                         <>
                           <Grid item xs={4}><Typography color="text.secondary">Risk Reduction</Typography></Grid>
                           <Grid item xs={8}>
                             <Chip
-                              label={`-${Math.round(((risk.inherentScore || 0) - risk.residualScore) / (risk.inherentScore || 1) * 100)}%`}
+                              label={`-${Math.round((risk.inherentScore - risk.residualScore) / risk.inherentScore * 100)}%`}
                               color="success"
                               size="small"
                               sx={{ fontWeight: 'bold' }}
