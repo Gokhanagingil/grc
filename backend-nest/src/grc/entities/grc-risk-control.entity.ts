@@ -57,6 +57,18 @@ export class GrcRiskControl extends MappingEntityBase {
   })
   effectivenessRating: ControlEffectiveness;
 
+  /**
+   * Override effectiveness percentage for this specific risk-control link (0-100).
+   * When set, this value takes precedence over the control's global effectivenessPercent.
+   * When null, the control's global effectivenessPercent is used.
+   */
+  @Column({
+    name: 'override_effectiveness_percent',
+    type: 'int',
+    nullable: true,
+  })
+  overrideEffectivenessPercent: number | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 }

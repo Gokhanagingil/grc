@@ -45,6 +45,7 @@ export const API_PATHS = {
       LINK_CONTROL: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}`,
       LINK_CONTROL_WITH_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/link`,
       UPDATE_CONTROL_EFFECTIVENESS: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness`,
+      UPDATE_EFFECTIVENESS_OVERRIDE: (riskId: string, controlId: string) => `/grc/risks/${riskId}/controls/${controlId}/effectiveness-override`,
       POLICIES: (id: string) => `/grc/risks/${id}/policies`,
       LINK_POLICY: (riskId: string, policyId: string) => `/grc/risks/${riskId}/policies/${policyId}`,
       REQUIREMENTS: (id: string) => `/grc/risks/${id}/requirements`,
@@ -154,6 +155,7 @@ export const API_PATHS = {
   GRC_CONTROLS: {
     LIST: '/grc/controls',
     GET: (id: string) => `/grc/controls/${id}`,
+    UPDATE: (id: string) => `/grc/controls/${id}`,
     PROCESSES: (id: string) => `/grc/controls/${id}/processes`,
     LINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
     UNLINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
@@ -1048,6 +1050,9 @@ export const riskApi = {
 
   getControlsWithEffectiveness: (tenantId: string, riskId: string) =>
     api.get(API_PATHS.GRC_RISKS.CONTROLS_EFFECTIVENESS(riskId), withTenantId(tenantId)),
+
+  updateEffectivenessOverride: (tenantId: string, riskId: string, controlId: string, overrideEffectivenessPercent: number | null) =>
+    api.patch(API_PATHS.GRC_RISKS.UPDATE_EFFECTIVENESS_OVERRIDE(riskId, controlId), { overrideEffectivenessPercent }, withTenantId(tenantId)),
 };
 
 // ============================================================================
@@ -1853,6 +1858,9 @@ export const controlApi = {
 
   get: (tenantId: string, id: string) =>
     api.get(API_PATHS.GRC_CONTROLS.GET(id), withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.GRC_CONTROLS.UPDATE(id), data, withTenantId(tenantId)),
 
   getProcesses: (tenantId: string, controlId: string) =>
     api.get(API_PATHS.GRC_CONTROLS.PROCESSES(controlId), withTenantId(tenantId)),

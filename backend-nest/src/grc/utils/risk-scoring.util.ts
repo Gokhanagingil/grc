@@ -25,11 +25,48 @@ export const EFFECTIVENESS_REDUCTION: Record<ControlEffectiveness, number> = {
 export const MAX_SINGLE_CONTROL_REDUCTION = 0.6;
 
 /**
- * Control link data for residual risk calculation
+ * Control link data for residual risk calculation (enum-based)
  */
 export interface ControlLinkData {
   effectivenessRating: ControlEffectiveness;
   coverage?: number; // 0-1, default 1.0
+}
+
+/**
+ * Control link data for residual risk calculation (numeric percent-based)
+ * Used with the new effectivenessPercent model
+ */
+export interface ControlLinkDataNumeric {
+  effectivenessPercent: number; // 0-100
+  coverage?: number; // 0-1, default 1.0
+}
+
+/**
+ * Convert numeric effectiveness percent (0-100) to reduction factor (0-1)
+ *
+ * The reduction factor represents how much the control reduces risk.
+ * A 100% effective control provides maximum reduction (capped at MAX_SINGLE_CONTROL_REDUCTION).
+ * A 0% effective control provides no reduction.
+ *
+ * Formula: reductionFactor = (effectivenessPercent / 100) * MAX_SINGLE_CONTROL_REDUCTION
+ *
+ * Examples:
+ * - 100% effectiveness → 0.60 reduction (capped at MAX_SINGLE_CONTROL_REDUCTION)
+ * - 70% effectiveness → 0.42 reduction
+ * - 50% effectiveness → 0.30 reduction
+ * - 20% effectiveness → 0.12 reduction
+ * - 0% effectiveness → 0.00 reduction
+ *
+ * @param effectivenessPercent - Effectiveness percentage (0-100)
+ * @returns Reduction factor (0 to MAX_SINGLE_CONTROL_REDUCTION)
+ */
+export function effectivenessPercentToReductionFactor(
+  effectivenessPercent: number,
+): number {
+  // Clamp to valid range
+  const clampedPercent = Math.max(0, Math.min(100, effectivenessPercent));
+  // Convert to reduction factor, scaled to max reduction
+  return (clampedPercent / 100) * MAX_SINGLE_CONTROL_REDUCTION;
 }
 
 /**
@@ -79,6 +116,57 @@ export function calculateResidualScore(
 
     // Apply diminishing returns: multiply by (1 - reduction)
     totalMultiplier *= 1 - reductionFactor;
+  }
+
+  // Calculate raw residual score
+  const rawResidual = inherentScore * totalMultiplier;
+
+  // Apply floor of 1 and round to nearest integer
+  return Math.max(1, Math.round(rawResidual));
+}
+
+/**
+ * Calculate residual risk score using numeric percent-based effectiveness
+ *
+ * This is the preferred method for new code. Uses effectivenessPercent (0-100)
+ * instead of enum-based effectivenessRating.
+ *
+ * Formula:
+ * 1. For each control, convert effectivenessPercent to reduction factor
+ * 2. Apply coverage multiplier: r_i = reductionFactor × coverage
+ * 3. Calculate total multiplier: totalMultiplier = Π(1 - r_i)
+ * 4. Calculate raw residual: rawResidual = inherentScore × totalMultiplier
+ * 5. Apply floor: residualScore = max(1, round(rawResidual))
+ *
+ * @param inherentScore - The inherent risk score (1-25)
+ * @param controls - Array of linked controls with effectiveness percentages
+ * @returns Calculated residual score (1-25)
+ */
+export function calculateResidualScoreNumeric(
+  inherentScore: number,
+  controls: ControlLinkDataNumeric[],
+): number {
+  if (inherentScore < 1 || inherentScore > 25) {
+    throw new Error('Inherent score must be between 1 and 25');
+  }
+
+  if (!controls || controls.length === 0) {
+    return inherentScore;
+  }
+
+  let totalMultiplier = 1.0;
+
+  for (const control of controls) {
+    const reductionFactor = effectivenessPercentToReductionFactor(
+      control.effectivenessPercent,
+    );
+    const coverage = control.coverage ?? 1.0;
+
+    // Apply coverage to reduction factor
+    const effectiveReduction = reductionFactor * coverage;
+
+    // Apply diminishing returns: multiply by (1 - reduction)
+    totalMultiplier *= 1 - effectiveReduction;
   }
 
   // Calculate raw residual score

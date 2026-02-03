@@ -30,10 +30,11 @@ import {
   calculateScoreAndBand,
   aggregateRisksToHeatmap,
   HeatmapData,
-  calculateResidualScore,
+  calculateResidualScoreNumeric,
   calculateResidualComponents,
   getRiskBand,
-  ControlLinkData,
+  ControlLinkDataNumeric,
+  effectivenessPercentToReductionFactor,
 } from '../utils/risk-scoring.util';
 import {
   RiskFilterDto,
@@ -1201,13 +1202,66 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     return savedLink;
   }
 
+  /**
+   * Update effectiveness override on a risk-control link
+   *
+   * Sets or clears the overrideEffectivenessPercent for a specific risk-control link.
+   * When set, this value takes precedence over the control's global effectivenessPercent.
+   * When null, the control's global effectivenessPercent is used.
+   *
+   * @param tenantId - Tenant ID
+   * @param riskId - Risk ID
+   * @param controlId - Control ID
+   * @param overrideEffectivenessPercent - Override value (0-100) or null to clear
+   * @returns Updated risk-control link or null if not found
+   */
+  async updateEffectivenessOverride(
+    tenantId: string,
+    riskId: string,
+    controlId: string,
+    overrideEffectivenessPercent: number | null,
+  ): Promise<GrcRiskControl | null> {
+    const existing = await this.riskControlRepository.findOne({
+      where: { tenantId, riskId, controlId },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    // Validate range if not null
+    if (overrideEffectivenessPercent !== null) {
+      if (
+        overrideEffectivenessPercent < 0 ||
+        overrideEffectivenessPercent > 100
+      ) {
+        throw new Error(
+          'Override effectiveness percent must be between 0 and 100',
+        );
+      }
+    }
+
+    existing.overrideEffectivenessPercent = overrideEffectivenessPercent;
+    const savedLink = await this.riskControlRepository.save(existing);
+
+    // Recalculate residual risk after updating effectiveness override
+    await this.recalculateResidualRisk(tenantId, riskId);
+
+    return savedLink;
+  }
+
   // ============================================================================
   // Residual Risk Calculation Methods
   // ============================================================================
 
   /**
    * Recalculate residual risk for a risk based on linked controls
-   * Uses diminishing returns model with effectiveness ratings
+   * Uses diminishing returns model with numeric percent-based effectiveness
+   *
+   * The effective effectiveness for each control is determined by:
+   * 1. If overrideEffectivenessPercent is set on the risk-control link, use it
+   * 2. Otherwise, use the control's global effectivenessPercent
+   * 3. If neither is set, fall back to default (50%)
    *
    * @param tenantId - Tenant ID
    * @param riskId - Risk ID
@@ -1235,20 +1289,32 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       }
     }
 
-    // Get all linked controls with their effectiveness ratings
+    // Get all linked controls with their effectiveness and the control's global effectiveness
     const riskControls = await this.riskControlRepository.find({
       where: { tenantId, riskId },
+      relations: ['control'],
     });
 
-    // Convert to ControlLinkData format
-    const controlLinks: ControlLinkData[] = riskControls.map((rc) => ({
-      effectivenessRating:
-        rc.effectivenessRating || ControlEffectiveness.UNKNOWN,
-      coverage: 1.0, // Default coverage, can be extended later
-    }));
+    // Convert to ControlLinkDataNumeric format using effective effectiveness
+    // Effective effectiveness = overrideEffectivenessPercent ?? control.effectivenessPercent ?? 50
+    const controlLinksNumeric: ControlLinkDataNumeric[] = riskControls
+      .filter((rc) => rc.control && !rc.control.isDeleted)
+      .map((rc) => {
+        const effectiveEffectiveness =
+          rc.overrideEffectivenessPercent ??
+          rc.control?.effectivenessPercent ??
+          50; // Default to 50% if neither is set
+        return {
+          effectivenessPercent: effectiveEffectiveness,
+          coverage: 1.0, // Default coverage, can be extended later
+        };
+      });
 
-    // Calculate residual score using diminishing returns model
-    const residualScore = calculateResidualScore(inherentScore, controlLinks);
+    // Calculate residual score using numeric percent-based diminishing returns model
+    const residualScore = calculateResidualScoreNumeric(
+      inherentScore,
+      controlLinksNumeric,
+    );
 
     // Calculate residual likelihood and impact components
     const inherentLikelihood =
@@ -1281,6 +1347,11 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
 
   /**
    * Get linked controls with effectiveness for residual calculation display
+   *
+   * Returns both enum-based effectivenessRating (for backward compatibility)
+   * and numeric percent-based effectiveness data for the new model.
+   *
+   * Effective effectiveness = overrideEffectivenessPercent ?? control.effectivenessPercent ?? 50
    */
   async getLinkedControlsWithEffectiveness(
     tenantId: string,
@@ -1289,7 +1360,11 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
     Array<{
       controlId: string;
       controlTitle: string;
+      controlCode: string | null;
       effectivenessRating: ControlEffectiveness;
+      controlEffectivenessPercent: number | null;
+      overrideEffectivenessPercent: number | null;
+      effectiveEffectivenessPercent: number;
       reductionFactor: number;
     }>
   > {
@@ -1298,17 +1373,14 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       relations: ['control'],
     });
 
-    const EFFECTIVENESS_REDUCTION: Record<ControlEffectiveness, number> = {
-      [ControlEffectiveness.EFFECTIVE]: 0.35,
-      [ControlEffectiveness.PARTIALLY_EFFECTIVE]: 0.2,
-      [ControlEffectiveness.INEFFECTIVE]: 0.1,
-      [ControlEffectiveness.UNKNOWN]: 0.05,
-    };
-
     const result: Array<{
       controlId: string;
       controlTitle: string;
+      controlCode: string | null;
       effectivenessRating: ControlEffectiveness;
+      controlEffectivenessPercent: number | null;
+      overrideEffectivenessPercent: number | null;
+      effectiveEffectivenessPercent: number;
       reductionFactor: number;
     }> = [];
 
@@ -1317,11 +1389,26 @@ export class GrcRiskService extends MultiTenantServiceBase<GrcRisk> {
       if (ctrl && !ctrl.isDeleted) {
         const effectivenessRating =
           rc.effectivenessRating || ControlEffectiveness.UNKNOWN;
+
+        // Calculate effective effectiveness percent
+        // Priority: override > control global > default (50)
+        const effectiveEffectivenessPercent =
+          rc.overrideEffectivenessPercent ?? ctrl.effectivenessPercent ?? 50;
+
+        // Calculate reduction factor from numeric percent
+        const reductionFactor = effectivenessPercentToReductionFactor(
+          effectiveEffectivenessPercent,
+        );
+
         result.push({
           controlId: rc.controlId,
           controlTitle: ctrl.name,
+          controlCode: ctrl.code || null,
           effectivenessRating,
-          reductionFactor: EFFECTIVENESS_REDUCTION[effectivenessRating],
+          controlEffectivenessPercent: ctrl.effectivenessPercent ?? null,
+          overrideEffectivenessPercent: rc.overrideEffectivenessPercent ?? null,
+          effectiveEffectivenessPercent,
+          reductionFactor,
         });
       }
     }

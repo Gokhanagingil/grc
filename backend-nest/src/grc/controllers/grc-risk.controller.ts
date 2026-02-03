@@ -32,6 +32,7 @@ import {
   LinkRiskControlDto,
   CreateTreatmentActionDto,
   UpdateTreatmentActionDto,
+  UpdateEffectivenessOverrideDto,
 } from '../dto';
 import { Perf } from '../../common/decorators';
 import { RisksListQueryPipe } from '../../common/pipes';
@@ -619,6 +620,62 @@ export class GrcRiskController {
       controlId,
       linkDto.effectivenessRating,
       linkDto.notes,
+    );
+
+    if (!link) {
+      throw new NotFoundException(
+        `Control link not found for risk ${riskId} and control ${controlId}`,
+      );
+    }
+
+    return { success: true, data: link };
+  }
+
+  /**
+   * PATCH /grc/risks/:riskId/controls/:controlId/effectiveness-override
+   * Update effectiveness override on a risk-control link
+   *
+   * Sets or clears the overrideEffectivenessPercent for a specific risk-control link.
+   * When set, this value takes precedence over the control's global effectivenessPercent.
+   * When null, the control's global effectivenessPercent is used.
+   *
+   * Body: { overrideEffectivenessPercent: number | null }
+   * - number (0-100): Set override effectiveness
+   * - null: Clear override, use control's global effectiveness
+   */
+  @Patch(':riskId/controls/:controlId/effectiveness-override')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @Perf()
+  async updateEffectivenessOverride(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('controlId') controlId: string,
+    @Body() dto: UpdateEffectivenessOverrideDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    // Validate range if not null
+    if (
+      dto.overrideEffectivenessPercent !== null &&
+      dto.overrideEffectivenessPercent !== undefined
+    ) {
+      if (
+        dto.overrideEffectivenessPercent < 0 ||
+        dto.overrideEffectivenessPercent > 100
+      ) {
+        throw new BadRequestException(
+          'overrideEffectivenessPercent must be between 0 and 100',
+        );
+      }
+    }
+
+    const link = await this.riskService.updateEffectivenessOverride(
+      tenantId,
+      riskId,
+      controlId,
+      dto.overrideEffectivenessPercent ?? null,
     );
 
     if (!link) {

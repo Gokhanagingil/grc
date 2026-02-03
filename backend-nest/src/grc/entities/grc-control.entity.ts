@@ -118,6 +118,20 @@ export class GrcControl extends BaseEntity {
   @Column({ name: 'evidence_requirements', type: 'text', nullable: true })
   evidenceRequirements: string | null;
 
+  /**
+   * Global effectiveness percentage for this control (0-100).
+   * Used as default when calculating residual risk reduction.
+   * Can be overridden per-risk via GrcRiskControl.overrideEffectivenessPercent.
+   * Default: 50 (moderate effectiveness)
+   */
+  @Column({
+    name: 'effectiveness_percent',
+    type: 'int',
+    nullable: true,
+    default: 50,
+  })
+  effectivenessPercent: number | null;
+
   // Relationships
   @OneToMany(() => GrcRiskControl, (rc) => rc.control)
   riskControls: GrcRiskControl[];

@@ -1,13 +1,16 @@
 import { ControlEffectiveness } from '../enums';
 import {
   calculateResidualScore,
+  calculateResidualScoreNumeric,
   calculateResidualComponents,
   calculateRiskScore,
   getRiskBand,
   calculateScoreAndBand,
+  effectivenessPercentToReductionFactor,
   EFFECTIVENESS_REDUCTION,
   MAX_SINGLE_CONTROL_REDUCTION,
   ControlLinkData,
+  ControlLinkDataNumeric,
 } from './risk-scoring.util';
 import { RiskBand } from '../enums';
 
@@ -309,6 +312,237 @@ describe('Risk Scoring Utilities', () => {
       });
       const result = calculateResidualScore(25, manyControls);
       expect(result).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('effectivenessPercentToReductionFactor', () => {
+    it('should return 0 for 0% effectiveness', () => {
+      expect(effectivenessPercentToReductionFactor(0)).toBe(0);
+    });
+
+    it('should return MAX_SINGLE_CONTROL_REDUCTION for 100% effectiveness', () => {
+      expect(effectivenessPercentToReductionFactor(100)).toBe(
+        MAX_SINGLE_CONTROL_REDUCTION,
+      );
+    });
+
+    it('should return half of MAX_SINGLE_CONTROL_REDUCTION for 50% effectiveness', () => {
+      expect(effectivenessPercentToReductionFactor(50)).toBe(
+        MAX_SINGLE_CONTROL_REDUCTION / 2,
+      );
+    });
+
+    it('should clamp values below 0 to 0', () => {
+      expect(effectivenessPercentToReductionFactor(-10)).toBe(0);
+      expect(effectivenessPercentToReductionFactor(-100)).toBe(0);
+    });
+
+    it('should clamp values above 100 to MAX_SINGLE_CONTROL_REDUCTION', () => {
+      expect(effectivenessPercentToReductionFactor(150)).toBe(
+        MAX_SINGLE_CONTROL_REDUCTION,
+      );
+      expect(effectivenessPercentToReductionFactor(200)).toBe(
+        MAX_SINGLE_CONTROL_REDUCTION,
+      );
+    });
+
+    it('should scale linearly between 0 and 100', () => {
+      // 70% effectiveness = 0.7 * 0.6 = 0.42
+      expect(effectivenessPercentToReductionFactor(70)).toBeCloseTo(0.42, 5);
+      // 25% effectiveness = 0.25 * 0.6 = 0.15
+      expect(effectivenessPercentToReductionFactor(25)).toBeCloseTo(0.15, 5);
+    });
+  });
+
+  describe('calculateResidualScoreNumeric', () => {
+    it('should return inherent score when no controls are linked', () => {
+      expect(calculateResidualScoreNumeric(16, [])).toBe(16);
+      expect(calculateResidualScoreNumeric(25, [])).toBe(25);
+      expect(calculateResidualScoreNumeric(1, [])).toBe(1);
+    });
+
+    it('should return inherent score when controls array is empty', () => {
+      expect(calculateResidualScoreNumeric(16, [])).toBe(16);
+    });
+
+    it('should reduce score with a single 100% effective control', () => {
+      const controls: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 },
+      ];
+      // 16 * (1 - 0.6) = 16 * 0.4 = 6.4 -> 6
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBe(6);
+    });
+
+    it('should reduce score with a single 50% effective control (default)', () => {
+      const controls: ControlLinkDataNumeric[] = [{ effectivenessPercent: 50 }];
+      // 16 * (1 - 0.3) = 16 * 0.7 = 11.2 -> 11
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBe(11);
+    });
+
+    it('should have no effect with 0% effective control', () => {
+      const controls: ControlLinkDataNumeric[] = [{ effectivenessPercent: 0 }];
+      // 16 * (1 - 0) = 16
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBe(16);
+    });
+
+    it('should apply diminishing returns with multiple controls', () => {
+      const controls: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+      ];
+      // 16 * (1 - 0.6)^3 = 16 * 0.4^3 = 16 * 0.064 = 1.024 -> 1
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBe(1);
+    });
+
+    it('should never return a score below 1', () => {
+      const controls: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+        { effectivenessPercent: 100 },
+      ];
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle minimum inherent score of 1', () => {
+      const controls: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 },
+      ];
+      const result = calculateResidualScoreNumeric(1, controls);
+      expect(result).toBe(1);
+    });
+
+    it('should respect coverage parameter', () => {
+      const controlsFullCoverage: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100, coverage: 1.0 },
+      ];
+      const controlsHalfCoverage: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100, coverage: 0.5 },
+      ];
+      const controlsZeroCoverage: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100, coverage: 0 },
+      ];
+
+      // Full coverage: 16 * (1 - 0.6) = 6.4 -> 6
+      expect(calculateResidualScoreNumeric(16, controlsFullCoverage)).toBe(6);
+
+      // Half coverage: 16 * (1 - 0.3) = 16 * 0.7 = 11.2 -> 11
+      expect(calculateResidualScoreNumeric(16, controlsHalfCoverage)).toBe(11);
+
+      // Zero coverage: 16 * (1 - 0) = 16 (no effect)
+      expect(calculateResidualScoreNumeric(16, controlsZeroCoverage)).toBe(16);
+    });
+
+    it('should throw error for invalid inherent score', () => {
+      expect(() => calculateResidualScoreNumeric(0, [])).toThrow(
+        'Inherent score must be between 1 and 25',
+      );
+      expect(() => calculateResidualScoreNumeric(26, [])).toThrow(
+        'Inherent score must be between 1 and 25',
+      );
+      expect(() => calculateResidualScoreNumeric(-1, [])).toThrow(
+        'Inherent score must be between 1 and 25',
+      );
+    });
+
+    it('should handle mixed effectiveness controls', () => {
+      const controls: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 }, // 0.6 reduction
+        { effectivenessPercent: 50 }, // 0.3 reduction
+        { effectivenessPercent: 20 }, // 0.12 reduction
+      ];
+      // 16 * (1 - 0.6) * (1 - 0.3) * (1 - 0.12)
+      // = 16 * 0.4 * 0.7 * 0.88
+      // = 16 * 0.2464 = 3.9424 -> 4
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBe(4);
+    });
+
+    it('should clamp effectiveness percent to valid range', () => {
+      const controlsNegative: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: -50 },
+      ];
+      const controlsOver100: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 150 },
+      ];
+
+      // Negative should be clamped to 0, no reduction
+      expect(calculateResidualScoreNumeric(16, controlsNegative)).toBe(16);
+
+      // Over 100 should be clamped to 100, max reduction
+      expect(calculateResidualScoreNumeric(16, controlsOver100)).toBe(6);
+    });
+  });
+
+  describe('Numeric effectiveness acceptance criteria', () => {
+    it('no controls => residual == inherent', () => {
+      expect(calculateResidualScoreNumeric(16, [])).toBe(16);
+      expect(calculateResidualScoreNumeric(10, [])).toBe(10);
+    });
+
+    it('control global effectiveness reduces residual', () => {
+      const controls: ControlLinkDataNumeric[] = [{ effectivenessPercent: 70 }];
+      // 70% effectiveness = 0.42 reduction factor
+      // 16 * (1 - 0.42) = 16 * 0.58 = 9.28 -> 9
+      const result = calculateResidualScoreNumeric(16, controls);
+      expect(result).toBeLessThan(16);
+      expect(result).toBe(9);
+    });
+
+    it('override effectiveness takes precedence over global', () => {
+      // This test validates the logic that would be used in the service
+      // where overrideEffectivenessPercent ?? control.effectivenessPercent is used
+      const globalEffectiveness = 70;
+      const overrideEffectiveness = 20;
+
+      const controlsWithGlobal: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: globalEffectiveness },
+      ];
+      const controlsWithOverride: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: overrideEffectiveness },
+      ];
+
+      const residualWithGlobal = calculateResidualScoreNumeric(
+        16,
+        controlsWithGlobal,
+      );
+      const residualWithOverride = calculateResidualScoreNumeric(
+        16,
+        controlsWithOverride,
+      );
+
+      // Override (20%) should result in higher residual than global (70%)
+      expect(residualWithOverride).toBeGreaterThan(residualWithGlobal);
+    });
+
+    it('bounds 0..100 enforced', () => {
+      // 0% effectiveness = no reduction
+      const controls0: ControlLinkDataNumeric[] = [{ effectivenessPercent: 0 }];
+      expect(calculateResidualScoreNumeric(16, controls0)).toBe(16);
+
+      // 100% effectiveness = max reduction (60%)
+      const controls100: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 100 },
+      ];
+      expect(calculateResidualScoreNumeric(16, controls100)).toBe(6);
+
+      // Values outside bounds should be clamped
+      const controlsNegative: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: -50 },
+      ];
+      expect(calculateResidualScoreNumeric(16, controlsNegative)).toBe(16);
+
+      const controlsOver: ControlLinkDataNumeric[] = [
+        { effectivenessPercent: 150 },
+      ];
+      expect(calculateResidualScoreNumeric(16, controlsOver)).toBe(6);
     });
   });
 });

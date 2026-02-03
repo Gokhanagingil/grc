@@ -28,6 +28,7 @@ import {
   CircularProgress,
   Tooltip,
   Divider,
+  TextField,
 } from '@mui/material';
 import {
   Security as ControlIcon,
@@ -175,6 +176,7 @@ interface Control {
   nextTestDate: string | null;
   lastTestResult: string | null;
   evidenceRequirements: string | null;
+  effectivenessPercent: number | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
@@ -266,6 +268,11 @@ export const ControlDetail: React.FC = () => {
   }
   const [linkedGrcEvidences, setLinkedGrcEvidences] = useState<LinkedGrcEvidence[]>([]);
   const [linkedEvidencesLoading, setLinkedEvidencesLoading] = useState(false);
+
+  // Effectiveness editing state
+  const [editingEffectiveness, setEditingEffectiveness] = useState(false);
+  const [effectivenessValue, setEffectivenessValue] = useState<string>('');
+  const [savingEffectiveness, setSavingEffectiveness] = useState(false);
 
   const fetchControl = useCallback(async () => {
     if (!id || !tenantId) return;
@@ -447,6 +454,50 @@ export const ControlDetail: React.FC = () => {
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to unlink process');
+    }
+  };
+
+  // Start editing effectiveness
+  const handleStartEditEffectiveness = () => {
+    setEditingEffectiveness(true);
+    setEffectivenessValue(control?.effectivenessPercent?.toString() ?? '50');
+  };
+
+  // Cancel editing effectiveness
+  const handleCancelEditEffectiveness = () => {
+    setEditingEffectiveness(false);
+    setEffectivenessValue('');
+  };
+
+  // Save effectiveness
+  const handleSaveEffectiveness = async () => {
+    if (!id || !tenantId) return;
+
+    const value = effectivenessValue.trim();
+    if (value === '') {
+      setError('Effectiveness value is required');
+      return;
+    }
+
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+      setError('Effectiveness must be a number between 0 and 100');
+      return;
+    }
+
+    setSavingEffectiveness(true);
+    try {
+      await controlApi.update(tenantId, id, { effectivenessPercent: numValue });
+      setSuccess('Effectiveness updated successfully');
+      setEditingEffectiveness(false);
+      setEffectivenessValue('');
+      await fetchControl();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to update effectiveness');
+    } finally {
+      setSavingEffectiveness(false);
     }
   };
 
@@ -671,6 +722,45 @@ export const ControlDetail: React.FC = () => {
                     <Grid item xs={8}><Chip label={formatStatus(control.status)} size="small" color={getStatusColor(control.status)} /></Grid>
                     <Grid item xs={4}><Typography color="text.secondary">Frequency</Typography></Grid>
                     <Grid item xs={8}><Typography>{formatFrequency(control.frequency)}</Typography></Grid>
+                    <Grid item xs={4}><Typography color="text.secondary">Effectiveness %</Typography></Grid>
+                    <Grid item xs={8}>
+                      {editingEffectiveness ? (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={effectivenessValue}
+                            onChange={(e) => setEffectivenessValue(e.target.value)}
+                            inputProps={{ min: 0, max: 100, style: { width: '60px' } }}
+                            disabled={savingEffectiveness}
+                          />
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={handleSaveEffectiveness}
+                            disabled={savingEffectiveness}
+                          >
+                            {savingEffectiveness ? <CircularProgress size={16} /> : <LinkIcon fontSize="small" />}
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={handleCancelEditEffectiveness}
+                            disabled={savingEffectiveness}
+                          >
+                            <UnlinkIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography>{control.effectivenessPercent ?? 50}%</Typography>
+                          <Tooltip title="Edit global effectiveness">
+                            <IconButton size="small" onClick={handleStartEditEffectiveness}>
+                              <InfoIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      )}
+                    </Grid>
                   </Grid>
                 </CardContent>
               </Card>
