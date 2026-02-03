@@ -410,22 +410,13 @@ export class GrcControlController {
       control.frequency = updateDto.frequency;
     }
     if (updateDto.ownerId !== undefined) {
-      control.ownerId = updateDto.ownerId;
-    }
-    if (updateDto.ownerDisplayName !== undefined) {
-      control.ownerDisplayName = updateDto.ownerDisplayName;
+      control.ownerUserId = updateDto.ownerId;
     }
     if (updateDto.lastTestedDate !== undefined) {
       control.lastTestedDate = new Date(updateDto.lastTestedDate);
     }
     if (updateDto.nextTestDate !== undefined) {
       control.nextTestDate = new Date(updateDto.nextTestDate);
-    }
-    if (updateDto.implementationDetails !== undefined) {
-      control.implementationDetails = updateDto.implementationDetails;
-    }
-    if (updateDto.testingProcedure !== undefined) {
-      control.testingProcedure = updateDto.testingProcedure;
     }
     if (updateDto.effectivenessPercent !== undefined) {
       control.effectivenessPercent = updateDto.effectivenessPercent;
