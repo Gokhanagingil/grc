@@ -55,6 +55,9 @@ import {
   policyApi,
   controlApi,
   unwrapResponse,
+  unwrapArrayResponse,
+  unwrapPaginatedResponse,
+  ensureArray,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
@@ -243,13 +246,19 @@ export const RiskDetail: React.FC = () => {
     setRelationsLoading(true);
     try {
       const [policiesRes, controlsRes] = await Promise.all([
-        riskApi.getLinkedPolicies(tenantId, id).catch(() => ({ data: { data: [] } })),
-        riskApi.getLinkedControls(tenantId, id).catch(() => ({ data: { data: [] } })),
+        riskApi.getLinkedPolicies(tenantId, id).catch(() => ({ data: [] })),
+        riskApi.getLinkedControls(tenantId, id).catch(() => ({ data: { success: true, data: [] } })),
       ]);
-      setLinkedPolicies(policiesRes.data?.data || policiesRes.data || []);
-      setLinkedControls(controlsRes.data?.data || controlsRes.data || []);
+      // Policies endpoint returns array directly (no envelope)
+      // Controls endpoint returns { success: true, data: [...] } envelope
+      const policies = unwrapArrayResponse<LinkedPolicy>(policiesRes);
+      const controls = unwrapArrayResponse<LinkedControl>(controlsRes);
+      setLinkedPolicies(policies);
+      setLinkedControls(controls);
     } catch (err) {
       console.error('Failed to fetch relations:', err);
+      setLinkedPolicies([]);
+      setLinkedControls([]);
     } finally {
       setRelationsLoading(false);
     }
@@ -266,12 +275,15 @@ export const RiskDetail: React.FC = () => {
       }
       params.set('pageSize', '50');
       const response = await policyApi.list(tenantId, params);
-      const data = response.data?.data?.items || response.data?.items || response.data || [];
+      // Use unwrapPaginatedResponse for LIST-CONTRACT compliant endpoints
+      const { items } = unwrapPaginatedResponse<LinkedPolicy>(response);
+      const data = ensureArray<LinkedPolicy>(items);
       // Filter out already linked policies
-      const linkedIds = new Set(linkedPolicies.map(p => p.id));
+      const linkedIds = new Set(ensureArray<LinkedPolicy>(linkedPolicies).map(p => p.id));
       setAvailablePolicies(data.filter((p: LinkedPolicy) => !linkedIds.has(p.id)));
     } catch (err) {
       console.error('Failed to fetch policies:', err);
+      setAvailablePolicies([]);
     } finally {
       setPoliciesLoading(false);
     }
@@ -287,12 +299,15 @@ export const RiskDetail: React.FC = () => {
         params.search = controlSearchTerm;
       }
       const response = await controlApi.list(tenantId, params);
-      const data = response.data?.data?.items || response.data?.items || response.data || [];
+      // Use unwrapPaginatedResponse for LIST-CONTRACT compliant endpoints
+      const { items } = unwrapPaginatedResponse<LinkedControl>(response);
+      const data = ensureArray<LinkedControl>(items);
       // Filter out already linked controls
-      const linkedIds = new Set(linkedControls.map(c => c.id));
+      const linkedIds = new Set(ensureArray<LinkedControl>(linkedControls).map(c => c.id));
       setAvailableControls(data.filter((c: LinkedControl) => !linkedIds.has(c.id)));
     } catch (err) {
       console.error('Failed to fetch controls:', err);
+      setAvailableControls([]);
     } finally {
       setControlsLoading(false);
     }
