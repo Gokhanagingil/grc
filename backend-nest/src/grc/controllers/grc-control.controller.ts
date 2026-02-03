@@ -2,9 +2,11 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Query,
+  Body,
   Headers,
   UseGuards,
   BadRequestException,
@@ -44,6 +46,7 @@ import { GrcTestResultService } from '../services/grc-test-result.service';
 import { GrcControlTestService } from '../services/grc-control-test.service';
 import { TestResultFilterDto } from '../dto/test-result.dto';
 import { ControlTestFilterDto } from '../dto/control-test.dto';
+import { UpdateControlDto } from '../dto';
 
 /**
  * GRC Control Controller
@@ -352,6 +355,85 @@ export class GrcControlController {
     }
 
     return control;
+  }
+
+  /**
+   * PATCH /grc/controls/:id
+   * Update a control's properties including effectivenessPercent
+   *
+   * Allows partial updates to control fields.
+   * effectivenessPercent is the global effectiveness used in residual risk calculations
+   * unless overridden at the risk-control link level.
+   */
+  @Patch(':id')
+  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Perf()
+  async update(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: UpdateControlDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const controlRepo = this.dataSource.getRepository(GrcControl);
+
+    const control = await controlRepo.findOne({
+      where: {
+        id,
+        tenantId,
+        isDeleted: false,
+      } as FindOptionsWhere<GrcControl>,
+    });
+
+    if (!control) {
+      throw new NotFoundException(`Control with ID ${id} not found`);
+    }
+
+    if (updateDto.name !== undefined) {
+      control.name = updateDto.name;
+    }
+    if (updateDto.code !== undefined) {
+      control.code = updateDto.code;
+    }
+    if (updateDto.description !== undefined) {
+      control.description = updateDto.description;
+    }
+    if (updateDto.status !== undefined) {
+      control.status = updateDto.status;
+    }
+    if (updateDto.type !== undefined) {
+      control.type = updateDto.type;
+    }
+    if (updateDto.frequency !== undefined) {
+      control.frequency = updateDto.frequency;
+    }
+    if (updateDto.ownerId !== undefined) {
+      control.ownerId = updateDto.ownerId;
+    }
+    if (updateDto.ownerDisplayName !== undefined) {
+      control.ownerDisplayName = updateDto.ownerDisplayName;
+    }
+    if (updateDto.lastTestedDate !== undefined) {
+      control.lastTestedDate = new Date(updateDto.lastTestedDate);
+    }
+    if (updateDto.nextTestDate !== undefined) {
+      control.nextTestDate = new Date(updateDto.nextTestDate);
+    }
+    if (updateDto.implementationDetails !== undefined) {
+      control.implementationDetails = updateDto.implementationDetails;
+    }
+    if (updateDto.testingProcedure !== undefined) {
+      control.testingProcedure = updateDto.testingProcedure;
+    }
+    if (updateDto.effectivenessPercent !== undefined) {
+      control.effectivenessPercent = updateDto.effectivenessPercent;
+    }
+
+    const updatedControl = await controlRepo.save(control);
+
+    return { success: true, data: updatedControl };
   }
 
   /**

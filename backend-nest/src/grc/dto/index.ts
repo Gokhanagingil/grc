@@ -21,6 +21,7 @@ export { CreateRiskAssessmentDto } from './create-risk-assessment.dto';
 export {
   LinkRiskControlDto,
   UpdateRiskControlLinkDto,
+  UpdateEffectivenessOverrideDto,
 } from './link-risk-control.dto';
 
 // Policy DTOs
@@ -61,6 +62,9 @@ export {
   PROCESS_CONTROL_SORTABLE_FIELDS,
 } from './filter-process-control.dto';
 export { LinkRisksToControlDto } from './link-risks-to-control.dto';
+
+// Control DTOs
+export { UpdateControlDto } from './update-control.dto';
 
 // ControlResult DTOs (Sprint 5)
 export { CreateControlResultDto } from './create-control-result.dto';

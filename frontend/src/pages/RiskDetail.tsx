@@ -116,7 +116,11 @@ interface LinkedControl {
 interface ControlWithEffectiveness {
   controlId: string;
   controlTitle: string;
+  controlCode: string | null;
   effectivenessRating: 'unknown' | 'effective' | 'partially_effective' | 'ineffective';
+  controlEffectivenessPercent: number | null;
+  overrideEffectivenessPercent: number | null;
+  effectiveEffectivenessPercent: number;
   reductionFactor: number;
 }
 
@@ -235,6 +239,11 @@ export const RiskDetail: React.FC = () => {
   const [controlsWithEffectiveness, setControlsWithEffectiveness] = useState<ControlWithEffectiveness[]>([]);
   const [effectivenessLoading, setEffectivenessLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+
+  // Effectiveness override editing state
+  const [editingControlId, setEditingControlId] = useState<string | null>(null);
+  const [editingEffectivenessValue, setEditingEffectivenessValue] = useState<string>('');
+  const [savingEffectiveness, setSavingEffectiveness] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -469,6 +478,71 @@ export const RiskDetail: React.FC = () => {
       setError('Failed to recalculate residual risk. Please try again.');
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  // Start editing effectiveness override for a control
+  const handleStartEditEffectiveness = (ctrl: ControlWithEffectiveness) => {
+    setEditingControlId(ctrl.controlId);
+    setEditingEffectivenessValue(
+      ctrl.overrideEffectivenessPercent !== null
+        ? ctrl.overrideEffectivenessPercent.toString()
+        : ctrl.effectiveEffectivenessPercent.toString()
+    );
+  };
+
+  // Cancel editing effectiveness override
+  const handleCancelEditEffectiveness = () => {
+    setEditingControlId(null);
+    setEditingEffectivenessValue('');
+  };
+
+  // Save effectiveness override
+  const handleSaveEffectivenessOverride = async (controlId: string) => {
+    if (!id || !tenantId) return;
+    setSavingEffectiveness(true);
+    try {
+      const value = editingEffectivenessValue.trim();
+      let overrideValue: number | null = null;
+      
+      if (value !== '') {
+        const numValue = parseInt(value, 10);
+        if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+          setError('Effectiveness must be a number between 0 and 100');
+          setSavingEffectiveness(false);
+          return;
+        }
+        overrideValue = numValue;
+      }
+
+      await riskApi.updateEffectivenessOverride(tenantId, id, controlId, overrideValue);
+      setSuccess('Effectiveness override updated');
+      setEditingControlId(null);
+      setEditingEffectivenessValue('');
+      fetchControlsWithEffectiveness();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to update effectiveness override:', err);
+      setError('Failed to update effectiveness override. Please try again.');
+    } finally {
+      setSavingEffectiveness(false);
+    }
+  };
+
+  // Clear effectiveness override (use global)
+  const handleClearEffectivenessOverride = async (controlId: string) => {
+    if (!id || !tenantId) return;
+    setSavingEffectiveness(true);
+    try {
+      await riskApi.updateEffectivenessOverride(tenantId, id, controlId, null);
+      setSuccess('Effectiveness override cleared, using global value');
+      fetchControlsWithEffectiveness();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to clear effectiveness override:', err);
+      setError('Failed to clear effectiveness override. Please try again.');
+    } finally {
+      setSavingEffectiveness(false);
     }
   };
 
@@ -1022,8 +1096,9 @@ export const RiskDetail: React.FC = () => {
                           <TableHead>
                             <TableRow>
                               <TableCell>Control</TableCell>
-                              <TableCell>Effectiveness</TableCell>
+                              <TableCell>Effectiveness %</TableCell>
                               <TableCell align="right">Reduction Factor</TableCell>
+                              <TableCell align="right">Actions</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -1031,24 +1106,89 @@ export const RiskDetail: React.FC = () => {
                               <TableRow key={ctrl.controlId} hover>
                                 <TableCell>
                                   <Link to={`/controls/${ctrl.controlId}`} style={{ textDecoration: 'none' }}>
-                                    <Typography color="primary">{ctrl.controlTitle}</Typography>
+                                    <Typography color="primary">
+                                      {ctrl.controlCode ? `[${ctrl.controlCode}] ` : ''}{ctrl.controlTitle}
+                                    </Typography>
                                   </Link>
                                 </TableCell>
                                 <TableCell>
-                                  <Chip
-                                    label={formatStatus(ctrl.effectivenessRating)}
-                                    size="small"
-                                    color={
-                                      ctrl.effectivenessRating === 'effective' ? 'success' :
-                                      ctrl.effectivenessRating === 'partially_effective' ? 'warning' :
-                                      ctrl.effectivenessRating === 'ineffective' ? 'error' : 'default'
-                                    }
-                                  />
+                                  {editingControlId === ctrl.controlId ? (
+                                    <Box display="flex" alignItems="center" gap={1}>
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        value={editingEffectivenessValue}
+                                        onChange={(e) => setEditingEffectivenessValue(e.target.value)}
+                                        inputProps={{ min: 0, max: 100, style: { width: '60px' } }}
+                                        disabled={savingEffectiveness}
+                                      />
+                                      <IconButton
+                                        size="small"
+                                        color="primary"
+                                        onClick={() => handleSaveEffectivenessOverride(ctrl.controlId)}
+                                        disabled={savingEffectiveness}
+                                      >
+                                        {savingEffectiveness ? <CircularProgress size={16} /> : <EditIcon fontSize="small" />}
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={handleCancelEditEffectiveness}
+                                        disabled={savingEffectiveness}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  ) : (
+                                    <Box display="flex" alignItems="center" gap={1}>
+                                      <Typography variant="body2" fontWeight="medium">
+                                        {ctrl.effectiveEffectivenessPercent}%
+                                      </Typography>
+                                      {ctrl.overrideEffectivenessPercent !== null && (
+                                        <Chip
+                                          label="Override"
+                                          size="small"
+                                          color="info"
+                                          variant="outlined"
+                                        />
+                                      )}
+                                      {ctrl.overrideEffectivenessPercent === null && ctrl.controlEffectivenessPercent !== null && (
+                                        <Tooltip title={`Global: ${ctrl.controlEffectivenessPercent}%`}>
+                                          <InfoIcon fontSize="small" color="action" />
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                  )}
                                 </TableCell>
                                 <TableCell align="right">
                                   <Typography variant="body2" fontWeight="medium">
                                     {Math.round(ctrl.reductionFactor * 100)}%
                                   </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  {editingControlId !== ctrl.controlId && (
+                                    <Box display="flex" justifyContent="flex-end" gap={0.5}>
+                                      <Tooltip title="Edit effectiveness override">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleStartEditEffectiveness(ctrl)}
+                                        >
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                      {ctrl.overrideEffectivenessPercent !== null && (
+                                        <Tooltip title="Clear override (use global)">
+                                          <IconButton
+                                            size="small"
+                                            color="warning"
+                                            onClick={() => handleClearEffectivenessOverride(ctrl.controlId)}
+                                            disabled={savingEffectiveness}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))}
