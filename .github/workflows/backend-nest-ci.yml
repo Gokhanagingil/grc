@@ -54,11 +54,45 @@ on:
           - 'true'
           - 'false'
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+# This is critical for preventing runner acquisition failures from queued workflows
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions - only what's needed for CI
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: '20.x'
   WORKING_DIRECTORY: ./backend-nest
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Preflight - Fast runner acquisition check
+  # ---------------------------------------------------------------------------
+  # This lightweight job runs first to detect runner acquisition issues early.
+  # If GitHub Actions runners are overloaded, this job will fail fast with a
+  # clear message instead of spawning heavy jobs that will also fail.
+  # ---------------------------------------------------------------------------
+  preflight:
+    name: Runner Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Runner acquisition check
+        run: |
+          echo "=== Runner Preflight Check ==="
+          echo "Runner acquired successfully at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Runner: $RUNNER_NAME"
+          echo "OS: $RUNNER_OS"
+          echo ""
+          echo "If you see this message, the runner was acquired successfully."
+          echo "If this job times out or fails to start, GitHub Actions runners"
+          echo "may be experiencing issues. See docs/runbooks/CI-RECOVERY.md for"
+          echo "recovery steps."
+
   # ---------------------------------------------------------------------------
   # Lint - Code Quality Checks
   # ---------------------------------------------------------------------------

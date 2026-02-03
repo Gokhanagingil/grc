@@ -32,6 +32,11 @@ on:
       - 'ops/**/*.sh'
       - 'scripts/**/*.sh'
 
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   preflight-validation:
     name: Validate Deploy Scripts

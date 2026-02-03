@@ -325,6 +325,49 @@ export class GrcRiskController {
   }
 
   /**
+   * POST /grc/risks/:riskId/policies/:policyId
+   * Link a single policy to a risk (idempotent)
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Post(':riskId/policies/:policyId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async linkPolicy(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('policyId') policyId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.linkPolicy(tenantId, riskId, policyId);
+    return { success: true, message: 'Policy linked successfully' };
+  }
+
+  /**
+   * DELETE /grc/risks/:riskId/policies/:policyId
+   * Unlink a single policy from a risk
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Delete(':riskId/policies/:policyId')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async unlinkPolicy(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+    @Param('policyId') policyId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    await this.riskService.unlinkPolicy(tenantId, riskId, policyId);
+  }
+
+  /**
    * POST /grc/risks/:id/requirements
    * Link requirements to a risk (replaces existing links)
    * Requires GRC_RISK_WRITE permission
@@ -582,6 +625,58 @@ export class GrcRiskController {
     return { success: true, data: link };
   }
 
+  /**
+   * POST /grc/risks/:riskId/recalculate-residual
+   * Recalculate residual risk based on linked controls
+   * Requires GRC_RISK_WRITE permission
+   */
+  @Post(':riskId/recalculate-residual')
+  @Permissions(Permission.GRC_RISK_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async recalculateResidualRisk(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const risk = await this.riskService.recalculateResidualRisk(
+      tenantId,
+      riskId,
+    );
+
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${riskId} not found`);
+    }
+
+    return { success: true, data: risk };
+  }
+
+  /**
+   * GET /grc/risks/:riskId/controls/effectiveness
+   * Get linked controls with effectiveness ratings for residual calculation display
+   */
+  @Get(':riskId/controls/effectiveness')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getLinkedControlsWithEffectiveness(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const controls = await this.riskService.getLinkedControlsWithEffectiveness(
+      tenantId,
+      riskId,
+    );
+
+    return { success: true, data: controls };
+  }
+
   // ============================================================================
   // Treatment Action Endpoints
   // ============================================================================
@@ -780,5 +875,77 @@ export class GrcRiskController {
     );
 
     return { success: true, data: summary };
+  }
+
+  /**
+   * GET /grc/risks/above-appetite
+   * Get risks above the tenant's risk appetite threshold
+   * Query params: appetiteScore (required), page, pageSize, sortBy, sortOrder
+   */
+  @Get('above-appetite')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getRisksAboveAppetite(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('appetiteScore') appetiteScoreStr: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const appetiteScore = parseInt(appetiteScoreStr, 10);
+    if (isNaN(appetiteScore) || appetiteScore < 1 || appetiteScore > 25) {
+      throw new BadRequestException(
+        'appetiteScore must be a number between 1 and 25',
+      );
+    }
+
+    const result = await this.riskService.getRisksAboveAppetite(
+      tenantId,
+      appetiteScore,
+      {
+        page: page ? parseInt(page, 10) : 1,
+        pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+        sortBy: sortBy || 'residualScore',
+        sortOrder: sortOrder || 'DESC',
+      },
+    );
+
+    return { success: true, ...result };
+  }
+
+  /**
+   * GET /grc/risks/stats-with-appetite
+   * Get risk statistics including above-appetite count
+   * Query params: appetiteScore (required)
+   */
+  @Get('stats-with-appetite')
+  @Permissions(Permission.GRC_RISK_READ)
+  @Perf()
+  async getStatsWithAppetite(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('appetiteScore') appetiteScoreStr: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const appetiteScore = parseInt(appetiteScoreStr, 10);
+    if (isNaN(appetiteScore) || appetiteScore < 1 || appetiteScore > 25) {
+      throw new BadRequestException(
+        'appetiteScore must be a number between 1 and 25',
+      );
+    }
+
+    const stats = await this.riskService.getStatsWithAppetite(
+      tenantId,
+      appetiteScore,
+    );
+
+    return { success: true, data: stats };
   }
 }

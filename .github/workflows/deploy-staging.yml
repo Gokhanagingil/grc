@@ -30,6 +30,12 @@ on:
   #   branches:
   #     - main
 
+# Prevent concurrent deployments to staging - only one deploy at a time
+# Do NOT cancel in-progress deploys to avoid partial deployment states
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
 env:
   DEPLOY_PATH: /opt/grc-platform
   # Minimum free disk space (GB) required before docker build

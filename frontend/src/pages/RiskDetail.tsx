@@ -28,6 +28,13 @@ import {
   TableHead,
   TableRow,
   LinearProgress,
+  CircularProgress,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemText,
+  Checkbox,
+  Tooltip,
 } from '@mui/material';
 import {
   Warning as RiskIcon,
@@ -38,10 +45,15 @@ import {
   Policy as PolicyIcon,
   Security as ControlIcon,
   Assignment as TreatmentIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   riskApi,
+  policyApi,
+  controlApi,
   unwrapResponse,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,6 +77,13 @@ interface Risk {
   reviewDate: string | null;
   createdAt: string;
   updatedAt: string;
+  // New residual risk fields
+  inherentLikelihood: number | null;
+  inherentImpact: number | null;
+  inherentScore: number | null;
+  residualLikelihood: number | null;
+  residualImpact: number | null;
+  residualScore: number | null;
 }
 
 interface LinkedPolicy {
@@ -156,6 +175,23 @@ export const RiskDetail: React.FC = () => {
   const [relationsLoading, setRelationsLoading] = useState(false);
 
   const [editDialogOpen, setEditDialogOpen] = useState(isNewRisk);
+
+  // Link Policy Modal state
+  const [linkPolicyModalOpen, setLinkPolicyModalOpen] = useState(false);
+  const [availablePolicies, setAvailablePolicies] = useState<LinkedPolicy[]>([]);
+  const [policiesLoading, setPoliciesLoading] = useState(false);
+  const [policySearchTerm, setPolicySearchTerm] = useState('');
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
+  const [linkingPolicy, setLinkingPolicy] = useState(false);
+
+  // Link Control Modal state
+  const [linkControlModalOpen, setLinkControlModalOpen] = useState(false);
+  const [availableControls, setAvailableControls] = useState<LinkedControl[]>([]);
+  const [controlsLoading, setControlsLoading] = useState(false);
+  const [controlSearchTerm, setControlSearchTerm] = useState('');
+  const [selectedControlIds, setSelectedControlIds] = useState<string[]>([]);
+  const [linkingControl, setLinkingControl] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -164,10 +200,9 @@ export const RiskDetail: React.FC = () => {
     likelihood: 'possible',
     impact: 'moderate',
     status: 'identified',
-    owner: '',
-    mitigationStrategy: '',
-    residualRisk: '',
-    reviewDate: '',
+    ownerDisplayName: '',
+    mitigationPlan: '',
+    lastReviewedAt: '',
   });
 
   const fetchRisk = useCallback(async () => {
@@ -188,10 +223,11 @@ export const RiskDetail: React.FC = () => {
         likelihood: data.likelihood,
         impact: data.impact,
         status: data.status,
-        owner: data.owner || '',
-        mitigationStrategy: data.mitigationStrategy || '',
-        residualRisk: data.residualRisk || '',
-        reviewDate: data.reviewDate ? data.reviewDate.split('T')[0] : '',
+        ownerDisplayName: (data as unknown as { ownerDisplayName?: string }).ownerDisplayName || '',
+        mitigationPlan: (data as unknown as { mitigationPlan?: string }).mitigationPlan || '',
+        lastReviewedAt: (data as unknown as { lastReviewedAt?: string }).lastReviewedAt
+          ? (data as unknown as { lastReviewedAt: string }).lastReviewedAt.split('T')[0]
+          : '',
       });
     } catch (err) {
       console.error('Error fetching risk:', err);
@@ -206,16 +242,167 @@ export const RiskDetail: React.FC = () => {
 
     setRelationsLoading(true);
     try {
-      const policiesRes = await riskApi.getLinkedPolicies(tenantId, id).catch(() => ({ data: { data: [] } }));
+      const [policiesRes, controlsRes] = await Promise.all([
+        riskApi.getLinkedPolicies(tenantId, id).catch(() => ({ data: { data: [] } })),
+        riskApi.getLinkedControls(tenantId, id).catch(() => ({ data: { data: [] } })),
+      ]);
       setLinkedPolicies(policiesRes.data?.data || policiesRes.data || []);
-      // Controls API not yet implemented for risks
-      setLinkedControls([]);
+      setLinkedControls(controlsRes.data?.data || controlsRes.data || []);
     } catch (err) {
       console.error('Failed to fetch relations:', err);
     } finally {
       setRelationsLoading(false);
     }
   }, [id, isNewRisk, tenantId]);
+
+  // Fetch available policies for linking
+  const fetchAvailablePolicies = useCallback(async () => {
+    if (!tenantId) return;
+    setPoliciesLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (policySearchTerm) {
+        params.set('search', policySearchTerm);
+      }
+      params.set('pageSize', '50');
+      const response = await policyApi.list(tenantId, params);
+      const data = response.data?.data?.items || response.data?.items || response.data || [];
+      // Filter out already linked policies
+      const linkedIds = new Set(linkedPolicies.map(p => p.id));
+      setAvailablePolicies(data.filter((p: LinkedPolicy) => !linkedIds.has(p.id)));
+    } catch (err) {
+      console.error('Failed to fetch policies:', err);
+    } finally {
+      setPoliciesLoading(false);
+    }
+  }, [tenantId, policySearchTerm, linkedPolicies]);
+
+  // Fetch available controls for linking
+  const fetchAvailableControls = useCallback(async () => {
+    if (!tenantId) return;
+    setControlsLoading(true);
+    try {
+      const params: Record<string, unknown> = { pageSize: 50 };
+      if (controlSearchTerm) {
+        params.search = controlSearchTerm;
+      }
+      const response = await controlApi.list(tenantId, params);
+      const data = response.data?.data?.items || response.data?.items || response.data || [];
+      // Filter out already linked controls
+      const linkedIds = new Set(linkedControls.map(c => c.id));
+      setAvailableControls(data.filter((c: LinkedControl) => !linkedIds.has(c.id)));
+    } catch (err) {
+      console.error('Failed to fetch controls:', err);
+    } finally {
+      setControlsLoading(false);
+    }
+  }, [tenantId, controlSearchTerm, linkedControls]);
+
+  // Link selected policies
+  const handleLinkPolicies = async () => {
+    if (!id || !tenantId || selectedPolicyIds.length === 0) return;
+    setLinkingPolicy(true);
+    try {
+      for (const policyId of selectedPolicyIds) {
+        await riskApi.linkPolicy(tenantId, id, policyId);
+      }
+      setSuccess(`Successfully linked ${selectedPolicyIds.length} policy(ies)`);
+      setSelectedPolicyIds([]);
+      setLinkPolicyModalOpen(false);
+      fetchRelations();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to link policies:', err);
+      setError('Failed to link policies. Please try again.');
+    } finally {
+      setLinkingPolicy(false);
+    }
+  };
+
+  // Unlink a policy
+  const handleUnlinkPolicy = async (policyId: string) => {
+    if (!id || !tenantId) return;
+    try {
+      await riskApi.unlinkPolicy(tenantId, id, policyId);
+      setSuccess('Policy unlinked successfully');
+      fetchRelations();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to unlink policy:', err);
+      setError('Failed to unlink policy. Please try again.');
+    }
+  };
+
+  // Link selected controls
+  const handleLinkControls = async () => {
+    if (!id || !tenantId || selectedControlIds.length === 0) return;
+    setLinkingControl(true);
+    try {
+      for (const controlId of selectedControlIds) {
+        await riskApi.linkControl(tenantId, id, controlId);
+      }
+      setSuccess(`Successfully linked ${selectedControlIds.length} control(s)`);
+      setSelectedControlIds([]);
+      setLinkControlModalOpen(false);
+      fetchRelations();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to link controls:', err);
+      setError('Failed to link controls. Please try again.');
+    } finally {
+      setLinkingControl(false);
+    }
+  };
+
+  // Unlink a control
+  const handleUnlinkControl = async (controlId: string) => {
+    if (!id || !tenantId) return;
+    try {
+      await riskApi.unlinkControl(tenantId, id, controlId);
+      setSuccess('Control unlinked successfully');
+      fetchRelations();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to unlink control:', err);
+      setError('Failed to unlink control. Please try again.');
+    }
+  };
+
+  // Open link policy modal
+  const openLinkPolicyModal = () => {
+    setLinkPolicyModalOpen(true);
+    setPolicySearchTerm('');
+    setSelectedPolicyIds([]);
+    fetchAvailablePolicies();
+  };
+
+  // Open link control modal
+  const openLinkControlModal = () => {
+    setLinkControlModalOpen(true);
+    setControlSearchTerm('');
+    setSelectedControlIds([]);
+    fetchAvailableControls();
+  };
+
+  // Effect to refetch policies when search term changes
+  useEffect(() => {
+    if (linkPolicyModalOpen) {
+      const timer = setTimeout(() => {
+        fetchAvailablePolicies();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [policySearchTerm, linkPolicyModalOpen, fetchAvailablePolicies]);
+
+  // Effect to refetch controls when search term changes
+  useEffect(() => {
+    if (linkControlModalOpen) {
+      const timer = setTimeout(() => {
+        fetchAvailableControls();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [controlSearchTerm, linkControlModalOpen, fetchAvailableControls]);
 
   useEffect(() => {
     fetchRisk();
@@ -247,10 +434,9 @@ export const RiskDetail: React.FC = () => {
         likelihood: formData.likelihood,
         impact: formData.impact,
         status: formData.status,
-        owner: formData.owner || undefined,
-        mitigationStrategy: formData.mitigationStrategy || undefined,
-        residualRisk: formData.residualRisk || undefined,
-        reviewDate: formData.reviewDate || undefined,
+        ownerDisplayName: formData.ownerDisplayName || undefined,
+        mitigationPlan: formData.mitigationPlan || undefined,
+        lastReviewedAt: formData.lastReviewedAt || undefined,
       };
 
       if (isNewRisk) {
@@ -436,16 +622,16 @@ export const RiskDetail: React.FC = () => {
                 <TextField
                   fullWidth
                   label="Owner"
-                  value={formData.owner}
-                  onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                  value={formData.ownerDisplayName}
+                  onChange={(e) => setFormData({ ...formData, ownerDisplayName: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Mitigation Strategy"
-                  value={formData.mitigationStrategy}
-                  onChange={(e) => setFormData({ ...formData, mitigationStrategy: e.target.value })}
+                  label="Mitigation Plan"
+                  value={formData.mitigationPlan}
+                  onChange={(e) => setFormData({ ...formData, mitigationPlan: e.target.value })}
                   multiline
                   rows={2}
                 />
@@ -453,18 +639,10 @@ export const RiskDetail: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Residual Risk"
-                  value={formData.residualRisk}
-                  onChange={(e) => setFormData({ ...formData, residualRisk: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Review Date"
+                  label="Last Reviewed"
                   type="date"
-                  value={formData.reviewDate}
-                  onChange={(e) => setFormData({ ...formData, reviewDate: e.target.value })}
+                  value={formData.lastReviewedAt}
+                  onChange={(e) => setFormData({ ...formData, lastReviewedAt: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -538,17 +716,32 @@ export const RiskDetail: React.FC = () => {
                       <Grid item xs={8}>
                         <Typography sx={{ textTransform: 'capitalize' }}>
                           {risk?.likelihood?.replace('_', ' ') || '-'}
+                          {risk?.inherentLikelihood && ` (${risk.inherentLikelihood}/5)`}
                         </Typography>
                       </Grid>
                       <Grid item xs={4}><Typography color="text.secondary">Impact</Typography></Grid>
                       <Grid item xs={8}>
                         <Typography sx={{ textTransform: 'capitalize' }}>
                           {risk?.impact || '-'}
+                          {risk?.inherentImpact && ` (${risk.inherentImpact}/5)`}
                         </Typography>
                       </Grid>
-                      <Grid item xs={4}><Typography color="text.secondary">Risk Score</Typography></Grid>
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                      </Grid>
+                      <Grid item xs={4}><Typography color="text.secondary" fontWeight="medium">Inherent Risk</Typography></Grid>
                       <Grid item xs={8}>
-                        {risk?.riskScore !== null && risk?.riskScore !== undefined ? (
+                        {risk?.inherentScore !== null && risk?.inherentScore !== undefined ? (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min((risk.inherentScore / 25) * 100, 100)}
+                              color={getRiskScoreColor(risk.inherentScore)}
+                              sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            />
+                            <Typography fontWeight="bold">{risk.inherentScore}</Typography>
+                          </Box>
+                        ) : risk?.riskScore !== null && risk?.riskScore !== undefined ? (
                           <Box display="flex" alignItems="center" gap={1}>
                             <LinearProgress
                               variant="determinate"
@@ -562,8 +755,60 @@ export const RiskDetail: React.FC = () => {
                           <Typography>-</Typography>
                         )}
                       </Grid>
-                      <Grid item xs={4}><Typography color="text.secondary">Residual Risk</Typography></Grid>
-                      <Grid item xs={8}><Typography>{risk?.residualRisk || '-'}</Typography></Grid>
+                      <Grid item xs={4}><Typography color="text.secondary" fontWeight="medium">Residual Risk</Typography></Grid>
+                      <Grid item xs={8}>
+                        {risk?.residualScore !== null && risk?.residualScore !== undefined ? (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min((risk.residualScore / 25) * 100, 100)}
+                              color={getRiskScoreColor(risk.residualScore)}
+                              sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            />
+                            <Tooltip title={`Residual: ${risk.residualScore} (Inherent: ${risk.inherentScore || risk.riskScore || '-'})`}>
+                              <Typography fontWeight="bold" color={getRiskScoreColor(risk.residualScore) + '.main'}>
+                                {risk.residualScore}
+                              </Typography>
+                            </Tooltip>
+                          </Box>
+                        ) : (
+                          <Typography color="text.secondary">
+                            {linkedControls.length === 0 ? 'Link controls to calculate' : 'Calculating...'}
+                          </Typography>
+                        )}
+                      </Grid>
+                      {typeof risk?.residualScore === 'number' && typeof risk?.inherentScore === 'number' && risk.residualScore < risk.inherentScore && (
+                        <>
+                          <Grid item xs={4}><Typography color="text.secondary">Risk Reduction</Typography></Grid>
+                          <Grid item xs={8}>
+                            <Chip
+                              label={`-${Math.round((risk.inherentScore - risk.residualScore) / risk.inherentScore * 100)}%`}
+                              color="success"
+                              size="small"
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                          </Grid>
+                        </>
+                      )}
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                      </Grid>
+                      <Grid item xs={4}><Typography color="text.secondary">Appetite Status</Typography></Grid>
+                      <Grid item xs={8}>
+                        {(() => {
+                          const DEFAULT_APPETITE = 9;
+                          const effectiveScore = risk?.residualScore ?? risk?.inherentScore ?? risk?.riskScore ?? 0;
+                          const isAboveAppetite = effectiveScore > DEFAULT_APPETITE;
+                          return (
+                            <Chip
+                              label={isAboveAppetite ? 'Above Appetite' : 'Within Appetite'}
+                              color={isAboveAppetite ? 'error' : 'success'}
+                              size="small"
+                              sx={{ fontWeight: 'medium' }}
+                            />
+                          );
+                        })()}
+                      </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
@@ -599,18 +844,35 @@ export const RiskDetail: React.FC = () => {
                         <PolicyIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                         Linked Policies ({linkedPolicies.length})
                       </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={openLinkPolicyModal}
+                        data-testid="link-policy-button"
+                      >
+                        Link Policy
+                      </Button>
                     </Box>
                     <Divider sx={{ mb: 2 }} />
                     {relationsLoading ? (
                       <LinearProgress />
                     ) : linkedPolicies.length === 0 ? (
-                      <Typography color="text.secondary">No policies linked to this risk.</Typography>
+                      <Box textAlign="center" py={3}>
+                        <Typography color="text.secondary" gutterBottom>
+                          No policies linked to this risk.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Link a policy to establish governance relationships.
+                        </Typography>
+                      </Box>
                     ) : (
                       <Table size="small">
                         <TableHead>
                           <TableRow>
                             <TableCell>Title</TableCell>
                             <TableCell>Status</TableCell>
+                            <TableCell align="right">Actions</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -623,6 +885,18 @@ export const RiskDetail: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <Chip label={formatStatus(policy.status)} size="small" />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Tooltip title="Unlink policy">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleUnlinkPolicy(policy.id)}
+                                    data-testid={`unlink-policy-${policy.id}`}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -640,12 +914,28 @@ export const RiskDetail: React.FC = () => {
                         <ControlIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                         Linked Controls ({linkedControls.length})
                       </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={openLinkControlModal}
+                        data-testid="link-control-button"
+                      >
+                        Link Control
+                      </Button>
                     </Box>
                     <Divider sx={{ mb: 2 }} />
                     {relationsLoading ? (
                       <LinearProgress />
                     ) : linkedControls.length === 0 ? (
-                      <Typography color="text.secondary">No controls linked to this risk.</Typography>
+                      <Box textAlign="center" py={3}>
+                        <Typography color="text.secondary" gutterBottom>
+                          No controls linked to this risk.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Link a control to start reducing residual risk.
+                        </Typography>
+                      </Box>
                     ) : (
                       <Table size="small">
                         <TableHead>
@@ -653,6 +943,7 @@ export const RiskDetail: React.FC = () => {
                             <TableCell>Code</TableCell>
                             <TableCell>Name</TableCell>
                             <TableCell>Status</TableCell>
+                            <TableCell align="right">Actions</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -666,6 +957,18 @@ export const RiskDetail: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <Chip label={formatStatus(control.status)} size="small" />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Tooltip title="Unlink control">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleUnlinkControl(control.id)}
+                                    data-testid={`unlink-control-${control.id}`}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -823,16 +1126,16 @@ export const RiskDetail: React.FC = () => {
                 <TextField
                   fullWidth
                   label="Owner"
-                  value={formData.owner}
-                  onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                  value={formData.ownerDisplayName}
+                  onChange={(e) => setFormData({ ...formData, ownerDisplayName: e.target.value })}
                 />
               </Grid>
             </Grid>
             <TextField
               fullWidth
-              label="Mitigation Strategy"
-              value={formData.mitigationStrategy}
-              onChange={(e) => setFormData({ ...formData, mitigationStrategy: e.target.value })}
+              label="Mitigation Plan"
+              value={formData.mitigationPlan}
+              onChange={(e) => setFormData({ ...formData, mitigationPlan: e.target.value })}
               multiline
               rows={2}
             />
@@ -840,18 +1143,10 @@ export const RiskDetail: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Residual Risk"
-                  value={formData.residualRisk}
-                  onChange={(e) => setFormData({ ...formData, residualRisk: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Review Date"
+                  label="Last Reviewed"
                   type="date"
-                  value={formData.reviewDate}
-                  onChange={(e) => setFormData({ ...formData, reviewDate: e.target.value })}
+                  value={formData.lastReviewedAt}
+                  onChange={(e) => setFormData({ ...formData, lastReviewedAt: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -866,6 +1161,158 @@ export const RiskDetail: React.FC = () => {
             disabled={saving || !formData.title}
           >
             {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Link Policy Modal */}
+      <Dialog
+        open={linkPolicyModalOpen}
+        onClose={() => setLinkPolicyModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="link-policy-modal"
+      >
+        <DialogTitle>Link Policies to Risk</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              placeholder="Search policies..."
+              value={policySearchTerm}
+              onChange={(e) => setPolicySearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+            {policiesLoading ? (
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : availablePolicies.length === 0 ? (
+              <Box textAlign="center" py={3}>
+                <Typography color="text.secondary">
+                  {policySearchTerm ? 'No policies found matching your search.' : 'No policies available to link.'}
+                </Typography>
+              </Box>
+            ) : (
+              <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {availablePolicies.map((policy) => (
+                  <ListItem
+                    key={policy.id}
+                    dense
+                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+                  >
+                    <Checkbox
+                      edge="start"
+                      checked={selectedPolicyIds.includes(policy.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedPolicyIds([...selectedPolicyIds, policy.id]);
+                        } else {
+                          setSelectedPolicyIds(selectedPolicyIds.filter(id => id !== policy.id));
+                        }
+                      }}
+                    />
+                    <ListItemText
+                      primary={policy.title}
+                      secondary={formatStatus(policy.status)}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkPolicyModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleLinkPolicies}
+            disabled={linkingPolicy || selectedPolicyIds.length === 0}
+          >
+            {linkingPolicy ? 'Linking...' : `Link ${selectedPolicyIds.length} Policy(ies)`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Link Control Modal */}
+      <Dialog
+        open={linkControlModalOpen}
+        onClose={() => setLinkControlModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="link-control-modal"
+      >
+        <DialogTitle>Link Controls to Risk</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              placeholder="Search controls..."
+              value={controlSearchTerm}
+              onChange={(e) => setControlSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+            {controlsLoading ? (
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : availableControls.length === 0 ? (
+              <Box textAlign="center" py={3}>
+                <Typography color="text.secondary">
+                  {controlSearchTerm ? 'No controls found matching your search.' : 'No controls available to link.'}
+                </Typography>
+              </Box>
+            ) : (
+              <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {availableControls.map((control) => (
+                  <ListItem
+                    key={control.id}
+                    dense
+                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+                  >
+                    <Checkbox
+                      edge="start"
+                      checked={selectedControlIds.includes(control.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedControlIds([...selectedControlIds, control.id]);
+                        } else {
+                          setSelectedControlIds(selectedControlIds.filter(id => id !== control.id));
+                        }
+                      }}
+                    />
+                    <ListItemText
+                      primary={control.name}
+                      secondary={`${control.code || 'No code'} - ${formatStatus(control.status)}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkControlModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleLinkControls}
+            disabled={linkingControl || selectedControlIds.length === 0}
+          >
+            {linkingControl ? 'Linking...' : `Link ${selectedControlIds.length} Control(s)`}
           </Button>
         </DialogActions>
       </Dialog>

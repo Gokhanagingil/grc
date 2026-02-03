@@ -1,4 +1,4 @@
-import { RiskBand } from '../enums';
+import { RiskBand, ControlEffectiveness } from '../enums';
 
 /**
  * Risk Scoring Utilities
@@ -7,6 +7,130 @@ import { RiskBand } from '../enums';
  * Score = likelihood × impact (1-5 scale each, resulting in 1-25 range)
  * Bands: 1-4 Low, 5-9 Medium, 10-15 High, 16-25 Critical
  */
+
+/**
+ * Effectiveness reduction factors for residual risk calculation
+ * These represent the base reduction percentage for each effectiveness level
+ */
+export const EFFECTIVENESS_REDUCTION: Record<ControlEffectiveness, number> = {
+  [ControlEffectiveness.EFFECTIVE]: 0.35, // High effectiveness = 35% reduction
+  [ControlEffectiveness.PARTIALLY_EFFECTIVE]: 0.2, // Medium effectiveness = 20% reduction
+  [ControlEffectiveness.INEFFECTIVE]: 0.1, // Low effectiveness = 10% reduction
+  [ControlEffectiveness.UNKNOWN]: 0.05, // Unknown = minimal 5% reduction
+};
+
+/**
+ * Maximum reduction factor for a single control (prevents one control from eliminating all risk)
+ */
+export const MAX_SINGLE_CONTROL_REDUCTION = 0.6;
+
+/**
+ * Control link data for residual risk calculation
+ */
+export interface ControlLinkData {
+  effectivenessRating: ControlEffectiveness;
+  coverage?: number; // 0-1, default 1.0
+}
+
+/**
+ * Calculate residual risk score using diminishing returns model
+ *
+ * Formula:
+ * 1. For each control, calculate reduction factor: r_i = baseReduction × coverage
+ * 2. Cap each r_i at MAX_SINGLE_CONTROL_REDUCTION (0.60)
+ * 3. Calculate total multiplier: totalMultiplier = Π(1 - r_i)
+ * 4. Calculate raw residual: rawResidual = inherentScore × totalMultiplier
+ * 5. Apply floor: residualScore = max(1, round(rawResidual))
+ *
+ * This model provides:
+ * - Diminishing returns: Multiple controls have decreasing marginal benefit
+ * - No negative risk: Residual score never goes below 1
+ * - Intuitive behavior: High effectiveness controls provide significant reduction
+ *
+ * @param inherentScore - The inherent risk score (1-25)
+ * @param controls - Array of linked controls with effectiveness ratings
+ * @returns Calculated residual score (1-25)
+ */
+export function calculateResidualScore(
+  inherentScore: number,
+  controls: ControlLinkData[],
+): number {
+  if (inherentScore < 1 || inherentScore > 25) {
+    throw new Error('Inherent score must be between 1 and 25');
+  }
+
+  if (!controls || controls.length === 0) {
+    return inherentScore;
+  }
+
+  let totalMultiplier = 1.0;
+
+  for (const control of controls) {
+    const baseReduction =
+      EFFECTIVENESS_REDUCTION[control.effectivenessRating] ||
+      EFFECTIVENESS_REDUCTION[ControlEffectiveness.UNKNOWN];
+    const coverage = control.coverage ?? 1.0;
+
+    // Calculate reduction factor for this control
+    let reductionFactor = baseReduction * coverage;
+
+    // Cap at maximum single control reduction
+    reductionFactor = Math.min(reductionFactor, MAX_SINGLE_CONTROL_REDUCTION);
+
+    // Apply diminishing returns: multiply by (1 - reduction)
+    totalMultiplier *= 1 - reductionFactor;
+  }
+
+  // Calculate raw residual score
+  const rawResidual = inherentScore * totalMultiplier;
+
+  // Apply floor of 1 and round to nearest integer
+  return Math.max(1, Math.round(rawResidual));
+}
+
+/**
+ * Calculate residual likelihood and impact from residual score
+ * Uses a balanced approach to distribute the reduction
+ *
+ * @param inherentLikelihood - Original likelihood (1-5)
+ * @param inherentImpact - Original impact (1-5)
+ * @param residualScore - Calculated residual score
+ * @returns Object with residual likelihood and impact
+ */
+export function calculateResidualComponents(
+  inherentLikelihood: number,
+  inherentImpact: number,
+  residualScore: number,
+): { residualLikelihood: number; residualImpact: number } {
+  const inherentScore = inherentLikelihood * inherentImpact;
+
+  if (residualScore >= inherentScore) {
+    return {
+      residualLikelihood: inherentLikelihood,
+      residualImpact: inherentImpact,
+    };
+  }
+
+  // Calculate reduction ratio
+  const reductionRatio = residualScore / inherentScore;
+
+  // Apply reduction proportionally to both likelihood and impact
+  // Using square root to distribute evenly (since score = L × I)
+  const sqrtRatio = Math.sqrt(reductionRatio);
+
+  let residualLikelihood = Math.round(inherentLikelihood * sqrtRatio);
+  let residualImpact = Math.round(inherentImpact * sqrtRatio);
+
+  // Ensure minimum of 1
+  residualLikelihood = Math.max(1, residualLikelihood);
+  residualImpact = Math.max(1, residualImpact);
+
+  // Ensure maximum of 5
+  residualLikelihood = Math.min(5, residualLikelihood);
+  residualImpact = Math.min(5, residualImpact);
+
+  return { residualLikelihood, residualImpact };
+}
 
 /**
  * Calculate risk score from likelihood and impact
