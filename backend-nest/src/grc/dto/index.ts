@@ -140,3 +140,17 @@ export {
   CreateTreatmentActionDto,
   UpdateTreatmentActionDto,
 } from './treatment-action.dto';
+
+// ITSM (IT Service Management) DTOs - ITIL v5 aligned
+export {
+  CreateItsmServiceDto,
+  UpdateItsmServiceDto,
+  ItsmServiceFilterDto,
+  CreateItsmIncidentDto,
+  UpdateItsmIncidentDto,
+  ItsmIncidentFilterDto,
+  CreateItsmChangeDto,
+  UpdateItsmChangeDto,
+  ItsmChangeFilterDto,
+  LinkItsmGrcDto,
+} from './itsm.dto';

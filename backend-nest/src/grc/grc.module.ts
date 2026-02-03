@@ -79,6 +79,14 @@ import {
   BcmPlan,
   BcmPlanStep,
   BcmExercise,
+  // ITSM (IT Service Management) entities - ITIL v5 aligned
+  ItsmService,
+  ItsmIncident,
+  ItsmChange,
+  ItsmIncidentRisk,
+  ItsmIncidentControl,
+  ItsmChangeRisk,
+  ItsmChangeControl,
 } from './entities';
 
 // Services
@@ -140,6 +148,11 @@ import { BcmModuleService } from './services/bcm.service';
 
 // Calendar services
 import { CalendarService } from './services/calendar.service';
+
+// ITSM (IT Service Management) services - ITIL v5 aligned
+import { ItsmServiceService } from './services/itsm-service.service';
+import { ItsmIncidentService } from './services/itsm-incident.service';
+import { ItsmChangeService } from './services/itsm-change.service';
 
 // Controllers
 import {
@@ -204,6 +217,11 @@ import { BcmController } from './controllers/bcm.controller';
 
 // Calendar controllers
 import { CalendarController } from './controllers/calendar.controller';
+
+// ITSM (IT Service Management) controllers - ITIL v5 aligned
+import { ItsmServiceController } from './controllers/itsm-service.controller';
+import { ItsmIncidentController } from './controllers/itsm-incident.controller';
+import { ItsmChangeController } from './controllers/itsm-change.controller';
 
 /**
  * GRC Module
@@ -299,6 +317,14 @@ import { CalendarController } from './controllers/calendar.controller';
       BcmPlan,
       BcmPlanStep,
       BcmExercise,
+      // ITSM (IT Service Management) entities - ITIL v5 aligned
+      ItsmService,
+      ItsmIncident,
+      ItsmChange,
+      ItsmIncidentRisk,
+      ItsmIncidentControl,
+      ItsmChangeRisk,
+      ItsmChangeControl,
     ]),
     AuditModule,
     AuthModule,
@@ -358,6 +384,10 @@ import { CalendarController } from './controllers/calendar.controller';
     BcmModuleService,
     // Calendar services
     CalendarService,
+    // ITSM (IT Service Management) services - ITIL v5 aligned
+    ItsmServiceService,
+    ItsmIncidentService,
+    ItsmChangeService,
   ],
   controllers: [
     // Core controllers
@@ -415,6 +445,10 @@ import { CalendarController } from './controllers/calendar.controller';
     BcmController,
     // Calendar controllers
     CalendarController,
+    // ITSM (IT Service Management) controllers - ITIL v5 aligned
+    ItsmServiceController,
+    ItsmIncidentController,
+    ItsmChangeController,
   ],
   exports: [
     // Universal List Service (platform-level)
@@ -466,6 +500,10 @@ import { CalendarController } from './controllers/calendar.controller';
     GrcSoaService,
     // BCM (Business Continuity Management) services
     BcmModuleService,
+    // ITSM (IT Service Management) services - ITIL v5 aligned
+    ItsmServiceService,
+    ItsmIncidentService,
+    ItsmChangeService,
   ],
 })
 export class GrcModule {}

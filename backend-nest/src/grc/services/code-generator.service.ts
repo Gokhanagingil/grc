@@ -20,6 +20,10 @@ export enum CodePrefix {
   VIOLATION = 'VIO',
   CONTROL_TEST = 'TST',
   TEST_RESULT = 'RES',
+  // ITSM Module Prefixes
+  ITSM_INCIDENT = 'INC',
+  ITSM_CHANGE = 'CHG',
+  ITSM_SERVICE = 'SVC',
 }
 
 /**

@@ -57,6 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail } from './pages/itsm';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -181,7 +182,54 @@ function App() {
                     />
                   } />
                   
-                  {/* Coming Soon Pages - ITSM Suite */}
+                  {/* ITSM (IT Service Management) Routes - ITIL v5 aligned */}
+                  <Route path="itsm/services" element={
+                    <ErrorBoundary>
+                      <ItsmServiceList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/services/new" element={
+                    <ErrorBoundary>
+                      <ItsmServiceDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/services/:id" element={
+                    <ErrorBoundary>
+                      <ItsmServiceDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/incidents" element={
+                    <ErrorBoundary>
+                      <ItsmIncidentList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/incidents/new" element={
+                    <ErrorBoundary>
+                      <ItsmIncidentDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/incidents/:id" element={
+                    <ErrorBoundary>
+                      <ItsmIncidentDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/changes" element={
+                    <ErrorBoundary>
+                      <ItsmChangeList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/changes/new" element={
+                    <ErrorBoundary>
+                      <ItsmChangeDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/changes/:id" element={
+                    <ErrorBoundary>
+                      <ItsmChangeDetail />
+                    </ErrorBoundary>
+                  } />
+                  
+                  {/* Coming Soon Pages - ITSM Suite (Future features) */}
                   <Route path="sla-dashboard" element={
                     <ComingSoonPage 
                       title="SLA Dashboard" 
@@ -193,13 +241,6 @@ function App() {
                     <ComingSoonPage 
                       title="Problem Management" 
                       description="Root cause analysis and problem resolution tracking."
-                      moduleName="ITSM"
-                    />
-                  } />
-                  <Route path="changes" element={
-                    <ComingSoonPage 
-                      title="Change Management" 
-                      description="Change request workflow with approval and implementation tracking."
                       moduleName="ITSM"
                     />
                   } />
