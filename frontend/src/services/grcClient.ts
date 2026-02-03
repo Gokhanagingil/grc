@@ -155,6 +155,7 @@ export const API_PATHS = {
   GRC_CONTROLS: {
     LIST: '/grc/controls',
     GET: (id: string) => `/grc/controls/${id}`,
+    UPDATE: (id: string) => `/grc/controls/${id}`,
     PROCESSES: (id: string) => `/grc/controls/${id}/processes`,
     LINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
     UNLINK_PROCESS: (controlId: string, processId: string) => `/grc/controls/${controlId}/processes/${processId}`,
@@ -1857,6 +1858,9 @@ export const controlApi = {
 
   get: (tenantId: string, id: string) =>
     api.get(API_PATHS.GRC_CONTROLS.GET(id), withTenantId(tenantId)),
+
+  update: (tenantId: string, id: string, data: Record<string, unknown>) =>
+    api.patch(API_PATHS.GRC_CONTROLS.UPDATE(id), data, withTenantId(tenantId)),
 
   getProcesses: (tenantId: string, controlId: string) =>
     api.get(API_PATHS.GRC_CONTROLS.PROCESSES(controlId), withTenantId(tenantId)),
