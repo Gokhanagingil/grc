@@ -36,7 +36,7 @@ import {
 import {
   ItsmChangeType,
   ItsmChangeState,
-  ItsmChangeRisk,
+  ItsmChangeRiskLevel,
   ItsmApprovalStatus,
 } from '../enums';
 
@@ -107,7 +107,7 @@ export class ItsmChangeController {
       data: {
         types: Object.values(ItsmChangeType),
         states: Object.values(ItsmChangeState),
-        risks: Object.values(ItsmChangeRisk),
+        risks: Object.values(ItsmChangeRiskLevel),
         approvalStatuses: Object.values(ItsmApprovalStatus),
       },
     };

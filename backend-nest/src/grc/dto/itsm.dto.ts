@@ -19,7 +19,7 @@ import {
   ItsmIncidentPriority,
   ItsmChangeType,
   ItsmChangeState,
-  ItsmChangeRisk,
+  ItsmChangeRiskLevel,
   ItsmApprovalStatus,
   ItsmServiceCriticality,
   ItsmServiceStatus,
@@ -354,9 +354,9 @@ export class CreateItsmChangeDto {
   @IsEnum(ItsmChangeState)
   state?: ItsmChangeState;
 
-  @IsOptional()
-  @IsEnum(ItsmChangeRisk)
-  risk?: ItsmChangeRisk;
+    @IsOptional()
+    @IsEnum(ItsmChangeRiskLevel)
+    risk?: ItsmChangeRiskLevel;
 
   @IsOptional()
   @IsEnum(ItsmApprovalStatus)
@@ -420,9 +420,9 @@ export class UpdateItsmChangeDto {
   @IsEnum(ItsmChangeState)
   state?: ItsmChangeState;
 
-  @IsOptional()
-  @IsEnum(ItsmChangeRisk)
-  risk?: ItsmChangeRisk;
+    @IsOptional()
+    @IsEnum(ItsmChangeRiskLevel)
+    risk?: ItsmChangeRiskLevel;
 
   @IsOptional()
   @IsEnum(ItsmApprovalStatus)
@@ -485,9 +485,9 @@ export class ItsmChangeFilterDto {
   @IsEnum(ItsmChangeType)
   type?: ItsmChangeType;
 
-  @IsOptional()
-  @IsEnum(ItsmChangeRisk)
-  risk?: ItsmChangeRisk;
+    @IsOptional()
+    @IsEnum(ItsmChangeRiskLevel)
+    risk?: ItsmChangeRiskLevel;
 
   @IsOptional()
   @IsEnum(ItsmApprovalStatus)

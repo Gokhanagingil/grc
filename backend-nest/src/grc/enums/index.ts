@@ -884,10 +884,10 @@ export enum ItsmChangeState {
 }
 
 /**
- * ItsmChangeRisk - Risk level of a change
+ * ItsmChangeRiskLevel - Risk level of a change
  * Values match PostgreSQL enum: itsm_changes_risk_enum
  */
-export enum ItsmChangeRisk {
+export enum ItsmChangeRiskLevel {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',

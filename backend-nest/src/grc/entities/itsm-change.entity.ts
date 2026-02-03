@@ -5,7 +5,7 @@ import { User } from '../../users/user.entity';
 import {
   ItsmChangeType,
   ItsmChangeState,
-  ItsmChangeRisk,
+  ItsmChangeRiskLevel,
   ItsmApprovalStatus,
 } from '../enums';
 import { ItsmService } from './itsm-service.entity';
@@ -57,12 +57,12 @@ export class ItsmChange extends BaseEntity {
   })
   state: ItsmChangeState;
 
-  @Column({
-    type: 'enum',
-    enum: ItsmChangeRisk,
-    default: ItsmChangeRisk.MEDIUM,
-  })
-  risk: ItsmChangeRisk;
+    @Column({
+      type: 'enum',
+      enum: ItsmChangeRiskLevel,
+      default: ItsmChangeRiskLevel.MEDIUM,
+    })
+    risk: ItsmChangeRiskLevel;
 
   @Column({
     name: 'approval_status',
