@@ -131,6 +131,21 @@ export class CreateRiskDto {
   @IsOptional()
   targetDate?: Date;
 
+  @Type(() => Date)
+  @IsDate({ message: 'Next review at must be a valid date' })
+  @IsOptional()
+  nextReviewAt?: Date;
+
+  @IsInt({ message: 'Review interval days must be an integer' })
+  @Min(1, { message: 'Review interval days must be at least 1' })
+  @Max(365, { message: 'Review interval days must not exceed 365' })
+  @IsOptional()
+  reviewIntervalDays?: number;
+
+  @IsString({ message: 'Acceptance reason must be a string' })
+  @IsOptional()
+  acceptanceReason?: string;
+
   @IsString({ message: 'Mitigation plan must be a string' })
   @IsOptional()
   mitigationPlan?: string;

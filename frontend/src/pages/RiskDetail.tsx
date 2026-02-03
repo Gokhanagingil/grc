@@ -75,23 +75,34 @@ interface Risk {
   riskScore: number | null;
   status: string;
   owner: string | null;
+  ownerDisplayName: string | null;
   mitigationStrategy: string | null;
   residualRisk: string | null;
   reviewDate: string | null;
   createdAt: string;
   updatedAt: string;
-  // New residual risk fields
+  // Residual risk fields
   inherentLikelihood: number | null;
   inherentImpact: number | null;
   inherentScore: number | null;
   residualLikelihood: number | null;
   residualImpact: number | null;
   residualScore: number | null;
+  // ITIL lifecycle fields
+  treatmentStrategy: string | null;
+  nextReviewAt: string | null;
+  reviewIntervalDays: number | null;
+  acceptanceReason: string | null;
+  acceptedByUserId: string | null;
+  acceptedAt: string | null;
 }
 
 interface LinkedPolicy {
   id: string;
-  title: string;
+  name: string;
+  title?: string; // Some endpoints may return title instead of name
+  code: string | null;
+  version?: string;
   status: string;
 }
 
@@ -119,8 +130,9 @@ function TabPanel(props: TabPanelProps) {
 
 const SEVERITY_OPTIONS = ['low', 'medium', 'high', 'critical'];
 const LIKELIHOOD_OPTIONS = ['rare', 'unlikely', 'possible', 'likely', 'almost_certain'];
-const IMPACT_OPTIONS = ['negligible', 'minor', 'moderate', 'major', 'catastrophic'];
-const STATUS_OPTIONS = ['identified', 'assessed', 'mitigated', 'accepted', 'closed'];
+// Impact uses the same RiskSeverity enum as severity in the backend
+const IMPACT_OPTIONS = ['low', 'medium', 'high', 'critical'];
+const STATUS_OPTIONS = ['draft', 'identified', 'assessed', 'treatment_planned', 'treating', 'mitigating', 'monitored', 'accepted', 'closed'];
 const CATEGORY_OPTIONS = ['Operational', 'Financial', 'Strategic', 'Compliance', 'Technology', 'Reputational'];
 
 const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
@@ -157,6 +169,23 @@ const formatDate = (dateString: string | null | undefined): string => {
 const formatDateTime = (dateString: string | null | undefined): string => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleString();
+};
+
+/**
+ * Get display label for a policy
+ * Priority: code + name, or just name, with version if available
+ */
+const getPolicyDisplayLabel = (policy: LinkedPolicy): string => {
+  const name = policy.name || policy.title || 'Unnamed Policy';
+  const parts: string[] = [];
+  if (policy.code) {
+    parts.push(`[${policy.code}]`);
+  }
+  parts.push(name);
+  if (policy.version) {
+    parts.push(`v${policy.version}`);
+  }
+  return parts.join(' ');
 };
 
 export const RiskDetail: React.FC = () => {
@@ -201,11 +230,16 @@ export const RiskDetail: React.FC = () => {
     category: '',
     severity: 'medium',
     likelihood: 'possible',
-    impact: 'moderate',
+    impact: 'medium',
     status: 'identified',
     ownerDisplayName: '',
     mitigationPlan: '',
     lastReviewedAt: '',
+    // ITIL lifecycle fields
+    treatmentStrategy: '',
+    nextReviewAt: '',
+    reviewIntervalDays: '',
+    acceptanceReason: '',
   });
 
   const fetchRisk = useCallback(async () => {
@@ -226,11 +260,16 @@ export const RiskDetail: React.FC = () => {
         likelihood: data.likelihood,
         impact: data.impact,
         status: data.status,
-        ownerDisplayName: (data as unknown as { ownerDisplayName?: string }).ownerDisplayName || '',
+        ownerDisplayName: data.ownerDisplayName || '',
         mitigationPlan: (data as unknown as { mitigationPlan?: string }).mitigationPlan || '',
         lastReviewedAt: (data as unknown as { lastReviewedAt?: string }).lastReviewedAt
           ? (data as unknown as { lastReviewedAt: string }).lastReviewedAt.split('T')[0]
           : '',
+        // ITIL lifecycle fields
+        treatmentStrategy: data.treatmentStrategy || '',
+        nextReviewAt: data.nextReviewAt ? data.nextReviewAt.split('T')[0] : '',
+        reviewIntervalDays: data.reviewIntervalDays?.toString() || '',
+        acceptanceReason: data.acceptanceReason || '',
       });
     } catch (err) {
       console.error('Error fetching risk:', err);
@@ -441,7 +480,7 @@ export const RiskDetail: React.FC = () => {
 
     setSaving(true);
     try {
-      const riskData = {
+      const riskData: Record<string, unknown> = {
         title: formData.title,
         description: formData.description || undefined,
         category: formData.category || undefined,
@@ -452,6 +491,11 @@ export const RiskDetail: React.FC = () => {
         ownerDisplayName: formData.ownerDisplayName || undefined,
         mitigationPlan: formData.mitigationPlan || undefined,
         lastReviewedAt: formData.lastReviewedAt || undefined,
+        // ITIL lifecycle fields
+        treatmentStrategy: formData.treatmentStrategy || undefined,
+        nextReviewAt: formData.nextReviewAt || undefined,
+        reviewIntervalDays: formData.reviewIntervalDays ? parseInt(formData.reviewIntervalDays, 10) : undefined,
+        acceptanceReason: formData.treatmentStrategy === 'accept' ? formData.acceptanceReason || undefined : undefined,
       };
 
       if (isNewRisk) {
@@ -467,8 +511,26 @@ export const RiskDetail: React.FC = () => {
       }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to save risk');
+      const error = err as { 
+        response?: { 
+          status?: number;
+          data?: { message?: string | string[]; error?: string } 
+        } 
+      };
+      // Build a more informative error message
+      let errorMessage = 'Failed to save risk';
+      if (error.response?.data?.message) {
+        const msg = error.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join(', ') : msg;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      // Add status code context for debugging
+      if (error.response?.status) {
+        errorMessage = `[${error.response.status}] ${errorMessage}`;
+      }
+      setError(errorMessage);
+      console.error('Risk save error:', error.response?.data || error);
     } finally {
       setSaving(false);
     }
@@ -885,7 +947,7 @@ export const RiskDetail: React.FC = () => {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell>Title</TableCell>
+                            <TableCell>Policy</TableCell>
                             <TableCell>Status</TableCell>
                             <TableCell align="right">Actions</TableCell>
                           </TableRow>
@@ -895,7 +957,7 @@ export const RiskDetail: React.FC = () => {
                             <TableRow key={policy.id} hover>
                               <TableCell>
                                 <Link to={`/policies/${policy.id}`} style={{ textDecoration: 'none' }}>
-                                  <Typography color="primary">{policy.title}</Typography>
+                                  <Typography color="primary">{getPolicyDisplayLabel(policy)}</Typography>
                                 </Link>
                               </TableCell>
                               <TableCell>
@@ -1166,6 +1228,65 @@ export const RiskDetail: React.FC = () => {
                 />
               </Grid>
             </Grid>
+
+            {/* ITIL Lifecycle Fields */}
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, color: 'text.secondary' }}>
+              Treatment & Review
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Treatment Strategy</InputLabel>
+                  <Select
+                    value={formData.treatmentStrategy}
+                    label="Treatment Strategy"
+                    onChange={(e) => setFormData({ ...formData, treatmentStrategy: e.target.value })}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="avoid">Avoid</MenuItem>
+                    <MenuItem value="mitigate">Mitigate</MenuItem>
+                    <MenuItem value="transfer">Transfer</MenuItem>
+                    <MenuItem value="accept">Accept</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Next Review Date"
+                  type="date"
+                  value={formData.nextReviewAt}
+                  onChange={(e) => setFormData({ ...formData, nextReviewAt: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText={formData.nextReviewAt && new Date(formData.nextReviewAt) < new Date() ? 'Overdue!' : ''}
+                  error={formData.nextReviewAt ? new Date(formData.nextReviewAt) < new Date() : false}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Review Interval (days)"
+                  type="number"
+                  value={formData.reviewIntervalDays}
+                  onChange={(e) => setFormData({ ...formData, reviewIntervalDays: e.target.value })}
+                  inputProps={{ min: 1, max: 365 }}
+                  helperText="How often should this risk be reviewed?"
+                />
+              </Grid>
+              {formData.treatmentStrategy === 'accept' && (
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Acceptance Reason"
+                    value={formData.acceptanceReason}
+                    onChange={(e) => setFormData({ ...formData, acceptanceReason: e.target.value })}
+                    multiline
+                    rows={2}
+                    helperText="Required when accepting a risk - explain why the risk is being accepted"
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1235,7 +1356,7 @@ export const RiskDetail: React.FC = () => {
                       }}
                     />
                     <ListItemText
-                      primary={policy.title}
+                      primary={getPolicyDisplayLabel(policy)}
                       secondary={formatStatus(policy.status)}
                     />
                   </ListItem>
