@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { GrcModule } from './grc/grc.module';
 import { ItsmModule } from './itsm/itsm.module';
+import { CopilotModule } from './copilot/copilot.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -137,6 +138,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // ITSM Domain Model (Incident, Problem, Change - future)
     ItsmModule,
+
+    // Copilot AI Decision & Action Layer (Incident Copilot)
+    CopilotModule,
 
     // Audit logging (must be after feature modules to intercept their requests)
     AuditModule,
