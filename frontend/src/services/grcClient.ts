@@ -644,6 +644,24 @@ export const API_PATHS = {
   GRC_CALENDAR: {
     EVENTS: '/grc/calendar/events',
   },
+
+  // Copilot endpoints (AI Decision & Action Layer)
+  COPILOT: {
+    INCIDENTS: {
+      LIST: '/grc/copilot/incidents',
+      GET: (sysId: string) => `/grc/copilot/incidents/${sysId}`,
+      SUGGEST: (sysId: string) => `/grc/copilot/incidents/${sysId}/suggest`,
+      APPLY: (sysId: string) => `/grc/copilot/incidents/${sysId}/apply`,
+    },
+    LEARNING: {
+      EVENTS: '/grc/copilot/learning/events',
+    },
+    INDEXING: {
+      INCIDENTS: '/grc/copilot/indexing/incidents',
+      KB: '/grc/copilot/indexing/kb',
+      STATS: '/grc/copilot/indexing/stats',
+    },
+  },
 } as const;
 
 // ============================================================================
@@ -4805,5 +4823,144 @@ export const calendarApi = {
     }
     const response = await api.get(API_PATHS.GRC_CALENDAR.EVENTS, { ...withTenantId(tenantId), params: queryParams });
     return unwrapResponse<CalendarEventData[]>(response);
+  },
+};
+
+// ============================================================================
+// Copilot Types & API
+// ============================================================================
+
+export interface CopilotSnIncident {
+  sys_id: string;
+  number: string;
+  short_description: string;
+  description: string;
+  state: string;
+  impact: string;
+  urgency: string;
+  priority: string;
+  category: string;
+  assignment_group: string;
+  assigned_to: string;
+  service_offering: string;
+  business_service: string;
+  opened_at: string;
+  resolved_at: string;
+  closed_at: string;
+  sys_created_on: string;
+  sys_updated_on: string;
+}
+
+export interface CopilotActionCard {
+  id: string;
+  type: 'summary' | 'next_best_steps' | 'customer_update_draft' | 'work_notes_draft';
+  title: string;
+  content: string;
+  confidence: number;
+  targetField?: 'work_notes' | 'additional_comments';
+  canApply: boolean;
+}
+
+export interface CopilotSimilarIncident {
+  sysId: string;
+  number: string | null;
+  shortDescription: string | null;
+  state: string | null;
+  priority: string | null;
+  resolutionNotes: string | null;
+  score: number;
+}
+
+export interface CopilotKbSuggestion {
+  sysId: string;
+  number: string | null;
+  title: string | null;
+  snippet: string | null;
+  score: number;
+}
+
+export interface CopilotSuggestResponse {
+  incidentSysId: string;
+  incidentNumber: string;
+  actionCards: CopilotActionCard[];
+  similarIncidents: CopilotSimilarIncident[];
+  kbSuggestions: CopilotKbSuggestion[];
+  generatedAt: string;
+}
+
+export interface CopilotApplyRequest {
+  actionType: string;
+  targetField: 'work_notes' | 'additional_comments';
+  text: string;
+}
+
+export interface CopilotApplyResponse {
+  success: boolean;
+  incidentSysId: string;
+  targetField: string;
+  appliedAt: string;
+}
+
+export interface CopilotIncidentListParams {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  state?: string;
+}
+
+export const copilotApi = {
+  listIncidents: async (tenantId: string, params?: CopilotIncidentListParams) => {
+    const response = await api.get(API_PATHS.COPILOT.INCIDENTS.LIST, {
+      ...withTenantId(tenantId),
+      params,
+    });
+    const data = unwrapResponse<CopilotSnIncident[]>(response);
+    return {
+      items: ensureArray(data),
+      total: (response.data as Record<string, unknown>)?.total as number ?? 0,
+      page: (response.data as Record<string, unknown>)?.page as number ?? 1,
+      pageSize: (response.data as Record<string, unknown>)?.pageSize as number ?? 20,
+    };
+  },
+
+  getIncident: async (tenantId: string, sysId: string): Promise<CopilotSnIncident> => {
+    const response = await api.get(API_PATHS.COPILOT.INCIDENTS.GET(sysId), withTenantId(tenantId));
+    return unwrapResponse<CopilotSnIncident>(response);
+  },
+
+  suggest: async (tenantId: string, sysId: string, params?: { similarLimit?: number; kbLimit?: number }): Promise<CopilotSuggestResponse> => {
+    const response = await api.post(API_PATHS.COPILOT.INCIDENTS.SUGGEST(sysId), params ?? {}, withTenantId(tenantId));
+    return unwrapResponse<CopilotSuggestResponse>(response);
+  },
+
+  apply: async (tenantId: string, sysId: string, data: CopilotApplyRequest): Promise<CopilotApplyResponse> => {
+    const response = await api.post(API_PATHS.COPILOT.INCIDENTS.APPLY(sysId), data, withTenantId(tenantId));
+    return unwrapResponse<CopilotApplyResponse>(response);
+  },
+
+  recordLearningEvent: async (tenantId: string, data: {
+    incidentSysId: string;
+    eventType: 'SUGGESTION_SHOWN' | 'SUGGESTION_APPLIED' | 'SUGGESTION_REJECTED';
+    actionType: string;
+    confidence?: number;
+    evidenceIds?: string[];
+  }) => {
+    const response = await api.post(API_PATHS.COPILOT.LEARNING.EVENTS, data, withTenantId(tenantId));
+    return unwrapResponse(response);
+  },
+
+  indexIncidents: async (tenantId: string, daysBack?: number) => {
+    const response = await api.post(API_PATHS.COPILOT.INDEXING.INCIDENTS, { daysBack }, withTenantId(tenantId));
+    return unwrapResponse(response);
+  },
+
+  indexKb: async (tenantId: string) => {
+    const response = await api.post(API_PATHS.COPILOT.INDEXING.KB, {}, withTenantId(tenantId));
+    return unwrapResponse(response);
+  },
+
+  getIndexStats: async (tenantId: string) => {
+    const response = await api.get(API_PATHS.COPILOT.INDEXING.STATS, withTenantId(tenantId));
+    return unwrapResponse<{ incidents: number; kbArticles: number }>(response);
   },
 };

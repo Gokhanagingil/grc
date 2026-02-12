@@ -58,6 +58,7 @@ import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
 import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail } from './pages/itsm';
+import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { InitializationErrorBoundary } from './components/common/InitializationErrorBoundary';
@@ -226,6 +227,13 @@ function App() {
                   <Route path="itsm/changes/:id" element={
                     <ErrorBoundary>
                       <ItsmChangeDetail />
+                    </ErrorBoundary>
+                  } />
+                  
+                  {/* Copilot (AI Decision & Action Layer) */}
+                  <Route path="copilot" element={
+                    <ErrorBoundary>
+                      <CopilotPage />
                     </ErrorBoundary>
                   } />
                   
