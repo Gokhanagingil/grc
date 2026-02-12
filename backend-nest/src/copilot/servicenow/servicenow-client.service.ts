@@ -59,9 +59,14 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const RATE_LIMIT_STATUS = 429;
 const SYS_ID_PATTERN = /^[a-f0-9]{32}$/i;
-const ALLOWED_INSTANCE_URL_PATTERN =
-  /^https:\/\/[a-zA-Z0-9-]+\.service-now\.com$/;
-const TABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const ALLOWED_TABLE_NAMES = new Set([
+  'incident',
+  'kb_knowledge',
+  'problem',
+  'change_request',
+  'sc_req_item',
+  'cmdb_ci',
+]);
 
 @Injectable()
 export class ServiceNowClientService {
@@ -74,7 +79,7 @@ export class ServiceNowClientService {
 
   getTenantConfig(tenantId: string): ServiceNowConfig | null {
     const prefix = `SERVICENOW_${tenantId.replace(/-/g, '_').toUpperCase()}`;
-    const instanceUrl =
+    const rawUrl =
       this.configService.get<string>(`${prefix}_INSTANCE_URL`) ||
       this.configService.get<string>('SERVICENOW_INSTANCE_URL');
     const username =
@@ -84,31 +89,30 @@ export class ServiceNowClientService {
       this.configService.get<string>(`${prefix}_PASSWORD`) ||
       this.configService.get<string>('SERVICENOW_PASSWORD');
 
-    if (!instanceUrl || !username || !password) {
+    if (!rawUrl || !username || !password) {
       return null;
     }
 
-    const cleanUrl = instanceUrl.replace(/\/+$/, '');
-    if (!ALLOWED_INSTANCE_URL_PATTERN.test(cleanUrl)) {
-      this.logger.error('Invalid ServiceNow instance URL format', {
-        tenantId,
-      });
+    const safeOrigin = this.validateInstanceUrl(rawUrl, tenantId);
+    if (!safeOrigin) {
       return null;
     }
 
     return {
-      instanceUrl: cleanUrl,
+      instanceUrl: safeOrigin,
       username,
       password,
-      incidentTable: this.validateTableName(
+      incidentTable: this.resolveTableName(
         this.configService.get<string>(`${prefix}_INCIDENT_TABLE`) ||
           this.configService.get<string>('SERVICENOW_INCIDENT_TABLE') ||
           'incident',
+        'incident',
       ),
-      kbTable: this.validateTableName(
+      kbTable: this.resolveTableName(
         this.configService.get<string>(`${prefix}_KB_TABLE`) ||
           this.configService.get<string>('SERVICENOW_KB_TABLE') ||
           'kb_knowledge',
+        'kb_knowledge',
       ),
     };
   }
@@ -260,11 +264,35 @@ export class ServiceNowClientService {
     }
   }
 
-  private validateTableName(name: string): string {
-    if (!TABLE_NAME_PATTERN.test(name)) {
-      throw new Error(`Invalid ServiceNow table name: ${name}`);
+  private validateInstanceUrl(rawUrl: string, tenantId: string): string | null {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl.replace(/\/+$/, ''));
+    } catch {
+      this.logger.error('Invalid ServiceNow instance URL', { tenantId });
+      return null;
     }
-    return name;
+    if (
+      parsed.protocol !== 'https:' ||
+      !parsed.hostname.endsWith('.service-now.com')
+    ) {
+      this.logger.error('ServiceNow URL must be https://*.service-now.com', {
+        tenantId,
+      });
+      return null;
+    }
+    return parsed.origin;
+  }
+
+  private resolveTableName(requested: string, fallback: string): string {
+    if (ALLOWED_TABLE_NAMES.has(requested)) {
+      return requested;
+    }
+    this.logger.warn('Unrecognised ServiceNow table name, using fallback', {
+      requested,
+      fallback,
+    });
+    return fallback;
   }
 
   async getIncident(
