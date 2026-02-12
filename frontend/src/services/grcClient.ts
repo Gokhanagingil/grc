@@ -4916,7 +4916,7 @@ export const copilotApi = {
     });
     const data = unwrapResponse<CopilotSnIncident[]>(response);
     return {
-      items: ensureArray(data),
+      items: ensureArray<CopilotSnIncident>(data),
       total: (response.data as Record<string, unknown>)?.total as number ?? 0,
       page: (response.data as Record<string, unknown>)?.page as number ?? 1,
       pageSize: (response.data as Record<string, unknown>)?.pageSize as number ?? 20,

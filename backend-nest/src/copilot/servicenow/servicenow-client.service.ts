@@ -59,6 +59,9 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const RATE_LIMIT_STATUS = 429;
 const SYS_ID_PATTERN = /^[a-f0-9]{32}$/i;
+const ALLOWED_INSTANCE_URL_PATTERN =
+  /^https:\/\/[a-zA-Z0-9-]+\.service-now\.com$/;
+const TABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 @Injectable()
 export class ServiceNowClientService {
@@ -85,18 +88,28 @@ export class ServiceNowClientService {
       return null;
     }
 
+    const cleanUrl = instanceUrl.replace(/\/+$/, '');
+    if (!ALLOWED_INSTANCE_URL_PATTERN.test(cleanUrl)) {
+      this.logger.error('Invalid ServiceNow instance URL format', {
+        tenantId,
+      });
+      return null;
+    }
+
     return {
-      instanceUrl: instanceUrl.replace(/\/+$/, ''),
+      instanceUrl: cleanUrl,
       username,
       password,
-      incidentTable:
+      incidentTable: this.validateTableName(
         this.configService.get<string>(`${prefix}_INCIDENT_TABLE`) ||
-        this.configService.get<string>('SERVICENOW_INCIDENT_TABLE') ||
-        'incident',
-      kbTable:
+          this.configService.get<string>('SERVICENOW_INCIDENT_TABLE') ||
+          'incident',
+      ),
+      kbTable: this.validateTableName(
         this.configService.get<string>(`${prefix}_KB_TABLE`) ||
-        this.configService.get<string>('SERVICENOW_KB_TABLE') ||
-        'kb_knowledge',
+          this.configService.get<string>('SERVICENOW_KB_TABLE') ||
+          'kb_knowledge',
+      ),
     };
   }
 
@@ -245,6 +258,13 @@ export class ServiceNowClientService {
         `Invalid ServiceNow sys_id format: expected 32 hex characters`,
       );
     }
+  }
+
+  private validateTableName(name: string): string {
+    if (!TABLE_NAME_PATTERN.test(name)) {
+      throw new Error(`Invalid ServiceNow table name: ${name}`);
+    }
+    return name;
   }
 
   async getIncident(

@@ -42,7 +42,7 @@ export class IndexingService {
       cutoffStr,
     });
 
-    let hasMore = true;
+    const hasMore = true;
     while (hasMore) {
       try {
         const result = await this.snClient.listIncidents(tenantId, {
@@ -52,7 +52,6 @@ export class IndexingService {
         });
 
         if (!result.items || result.items.length === 0) {
-          hasMore = false;
           break;
         }
 
@@ -72,7 +71,7 @@ export class IndexingService {
 
         offset += result.items.length;
         if (result.items.length < batchSize) {
-          hasMore = false;
+          break;
         }
       } catch (err) {
         this.logger.error('Batch fetch failed during indexing', {
@@ -80,7 +79,7 @@ export class IndexingService {
           offset,
           error: err instanceof Error ? err.message : String(err),
         });
-        hasMore = false;
+        break;
       }
     }
 

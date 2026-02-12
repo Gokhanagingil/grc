@@ -89,6 +89,24 @@ describe('ServiceNowClientService', () => {
       const cfg2 = service.getTenantConfig(differentTenantId);
       expect(cfg1).toEqual(cfg2);
     });
+
+    it('should reject invalid instanceUrl format', () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'SERVICENOW_INSTANCE_URL') return 'http://evil.example.com';
+        return defaultEnvMap[key] ?? undefined;
+      });
+      const cfg = service.getTenantConfig(mockTenantId);
+      expect(cfg).toBeNull();
+    });
+
+    it('should reject non-service-now.com domains', () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'SERVICENOW_INSTANCE_URL') return 'https://attacker.com';
+        return defaultEnvMap[key] ?? undefined;
+      });
+      const cfg = service.getTenantConfig(mockTenantId);
+      expect(cfg).toBeNull();
+    });
   });
 
   describe('listIncidents', () => {
