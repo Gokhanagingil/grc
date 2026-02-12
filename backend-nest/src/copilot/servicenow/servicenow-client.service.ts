@@ -58,6 +58,7 @@ export interface SnSingleResponse<T> {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const RATE_LIMIT_STATUS = 429;
+const SYS_ID_PATTERN = /^[a-f0-9]{32}$/i;
 
 @Injectable()
 export class ServiceNowClientService {
@@ -238,10 +239,19 @@ export class ServiceNowClientService {
     return { items: body.result || [], total };
   }
 
+  private validateSysId(sysId: string): void {
+    if (!SYS_ID_PATTERN.test(sysId)) {
+      throw new Error(
+        `Invalid ServiceNow sys_id format: expected 32 hex characters`,
+      );
+    }
+  }
+
   async getIncident(
     tenantId: string,
     sysId: string,
   ): Promise<SnIncident | null> {
+    this.validateSysId(sysId);
     const cfg = this.getTenantConfig(tenantId);
     if (!cfg) {
       this.logger.warn('ServiceNow not configured for tenant', { tenantId });
@@ -280,6 +290,7 @@ export class ServiceNowClientService {
     field: 'work_notes' | 'comments',
     text: string,
   ): Promise<SnIncident> {
+    this.validateSysId(sysId);
     const cfg = this.getTenantConfig(tenantId);
     if (!cfg) {
       throw new Error('ServiceNow not configured for this tenant');

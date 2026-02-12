@@ -165,7 +165,7 @@ describe('ServiceNowClientService', () => {
   describe('getIncident', () => {
     it('should return null when SN not configured', async () => {
       configService.get.mockReturnValue(undefined);
-      const result = await service.getIncident(mockTenantId, 'sys123');
+      const result = await service.getIncident(mockTenantId, 'a'.repeat(32));
       expect(result).toBeNull();
     });
 
@@ -179,7 +179,7 @@ describe('ServiceNowClientService', () => {
         .spyOn(global, 'fetch')
         .mockResolvedValue(mockResponse as unknown as Response);
 
-      const result = await service.getIncident(mockTenantId, 'nonexistent');
+      const result = await service.getIncident(mockTenantId, 'b'.repeat(32));
       expect(result).toBeNull();
     });
 
@@ -199,7 +199,10 @@ describe('ServiceNowClientService', () => {
         .spyOn(global, 'fetch')
         .mockResolvedValue(mockResponse as unknown as Response);
 
-      const result = await service.getIncident(mockTenantId, 'abc');
+      const result = await service.getIncident(
+        mockTenantId,
+        'abc'.padEnd(32, '0'),
+      );
       expect(result).toEqual(mockIncident);
     });
   });
@@ -208,8 +211,19 @@ describe('ServiceNowClientService', () => {
     it('should throw when SN not configured', async () => {
       configService.get.mockReturnValue(undefined);
       await expect(
-        service.postComment(mockTenantId, 'sys123', 'work_notes', 'test'),
+        service.postComment(mockTenantId, 'a'.repeat(32), 'work_notes', 'test'),
       ).rejects.toThrow('ServiceNow not configured for this tenant');
+    });
+
+    it('should reject invalid sysId format', async () => {
+      await expect(
+        service.postComment(
+          mockTenantId,
+          'invalid/../path',
+          'work_notes',
+          'test',
+        ),
+      ).rejects.toThrow('Invalid ServiceNow sys_id format');
     });
 
     it('should send PATCH with correct field for work_notes', async () => {
@@ -226,7 +240,7 @@ describe('ServiceNowClientService', () => {
 
       const result = await service.postComment(
         mockTenantId,
-        'sys123',
+        'a'.repeat(32),
         'work_notes',
         'test note',
       );
@@ -252,7 +266,7 @@ describe('ServiceNowClientService', () => {
 
       await service.postComment(
         mockTenantId,
-        'sys123',
+        'a'.repeat(32),
         'comments',
         'customer comment',
       );

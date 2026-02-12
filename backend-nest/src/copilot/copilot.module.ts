@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { TenantsModule } from '../tenants/tenants.module';
+import { AuthModule } from '../auth/auth.module';
 import {
   CopilotIncidentIndex,
   CopilotKbIndex,
@@ -16,6 +18,8 @@ import { CopilotController } from './copilot.controller';
 @Module({
   imports: [
     ConfigModule,
+    TenantsModule,
+    AuthModule,
     TypeOrmModule.forFeature([
       CopilotIncidentIndex,
       CopilotKbIndex,

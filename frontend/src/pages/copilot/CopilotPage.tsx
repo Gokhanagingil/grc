@@ -59,8 +59,8 @@ import {
 type CopilotStep = 'select' | 'loaded' | 'suggesting' | 'suggested';
 
 export const CopilotPage: React.FC = () => {
-  const { tenantId } = useAuth();
-  const tid = tenantId || '';
+  const { user } = useAuth();
+  const tid = user?.tenantId || localStorage.getItem('tenantId') || '';
 
   const [step, setStep] = useState<CopilotStep>('select');
   const [incidents, setIncidents] = useState<CopilotSnIncident[]>([]);
