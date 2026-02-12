@@ -7,8 +7,8 @@ export interface ServiceNowConfig {
   instanceUrl: string;
   username: string;
   password: string;
-  incidentTable: string;
-  kbTable: string;
+  incidentTable: AllowedTableName;
+  kbTable: AllowedTableName;
 }
 
 export interface SnIncident {
@@ -59,14 +59,97 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const RATE_LIMIT_STATUS = 429;
 const SYS_ID_PATTERN = /^[a-f0-9]{32}$/i;
-const ALLOWED_TABLE_NAMES = new Set([
+
+const ALLOWED_TABLE_NAMES_SET = new Set([
   'incident',
   'kb_knowledge',
   'problem',
   'change_request',
   'sc_req_item',
   'cmdb_ci',
-]);
+] as const);
+
+export type AllowedTableName =
+  | 'incident'
+  | 'kb_knowledge'
+  | 'problem'
+  | 'change_request'
+  | 'sc_req_item'
+  | 'cmdb_ci';
+
+export function isAllowedTableName(name: string): name is AllowedTableName {
+  return ALLOWED_TABLE_NAMES_SET.has(name as AllowedTableName);
+}
+
+export function validateAndParseInstanceUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.replace(/\/+$/, ''));
+  } catch {
+    throw new Error('Invalid ServiceNow instance URL format');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('ServiceNow instance URL must use https protocol');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    !hostname.endsWith('.service-now.com') ||
+    hostname === '.service-now.com' ||
+    hostname === 'service-now.com'
+  ) {
+    throw new Error(
+      'ServiceNow instance URL must be a *.service-now.com subdomain',
+    );
+  }
+
+  return new URL(parsed.origin);
+}
+
+export function validateSysId(sysId: string): void {
+  if (!SYS_ID_PATTERN.test(sysId)) {
+    throw new Error(
+      'Invalid ServiceNow sys_id format: expected 32 hex characters',
+    );
+  }
+}
+
+export function buildSnTableRecordUrl(
+  base: URL,
+  table: AllowedTableName,
+  sysId: string,
+  query?: Record<string, string>,
+): URL {
+  validateSysId(sysId);
+  const url = new URL(base.origin);
+  url.pathname = `/api/now/table/${table}/${sysId}`;
+  if (query) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      params.set(key, value);
+    }
+    url.search = params.toString();
+  }
+  return url;
+}
+
+export function buildSnTableQueryUrl(
+  base: URL,
+  table: AllowedTableName,
+  query?: Record<string, string>,
+): URL {
+  const url = new URL(base.origin);
+  url.pathname = `/api/now/table/${table}`;
+  if (query) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      params.set(key, value);
+    }
+    url.search = params.toString();
+  }
+  return url;
+}
 
 @Injectable()
 export class ServiceNowClientService {
@@ -93,37 +176,45 @@ export class ServiceNowClientService {
       return null;
     }
 
-    const safeOrigin = this.validateInstanceUrl(rawUrl, tenantId);
-    if (!safeOrigin) {
+    let validatedUrl: URL;
+    try {
+      validatedUrl = validateAndParseInstanceUrl(rawUrl);
+    } catch (err) {
+      this.logger.error('ServiceNow instance URL validation failed', {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
 
+    const rawIncidentTable =
+      this.configService.get<string>(`${prefix}_INCIDENT_TABLE`) ||
+      this.configService.get<string>('SERVICENOW_INCIDENT_TABLE') ||
+      'incident';
+    const rawKbTable =
+      this.configService.get<string>(`${prefix}_KB_TABLE`) ||
+      this.configService.get<string>('SERVICENOW_KB_TABLE') ||
+      'kb_knowledge';
+
+    const incidentTable = this.resolveTableName(rawIncidentTable, 'incident');
+    const kbTable = this.resolveTableName(rawKbTable, 'kb_knowledge');
+
     return {
-      instanceUrl: safeOrigin,
+      instanceUrl: validatedUrl.origin,
       username,
       password,
-      incidentTable: this.resolveTableName(
-        this.configService.get<string>(`${prefix}_INCIDENT_TABLE`) ||
-          this.configService.get<string>('SERVICENOW_INCIDENT_TABLE') ||
-          'incident',
-        'incident',
-      ),
-      kbTable: this.resolveTableName(
-        this.configService.get<string>(`${prefix}_KB_TABLE`) ||
-          this.configService.get<string>('SERVICENOW_KB_TABLE') ||
-          'kb_knowledge',
-        'kb_knowledge',
-      ),
+      incidentTable,
+      kbTable,
     };
   }
 
   private async fetchWithRetry(
-    url: string,
+    url: URL,
     options: RequestInit,
     tenantId: string,
     attempt = 1,
   ): Promise<Response> {
-    const safeUrl = sanitizeString(url);
+    const safeUrlStr = sanitizeString(url.toString());
     try {
       const response = await fetch(url, options);
 
@@ -137,7 +228,7 @@ export class ServiceNowClientService {
             tenantId,
             attempt,
             delay,
-            url: safeUrl,
+            url: safeUrlStr,
           });
           await this.sleep(delay);
           return this.fetchWithRetry(url, options, tenantId, attempt + 1);
@@ -153,7 +244,7 @@ export class ServiceNowClientService {
           tenantId,
           attempt,
           status: response.status,
-          url: safeUrl,
+          url: safeUrlStr,
         });
         await this.sleep(delay);
         return this.fetchWithRetry(url, options, tenantId, attempt + 1);
@@ -173,7 +264,7 @@ export class ServiceNowClientService {
           tenantId,
           attempt,
           error: error instanceof Error ? error.message : String(error),
-          url: safeUrl,
+          url: safeUrlStr,
         });
         await this.sleep(delay);
         return this.fetchWithRetry(url, options, tenantId, attempt + 1);
@@ -226,10 +317,18 @@ export class ServiceNowClientService {
       'sys_updated_on',
     ].join(',');
 
-    let url = `${cfg.instanceUrl}/api/now/table/${cfg.incidentTable}?sysparm_limit=${limit}&sysparm_offset=${offset}&sysparm_fields=${fields}&sysparm_display_value=true`;
+    const baseUrl = new URL(cfg.instanceUrl);
+    const queryParams: Record<string, string> = {
+      sysparm_limit: String(limit),
+      sysparm_offset: String(offset),
+      sysparm_fields: fields,
+      sysparm_display_value: 'true',
+    };
     if (params?.query) {
-      url += `&sysparm_query=${encodeURIComponent(params.query)}`;
+      queryParams['sysparm_query'] = params.query;
     }
+
+    const url = buildSnTableQueryUrl(baseUrl, cfg.incidentTable, queryParams);
 
     const response = await this.fetchWithRetry(
       url,
@@ -256,36 +355,11 @@ export class ServiceNowClientService {
     return { items: body.result || [], total };
   }
 
-  private validateSysId(sysId: string): void {
-    if (!SYS_ID_PATTERN.test(sysId)) {
-      throw new Error(
-        `Invalid ServiceNow sys_id format: expected 32 hex characters`,
-      );
-    }
-  }
-
-  private validateInstanceUrl(rawUrl: string, tenantId: string): string | null {
-    let parsed: URL;
-    try {
-      parsed = new URL(rawUrl.replace(/\/+$/, ''));
-    } catch {
-      this.logger.error('Invalid ServiceNow instance URL', { tenantId });
-      return null;
-    }
-    if (
-      parsed.protocol !== 'https:' ||
-      !parsed.hostname.endsWith('.service-now.com')
-    ) {
-      this.logger.error('ServiceNow URL must be https://*.service-now.com', {
-        tenantId,
-      });
-      return null;
-    }
-    return parsed.origin;
-  }
-
-  private resolveTableName(requested: string, fallback: string): string {
-    if (ALLOWED_TABLE_NAMES.has(requested)) {
+  private resolveTableName(
+    requested: string,
+    fallback: AllowedTableName,
+  ): AllowedTableName {
+    if (isAllowedTableName(requested)) {
       return requested;
     }
     this.logger.warn('Unrecognised ServiceNow table name, using fallback', {
@@ -299,14 +373,18 @@ export class ServiceNowClientService {
     tenantId: string,
     sysId: string,
   ): Promise<SnIncident | null> {
-    this.validateSysId(sysId);
+    validateSysId(sysId);
     const cfg = this.getTenantConfig(tenantId);
     if (!cfg) {
       this.logger.warn('ServiceNow not configured for tenant', { tenantId });
       return null;
     }
 
-    const url = `${cfg.instanceUrl}/api/now/table/${cfg.incidentTable}/${sysId}?sysparm_display_value=true`;
+    const baseUrl = new URL(cfg.instanceUrl);
+    const url = buildSnTableRecordUrl(baseUrl, cfg.incidentTable, sysId, {
+      sysparm_display_value: 'true',
+    });
+
     const response = await this.fetchWithRetry(
       url,
       { method: 'GET', headers: this.buildHeaders(cfg) },
@@ -338,13 +416,15 @@ export class ServiceNowClientService {
     field: 'work_notes' | 'comments',
     text: string,
   ): Promise<SnIncident> {
-    this.validateSysId(sysId);
+    validateSysId(sysId);
     const cfg = this.getTenantConfig(tenantId);
     if (!cfg) {
       throw new Error('ServiceNow not configured for this tenant');
     }
 
-    const url = `${cfg.instanceUrl}/api/now/table/${cfg.incidentTable}/${sysId}`;
+    const baseUrl = new URL(cfg.instanceUrl);
+    const url = buildSnTableRecordUrl(baseUrl, cfg.incidentTable, sysId);
+
     const payload: Record<string, string> = {};
     payload[field] = text;
 
@@ -395,10 +475,16 @@ export class ServiceNowClientService {
       'sys_updated_on',
     ].join(',');
 
-    let url = `${cfg.instanceUrl}/api/now/table/${cfg.kbTable}?sysparm_limit=${limit}&sysparm_fields=${fields}`;
+    const baseUrl = new URL(cfg.instanceUrl);
+    const queryParams: Record<string, string> = {
+      sysparm_limit: String(limit),
+      sysparm_fields: fields,
+    };
     if (params?.query) {
-      url += `&sysparm_query=${encodeURIComponent(params.query)}`;
+      queryParams['sysparm_query'] = params.query;
     }
+
+    const url = buildSnTableQueryUrl(baseUrl, cfg.kbTable, queryParams);
 
     const response = await this.fetchWithRetry(
       url,
