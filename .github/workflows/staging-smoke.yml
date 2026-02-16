@@ -32,6 +32,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# =============================================================================
+# Staging URL Configuration
+# =============================================================================
+# The staging URL is resolved with this priority (highest to lowest):
+#   1. workflow_dispatch input: staging_url
+#   2. workflow_dispatch input: staging_base_url (alias)
+#   3. repo variable: STAGING_BASE_URL  (preferred - set in Settings > Variables)
+#   4. repo secret: STAGING_BASE_URL
+#   5. repo secret: STAGING_URL (legacy)
+#
+# To configure (recommended):
+#   Go to Settings > Secrets and variables > Actions > Variables tab
+#   Add variable: STAGING_BASE_URL = http://46.224.99.150
+# =============================================================================
+
 jobs:
   # API Smoke Tests using the golden flow verify script
   api-smoke:
@@ -49,17 +64,17 @@ jobs:
         env:
           INPUT_STAGING_URL: ${{ github.event.inputs.staging_url }}
           INPUT_STAGING_BASE_URL: ${{ github.event.inputs.staging_base_url }}
+          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
           SECRET_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
           SECRET_STAGING_URL: ${{ secrets.STAGING_URL }}
-          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
         run: |
           # =============================================================================
           # Resolve Staging URL with Priority (highest to lowest):
           #   1. workflow_dispatch input: staging_url
           #   2. workflow_dispatch input: staging_base_url (alias)
-          #   3. repo secret: STAGING_BASE_URL
-          #   4. repo secret: STAGING_URL (legacy)
-          #   5. repo variable: STAGING_BASE_URL (optional fallback)
+          #   3. repo variable: STAGING_BASE_URL  (preferred for public URLs)
+          #   4. repo secret: STAGING_BASE_URL
+          #   5. repo secret: STAGING_URL (legacy)
           # =============================================================================
           
           RESOLVED_URL=""
@@ -71,28 +86,37 @@ jobs:
           elif [ -n "$INPUT_STAGING_BASE_URL" ]; then
             RESOLVED_URL="$INPUT_STAGING_BASE_URL"
             SOURCE="workflow input (staging_base_url)"
+          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$VAR_STAGING_BASE_URL"
+            SOURCE="variable (STAGING_BASE_URL)"
           elif [ -n "$SECRET_STAGING_BASE_URL" ]; then
             RESOLVED_URL="$SECRET_STAGING_BASE_URL"
             SOURCE="secret (STAGING_BASE_URL)"
           elif [ -n "$SECRET_STAGING_URL" ]; then
             RESOLVED_URL="$SECRET_STAGING_URL"
             SOURCE="secret (STAGING_URL - legacy)"
-          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
-            RESOLVED_URL="$VAR_STAGING_BASE_URL"
-            SOURCE="variable (STAGING_BASE_URL)"
           fi
           
           # Fail fast with actionable instructions if no URL found
           if [ -z "$RESOLVED_URL" ]; then
-            echo "::error::No staging URL configured."
+            echo "::error::No staging URL configured. Set repo variable STAGING_BASE_URL (e.g. http://46.224.99.150) under Settings > Secrets and variables > Actions > Variables."
             echo ""
-            echo "ERROR: No staging URL configured."
+            echo "==========================================================="
+            echo "  ERROR: No staging URL configured."
+            echo "==========================================================="
             echo ""
-            echo "To fix this, do ONE of the following:"
-            echo "  1. Set Actions secret STAGING_BASE_URL (e.g., https://niles-grc.com)"
-            echo "  2. Pass workflow input staging_url when triggering manually"
+            echo "To fix this (recommended): set a repository VARIABLE:"
+            echo "  Settings > Secrets and variables > Actions > Variables tab"
+            echo "  Name:  STAGING_BASE_URL"
+            echo "  Value: http://46.224.99.150"
             echo ""
-            echo "Configuration location: Settings > Secrets and variables > Actions"
+            echo "==========================================================="
+            
+            # Write diagnostic file so artifact upload always has content
+            echo "DIAGNOSTIC: Staging URL resolution failed at $(date -u)" > golden-flow-output.txt
+            echo "Trigger: ${{ github.event_name }}" >> golden-flow-output.txt
+            echo "Run ID: ${{ github.run_id }}" >> golden-flow-output.txt
+            echo "FIX: Set repo variable STAGING_BASE_URL = http://46.224.99.150" >> golden-flow-output.txt
             exit 1
           fi
           
@@ -100,10 +124,10 @@ jobs:
           # Normalize URL
           # =============================================================================
           
-          # Add https:// if no scheme present
+          # Add http:// if no scheme present (staging uses http by default)
           if [[ ! "$RESOLVED_URL" =~ ^https?:// ]]; then
-            RESOLVED_URL="https://$RESOLVED_URL"
-            echo "Normalized: Added https:// scheme"
+            RESOLVED_URL="http://$RESOLVED_URL"
+            echo "Normalized: Added http:// scheme"
           fi
           
           # Remove trailing slash
@@ -126,6 +150,27 @@ jobs:
           echo "staging_url=$RESOLVED_URL" >> $GITHUB_OUTPUT
           echo "host=$HOST" >> $GITHUB_OUTPUT
 
+      - name: Preflight health check
+        run: |
+          echo "=== Preflight: Checking staging reachability ==="
+          STAGING_URL="${{ env.STAGING_URL }}"
+          
+          # Check frontend root (expect 200)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 20 "${STAGING_URL}/" 2>/dev/null || echo "000")
+          echo "Frontend root: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Frontend returned HTTP $HTTP_CODE (expected 200). Staging may not be fully deployed."
+          fi
+          
+          # Check backend health (expect 200)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 20 "${STAGING_URL}/health/live" 2>/dev/null || echo "000")
+          echo "Backend /health/live: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Backend /health/live returned HTTP $HTTP_CODE (expected 200)."
+          fi
+          
+          echo "=== Preflight complete ==="
+
       - name: Run Golden Flow Verification
         id: golden-flow
         continue-on-error: true
@@ -139,6 +184,15 @@ jobs:
           DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
           DEMO_TENANT_ID: ${{ secrets.DEMO_TENANT_ID }}
 
+      - name: Ensure golden-flow-output.txt exists
+        if: always()
+        run: |
+          if [ ! -f golden-flow-output.txt ]; then
+            echo "Golden Flow output was not produced." > golden-flow-output.txt
+            echo "Timestamp: $(date -u)" >> golden-flow-output.txt
+            echo "Check 'Resolve Staging URL' step for details." >> golden-flow-output.txt
+          fi
+
       - name: Upload Golden Flow Results
         if: always()
         uses: actions/upload-artifact@v6
@@ -146,6 +200,7 @@ jobs:
           name: golden-flow-results
           path: golden-flow-output.txt
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Report Golden Flow Status
         if: always()
@@ -153,14 +208,16 @@ jobs:
           echo "## Golden Flow Verification Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.golden-flow.outcome }}" == "success" ]; then
-            echo "✅ **Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "**Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.golden-flow.outcome }}" == "skipped" ]; then
+            echo "**Status: SKIPPED** (URL resolution or preflight failed)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "**Status: FAILED**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Output" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat golden-flow-output.txt >> $GITHUB_STEP_SUMMARY || echo "No output captured" >> $GITHUB_STEP_SUMMARY
+          cat golden-flow-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No output captured" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   # Playwright UI Smoke Tests
@@ -194,19 +251,10 @@ jobs:
         env:
           INPUT_STAGING_URL: ${{ github.event.inputs.staging_url }}
           INPUT_STAGING_BASE_URL: ${{ github.event.inputs.staging_base_url }}
+          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
           SECRET_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
           SECRET_STAGING_URL: ${{ secrets.STAGING_URL }}
-          VAR_STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
         run: |
-          # =============================================================================
-          # Resolve Staging URL with Priority (highest to lowest):
-          #   1. workflow_dispatch input: staging_url
-          #   2. workflow_dispatch input: staging_base_url (alias)
-          #   3. repo secret: STAGING_BASE_URL
-          #   4. repo secret: STAGING_URL (legacy)
-          #   5. repo variable: STAGING_BASE_URL (optional fallback)
-          # =============================================================================
-          
           RESOLVED_URL=""
           SOURCE=""
           
@@ -216,60 +264,48 @@ jobs:
           elif [ -n "$INPUT_STAGING_BASE_URL" ]; then
             RESOLVED_URL="$INPUT_STAGING_BASE_URL"
             SOURCE="workflow input (staging_base_url)"
+          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
+            RESOLVED_URL="$VAR_STAGING_BASE_URL"
+            SOURCE="variable (STAGING_BASE_URL)"
           elif [ -n "$SECRET_STAGING_BASE_URL" ]; then
             RESOLVED_URL="$SECRET_STAGING_BASE_URL"
             SOURCE="secret (STAGING_BASE_URL)"
           elif [ -n "$SECRET_STAGING_URL" ]; then
             RESOLVED_URL="$SECRET_STAGING_URL"
             SOURCE="secret (STAGING_URL - legacy)"
-          elif [ -n "$VAR_STAGING_BASE_URL" ]; then
-            RESOLVED_URL="$VAR_STAGING_BASE_URL"
-            SOURCE="variable (STAGING_BASE_URL)"
           fi
           
-          # Fail fast with actionable instructions if no URL found
           if [ -z "$RESOLVED_URL" ]; then
-            echo "::error::No staging URL configured."
-            echo ""
-            echo "ERROR: No staging URL configured."
-            echo ""
-            echo "To fix this, do ONE of the following:"
-            echo "  1. Set Actions secret STAGING_BASE_URL (e.g., https://niles-grc.com)"
-            echo "  2. Pass workflow input staging_url when triggering manually"
-            echo ""
-            echo "Configuration location: Settings > Secrets and variables > Actions"
+            echo "::error::No staging URL configured. Set repo variable STAGING_BASE_URL (e.g. http://46.224.99.150) under Settings > Secrets and variables > Actions > Variables."
+            mkdir -p frontend/playwright-report frontend/test-results
+            echo "Playwright tests did not run: staging URL not configured." > frontend/playwright-report/diagnostic.txt
+            echo "FIX: Set repo variable STAGING_BASE_URL = http://46.224.99.150" >> frontend/playwright-report/diagnostic.txt
+            cp frontend/playwright-report/diagnostic.txt frontend/test-results/diagnostic.txt
             exit 1
           fi
           
-          # =============================================================================
-          # Normalize URL
-          # =============================================================================
-          
-          # Add https:// if no scheme present
           if [[ ! "$RESOLVED_URL" =~ ^https?:// ]]; then
-            RESOLVED_URL="https://$RESOLVED_URL"
-            echo "Normalized: Added https:// scheme"
+            RESOLVED_URL="http://$RESOLVED_URL"
           fi
-          
-          # Remove trailing slash
           RESOLVED_URL="${RESOLVED_URL%/}"
           
-          # Extract host for safe logging (never echo full URL which may contain secrets)
           HOST=$(echo "$RESOLVED_URL" | sed -E 's|^https?://||' | cut -d'/' -f1)
-          
           echo "Staging URL resolved from: $SOURCE"
           echo "Normalized host: $HOST"
           
-          # =============================================================================
-          # Export environment variables for subsequent steps
-          # =============================================================================
           echo "E2E_BASE_URL=$RESOLVED_URL" >> $GITHUB_ENV
           echo "STAGING_URL=$RESOLVED_URL" >> $GITHUB_ENV
           echo "STAGING_BASE_URL=$RESOLVED_URL" >> $GITHUB_ENV
-          
-          # Set step outputs for use in other jobs
           echo "staging_url=$RESOLVED_URL" >> $GITHUB_OUTPUT
           echo "host=$HOST" >> $GITHUB_OUTPUT
+
+      - name: Preflight health check
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 20 "${{ env.STAGING_URL }}/" 2>/dev/null || echo "000")
+          echo "Frontend root: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Frontend returned HTTP $HTTP_CODE (expected 200). Tests may fail."
+          fi
 
       - name: Run Playwright Smoke Tests
         id: playwright-tests
@@ -291,6 +327,7 @@ jobs:
           name: playwright-smoke-report
           path: frontend/playwright-report/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload Test Artifacts
         if: always()
@@ -300,6 +337,7 @@ jobs:
           path: |
             frontend/test-results/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Report Playwright Status
         if: always()
@@ -307,14 +345,16 @@ jobs:
           echo "## Playwright Smoke Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.playwright-tests.outcome }}" == "success" ]; then
-            echo "✅ **Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "**Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.playwright-tests.outcome }}" == "skipped" ]; then
+            echo "**Status: SKIPPED** (URL resolution failed)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "**Status: FAILED**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Output (last 100 lines)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -100 frontend/playwright-output.txt >> $GITHUB_STEP_SUMMARY || echo "No output captured" >> $GITHUB_STEP_SUMMARY
+          tail -100 frontend/playwright-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No output captured" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   # Summary job that reports overall status
@@ -333,24 +373,24 @@ jobs:
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ needs.api-smoke.result }}" == "success" ]; then
-            echo "| API Golden Flow | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| API Golden Flow | Passed |" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.api-smoke.result }}" == "skipped" ]; then
-            echo "| API Golden Flow | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| API Golden Flow | Skipped |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| API Golden Flow | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            echo "| API Golden Flow | Failed |" >> $GITHUB_STEP_SUMMARY
           fi
           
           if [ "${{ needs.playwright-smoke.result }}" == "success" ]; then
-            echo "| Playwright UI | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Playwright UI | Passed |" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.playwright-smoke.result }}" == "skipped" ]; then
-            echo "| Playwright UI | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| Playwright UI | Skipped |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Playwright UI | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Playwright UI | Failed |" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Run ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Check for failures

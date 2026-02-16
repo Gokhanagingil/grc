@@ -26,7 +26,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-RUN npm ci
+# --legacy-peer-deps: required because @swc/cli@0.8.0 conflicts with
+# @nestjs/cli@11.0.16 peerOptional range (^0.1.62 || ^0.3.0-0.7.x)
+RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
