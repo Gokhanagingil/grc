@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Body,
+  Param,
   UseGuards,
   Request as NestRequest,
   HttpCode,
@@ -201,8 +202,7 @@ export class MfaController {
   @Get('admin/status/:userId')
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions(Permission.ADMIN_USERS_READ)
-  async getAdminMfaStatus(@NestRequest() req: RequestWithUser) {
-    const userId = req.params?.userId;
+  async getAdminMfaStatus(@Param('userId') userId: string) {
     if (!userId) {
       throw new BadRequestException('User ID required');
     }
