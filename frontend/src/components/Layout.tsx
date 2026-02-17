@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -367,9 +367,10 @@ const AppFooter: React.FC = () => {
     let cancelled = false;
     const fetchVersion = async () => {
       try {
-        const resp = await axios.get('/api/health/version');
-        if (!cancelled && resp.data?.version) {
-          const v = resp.data.version as { commitShort?: string; buildTimestamp?: string };
+        const resp = await api.get('/health/version');
+        const version = resp.data?.data?.version || resp.data?.version;
+        if (!cancelled && version) {
+          const v = version as { commitShort?: string; buildTimestamp?: string };
           const sha = v.commitShort && v.commitShort !== 'unknown' ? v.commitShort : 'dev';
           const ts = v.buildTimestamp && v.buildTimestamp !== 'unknown'
             ? new Date(v.buildTimestamp).toLocaleString()
@@ -378,7 +379,9 @@ const AppFooter: React.FC = () => {
         } else if (!cancelled) {
           setBuildInfo('Build: unavailable');
         }
-      } catch {
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        console.warn(`[BuildIndicator] /health/version failed: status=${status ?? 'network error'}`);
         if (!cancelled) setBuildInfo('Build: unavailable');
       }
     };

@@ -14,9 +14,10 @@
  * Defaults to localhost:3001/api for local development.
  */
 export const getApiBaseUrl = (): string => {
-  // If explicitly set to empty string, use relative URL (for nginx reverse proxy)
+  // If explicitly set to empty string, use /api prefix for nginx reverse proxy
+  // Nginx strips /api/ before forwarding to backend, so all calls must use /api/*
   if (process.env.REACT_APP_API_URL === '') {
-    return '';
+    return '/api';
   }
   return (
     process.env.REACT_APP_API_URL || 'http://localhost:3001/api'
