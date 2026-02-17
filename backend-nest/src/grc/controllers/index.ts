@@ -70,5 +70,4 @@ export { CalendarController } from './calendar.controller';
 
 // ITSM (IT Service Management) Controllers - ITIL v5 aligned
 export { ItsmServiceController } from './itsm-service.controller';
-export { ItsmIncidentController } from './itsm-incident.controller';
 export { ItsmChangeController } from './itsm-change.controller';

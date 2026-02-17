@@ -6,14 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
-import {
-  ItsmIncident,
-  ItsmService,
-  ItsmIncidentRisk,
-  ItsmIncidentControl,
-  GrcRisk,
-  GrcControl,
-} from '../entities';
+import { ItsmIncident } from '../entities/itsm-incident.entity';
+import { ItsmService } from '../entities/itsm-service.entity';
+import { ItsmIncidentRisk } from '../entities/itsm-incident-risk.entity';
+import { ItsmIncidentControl } from '../entities/itsm-incident-control.entity';
+import { GrcRisk } from '../entities/grc-risk.entity';
+import { GrcControl } from '../entities/grc-control.entity';
 import {
   ItsmIncidentState,
   ItsmIncidentPriority,
