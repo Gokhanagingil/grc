@@ -110,11 +110,8 @@ export { BcmExercise } from './bcm-exercise.entity';
 
 // ITSM (IT Service Management) Entities - ITIL v5 aligned
 export { ItsmService } from './itsm-service.entity';
-export { ItsmIncident } from './itsm-incident.entity';
 export { ItsmChange } from './itsm-change.entity';
 
-// ITSM-GRC Bridge Entities
-export { ItsmIncidentRisk } from './itsm-incident-risk.entity';
-export { ItsmIncidentControl } from './itsm-incident-control.entity';
+// ITSM-GRC Bridge Entities (Change management only; Incident bridge is in ItsmModule)
 export { ItsmChangeRisk } from './itsm-change-risk.entity';
 export { ItsmChangeControl } from './itsm-change-control.entity';

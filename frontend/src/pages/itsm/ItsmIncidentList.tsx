@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
   Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon, Warning as WarningIcon } from '@mui/icons-material';
@@ -17,9 +21,11 @@ interface ItsmIncident {
   shortDescription: string;
   description?: string;
   state: string;
+  status: string;
   priority: string;
   impact: string;
   urgency: string;
+  category?: string;
   riskReviewRequired: boolean;
   service?: { id: string; name: string };
   assignee?: { id: string; firstName: string; lastName: string };
@@ -27,8 +33,9 @@ interface ItsmIncident {
   updatedAt: string;
 }
 
-const stateColors: Record<string, 'default' | 'info' | 'warning' | 'success'> = {
+const stateColors: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
   NEW: 'info',
+  OPEN: 'info',
   IN_PROGRESS: 'warning',
   RESOLVED: 'success',
   CLOSED: 'default',
@@ -42,24 +49,53 @@ const priorityColors: Record<string, 'error' | 'warning' | 'info' | 'success' | 
   P5: 'default',
 };
 
+const STATE_FILTER_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+const PRIORITY_FILTER_OPTIONS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+
 export const ItsmIncidentList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showNotification } = useNotification();
   const [incidents, setIncidents] = useState<ItsmIncident[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState('');
+
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+  const search = searchParams.get('q') || '';
+  const stateFilter = searchParams.get('state') || '';
+  const priorityFilter = searchParams.get('priority') || '';
+
+  const updateParams = useCallback((updates: Record<string, string>) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) {
+          next.set(key, value);
+        } else {
+          next.delete(key);
+        }
+      });
+      return next;
+    });
+  }, [setSearchParams]);
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await itsmApi.incidents.list({ page, pageSize, q: search });
+      const response = await itsmApi.incidents.list({
+        page,
+        pageSize,
+        q: search || undefined,
+        state: stateFilter || undefined,
+        priority: priorityFilter || undefined,
+      });
       const data = response.data;
-      if (data && 'data' in data) {
-        setIncidents(Array.isArray(data.data) ? data.data : []);
-        setTotal(data.total || 0);
+      if (data && typeof data === 'object') {
+        const d = data as Record<string, unknown>;
+        const items = d.data ?? d.items;
+        setIncidents(Array.isArray(items) ? items as ItsmIncident[] : []);
+        setTotal((d.total as number) || 0);
       } else {
         setIncidents([]);
         setTotal(0);
@@ -71,7 +107,7 @@ export const ItsmIncidentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, showNotification]);
+  }, [page, pageSize, search, stateFilter, priorityFilter, showNotification]);
 
   useEffect(() => {
     fetchIncidents();
@@ -110,13 +146,16 @@ export const ItsmIncidentList: React.FC = () => {
     {
       key: 'state',
       header: 'State',
-      render: (row) => (
-        <Chip
-          label={row.state.replace('_', ' ')}
-          size="small"
-          color={stateColors[row.state] || 'default'}
-        />
-      ),
+      render: (row) => {
+        const displayState = row.status || row.state || 'UNKNOWN';
+        return (
+          <Chip
+            label={displayState.replace(/_/g, ' ')}
+            size="small"
+            color={stateColors[displayState] || 'default'}
+          />
+        );
+      },
     },
     {
       key: 'priority',
@@ -131,11 +170,11 @@ export const ItsmIncidentList: React.FC = () => {
       ),
     },
     {
-      key: 'service',
-      header: 'Service',
+      key: 'category',
+      header: 'Category',
       render: (row) => (
         <Typography variant="body2" color="text.secondary">
-          {row.service?.name || '-'}
+          {row.category || '-'}
         </Typography>
       ),
     },
@@ -159,19 +198,53 @@ export const ItsmIncidentList: React.FC = () => {
     },
   ], []);
 
+  const filterActions = (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 130 }}>
+        <InputLabel>State</InputLabel>
+        <Select
+          value={stateFilter}
+          label="State"
+          onChange={(e) => updateParams({ state: e.target.value, page: '1' })}
+        >
+          <MenuItem value="">All States</MenuItem>
+          {STATE_FILTER_OPTIONS.map((opt) => (
+            <MenuItem key={opt} value={opt}>{opt.replace(/_/g, ' ')}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 130 }}>
+        <InputLabel>Priority</InputLabel>
+        <Select
+          value={priorityFilter}
+          label="Priority"
+          onChange={(e) => updateParams({ priority: e.target.value, page: '1' })}
+        >
+          <MenuItem value="">All Priorities</MenuItem>
+          {PRIORITY_FILTER_OPTIONS.map((opt) => (
+            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Box>
+  );
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight={600}>
           Incidents
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/itsm/incidents/new')}
-        >
-          New Incident
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {filterActions}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/itsm/incidents/new')}
+          >
+            New Incident
+          </Button>
+        </Box>
       </Box>
 
       <GenericListPage<ItsmIncident>
@@ -184,14 +257,18 @@ export const ItsmIncidentList: React.FC = () => {
         page={page}
         pageSize={pageSize}
         search={search}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        onSearchChange={setSearch}
+        onPageChange={(p) => updateParams({ page: String(p) })}
+        onPageSizeChange={(ps) => updateParams({ pageSize: String(ps), page: '1' })}
+        onSearchChange={(s) => updateParams({ q: s, page: '1' })}
         onRefresh={fetchIncidents}
-        onRowClick={(row) => navigate(`/itsm/incidents/${row.id}`)}
+        onRowClick={(row) => {
+          const params = searchParams.toString();
+          navigate(`/itsm/incidents/${row.id}${params ? `?returnParams=${encodeURIComponent(params)}` : ''}`);
+        }}
         emptyMessage="No incidents found"
         searchPlaceholder="Search incidents..."
         getRowKey={(row) => row.id}
+        testId="itsm-incident-list"
       />
     </Box>
   );

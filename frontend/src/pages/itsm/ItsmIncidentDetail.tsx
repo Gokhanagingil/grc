@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -28,9 +28,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
+  AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 
 interface ItsmIncident {
   id: string;
@@ -79,8 +81,18 @@ const URGENCY_OPTIONS = ['HIGH', 'MEDIUM', 'LOW'];
 export const ItsmIncidentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showNotification } = useNotification();
   const isNew = id === 'new';
+
+  const handleBackToList = useCallback(() => {
+    const returnParams = searchParams.get('returnParams');
+    if (returnParams) {
+      navigate(`/itsm/incidents?${decodeURIComponent(returnParams)}`);
+    } else {
+      navigate('/itsm/incidents');
+    }
+  }, [navigate, searchParams]);
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -98,6 +110,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const fetchIncident = useCallback(async () => {
     if (isNew || !id) return;
@@ -131,11 +144,11 @@ export const ItsmIncidentDetail: React.FC = () => {
     } catch (error) {
       console.error('Error fetching ITSM incident:', error);
       showNotification('Failed to load ITSM incident', 'error');
-      navigate('/itsm/incidents');
+      handleBackToList();
     } finally {
       setLoading(false);
     }
-  }, [id, isNew, navigate, showNotification]);
+  }, [id, isNew, handleBackToList, showNotification]);
 
   useEffect(() => {
     fetchIncident();
@@ -228,7 +241,7 @@ export const ItsmIncidentDetail: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/itsm/incidents')}
+          onClick={handleBackToList}
         >
           Back to Incidents
         </Button>
@@ -247,14 +260,26 @@ export const ItsmIncidentDetail: React.FC = () => {
             />
           )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {!isNew && incident.id && (
+            <Button
+              variant="outlined"
+              startIcon={<CopilotIcon />}
+              onClick={() => setCopilotOpen(true)}
+              color="secondary"
+            >
+              Copilot
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>
@@ -515,6 +540,15 @@ export const ItsmIncidentDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {!isNew && incident.id && incident.number && (
+        <CopilotPanel
+          open={copilotOpen}
+          onClose={() => setCopilotOpen(false)}
+          incidentSysId={incident.id}
+          incidentNumber={incident.number}
+        />
+      )}
     </Box>
   );
 };

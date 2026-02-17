@@ -81,10 +81,7 @@ import {
   BcmExercise,
   // ITSM (IT Service Management) entities - ITIL v5 aligned
   ItsmService,
-  ItsmIncident,
   ItsmChange,
-  ItsmIncidentRisk,
-  ItsmIncidentControl,
   ItsmChangeRisk,
   ItsmChangeControl,
 } from './entities';
@@ -151,7 +148,6 @@ import { CalendarService } from './services/calendar.service';
 
 // ITSM (IT Service Management) services - ITIL v5 aligned
 import { ItsmServiceService } from './services/itsm-service.service';
-import { ItsmIncidentService } from './services/itsm-incident.service';
 import { ItsmChangeService } from './services/itsm-change.service';
 
 // Controllers
@@ -220,7 +216,6 @@ import { CalendarController } from './controllers/calendar.controller';
 
 // ITSM (IT Service Management) controllers - ITIL v5 aligned
 import { ItsmServiceController } from './controllers/itsm-service.controller';
-import { ItsmIncidentController } from './controllers/itsm-incident.controller';
 import { ItsmChangeController } from './controllers/itsm-change.controller';
 
 /**
@@ -319,10 +314,7 @@ import { ItsmChangeController } from './controllers/itsm-change.controller';
       BcmExercise,
       // ITSM (IT Service Management) entities - ITIL v5 aligned
       ItsmService,
-      ItsmIncident,
       ItsmChange,
-      ItsmIncidentRisk,
-      ItsmIncidentControl,
       ItsmChangeRisk,
       ItsmChangeControl,
     ]),
@@ -386,7 +378,6 @@ import { ItsmChangeController } from './controllers/itsm-change.controller';
     CalendarService,
     // ITSM (IT Service Management) services - ITIL v5 aligned
     ItsmServiceService,
-    ItsmIncidentService,
     ItsmChangeService,
   ],
   controllers: [
@@ -447,7 +438,6 @@ import { ItsmChangeController } from './controllers/itsm-change.controller';
     CalendarController,
     // ITSM (IT Service Management) controllers - ITIL v5 aligned
     ItsmServiceController,
-    ItsmIncidentController,
     ItsmChangeController,
   ],
   exports: [
@@ -502,7 +492,6 @@ import { ItsmChangeController } from './controllers/itsm-change.controller';
     BcmModuleService,
     // ITSM (IT Service Management) services - ITIL v5 aligned
     ItsmServiceService,
-    ItsmIncidentService,
     ItsmChangeService,
   ],
 })
