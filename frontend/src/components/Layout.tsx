@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import axios from 'axios';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -358,6 +359,46 @@ const menuItems: NavMenuItem[] = [
   ...standaloneItems,
   ...menuGroups.flatMap(g => g.items),
 ];
+
+const BuildIndicator: React.FC = () => {
+  const [version, setVersion] = useState<{ commitShort?: string; buildTimestamp?: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchVersion = async () => {
+      try {
+        const resp = await axios.get('/api/health/version');
+        if (!cancelled && resp.data?.version) {
+          setVersion(resp.data.version);
+        }
+      } catch {
+        // silently ignore - version indicator is non-critical
+      }
+    };
+    fetchVersion();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!version) return null;
+
+  return (
+    <Box
+      sx={{
+        py: 1,
+        px: 2,
+        textAlign: 'center',
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        mt: 2,
+      }}
+      data-testid="build-indicator"
+    >
+      <Typography variant="caption" color="text.disabled">
+        Build: {version.commitShort || 'dev'} | {version.buildTimestamp ? new Date(version.buildTimestamp).toLocaleString() : 'local'}
+      </Typography>
+    </Box>
+  );
+};
 
 export const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1072,12 +1113,18 @@ export const Layout: React.FC = () => {
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh',
         }}
       >
         <Toolbar />
-        <ErrorBoundary>
-          <Outlet />
-        </ErrorBoundary>
+        <Box sx={{ flex: 1 }}>
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+        </Box>
+        <BuildIndicator />
       </Box>
       <Menu
         anchorEl={anchorEl}

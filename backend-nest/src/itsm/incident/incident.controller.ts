@@ -46,7 +46,7 @@ import { Perf } from '../../common/decorators';
  * - createdFrom/createdTo: Filter by creation date range
  * - search: Search in number, shortDescription, description
  */
-@Controller('itsm/incidents')
+@Controller('grc/itsm/incidents')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class IncidentController {
   constructor(private readonly incidentService: IncidentService) {}
