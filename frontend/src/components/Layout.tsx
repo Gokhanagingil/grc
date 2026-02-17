@@ -360,8 +360,8 @@ const menuItems: NavMenuItem[] = [
   ...menuGroups.flatMap(g => g.items),
 ];
 
-const BuildIndicator: React.FC = () => {
-  const [version, setVersion] = useState<{ commitShort?: string; buildTimestamp?: string } | null>(null);
+const AppFooter: React.FC = () => {
+  const [buildInfo, setBuildInfo] = useState<string>('Build: loading...');
 
   useEffect(() => {
     let cancelled = false;
@@ -369,32 +369,44 @@ const BuildIndicator: React.FC = () => {
       try {
         const resp = await axios.get('/api/health/version');
         if (!cancelled && resp.data?.version) {
-          setVersion(resp.data.version);
+          const v = resp.data.version as { commitShort?: string; buildTimestamp?: string };
+          const sha = v.commitShort && v.commitShort !== 'unknown' ? v.commitShort : 'dev';
+          const ts = v.buildTimestamp && v.buildTimestamp !== 'unknown'
+            ? new Date(v.buildTimestamp).toLocaleString()
+            : 'local';
+          setBuildInfo(`Build: ${sha} \u2022 ${ts}`);
+        } else if (!cancelled) {
+          setBuildInfo('Build: unavailable');
         }
       } catch {
-        // silently ignore - version indicator is non-critical
+        if (!cancelled) setBuildInfo('Build: unavailable');
       }
     };
     fetchVersion();
     return () => { cancelled = true; };
   }, []);
 
-  if (!version) return null;
-
   return (
     <Box
+      component="footer"
       sx={{
-        py: 1,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        py: 1.5,
         px: 2,
-        textAlign: 'center',
+        mt: 3,
         borderTop: '1px solid',
         borderColor: 'divider',
-        mt: 2,
+        minHeight: 48,
       }}
-      data-testid="build-indicator"
+      data-testid="app-footer"
     >
       <Typography variant="caption" color="text.disabled">
-        Build: {version.commitShort || 'dev'} | {version.buildTimestamp ? new Date(version.buildTimestamp).toLocaleString() : 'local'}
+        &copy; {new Date().getFullYear()} GRC Platform
+      </Typography>
+      <Typography variant="caption" color="text.disabled" data-testid="build-indicator">
+        {buildInfo}
       </Typography>
     </Box>
   );
@@ -1124,7 +1136,7 @@ export const Layout: React.FC = () => {
             <Outlet />
           </ErrorBoundary>
         </Box>
-        <BuildIndicator />
+        <AppFooter />
       </Box>
       <Menu
         anchorEl={anchorEl}

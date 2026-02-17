@@ -83,7 +83,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showNotification } = useNotification();
-  const isNew = id === 'new';
+  const isNew = !id || id === 'new';
 
   const handleBackToList = useCallback(() => {
     const returnParams = searchParams.get('returnParams');
@@ -196,9 +196,14 @@ export const ItsmIncidentDetail: React.FC = () => {
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving incident:', error);
-      showNotification('Failed to save incident', 'error');
+      const axiosErr = error as { response?: { status?: number } };
+      if (axiosErr?.response?.status === 403) {
+        showNotification('You don\'t have permission to create incidents.', 'error');
+      } else {
+        showNotification('Failed to save incident', 'error');
+      }
     } finally {
       setSaving(false);
     }

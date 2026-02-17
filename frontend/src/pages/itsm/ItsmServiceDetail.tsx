@@ -41,7 +41,7 @@ export const ItsmServiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const isNew = id === 'new';
+  const isNew = !id || id === 'new';
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -109,9 +109,14 @@ export const ItsmServiceDetail: React.FC = () => {
         showNotification('ITSM service updated successfully', 'success');
         fetchService();
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving ITSM service:', error);
-      showNotification('Failed to save ITSM service', 'error');
+      const axiosErr = error as { response?: { status?: number } };
+      if (axiosErr?.response?.status === 403) {
+        showNotification('You don\'t have permission to create services.', 'error');
+      } else {
+        showNotification('Failed to save ITSM service', 'error');
+      }
     } finally {
       setSaving(false);
     }

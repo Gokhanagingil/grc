@@ -58,6 +58,10 @@ export enum Permission {
   ITSM_INCIDENT_READ = 'itsm:incident:read',
   ITSM_INCIDENT_WRITE = 'itsm:incident:write',
 
+  // ITSM Service permissions
+  ITSM_SERVICE_READ = 'itsm:service:read',
+  ITSM_SERVICE_WRITE = 'itsm:service:write',
+
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
 
@@ -112,6 +116,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.GRC_ADMIN]: 'Full administrative access to all GRC features',
   [Permission.ITSM_INCIDENT_READ]: 'View incidents and incident details',
   [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
+  [Permission.ITSM_SERVICE_READ]: 'View ITSM services and service details',
+  [Permission.ITSM_SERVICE_WRITE]: 'Create, update, and delete ITSM services',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',
