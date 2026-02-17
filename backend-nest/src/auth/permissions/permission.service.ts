@@ -40,6 +40,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_ADMIN,
     Permission.ITSM_INCIDENT_READ,
     Permission.ITSM_INCIDENT_WRITE,
+    Permission.ITSM_SERVICE_READ,
+    Permission.ITSM_SERVICE_WRITE,
     Permission.ITSM_STATISTICS_READ,
     Permission.ADMIN_USERS_READ,
     Permission.ADMIN_USERS_WRITE,
@@ -81,6 +83,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_STATISTICS_READ,
     Permission.ITSM_INCIDENT_READ,
     Permission.ITSM_INCIDENT_WRITE,
+    Permission.ITSM_SERVICE_READ,
+    Permission.ITSM_SERVICE_WRITE,
     Permission.ITSM_STATISTICS_READ,
   ],
 
@@ -98,6 +102,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_CAPA_READ,
     Permission.GRC_PROCESS_READ,
     Permission.ITSM_INCIDENT_READ,
+    Permission.ITSM_SERVICE_READ,
   ],
 };
 

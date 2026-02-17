@@ -51,7 +51,7 @@ export class ItsmServiceController {
   constructor(private readonly serviceService: ItsmServiceService) {}
 
   @Post()
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_SERVICE_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new ITSM service' })
   @ApiResponse({ status: 201, description: 'Service created successfully' })
@@ -74,7 +74,7 @@ export class ItsmServiceController {
   }
 
   @Get()
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_SERVICE_READ)
   @ApiOperation({ summary: 'List all ITSM services' })
   @ApiResponse({ status: 200, description: 'Services retrieved successfully' })
   @Perf()
@@ -90,7 +90,7 @@ export class ItsmServiceController {
   }
 
   @Get('filters')
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_SERVICE_READ)
   @ApiOperation({ summary: 'Get service filter metadata' })
   @ApiResponse({
     status: 200,
@@ -111,7 +111,7 @@ export class ItsmServiceController {
   }
 
   @Get('active')
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_SERVICE_READ)
   @ApiOperation({ summary: 'Get all active ITSM services' })
   @ApiResponse({
     status: 200,
@@ -127,7 +127,7 @@ export class ItsmServiceController {
   }
 
   @Get(':id')
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_SERVICE_READ)
   @ApiOperation({ summary: 'Get a single ITSM service by ID' })
   @ApiResponse({ status: 200, description: 'Service retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
@@ -144,7 +144,7 @@ export class ItsmServiceController {
   }
 
   @Patch(':id')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_SERVICE_WRITE)
   @ApiOperation({ summary: 'Update an ITSM service' })
   @ApiResponse({ status: 200, description: 'Service updated successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
@@ -168,7 +168,7 @@ export class ItsmServiceController {
   }
 
   @Delete(':id')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_SERVICE_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an ITSM service' })
   @ApiResponse({ status: 204, description: 'Service deleted successfully' })
