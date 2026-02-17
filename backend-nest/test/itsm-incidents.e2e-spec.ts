@@ -27,7 +27,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
     assignmentGroup?: string;
   }) => {
     const response = await request(app.getHttpServer())
-      .post('/itsm/incidents')
+      .post('/grc/itsm/incidents')
       .set('Authorization', `Bearer ${adminToken}`)
       .set('x-tenant-id', tenantId)
       .send(data);
@@ -96,7 +96,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
   });
 
   describe('ITSM Incidents', () => {
-    describe('GET /itsm/incidents', () => {
+    describe('GET /grc/itsm/incidents', () => {
       it('should return list of incidents with valid auth', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -104,7 +104,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents')
+          .get('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -123,7 +123,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .get('/itsm/incidents')
+          .get('/grc/itsm/incidents')
           .set('x-tenant-id', tenantId)
           .expect(401);
       });
@@ -135,13 +135,13 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .get('/itsm/incidents')
+          .get('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(400);
       });
     });
 
-    describe('POST /itsm/incidents', () => {
+    describe('POST /grc/itsm/incidents', () => {
       it('should create a new incident with valid data', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -159,7 +159,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .post('/itsm/incidents')
+          .post('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(newIncident)
@@ -190,7 +190,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         await request(app.getHttpServer())
-          .post('/itsm/incidents')
+          .post('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(invalidIncident)
@@ -210,7 +210,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .post('/itsm/incidents')
+          .post('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(highPriorityIncident)
@@ -221,7 +221,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       });
     });
 
-    describe('GET /itsm/incidents/:id', () => {
+    describe('GET /grc/itsm/incidents/:id', () => {
       it('should return a specific incident by ID', async () => {
         if (!dbConnected || !tenantId || !seedIncidentId) {
           console.log(
@@ -231,7 +231,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get(`/itsm/incidents/${seedIncidentId}`)
+          .get(`/grc/itsm/incidents/${seedIncidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -251,14 +251,14 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .get('/itsm/incidents/00000000-0000-0000-0000-000000000000')
+          .get('/grc/itsm/incidents/00000000-0000-0000-0000-000000000000')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(404);
       });
     });
 
-    describe('PATCH /itsm/incidents/:id', () => {
+    describe('PATCH /grc/itsm/incidents/:id', () => {
       it('should update an existing incident', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -279,7 +279,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .patch(`/itsm/incidents/${incidentId}`)
+          .patch(`/grc/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(updateData)
@@ -316,7 +316,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .patch(`/itsm/incidents/${incidentId}`)
+          .patch(`/grc/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send(updateData)
@@ -333,7 +333,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .patch('/itsm/incidents/00000000-0000-0000-0000-000000000000')
+          .patch('/grc/itsm/incidents/00000000-0000-0000-0000-000000000000')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({ shortDescription: 'Updated' })
@@ -341,7 +341,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       });
     });
 
-    describe('POST /itsm/incidents/:id/resolve', () => {
+    describe('POST /grc/itsm/incidents/:id/resolve', () => {
       it('should resolve an incident', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -358,7 +358,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // POST endpoints return 201 by default in NestJS
         const response = await request(app.getHttpServer())
-          .post(`/itsm/incidents/${incidentId}/resolve`)
+          .post(`/grc/itsm/incidents/${incidentId}/resolve`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({ resolutionNotes: 'Issue resolved by E2E test' })
@@ -374,7 +374,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
       });
     });
 
-    describe('POST /itsm/incidents/:id/close', () => {
+    describe('POST /grc/itsm/incidents/:id/close', () => {
       it('should close a resolved incident', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -391,7 +391,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // First resolve the incident (POST returns 201 by default)
         await request(app.getHttpServer())
-          .post(`/itsm/incidents/${incidentId}/resolve`)
+          .post(`/grc/itsm/incidents/${incidentId}/resolve`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({ resolutionNotes: 'Resolved for close test' })
@@ -399,7 +399,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // Then close it (POST returns 201 by default)
         const response = await request(app.getHttpServer())
-          .post(`/itsm/incidents/${incidentId}/close`)
+          .post(`/grc/itsm/incidents/${incidentId}/close`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(201);
@@ -422,14 +422,14 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         const createData = createResponse.body.data ?? createResponse.body;
 
         await request(app.getHttpServer())
-          .post(`/itsm/incidents/${createData.id}/close`)
+          .post(`/grc/itsm/incidents/${createData.id}/close`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(404);
       });
     });
 
-    describe('DELETE /itsm/incidents/:id', () => {
+    describe('DELETE /grc/itsm/incidents/:id', () => {
       it('should soft delete an incident', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -444,7 +444,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         const createData = createResponse.body.data ?? createResponse.body;
 
         await request(app.getHttpServer())
-          .delete(`/itsm/incidents/${createData.id}`)
+          .delete(`/grc/itsm/incidents/${createData.id}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(204);
@@ -466,14 +466,14 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // Delete the incident
         await request(app.getHttpServer())
-          .delete(`/itsm/incidents/${incidentId}`)
+          .delete(`/grc/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(204);
 
         // Verify it's not in the list
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents')
+          .get('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -502,21 +502,21 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // Delete the incident
         await request(app.getHttpServer())
-          .delete(`/itsm/incidents/${incidentId}`)
+          .delete(`/grc/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(204);
 
         // Try to get the deleted incident
         await request(app.getHttpServer())
-          .get(`/itsm/incidents/${incidentId}`)
+          .get(`/grc/itsm/incidents/${incidentId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(404);
       });
     });
 
-    describe('GET /itsm/incidents/statistics', () => {
+    describe('GET /grc/itsm/incidents/statistics', () => {
       it('should return incident statistics', async () => {
         if (!dbConnected || !tenantId) {
           console.log('Skipping test: database not connected');
@@ -524,7 +524,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents/statistics')
+          .get('/grc/itsm/incidents/statistics')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -545,7 +545,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents?status=open')
+          .get('/grc/itsm/incidents?status=open')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -564,7 +564,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents?priority=p1')
+          .get('/grc/itsm/incidents?priority=p1')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -583,7 +583,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         const response = await request(app.getHttpServer())
-          .get('/itsm/incidents?page=1&pageSize=5')
+          .get('/grc/itsm/incidents?page=1&pageSize=5')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -606,7 +606,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
         }
 
         await request(app.getHttpServer())
-          .get('/itsm/incidents?search=E2E')
+          .get('/grc/itsm/incidents?search=E2E')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(200);
@@ -625,7 +625,7 @@ describe('ITSM Incidents CRUD Operations (e2e)', () => {
 
         // TenantGuard should reject requests for tenants the user doesn't belong to
         await request(app.getHttpServer())
-          .get('/itsm/incidents')
+          .get('/grc/itsm/incidents')
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', differentTenantId)
           .expect(403);
