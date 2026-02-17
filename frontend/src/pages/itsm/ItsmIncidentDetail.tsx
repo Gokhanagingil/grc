@@ -28,9 +28,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
+  AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 
 interface ItsmIncident {
   id: string;
@@ -108,6 +110,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const fetchIncident = useCallback(async () => {
     if (isNew || !id) return;
@@ -257,14 +260,26 @@ export const ItsmIncidentDetail: React.FC = () => {
             />
           )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {!isNew && incident.id && (
+            <Button
+              variant="outlined"
+              startIcon={<CopilotIcon />}
+              onClick={() => setCopilotOpen(true)}
+              color="secondary"
+            >
+              Copilot
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>
@@ -525,6 +540,15 @@ export const ItsmIncidentDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {!isNew && incident.id && incident.number && (
+        <CopilotPanel
+          open={copilotOpen}
+          onClose={() => setCopilotOpen(false)}
+          incidentSysId={incident.id}
+          incidentNumber={incident.number}
+        />
+      )}
     </Box>
   );
 };
