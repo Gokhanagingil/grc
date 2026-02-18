@@ -68,6 +68,6 @@ export { BcmController } from './bcm.controller';
 // Calendar Controllers
 export { CalendarController } from './calendar.controller';
 
-// ITSM (IT Service Management) Controllers - ITIL v5 aligned
-export { ItsmServiceController } from './itsm-service.controller';
-export { ItsmChangeController } from './itsm-change.controller';
+// NOTE: ITSM controllers (ItsmServiceController, ItsmChangeController) are no longer
+// exported here. Canonical ITSM controllers live in ItsmModule (src/itsm/).
+// The files in this directory are kept for GRC Bridge reference only.
