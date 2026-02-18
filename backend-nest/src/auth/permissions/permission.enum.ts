@@ -66,6 +66,18 @@ export enum Permission {
   ITSM_CHANGE_READ = 'itsm:change:read',
   ITSM_CHANGE_WRITE = 'itsm:change:write',
 
+  // ITSM Workflow permissions
+  ITSM_WORKFLOW_READ = 'itsm:workflow:read',
+  ITSM_WORKFLOW_WRITE = 'itsm:workflow:write',
+
+  // ITSM Business Rule permissions
+  ITSM_BUSINESS_RULE_READ = 'itsm:business_rule:read',
+  ITSM_BUSINESS_RULE_WRITE = 'itsm:business_rule:write',
+
+  // ITSM UI Policy permissions
+  ITSM_UI_POLICY_READ = 'itsm:ui_policy:read',
+  ITSM_UI_POLICY_WRITE = 'itsm:ui_policy:write',
+
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
 
@@ -124,6 +136,15 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_SERVICE_WRITE]: 'Create, update, and delete ITSM services',
   [Permission.ITSM_CHANGE_READ]: 'View ITSM changes and change details',
   [Permission.ITSM_CHANGE_WRITE]: 'Create, update, and delete ITSM changes',
+  [Permission.ITSM_WORKFLOW_READ]: 'View workflow definitions and transitions',
+  [Permission.ITSM_WORKFLOW_WRITE]:
+    'Create, update, and delete workflow definitions',
+  [Permission.ITSM_BUSINESS_RULE_READ]: 'View business rules',
+  [Permission.ITSM_BUSINESS_RULE_WRITE]:
+    'Create, update, and delete business rules',
+  [Permission.ITSM_UI_POLICY_READ]: 'View UI policies and UI actions',
+  [Permission.ITSM_UI_POLICY_WRITE]:
+    'Create, update, and delete UI policies and actions',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',
