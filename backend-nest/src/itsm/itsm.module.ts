@@ -8,30 +8,23 @@ import { ItsmIncident } from './incident/incident.entity';
 import { IncidentService } from './incident/incident.service';
 import { IncidentController } from './incident/incident.controller';
 
-/**
- * ITSM Module
- *
- * Provides the ITSM domain model entities, services, and controllers.
- * This module encapsulates all ITSM-related functionality including:
- * - Incident management
- *
- * Future modules:
- * - Problem management
- * - Change management
- * - Service request management
- *
- * All entities support multi-tenancy via tenantId field.
- * All endpoints require JWT authentication and tenant context.
- */
+import { ItsmService } from './service/service.entity';
+import { ItsmServiceService } from './service/service.service';
+import { ServiceController } from './service/service.controller';
+
+import { ItsmChange } from './change/change.entity';
+import { ChangeService } from './change/change.service';
+import { ChangeController } from './change/change.controller';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ItsmIncident]),
+    TypeOrmModule.forFeature([ItsmIncident, ItsmService, ItsmChange]),
     AuditModule,
     AuthModule,
     TenantsModule,
   ],
-  providers: [IncidentService],
-  controllers: [IncidentController],
-  exports: [IncidentService],
+  providers: [IncidentService, ItsmServiceService, ChangeService],
+  controllers: [IncidentController, ServiceController, ChangeController],
+  exports: [IncidentService, ItsmServiceService, ChangeService],
 })
 export class ItsmModule {}

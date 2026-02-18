@@ -62,6 +62,51 @@ describe('PermissionService', () => {
       expect(adminPermissions).toContain(Permission.GRC_CONTROL_DELETE);
       expect(adminPermissions).toContain(Permission.GRC_ADMIN);
     });
+
+    it('should have all ITSM permissions (incident, service, change)', () => {
+      const adminPermissions = service.getPermissionsForRole(UserRole.ADMIN);
+
+      expect(adminPermissions).toContain(Permission.ITSM_INCIDENT_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_INCIDENT_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_SERVICE_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_SERVICE_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_CHANGE_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_STATISTICS_READ);
+    });
+  });
+
+  describe('MANAGER role ITSM permissions', () => {
+    it('should have all ITSM read and write permissions', () => {
+      const managerPermissions = service.getPermissionsForRole(UserRole.MANAGER);
+
+      expect(managerPermissions).toContain(Permission.ITSM_INCIDENT_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_INCIDENT_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_SERVICE_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_SERVICE_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_CHANGE_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_STATISTICS_READ);
+    });
+  });
+
+  describe('USER role ITSM permissions', () => {
+    it('should have ITSM read-only permissions', () => {
+      const userPermissions = service.getPermissionsForRole(UserRole.USER);
+
+      expect(userPermissions).toContain(Permission.ITSM_INCIDENT_READ);
+      expect(userPermissions).toContain(Permission.ITSM_SERVICE_READ);
+      expect(userPermissions).toContain(Permission.ITSM_CHANGE_READ);
+    });
+
+    it('should NOT have ITSM write permissions', () => {
+      const userPermissions = service.getPermissionsForRole(UserRole.USER);
+
+      expect(userPermissions).not.toContain(Permission.ITSM_INCIDENT_WRITE);
+      expect(userPermissions).not.toContain(Permission.ITSM_SERVICE_WRITE);
+      expect(userPermissions).not.toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(userPermissions).not.toContain(Permission.ITSM_STATISTICS_READ);
+    });
   });
 
   describe('roleHasPermission', () => {
