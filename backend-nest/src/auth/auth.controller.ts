@@ -19,6 +19,7 @@ import { LoginDto } from './dto/login.dto';
 import { MfaChallengeDto } from './mfa/dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
+import { PermissionService } from './permissions/permission.service';
 import { RequestWithUser } from '../common/types';
 
 /**
@@ -33,6 +34,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   /**
@@ -51,7 +53,8 @@ export class AuthController {
 
     const userResponse = { ...user };
     delete (userResponse as { passwordHash?: string }).passwordHash;
-    return userResponse;
+    const permissions = this.permissionService.getPermissionsForRole(user.role);
+    return { ...userResponse, permissions };
   }
 
   /**

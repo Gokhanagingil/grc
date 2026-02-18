@@ -214,9 +214,9 @@ import { BcmController } from './controllers/bcm.controller';
 // Calendar controllers
 import { CalendarController } from './controllers/calendar.controller';
 
-// ITSM (IT Service Management) controllers - ITIL v5 aligned
-import { ItsmServiceController } from './controllers/itsm-service.controller';
-import { ItsmChangeController } from './controllers/itsm-change.controller';
+// NOTE: ITSM controllers (ItsmServiceController, ItsmChangeController) removed from GrcModule
+// to eliminate duplicate route registration. Canonical ITSM controllers live in ItsmModule.
+// See: PR #363 (removed ItsmIncidentController), this PR (removed remaining duplicates).
 
 /**
  * GRC Module
@@ -436,9 +436,7 @@ import { ItsmChangeController } from './controllers/itsm-change.controller';
     BcmController,
     // Calendar controllers
     CalendarController,
-    // ITSM (IT Service Management) controllers - ITIL v5 aligned
-    ItsmServiceController,
-    ItsmChangeController,
+    // NOTE: ITSM controllers moved to ItsmModule (no duplicate route registration)
   ],
   exports: [
     // Universal List Service (platform-level)

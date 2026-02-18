@@ -63,7 +63,7 @@ describe('PermissionService', () => {
       expect(adminPermissions).toContain(Permission.GRC_ADMIN);
     });
 
-    it('should have all ITSM permissions (incident, service, change)', () => {
+    it('should have all ITSM permissions (incident, service, change, sla, workflow, business-rule, ui-policy)', () => {
       const adminPermissions = service.getPermissionsForRole(UserRole.ADMIN);
 
       expect(adminPermissions).toContain(Permission.ITSM_INCIDENT_READ);
@@ -72,13 +72,23 @@ describe('PermissionService', () => {
       expect(adminPermissions).toContain(Permission.ITSM_SERVICE_WRITE);
       expect(adminPermissions).toContain(Permission.ITSM_CHANGE_READ);
       expect(adminPermissions).toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_SLA_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_SLA_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_WORKFLOW_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_WORKFLOW_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_BUSINESS_RULE_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_BUSINESS_RULE_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_UI_POLICY_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_UI_POLICY_WRITE);
       expect(adminPermissions).toContain(Permission.ITSM_STATISTICS_READ);
     });
   });
 
   describe('MANAGER role ITSM permissions', () => {
     it('should have all ITSM read and write permissions', () => {
-      const managerPermissions = service.getPermissionsForRole(UserRole.MANAGER);
+      const managerPermissions = service.getPermissionsForRole(
+        UserRole.MANAGER,
+      );
 
       expect(managerPermissions).toContain(Permission.ITSM_INCIDENT_READ);
       expect(managerPermissions).toContain(Permission.ITSM_INCIDENT_WRITE);
@@ -86,6 +96,14 @@ describe('PermissionService', () => {
       expect(managerPermissions).toContain(Permission.ITSM_SERVICE_WRITE);
       expect(managerPermissions).toContain(Permission.ITSM_CHANGE_READ);
       expect(managerPermissions).toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_SLA_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_SLA_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_WORKFLOW_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_WORKFLOW_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_BUSINESS_RULE_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_BUSINESS_RULE_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_UI_POLICY_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_UI_POLICY_WRITE);
       expect(managerPermissions).toContain(Permission.ITSM_STATISTICS_READ);
     });
   });
@@ -97,6 +115,10 @@ describe('PermissionService', () => {
       expect(userPermissions).toContain(Permission.ITSM_INCIDENT_READ);
       expect(userPermissions).toContain(Permission.ITSM_SERVICE_READ);
       expect(userPermissions).toContain(Permission.ITSM_CHANGE_READ);
+      expect(userPermissions).toContain(Permission.ITSM_SLA_READ);
+      expect(userPermissions).toContain(Permission.ITSM_WORKFLOW_READ);
+      expect(userPermissions).toContain(Permission.ITSM_BUSINESS_RULE_READ);
+      expect(userPermissions).toContain(Permission.ITSM_UI_POLICY_READ);
     });
 
     it('should NOT have ITSM write permissions', () => {
@@ -105,6 +127,7 @@ describe('PermissionService', () => {
       expect(userPermissions).not.toContain(Permission.ITSM_INCIDENT_WRITE);
       expect(userPermissions).not.toContain(Permission.ITSM_SERVICE_WRITE);
       expect(userPermissions).not.toContain(Permission.ITSM_CHANGE_WRITE);
+      expect(userPermissions).not.toContain(Permission.ITSM_SLA_WRITE);
       expect(userPermissions).not.toContain(Permission.ITSM_STATISTICS_READ);
     });
   });
