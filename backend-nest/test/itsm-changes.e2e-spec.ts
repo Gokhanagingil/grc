@@ -159,7 +159,6 @@ describe('ITSM Changes RBAC & CRUD (e2e)', () => {
         title: 'E2E Test Change Request',
         description: 'Created by e2e test to verify RBAC fix',
         type: 'NORMAL',
-        state: 'DRAFT',
         risk: 'MEDIUM',
       };
 
