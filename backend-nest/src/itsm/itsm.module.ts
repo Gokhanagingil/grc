@@ -16,6 +16,22 @@ import { ItsmChange } from './change/change.entity';
 import { ChangeService } from './change/change.service';
 import { ChangeController } from './change/change.controller';
 
+import { WorkflowDefinition } from './workflow/workflow-definition.entity';
+import { WorkflowService } from './workflow/workflow.service';
+import { WorkflowEngineService } from './workflow/workflow-engine.service';
+import { WorkflowController } from './workflow/workflow.controller';
+
+import { BusinessRule } from './business-rule/business-rule.entity';
+import { BusinessRuleService } from './business-rule/business-rule.service';
+import { BusinessRuleEngineService } from './business-rule/business-rule-engine.service';
+import { BusinessRuleController } from './business-rule/business-rule.controller';
+
+import { UiPolicy } from './ui-policy/ui-policy.entity';
+import { UiAction } from './ui-policy/ui-action.entity';
+import { UiPolicyService } from './ui-policy/ui-policy.service';
+import { UiActionService } from './ui-policy/ui-action.service';
+import { UiPolicyController } from './ui-policy/ui-policy.controller';
+
 import { SlaDefinition } from './sla/sla-definition.entity';
 import { SlaInstance } from './sla/sla-instance.entity';
 import { SlaService } from './sla/sla.service';
@@ -29,6 +45,10 @@ import { SlaEventListener } from './sla/sla-event.listener';
       ItsmIncident,
       ItsmService,
       ItsmChange,
+      WorkflowDefinition,
+      BusinessRule,
+      UiPolicy,
+      UiAction,
       SlaDefinition,
       SlaInstance,
     ]),
@@ -40,16 +60,37 @@ import { SlaEventListener } from './sla/sla-event.listener';
     IncidentService,
     ItsmServiceService,
     ChangeService,
-    SlaEngineService,
+    WorkflowService,
+    WorkflowEngineService,
+    BusinessRuleService,
+    BusinessRuleEngineService,
+    UiPolicyService,
+    UiActionService,
     SlaService,
+    SlaEngineService,
     SlaEventListener,
   ],
   controllers: [
     IncidentController,
     ServiceController,
     ChangeController,
+    WorkflowController,
+    BusinessRuleController,
+    UiPolicyController,
     SlaController,
   ],
-  exports: [IncidentService, ItsmServiceService, ChangeService, SlaService],
+  exports: [
+    IncidentService,
+    ItsmServiceService,
+    ChangeService,
+    WorkflowService,
+    WorkflowEngineService,
+    BusinessRuleService,
+    BusinessRuleEngineService,
+    UiPolicyService,
+    UiActionService,
+    SlaService,
+    SlaEngineService,
+  ],
 })
 export class ItsmModule {}
