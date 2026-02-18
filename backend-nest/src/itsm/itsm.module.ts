@@ -16,15 +16,40 @@ import { ItsmChange } from './change/change.entity';
 import { ChangeService } from './change/change.service';
 import { ChangeController } from './change/change.controller';
 
+import { SlaDefinition } from './sla/sla-definition.entity';
+import { SlaInstance } from './sla/sla-instance.entity';
+import { SlaService } from './sla/sla.service';
+import { SlaEngineService } from './sla/sla-engine.service';
+import { SlaController } from './sla/sla.controller';
+import { SlaEventListener } from './sla/sla-event.listener';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ItsmIncident, ItsmService, ItsmChange]),
+    TypeOrmModule.forFeature([
+      ItsmIncident,
+      ItsmService,
+      ItsmChange,
+      SlaDefinition,
+      SlaInstance,
+    ]),
     AuditModule,
     AuthModule,
     TenantsModule,
   ],
-  providers: [IncidentService, ItsmServiceService, ChangeService],
-  controllers: [IncidentController, ServiceController, ChangeController],
-  exports: [IncidentService, ItsmServiceService, ChangeService],
+  providers: [
+    IncidentService,
+    ItsmServiceService,
+    ChangeService,
+    SlaEngineService,
+    SlaService,
+    SlaEventListener,
+  ],
+  controllers: [
+    IncidentController,
+    ServiceController,
+    ChangeController,
+    SlaController,
+  ],
+  exports: [IncidentService, ItsmServiceService, ChangeService, SlaService],
 })
 export class ItsmModule {}
