@@ -32,6 +32,13 @@ import { UiPolicyService } from './ui-policy/ui-policy.service';
 import { UiActionService } from './ui-policy/ui-action.service';
 import { UiPolicyController } from './ui-policy/ui-policy.controller';
 
+import { SlaDefinition } from './sla/sla-definition.entity';
+import { SlaInstance } from './sla/sla-instance.entity';
+import { SlaService } from './sla/sla.service';
+import { SlaEngineService } from './sla/sla-engine.service';
+import { SlaController } from './sla/sla.controller';
+import { SlaEventListener } from './sla/sla-event.listener';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -42,6 +49,8 @@ import { UiPolicyController } from './ui-policy/ui-policy.controller';
       BusinessRule,
       UiPolicy,
       UiAction,
+      SlaDefinition,
+      SlaInstance,
     ]),
     AuditModule,
     AuthModule,
@@ -57,6 +66,9 @@ import { UiPolicyController } from './ui-policy/ui-policy.controller';
     BusinessRuleEngineService,
     UiPolicyService,
     UiActionService,
+    SlaService,
+    SlaEngineService,
+    SlaEventListener,
   ],
   controllers: [
     IncidentController,
@@ -65,6 +77,7 @@ import { UiPolicyController } from './ui-policy/ui-policy.controller';
     WorkflowController,
     BusinessRuleController,
     UiPolicyController,
+    SlaController,
   ],
   exports: [
     IncidentService,
@@ -76,6 +89,8 @@ import { UiPolicyController } from './ui-policy/ui-policy.controller';
     BusinessRuleEngineService,
     UiPolicyService,
     UiActionService,
+    SlaService,
+    SlaEngineService,
   ],
 })
 export class ItsmModule {}

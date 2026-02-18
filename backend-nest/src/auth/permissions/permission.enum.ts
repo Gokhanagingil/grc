@@ -66,6 +66,10 @@ export enum Permission {
   ITSM_CHANGE_READ = 'itsm:change:read',
   ITSM_CHANGE_WRITE = 'itsm:change:write',
 
+  // ITSM SLA permissions
+  ITSM_SLA_READ = 'itsm:sla:read',
+  ITSM_SLA_WRITE = 'itsm:sla:write',
+
   // ITSM Workflow permissions
   ITSM_WORKFLOW_READ = 'itsm:workflow:read',
   ITSM_WORKFLOW_WRITE = 'itsm:workflow:write',
@@ -136,6 +140,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_SERVICE_WRITE]: 'Create, update, and delete ITSM services',
   [Permission.ITSM_CHANGE_READ]: 'View ITSM changes and change details',
   [Permission.ITSM_CHANGE_WRITE]: 'Create, update, and delete ITSM changes',
+  [Permission.ITSM_SLA_READ]: 'View SLA definitions and instances',
+  [Permission.ITSM_SLA_WRITE]: 'Create, update, and delete SLA definitions',
   [Permission.ITSM_WORKFLOW_READ]: 'View workflow definitions and transitions',
   [Permission.ITSM_WORKFLOW_WRITE]:
     'Create, update, and delete workflow definitions',
