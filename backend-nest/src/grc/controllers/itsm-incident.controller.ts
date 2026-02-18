@@ -56,7 +56,7 @@ export class ItsmIncidentController {
   constructor(private readonly incidentService: ItsmIncidentService) {}
 
   @Post()
-  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new ITSM incident' })
   @ApiResponse({ status: 201, description: 'Incident created successfully' })
@@ -79,7 +79,7 @@ export class ItsmIncidentController {
   }
 
   @Get()
-  @Permissions(Permission.GRC_ISSUE_READ)
+  @Permissions(Permission.ITSM_INCIDENT_READ)
   @ApiOperation({ summary: 'List all ITSM incidents' })
   @ApiResponse({
     status: 200,
@@ -98,7 +98,7 @@ export class ItsmIncidentController {
   }
 
   @Get('filters')
-  @Permissions(Permission.GRC_ISSUE_READ)
+  @Permissions(Permission.ITSM_INCIDENT_READ)
   @ApiOperation({ summary: 'Get incident filter metadata' })
   @ApiResponse({
     status: 200,
@@ -121,7 +121,7 @@ export class ItsmIncidentController {
   }
 
   @Get(':id')
-  @Permissions(Permission.GRC_ISSUE_READ)
+  @Permissions(Permission.ITSM_INCIDENT_READ)
   @ApiOperation({ summary: 'Get a single ITSM incident by ID' })
   @ApiResponse({ status: 200, description: 'Incident retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Incident not found' })
@@ -138,7 +138,7 @@ export class ItsmIncidentController {
   }
 
   @Patch(':id')
-  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
   @ApiOperation({ summary: 'Update an ITSM incident' })
   @ApiResponse({ status: 200, description: 'Incident updated successfully' })
   @ApiResponse({ status: 404, description: 'Incident not found' })
@@ -162,7 +162,7 @@ export class ItsmIncidentController {
   }
 
   @Delete(':id')
-  @Permissions(Permission.GRC_ISSUE_WRITE)
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an ITSM incident' })
   @ApiResponse({ status: 204, description: 'Incident deleted successfully' })
@@ -263,7 +263,7 @@ export class ItsmIncidentController {
   }
 
   @Post(':id/controls/:controlId')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Link a control to an incident' })
   @ApiResponse({ status: 201, description: 'Control linked successfully' })
@@ -289,7 +289,7 @@ export class ItsmIncidentController {
   }
 
   @Delete(':id/controls/:controlId')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Unlink a control from an incident' })
   @ApiResponse({ status: 204, description: 'Control unlinked successfully' })

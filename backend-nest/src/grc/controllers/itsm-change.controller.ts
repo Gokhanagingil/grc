@@ -56,7 +56,7 @@ export class ItsmChangeController {
   constructor(private readonly changeService: ItsmChangeService) {}
 
   @Post()
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new ITSM change request' })
   @ApiResponse({ status: 201, description: 'Change created successfully' })
@@ -75,7 +75,7 @@ export class ItsmChangeController {
   }
 
   @Get()
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_CHANGE_READ)
   @ApiOperation({ summary: 'List all ITSM change requests' })
   @ApiResponse({ status: 200, description: 'Changes retrieved successfully' })
   @Perf()
@@ -91,7 +91,7 @@ export class ItsmChangeController {
   }
 
   @Get('filters')
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_CHANGE_READ)
   @ApiOperation({ summary: 'Get change filter metadata' })
   @ApiResponse({
     status: 200,
@@ -114,7 +114,7 @@ export class ItsmChangeController {
   }
 
   @Get(':id')
-  @Permissions(Permission.GRC_CONTROL_READ)
+  @Permissions(Permission.ITSM_CHANGE_READ)
   @ApiOperation({ summary: 'Get a single ITSM change request by ID' })
   @ApiResponse({ status: 200, description: 'Change retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Change not found' })
@@ -131,7 +131,7 @@ export class ItsmChangeController {
   }
 
   @Patch(':id')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
   @ApiOperation({ summary: 'Update an ITSM change request' })
   @ApiResponse({ status: 200, description: 'Change updated successfully' })
   @ApiResponse({ status: 404, description: 'Change not found' })
@@ -155,7 +155,7 @@ export class ItsmChangeController {
   }
 
   @Delete(':id')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an ITSM change request' })
   @ApiResponse({ status: 204, description: 'Change deleted successfully' })
@@ -256,7 +256,7 @@ export class ItsmChangeController {
   }
 
   @Post(':id/controls/:controlId')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Link a control to a change request' })
   @ApiResponse({ status: 201, description: 'Control linked successfully' })
@@ -282,7 +282,7 @@ export class ItsmChangeController {
   }
 
   @Delete(':id/controls/:controlId')
-  @Permissions(Permission.GRC_CONTROL_WRITE)
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Unlink a control from a change request' })
   @ApiResponse({ status: 204, description: 'Control unlinked successfully' })
