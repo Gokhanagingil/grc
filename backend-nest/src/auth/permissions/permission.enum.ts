@@ -62,6 +62,10 @@ export enum Permission {
   ITSM_SERVICE_READ = 'itsm:service:read',
   ITSM_SERVICE_WRITE = 'itsm:service:write',
 
+  // ITSM Change permissions
+  ITSM_CHANGE_READ = 'itsm:change:read',
+  ITSM_CHANGE_WRITE = 'itsm:change:write',
+
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
 
@@ -118,6 +122,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_INCIDENT_WRITE]: 'Create, update, and delete incidents',
   [Permission.ITSM_SERVICE_READ]: 'View ITSM services and service details',
   [Permission.ITSM_SERVICE_WRITE]: 'Create, update, and delete ITSM services',
+  [Permission.ITSM_CHANGE_READ]: 'View ITSM changes and change details',
+  [Permission.ITSM_CHANGE_WRITE]: 'Create, update, and delete ITSM changes',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',
