@@ -879,7 +879,8 @@ describe('Platform Builder (e2e)', () => {
           })
           .expect(400);
 
-        expect(res.body.message).toContain('exceeds max length');
+        const errMsg = res.body.message || res.body.error?.message || '';
+        expect(errMsg).toContain('exceeds max length');
       });
 
       it('should accept record within maxLength', async () => {
@@ -921,7 +922,8 @@ describe('Platform Builder (e2e)', () => {
           })
           .expect(400);
 
-        expect(res.body.message).toContain('must be unique');
+        const errMsg = res.body.message || res.body.error?.message || '';
+        expect(errMsg).toContain('must be unique');
       });
 
       it('should reject reference to non-existent record', async () => {
@@ -943,8 +945,9 @@ describe('Platform Builder (e2e)', () => {
           })
           .expect(400);
 
-        expect(res.body.message).toContain('referenced record');
-        expect(res.body.message).toContain('not found');
+        const errMsg = res.body.message || res.body.error?.message || '';
+        expect(errMsg).toContain('referenced record');
+        expect(errMsg).toContain('not found');
       });
 
       it('should accept valid reference', async () => {
@@ -1000,8 +1003,9 @@ describe('Platform Builder (e2e)', () => {
           })
           .expect(400);
 
-        expect(res.body.message).toContain('read-only');
-        expect(res.body.message).toContain('locked_field');
+        const errMsg = res.body.message || res.body.error?.message || '';
+        expect(errMsg).toContain('read-only');
+        expect(errMsg).toContain('locked_field');
       });
 
       it('should allow updating non-read-only fields', async () => {
