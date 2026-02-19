@@ -3,12 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ItsmChange } from './change.entity';
-import { ChangeFilterDto, CHANGE_SORTABLE_FIELDS } from './dto/change-filter.dto';
+import {
+  ChangeFilterDto,
+  CHANGE_SORTABLE_FIELDS,
+} from './dto/change-filter.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../../grc/dto/pagination.dto';
 import { AuditService } from '../../audit/audit.service';
+import { ChoiceService } from '../choice/choice.service';
 
 @Injectable()
 export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
@@ -18,6 +22,7 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     @InjectRepository(ItsmChange)
     repository: Repository<ItsmChange>,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly choiceService?: ChoiceService,
   ) {
     super(repository);
   }
@@ -40,8 +45,22 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
   async createChange(
     tenantId: string,
     userId: string,
-    data: Partial<Omit<ItsmChange, 'id' | 'tenantId' | 'number' | 'createdAt' | 'updatedAt' | 'isDeleted'>>,
+    data: Partial<
+      Omit<
+        ItsmChange,
+        'id' | 'tenantId' | 'number' | 'createdAt' | 'updatedAt' | 'isDeleted'
+      >
+    >,
   ): Promise<ItsmChange> {
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_changes',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
+
     const number = await this.generateChangeNumber(tenantId);
 
     const change = await this.createForTenant(tenantId, {
@@ -73,6 +92,15 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     }
 
     const beforeState = { ...existing };
+
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_changes',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
 
     const change = await this.updateForTenant(tenantId, id, {
       ...data,
@@ -153,7 +181,9 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     }
 
     if (approvalStatus) {
-      qb.andWhere('change.approvalStatus = :approvalStatus', { approvalStatus });
+      qb.andWhere('change.approvalStatus = :approvalStatus', {
+        approvalStatus,
+      });
     }
 
     const searchTerm = search || q;
