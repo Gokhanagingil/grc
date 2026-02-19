@@ -104,6 +104,10 @@ export enum Permission {
   ADMIN_TABLES_WRITE = 'admin:tables:write',
   DATA_RECORDS_READ = 'data:records:read',
   DATA_RECORDS_WRITE = 'data:records:write',
+
+  // Platform Dictionary permissions (fields, relationships, indexes)
+  PLATFORM_DICTIONARY_READ = 'platform:dictionary:read',
+  PLATFORM_DICTIONARY_WRITE = 'platform:dictionary:write',
 }
 
 /**
@@ -174,4 +178,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.DATA_RECORDS_READ]: 'View dynamic table records',
   [Permission.DATA_RECORDS_WRITE]:
     'Create, update, and delete dynamic table records',
+  [Permission.PLATFORM_DICTIONARY_READ]:
+    'View field, relationship, and index definitions',
+  [Permission.PLATFORM_DICTIONARY_WRITE]:
+    'Create, update, and delete field, relationship, and index definitions',
 };

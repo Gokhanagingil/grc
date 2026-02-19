@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { SysDbObject } from '../entities/sys-db-object.entity';
 import { SysDictionary } from '../entities/sys-dictionary.entity';
 import { DynamicRecord } from '../entities/dynamic-record.entity';
+import { SysRelationship } from '../entities/sys-relationship.entity';
 import {
   CreateTableDto,
   UpdateTableDto,
@@ -17,6 +18,8 @@ import {
   CreateFieldDto,
   UpdateFieldDto,
   FieldFilterDto,
+  CreateRelationshipDto,
+  RelationshipFilterDto,
   PaginatedResponse,
   createPaginatedResponse,
 } from '../dto';
@@ -30,6 +33,29 @@ import { AuditService } from '../../audit/audit.service';
  */
 @Injectable()
 export class PlatformBuilderService {
+  private static readonly RESERVED_TABLE_NAMES = new Set([
+    'sys_db_object',
+    'sys_dictionary',
+    'sys_choice',
+    'sys_relationship',
+    'sys_index',
+    'dynamic_records',
+    'nest_tenants',
+    'nest_users',
+    'nest_audit_logs',
+    'typeorm_migrations',
+  ]);
+
+  private static readonly RESERVED_FIELD_NAMES = new Set([
+    'id',
+    'tenant_id',
+    'created_at',
+    'updated_at',
+    'created_by',
+    'updated_by',
+    'is_deleted',
+  ]);
+
   constructor(
     @InjectRepository(SysDbObject)
     private readonly tableRepository: Repository<SysDbObject>,
@@ -37,6 +63,8 @@ export class PlatformBuilderService {
     private readonly fieldRepository: Repository<SysDictionary>,
     @InjectRepository(DynamicRecord)
     private readonly recordRepository: Repository<DynamicRecord>,
+    @InjectRepository(SysRelationship)
+    private readonly relationshipRepository: Repository<SysRelationship>,
     @Optional() private readonly auditService?: AuditService,
   ) {}
 
@@ -70,12 +98,22 @@ export class PlatformBuilderService {
       );
     }
 
+    if (PlatformBuilderService.RESERVED_TABLE_NAMES.has(dto.name)) {
+      throw new BadRequestException(
+        `Table name '${dto.name}' is reserved and cannot be used`,
+      );
+    }
+
     const table = this.tableRepository.create({
       tenantId,
       name: dto.name,
       label: dto.label,
       description: dto.description ?? null,
       isActive: dto.isActive ?? true,
+      extends: dto.extends ?? null,
+      displayField: dto.displayField ?? null,
+      numberPrefix: dto.numberPrefix ?? null,
+      isCore: false,
       createdBy: userId,
       isDeleted: false,
     });
@@ -109,6 +147,8 @@ export class PlatformBuilderService {
     if (dto.label !== undefined) table.label = dto.label;
     if (dto.description !== undefined) table.description = dto.description;
     if (dto.isActive !== undefined) table.isActive = dto.isActive;
+    if (dto.displayField !== undefined) table.displayField = dto.displayField;
+    if (dto.numberPrefix !== undefined) table.numberPrefix = dto.numberPrefix;
     table.updatedBy = userId;
 
     const saved = await this.tableRepository.save(table);
@@ -338,6 +378,12 @@ export class PlatformBuilderService {
       fieldOrder = ((maxOrderResult?.max as number | null) ?? -1) + 1;
     }
 
+    if (PlatformBuilderService.RESERVED_FIELD_NAMES.has(dto.fieldName)) {
+      throw new BadRequestException(
+        `Field name '${dto.fieldName}' is reserved and cannot be used`,
+      );
+    }
+
     const field = this.fieldRepository.create({
       tenantId,
       tableName: table.name,
@@ -346,10 +392,14 @@ export class PlatformBuilderService {
       type: dto.type,
       isRequired: dto.isRequired ?? false,
       isUnique: dto.isUnique ?? false,
+      readOnly: dto.readOnly ?? false,
       referenceTable: dto.referenceTable ?? null,
       choiceOptions: dto.choiceOptions ?? null,
+      choiceTable: dto.choiceTable ?? null,
       defaultValue: dto.defaultValue ?? null,
+      maxLength: dto.maxLength ?? null,
       fieldOrder,
+      indexed: dto.indexed ?? false,
       isActive: dto.isActive ?? true,
       createdBy: userId,
       isDeleted: false,
@@ -385,12 +435,16 @@ export class PlatformBuilderService {
     if (dto.type !== undefined) field.type = dto.type;
     if (dto.isRequired !== undefined) field.isRequired = dto.isRequired;
     if (dto.isUnique !== undefined) field.isUnique = dto.isUnique;
+    if (dto.readOnly !== undefined) field.readOnly = dto.readOnly;
     if (dto.referenceTable !== undefined)
       field.referenceTable = dto.referenceTable;
     if (dto.choiceOptions !== undefined)
       field.choiceOptions = dto.choiceOptions;
+    if (dto.choiceTable !== undefined) field.choiceTable = dto.choiceTable;
     if (dto.defaultValue !== undefined) field.defaultValue = dto.defaultValue;
+    if (dto.maxLength !== undefined) field.maxLength = dto.maxLength;
     if (dto.fieldOrder !== undefined) field.fieldOrder = dto.fieldOrder;
+    if (dto.indexed !== undefined) field.indexed = dto.indexed;
     if (dto.isActive !== undefined) field.isActive = dto.isActive;
     field.updatedBy = userId;
 
@@ -551,5 +605,146 @@ export class PlatformBuilderService {
     }
 
     return table;
+  }
+
+  // ============================================================================
+  // Relationship (SysRelationship) Methods
+  // ============================================================================
+
+  async createRelationship(
+    tenantId: string,
+    userId: string,
+    dto: CreateRelationshipDto,
+  ): Promise<SysRelationship> {
+    const existing = await this.relationshipRepository.findOne({
+      where: { tenantId, name: dto.name, isDeleted: false },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Relationship with name '${dto.name}' already exists`,
+      );
+    }
+
+    const fromTable = await this.findTableByName(tenantId, dto.fromTable);
+    if (!fromTable) {
+      throw new BadRequestException(
+        `Source table '${dto.fromTable}' not found`,
+      );
+    }
+
+    const toTable = await this.findTableByName(tenantId, dto.toTable);
+    if (!toTable) {
+      throw new BadRequestException(`Target table '${dto.toTable}' not found`);
+    }
+
+    const rel = this.relationshipRepository.create({
+      tenantId,
+      name: dto.name,
+      fromTable: dto.fromTable,
+      toTable: dto.toTable,
+      type: dto.type,
+      fkColumn: dto.fkColumn ?? null,
+      m2mTable: dto.m2mTable ?? null,
+      isActive: dto.isActive ?? true,
+      createdBy: userId,
+      isDeleted: false,
+    });
+
+    const saved = await this.relationshipRepository.save(rel);
+
+    await this.auditService?.recordCreate(
+      'SysRelationship',
+      saved,
+      userId,
+      tenantId,
+    );
+
+    return saved;
+  }
+
+  async listRelationships(
+    tenantId: string,
+    filterDto: RelationshipFilterDto,
+  ): Promise<PaginatedResponse<SysRelationship>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      search,
+      fromTable,
+      toTable,
+    } = filterDto;
+
+    const qb = this.relationshipRepository.createQueryBuilder('rel');
+    qb.where('rel.tenantId = :tenantId', { tenantId });
+    qb.andWhere('rel.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (search) {
+      qb.andWhere(
+        '(rel.name ILIKE :search OR rel.fromTable ILIKE :search OR rel.toTable ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (fromTable) {
+      qb.andWhere('rel.fromTable = :fromTable', { fromTable });
+    }
+
+    if (toTable) {
+      qb.andWhere('rel.toTable = :toTable', { toTable });
+    }
+
+    const total = await qb.getCount();
+
+    const validSortBy = ['name', 'fromTable', 'toTable', 'createdAt'].includes(
+      sortBy,
+    )
+      ? sortBy
+      : 'createdAt';
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(`rel.${validSortBy}`, validSortOrder);
+
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+
+    return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  async findRelationshipById(
+    tenantId: string,
+    id: string,
+  ): Promise<SysRelationship> {
+    const rel = await this.relationshipRepository.findOne({
+      where: { id, tenantId, isDeleted: false },
+    });
+
+    if (!rel) {
+      throw new NotFoundException(`Relationship with ID '${id}' not found`);
+    }
+
+    return rel;
+  }
+
+  async deleteRelationship(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<void> {
+    const rel = await this.findRelationshipById(tenantId, id);
+
+    rel.isDeleted = true;
+    rel.updatedBy = userId;
+    await this.relationshipRepository.save(rel);
+
+    await this.auditService?.recordDelete(
+      'SysRelationship',
+      rel,
+      userId,
+      tenantId,
+    );
   }
 }

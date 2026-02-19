@@ -98,11 +98,14 @@ export {
   CreateRecordDto,
   UpdateRecordDto,
   RecordFilterDto,
+  CreateRelationshipDto,
+  RelationshipFilterDto,
 } from './platform-builder.dto';
 export type {
   TableResponse,
   FieldResponse,
   RecordResponse,
+  RelationshipResponse,
 } from './platform-builder.dto';
 
 // SOA (Statement of Applicability) DTOs

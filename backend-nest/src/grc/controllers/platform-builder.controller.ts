@@ -27,6 +27,8 @@ import {
   CreateFieldDto,
   UpdateFieldDto,
   FieldFilterDto,
+  CreateRelationshipDto,
+  RelationshipFilterDto,
 } from '../dto';
 
 /**
@@ -242,5 +244,84 @@ export class PlatformBuilderController {
       fieldId,
     );
     return { success: true, data: { message: 'Field deleted successfully' } };
+  }
+
+  // ============================================================================
+  // Relationship Endpoints
+  // ============================================================================
+
+  @Get('relationships')
+  @Permissions(Permission.PLATFORM_DICTIONARY_READ)
+  @ApiOperation({ summary: 'List all relationships' })
+  async listRelationships(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query() filterDto: RelationshipFilterDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const result = await this.platformBuilderService.listRelationships(
+      tenantId,
+      filterDto,
+    );
+    return { success: true, data: result };
+  }
+
+  @Post('relationships')
+  @Permissions(Permission.PLATFORM_DICTIONARY_WRITE)
+  @ApiOperation({ summary: 'Create a new relationship' })
+  async createRelationship(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Body() dto: CreateRelationshipDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const rel = await this.platformBuilderService.createRelationship(
+      tenantId,
+      req.user.id,
+      dto,
+    );
+    return { success: true, data: rel };
+  }
+
+  @Get('relationships/:id')
+  @Permissions(Permission.PLATFORM_DICTIONARY_READ)
+  @ApiOperation({ summary: 'Get a relationship by ID' })
+  async getRelationship(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const rel = await this.platformBuilderService.findRelationshipById(
+      tenantId,
+      id,
+    );
+    return { success: true, data: rel };
+  }
+
+  @Delete('relationships/:id')
+  @Permissions(Permission.PLATFORM_DICTIONARY_WRITE)
+  @ApiOperation({ summary: 'Delete a relationship' })
+  async deleteRelationship(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    await this.platformBuilderService.deleteRelationship(
+      tenantId,
+      req.user.id,
+      id,
+    );
+    return {
+      success: true,
+      data: { message: 'Relationship deleted successfully' },
+    };
   }
 }
