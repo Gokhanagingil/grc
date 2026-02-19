@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from './helpers';
+import { login } from './helpers';
 
 test.describe('ITSM Auth Header Regression', () => {
   test('ITSM Changes request includes Authorization header', async ({ page }) => {
-    await setupMockApi(page);
-
     const itsmRequests: { url: string; authorization: string | null }[] = [];
+
+    await login(page);
 
     await page.route('**/grc/itsm/changes*', async (route) => {
       const request = route.request();
@@ -24,7 +24,6 @@ test.describe('ITSM Auth Header Regression', () => {
       });
     });
 
-    await login(page);
     await page.goto('/itsm/changes');
 
     await expect.poll(() => itsmRequests.length, {
@@ -38,9 +37,9 @@ test.describe('ITSM Auth Header Regression', () => {
   });
 
   test('ITSM Incidents request includes Authorization header', async ({ page }) => {
-    await setupMockApi(page);
-
     const itsmRequests: { url: string; authorization: string | null }[] = [];
+
+    await login(page);
 
     await page.route('**/grc/itsm/incidents*', async (route) => {
       const request = route.request();
@@ -59,7 +58,6 @@ test.describe('ITSM Auth Header Regression', () => {
       });
     });
 
-    await login(page);
     await page.goto('/itsm/incidents');
 
     await expect.poll(() => itsmRequests.length, {
@@ -73,9 +71,9 @@ test.describe('ITSM Auth Header Regression', () => {
   });
 
   test('ITSM Services request includes Authorization header', async ({ page }) => {
-    await setupMockApi(page);
-
     const itsmRequests: { url: string; authorization: string | null }[] = [];
+
+    await login(page);
 
     await page.route('**/grc/itsm/services*', async (route) => {
       const request = route.request();
@@ -94,7 +92,6 @@ test.describe('ITSM Auth Header Regression', () => {
       });
     });
 
-    await login(page);
     await page.goto('/itsm/services');
 
     await expect.poll(() => itsmRequests.length, {
@@ -108,7 +105,7 @@ test.describe('ITSM Auth Header Regression', () => {
   });
 
   test('ITSM Changes shows error state on 401 instead of infinite spinner', async ({ page }) => {
-    await setupMockApi(page);
+    await login(page);
 
     await page.route('**/grc/itsm/changes*', async (route) => {
       await route.fulfill({
@@ -121,10 +118,9 @@ test.describe('ITSM Auth Header Regression', () => {
       });
     });
 
-    await login(page);
     await page.goto('/itsm/changes');
 
-    const loadingSpinner = page.locator('[role="progressbar"]');
+    const loadingSpinner= page.locator('[role="progressbar"]');
     await expect(loadingSpinner).not.toBeVisible({ timeout: 10000 });
   });
 });
