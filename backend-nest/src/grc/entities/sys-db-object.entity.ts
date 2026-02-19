@@ -11,18 +11,19 @@ import { Tenant } from '../../tenants/tenant.entity';
 import { SysDictionary } from './sys-dictionary.entity';
 
 /**
- * SysDbObject Entity
+ * SysDbObject Entity (sys_table)
  *
- * Represents a dynamic table definition in the Platform Builder.
+ * Represents a dynamic table definition in the Platform Builder v1.
  * Admins can create custom tables with this entity, and the actual
  * data is stored in the dynamic_records table as JSONB.
  *
- * Table names must follow the pattern: u_[a-z0-9_]+
- * This ensures user-defined tables are clearly distinguished from system tables.
+ * Custom table names must follow the pattern: u_[a-z0-9_]+
+ * Core tables (is_core=true) can use any valid identifier.
  */
 @Entity('sys_db_object')
 @Index(['tenantId', 'name'], { unique: true })
 @Index(['tenantId', 'isActive'])
+@Index(['isCore'])
 export class SysDbObject extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
@@ -39,6 +40,28 @@ export class SysDbObject extends BaseEntity {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  extends: string | null;
+
+  @Column({ name: 'is_core', type: 'boolean', default: false })
+  isCore: boolean;
+
+  @Column({
+    name: 'display_field',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  displayField: string | null;
+
+  @Column({
+    name: 'number_prefix',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  numberPrefix: string | null;
 
   @OneToMany(() => SysDictionary, (field) => field.dbObject)
   fields: SysDictionary[];

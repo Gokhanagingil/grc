@@ -34,6 +34,8 @@
     "seed:itsm-choices:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-choices.ts",
     "seed:itsm-baseline": "node dist/scripts/seed-itsm-baseline.js",
     "seed:itsm-baseline:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-baseline.ts",
+    "seed:dictionary-core": "node dist/scripts/seed-dictionary-core.js",
+    "seed:dictionary-core:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-dictionary-core.ts",
     "seed:soa": "node dist/scripts/seed-soa.js",
     "seed:soa:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-soa.ts",
     "seed:soa:prod": "node dist/scripts/seed-soa.js",

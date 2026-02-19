@@ -68,6 +68,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ADMIN_TABLES_WRITE,
     Permission.DATA_RECORDS_READ,
     Permission.DATA_RECORDS_WRITE,
+    Permission.PLATFORM_DICTIONARY_READ,
+    Permission.PLATFORM_DICTIONARY_WRITE,
   ],
 
   /**

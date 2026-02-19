@@ -98,12 +98,23 @@ export {
   CreateRecordDto,
   UpdateRecordDto,
   RecordFilterDto,
+  CreateRelationshipDto,
+  RelationshipFilterDto,
 } from './platform-builder.dto';
 export type {
   TableResponse,
   FieldResponse,
   RecordResponse,
+  RelationshipResponse,
 } from './platform-builder.dto';
+
+// Generic Query (Phase 3) DTOs
+export {
+  GenericQueryDto,
+  FilterConditionDto,
+  FilterGroupDto,
+} from './generic-query.dto';
+export type { GenericQueryResult } from './generic-query.dto';
 
 // SOA (Statement of Applicability) DTOs
 export {
