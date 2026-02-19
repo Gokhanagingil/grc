@@ -32,6 +32,8 @@
     "seed:demo-story:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-story.ts",
     "seed:itsm-choices": "node dist/scripts/seed-itsm-choices.js",
     "seed:itsm-choices:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-choices.ts",
+    "seed:itsm-baseline": "node dist/scripts/seed-itsm-baseline.js",
+    "seed:itsm-baseline:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-baseline.ts",
     "seed:soa": "node dist/scripts/seed-soa.js",
     "seed:soa:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-soa.ts",
     "seed:soa:prod": "node dist/scripts/seed-soa.js",
