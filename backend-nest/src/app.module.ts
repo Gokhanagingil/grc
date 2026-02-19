@@ -25,6 +25,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { TodosModule } from './todos/todos.module';
 import { EventBusModule } from './event-bus/event-bus.module';
+import { NotificationEngineModule } from './notification-engine/notification-engine.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -169,6 +170,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Notifications Foundation (Email + Webhook with audit logging)
     NotificationsModule,
+
+    // Notification Engine v1 (rules, templates, delivery, in-app)
+    NotificationEngineModule,
 
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,
