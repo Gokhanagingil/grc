@@ -94,11 +94,18 @@ export class SafeTemplateService {
     for (const part of parts) {
       if (current === null || current === undefined) return undefined;
       if (typeof current !== 'object') return undefined;
+      if (SafeTemplateService.UNSAFE_KEYS.has(part)) return undefined;
       current = (current as Record<string, unknown>)[part];
     }
 
     return current;
   }
+
+  private static readonly UNSAFE_KEYS = new Set([
+    '__proto__',
+    'constructor',
+    'prototype',
+  ]);
 
   private setNestedValue(
     obj: Record<string, unknown>,
@@ -110,13 +117,16 @@ export class SafeTemplateService {
 
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
+      if (SafeTemplateService.UNSAFE_KEYS.has(part)) return;
       if (!current[part] || typeof current[part] !== 'object') {
         current[part] = {};
       }
       current = current[part] as Record<string, unknown>;
     }
 
-    current[parts[parts.length - 1]] = value;
+    const lastKey = parts[parts.length - 1];
+    if (SafeTemplateService.UNSAFE_KEYS.has(lastKey)) return;
+    current[lastKey] = value;
   }
 
   private processConditionals(
@@ -145,7 +155,13 @@ export class SafeTemplateService {
   }
 
   private stripHtml(str: string): string {
-    return str.replace(/<[^>]*>/g, '');
+    let prev = str;
+    let result = str.replace(/<[^>]*>/g, '');
+    while (result !== prev) {
+      prev = result;
+      result = result.replace(/<[^>]*>/g, '');
+    }
+    return result;
   }
 
   validateTemplate(template: string): { valid: boolean; errors: string[] } {
@@ -155,22 +171,25 @@ export class SafeTemplateService {
       errors.push(`Template exceeds maximum length of ${MAX_TEMPLATE_LENGTH}`);
     }
 
-    const dangerousPatterns = [
-      /\{\{.*eval\s*\(/i,
-      /\{\{.*Function\s*\(/i,
-      /\{\{.*constructor\s*\(/i,
-      /\{\{.*__proto__/i,
-      /\{\{.*prototype/i,
-      /<script/i,
-      /javascript:/i,
-      /on\w+\s*=/i,
+    const dangerousKeywords = [
+      'eval(',
+      'function(',
+      'constructor(',
+      '__proto__',
+      'prototype',
+      '<script',
+      'javascript:',
+      'onerror=',
+      'onload=',
+      'onclick=',
+      'onmouseover=',
+      'onfocus=',
+      'oninput=',
     ];
-
-    for (const pattern of dangerousPatterns) {
-      if (pattern.test(template)) {
-        errors.push(
-          `Template contains potentially unsafe pattern: ${pattern.source}`,
-        );
+    const lowerTemplate = template.toLowerCase();
+    for (const keyword of dangerousKeywords) {
+      if (lowerTemplate.includes(keyword)) {
+        errors.push(`Template contains potentially unsafe pattern: ${keyword}`);
       }
     }
 
