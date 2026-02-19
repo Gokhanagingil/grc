@@ -172,4 +172,17 @@ export class SlaController {
     }
     return instance;
   }
+
+  @Get('breach-summary')
+  @Permissions(Permission.ITSM_SLA_READ)
+  @Perf()
+  async getBreachSummary(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('recordType') recordType?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return this.slaService.getBreachSummary(tenantId, recordType);
+  }
 }

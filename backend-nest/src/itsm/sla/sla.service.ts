@@ -425,6 +425,87 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
     });
   }
 
+  async getBreachSummary(
+    tenantId: string,
+    recordType?: string,
+  ): Promise<{
+    total: number;
+    inProgress: number;
+    breached: number;
+    met: number;
+    paused: number;
+    breachingSoon: {
+      instanceId: string;
+      recordType: string;
+      recordId: string;
+      definitionName: string;
+      remainingSeconds: number;
+    }[];
+  }> {
+    const baseWhere: Record<string, unknown> = {
+      tenantId,
+      isDeleted: false,
+    };
+    if (recordType) {
+      baseWhere.recordType = recordType;
+    }
+
+    const allInstances = await this.instanceRepository.find({
+      where: baseWhere,
+      relations: ['definition'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const total = allInstances.length;
+    let inProgress = 0;
+    let breached = 0;
+    let met = 0;
+    let paused = 0;
+    const breachingSoon: {
+      instanceId: string;
+      recordType: string;
+      recordId: string;
+      definitionName: string;
+      remainingSeconds: number;
+    }[] = [];
+
+    const BREACH_SOON_THRESHOLD = 900;
+
+    for (const inst of allInstances) {
+      switch (inst.status) {
+        case SlaInstanceStatus.IN_PROGRESS:
+          inProgress++;
+          if (
+            inst.remainingSeconds !== null &&
+            inst.remainingSeconds <= BREACH_SOON_THRESHOLD &&
+            inst.remainingSeconds > 0
+          ) {
+            breachingSoon.push({
+              instanceId: inst.id,
+              recordType: inst.recordType,
+              recordId: inst.recordId,
+              definitionName: inst.definition?.name || 'Unknown',
+              remainingSeconds: inst.remainingSeconds,
+            });
+          }
+          break;
+        case SlaInstanceStatus.BREACHED:
+          breached++;
+          break;
+        case SlaInstanceStatus.MET:
+          met++;
+          break;
+        case SlaInstanceStatus.PAUSED:
+          paused++;
+          break;
+      }
+    }
+
+    breachingSoon.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
+
+    return { total, inProgress, breached, met, paused, breachingSoon };
+  }
+
   async findInstancesWithFilters(
     tenantId: string,
     filterDto: SlaInstanceFilterDto,
