@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla } from './pages/itsm';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -235,6 +235,48 @@ function App() {
                     <ProtectedRoute allowedRoles={['admin']}>
                       <ErrorBoundary>
                         <ItsmChoiceAdmin />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/tables" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioTables />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/business-rules" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioBusinessRules />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/ui-policies" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioUiPolicies />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/ui-actions" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioUiActions />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/workflows" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioWorkflows />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/sla" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioSla />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />
