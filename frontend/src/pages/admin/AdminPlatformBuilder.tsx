@@ -37,16 +37,20 @@ import {
   Visibility as PreviewIcon,
   TableChart as TableIcon,
   Settings as FieldsIcon,
+  Link as RelationshipIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import {
   platformBuilderApi,
   SysDbObjectData,
   SysDictionaryData,
+  SysRelationshipData,
+  SysRelationshipType,
   CreateTableDto,
   UpdateTableDto,
   CreateFieldDto,
   UpdateFieldDto,
+  CreateRelationshipDto,
   ChoiceOption,
 } from '../../services/grcClient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -76,6 +80,12 @@ const FIELD_TYPES = [
   { value: 'datetime', label: 'Date/Time' },
   { value: 'choice', label: 'Choice' },
   { value: 'reference', label: 'Reference' },
+];
+
+const RELATIONSHIP_TYPES: { value: SysRelationshipType; label: string }[] = [
+  { value: 'ONE_TO_ONE', label: '1:1 (One to One)' },
+  { value: 'ONE_TO_MANY', label: '1:N (One to Many)' },
+  { value: 'MANY_TO_MANY', label: 'N:N (Many to Many)' },
 ];
 
 export const AdminPlatformBuilder: React.FC = () => {
@@ -115,18 +125,33 @@ export const AdminPlatformBuilder: React.FC = () => {
     type: 'string',
     isRequired: false,
     isUnique: false,
+    readOnly: false,
     referenceTable: '',
     choiceOptions: [],
+    choiceTable: '',
     defaultValue: '',
+    maxLength: undefined,
     fieldOrder: 0,
+    indexed: false,
     isActive: true,
   });
   const [choiceOptionsText, setChoiceOptionsText] = useState('');
 
+  const [relationships, setRelationships] = useState<SysRelationshipData[]>([]);
+  const [relationshipsLoading, setRelationshipsLoading] = useState(false);
+  const [openRelDialog, setOpenRelDialog] = useState(false);
+  const [relFormData, setRelFormData] = useState<CreateRelationshipDto>({
+    name: '',
+    fromTable: '',
+    toTable: '',
+    type: 'ONE_TO_MANY',
+    fkColumn: '',
+  });
+
   const getErrorMessage = (err: unknown, defaultMessage: string): string => {
-    const error = err as { response?: { status?: number; data?: { message?: string } } };
+    const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
     const status = error.response?.status;
-    const serverMessage = error.response?.data?.message;
+    const serverMessage = error.response?.data?.error?.message || error.response?.data?.message;
     
     if (status === 401) {
       return 'Session expired or not authenticated. Please log in again.';
@@ -180,6 +205,23 @@ export const AdminPlatformBuilder: React.FC = () => {
     }
   }, [tenantId]);
 
+  const fetchRelationships = useCallback(async (tableName: string) => {
+    if (!tenantId) return;
+    try {
+      setRelationshipsLoading(true);
+      const response = await platformBuilderApi.listRelationships(tenantId, {
+        fromTable: tableName,
+        pageSize: 100,
+      });
+      setRelationships(response.items || []);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch relationships'));
+      setRelationships([]);
+    } finally {
+      setRelationshipsLoading(false);
+    }
+  }, [tenantId]);
+
   useEffect(() => {
     fetchTables();
   }, [fetchTables]);
@@ -187,8 +229,9 @@ export const AdminPlatformBuilder: React.FC = () => {
   useEffect(() => {
     if (selectedTable) {
       fetchFields(selectedTable.id);
+      fetchRelationships(selectedTable.name);
     }
-  }, [selectedTable, fetchFields]);
+  }, [selectedTable, fetchFields, fetchRelationships]);
 
   const handleOpenTableDialog = (table?: SysDbObjectData) => {
     if (table) {
@@ -244,6 +287,7 @@ export const AdminPlatformBuilder: React.FC = () => {
       if (selectedTable?.id === table.id) {
         setSelectedTable(null);
         setFields([]);
+        setRelationships([]);
       }
       fetchTables();
     } catch (err: unknown) {
@@ -270,10 +314,14 @@ export const AdminPlatformBuilder: React.FC = () => {
         type: field.type,
         isRequired: field.isRequired,
         isUnique: field.isUnique,
+        readOnly: field.readOnly || false,
         referenceTable: field.referenceTable || '',
         choiceOptions: field.choiceOptions || [],
+        choiceTable: field.choiceTable || '',
         defaultValue: field.defaultValue || '',
+        maxLength: field.maxLength,
         fieldOrder: field.fieldOrder,
+        indexed: field.indexed || false,
         isActive: field.isActive,
       });
       setChoiceOptionsText(
@@ -288,10 +336,14 @@ export const AdminPlatformBuilder: React.FC = () => {
         type: 'string',
         isRequired: false,
         isUnique: false,
+        readOnly: false,
         referenceTable: '',
         choiceOptions: [],
+        choiceTable: '',
         defaultValue: '',
+        maxLength: undefined,
         fieldOrder: maxOrder + 10,
+        indexed: false,
         isActive: true,
       });
       setChoiceOptionsText('');
@@ -320,10 +372,14 @@ export const AdminPlatformBuilder: React.FC = () => {
           type: fieldFormData.type,
           isRequired: fieldFormData.isRequired,
           isUnique: fieldFormData.isUnique,
+          readOnly: fieldFormData.readOnly,
           referenceTable: fieldFormData.type === 'reference' ? fieldFormData.referenceTable : undefined,
           choiceOptions,
+          choiceTable: fieldFormData.type === 'choice' ? fieldFormData.choiceTable : undefined,
           defaultValue: fieldFormData.defaultValue || undefined,
+          maxLength: fieldFormData.maxLength,
           fieldOrder: fieldFormData.fieldOrder,
+          indexed: fieldFormData.indexed,
           isActive: fieldFormData.isActive,
         };
         await platformBuilderApi.updateField(tenantId, editingField.id, updateData);
@@ -333,6 +389,7 @@ export const AdminPlatformBuilder: React.FC = () => {
           ...fieldFormData,
           referenceTable: fieldFormData.type === 'reference' ? fieldFormData.referenceTable : undefined,
           choiceOptions,
+          choiceTable: fieldFormData.type === 'choice' ? fieldFormData.choiceTable : undefined,
         };
         await platformBuilderApi.createField(tenantId, selectedTable.id, createData);
         setSuccess('Field created successfully');
@@ -356,13 +413,50 @@ export const AdminPlatformBuilder: React.FC = () => {
     }
   };
 
+  const handleOpenRelDialog = () => {
+    setRelFormData({
+      name: '',
+      fromTable: selectedTable?.name || '',
+      toTable: '',
+      type: 'ONE_TO_MANY',
+      fkColumn: '',
+    });
+    setOpenRelDialog(true);
+  };
+
+  const handleSaveRelationship = async () => {
+    try {
+      await platformBuilderApi.createRelationship(tenantId, relFormData);
+      setSuccess('Relationship created successfully');
+      setOpenRelDialog(false);
+      if (selectedTable) {
+        fetchRelationships(selectedTable.name);
+      }
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to create relationship'));
+    }
+  };
+
+  const handleDeleteRelationship = async (rel: SysRelationshipData) => {
+    if (!window.confirm(`Are you sure you want to delete relationship "${rel.name}"?`)) return;
+    try {
+      await platformBuilderApi.deleteRelationship(tenantId, rel.id);
+      setSuccess('Relationship deleted successfully');
+      if (selectedTable) {
+        fetchRelationships(selectedTable.name);
+      }
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete relationship'));
+    }
+  };
+
   const handlePreviewData = () => {
     if (selectedTable) {
       navigate(`/data/${selectedTable.name}`);
     }
   };
 
-  const isTableNameValid = (name: string) => /^u_[a-z0-9_]+$/.test(name);
+  const isTableNameValid= (name: string) => /^u_[a-z0-9_]+$/.test(name);
   const isFieldNameValid = (name: string) => /^[a-z][a-z0-9_]*$/.test(name);
 
   return (
@@ -528,6 +622,7 @@ export const AdminPlatformBuilder: React.FC = () => {
 
               <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
                 <Tab icon={<FieldsIcon />} label="Fields" iconPosition="start" />
+                <Tab icon={<RelationshipIcon />} label="Relationships" iconPosition="start" />
                 <Tab icon={<PreviewIcon />} label="Preview" iconPosition="start" />
               </Tabs>
 
@@ -559,12 +654,11 @@ export const AdminPlatformBuilder: React.FC = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Field Order</TableCell>
+                        <TableCell>Order</TableCell>
                         <TableCell>Field Name</TableCell>
                         <TableCell>Label</TableCell>
                         <TableCell>Type</TableCell>
-                        <TableCell>Required</TableCell>
-                        <TableCell>Unique</TableCell>
+                        <TableCell>Flags</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -588,7 +682,7 @@ export const AdminPlatformBuilder: React.FC = () => {
                               />
                               {field.type === 'reference' && field.referenceTable && (
                                 <Typography variant="caption" display="block" color="textSecondary">
-                                  → {field.referenceTable}
+                                  &rarr; {field.referenceTable}
                                 </Typography>
                               )}
                               {field.type === 'choice' && field.choiceOptions && (
@@ -598,20 +692,19 @@ export const AdminPlatformBuilder: React.FC = () => {
                                   </Typography>
                                 </Tooltip>
                               )}
+                              {field.maxLength && (
+                                <Typography variant="caption" display="block" color="textSecondary">
+                                  max: {field.maxLength}
+                                </Typography>
+                              )}
                             </TableCell>
                             <TableCell>
-                              <Chip
-                                size="small"
-                                label={field.isRequired ? 'Yes' : 'No'}
-                                color={field.isRequired ? 'primary' : 'default'}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                size="small"
-                                label={field.isUnique ? 'Yes' : 'No'}
-                                color={field.isUnique ? 'warning' : 'default'}
-                              />
+                              <Box display="flex" gap={0.5} flexWrap="wrap">
+                                {field.isRequired && <Chip size="small" label="Req" color="primary" />}
+                                {field.isUnique && <Chip size="small" label="Unq" color="warning" />}
+                                {field.readOnly && <Chip size="small" label="RO" color="info" />}
+                                {field.indexed && <Chip size="small" label="Idx" color="secondary" />}
+                              </Box>
                             </TableCell>
                             <TableCell>
                               <IconButton
@@ -635,6 +728,80 @@ export const AdminPlatformBuilder: React.FC = () => {
               </TabPanel>
 
               <TabPanel value={tabValue} index={1}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="subtitle1">
+                    Relationships ({relationships.length})
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenRelDialog}
+                  >
+                    Add Relationship
+                  </Button>
+                </Box>
+
+                {relationshipsLoading ? (
+                  <Box display="flex" justifyContent="center" py={4}>
+                    <CircularProgress />
+                  </Box>
+                ) : relationships.length === 0 ? (
+                  <Box textAlign="center" py={4}>
+                    <Typography color="textSecondary">
+                      No relationships defined for this table.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>From</TableCell>
+                        <TableCell>To</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>FK Column</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {relationships.map((rel) => (
+                        <TableRow key={rel.id}>
+                          <TableCell>
+                            <Typography variant="body2" fontFamily="monospace">
+                              {rel.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{rel.fromTable}</TableCell>
+                          <TableCell>{rel.toTable}</TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={RELATIONSHIP_TYPES.find((t) => t.value === rel.type)?.label || rel.type}
+                              variant="outlined"
+                              color="primary"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontFamily="monospace">
+                              {rel.fkColumn || '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteRelationship(rel)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={2}>
                 <Box textAlign="center" py={4}>
                   <Typography color="textSecondary" gutterBottom>
                     Preview the table data and form
@@ -782,14 +949,35 @@ export const AdminPlatformBuilder: React.FC = () => {
             )}
 
             {fieldFormData.type === 'choice' && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Choice Table (sys_choice)"
+                  value={fieldFormData.choiceTable || ''}
+                  onChange={(e) => setFieldFormData({ ...fieldFormData, choiceTable: e.target.value })}
+                  helperText="Table name in sys_choice for shared choices (optional)"
+                />
+                <TextField
+                  fullWidth
+                  label="Choice Options"
+                  multiline
+                  rows={4}
+                  value={choiceOptionsText}
+                  onChange={(e) => setChoiceOptionsText(e.target.value)}
+                  helperText="One option per line in format: value:label (e.g., active:Active)"
+                />
+              </>
+            )}
+
+            {(fieldFormData.type === 'string' || fieldFormData.type === 'text') && (
               <TextField
                 fullWidth
-                label="Choice Options"
-                multiline
-                rows={4}
-                value={choiceOptionsText}
-                onChange={(e) => setChoiceOptionsText(e.target.value)}
-                helperText="One option per line in format: value:label (e.g., active:Active)"
+                label="Max Length"
+                type="number"
+                value={fieldFormData.maxLength ?? ''}
+                onChange={(e) => setFieldFormData({ ...fieldFormData, maxLength: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                helperText="Maximum character length (leave blank for no limit)"
+                inputProps={{ min: 1, max: 10000 }}
               />
             )}
 
@@ -808,11 +996,11 @@ export const AdminPlatformBuilder: React.FC = () => {
               onChange={(e) => setFieldFormData({ ...fieldFormData, fieldOrder: parseInt(e.target.value, 10) || 0 })}
             />
 
-            <Box display="flex" gap={2}>
+            <Box display="flex" gap={2} flexWrap="wrap">
               <FormControlLabel
                 control={
                   <Switch
-                    checked={fieldFormData.isRequired}
+                    checked={fieldFormData.isRequired || false}
                     onChange={(e) => setFieldFormData({ ...fieldFormData, isRequired: e.target.checked })}
                   />
                 }
@@ -821,7 +1009,7 @@ export const AdminPlatformBuilder: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={fieldFormData.isUnique}
+                    checked={fieldFormData.isUnique || false}
                     onChange={(e) => setFieldFormData({ ...fieldFormData, isUnique: e.target.checked })}
                   />
                 }
@@ -830,7 +1018,25 @@ export const AdminPlatformBuilder: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={fieldFormData.isActive}
+                    checked={fieldFormData.readOnly || false}
+                    onChange={(e) => setFieldFormData({ ...fieldFormData, readOnly: e.target.checked })}
+                  />
+                }
+                label="Read Only"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={fieldFormData.indexed || false}
+                    onChange={(e) => setFieldFormData({ ...fieldFormData, indexed: e.target.checked })}
+                  />
+                }
+                label="Indexed"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={fieldFormData.isActive || false}
                     onChange={(e) => setFieldFormData({ ...fieldFormData, isActive: e.target.checked })}
                   />
                 }
@@ -851,6 +1057,78 @@ export const AdminPlatformBuilder: React.FC = () => {
             }
           >
             {editingField ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openRelDialog} onClose={() => setOpenRelDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Relationship</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Relationship Name"
+              value={relFormData.name}
+              onChange={(e) => setRelFormData({ ...relFormData, name: e.target.value })}
+              required
+              helperText="Descriptive name (e.g., vendor_contracts)"
+            />
+            <TextField
+              fullWidth
+              label="From Table"
+              value={relFormData.fromTable}
+              onChange={(e) => setRelFormData({ ...relFormData, fromTable: e.target.value })}
+              required
+              disabled={!!selectedTable}
+            />
+            <TextField
+              fullWidth
+              label="To Table"
+              value={relFormData.toTable}
+              onChange={(e) => setRelFormData({ ...relFormData, toTable: e.target.value })}
+              required
+              helperText="Target table name (e.g., u_contract)"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Relationship Type</InputLabel>
+              <Select
+                value={relFormData.type}
+                label="Relationship Type"
+                onChange={(e) => setRelFormData({ ...relFormData, type: e.target.value as SysRelationshipType })}
+              >
+                {RELATIONSHIP_TYPES.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="FK Column"
+              value={relFormData.fkColumn || ''}
+              onChange={(e) => setRelFormData({ ...relFormData, fkColumn: e.target.value })}
+              helperText="Foreign key column name (optional, auto-generated if empty)"
+            />
+            {relFormData.type === 'MANY_TO_MANY' && (
+              <TextField
+                fullWidth
+                label="M2M Junction Table"
+                value={relFormData.m2mTable || ''}
+                onChange={(e) => setRelFormData({ ...relFormData, m2mTable: e.target.value })}
+                helperText="Junction table name for many-to-many relationships"
+              />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRelDialog(false)}>Cancel</Button>
+          <Button
+            onClick={handleSaveRelationship}
+            variant="contained"
+            disabled={!relFormData.name || !relFormData.fromTable || !relFormData.toTable}
+          >
+            Create
           </Button>
         </DialogActions>
       </Dialog>
