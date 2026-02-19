@@ -26,8 +26,6 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-# --legacy-peer-deps: required because @swc/cli@0.8.0 conflicts with
-# @nestjs/cli@11.0.16 peerOptional range (^0.1.62 || ^0.3.0-0.7.x)
 RUN npm ci --legacy-peer-deps
 
 # Copy source code
@@ -35,9 +33,6 @@ COPY . .
 
 # Build the application
 RUN npm run build
-
-# Prune devDependencies after build
-RUN npm prune --production
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production Runtime
@@ -60,10 +55,14 @@ WORKDIR /app
 # even when no volume is mounted (CI smoke tests, ephemeral containers)
 RUN mkdir -p /app/data/uploads && chown -R nestjs:nodejs /app/data
 
-# Copy built artifacts and production dependencies from builder
+# Copy package files and install production-only dependencies
+# Using a clean npm ci --omit=dev avoids the ERESOLVE errors that
+# npm prune --production triggers with peerOptional conflicts
+COPY --chown=nestjs:nodejs package*.json ./
+RUN npm ci --omit=dev --legacy-peer-deps
+
+# Copy built artifacts from builder stage
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
 
 # Set environment defaults
 ENV NODE_ENV=production
