@@ -6,6 +6,7 @@ import { SlaEngineService } from './sla-engine.service';
 import { SlaDefinition, SlaMetric, SlaSchedule } from './sla-definition.entity';
 import { SlaInstance, SlaInstanceStatus } from './sla-instance.entity';
 import { AuditService } from '../../audit/audit.service';
+import { RuntimeLoggerService } from '../diagnostics/runtime-logger.service';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -70,6 +71,12 @@ describe('SlaService', () => {
         {
           provide: getRepositoryToken(SlaInstance),
           useValue: mockInstRepo,
+        },
+        {
+          provide: RuntimeLoggerService,
+          useValue: {
+            logSlaEvent: jest.fn(),
+          },
         },
         {
           provide: AuditService,
