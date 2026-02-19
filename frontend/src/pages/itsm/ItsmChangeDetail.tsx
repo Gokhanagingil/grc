@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
 interface ItsmChange {
   id: string;
@@ -65,18 +66,46 @@ interface LinkedControl {
   status: string;
 }
 
-const TYPE_OPTIONS = ['STANDARD', 'NORMAL', 'EMERGENCY'];
-const STATE_OPTIONS = ['DRAFT', 'ASSESS', 'AUTHORIZE', 'IMPLEMENT', 'REVIEW', 'CLOSED'];
-const RISK_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'];
-const APPROVAL_OPTIONS = ['NOT_REQUESTED', 'REQUESTED', 'APPROVED', 'REJECTED'];
+const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
+  type: [
+    { value: 'STANDARD', label: 'Standard' },
+    { value: 'NORMAL', label: 'Normal' },
+    { value: 'EMERGENCY', label: 'Emergency' },
+  ],
+  state: [
+    { value: 'DRAFT', label: 'Draft' },
+    { value: 'ASSESS', label: 'Assess' },
+    { value: 'AUTHORIZE', label: 'Authorize' },
+    { value: 'IMPLEMENT', label: 'Implement' },
+    { value: 'REVIEW', label: 'Review' },
+    { value: 'CLOSED', label: 'Closed' },
+  ],
+  risk: [
+    { value: 'LOW', label: 'Low' },
+    { value: 'MEDIUM', label: 'Medium' },
+    { value: 'HIGH', label: 'High' },
+  ],
+};
+
+const APPROVAL_OPTIONS = [
+  { value: 'NOT_REQUESTED', label: 'Not Requested' },
+  { value: 'REQUESTED', label: 'Requested' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'REJECTED', label: 'Rejected' },
+];
 
 export const ItsmChangeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const isNew = id === 'new';
+  const { choices } = useItsmChoices('itsm_changes', FALLBACK_CHOICES);
 
-  const [loading, setLoading] = useState(!isNew);
+  const typeOptions = choices['type'] || FALLBACK_CHOICES['type'];
+  const stateOptions = choices['state'] || FALLBACK_CHOICES['state'];
+  const riskOptions = choices['risk'] || FALLBACK_CHOICES['risk'];
+
+  const [loading, setLoading]= useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [change, setChange] = useState<Partial<ItsmChange>>({
     title: '',
@@ -275,9 +304,9 @@ export const ItsmChangeDetail: React.FC = () => {
                       label="Type"
                       onChange={(e) => handleChange('type', e.target.value)}
                     >
-                      {TYPE_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                      {typeOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -292,9 +321,9 @@ export const ItsmChangeDetail: React.FC = () => {
                       label="State"
                       onChange={(e) => handleChange('state', e.target.value)}
                     >
-                      {STATE_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                      {stateOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -309,9 +338,9 @@ export const ItsmChangeDetail: React.FC = () => {
                       label="Risk"
                       onChange={(e) => handleChange('risk', e.target.value)}
                     >
-                      {RISK_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                      {riskOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -327,8 +356,8 @@ export const ItsmChangeDetail: React.FC = () => {
                       onChange={(e) => handleChange('approvalStatus', e.target.value)}
                     >
                       {APPROVAL_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option.replace('_', ' ')}
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>

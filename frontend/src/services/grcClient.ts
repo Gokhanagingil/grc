@@ -256,6 +256,15 @@ export const API_PATHS = {
       LINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
       UNLINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
     },
+    // ITSM Choice endpoints
+    CHOICES: {
+      LIST: '/grc/itsm/choices',
+      TABLES: '/grc/itsm/choices/tables',
+      GET: (id: string) => `/grc/itsm/choices/${id}`,
+      CREATE: '/grc/itsm/choices',
+      UPDATE: (id: string) => `/grc/itsm/choices/${id}`,
+      DELETE: (id: string) => `/grc/itsm/choices/${id}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1458,6 +1467,45 @@ export interface UpdateItsmChangeDto {
   plannedEndAt?: string;
 }
 
+export interface ItsmChoiceData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  fieldName: string;
+  value: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  parentValue?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmChoiceDto {
+  tableName: string;
+  fieldName: string;
+  value: string;
+  label: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  parentValue?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateItsmChoiceDto {
+  label?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  parentValue?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ItsmManagedTable {
+  name: string;
+  fields: string[];
+}
+
 export interface ItsmListParams {
   page?: number;
   pageSize?: number;
@@ -1536,9 +1584,24 @@ export const itsmApi = {
     linkControl: (changeId: string, controlId: string) => api.post(API_PATHS.ITSM.CHANGES.LINK_CONTROL(changeId, controlId), {}),
     unlinkControl: (changeId: string, controlId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_CONTROL(changeId, controlId)),
   },
+
+  // ITSM Choices
+  choices: {
+    list: (tableName: string, fieldName?: string) => {
+      const searchParams = new URLSearchParams();
+      searchParams.set('table', tableName);
+      if (fieldName) searchParams.set('field', fieldName);
+      return api.get(`${API_PATHS.ITSM.CHOICES.LIST}?${searchParams.toString()}`);
+    },
+    tables: () => api.get(API_PATHS.ITSM.CHOICES.TABLES),
+    get: (id: string) => api.get(API_PATHS.ITSM.CHOICES.GET(id)),
+    create: (data: CreateItsmChoiceDto) => api.post(API_PATHS.ITSM.CHOICES.CREATE, data),
+    update: (id: string, data: UpdateItsmChoiceDto) => api.patch(API_PATHS.ITSM.CHOICES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.CHOICES.DELETE(id)),
+  },
 };
 
-// Legacy incidentApi for backward compatibility (deprecated, use itsmApi.incidents instead)
+// Legacy incidentApifor backward compatibility (deprecated, use itsmApi.incidents instead)
 export const incidentApi = {
   list: (tenantId: string, params?: URLSearchParams) => 
     api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
