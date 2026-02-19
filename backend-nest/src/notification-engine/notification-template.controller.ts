@@ -66,7 +66,10 @@ export class NotificationTemplateController {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const template = await this.engineService.findTemplateByTenant(tenantId, id);
+    const template = await this.engineService.findTemplateByTenant(
+      tenantId,
+      id,
+    );
     if (!template) throw new NotFoundException('Template not found');
     return template;
   }
@@ -132,9 +135,7 @@ export class NotificationTemplateController {
 
   @Post('preview')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async previewTemplate(
-    @Body() dto: PreviewTemplateDto,
-  ) {
+  previewTemplate(@Body() dto: PreviewTemplateDto) {
     return this.templateService.previewTemplate(
       dto.template,
       dto.sampleData || {},
