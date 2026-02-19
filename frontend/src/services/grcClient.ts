@@ -265,6 +265,52 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/itsm/choices/${id}`,
       DELETE: (id: string) => `/grc/itsm/choices/${id}`,
     },
+    // ITSM Business Rule endpoints
+    BUSINESS_RULES: {
+      LIST: '/grc/itsm/business-rules',
+      GET: (id: string) => `/grc/itsm/business-rules/${id}`,
+      CREATE: '/grc/itsm/business-rules',
+      UPDATE: (id: string) => `/grc/itsm/business-rules/${id}`,
+      DELETE: (id: string) => `/grc/itsm/business-rules/${id}`,
+      EVALUATE: '/grc/itsm/business-rules/evaluate',
+    },
+    // ITSM UI Policy endpoints
+    UI_POLICIES: {
+      LIST: '/grc/itsm/ui-policies',
+      GET: (id: string) => `/grc/itsm/ui-policies/policies/${id}`,
+      CREATE: '/grc/itsm/ui-policies',
+      UPDATE: (id: string) => `/grc/itsm/ui-policies/policies/${id}`,
+      DELETE: (id: string) => `/grc/itsm/ui-policies/policies/${id}`,
+      BY_TABLE: (tableName: string) => `/grc/itsm/ui-policies/table/${tableName}`,
+      EVALUATE: '/grc/itsm/ui-policies/evaluate',
+      ACTIONS_LIST: '/grc/itsm/ui-policies/actions',
+      ACTIONS_GET: (id: string) => `/grc/itsm/ui-policies/actions/${id}`,
+      ACTIONS_CREATE: '/grc/itsm/ui-policies/actions',
+      ACTIONS_UPDATE: (id: string) => `/grc/itsm/ui-policies/actions/${id}`,
+      ACTIONS_DELETE: (id: string) => `/grc/itsm/ui-policies/actions/${id}`,
+    },
+    // ITSM Workflow endpoints
+    WORKFLOWS: {
+      LIST: '/grc/itsm/workflows',
+      GET: (id: string) => `/grc/itsm/workflows/${id}`,
+      CREATE: '/grc/itsm/workflows',
+      UPDATE: (id: string) => `/grc/itsm/workflows/${id}`,
+      DELETE: (id: string) => `/grc/itsm/workflows/${id}`,
+      BY_TABLE: (tableName: string) => `/grc/itsm/workflows/table/${tableName}`,
+      AVAILABLE_TRANSITIONS: (id: string) => `/grc/itsm/workflows/${id}/transitions/available`,
+      VALIDATE_TRANSITION: (id: string) => `/grc/itsm/workflows/${id}/transitions/validate`,
+    },
+    // ITSM SLA endpoints
+    SLA: {
+      DEFINITIONS_LIST: '/grc/itsm/sla/definitions',
+      DEFINITIONS_GET: (id: string) => `/grc/itsm/sla/definitions/${id}`,
+      DEFINITIONS_CREATE: '/grc/itsm/sla/definitions',
+      DEFINITIONS_UPDATE: (id: string) => `/grc/itsm/sla/definitions/${id}`,
+      DEFINITIONS_DELETE: (id: string) => `/grc/itsm/sla/definitions/${id}`,
+      INSTANCES_LIST: '/grc/itsm/sla/instances',
+      RECORD_SLAS: (recordType: string, recordId: string) => `/grc/itsm/sla/records/${recordType}/${recordId}`,
+      RECOMPUTE: (id: string) => `/grc/itsm/sla/instances/${id}/recompute`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1599,9 +1645,63 @@ export const itsmApi = {
     update: (id: string, data: UpdateItsmChoiceDto) => api.patch(API_PATHS.ITSM.CHOICES.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.ITSM.CHOICES.DELETE(id)),
   },
+
+  // ITSM Business Rules
+  businessRules: {
+    list: () => api.get(API_PATHS.ITSM.BUSINESS_RULES.LIST),
+    get: (id: string) => api.get(API_PATHS.ITSM.BUSINESS_RULES.GET(id)),
+    create: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.BUSINESS_RULES.CREATE, data),
+    update: (id: string, data: Record<string, unknown>) => api.patch(API_PATHS.ITSM.BUSINESS_RULES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.BUSINESS_RULES.DELETE(id)),
+    evaluate: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.BUSINESS_RULES.EVALUATE, data),
+  },
+
+  // ITSM UI Policies
+  uiPolicies: {
+    list: () => api.get(API_PATHS.ITSM.UI_POLICIES.LIST),
+    get: (id: string) => api.get(API_PATHS.ITSM.UI_POLICIES.GET(id)),
+    create: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.UI_POLICIES.CREATE, data),
+    update: (id: string, data: Record<string, unknown>) => api.patch(API_PATHS.ITSM.UI_POLICIES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.UI_POLICIES.DELETE(id)),
+    byTable: (tableName: string) => api.get(API_PATHS.ITSM.UI_POLICIES.BY_TABLE(tableName)),
+    evaluate: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.UI_POLICIES.EVALUATE, data),
+  },
+
+  // ITSM UI Actions
+  uiActions: {
+    list: () => api.get(API_PATHS.ITSM.UI_POLICIES.ACTIONS_LIST),
+    get: (id: string) => api.get(API_PATHS.ITSM.UI_POLICIES.ACTIONS_GET(id)),
+    create: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.UI_POLICIES.ACTIONS_CREATE, data),
+    update: (id: string, data: Record<string, unknown>) => api.patch(API_PATHS.ITSM.UI_POLICIES.ACTIONS_UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.UI_POLICIES.ACTIONS_DELETE(id)),
+  },
+
+  // ITSM Workflows
+  workflows: {
+    list: () => api.get(API_PATHS.ITSM.WORKFLOWS.LIST),
+    get: (id: string) => api.get(API_PATHS.ITSM.WORKFLOWS.GET(id)),
+    create: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.WORKFLOWS.CREATE, data),
+    update: (id: string, data: Record<string, unknown>) => api.patch(API_PATHS.ITSM.WORKFLOWS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.WORKFLOWS.DELETE(id)),
+    byTable: (tableName: string) => api.get(API_PATHS.ITSM.WORKFLOWS.BY_TABLE(tableName)),
+    availableTransitions: (id: string, data: Record<string, unknown>) => api.post(API_PATHS.ITSM.WORKFLOWS.AVAILABLE_TRANSITIONS(id), data),
+    validateTransition: (id: string, data: Record<string, unknown>) => api.post(API_PATHS.ITSM.WORKFLOWS.VALIDATE_TRANSITION(id), data),
+  },
+
+  // ITSM SLA
+  sla: {
+    listDefinitions: () => api.get(API_PATHS.ITSM.SLA.DEFINITIONS_LIST),
+    getDefinition: (id: string) => api.get(API_PATHS.ITSM.SLA.DEFINITIONS_GET(id)),
+    createDefinition: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.SLA.DEFINITIONS_CREATE, data),
+    updateDefinition: (id: string, data: Record<string, unknown>) => api.patch(API_PATHS.ITSM.SLA.DEFINITIONS_UPDATE(id), data),
+    deleteDefinition: (id: string) => api.delete(API_PATHS.ITSM.SLA.DEFINITIONS_DELETE(id)),
+    listInstances: () => api.get(API_PATHS.ITSM.SLA.INSTANCES_LIST),
+    recordSlas: (recordType: string, recordId: string) => api.get(API_PATHS.ITSM.SLA.RECORD_SLAS(recordType, recordId)),
+    recompute: (id: string) => api.post(API_PATHS.ITSM.SLA.RECOMPUTE(id), {}),
+  },
 };
 
-// Legacy incidentApifor backward compatibility (deprecated, use itsmApi.incidents instead)
+// Legacy incidentApi for backward compatibility (deprecated, use itsmApi.incidents instead)
 export const incidentApi = {
   list: (tenantId: string, params?: URLSearchParams) => 
     api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
