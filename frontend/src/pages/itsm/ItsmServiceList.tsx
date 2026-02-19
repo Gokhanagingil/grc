@@ -9,7 +9,19 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
+import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+    return 'Session expired. Please log in again.';
+  }
+  const axErr = error as { response?: { status?: number } };
+  if (axErr.response?.status === 401) {
+    return 'Session expired. Please log in again.';
+  }
+  return 'Failed to load ITSM services. Please try again.';
+}
 
 interface ItsmService {
   id: string;
@@ -40,6 +52,7 @@ export const ItsmServiceList: React.FC = () => {
   const { showNotification } = useNotification();
   const [services, setServices] = useState<ItsmService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -47,6 +60,7 @@ export const ItsmServiceList: React.FC = () => {
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await itsmApi.services.list({ page, pageSize, q: search });
       const data = response.data;
@@ -57,9 +71,11 @@ export const ItsmServiceList: React.FC = () => {
         setServices([]);
         setTotal(0);
       }
-    } catch (error) {
-      console.error('Error fetching ITSM services:', error);
-      showNotification('Failed to load ITSM services', 'error');
+    } catch (err) {
+      console.error('Error fetching ITSM services:', err);
+      const msg = getErrorMessage(err);
+      setError(msg);
+      showNotification(msg, 'error');
       setServices([]);
     } finally {
       setLoading(false);
@@ -143,7 +159,8 @@ export const ItsmServiceList: React.FC = () => {
         items={services}
         columns={columns}
         isLoading={loading}
-        error={null}
+        error={error}
+        onClearError={() => setError(null)}
         total={total}
         page={page}
         pageSize={pageSize}

@@ -13,7 +13,19 @@ import {
 import { Add as AddIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
+import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+    return 'Session expired. Please log in again.';
+  }
+  const axErr = error as { response?: { status?: number } };
+  if (axErr.response?.status === 401) {
+    return 'Session expired. Please log in again.';
+  }
+  return 'Failed to load ITSM incidents. Please try again.';
+}
 
 interface ItsmIncident {
   id: string;
@@ -58,6 +70,7 @@ export const ItsmIncidentList: React.FC = () => {
   const { showNotification } = useNotification();
   const [incidents, setIncidents] = useState<ItsmIncident[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
 
   const page = parseInt(searchParams.get('page') || '1', 10);
@@ -82,6 +95,7 @@ export const ItsmIncidentList: React.FC = () => {
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await itsmApi.incidents.list({
         page,
@@ -100,9 +114,11 @@ export const ItsmIncidentList: React.FC = () => {
         setIncidents([]);
         setTotal(0);
       }
-    } catch (error) {
-      console.error('Error fetching ITSM incidents:', error);
-      showNotification('Failed to load ITSM incidents', 'error');
+    } catch (err) {
+      console.error('Error fetching ITSM incidents:', err);
+      const msg = getErrorMessage(err);
+      setError(msg);
+      showNotification(msg, 'error');
       setIncidents([]);
     } finally {
       setLoading(false);
@@ -252,7 +268,8 @@ export const ItsmIncidentList: React.FC = () => {
         items={incidents}
         columns={columns}
         isLoading={loading}
-        error={null}
+        error={error}
+        onClearError={() => setError(null)}
         total={total}
         page={page}
         pageSize={pageSize}
