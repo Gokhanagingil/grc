@@ -135,6 +135,7 @@ import { GrcInsightsService } from './services/grc-insights.service';
 // Platform Builder services
 import { PlatformBuilderService } from './services/platform-builder.service';
 import { DynamicDataService } from './services/dynamic-data.service';
+import { GenericQueryService } from './services/generic-query.service';
 
 // Code Generation services
 import { CodeGeneratorService } from './services/code-generator.service';
@@ -206,6 +207,7 @@ import { GrcInsightsController } from './controllers/grc-insights.controller';
 // Platform Builder controllers
 import { PlatformBuilderController } from './controllers/platform-builder.controller';
 import { DynamicDataController } from './controllers/dynamic-data.controller';
+import { GenericQueryController } from './controllers/generic-query.controller';
 
 // SOA (Statement of Applicability) controllers
 import { GrcSoaController } from './controllers/grc-soa.controller';
@@ -372,6 +374,7 @@ import { CalendarController } from './controllers/calendar.controller';
     // Platform Builder services
     PlatformBuilderService,
     DynamicDataService,
+    GenericQueryService,
     // Code Generation services
     CodeGeneratorService,
     // SOA (Statement of Applicability) services
@@ -434,7 +437,8 @@ import { CalendarController } from './controllers/calendar.controller';
     // Platform Builder controllers
     PlatformBuilderController,
     DynamicDataController,
-    // SOA (Statement of Applicability) controllers
+    GenericQueryController,
+    // SOA(Statement of Applicability) controllers
     GrcSoaController,
     // BCM (Business Continuity Management) controllers
     BcmController,
@@ -486,6 +490,7 @@ import { CalendarController } from './controllers/calendar.controller';
     // Platform Builder services
     PlatformBuilderService,
     DynamicDataService,
+    GenericQueryService,
     // Code Generation services
     CodeGeneratorService,
     // SOA (Statement of Applicability) services
