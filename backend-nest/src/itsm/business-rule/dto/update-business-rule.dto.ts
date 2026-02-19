@@ -55,4 +55,8 @@ export class UpdateBusinessRuleDto {
   @IsInt()
   @Min(0)
   order?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  stopProcessing?: boolean;
 }

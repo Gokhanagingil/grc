@@ -51,6 +51,7 @@ export class BusinessRuleEngineService {
       });
 
       if (result.rejected) break;
+      if (rule.stopProcessing) break;
     }
 
     return results;
