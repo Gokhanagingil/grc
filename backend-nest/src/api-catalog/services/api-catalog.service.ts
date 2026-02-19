@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { SysPublishedApi } from '../entities/sys-published-api.entity';
 import { SysApiKey } from '../entities/sys-api-key.entity';
 import { StructuredLoggerService } from '../../common/logger';
@@ -143,7 +144,7 @@ export class ApiCatalogService {
     data: { name: string; scopes?: string[]; expiresAt?: string },
   ): Promise<{ key: SysApiKey; rawKey: string }> {
     const rawKey = `grc_${crypto.randomBytes(API_KEY_BYTES).toString('hex')}`;
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyHash = await bcrypt.hash(rawKey, 10);
     const keyPrefix = rawKey.substring(0, API_KEY_PREFIX_LENGTH);
 
     const key = this.keyRepository.create({
@@ -185,21 +186,25 @@ export class ApiCatalogService {
   async validateApiKey(
     rawKey: string,
   ): Promise<{ key: SysApiKey; tenantId: string } | null> {
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const prefix = rawKey.substring(0, API_KEY_PREFIX_LENGTH);
 
-    const key = await this.keyRepository.findOne({
-      where: { keyHash, isActive: true },
+    const candidates = await this.keyRepository.find({
+      where: { keyPrefix: prefix, isActive: true },
     });
 
-    if (!key) return null;
+    for (const candidate of candidates) {
+      const matches = await bcrypt.compare(rawKey, candidate.keyHash);
+      if (!matches) continue;
 
-    if (key.expiresAt && key.expiresAt < new Date()) {
-      return null;
+      if (candidate.expiresAt && candidate.expiresAt < new Date()) {
+        return null;
+      }
+
+      await this.keyRepository.update(candidate.id, { lastUsedAt: new Date() });
+      return { key: candidate, tenantId: candidate.tenantId };
     }
 
-    await this.keyRepository.update(key.id, { lastUsedAt: new Date() });
-
-    return { key, tenantId: key.tenantId };
+    return null;
   }
 
   generateOpenApiSpec(api: SysPublishedApi): Record<string, unknown> {
