@@ -8,20 +8,18 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from './helpers';
+import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
 test.describe('Webhook Integration', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
-  });
-
   test.describe('Webhook endpoint API prefix', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Webhook endpoints list calls /api/grc/webhook-endpoints', async ({ page }) => {
       const webhookRequests: string[] = [];
+
+      await login(page);
 
       await page.route('**/grc/webhook-endpoints**', async (route) => {
         webhookRequests.push(route.request().url());
@@ -79,7 +77,6 @@ test.describe('Webhook Integration', () => {
         });
       });
 
-      await login(page);
       await page.goto('/admin/notification-studio');
 
       const webhooksTab = page.locator('button', { hasText: /Webhooks/i });
@@ -103,6 +100,8 @@ test.describe('Webhook Integration', () => {
 
     test('Webhook endpoint requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
+
+      await login(page);
 
       await page.route('**/grc/webhook-endpoints**', async (route) => {
         capturedHeaders.push(route.request().headers()['authorization'] ?? null);
@@ -160,7 +159,6 @@ test.describe('Webhook Integration', () => {
         });
       });
 
-      await login(page);
       await page.goto('/admin/notification-studio');
 
       const webhooksTab = page.locator('button', { hasText: /Webhooks/i });

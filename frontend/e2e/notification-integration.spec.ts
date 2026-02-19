@@ -9,20 +9,18 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from './helpers';
+import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
 test.describe('Notification Integration', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
-  });
-
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only - verifies frontend call patterns');
 
     test('Notification bell calls /api/grc/notifications/me with correct prefix', async ({ page }) => {
       const notifRequests: string[] = [];
+
+      await login(page);
 
       await page.route('**/grc/notifications/**', async (route) => {
         notifRequests.push(route.request().url());
@@ -36,7 +34,7 @@ test.describe('Notification Integration', () => {
         });
       });
 
-      await login(page);
+      await page.goto('/dashboard');
 
       await expect.poll(() => notifRequests.length, {
         timeout: 15000,
@@ -55,6 +53,8 @@ test.describe('Notification Integration', () => {
     test('Notification requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
 
+      await login(page);
+
       await page.route('**/grc/notifications/**', async (route) => {
         capturedHeaders.push(route.request().headers()['authorization'] ?? null);
         await route.fulfill({
@@ -67,7 +67,7 @@ test.describe('Notification Integration', () => {
         });
       });
 
-      await login(page);
+      await page.goto('/dashboard');
 
       await expect.poll(() => capturedHeaders.length, {
         timeout: 15000,
@@ -83,6 +83,8 @@ test.describe('Notification Integration', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Bell icon is visible in header after login', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/notifications/**', async (route) => {
         await route.fulfill({
           status: 200,
@@ -94,13 +96,13 @@ test.describe('Notification Integration', () => {
         });
       });
 
-      await login(page);
-
       const bellButton = page.locator('[data-testid="notification-bell"]');
       await expect(bellButton).toBeVisible({ timeout: 10000 });
     });
 
     test('Bell icon shows unread badge when notifications exist', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/notifications/**', async (route) => {
         const url = route.request().url();
         if (url.includes('/unread-count') || url.includes('unreadCount')) {
@@ -126,7 +128,7 @@ test.describe('Notification Integration', () => {
         }
       });
 
-      await login(page);
+      await page.goto('/dashboard');
 
       const badge = page.locator('.MuiBadge-badge');
       await expect(badge).toBeVisible({ timeout: 10000 });
@@ -137,6 +139,8 @@ test.describe('Notification Integration', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Notification Studio page loads for admin user', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/notification-rules**', async (route) => {
         await route.fulfill({
           status: 200,
@@ -192,13 +196,14 @@ test.describe('Notification Integration', () => {
         });
       });
 
-      await login(page);
       await page.goto('/admin/notification-studio');
 
-      await expect(page.locator('text=Notification Studio')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('h4, h5, h6').filter({ hasText: 'Notification Studio' })).toBeVisible({ timeout: 10000 });
     });
 
     test('Notification Studio shows 401 error state on unauthorized', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/notification-rules**', async (route) => {
         await route.fulfill({
           status: 401,
@@ -218,7 +223,6 @@ test.describe('Notification Integration', () => {
         });
       });
 
-      await login(page);
       await page.goto('/admin/notification-studio');
 
       const loadingSpinner = page.locator('[role="progressbar"]');

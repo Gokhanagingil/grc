@@ -9,20 +9,18 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from './helpers';
+import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
 test.describe('API Catalog Integration', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
-  });
-
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Published APIs list calls /api/grc/published-apis', async ({ page }) => {
       const apiRequests: string[] = [];
+
+      await login(page);
 
       await page.route('**/grc/published-apis**', async (route) => {
         apiRequests.push(route.request().url());
@@ -32,17 +30,6 @@ test.describe('API Catalog Integration', () => {
           body: JSON.stringify({
             success: true,
             data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
           }),
         });
       });
@@ -58,7 +45,6 @@ test.describe('API Catalog Integration', () => {
         });
       });
 
-      await login(page);
       await page.goto('/admin/api-catalog');
 
       await expect.poll(() => apiRequests.length, {
@@ -78,6 +64,8 @@ test.describe('API Catalog Integration', () => {
     test('Published APIs requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
 
+      await login(page);
+
       await page.route('**/grc/published-apis**', async (route) => {
         capturedHeaders.push(route.request().headers()['authorization'] ?? null);
         await route.fulfill({
@@ -90,18 +78,6 @@ test.describe('API Catalog Integration', () => {
         });
       });
 
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
-          }),
-        });
-      });
-
-      await login(page);
       await page.goto('/admin/api-catalog');
 
       await expect.poll(() => capturedHeaders.length, {
@@ -118,6 +94,8 @@ test.describe('API Catalog Integration', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('API Catalog page loads for admin user', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/published-apis**', async (route) => {
         await route.fulfill({
           status: 200,
@@ -140,24 +118,14 @@ test.describe('API Catalog Integration', () => {
         });
       });
 
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
-          }),
-        });
-      });
-
-      await login(page);
       await page.goto('/admin/api-catalog');
 
-      await expect(page.locator('text=API Catalog')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('h4, h5, h6').filter({ hasText: 'API Catalog' })).toBeVisible({ timeout: 10000 });
     });
 
     test('API Catalog shows error state on 403 Forbidden', async ({ page }) => {
+      await login(page);
+
       await page.route('**/grc/published-apis**', async (route) => {
         await route.fulfill({
           status: 403,
@@ -166,18 +134,6 @@ test.describe('API Catalog Integration', () => {
         });
       });
 
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
-          }),
-        });
-      });
-
-      await login(page);
       await page.goto('/admin/api-catalog');
 
       const loadingSpinner = page.locator('[role="progressbar"]');
