@@ -64,6 +64,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { moduleApi } from '../services/platformApi';
 import { ErrorBoundary } from './common/ErrorBoundary';
 import { safeArray, safeIncludes } from '../utils/safeHelpers';
+import { NotificationBell } from './NotificationBell';
 
 const drawerWidth = 260;
 
@@ -1124,6 +1125,7 @@ export const Layout: React.FC = () => {
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <NotificationBell />
             <Chip
               label={user?.role?.toUpperCase()}
               size="small"
