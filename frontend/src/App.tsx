@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin } from './pages/itsm';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -228,6 +228,15 @@ function App() {
                     <ErrorBoundary>
                       <ItsmChangeDetail />
                     </ErrorBoundary>
+                  } />
+                  
+                  {/* ITSM Studio (Admin configuration) */}
+                  <Route path="itsm/studio/choices" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmChoiceAdmin />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
                   } />
                   
                   {/* Copilot (AI Decision & Action Layer) */}

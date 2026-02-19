@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
 interface ItsmService {
   id: string;
@@ -34,16 +35,31 @@ interface ItsmService {
   updatedAt: string;
 }
 
-const CRITICALITY_OPTIONS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'DEPRECATED', 'MAINTENANCE'];
+const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
+  criticality: [
+    { value: 'CRITICAL', label: 'Critical' },
+    { value: 'HIGH', label: 'High' },
+    { value: 'MEDIUM', label: 'Medium' },
+    { value: 'LOW', label: 'Low' },
+  ],
+  status: [
+    { value: 'ACTIVE', label: 'Active' },
+    { value: 'INACTIVE', label: 'Inactive' },
+    { value: 'DEPRECATED', label: 'Deprecated' },
+  ],
+};
 
 export const ItsmServiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const isNew = !id || id === 'new';
+  const { choices } = useItsmChoices('itsm_services', FALLBACK_CHOICES);
 
-  const [loading, setLoading] = useState(!isNew);
+  const criticalityOptions = choices['criticality'] || FALLBACK_CHOICES['criticality'];
+  const statusOptions = choices['status'] || FALLBACK_CHOICES['status'];
+
+  const [loading, setLoading]= useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [service, setService] = useState<Partial<ItsmService>>({
     name: '',
@@ -181,9 +197,9 @@ export const ItsmServiceDetail: React.FC = () => {
                   label="Criticality"
                   onChange={(e) => handleChange('criticality', e.target.value)}
                 >
-                  {CRITICALITY_OPTIONS.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
+                  {criticalityOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -198,9 +214,9 @@ export const ItsmServiceDetail: React.FC = () => {
                   label="Status"
                   onChange={(e) => handleChange('status', e.target.value)}
                 >
-                  {STATUS_OPTIONS.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
                     </MenuItem>
                   ))}
                 </Select>

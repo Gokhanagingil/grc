@@ -309,6 +309,21 @@ const itsmMenuGroups: NavMenuGroup[] = [
       },
     ],
   },
+  {
+    id: 'itsm-studio',
+    text: 'ITSM Studio',
+    icon: <AdminIcon />,
+    roles: ['admin'],
+    items: [
+      {
+        text: 'Choices',
+        icon: <SettingsIcon />,
+        path: '/itsm/studio/choices',
+        testId: 'nav-itsm-studio-choices',
+        roles: ['admin'],
+      },
+    ],
+  },
 ];
 
 // Shared menu groups (shown in all domains)
