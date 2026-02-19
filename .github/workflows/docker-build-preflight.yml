@@ -36,6 +36,10 @@ concurrency:
   group: docker-preflight-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: write
+
 env:
   NODE_VERSION: '20.x'
 

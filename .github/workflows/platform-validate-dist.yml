@@ -37,6 +37,11 @@ concurrency:
   group: platform-validate-dist-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+# actions: write is required for upload-artifact@v6 to finalize artifacts
+permissions:
+  contents: read
+  actions: write
+
 env:
   NODE_VERSION: '20.x'
 

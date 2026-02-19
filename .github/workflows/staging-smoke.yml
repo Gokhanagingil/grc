@@ -32,6 +32,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# actions: write is required for upload-artifact@v6 to finalize artifacts
+permissions:
+  contents: read
+  actions: write
+
 # =============================================================================
 # Staging URL Configuration
 # =============================================================================
