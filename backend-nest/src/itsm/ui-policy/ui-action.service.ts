@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { UiAction } from './ui-action.entity';
 import { AuditService } from '../../audit/audit.service';
+import { WorkflowTransition } from '../workflow/workflow-definition.entity';
 
 @Injectable()
 export class UiActionService extends MultiTenantServiceBase<UiAction> {
@@ -138,6 +139,23 @@ export class UiActionService extends MultiTenantServiceBase<UiAction> {
       }
 
       return true;
+    });
+  }
+
+  getActionsWithTransitionValidation(
+    actions: UiAction[],
+    record: Record<string, unknown>,
+    currentState: string,
+    availableTransitions: WorkflowTransition[],
+    userRoles?: string[],
+  ): UiAction[] {
+    const visible = this.getActionsForRecord(actions, record, userRoles);
+    const transitionNames = new Set(
+      availableTransitions.map((t) => t.name),
+    );
+    return visible.filter((action) => {
+      if (!action.workflowTransition) return true;
+      return transitionNames.has(action.workflowTransition);
     });
   }
 }

@@ -28,6 +28,8 @@ import { CreateUiPolicyDto } from './dto/create-ui-policy.dto';
 import { UpdateUiPolicyDto } from './dto/update-ui-policy.dto';
 import { CreateUiActionDto } from './dto/create-ui-action.dto';
 import { UpdateUiActionDto } from './dto/update-ui-action.dto';
+import { WorkflowService } from '../workflow/workflow.service';
+import { WorkflowEngineService } from '../workflow/workflow-engine.service';
 
 @Controller('grc/itsm/ui-policies')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -35,6 +37,8 @@ export class UiPolicyController {
   constructor(
     private readonly uiPolicyService: UiPolicyService,
     private readonly uiActionService: UiActionService,
+    private readonly workflowService: WorkflowService,
+    private readonly workflowEngineService: WorkflowEngineService,
   ) {}
 
   @Get()
@@ -159,6 +163,7 @@ export class UiPolicyController {
     body: {
       tableName: string;
       record: Record<string, unknown>;
+      currentState?: string;
       userRoles?: string[];
     },
   ) {
@@ -178,11 +183,42 @@ export class UiPolicyController {
       policies,
       body.record,
     );
-    const visibleActions = this.uiActionService.getActionsForRecord(
-      actions,
-      body.record,
-      body.userRoles,
-    );
+
+    let visibleActions: UiAction[];
+    if (body.currentState) {
+      const workflow = await this.workflowService.resolveWorkflowForTable(
+        tenantId,
+        body.tableName,
+      );
+      if (workflow) {
+        const availableTransitions =
+          this.workflowEngineService.getAvailableTransitions(
+            workflow,
+            body.currentState,
+            body.userRoles,
+          );
+        visibleActions =
+          this.uiActionService.getActionsWithTransitionValidation(
+            actions,
+            body.record,
+            body.currentState,
+            availableTransitions,
+            body.userRoles,
+          );
+      } else {
+        visibleActions = this.uiActionService.getActionsForRecord(
+          actions,
+          body.record,
+          body.userRoles,
+        );
+      }
+    } else {
+      visibleActions = this.uiActionService.getActionsForRecord(
+        actions,
+        body.record,
+        body.userRoles,
+      );
+    }
 
     return { fieldEffects, actions: visibleActions };
   }

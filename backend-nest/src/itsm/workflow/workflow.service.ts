@@ -34,6 +34,18 @@ export class WorkflowService extends MultiTenantServiceBase<WorkflowDefinition> 
     });
   }
 
+  async resolveWorkflowForTable(
+    tenantId: string,
+    tableName: string,
+  ): Promise<WorkflowDefinition | null> {
+    const workflows = await this.repository.find({
+      where: { tenantId, tableName, isActive: true, isDeleted: false },
+      order: { order: 'ASC' },
+      take: 1,
+    });
+    return workflows.length > 0 ? workflows[0] : null;
+  }
+
   async findAllActive(tenantId: string): Promise<WorkflowDefinition[]> {
     return this.repository.find({
       where: { tenantId, isDeleted: false },
