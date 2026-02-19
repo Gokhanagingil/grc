@@ -57,4 +57,7 @@ export class BusinessRule extends BaseEntity {
 
   @Column({ type: 'int', default: 100 })
   order: number;
+
+  @Column({ name: 'stop_processing', type: 'boolean', default: false })
+  stopProcessing: boolean;
 }

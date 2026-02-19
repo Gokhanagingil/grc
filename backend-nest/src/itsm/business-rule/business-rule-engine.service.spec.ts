@@ -13,6 +13,7 @@ const makeRule = (overrides: Partial<BusinessRule> = {}): BusinessRule =>
     actions: [],
     isActive: true,
     order: 100,
+    stopProcessing: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: null,
@@ -278,6 +279,223 @@ describe('BusinessRuleEngineService', () => {
       expect(
         service.evaluateRules(rulesIsEmpty, { assignee: '' })[0].applied,
       ).toBe(true);
+    });
+  });
+
+  describe('stopProcessing', () => {
+    it('should stop evaluating subsequent rules when stopProcessing is true', () => {
+      const rules = [
+        makeRule({
+          name: 'Rule 1 - Stop',
+          order: 100,
+          stopProcessing: true,
+          actions: [
+            { type: 'set_field', field: 'category', value: 'hardware' },
+          ],
+        }),
+        makeRule({
+          name: 'Rule 2 - Should Not Run',
+          order: 200,
+          actions: [
+            { type: 'set_field', field: 'priority', value: 'p1' },
+          ],
+        }),
+      ];
+      const results = service.evaluateRules(rules, {});
+      expect(results).toHaveLength(1);
+      expect(results[0].ruleName).toBe('Rule 1 - Stop');
+      expect(results[0].applied).toBe(true);
+      expect(results[0].fieldUpdates).toEqual({ category: 'hardware' });
+    });
+
+    it('should continue evaluating when stopProcessing is false', () => {
+      const rules = [
+        makeRule({
+          name: 'Rule 1',
+          order: 100,
+          stopProcessing: false,
+          actions: [
+            { type: 'set_field', field: 'category', value: 'hardware' },
+          ],
+        }),
+        makeRule({
+          name: 'Rule 2',
+          order: 200,
+          stopProcessing: false,
+          actions: [
+            { type: 'set_field', field: 'priority', value: 'p1' },
+          ],
+        }),
+      ];
+      const results = service.evaluateRules(rules, {});
+      expect(results).toHaveLength(2);
+      expect(results[0].ruleName).toBe('Rule 1');
+      expect(results[1].ruleName).toBe('Rule 2');
+    });
+
+    it('should not stop when stopProcessing rule conditions do not match', () => {
+      const rules = [
+        makeRule({
+          name: 'Stop Rule',
+          order: 100,
+          stopProcessing: true,
+          conditions: [{ field: 'priority', operator: 'eq', value: 'p1' }],
+          actions: [
+            { type: 'set_field', field: 'flag', value: 'stopped' },
+          ],
+        }),
+        makeRule({
+          name: 'Next Rule',
+          order: 200,
+          actions: [
+            { type: 'set_field', field: 'category', value: 'software' },
+          ],
+        }),
+      ];
+      const results = service.evaluateRules(rules, { priority: 'p4' });
+      expect(results).toHaveLength(2);
+      expect(results[0].applied).toBe(false);
+      expect(results[1].applied).toBe(true);
+    });
+
+    it('should respect stopProcessing with applyBeforeRules', () => {
+      const rules = [
+        makeRule({
+          name: 'Rule 1',
+          order: 100,
+          stopProcessing: true,
+          actions: [
+            { type: 'set_field', field: 'assignmentGroup', value: 'Team A' },
+          ],
+        }),
+        makeRule({
+          name: 'Rule 2',
+          order: 200,
+          actions: [
+            { type: 'set_field', field: 'assignmentGroup', value: 'Team B' },
+          ],
+        }),
+      ];
+      const result = service.applyBeforeRules(rules, {});
+      expect(result.rejected).toBe(false);
+      expect(result.fieldUpdates).toEqual({ assignmentGroup: 'Team A' });
+    });
+  });
+
+  describe('field-change detection', () => {
+    it('should fire rule only when specific field changed', () => {
+      const rules = [
+        makeRule({
+          conditions: [{ field: 'state', operator: 'changed' }],
+          actions: [
+            { type: 'set_field', field: 'stateChangedFlag', value: 'true' },
+          ],
+        }),
+      ];
+      const withChange = service.evaluateRules(
+        rules,
+        { state: 'resolved' },
+        { state: 'resolved' },
+      );
+      expect(withChange[0].applied).toBe(true);
+
+      const withoutChange = service.evaluateRules(
+        rules,
+        { state: 'open' },
+        { priority: 'p2' },
+      );
+      expect(withoutChange[0].applied).toBe(false);
+
+      const noChanges = service.evaluateRules(
+        rules,
+        { state: 'open' },
+        undefined,
+      );
+      expect(noChanges[0].applied).toBe(false);
+    });
+
+    it('should combine changed with other conditions', () => {
+      const rules = [
+        makeRule({
+          conditions: [
+            { field: 'state', operator: 'changed' },
+            { field: 'priority', operator: 'eq', value: 'p1' },
+          ],
+          actions: [
+            { type: 'set_field', field: 'escalated', value: 'true' },
+          ],
+        }),
+      ];
+      const both = service.evaluateRules(
+        rules,
+        { state: 'resolved', priority: 'p1' },
+        { state: 'resolved' },
+      );
+      expect(both[0].applied).toBe(true);
+
+      const onlyChanged = service.evaluateRules(
+        rules,
+        { state: 'resolved', priority: 'p4' },
+        { state: 'resolved' },
+      );
+      expect(onlyChanged[0].applied).toBe(false);
+    });
+  });
+
+  describe('trigger semantics', () => {
+    it('should support all four trigger types', () => {
+      const triggers = [
+        BusinessRuleTrigger.BEFORE_INSERT,
+        BusinessRuleTrigger.AFTER_INSERT,
+        BusinessRuleTrigger.BEFORE_UPDATE,
+        BusinessRuleTrigger.AFTER_UPDATE,
+      ];
+      for (const trigger of triggers) {
+        const rules = [
+          makeRule({
+            trigger,
+            actions: [
+              { type: 'set_field', field: 'flag', value: trigger },
+            ],
+          }),
+        ];
+        const results = service.evaluateRules(rules, {});
+        expect(results[0].applied).toBe(true);
+        expect(results[0].fieldUpdates).toEqual({ flag: trigger });
+      }
+    });
+  });
+
+  describe('ordering + stopProcessing combined', () => {
+    it('should execute in order and stop at the correct rule', () => {
+      const rules = [
+        makeRule({
+          name: 'Rule C',
+          order: 300,
+          actions: [
+            { type: 'set_field', field: 'c', value: 'yes' },
+          ],
+        }),
+        makeRule({
+          name: 'Rule A',
+          order: 100,
+          actions: [
+            { type: 'set_field', field: 'a', value: 'yes' },
+          ],
+        }),
+        makeRule({
+          name: 'Rule B',
+          order: 200,
+          stopProcessing: true,
+          actions: [
+            { type: 'set_field', field: 'b', value: 'yes' },
+          ],
+        }),
+      ];
+      const results = service.evaluateRules(rules, {});
+      expect(results).toHaveLength(2);
+      expect(results[0].ruleName).toBe('Rule A');
+      expect(results[1].ruleName).toBe('Rule B');
     });
   });
 });

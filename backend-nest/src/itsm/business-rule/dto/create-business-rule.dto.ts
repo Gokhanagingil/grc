@@ -52,4 +52,8 @@ export class CreateBusinessRuleDto {
   @IsInt()
   @Min(0)
   order?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  stopProcessing?: boolean;
 }
