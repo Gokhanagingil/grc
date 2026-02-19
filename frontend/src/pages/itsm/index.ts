@@ -5,3 +5,4 @@ export { ItsmIncidentList } from './ItsmIncidentList';
 export { ItsmIncidentDetail } from './ItsmIncidentDetail';
 export { ItsmChangeList } from './ItsmChangeList';
 export { ItsmChangeDetail } from './ItsmChangeDetail';
+export { ItsmChoiceAdmin } from './ItsmChoiceAdmin';

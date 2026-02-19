@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 
 interface ItsmIncident {
@@ -73,28 +74,44 @@ interface LinkedControl {
   status: string;
 }
 
-const STATE_OPTIONS = [
-  { value: 'open', label: 'Open' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
-];
-const PRIORITY_OPTIONS = [
-  { value: 'p1', label: 'P1 - Critical' },
-  { value: 'p2', label: 'P2 - High' },
-  { value: 'p3', label: 'P3 - Medium' },
-  { value: 'p4', label: 'P4 - Low' },
-];
-const IMPACT_OPTIONS = [
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
-const URGENCY_OPTIONS = [
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
+const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
+  status: [
+    { value: 'open', label: 'Open' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'resolved', label: 'Resolved' },
+    { value: 'closed', label: 'Closed' },
+  ],
+  priority: [
+    { value: 'p1', label: 'P1 - Critical' },
+    { value: 'p2', label: 'P2 - High' },
+    { value: 'p3', label: 'P3 - Medium' },
+    { value: 'p4', label: 'P4 - Low' },
+  ],
+  impact: [
+    { value: 'high', label: 'High' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'low', label: 'Low' },
+  ],
+  urgency: [
+    { value: 'high', label: 'High' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'low', label: 'Low' },
+  ],
+  category: [
+    { value: 'hardware', label: 'Hardware' },
+    { value: 'software', label: 'Software' },
+    { value: 'network', label: 'Network' },
+    { value: 'access', label: 'Access' },
+    { value: 'other', label: 'Other' },
+  ],
+  source: [
+    { value: 'user', label: 'User' },
+    { value: 'monitoring', label: 'Monitoring' },
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'self_service', label: 'Self Service' },
+  ],
+};
 
 export const ItsmIncidentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -102,8 +119,15 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { showNotification } = useNotification();
   const isNew = !id || id === 'new';
+  const { choices } = useItsmChoices('itsm_incidents', FALLBACK_CHOICES);
 
-  const handleBackToList = useCallback(() => {
+  const stateOptions = choices['status'] || FALLBACK_CHOICES['status'];
+  const priorityOptions = choices['priority'] || FALLBACK_CHOICES['priority'];
+  const impactOptions = choices['impact'] || FALLBACK_CHOICES['impact'];
+  const urgencyOptions = choices['urgency'] || FALLBACK_CHOICES['urgency'];
+  const categoryOptions = choices['category'] || FALLBACK_CHOICES['category'];
+
+  const handleBackToList= useCallback(() => {
     const returnParams = searchParams.get('returnParams');
     if (returnParams) {
       navigate(`/itsm/incidents?${decodeURIComponent(returnParams)}`);
@@ -333,7 +357,7 @@ export const ItsmIncidentDetail: React.FC = () => {
                       label="State"
                       onChange={(e) => handleChange('state', e.target.value)}
                     >
-                      {STATE_OPTIONS.map((option) => (
+                      {stateOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
                           {option.label}
                         </MenuItem>
@@ -350,7 +374,7 @@ export const ItsmIncidentDetail: React.FC = () => {
                       label="Priority"
                       onChange={(e) => handleChange('priority', e.target.value)}
                     >
-                      {PRIORITY_OPTIONS.map((option) => (
+                      {priorityOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
                           {option.label}
                         </MenuItem>
@@ -367,7 +391,7 @@ export const ItsmIncidentDetail: React.FC = () => {
                       label="Impact"
                       onChange={(e) => handleChange('impact', e.target.value)}
                     >
-                      {IMPACT_OPTIONS.map((option) => (
+                      {impactOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
                           {option.label}
                         </MenuItem>
@@ -384,7 +408,7 @@ export const ItsmIncidentDetail: React.FC = () => {
                       label="Urgency"
                       onChange={(e) => handleChange('urgency', e.target.value)}
                     >
-                      {URGENCY_OPTIONS.map((option) => (
+                      {urgencyOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
                           {option.label}
                         </MenuItem>
@@ -394,12 +418,21 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Category"
-                    value={incident.category || ''}
-                    onChange={(e) => handleChange('category', e.target.value)}
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={incident.category || ''}
+                      label="Category"
+                      onChange={(e) => handleChange('category', e.target.value)}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {categoryOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
 
                 <Grid item xs={12}>
