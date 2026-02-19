@@ -27,6 +27,8 @@ import {
   Policy as FrameworksIcon,
   Schema as DataModelIcon,
   Build as QueryBuilderIcon,
+  Notifications as NotificationsIcon,
+  Api as ApiIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -105,6 +107,18 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'Query Builder',
     icon: <QueryBuilderIcon />,
     path: '/dotwalking',
+  },
+  {
+    id: 'notification-studio',
+    text: 'Notification Studio',
+    icon: <NotificationsIcon />,
+    path: '/admin/notification-studio',
+  },
+  {
+    id: 'api-catalog',
+    text: 'API Catalog',
+    icon: <ApiIcon />,
+    path: '/admin/api-catalog',
   },
 ];
 

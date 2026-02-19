@@ -108,6 +108,24 @@ export enum Permission {
   // Platform Dictionary permissions (fields, relationships, indexes)
   PLATFORM_DICTIONARY_READ = 'platform:dictionary:read',
   PLATFORM_DICTIONARY_WRITE = 'platform:dictionary:write',
+
+  // Notification Engine permissions
+  NOTIFICATION_RULE_READ = 'notification:rule:read',
+  NOTIFICATION_RULE_WRITE = 'notification:rule:write',
+  NOTIFICATION_TEMPLATE_READ = 'notification:template:read',
+  NOTIFICATION_TEMPLATE_WRITE = 'notification:template:write',
+  NOTIFICATION_DELIVERY_READ = 'notification:delivery:read',
+  NOTIFICATION_DELIVERY_RETRY = 'notification:delivery:retry',
+
+  // Webhook Endpoint permissions
+  WEBHOOK_ENDPOINT_READ = 'webhook:endpoint:read',
+  WEBHOOK_ENDPOINT_WRITE = 'webhook:endpoint:write',
+
+  // API Catalog permissions
+  API_CATALOG_READ = 'api_catalog:read',
+  API_CATALOG_WRITE = 'api_catalog:write',
+  API_KEY_READ = 'api_key:read',
+  API_KEY_WRITE = 'api_key:write',
 }
 
 /**
@@ -182,4 +200,16 @@ export const PermissionDescriptions: Record<Permission, string> = {
     'View field, relationship, and index definitions',
   [Permission.PLATFORM_DICTIONARY_WRITE]:
     'Create, update, and delete field, relationship, and index definitions',
+  [Permission.NOTIFICATION_RULE_READ]: 'View notification rules',
+  [Permission.NOTIFICATION_RULE_WRITE]: 'Create, update, and delete notification rules',
+  [Permission.NOTIFICATION_TEMPLATE_READ]: 'View notification templates',
+  [Permission.NOTIFICATION_TEMPLATE_WRITE]: 'Create, update, and delete notification templates',
+  [Permission.NOTIFICATION_DELIVERY_READ]: 'View notification delivery logs',
+  [Permission.NOTIFICATION_DELIVERY_RETRY]: 'Retry failed notification deliveries',
+  [Permission.WEBHOOK_ENDPOINT_READ]: 'View webhook endpoints',
+  [Permission.WEBHOOK_ENDPOINT_WRITE]: 'Create, update, and delete webhook endpoints',
+  [Permission.API_CATALOG_READ]: 'View published APIs',
+  [Permission.API_CATALOG_WRITE]: 'Create, update, and delete published APIs',
+  [Permission.API_KEY_READ]: 'View API keys',
+  [Permission.API_KEY_WRITE]: 'Create, rotate, and revoke API keys',
 };
