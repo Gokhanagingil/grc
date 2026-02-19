@@ -43,6 +43,10 @@ import { SysChoice } from './choice/sys-choice.entity';
 import { ChoiceService } from './choice/choice.service';
 import { ChoiceController } from './choice/choice.controller';
 
+import { DiagnosticsService } from './diagnostics/diagnostics.service';
+import { DiagnosticsController } from './diagnostics/diagnostics.controller';
+import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -75,6 +79,8 @@ import { ChoiceController } from './choice/choice.controller';
     SlaEngineService,
     SlaEventListener,
     ChoiceService,
+    DiagnosticsService,
+    RuntimeLoggerService,
   ],
   controllers: [
     IncidentController,
@@ -85,6 +91,7 @@ import { ChoiceController } from './choice/choice.controller';
     BusinessRuleController,
     UiPolicyController,
     SlaController,
+    DiagnosticsController,
   ],
   exports: [
     IncidentService,
@@ -99,6 +106,8 @@ import { ChoiceController } from './choice/choice.controller';
     SlaService,
     SlaEngineService,
     ChoiceService,
+    DiagnosticsService,
+    RuntimeLoggerService,
   ],
 })
 export class ItsmModule {}

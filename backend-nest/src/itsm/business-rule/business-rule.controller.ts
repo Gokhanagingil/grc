@@ -20,6 +20,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { Perf } from '../../common/decorators';
+import { RuntimeLoggerService } from '../diagnostics/runtime-logger.service';
 import { BusinessRuleService } from './business-rule.service';
 import { BusinessRuleEngineService } from './business-rule-engine.service';
 import { BusinessRule, BusinessRuleTrigger } from './business-rule.entity';
@@ -32,6 +33,7 @@ export class BusinessRuleController {
   constructor(
     private readonly businessRuleService: BusinessRuleService,
     private readonly businessRuleEngineService: BusinessRuleEngineService,
+    private readonly runtimeLogger: RuntimeLoggerService,
   ) {}
 
   @Get()
@@ -147,10 +149,35 @@ export class BusinessRuleController {
       body.tableName,
       body.trigger,
     );
-    return this.businessRuleEngineService.evaluateRules(
+    const startMs = Date.now();
+    const results = this.businessRuleEngineService.evaluateRules(
       rules,
       body.record,
       body.changes,
     );
+
+    for (const r of results) {
+      this.runtimeLogger.logBusinessRuleEvaluation({
+        tenantId,
+        ruleName: r.ruleName,
+        tableName: body.tableName,
+        trigger: body.trigger,
+        conditionResult: r.applied,
+        applied: r.applied,
+        rejected: r.rejected,
+      });
+    }
+
+    this.runtimeLogger.logBusinessRuleBatchComplete({
+      tenantId,
+      tableName: body.tableName,
+      trigger: body.trigger,
+      rulesEvaluated: rules.length,
+      rulesApplied: results.filter((r) => r.applied).length,
+      rejected: results.some((r) => r.rejected),
+      totalMs: Date.now() - startMs,
+    });
+
+    return results;
   }
 }

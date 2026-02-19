@@ -6,6 +6,7 @@ import { AuditService } from '../../audit/audit.service';
 import { SlaDefinition } from './sla-definition.entity';
 import { SlaInstance, SlaInstanceStatus } from './sla-instance.entity';
 import { SlaEngineService } from './sla-engine.service';
+import { RuntimeLoggerService } from '../diagnostics/runtime-logger.service';
 import {
   SlaDefinitionFilterDto,
   SLA_DEFINITION_SORTABLE_FIELDS,
@@ -25,6 +26,7 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
     @InjectRepository(SlaInstance)
     private readonly instanceRepository: Repository<SlaInstance>,
     private readonly engine: SlaEngineService,
+    private readonly runtimeLogger: RuntimeLoggerService,
     @Optional() private readonly auditService?: AuditService,
   ) {
     super(repository);
@@ -215,7 +217,16 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
         isDeleted: false,
       });
 
-      instances.push(await this.instanceRepository.save(instance));
+      const saved = await this.instanceRepository.save(instance);
+      instances.push(saved);
+
+      this.runtimeLogger.logSlaEvent({
+        tenantId,
+        definitionName: def.name,
+        recordType,
+        recordId,
+        event: 'started',
+      });
     }
 
     return instances;
@@ -273,6 +284,15 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
           : SlaInstanceStatus.MET;
 
         updated.push(await this.instanceRepository.save(instance));
+
+        this.runtimeLogger.logSlaEvent({
+          tenantId,
+          definitionName: def.name,
+          recordType,
+          recordId,
+          event: breached ? 'breached' : 'met',
+          elapsedSeconds: elapsed,
+        });
         continue;
       }
 
@@ -281,6 +301,14 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
           instance.pauseAt = currentTime;
           instance.status = SlaInstanceStatus.PAUSED;
           updated.push(await this.instanceRepository.save(instance));
+
+          this.runtimeLogger.logSlaEvent({
+            tenantId,
+            definitionName: def.name,
+            recordType,
+            recordId,
+            event: 'paused',
+          });
         }
         continue;
       }

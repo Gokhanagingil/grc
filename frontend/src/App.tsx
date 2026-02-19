@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics } from './pages/itsm';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -277,6 +277,13 @@ function App() {
                     <ProtectedRoute allowedRoles={['admin']}>
                       <ErrorBoundary>
                         <ItsmStudioSla />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/diagnostics" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmDiagnostics />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />
