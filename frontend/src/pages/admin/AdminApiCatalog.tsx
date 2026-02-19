@@ -34,8 +34,6 @@ import {
   Delete as DeleteIcon,
   VpnKey as KeyIcon,
   ContentCopy as CopyIcon,
-  Refresh as RefreshIcon,
-  Code as CodeIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
 import { api } from '../../services/api';
