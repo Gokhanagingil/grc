@@ -14,3 +14,6 @@ export { ItsmStudioUiPolicies } from './studio/ItsmStudioUiPolicies';
 export { ItsmStudioUiActions } from './studio/ItsmStudioUiActions';
 export { ItsmStudioWorkflows } from './studio/ItsmStudioWorkflows';
 export { ItsmStudioSla } from './studio/ItsmStudioSla';
+
+// ITSM Diagnostics (Admin runtime health)
+export { ItsmDiagnostics } from './ItsmDiagnostics';

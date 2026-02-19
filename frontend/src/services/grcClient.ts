@@ -311,6 +311,13 @@ export const API_PATHS = {
       RECORD_SLAS: (recordType: string, recordId: string) => `/grc/itsm/sla/records/${recordType}/${recordId}`,
       RECOMPUTE: (id: string) => `/grc/itsm/sla/instances/${id}/recompute`,
     },
+    // ITSM Diagnostics endpoints
+    DIAGNOSTICS: {
+      HEALTH: '/grc/itsm/diagnostics/health',
+      COUNTS: '/grc/itsm/diagnostics/counts',
+      VALIDATE_BASELINE: '/grc/itsm/diagnostics/validate-baseline',
+      SLA_SUMMARY: '/grc/itsm/diagnostics/sla-summary',
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1698,6 +1705,14 @@ export const itsmApi = {
     listInstances: () => api.get(API_PATHS.ITSM.SLA.INSTANCES_LIST),
     recordSlas: (recordType: string, recordId: string) => api.get(API_PATHS.ITSM.SLA.RECORD_SLAS(recordType, recordId)),
     recompute: (id: string) => api.post(API_PATHS.ITSM.SLA.RECOMPUTE(id), {}),
+  },
+
+  // ITSM Diagnostics
+  diagnostics: {
+    health: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.HEALTH),
+    counts: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.COUNTS),
+    validateBaseline: () => api.post(API_PATHS.ITSM.DIAGNOSTICS.VALIDATE_BASELINE, {}),
+    slaSummary: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.SLA_SUMMARY),
   },
 };
 

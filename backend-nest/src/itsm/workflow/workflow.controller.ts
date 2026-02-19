@@ -20,6 +20,7 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { Perf } from '../../common/decorators';
+import { RuntimeLoggerService } from '../diagnostics/runtime-logger.service';
 import { WorkflowService } from './workflow.service';
 import { WorkflowEngineService } from './workflow-engine.service';
 import { WorkflowDefinition } from './workflow-definition.entity';
@@ -32,6 +33,7 @@ export class WorkflowController {
   constructor(
     private readonly workflowService: WorkflowService,
     private readonly workflowEngineService: WorkflowEngineService,
+    private readonly runtimeLogger: RuntimeLoggerService,
   ) {}
 
   @Get()
@@ -191,12 +193,25 @@ export class WorkflowController {
     if (!definition) {
       throw new NotFoundException(`Workflow definition ${id} not found`);
     }
-    return this.workflowEngineService.validateTransition(
+    const result = this.workflowEngineService.validateTransition(
       definition,
       body.currentState,
       body.transitionName,
       body.record,
       body.userRoles,
     );
+
+    this.runtimeLogger.logWorkflowTransition({
+      tenantId,
+      tableName: definition.tableName,
+      workflowName: definition.name,
+      transitionName: body.transitionName,
+      fromState: body.currentState,
+      toState: result.targetState,
+      allowed: result.allowed,
+      reason: result.reason,
+    });
+
+    return result;
   }
 }
