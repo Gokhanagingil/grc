@@ -116,6 +116,19 @@ export class ChoiceService {
 
       const strValue = typeof raw === 'string' ? raw : JSON.stringify(raw);
 
+      const totalForField = await this.repository.count({
+        where: {
+          tenantId,
+          tableName,
+          fieldName: field,
+          isDeleted: false,
+        },
+      });
+
+      if (totalForField === 0) {
+        continue;
+      }
+
       const isValid = await this.validateChoice(
         tenantId,
         tableName,

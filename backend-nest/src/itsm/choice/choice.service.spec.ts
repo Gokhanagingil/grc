@@ -159,7 +159,11 @@ describe('ChoiceService', () => {
 
   describe('validateChoiceFields', () => {
     it('should return no errors when all values are valid', async () => {
-      repository.count.mockResolvedValue(1);
+      repository.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1);
 
       const errors = await service.validateChoiceFields(
         mockTenantId,
@@ -171,7 +175,11 @@ describe('ChoiceService', () => {
     });
 
     it('should return errors for invalid values', async () => {
-      repository.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+      repository.count
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(1);
 
       const errors = await service.validateChoiceFields(
         mockTenantId,
@@ -183,6 +191,18 @@ describe('ChoiceService', () => {
       expect(errors[0].error).toBe('INVALID_CHOICE');
       expect(errors[0].field).toBe('category');
       expect(errors[0].value).toBe('invalid_cat');
+    });
+
+    it('should skip validation when no choices are seeded for a field', async () => {
+      repository.count.mockResolvedValue(0);
+
+      const errors = await service.validateChoiceFields(
+        mockTenantId,
+        'itsm_incidents',
+        { category: 'anything', impact: 'whatever' },
+      );
+
+      expect(errors).toHaveLength(0);
     });
 
     it('should skip undefined/null fields', async () => {
