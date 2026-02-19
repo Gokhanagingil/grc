@@ -132,7 +132,7 @@ export const ItsmChangeList: React.FC = () => {
         <Chip
           label={row.type}
           size="small"
-          color={typeColors[row.type] || 'default'}
+          color={typeColors[row.type?.toUpperCase()] || 'default'}
           variant="outlined"
         />
       ),
@@ -144,7 +144,7 @@ export const ItsmChangeList: React.FC = () => {
         <Chip
           label={row.state}
           size="small"
-          color={stateColors[row.state] || 'default'}
+          color={stateColors[row.state?.toUpperCase()] || 'default'}
         />
       ),
     },
@@ -155,7 +155,7 @@ export const ItsmChangeList: React.FC = () => {
         <Chip
           label={row.risk}
           size="small"
-          color={riskColors[row.risk] || 'default'}
+          color={riskColors[row.risk?.toUpperCase()] || 'default'}
           variant="outlined"
         />
       ),
@@ -165,9 +165,9 @@ export const ItsmChangeList: React.FC = () => {
       header: 'Approval',
       render: (row) => (
         <Chip
-          label={row.approvalStatus.replace('_', ' ')}
+          label={(row.approvalStatus || '').replace('_', ' ')}
           size="small"
-          color={approvalColors[row.approvalStatus] || 'default'}
+          color={approvalColors[row.approvalStatus?.toUpperCase()] || 'default'}
           variant="outlined"
         />
       ),

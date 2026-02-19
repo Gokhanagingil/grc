@@ -46,23 +46,36 @@ interface ItsmIncident {
 }
 
 const stateColors: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
-  NEW: 'info',
-  OPEN: 'info',
-  IN_PROGRESS: 'warning',
-  RESOLVED: 'success',
-  CLOSED: 'default',
+  new: 'info',
+  open: 'info',
+  in_progress: 'warning',
+  resolved: 'success',
+  closed: 'default',
 };
 
 const priorityColors: Record<string, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
-  P1: 'error',
-  P2: 'warning',
-  P3: 'info',
-  P4: 'success',
-  P5: 'default',
+  p1: 'error',
+  p2: 'warning',
+  p3: 'info',
+  p4: 'success',
 };
 
-const STATE_FILTER_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
-const PRIORITY_FILTER_OPTIONS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+const STATE_FILTER_OPTIONS = [
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+];
+const PRIORITY_FILTER_OPTIONS = [
+  { value: 'p1', label: 'P1 - Critical' },
+  { value: 'p2', label: 'P2 - High' },
+  { value: 'p3', label: 'P3 - Medium' },
+  { value: 'p4', label: 'P4 - Low' },
+];
+
+function toDisplayLabel(val: string): string {
+  return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 export const ItsmIncidentList: React.FC = () => {
   const navigate = useNavigate();
@@ -163,12 +176,13 @@ export const ItsmIncidentList: React.FC = () => {
       key: 'state',
       header: 'State',
       render: (row) => {
-        const displayState = row.status || row.state || 'UNKNOWN';
+        const rawState = row.status || row.state || 'unknown';
+        const key = rawState.toLowerCase();
         return (
           <Chip
-            label={displayState.replace(/_/g, ' ')}
+            label={toDisplayLabel(rawState)}
             size="small"
-            color={stateColors[displayState] || 'default'}
+            color={stateColors[key] || 'default'}
           />
         );
       },
@@ -178,9 +192,9 @@ export const ItsmIncidentList: React.FC = () => {
       header: 'Priority',
       render: (row) => (
         <Chip
-          label={row.priority}
+          label={row.priority?.toUpperCase() || '-'}
           size="small"
-          color={priorityColors[row.priority] || 'default'}
+          color={priorityColors[row.priority?.toLowerCase()] || 'default'}
           variant="outlined"
         />
       ),
@@ -225,7 +239,7 @@ export const ItsmIncidentList: React.FC = () => {
         >
           <MenuItem value="">All States</MenuItem>
           {STATE_FILTER_OPTIONS.map((opt) => (
-            <MenuItem key={opt} value={opt}>{opt.replace(/_/g, ' ')}</MenuItem>
+            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
           ))}
         </Select>
       </FormControl>
@@ -238,7 +252,7 @@ export const ItsmIncidentList: React.FC = () => {
         >
           <MenuItem value="">All Priorities</MenuItem>
           {PRIORITY_FILTER_OPTIONS.map((opt) => (
-            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
           ))}
         </Select>
       </FormControl>

@@ -112,7 +112,7 @@ export const ItsmServiceList: React.FC = () => {
         <Chip
           label={row.criticality}
           size="small"
-          color={criticalityColors[row.criticality] || 'default'}
+          color={criticalityColors[row.criticality?.toUpperCase()] || 'default'}
         />
       ),
     },
@@ -123,7 +123,7 @@ export const ItsmServiceList: React.FC = () => {
         <Chip
           label={row.status}
           size="small"
-          color={statusColors[row.status] || 'default'}
+          color={statusColors[row.status?.toUpperCase()] || 'default'}
           variant="outlined"
         />
       ),
