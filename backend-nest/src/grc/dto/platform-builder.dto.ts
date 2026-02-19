@@ -13,6 +13,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PlatformBuilderFieldType } from '../enums';
+import { SysRelationshipType } from '../entities/sys-relationship.entity';
 import { PaginationQueryDto } from './pagination.dto';
 
 // ============================================================================
@@ -44,6 +45,21 @@ export class CreateTableDto {
   @IsBoolean({ message: 'isActive must be a boolean' })
   @IsOptional()
   isActive?: boolean;
+
+  @IsString({ message: 'extends must be a string' })
+  @IsOptional()
+  @MaxLength(100)
+  extends?: string;
+
+  @IsString({ message: 'displayField must be a string' })
+  @IsOptional()
+  @MaxLength(100)
+  displayField?: string;
+
+  @IsString({ message: 'numberPrefix must be a string' })
+  @IsOptional()
+  @MaxLength(20)
+  numberPrefix?: string;
 }
 
 /**
@@ -63,6 +79,16 @@ export class UpdateTableDto {
   @IsBoolean({ message: 'isActive must be a boolean' })
   @IsOptional()
   isActive?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  displayField?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  numberPrefix?: string;
 }
 
 /**
@@ -128,6 +154,10 @@ export class CreateFieldDto {
   @IsOptional()
   isUnique?: boolean;
 
+  @IsBoolean({ message: 'readOnly must be a boolean' })
+  @IsOptional()
+  readOnly?: boolean;
+
   @IsString({ message: 'Reference table must be a string' })
   @IsOptional()
   @MaxLength(100, { message: 'Reference table must not exceed 100 characters' })
@@ -139,16 +169,31 @@ export class CreateFieldDto {
   @IsOptional()
   choiceOptions?: ChoiceOptionDto[];
 
+  @IsString({ message: 'choiceTable must be a string' })
+  @IsOptional()
+  @MaxLength(100)
+  choiceTable?: string;
+
   @IsString({ message: 'Default value must be a string' })
   @IsOptional()
   @MaxLength(500, { message: 'Default value must not exceed 500 characters' })
   defaultValue?: string;
+
+  @IsInt({ message: 'maxLength must be an integer' })
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxLength?: number;
 
   @IsInt({ message: 'Field order must be an integer' })
   @Min(0, { message: 'Field order must be at least 0' })
   @IsOptional()
   @Type(() => Number)
   fieldOrder?: number;
+
+  @IsBoolean({ message: 'indexed must be a boolean' })
+  @IsOptional()
+  indexed?: boolean;
 
   @IsBoolean({ message: 'isActive must be a boolean' })
   @IsOptional()
@@ -177,6 +222,10 @@ export class UpdateFieldDto {
   @IsOptional()
   isUnique?: boolean;
 
+  @IsBoolean({ message: 'readOnly must be a boolean' })
+  @IsOptional()
+  readOnly?: boolean;
+
   @IsString({ message: 'Reference table must be a string' })
   @IsOptional()
   @MaxLength(100, { message: 'Reference table must not exceed 100 characters' })
@@ -188,16 +237,31 @@ export class UpdateFieldDto {
   @IsOptional()
   choiceOptions?: ChoiceOptionDto[];
 
+  @IsString({ message: 'choiceTable must be a string' })
+  @IsOptional()
+  @MaxLength(100)
+  choiceTable?: string;
+
   @IsString({ message: 'Default value must be a string' })
   @IsOptional()
   @MaxLength(500, { message: 'Default value must not exceed 500 characters' })
   defaultValue?: string;
+
+  @IsInt({ message: 'maxLength must be an integer' })
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxLength?: number;
 
   @IsInt({ message: 'Field order must be an integer' })
   @Min(0, { message: 'Field order must be at least 0' })
   @IsOptional()
   @Type(() => Number)
   fieldOrder?: number;
+
+  @IsBoolean({ message: 'indexed must be a boolean' })
+  @IsOptional()
+  indexed?: boolean;
 
   @IsBoolean({ message: 'isActive must be a boolean' })
   @IsOptional()
@@ -273,6 +337,10 @@ export interface TableResponse {
   label: string;
   description: string | null;
   isActive: boolean;
+  isCore: boolean;
+  extends: string | null;
+  displayField: string | null;
+  numberPrefix: string | null;
   createdAt: Date;
   updatedAt: Date;
   fieldCount?: number;
@@ -290,10 +358,14 @@ export interface FieldResponse {
   type: PlatformBuilderFieldType;
   isRequired: boolean;
   isUnique: boolean;
+  readOnly: boolean;
   referenceTable: string | null;
   choiceOptions: { label: string; value: string }[] | null;
+  choiceTable: string | null;
   defaultValue: string | null;
+  maxLength: number | null;
   fieldOrder: number;
+  indexed: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -311,4 +383,70 @@ export interface RecordResponse {
   updatedAt: Date;
   createdBy: string | null;
   updatedBy: string | null;
+}
+
+// ============================================================================
+// Relationship (SysRelationship) DTOs
+// ============================================================================
+
+export class CreateRelationshipDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  fromTable: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  toTable: string;
+
+  @IsEnum(SysRelationshipType)
+  @IsOptional()
+  type?: SysRelationshipType;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  fkColumn?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  m2mTable?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+}
+
+export class RelationshipFilterDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  fromTable?: string;
+
+  @IsOptional()
+  @IsString()
+  toTable?: string;
+}
+
+export interface RelationshipResponse {
+  id: string;
+  name: string;
+  fromTable: string;
+  toTable: string;
+  type: SysRelationshipType;
+  fkColumn: string | null;
+  m2mTable: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

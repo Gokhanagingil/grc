@@ -66,6 +66,8 @@ import {
   SysDbObject,
   SysDictionary,
   DynamicRecord,
+  SysRelationship,
+  SysIndex,
   // Code Generation entities
   TenantSequence,
   // SOA (Statement of Applicability) entities
@@ -299,6 +301,8 @@ import { CalendarController } from './controllers/calendar.controller';
       SysDbObject,
       SysDictionary,
       DynamicRecord,
+      SysRelationship,
+      SysIndex,
       // Code Generation entities
       TenantSequence,
       // SOA (Statement of Applicability) entities
