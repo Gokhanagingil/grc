@@ -113,19 +113,28 @@ export class SafeTemplateService {
     value: unknown,
   ): void {
     const parts = path.split('.');
-    let current: Record<string, unknown> = obj;
+    const safeParts = parts.filter(
+      (p) => !SafeTemplateService.UNSAFE_KEYS.has(p),
+    );
+    if (safeParts.length !== parts.length) return;
 
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      if (SafeTemplateService.UNSAFE_KEYS.has(part)) return;
-      if (!current[part] || typeof current[part] !== 'object') {
-        current[part] = {};
+    let current: Record<string, unknown> = obj;
+    for (let i = 0; i < safeParts.length - 1; i++) {
+      const part = safeParts[i];
+      if (
+        !Object.prototype.hasOwnProperty.call(current, part) ||
+        typeof current[part] !== 'object'
+      ) {
+        const safeObj: Record<string, unknown> = Object.create(null) as Record<
+          string,
+          unknown
+        >;
+        current[part] = safeObj;
       }
       current = current[part] as Record<string, unknown>;
     }
 
-    const lastKey = parts[parts.length - 1];
-    if (SafeTemplateService.UNSAFE_KEYS.has(lastKey)) return;
+    const lastKey = safeParts[safeParts.length - 1];
     current[lastKey] = value;
   }
 
@@ -155,13 +164,19 @@ export class SafeTemplateService {
   }
 
   private stripHtml(str: string): string {
-    let prev = str;
-    let result = str.replace(/<[^>]*>/g, '');
-    while (result !== prev) {
-      prev = result;
-      result = result.replace(/<[^>]*>/g, '');
+    const out: string[] = [];
+    let inTag = false;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (ch === '<') {
+        inTag = true;
+      } else if (ch === '>') {
+        inTag = false;
+      } else if (!inTag) {
+        out.push(ch);
+      }
     }
-    return result;
+    return out.join('');
   }
 
   validateTemplate(template: string): { valid: boolean; errors: string[] } {
