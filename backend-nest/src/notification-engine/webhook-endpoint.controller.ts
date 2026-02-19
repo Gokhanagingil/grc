@@ -12,16 +12,13 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import * as crypto from 'crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../auth/permissions/permissions.guard';
 import { Permissions } from '../auth/permissions/permissions.decorator';
 import { Permission } from '../auth/permissions/permission.enum';
 import { RequestWithUser } from '../common/types';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { SysWebhookEndpoint } from './entities/sys-webhook-endpoint.entity';
+import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import {
   CreateWebhookEndpointDto,
   UpdateWebhookEndpointDto,
@@ -31,80 +28,69 @@ import {
 @Controller('grc/webhook-endpoints')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class WebhookEndpointController {
-  constructor(
-    @InjectRepository(SysWebhookEndpoint)
-    private readonly repo: Repository<SysWebhookEndpoint>,
-  ) {}
+  constructor(private readonly webhookService: WebhookDeliveryService) {}
 
   @Get()
-  @Permissions(Permission.WEBHOOK_ENDPOINT_READ)
-  async list(
+  @Permissions(Permission.ADMIN_SETTINGS_READ)
+  async listEndpoints(
     @NestRequest() req: RequestWithUser,
     @Query() filter: WebhookEndpointFilterDto,
   ) {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const page = filter.page || 1;
-    const pageSize = Math.min(filter.pageSize || 50, 100);
+    const result = await this.webhookService.findEndpointsByTenant(tenantId, {
+      isActive: filter.isActive,
+      page: filter.page,
+      pageSize: filter.pageSize,
+    });
 
-    const qb = this.repo
-      .createQueryBuilder('w')
-      .where('w.tenantId = :tenantId', { tenantId });
-
-    if (filter.isActive !== undefined) {
-      qb.andWhere('w.isActive = :isActive', { isActive: filter.isActive });
-    }
-
-    const total = await qb.getCount();
-    qb.orderBy('w.createdAt', 'DESC');
-    qb.skip((page - 1) * pageSize);
-    qb.take(pageSize);
-
-    const items = await qb.getMany();
-    return { items, total, page, pageSize };
+    return {
+      items: result.items,
+      total: result.total,
+      page: filter.page || 1,
+      pageSize: filter.pageSize || 50,
+    };
   }
 
   @Get(':id')
-  @Permissions(Permission.WEBHOOK_ENDPOINT_READ)
-  async get(
+  @Permissions(Permission.ADMIN_SETTINGS_READ)
+  async getEndpoint(
     @NestRequest() req: RequestWithUser,
     @Param('id') id: string,
   ) {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const endpoint = await this.repo.findOne({ where: { id, tenantId } });
+    const endpoint = await this.webhookService.findEndpointByTenant(
+      tenantId,
+      id,
+    );
     if (!endpoint) throw new NotFoundException('Webhook endpoint not found');
     return endpoint;
   }
 
   @Post()
-  @Permissions(Permission.WEBHOOK_ENDPOINT_WRITE)
-  async create(
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  async createEndpoint(
     @NestRequest() req: RequestWithUser,
     @Body() dto: CreateWebhookEndpointDto,
   ) {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const endpoint = this.repo.create({
-      tenantId,
-      name: dto.name,
-      url: dto.url,
-      secret: dto.secret || crypto.randomBytes(32).toString('hex'),
-      headers: dto.headers || {},
-      eventFilters: dto.eventFilters || [],
-      isActive: dto.isActive ?? false,
-      description: dto.description || null,
-    });
-
-    return this.repo.save(endpoint);
+    try {
+      return await this.webhookService.createEndpoint(tenantId, dto);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Failed to create endpoint',
+      );
+    }
   }
 
   @Put(':id')
-  @Permissions(Permission.WEBHOOK_ENDPOINT_WRITE)
-  async update(
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  async updateEndpoint(
     @NestRequest() req: RequestWithUser,
     @Param('id') id: string,
     @Body() dto: UpdateWebhookEndpointDto,
@@ -112,47 +98,45 @@ export class WebhookEndpointController {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const endpoint = await this.repo.findOne({ where: { id, tenantId } });
-    if (!endpoint) throw new NotFoundException('Webhook endpoint not found');
-
-    if (dto.name !== undefined) endpoint.name = dto.name;
-    if (dto.url !== undefined) endpoint.url = dto.url;
-    if (dto.headers !== undefined) endpoint.headers = dto.headers;
-    if (dto.eventFilters !== undefined) endpoint.eventFilters = dto.eventFilters;
-    if (dto.isActive !== undefined) endpoint.isActive = dto.isActive;
-    if (dto.description !== undefined) endpoint.description = dto.description;
-
-    return this.repo.save(endpoint);
-  }
-
-  @Post(':id/rotate-secret')
-  @Permissions(Permission.WEBHOOK_ENDPOINT_WRITE)
-  async rotateSecret(
-    @NestRequest() req: RequestWithUser,
-    @Param('id') id: string,
-  ) {
-    const tenantId = req.tenantId;
-    if (!tenantId) throw new BadRequestException('Tenant ID required');
-
-    const endpoint = await this.repo.findOne({ where: { id, tenantId } });
-    if (!endpoint) throw new NotFoundException('Webhook endpoint not found');
-
-    endpoint.secret = crypto.randomBytes(32).toString('hex');
-    const saved = await this.repo.save(endpoint);
-    return { id: saved.id, secret: saved.secret };
+    try {
+      const endpoint = await this.webhookService.updateEndpoint(
+        tenantId,
+        id,
+        dto,
+      );
+      if (!endpoint) throw new NotFoundException('Webhook endpoint not found');
+      return endpoint;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Failed to update endpoint',
+      );
+    }
   }
 
   @Delete(':id')
-  @Permissions(Permission.WEBHOOK_ENDPOINT_WRITE)
-  async delete(
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  async deleteEndpoint(
     @NestRequest() req: RequestWithUser,
     @Param('id') id: string,
   ) {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
-    const result = await this.repo.delete({ id, tenantId });
-    if (!result.affected) throw new NotFoundException('Webhook endpoint not found');
+    const deleted = await this.webhookService.deleteEndpoint(tenantId, id);
+    if (!deleted) throw new NotFoundException('Webhook endpoint not found');
     return { deleted: true };
+  }
+
+  @Post(':id/test')
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  async testEndpoint(
+    @NestRequest() req: RequestWithUser,
+    @Param('id') id: string,
+  ) {
+    const tenantId = req.tenantId;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+
+    return this.webhookService.testEndpoint(tenantId, id);
   }
 }

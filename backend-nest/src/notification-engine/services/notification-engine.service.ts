@@ -17,6 +17,7 @@ import { SysEvent } from '../../event-bus/entities/sys-event.entity';
 import { SafeTemplateService } from './safe-template.service';
 import { ConditionEvaluatorService } from './condition-evaluator.service';
 import { NotificationRateLimiterService } from './rate-limiter.service';
+import { WebhookDeliveryService } from './webhook-delivery.service';
 import { StructuredLoggerService } from '../../common/logger';
 
 @Injectable()
@@ -35,6 +36,7 @@ export class NotificationEngineService {
     private readonly templateService: SafeTemplateService,
     private readonly conditionEvaluator: ConditionEvaluatorService,
     private readonly rateLimiter: NotificationRateLimiterService,
+    private readonly webhookDelivery: WebhookDeliveryService,
   ) {
     this.logger = new StructuredLoggerService();
     this.logger.setContext('NotificationEngineService');
@@ -213,11 +215,12 @@ export class NotificationEngineService {
           });
           break;
         case NotificationChannel.WEBHOOK:
-          this.logger.log('Webhook delivery deferred to Phase 3', {
-            ruleId: rule.id,
+          await this.deliverWebhook(
+            event.tenantId,
             recipient,
-            deliveryId: delivery.id,
-          });
+            event,
+            delivery.id,
+          );
           break;
       }
 
@@ -259,6 +262,38 @@ export class NotificationEngineService {
               : null,
           deliveryId,
         }),
+      );
+    }
+  }
+
+  private async deliverWebhook(
+    tenantId: string,
+    recipient: string,
+    event: SysEvent,
+    deliveryId: string,
+  ): Promise<void> {
+    const payload = {
+      eventName: event.eventName,
+      tableName: event.tableName,
+      recordId: event.recordId,
+      tenantId,
+      timestamp: new Date().toISOString(),
+      data: event.payloadJson || {},
+    };
+
+    if (recipient.startsWith('webhook:')) {
+      const endpointId = recipient.substring(8);
+      await this.webhookDelivery.deliverWebhook(
+        tenantId,
+        endpointId,
+        payload,
+        deliveryId,
+      );
+    } else {
+      await this.webhookDelivery.deliverToAllEndpoints(
+        tenantId,
+        payload,
+        deliveryId,
       );
     }
   }

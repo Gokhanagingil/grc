@@ -9,6 +9,8 @@ import { NotificationEngineService } from './services/notification-engine.servic
 import { SafeTemplateService } from './services/safe-template.service';
 import { ConditionEvaluatorService } from './services/condition-evaluator.service';
 import { NotificationRateLimiterService } from './services/rate-limiter.service';
+import { WebhookDeliveryService } from './services/webhook-delivery.service';
+import { SsrfGuardService } from './services/ssrf-guard.service';
 import { NotificationEngineListener } from './notification-engine.listener';
 import { NotificationRuleController } from './notification-rule.controller';
 import { NotificationTemplateController } from './notification-template.controller';
@@ -42,8 +44,14 @@ import { GuardsModule } from '../common/guards';
     SafeTemplateService,
     ConditionEvaluatorService,
     NotificationRateLimiterService,
+    WebhookDeliveryService,
+    SsrfGuardService,
     NotificationEngineListener,
   ],
-  exports: [NotificationEngineService, SafeTemplateService],
+  exports: [
+    NotificationEngineService,
+    SafeTemplateService,
+    WebhookDeliveryService,
+  ],
 })
 export class NotificationEngineModule {}

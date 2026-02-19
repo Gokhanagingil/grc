@@ -1,72 +1,116 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  Min,
+  Max,
+  IsObject,
+  IsUrl,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateWebhookEndpointDto {
   @IsString()
-  @MaxLength(255)
   name: string;
 
-  @IsString()
-  @MaxLength(2048)
-  url: string;
+  @IsUrl({ require_tld: false }, { message: 'baseUrl must be a valid URL' })
+  baseUrl: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   secret?: string;
 
+  @IsObject()
   @IsOptional()
   headers?: Record<string, string>;
 
-  @IsOptional()
-  @IsArray()
-  eventFilters?: string[];
-
-  @IsOptional()
   @IsBoolean()
+  @IsOptional()
   isActive?: boolean;
 
+  @IsInt()
+  @Min(0)
+  @Max(10)
   @IsOptional()
+  @Type(() => Number)
+  maxRetries?: number;
+
+  @IsInt()
+  @Min(1000)
+  @Max(60000)
+  @IsOptional()
+  @Type(() => Number)
+  timeoutMs?: number;
+
   @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  allowInsecure?: boolean;
 }
 
 export class UpdateWebhookEndpointDto {
-  @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @IsOptional()
   name?: string;
 
+  @IsUrl({ require_tld: false }, { message: 'baseUrl must be a valid URL' })
   @IsOptional()
-  @IsString()
-  @MaxLength(2048)
-  url?: string;
+  baseUrl?: string;
 
+  @IsString()
+  @IsOptional()
+  secret?: string;
+
+  @IsObject()
   @IsOptional()
   headers?: Record<string, string>;
 
-  @IsOptional()
-  @IsArray()
-  eventFilters?: string[];
-
-  @IsOptional()
   @IsBoolean()
+  @IsOptional()
   isActive?: boolean;
 
+  @IsInt()
+  @Min(0)
+  @Max(10)
   @IsOptional()
+  @Type(() => Number)
+  maxRetries?: number;
+
+  @IsInt()
+  @Min(1000)
+  @Max(60000)
+  @IsOptional()
+  @Type(() => Number)
+  timeoutMs?: number;
+
   @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  allowInsecure?: boolean;
 }
 
 export class WebhookEndpointFilterDto {
-  @IsOptional()
   @IsBoolean()
+  @IsOptional()
   @Type(() => Boolean)
   isActive?: boolean;
 
+  @IsInt()
+  @Min(1)
   @IsOptional()
   @Type(() => Number)
   page?: number;
 
+  @IsInt()
+  @Min(1)
+  @Max(100)
   @IsOptional()
   @Type(() => Number)
   pageSize?: number;

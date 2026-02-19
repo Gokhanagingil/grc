@@ -20,8 +20,8 @@ export class SysWebhookEndpoint {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'varchar', length: 2048 })
-  url: string;
+  @Column({ type: 'varchar', length: 2048, name: 'base_url' })
+  baseUrl: string;
 
   @Column({ type: 'varchar', length: 512, nullable: true })
   secret: string | null;
@@ -29,17 +29,24 @@ export class SysWebhookEndpoint {
   @Column({ type: 'jsonb', default: '{}' })
   headers: Record<string, string>;
 
-  @Column({ type: 'jsonb', name: 'event_filters', default: '[]' })
-  eventFilters: string[];
-
-  @Column({ type: 'boolean', name: 'is_active', default: false })
+  @Column({ type: 'boolean', name: 'is_active', default: true })
   isActive: boolean;
+
+  @Column({ type: 'int', name: 'max_retries', default: 3 })
+  maxRetries: number;
+
+  @Column({ type: 'int', name: 'timeout_ms', default: 10000 })
+  timeoutMs: number;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'timestamp', name: 'last_triggered_at', nullable: true })
-  lastTriggeredAt: Date | null;
+  @Column({
+    type: 'boolean',
+    name: 'allow_insecure',
+    default: false,
+  })
+  allowInsecure: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
