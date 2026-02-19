@@ -308,4 +308,152 @@ describe('WorkflowEngineService', () => {
       ).toBe(true);
     });
   });
+
+  describe('transition execution pipeline', () => {
+    it('should deny transition for user lacking required role', () => {
+      const result = service.validateTransition(
+        mockWorkflow,
+        'resolved',
+        'close',
+        {},
+        ['USER'],
+      );
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('lacks required role');
+    });
+
+    it('should allow transition for manager role', () => {
+      const result = service.validateTransition(
+        mockWorkflow,
+        'resolved',
+        'close',
+        {},
+        ['MANAGER'],
+      );
+      expect(result.allowed).toBe(true);
+      expect(result.targetState).toBe('closed');
+    });
+
+    it('should allow transition for admin role', () => {
+      const result = service.validateTransition(
+        mockWorkflow,
+        'resolved',
+        'close',
+        {},
+        ['ADMIN'],
+      );
+      expect(result.allowed).toBe(true);
+      expect(result.targetState).toBe('closed');
+    });
+
+    it('should return 400-style reason for invalid transition', () => {
+      const result = service.validateTransition(
+        mockWorkflow,
+        'open',
+        'close',
+        {},
+      );
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("No transition 'close' from state 'open'");
+    });
+
+    it('should persist state change via executeTransition', () => {
+      const result = service.executeTransition(
+        mockWorkflow,
+        'in_progress',
+        'resolve',
+        { resolutionNotes: 'Fixed' },
+      );
+      expect(result.newState).toBe('resolved');
+      expect(result.fieldUpdates).toHaveProperty('resolvedAt');
+    });
+
+    it('should throw for executeTransition when role denied', () => {
+      expect(() =>
+        service.executeTransition(
+          mockWorkflow,
+          'resolved',
+          'close',
+          {},
+          ['USER'],
+        ),
+      ).toThrow('lacks required role');
+    });
+
+    it('should chain multiple transitions correctly', () => {
+      const r1 = service.executeTransition(
+        mockWorkflow,
+        'open',
+        'start_progress',
+        {},
+      );
+      expect(r1.newState).toBe('in_progress');
+
+      const r2 = service.executeTransition(
+        mockWorkflow,
+        r1.newState,
+        'resolve',
+        { resolutionNotes: 'Done' },
+      );
+      expect(r2.newState).toBe('resolved');
+
+      const r3 = service.executeTransition(
+        mockWorkflow,
+        r2.newState,
+        'close',
+        {},
+        ['ADMIN'],
+      );
+      expect(r3.newState).toBe('closed');
+    });
+  });
+
+  describe('tenant isolation', () => {
+    it('should use workflow with correct tenantId context', () => {
+      const tenantAWorkflow: WorkflowDefinition = {
+        ...mockWorkflow,
+        tenantId: 'tenant-a',
+        transitions: [
+          {
+            name: 'approve',
+            label: 'Approve',
+            from: 'open',
+            to: 'closed',
+            requiredRoles: ['APPROVER_A'],
+          },
+        ],
+      };
+      const tenantBWorkflow: WorkflowDefinition = {
+        ...mockWorkflow,
+        tenantId: 'tenant-b',
+        transitions: [
+          {
+            name: 'approve',
+            label: 'Approve',
+            from: 'open',
+            to: 'closed',
+            requiredRoles: ['APPROVER_B'],
+          },
+        ],
+      };
+
+      const resultA = service.validateTransition(
+        tenantAWorkflow,
+        'open',
+        'approve',
+        {},
+        ['APPROVER_A'],
+      );
+      expect(resultA.allowed).toBe(true);
+
+      const resultB = service.validateTransition(
+        tenantBWorkflow,
+        'open',
+        'approve',
+        {},
+        ['APPROVER_A'],
+      );
+      expect(resultB.allowed).toBe(false);
+    });
+  });
 });

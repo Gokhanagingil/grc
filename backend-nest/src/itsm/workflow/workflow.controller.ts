@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
@@ -34,6 +35,7 @@ export class WorkflowController {
     private readonly workflowService: WorkflowService,
     private readonly workflowEngineService: WorkflowEngineService,
     private readonly runtimeLogger: RuntimeLoggerService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   @Get()
@@ -213,5 +215,83 @@ export class WorkflowController {
     });
 
     return result;
+  }
+
+  @Post(':id/transitions/execute')
+  @Permissions(Permission.ITSM_WORKFLOW_WRITE)
+  @Perf()
+  async executeTransition(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      currentState: string;
+      transitionName: string;
+      record: Record<string, unknown>;
+      userRoles?: string[];
+    },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const definition = await this.workflowService.findDefinitionById(
+      tenantId,
+      id,
+    );
+    if (!definition) {
+      throw new NotFoundException(`Workflow definition ${id} not found`);
+    }
+
+    const result = this.workflowEngineService.executeTransition(
+      definition,
+      body.currentState,
+      body.transitionName,
+      body.record,
+      body.userRoles,
+    );
+
+    this.runtimeLogger.logWorkflowTransition({
+      tenantId,
+      tableName: definition.tableName,
+      workflowName: definition.name,
+      transitionName: body.transitionName,
+      fromState: body.currentState,
+      toState: result.newState,
+      allowed: true,
+    });
+
+    this.eventEmitter.emit('workflow.transition.executed', {
+      tenantId,
+      tableName: definition.tableName,
+      workflowId: definition.id,
+      transitionName: body.transitionName,
+      fromState: body.currentState,
+      toState: result.newState,
+      fieldUpdates: result.fieldUpdates,
+    });
+
+    return result;
+  }
+
+  @Get('resolve/:tableName')
+  @Permissions(Permission.ITSM_WORKFLOW_READ)
+  @Perf()
+  async resolveForTable(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('tableName') tableName: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const definition = await this.workflowService.resolveWorkflowForTable(
+      tenantId,
+      tableName,
+    );
+    if (!definition) {
+      throw new NotFoundException(
+        `No active workflow found for table '${tableName}'`,
+      );
+    }
+    return definition;
   }
 }
