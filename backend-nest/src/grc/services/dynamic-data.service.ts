@@ -20,12 +20,6 @@ import {
 import { PlatformBuilderFieldType } from '../enums';
 import { AuditService } from '../../audit/audit.service';
 
-/**
- * Dynamic Data Service
- *
- * Manages CRUD operations for dynamic records stored in the dynamic_records table.
- * Validates data against field definitions in SysDictionary.
- */
 @Injectable()
 export class DynamicDataService {
   constructor(
@@ -35,28 +29,24 @@ export class DynamicDataService {
     @Optional() private readonly auditService?: AuditService,
   ) {}
 
-  /**
-   * Create a new dynamic record
-   */
   async createRecord(
     tenantId: string,
     userId: string,
     tableName: string,
     dto: CreateRecordDto,
   ): Promise<DynamicRecord> {
-    // Validate table exists and is active
     await this.platformBuilderService.validateTableExists(tenantId, tableName);
 
-    // Get field definitions
     const fields = await this.platformBuilderService.getActiveFieldsForTable(
       tenantId,
       tableName,
     );
 
-    // Validate and coerce data
-    const validatedData = this.validateAndCoerceData(dto.data, fields);
+    const validatedData = this.validateAndCoerceData(dto.data, fields, false);
 
-    // Generate a unique record ID
+    await this.validateReferenceIntegrity(tenantId, validatedData, fields);
+    await this.validateUniqueness(tenantId, tableName, validatedData, fields);
+
     const recordId = randomUUID();
 
     const record = this.recordRepository.create({
@@ -70,20 +60,22 @@ export class DynamicDataService {
 
     const saved = await this.recordRepository.save(record);
 
-    // Record audit log
-    await this.auditService?.recordCreate(
-      'DynamicRecord',
-      saved,
+    await this.auditService?.createAuditLog({
+      action: 'create',
+      entityName: 'DynamicRecord',
+      entityId: saved.id,
+      resource: `dynamic_records.${tableName}`,
+      resourceId: saved.recordId,
+      afterState: validatedData,
+      beforeState: null,
       userId,
       tenantId,
-    );
+      metadata: { tableName, recordId: saved.recordId },
+    });
 
     return saved;
   }
 
-  /**
-   * Update an existing dynamic record
-   */
   async updateRecord(
     tenantId: string,
     userId: string,
@@ -91,73 +83,86 @@ export class DynamicDataService {
     recordId: string,
     dto: UpdateRecordDto,
   ): Promise<DynamicRecord> {
-    // Validate table exists and is active
     await this.platformBuilderService.validateTableExists(tenantId, tableName);
 
-    // Find the record
     const record = await this.findRecordById(tenantId, tableName, recordId);
 
-    // Get field definitions
     const fields = await this.platformBuilderService.getActiveFieldsForTable(
       tenantId,
       tableName,
     );
 
-    // Validate and coerce data (merge with existing data)
+    this.enforceReadOnly(dto.data, fields);
+
     const mergedData = { ...record.data, ...dto.data };
-    const validatedData = this.validateAndCoerceData(mergedData, fields);
+    const validatedData = this.validateAndCoerceData(mergedData, fields, true);
 
-    const beforeState = { ...record };
+    await this.validateReferenceIntegrity(tenantId, validatedData, fields);
+    await this.validateUniqueness(
+      tenantId,
+      tableName,
+      validatedData,
+      fields,
+      recordId,
+    );
 
+    const beforeData = { ...record.data };
     record.data = validatedData;
     record.updatedBy = userId;
 
     const saved = await this.recordRepository.save(record);
 
-    // Record audit log
-    await this.auditService?.recordUpdate(
-      'DynamicRecord',
-      record.id,
-      beforeState as unknown as Record<string, unknown>,
-      saved as unknown as Record<string, unknown>,
+    const changedFields = this.computeFieldChanges(beforeData, validatedData);
+
+    await this.auditService?.createAuditLog({
+      action: 'update',
+      entityName: 'DynamicRecord',
+      entityId: saved.id,
+      resource: `dynamic_records.${tableName}`,
+      resourceId: saved.recordId,
+      beforeState: beforeData,
+      afterState: validatedData,
       userId,
       tenantId,
-    );
+      metadata: {
+        tableName,
+        recordId: saved.recordId,
+        changedFields,
+      },
+    });
 
     return saved;
   }
 
-  /**
-   * Soft delete a dynamic record
-   */
   async deleteRecord(
     tenantId: string,
     userId: string,
     tableName: string,
     recordId: string,
   ): Promise<void> {
-    // Validate table exists
     await this.platformBuilderService.validateTableExists(tenantId, tableName);
 
-    // Find the record
     const record = await this.findRecordById(tenantId, tableName, recordId);
 
+    const beforeData = { ...record.data };
     record.isDeleted = true;
     record.updatedBy = userId;
     await this.recordRepository.save(record);
 
-    // Record audit log
-    await this.auditService?.recordDelete(
-      'DynamicRecord',
-      record,
+    await this.auditService?.createAuditLog({
+      action: 'delete',
+      entityName: 'DynamicRecord',
+      entityId: record.id,
+      resource: `dynamic_records.${tableName}`,
+      resourceId: record.recordId,
+      beforeState: beforeData,
+      afterState: null,
       userId,
       tenantId,
-    );
+      metadata: { tableName, recordId: record.recordId },
+    });
   }
 
-  /**
-   * Find a record by ID
-   */
   async findRecordById(
     tenantId: string,
     tableName: string,
@@ -176,9 +181,6 @@ export class DynamicDataService {
     return record;
   }
 
-  /**
-   * Get a single record with field metadata
-   */
   async getRecord(
     tenantId: string,
     tableName: string,
@@ -196,15 +198,11 @@ export class DynamicDataService {
     return { record, fields };
   }
 
-  /**
-   * List records with filtering and pagination
-   */
   async listRecords(
     tenantId: string,
     tableName: string,
     filterDto: RecordFilterDto,
   ): Promise<PaginatedResponse<DynamicRecord>> {
-    // Validate table exists
     await this.platformBuilderService.validateTableExists(tenantId, tableName);
 
     const {
@@ -222,19 +220,16 @@ export class DynamicDataService {
     qb.andWhere('record.tableName = :tableName', { tableName });
     qb.andWhere('record.isDeleted = :isDeleted', { isDeleted: false });
 
-    // Apply search across all JSONB data fields
     if (search) {
       qb.andWhere('record.data::text ILIKE :search', {
         search: `%${search}%`,
       });
     }
 
-    // Apply filter (expects JSON format: {"fieldName": "value"})
     if (filter) {
       try {
         const filterObj = JSON.parse(filter) as Record<string, unknown>;
         for (const [key, value] of Object.entries(filterObj)) {
-          // Sanitize key to prevent SQL injection
           const sanitizedKey = key.replace(/[^a-z0-9_]/gi, '');
           if (sanitizedKey !== key) {
             throw new BadRequestException(`Invalid filter key: ${key}`);
@@ -262,7 +257,6 @@ export class DynamicDataService {
 
     const total = await qb.getCount();
 
-    // Handle sorting - can sort by createdAt, updatedAt, or JSONB fields
     const validSortBy = ['createdAt', 'updatedAt', 'recordId'].includes(sortBy)
       ? `record.${sortBy}`
       : `record.data->>'${sortBy.replace(/[^a-z0-9_]/gi, '')}'`;
@@ -277,9 +271,6 @@ export class DynamicDataService {
     return createPaginatedResponse(records, total, page, pageSize);
   }
 
-  /**
-   * Get records with field metadata for UI rendering
-   */
   async listRecordsWithMetadata(
     tenantId: string,
     tableName: string,
@@ -296,12 +287,10 @@ export class DynamicDataService {
     return { records, fields };
   }
 
-  /**
-   * Validate and coerce data against field definitions
-   */
   private validateAndCoerceData(
     data: Record<string, unknown>,
     fields: SysDictionary[],
+    isUpdate: boolean,
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const errors: string[] = [];
@@ -309,31 +298,42 @@ export class DynamicDataService {
     for (const field of fields) {
       const value = data[field.fieldName];
 
-      // Check required fields
       if (
         field.isRequired &&
+        !isUpdate &&
         (value === undefined || value === null || value === '')
       ) {
         errors.push(`Field '${field.fieldName}' is required`);
         continue;
       }
 
-      // Skip if value is not provided and not required
       if (value === undefined || value === null) {
-        if (field.defaultValue !== null) {
+        if (field.defaultValue !== null && !isUpdate) {
           result[field.fieldName] = this.coerceValue(
             field.defaultValue,
             field.type,
           );
+        } else if (value !== undefined) {
+          result[field.fieldName] = null;
         }
         continue;
       }
 
-      // Coerce and validate value based on type
       try {
-        result[field.fieldName] = this.coerceValue(value, field.type);
+        const coerced = this.coerceValue(value, field.type);
+        result[field.fieldName] = coerced;
 
-        // Validate choice options
+        if (
+          field.maxLength !== null &&
+          field.maxLength !== undefined &&
+          typeof coerced === 'string' &&
+          coerced.length > field.maxLength
+        ) {
+          errors.push(
+            `Field '${field.fieldName}' exceeds max length of ${field.maxLength} (got ${coerced.length})`,
+          );
+        }
+
         if (
           field.type === PlatformBuilderFieldType.CHOICE &&
           field.choiceOptions
@@ -350,10 +350,6 @@ export class DynamicDataService {
       }
     }
 
-    // Note: Extra fields not in the schema are intentionally ignored for security
-    // (prevents prototype pollution via __proto__, constructor, etc.)
-    // If users need additional fields, they should define them in the schema first.
-
     if (errors.length > 0) {
       throw new BadRequestException(errors.join('; '));
     }
@@ -361,9 +357,130 @@ export class DynamicDataService {
     return result;
   }
 
-  /**
-   * Coerce a value to the expected type
-   */
+  private enforceReadOnly(
+    data: Record<string, unknown>,
+    fields: SysDictionary[],
+  ): void {
+    const readOnlyViolations: string[] = [];
+
+    for (const field of fields) {
+      if (field.readOnly && data[field.fieldName] !== undefined) {
+        readOnlyViolations.push(field.fieldName);
+      }
+    }
+
+    if (readOnlyViolations.length > 0) {
+      throw new BadRequestException(
+        `Cannot update read-only field(s): ${readOnlyViolations.join(', ')}`,
+      );
+    }
+  }
+
+  private async validateReferenceIntegrity(
+    tenantId: string,
+    data: Record<string, unknown>,
+    fields: SysDictionary[],
+  ): Promise<void> {
+    const errors: string[] = [];
+
+    const refChecks = fields.filter(
+      (f) =>
+        f.type === PlatformBuilderFieldType.REFERENCE &&
+        f.referenceTable &&
+        data[f.fieldName] !== undefined &&
+        data[f.fieldName] !== null,
+    );
+
+    for (const field of refChecks) {
+      const refValue = String(data[field.fieldName]);
+      const exists = await this.recordRepository.findOne({
+        where: {
+          tenantId,
+          tableName: field.referenceTable as string,
+          recordId: refValue,
+          isDeleted: false,
+        },
+      });
+
+      if (!exists) {
+        errors.push(
+          `Field '${field.fieldName}': referenced record '${refValue}' not found in table '${field.referenceTable}'`,
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
+    }
+  }
+
+  private async validateUniqueness(
+    tenantId: string,
+    tableName: string,
+    data: Record<string, unknown>,
+    fields: SysDictionary[],
+    excludeRecordId?: string,
+  ): Promise<void> {
+    const errors: string[] = [];
+
+    const uniqueFields = fields.filter(
+      (f) =>
+        f.isUnique &&
+        data[f.fieldName] !== undefined &&
+        data[f.fieldName] !== null,
+    );
+
+    for (const field of uniqueFields) {
+      const fieldValue = String(data[field.fieldName]);
+      const sanitizedFieldName = field.fieldName.replace(/[^a-z0-9_]/gi, '');
+
+      const qb = this.recordRepository
+        .createQueryBuilder('record')
+        .where('record.tenantId = :tenantId', { tenantId })
+        .andWhere('record.tableName = :tableName', { tableName })
+        .andWhere('record.isDeleted = :isDeleted', { isDeleted: false })
+        .andWhere(`record.data->>'${sanitizedFieldName}' = :fieldValue`, {
+          fieldValue,
+        });
+
+      if (excludeRecordId) {
+        qb.andWhere('record.recordId != :excludeRecordId', {
+          excludeRecordId,
+        });
+      }
+
+      const existing = await qb.getOne();
+
+      if (existing) {
+        errors.push(
+          `Field '${field.fieldName}' must be unique: value '${fieldValue}' already exists`,
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
+    }
+  }
+
+  private computeFieldChanges(
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+  ): Array<{ field: string; from: unknown; to: unknown }> {
+    const changes: Array<{ field: string; from: unknown; to: unknown }> = [];
+    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+    for (const key of allKeys) {
+      const fromVal = before[key];
+      const toVal = after[key];
+      if (JSON.stringify(fromVal) !== JSON.stringify(toVal)) {
+        changes.push({ field: key, from: fromVal ?? null, to: toVal ?? null });
+      }
+    }
+
+    return changes;
+  }
+
   private coerceValue(value: unknown, type: PlatformBuilderFieldType): unknown {
     if (value === null || value === undefined) {
       return null;
