@@ -24,6 +24,7 @@ import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { TodosModule } from './todos/todos.module';
+import { EventBusModule } from './event-bus/event-bus.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -125,6 +126,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Event bus (must be before modules that emit events)
     EventsModule,
+
+    // Durable Event Bus (sys_event persistence + event log)
+    EventBusModule,
 
     // Feature modules
     HealthModule,

@@ -7,3 +7,4 @@ export { AdminAuditLogs } from './AdminAuditLogs';
 export { AdminSystem } from './AdminSystem';
 export { AdminFrameworks } from './AdminFrameworks';
 export { AdminPlatformBuilder } from './AdminPlatformBuilder';
+export { AdminEventLog } from './AdminEventLog';

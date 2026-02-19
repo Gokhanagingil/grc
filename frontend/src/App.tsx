@@ -15,7 +15,7 @@ import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
-import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder } from './pages/admin';
+import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder, AdminEventLog } from './pages/admin';
 import AdminDataModel from './pages/admin/AdminDataModel';
 import DynamicDataList from './pages/DynamicDataList';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
@@ -385,6 +385,7 @@ function App() {
                                   <Route path="data-model" element={<AdminDataModel />} />
                                   <Route path="frameworks" element={<AdminFrameworks />} />
                                   <Route path="platform-builder" element={<AdminPlatformBuilder />} />
+                                <Route path="event-log" element={<AdminEventLog />} />
                                 </Route>
                 {/* Dynamic Data Routes */}
                 <Route path="/data/:tableName" element={
