@@ -11,9 +11,9 @@
  * - Provides a consistent interface for the UI layer
  */
 
-import axios, { AxiosInstance } from 'axios';
-import { getUserApiMode, getUserApiBaseUrl, UserApiMode } from './userApiConfig';
-import { STORAGE_TENANT_ID_KEY } from './api';
+import { AxiosInstance } from 'axios';
+import { getUserApiMode, UserApiMode } from './userApiConfig';
+import { api } from './api';
 
 // ============================================================================
 // Type Definitions
@@ -325,39 +325,7 @@ class UserClient {
 
   constructor() {
     this.mode = getUserApiMode();
-    this.axiosInstance = this.createAxiosInstance();
-  }
-
-  private createAxiosInstance(): AxiosInstance {
-    const baseURL = getUserApiBaseUrl(this.mode);
-    
-    const instance = axios.create({
-      baseURL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // Request interceptor to add auth token and tenant ID
-    instance.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        
-        // Add tenant ID header for NestJS
-        const tenantId = localStorage.getItem(STORAGE_TENANT_ID_KEY);
-        if (tenantId) {
-          config.headers['x-tenant-id'] = tenantId;
-        }
-        
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    return instance;
+    this.axiosInstance = api;
   }
 
   /**

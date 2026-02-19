@@ -9,7 +9,19 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
 import { itsmApi } from '../../services/grcClient';
+import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+    return 'Session expired. Please log in again.';
+  }
+  const axErr = error as { response?: { status?: number } };
+  if (axErr.response?.status === 401) {
+    return 'Session expired. Please log in again.';
+  }
+  return 'Failed to load ITSM changes. Please try again.';
+}
 
 interface ItsmChange {
   id: string;
@@ -60,6 +72,7 @@ export const ItsmChangeList: React.FC = () => {
   const { showNotification } = useNotification();
   const [changes, setChanges] = useState<ItsmChange[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -67,6 +80,7 @@ export const ItsmChangeList: React.FC = () => {
 
   const fetchChanges = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await itsmApi.changes.list({ page, pageSize, q: search });
       const data = response.data;
@@ -77,9 +91,11 @@ export const ItsmChangeList: React.FC = () => {
         setChanges([]);
         setTotal(0);
       }
-    } catch (error) {
-      console.error('Error fetching ITSM changes:', error);
-      showNotification('Failed to load ITSM changes', 'error');
+    } catch (err) {
+      console.error('Error fetching ITSM changes:', err);
+      const msg = getErrorMessage(err);
+      setError(msg);
+      showNotification(msg, 'error');
       setChanges([]);
     } finally {
       setLoading(false);
@@ -196,7 +212,8 @@ export const ItsmChangeList: React.FC = () => {
         items={changes}
         columns={columns}
         isLoading={loading}
-        error={null}
+        error={error}
+        onClearError={() => setError(null)}
         total={total}
         page={page}
         pageSize={pageSize}
