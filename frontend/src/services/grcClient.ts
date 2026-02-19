@@ -611,6 +611,13 @@ export const API_PATHS = {
       UPDATE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
       DELETE: (fieldId: string) => `/grc/admin/fields/${fieldId}`,
     },
+    // Relationship management
+    RELATIONSHIPS: {
+      LIST: '/grc/admin/relationships',
+      CREATE: '/grc/admin/relationships',
+      GET: (id: string) => `/grc/admin/relationships/${id}`,
+      DELETE: (id: string) => `/grc/admin/relationships/${id}`,
+    },
   },
 
   // Dynamic Data - Runtime APIs
@@ -4079,10 +4086,14 @@ export interface SysDictionaryData {
   type: PlatformBuilderFieldType;
   isRequired: boolean;
   isUnique: boolean;
+  readOnly?: boolean;
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
+  choiceTable?: string;
   defaultValue?: string;
+  maxLength?: number;
   fieldOrder: number;
+  indexed?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -4110,10 +4121,14 @@ export interface CreateFieldDto {
   type?: PlatformBuilderFieldType;
   isRequired?: boolean;
   isUnique?: boolean;
+  readOnly?: boolean;
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
+  choiceTable?: string;
   defaultValue?: string;
+  maxLength?: number;
   fieldOrder?: number;
+  indexed?: boolean;
   isActive?: boolean;
 }
 
@@ -4122,10 +4137,14 @@ export interface UpdateFieldDto {
   type?: PlatformBuilderFieldType;
   isRequired?: boolean;
   isUnique?: boolean;
+  readOnly?: boolean;
   referenceTable?: string;
   choiceOptions?: ChoiceOption[];
+  choiceTable?: string;
   defaultValue?: string;
+  maxLength?: number;
   fieldOrder?: number;
+  indexed?: boolean;
   isActive?: boolean;
 }
 
@@ -4204,7 +4223,63 @@ export const platformBuilderApi = {
   deleteField: async (tenantId: string, fieldId: string): Promise<void> => {
     await api.delete(API_PATHS.PLATFORM_BUILDER.FIELDS.DELETE(fieldId), withTenantId(tenantId));
   },
+
+  // Relationship management
+  listRelationships: async (tenantId: string, params?: { page?: number; pageSize?: number; search?: string; fromTable?: string; toTable?: string }): Promise<RelationshipsListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.fromTable) queryParams.append('fromTable', params.fromTable);
+    if (params?.toTable) queryParams.append('toTable', params.toTable);
+    const url = queryParams.toString() ? `${API_PATHS.PLATFORM_BUILDER.RELATIONSHIPS.LIST}?${queryParams}` : API_PATHS.PLATFORM_BUILDER.RELATIONSHIPS.LIST;
+    const response = await api.get(url, withTenantId(tenantId));
+    return unwrapResponse<RelationshipsListResponse>(response);
+  },
+
+  createRelationship: async (tenantId: string, data: CreateRelationshipDto): Promise<SysRelationshipData> => {
+    const response = await api.post(API_PATHS.PLATFORM_BUILDER.RELATIONSHIPS.CREATE, data, withTenantId(tenantId));
+    return unwrapResponse<SysRelationshipData>(response);
+  },
+
+  deleteRelationship: async (tenantId: string, id: string): Promise<void> => {
+    await api.delete(API_PATHS.PLATFORM_BUILDER.RELATIONSHIPS.DELETE(id), withTenantId(tenantId));
+  },
 };
+
+export type SysRelationshipType = 'ONE_TO_ONE' | 'ONE_TO_MANY' | 'MANY_TO_MANY';
+
+export interface SysRelationshipData {
+  id: string;
+  tenantId: string;
+  name: string;
+  fromTable: string;
+  toTable: string;
+  type: SysRelationshipType;
+  fkColumn?: string;
+  m2mTable?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRelationshipDto {
+  name: string;
+  fromTable: string;
+  toTable: string;
+  type?: SysRelationshipType;
+  fkColumn?: string;
+  m2mTable?: string;
+  isActive?: boolean;
+}
+
+export interface RelationshipsListResponse {
+  items: SysRelationshipData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 
 // ============================================================================
 // Dynamic Data - Runtime APIs

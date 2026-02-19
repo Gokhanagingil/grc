@@ -28,6 +28,8 @@ import {
   Chip,
   Breadcrumbs,
   Link,
+  Collapse,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -36,6 +38,9 @@ import {
   Refresh as RefreshIcon,
   ArrowBack as BackIcon,
   Search as SearchIcon,
+  FilterList as FilterIcon,
+  Close as CloseIcon,
+  SearchOutlined as SearchRefIcon,
 } from '@mui/icons-material';
 import {
   dynamicDataApi,
@@ -45,6 +50,42 @@ import {
   UpdateDynamicRecordDto,
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
+
+type FilterOperator = 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS' | 'STARTS_WITH' | 'IN' | 'IS_EMPTY' | 'GT' | 'GTE' | 'LT' | 'LTE' | 'AFTER' | 'BEFORE';
+type LogicalOperator = 'AND' | 'OR';
+
+interface FilterCondition {
+  id: string;
+  field: string;
+  operator: FilterOperator;
+  value: string;
+}
+
+interface FilterGroup {
+  logic: LogicalOperator;
+  conditions: FilterCondition[];
+}
+
+const FILTER_OPERATORS: { value: FilterOperator; label: string; types?: string[] }[] = [
+  { value: 'EQUALS', label: 'Equals' },
+  { value: 'NOT_EQUALS', label: 'Not Equals' },
+  { value: 'CONTAINS', label: 'Contains', types: ['string', 'text'] },
+  { value: 'STARTS_WITH', label: 'Starts With', types: ['string', 'text'] },
+  { value: 'IS_EMPTY', label: 'Is Empty' },
+  { value: 'GT', label: 'Greater Than', types: ['integer', 'decimal'] },
+  { value: 'GTE', label: 'Greater or Equal', types: ['integer', 'decimal'] },
+  { value: 'LT', label: 'Less Than', types: ['integer', 'decimal'] },
+  { value: 'LTE', label: 'Less or Equal', types: ['integer', 'decimal'] },
+  { value: 'AFTER', label: 'After', types: ['date', 'datetime'] },
+  { value: 'BEFORE', label: 'Before', types: ['date', 'datetime'] },
+];
+
+const getOperatorsForType = (fieldType: string): { value: FilterOperator; label: string }[] => {
+  return FILTER_OPERATORS.filter((op) => !op.types || op.types.includes(fieldType));
+};
+
+let filterIdCounter = 0;
+const nextFilterId = () => `f_${++filterIdCounter}`;
 
 const DynamicDataList: React.FC = () => {
   const { tableName } = useParams<{ tableName: string }>();
@@ -69,17 +110,47 @@ const DynamicDataList: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<DynamicRecordData | null>(null);
   const [recordFormData, setRecordFormData] = useState<Record<string, unknown>>({});
 
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterGroup, setFilterGroup] = useState<FilterGroup>({ logic: 'AND', conditions: [] });
+  const [activeFilter, setActiveFilter] = useState<object | null>(null);
+
+  const [refPickerOpen, setRefPickerOpen] = useState(false);
+  const [refPickerField, setRefPickerField] = useState<SysDictionaryData | null>(null);
+  const [refSearchQuery, setRefSearchQuery] = useState('');
+  const [refSearchResults, setRefSearchResults] = useState<DynamicRecordData[]>([]);
+  const [refSearchLoading, setRefSearchLoading] = useState(false);
+
+  const buildFilterTree = useCallback((group: FilterGroup): object | null => {
+    const validConditions = group.conditions.filter((c) => c.field && c.operator);
+    if (validConditions.length === 0) return null;
+    if (validConditions.length === 1) {
+      const c = validConditions[0];
+      return { field: c.field, operator: c.operator, value: c.operator === 'IS_EMPTY' ? '' : c.value };
+    }
+    return {
+      [group.logic]: validConditions.map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        value: c.operator === 'IS_EMPTY' ? '' : c.value,
+      })),
+    };
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (!tenantId || !tableName) return;
     try {
       setLoading(true);
-      const response = await dynamicDataApi.list(tenantId, tableName, {
+      const params: Record<string, unknown> = {
         page: page + 1,
         pageSize,
         search: search || undefined,
         sortBy: sortBy || undefined,
         sortOrder: sortBy ? sortOrder : undefined,
-      });
+      };
+      if (activeFilter) {
+        params.filter = JSON.stringify(activeFilter);
+      }
+      const response = await dynamicDataApi.list(tenantId, tableName, params as Parameters<typeof dynamicDataApi.list>[2]);
       setRecords(response.records?.items || []);
       setTotal(response.records?.total || 0);
       setFields(response.fields || []);
@@ -95,7 +166,7 @@ const DynamicDataList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, tableName, page, pageSize, search, sortBy, sortOrder]);
+  }, [tenantId, tableName, page, pageSize, search, sortBy, sortOrder, activeFilter]);
 
   useEffect(() => {
     fetchData();
@@ -199,8 +270,78 @@ const DynamicDataList: React.FC = () => {
     setRecordFormData((prev) => ({ ...prev, [fieldName]: value }));
   };
 
+  const handleAddFilterCondition = () => {
+    const activeFields = fields.filter((f) => f.isActive);
+    setFilterGroup((prev) => ({
+      ...prev,
+      conditions: [
+        ...prev.conditions,
+        { id: nextFilterId(), field: activeFields[0]?.fieldName || '', operator: 'EQUALS', value: '' },
+      ],
+    }));
+  };
+
+  const handleRemoveFilterCondition = (id: string) => {
+    setFilterGroup((prev) => ({
+      ...prev,
+      conditions: prev.conditions.filter((c) => c.id !== id),
+    }));
+  };
+
+  const handleUpdateFilterCondition = (id: string, updates: Partial<FilterCondition>) => {
+    setFilterGroup((prev) => ({
+      ...prev,
+      conditions: prev.conditions.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+    }));
+  };
+
+  const handleApplyFilter = () => {
+    const tree = buildFilterTree(filterGroup);
+    setActiveFilter(tree);
+    setPage(0);
+  };
+
+  const handleClearFilter = () => {
+    setFilterGroup({ logic: 'AND', conditions: [] });
+    setActiveFilter(null);
+    setPage(0);
+  };
+
+  const handleOpenRefPicker = (field: SysDictionaryData) => {
+    setRefPickerField(field);
+    setRefSearchQuery('');
+    setRefSearchResults([]);
+    setRefPickerOpen(true);
+  };
+
+  const handleRefSearch = async () => {
+    if (!refPickerField?.referenceTable || !tenantId) return;
+    try {
+      setRefSearchLoading(true);
+      const response = await dynamicDataApi.list(tenantId, refPickerField.referenceTable, {
+        page: 1,
+        pageSize: 20,
+        search: refSearchQuery || undefined,
+      });
+      setRefSearchResults(response.records?.items || []);
+    } catch {
+      setRefSearchResults([]);
+    } finally {
+      setRefSearchLoading(false);
+    }
+  };
+
+  const handleSelectRef = (recordId: string) => {
+    if (refPickerField) {
+      handleFieldChange(refPickerField.fieldName, recordId);
+    }
+    setRefPickerOpen(false);
+  };
+
   const renderFieldInput = (field: SysDictionaryData) => {
     const value = recordFormData[field.fieldName];
+    const isReadOnly = field.readOnly && !!editingRecord;
+    const maxLen = field.maxLength;
 
     switch (field.type) {
       case 'boolean':
@@ -210,6 +351,7 @@ const DynamicDataList: React.FC = () => {
               <Switch
                 checked={Boolean(value)}
                 onChange={(e) => handleFieldChange(field.fieldName, e.target.checked)}
+                disabled={isReadOnly}
               />
             }
             label={field.label}
@@ -224,6 +366,7 @@ const DynamicDataList: React.FC = () => {
               label={field.label}
               onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
               required={field.isRequired}
+              disabled={isReadOnly}
             >
               <MenuItem value="">
                 <em>None</em>
@@ -246,6 +389,9 @@ const DynamicDataList: React.FC = () => {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
             required={field.isRequired}
+            disabled={isReadOnly}
+            inputProps={{ maxLength: maxLen || undefined }}
+            helperText={maxLen ? `Max ${maxLen} characters` : undefined}
           />
         );
       case 'integer':
@@ -257,6 +403,7 @@ const DynamicDataList: React.FC = () => {
             value={value ?? ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value ? parseInt(e.target.value, 10) : null)}
             required={field.isRequired}
+            disabled={isReadOnly}
             inputProps={{ step: 1 }}
           />
         );
@@ -269,6 +416,7 @@ const DynamicDataList: React.FC = () => {
             value={value ?? ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value ? parseFloat(e.target.value) : null)}
             required={field.isRequired}
+            disabled={isReadOnly}
             inputProps={{ step: 0.01 }}
           />
         );
@@ -281,6 +429,7 @@ const DynamicDataList: React.FC = () => {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
             required={field.isRequired}
+            disabled={isReadOnly}
             InputLabelProps={{ shrink: true }}
           />
         );
@@ -293,19 +442,32 @@ const DynamicDataList: React.FC = () => {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
             required={field.isRequired}
+            disabled={isReadOnly}
             InputLabelProps={{ shrink: true }}
           />
         );
       case 'reference':
         return (
-          <TextField
-            fullWidth
-            label={`${field.label} (ID)`}
-            value={value || ''}
-            onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
-            required={field.isRequired}
-            helperText={field.referenceTable ? `Reference to ${field.referenceTable}` : undefined}
-          />
+          <Box display="flex" gap={1} alignItems="flex-start">
+            <TextField
+              fullWidth
+              label={`${field.label} (ID)`}
+              value={value || ''}
+              onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
+              required={field.isRequired}
+              disabled={isReadOnly}
+              helperText={field.referenceTable ? `Reference to ${field.referenceTable}` : undefined}
+            />
+            {field.referenceTable && !isReadOnly && (
+              <IconButton
+                onClick={() => handleOpenRefPicker(field)}
+                title="Search reference"
+                sx={{ mt: 1 }}
+              >
+                <SearchRefIcon />
+              </IconButton>
+            )}
+          </Box>
         );
       default:
         return (
@@ -315,6 +477,9 @@ const DynamicDataList: React.FC = () => {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.fieldName, e.target.value)}
             required={field.isRequired}
+            disabled={isReadOnly}
+            inputProps={{ maxLength: maxLen || undefined }}
+            helperText={maxLen ? `Max ${maxLen} characters` : undefined}
           />
         );
     }
@@ -386,7 +551,7 @@ const DynamicDataList: React.FC = () => {
       )}
 
       <Paper sx={{ mb: 2, p: 2 }}>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
           <TextField
             size="small"
             placeholder="Search..."
@@ -429,10 +594,91 @@ const DynamicDataList: React.FC = () => {
               </Select>
             </FormControl>
           )}
+          <Button
+            size="small"
+            variant={showFilters ? 'contained' : 'outlined'}
+            startIcon={<FilterIcon />}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            Filters{activeFilter ? ' (Active)' : ''}
+          </Button>
           <IconButton onClick={fetchData} title="Refresh">
             <RefreshIcon />
           </IconButton>
         </Box>
+
+        <Collapse in={showFilters}>
+          <Divider sx={{ my: 2 }} />
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <Typography variant="subtitle2">Filter Logic:</Typography>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <Select
+                  value={filterGroup.logic}
+                  onChange={(e) => setFilterGroup((prev) => ({ ...prev, logic: e.target.value as LogicalOperator }))}
+                >
+                  <MenuItem value="AND">AND (all match)</MenuItem>
+                  <MenuItem value="OR">OR (any match)</MenuItem>
+                </Select>
+              </FormControl>
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddFilterCondition}>
+                Add Condition
+              </Button>
+              <Button size="small" variant="contained" onClick={handleApplyFilter} disabled={filterGroup.conditions.length === 0}>
+                Apply
+              </Button>
+              {activeFilter && (
+                <Button size="small" color="warning" onClick={handleClearFilter}>
+                  Clear
+                </Button>
+              )}
+            </Box>
+            {filterGroup.conditions.map((condition) => {
+              const selectedField = fields.find((f) => f.fieldName === condition.field);
+              const operators = selectedField ? getOperatorsForType(selectedField.type) : FILTER_OPERATORS;
+              return (
+                <Box key={condition.id} display="flex" gap={1} alignItems="center" mb={1}>
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Field</InputLabel>
+                    <Select
+                      value={condition.field}
+                      label="Field"
+                      onChange={(e) => handleUpdateFilterCondition(condition.id, { field: e.target.value })}
+                    >
+                      {fields.filter((f) => f.isActive).map((f) => (
+                        <MenuItem key={f.fieldName} value={f.fieldName}>{f.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Operator</InputLabel>
+                    <Select
+                      value={condition.operator}
+                      label="Operator"
+                      onChange={(e) => handleUpdateFilterCondition(condition.id, { operator: e.target.value as FilterOperator })}
+                    >
+                      {operators.map((op) => (
+                        <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {condition.operator !== 'IS_EMPTY' && (
+                    <TextField
+                      size="small"
+                      label="Value"
+                      value={condition.value}
+                      onChange={(e) => handleUpdateFilterCondition(condition.id, { value: e.target.value })}
+                      sx={{ minWidth: 200 }}
+                    />
+                  )}
+                  <IconButton size="small" onClick={() => handleRemoveFilterCondition(condition.id)}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              );
+            })}
+          </Box>
+        </Collapse>
       </Paper>
 
       <Paper>
@@ -544,6 +790,72 @@ const DynamicDataList: React.FC = () => {
           >
             {editingRecord ? 'Update' : 'Create'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={refPickerOpen} onClose={() => setRefPickerOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Select Reference{refPickerField?.referenceTable ? ` (${refPickerField.referenceTable})` : ''}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, display: 'flex', gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search records..."
+              value={refSearchQuery}
+              onChange={(e) => setRefSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRefSearch(); }}
+            />
+            <Button variant="contained" onClick={handleRefSearch} disabled={refSearchLoading}>
+              Search
+            </Button>
+          </Box>
+          {refSearchLoading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : refSearchResults.length === 0 ? (
+            <Box textAlign="center" py={4}>
+              <Typography color="textSecondary">
+                {refSearchQuery ? 'No results found.' : 'Enter a search term and click Search.'}
+              </Typography>
+            </Box>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Record ID</TableCell>
+                  <TableCell>Data</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {refSearchResults.map((rec) => (
+                  <TableRow key={rec.id} hover sx={{ cursor: 'pointer' }} onClick={() => handleSelectRef(rec.recordId)}>
+                    <TableCell>
+                      <Typography variant="body2" fontFamily="monospace">
+                        {rec.recordId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 400 }}>
+                        {JSON.stringify(rec.data).substring(0, 100)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Button size="small" onClick={() => handleSelectRef(rec.recordId)}>
+                        Select
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRefPickerOpen(false)}>Cancel</Button>
         </DialogActions>
       </Dialog>
     </Box>
