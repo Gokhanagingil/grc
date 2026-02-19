@@ -39,6 +39,10 @@ import { SlaEngineService } from './sla/sla-engine.service';
 import { SlaController } from './sla/sla.controller';
 import { SlaEventListener } from './sla/sla-event.listener';
 
+import { SysChoice } from './choice/sys-choice.entity';
+import { ChoiceService } from './choice/choice.service';
+import { ChoiceController } from './choice/choice.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -51,6 +55,7 @@ import { SlaEventListener } from './sla/sla-event.listener';
       UiAction,
       SlaDefinition,
       SlaInstance,
+      SysChoice,
     ]),
     AuditModule,
     AuthModule,
@@ -69,11 +74,13 @@ import { SlaEventListener } from './sla/sla-event.listener';
     SlaService,
     SlaEngineService,
     SlaEventListener,
+    ChoiceService,
   ],
   controllers: [
     IncidentController,
     ServiceController,
     ChangeController,
+    ChoiceController,
     WorkflowController,
     BusinessRuleController,
     UiPolicyController,
@@ -91,6 +98,7 @@ import { SlaEventListener } from './sla/sla-event.listener';
     UiActionService,
     SlaService,
     SlaEngineService,
+    ChoiceService,
   ],
 })
 export class ItsmModule {}

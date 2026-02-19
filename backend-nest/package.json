@@ -30,6 +30,8 @@
     "seed:golden-flow:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-golden-flow.ts",
     "seed:demo-story": "node dist/scripts/seed-demo-story.js",
     "seed:demo-story:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-story.ts",
+    "seed:itsm-choices": "node dist/scripts/seed-itsm-choices.js",
+    "seed:itsm-choices:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-choices.ts",
     "seed:soa": "node dist/scripts/seed-soa.js",
     "seed:soa:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-soa.ts",
     "seed:soa:prod": "node dist/scripts/seed-soa.js",
@@ -125,7 +127,9 @@
   "overrides": {
     "@isaacs/brace-expansion": "5.0.1",
     "lodash": "4.17.23",
-    "qs": "6.14.2"
+    "minimatch": "10.2.1",
+    "qs": "6.14.2",
+    "test-exclude": "7.0.1"
   },
   "jest": {
     "moduleFileExtensions": [

@@ -52,6 +52,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_BUSINESS_RULE_WRITE,
     Permission.ITSM_UI_POLICY_READ,
     Permission.ITSM_UI_POLICY_WRITE,
+    Permission.ITSM_CHOICE_READ,
+    Permission.ITSM_CHOICE_WRITE,
     Permission.ITSM_STATISTICS_READ,
     Permission.ADMIN_USERS_READ,
     Permission.ADMIN_USERS_WRITE,
@@ -105,6 +107,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_BUSINESS_RULE_WRITE,
     Permission.ITSM_UI_POLICY_READ,
     Permission.ITSM_UI_POLICY_WRITE,
+    Permission.ITSM_CHOICE_READ,
+    Permission.ITSM_CHOICE_WRITE,
     Permission.ITSM_STATISTICS_READ,
   ],
 
@@ -128,6 +132,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_WORKFLOW_READ,
     Permission.ITSM_BUSINESS_RULE_READ,
     Permission.ITSM_UI_POLICY_READ,
+    Permission.ITSM_CHOICE_READ,
   ],
 };
 

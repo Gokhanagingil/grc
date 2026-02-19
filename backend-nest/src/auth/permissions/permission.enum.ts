@@ -82,6 +82,10 @@ export enum Permission {
   ITSM_UI_POLICY_READ = 'itsm:ui_policy:read',
   ITSM_UI_POLICY_WRITE = 'itsm:ui_policy:write',
 
+  // ITSM Choice permissions
+  ITSM_CHOICE_READ = 'itsm:choice:read',
+  ITSM_CHOICE_WRITE = 'itsm:choice:write',
+
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
 
@@ -151,6 +155,9 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_UI_POLICY_READ]: 'View UI policies and UI actions',
   [Permission.ITSM_UI_POLICY_WRITE]:
     'Create, update, and delete UI policies and actions',
+  [Permission.ITSM_CHOICE_READ]: 'View choice definitions for ITSM tables',
+  [Permission.ITSM_CHOICE_WRITE]:
+    'Create, update, and deactivate choice definitions',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',

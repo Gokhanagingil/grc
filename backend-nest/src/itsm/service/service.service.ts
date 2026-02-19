@@ -3,12 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ItsmService } from './service.entity';
-import { ServiceFilterDto, SERVICE_SORTABLE_FIELDS } from './dto/service-filter.dto';
+import {
+  ServiceFilterDto,
+  SERVICE_SORTABLE_FIELDS,
+} from './dto/service-filter.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../../grc/dto/pagination.dto';
 import { AuditService } from '../../audit/audit.service';
+import { ChoiceService } from '../choice/choice.service';
 
 @Injectable()
 export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
@@ -16,6 +20,7 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
     @InjectRepository(ItsmService)
     repository: Repository<ItsmService>,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly choiceService?: ChoiceService,
   ) {
     super(repository);
   }
@@ -32,8 +37,22 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
   async createService(
     tenantId: string,
     userId: string,
-    data: Partial<Omit<ItsmService, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'isDeleted'>>,
+    data: Partial<
+      Omit<
+        ItsmService,
+        'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'isDeleted'
+      >
+    >,
   ): Promise<ItsmService> {
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_services',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
+
     const service = await this.createForTenant(tenantId, {
       ...data,
       createdBy: userId,
@@ -62,6 +81,15 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
     }
 
     const beforeState = { ...existing };
+
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_services',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
 
     const service = await this.updateForTenant(tenantId, id, {
       ...data,

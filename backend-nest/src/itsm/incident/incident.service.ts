@@ -19,6 +19,7 @@ import {
   createPaginatedResponse,
 } from '../../grc/dto/pagination.dto';
 import { AuditService } from '../../audit/audit.service';
+import { ChoiceService } from '../choice/choice.service';
 
 /**
  * ITSM Incident Service
@@ -35,6 +36,7 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     repository: Repository<ItsmIncident>,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly choiceService?: ChoiceService,
   ) {
     super(repository);
   }
@@ -77,6 +79,15 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
       | 'priority'
     >,
   ): Promise<ItsmIncident> {
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_incidents',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
+
     const number = await this.generateIncidentNumber(tenantId);
     const impact = data.impact || IncidentImpact.MEDIUM;
     const urgency = data.urgency || IncidentUrgency.MEDIUM;
@@ -125,6 +136,15 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     }
 
     const beforeState = { ...existing };
+
+    if (this.choiceService) {
+      const errors = await this.choiceService.validateChoiceFields(
+        tenantId,
+        'itsm_incidents',
+        data as Record<string, unknown>,
+      );
+      this.choiceService.throwIfInvalidChoices(errors);
+    }
 
     const updateData: Partial<ItsmIncident> = {
       ...data,
