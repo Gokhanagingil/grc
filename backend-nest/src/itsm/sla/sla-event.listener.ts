@@ -38,4 +38,25 @@ export class SlaEventListener {
       status,
     );
   }
+
+  @OnEvent('workflow.transition.executed')
+  async onWorkflowTransitionExecuted(payload: {
+    tenantId: string;
+    tableName: string;
+    workflowId: string;
+    transitionName: string;
+    fromState: string;
+    toState: string;
+    fieldUpdates?: Record<string, unknown>;
+    recordId?: string;
+  }): Promise<void> {
+    if (!payload.recordId) return;
+
+    await this.slaService.evaluateOnStateChange(
+      payload.tenantId,
+      payload.tableName,
+      payload.recordId,
+      payload.toState,
+    );
+  }
 }

@@ -38,6 +38,7 @@ import { SlaService } from './sla/sla.service';
 import { SlaEngineService } from './sla/sla-engine.service';
 import { SlaController } from './sla/sla.controller';
 import { SlaEventListener } from './sla/sla-event.listener';
+import { SlaBreachCheckerJob } from './sla/sla-breach-checker.job';
 
 import { SysChoice } from './choice/sys-choice.entity';
 import { ChoiceService } from './choice/choice.service';
@@ -78,6 +79,7 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
     SlaService,
     SlaEngineService,
     SlaEventListener,
+    SlaBreachCheckerJob,
     ChoiceService,
     DiagnosticsService,
     RuntimeLoggerService,
@@ -105,6 +107,7 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
     UiActionService,
     SlaService,
     SlaEngineService,
+    SlaBreachCheckerJob,
     ChoiceService,
     DiagnosticsService,
     RuntimeLoggerService,
