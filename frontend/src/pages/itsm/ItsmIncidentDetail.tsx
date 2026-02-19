@@ -73,10 +73,28 @@ interface LinkedControl {
   status: string;
 }
 
-const STATE_OPTIONS = ['NEW', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
-const PRIORITY_OPTIONS = ['P1', 'P2', 'P3', 'P4', 'P5'];
-const IMPACT_OPTIONS = ['HIGH', 'MEDIUM', 'LOW'];
-const URGENCY_OPTIONS = ['HIGH', 'MEDIUM', 'LOW'];
+const STATE_OPTIONS = [
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+];
+const PRIORITY_OPTIONS = [
+  { value: 'p1', label: 'P1 - Critical' },
+  { value: 'p2', label: 'P2 - High' },
+  { value: 'p3', label: 'P3 - Medium' },
+  { value: 'p4', label: 'P4 - Low' },
+];
+const IMPACT_OPTIONS = [
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+const URGENCY_OPTIONS = [
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
 
 export const ItsmIncidentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,10 +117,10 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [incident, setIncident] = useState<Partial<ItsmIncident>>({
     shortDescription: '',
     description: '',
-    state: 'NEW',
-    priority: 'P3',
-    impact: 'MEDIUM',
-    urgency: 'MEDIUM',
+    state: 'open',
+    priority: 'p3',
+    impact: 'medium',
+    urgency: 'medium',
   });
 
   // GRC Bridge state
@@ -170,10 +188,10 @@ export const ItsmIncidentDetail: React.FC = () => {
         const response = await itsmApi.incidents.create({
           shortDescription: incident.shortDescription,
           description: incident.description,
-          state: incident.state as 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED',
-          priority: incident.priority as 'P1' | 'P2' | 'P3' | 'P4' | 'P5',
-          impact: incident.impact as 'HIGH' | 'MEDIUM' | 'LOW',
-          urgency: incident.urgency as 'HIGH' | 'MEDIUM' | 'LOW',
+          state: incident.state,
+          priority: incident.priority,
+          impact: incident.impact,
+          urgency: incident.urgency,
           category: incident.category,
           serviceId: incident.serviceId,
         });
@@ -186,10 +204,10 @@ export const ItsmIncidentDetail: React.FC = () => {
         await itsmApi.incidents.update(id, {
           shortDescription: incident.shortDescription,
           description: incident.description,
-          state: incident.state as 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED',
-          priority: incident.priority as 'P1' | 'P2' | 'P3' | 'P4' | 'P5',
-          impact: incident.impact as 'HIGH' | 'MEDIUM' | 'LOW',
-          urgency: incident.urgency as 'HIGH' | 'MEDIUM' | 'LOW',
+          state: incident.state,
+          priority: incident.priority,
+          impact: incident.impact,
+          urgency: incident.urgency,
           category: incident.category,
           resolutionNotes: incident.resolutionNotes,
         });
@@ -311,13 +329,13 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <FormControl fullWidth>
                     <InputLabel>State</InputLabel>
                     <Select
-                      value={incident.state || 'NEW'}
+                      value={incident.state || 'open'}
                       label="State"
                       onChange={(e) => handleChange('state', e.target.value)}
                     >
                       {STATE_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option.replace('_', ' ')}
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -328,13 +346,13 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <FormControl fullWidth>
                     <InputLabel>Priority</InputLabel>
                     <Select
-                      value={incident.priority || 'P3'}
+                      value={incident.priority || 'p3'}
                       label="Priority"
                       onChange={(e) => handleChange('priority', e.target.value)}
                     >
                       {PRIORITY_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -345,13 +363,13 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <FormControl fullWidth>
                     <InputLabel>Impact</InputLabel>
                     <Select
-                      value={incident.impact || 'MEDIUM'}
+                      value={incident.impact || 'medium'}
                       label="Impact"
                       onChange={(e) => handleChange('impact', e.target.value)}
                     >
                       {IMPACT_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -362,13 +380,13 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <FormControl fullWidth>
                     <InputLabel>Urgency</InputLabel>
                     <Select
-                      value={incident.urgency || 'MEDIUM'}
+                      value={incident.urgency || 'medium'}
                       label="Urgency"
                       onChange={(e) => handleChange('urgency', e.target.value)}
                     >
                       {URGENCY_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -395,7 +413,7 @@ export const ItsmIncidentDetail: React.FC = () => {
                   />
                 </Grid>
 
-                {(incident.state === 'RESOLVED' || incident.state === 'CLOSED') && (
+                {(incident.state === 'resolved' || incident.state === 'closed') && (
                   <Grid item xs={12}>
                     <TextField
                       fullWidth

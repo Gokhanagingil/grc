@@ -1365,10 +1365,11 @@ export interface ItsmIncidentData {
   number: string;
   shortDescription: string;
   description?: string;
-  state: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-  priority: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
-  impact: 'HIGH' | 'MEDIUM' | 'LOW';
-  urgency: 'HIGH' | 'MEDIUM' | 'LOW';
+  state: string;
+  status?: string;
+  priority: string;
+  impact: string;
+  urgency: string;
   category?: string;
   riskReviewRequired: boolean;
   serviceId?: string;
@@ -1386,10 +1387,10 @@ export interface ItsmIncidentData {
 export interface CreateItsmIncidentDto {
   shortDescription: string;
   description?: string;
-  state?: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-  priority?: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
-  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
-  urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
+  state?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
   category?: string;
   serviceId?: string;
   assigneeId?: string;
@@ -1399,10 +1400,10 @@ export interface CreateItsmIncidentDto {
 export interface UpdateItsmIncidentDto {
   shortDescription?: string;
   description?: string;
-  state?: 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-  priority?: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
-  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
-  urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
+  state?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
   category?: string;
   resolutionNotes?: string;
   serviceId?: string;
