@@ -850,11 +850,10 @@ describe('Platform Builder (e2e)', () => {
         sourceTableId = sourceTableRes.body.data.id;
 
         await request(app.getHttpServer())
-          .post('/grc/admin/fields')
+          .post(`/grc/admin/tables/${refTableId}/fields`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({
-            tableId: refTableId,
             fieldName: 'name_field',
             label: 'Name',
             type: 'string',
@@ -864,11 +863,10 @@ describe('Platform Builder (e2e)', () => {
           .expect(201);
 
         await request(app.getHttpServer())
-          .post('/grc/admin/fields')
+          .post(`/grc/admin/tables/${sourceTableId}/fields`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({
-            tableId: sourceTableId,
             fieldName: 'title_field',
             label: 'Title',
             type: 'string',
@@ -878,11 +876,10 @@ describe('Platform Builder (e2e)', () => {
           .expect(201);
 
         await request(app.getHttpServer())
-          .post('/grc/admin/fields')
+          .post(`/grc/admin/tables/${sourceTableId}/fields`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .send({
-            tableId: sourceTableId,
             fieldName: 'ref_field',
             label: 'Ref',
             type: 'reference',
