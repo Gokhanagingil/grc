@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 
 /**
  * Platform Builder E2E Tests
@@ -737,6 +738,312 @@ describe('Platform Builder (e2e)', () => {
           );
           expect(deletedRecord).toBeUndefined();
         });
+      });
+    });
+
+    // ==================== GENERIC QUERY RUNTIME (PHASE 3) ====================
+    describe('Generic Query Runtime (Phase 3)', () => {
+      let refTableId: string;
+      let sourceTableId: string;
+      let refRecordId: string;
+      let otherTenantId: string | null = null;
+
+      const refTableName = 'u_ref_e2e_' + Date.now();
+      const sourceTableName = 'u_source_e2e_' + Date.now();
+
+      beforeAll(async () => {
+        if (!dbConnected || !tenantId) {
+          return;
+        }
+
+        const tenantsRes = await request(app.getHttpServer())
+          .get('/tenants?page=1&limit=50')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+
+        const tenants = tenantsRes.body.tenants ?? [];
+        const other = tenants.find(
+          (t: { id: string }) => t.id && t.id !== tenantId,
+        );
+        otherTenantId = other?.id ?? null;
+      });
+
+      afterAll(async () => {
+        if (!dbConnected || !tenantId) {
+          return;
+        }
+
+        const dataSource = app.get<DataSource>(getDataSourceToken());
+        if (otherTenantId) {
+          await dataSource.manager.query(
+            'DELETE FROM dynamic_records WHERE tenant_id = $1 AND table_name = $2',
+            [otherTenantId, sourceTableName],
+          );
+        }
+
+        const tablesToClean = [sourceTableName, refTableName];
+        for (const tn of tablesToClean) {
+          const recordsResponse = await request(app.getHttpServer())
+            .get(`/grc/data/${tn}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+
+          if (recordsResponse.body.data?.records?.items) {
+            for (const record of recordsResponse.body.data.records.items) {
+              await request(app.getHttpServer())
+                .delete(`/grc/data/${tn}/${record.recordId}`)
+                .set('Authorization', `Bearer ${adminToken}`)
+                .set('x-tenant-id', tenantId);
+            }
+          }
+        }
+
+        if (sourceTableId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/admin/tables/${sourceTableId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+
+        if (refTableId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/admin/tables/${refTableId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+      });
+
+      it('should create tables and fields for dot-walking', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const refTableRes = await request(app.getHttpServer())
+          .post('/grc/admin/tables')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            name: refTableName,
+            label: 'Ref Table (E2E)',
+            description: 'Reference table for generic query tests',
+            isActive: true,
+          })
+          .expect(201);
+
+        expect(refTableRes.body).toHaveProperty('success', true);
+        refTableId = refTableRes.body.data.id;
+
+        const sourceTableRes = await request(app.getHttpServer())
+          .post('/grc/admin/tables')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            name: sourceTableName,
+            label: 'Source Table (E2E)',
+            description: 'Source table for generic query tests',
+            isActive: true,
+          })
+          .expect(201);
+
+        expect(sourceTableRes.body).toHaveProperty('success', true);
+        sourceTableId = sourceTableRes.body.data.id;
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${refTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'name_field',
+            label: 'Name',
+            type: 'string',
+            isRequired: true,
+            isActive: true,
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${sourceTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'title_field',
+            label: 'Title',
+            type: 'string',
+            isRequired: true,
+            isActive: true,
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${sourceTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'ref_field',
+            label: 'Ref',
+            type: 'reference',
+            referenceTable: refTableName,
+            isRequired: false,
+            isActive: true,
+          })
+          .expect(201);
+      });
+
+      it('should create records', async () => {
+        if (!dbConnected || !tenantId || !refTableId || !sourceTableId) {
+          console.log(
+            'Skipping test: database not connected or tables missing',
+          );
+          return;
+        }
+
+        const refRes = await request(app.getHttpServer())
+          .post(`/grc/data/${refTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ data: { name_field: 'Ref One' } })
+          .expect(201);
+
+        refRecordId = refRes.body.data.recordId;
+
+        await request(app.getHttpServer())
+          .post(`/grc/data/${sourceTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              title_field: 'Hello',
+              ref_field: refRecordId,
+            },
+          })
+          .expect(201);
+      });
+
+      it('should query records with q', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .get(
+            `/grc/platform/tables/${sourceTableName}/records?page=1&pageSize=10&q=Hello`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(res.body).toHaveProperty('success', true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.total).toBeGreaterThanOrEqual(1);
+      });
+
+      it('should filter records by equals', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const filter = JSON.stringify({
+          logic: 'AND',
+          conditions: [
+            { field: 'title_field', operator: 'equals', value: 'Hello' },
+          ],
+        });
+
+        const res = await request(app.getHttpServer())
+          .get(
+            `/grc/platform/tables/${sourceTableName}/records?page=1&pageSize=10&filter=${encodeURIComponent(filter)}`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(res.body).toHaveProperty('success', true);
+        expect(res.body.total).toBe(1);
+        expect(res.body.data.length).toBe(1);
+      });
+
+      it('should filter records with dot-walking (1 hop)', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const filter = JSON.stringify({
+          logic: 'AND',
+          conditions: [
+            {
+              field: 'ref_field.name_field',
+              operator: 'equals',
+              value: 'Ref One',
+            },
+          ],
+        });
+
+        const res = await request(app.getHttpServer())
+          .get(
+            `/grc/platform/tables/${sourceTableName}/records?page=1&pageSize=10&filter=${encodeURIComponent(filter)}`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(res.body).toHaveProperty('success', true);
+        expect(res.body.total).toBe(1);
+        expect(res.body.data.length).toBe(1);
+      });
+
+      it('should enforce tenant isolation (do not return other tenant records)', async () => {
+        if (!dbConnected || !tenantId || !otherTenantId) {
+          console.log('Skipping test: second tenant not available');
+          return;
+        }
+
+        const dataSource = app.get<DataSource>(getDataSourceToken());
+        await dataSource.manager.query(
+          `INSERT INTO dynamic_records (
+            id,
+            tenant_id,
+            table_name,
+            record_id,
+            data,
+            created_at,
+            updated_at,
+            created_by,
+            updated_by,
+            is_deleted
+          ) VALUES ($1,$2,$3,$4,$5,now(),now(),$6,$7,false)`,
+          [
+            randomUUID(),
+            otherTenantId,
+            sourceTableName,
+            randomUUID(),
+            JSON.stringify({ title_field: 'Hello', ref_field: refRecordId }),
+            null,
+            null,
+          ],
+        );
+
+        const filter = JSON.stringify({
+          logic: 'AND',
+          conditions: [
+            { field: 'title_field', operator: 'equals', value: 'Hello' },
+          ],
+        });
+
+        const res = await request(app.getHttpServer())
+          .get(
+            `/grc/platform/tables/${sourceTableName}/records?page=1&pageSize=10&filter=${encodeURIComponent(filter)}`,
+          )
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(200);
+
+        expect(res.body).toHaveProperty('success', true);
+        expect(res.body.total).toBe(1);
+        expect(res.body.data.length).toBe(1);
       });
     });
 

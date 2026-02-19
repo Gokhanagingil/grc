@@ -40,8 +40,10 @@ concurrency:
   cancel-in-progress: true
 
 # Minimal permissions - only what's needed for CI
+# actions: write is required for upload-artifact@v6 to finalize artifacts
 permissions:
   contents: read
+  actions: write
 
 env:
   NODE_VERSION: '20.x'
