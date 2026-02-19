@@ -128,6 +128,10 @@ export class CreateFieldDto {
   @IsOptional()
   isUnique?: boolean;
 
+  @IsBoolean({ message: 'readOnly must be a boolean' })
+  @IsOptional()
+  readOnly?: boolean;
+
   @IsString({ message: 'Reference table must be a string' })
   @IsOptional()
   @MaxLength(100, { message: 'Reference table must not exceed 100 characters' })
@@ -143,6 +147,12 @@ export class CreateFieldDto {
   @IsOptional()
   @MaxLength(500, { message: 'Default value must not exceed 500 characters' })
   defaultValue?: string;
+
+  @IsInt({ message: 'maxLength must be an integer' })
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxLength?: number;
 
   @IsInt({ message: 'Field order must be an integer' })
   @Min(0, { message: 'Field order must be at least 0' })
@@ -177,6 +187,10 @@ export class UpdateFieldDto {
   @IsOptional()
   isUnique?: boolean;
 
+  @IsBoolean({ message: 'readOnly must be a boolean' })
+  @IsOptional()
+  readOnly?: boolean;
+
   @IsString({ message: 'Reference table must be a string' })
   @IsOptional()
   @MaxLength(100, { message: 'Reference table must not exceed 100 characters' })
@@ -192,6 +206,12 @@ export class UpdateFieldDto {
   @IsOptional()
   @MaxLength(500, { message: 'Default value must not exceed 500 characters' })
   defaultValue?: string;
+
+  @IsInt({ message: 'maxLength must be an integer' })
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxLength?: number;
 
   @IsInt({ message: 'Field order must be an integer' })
   @Min(0, { message: 'Field order must be at least 0' })
@@ -290,9 +310,11 @@ export interface FieldResponse {
   type: PlatformBuilderFieldType;
   isRequired: boolean;
   isUnique: boolean;
+  readOnly: boolean;
   referenceTable: string | null;
   choiceOptions: { label: string; value: string }[] | null;
   defaultValue: string | null;
+  maxLength: number | null;
   fieldOrder: number;
   isActive: boolean;
   createdAt: Date;

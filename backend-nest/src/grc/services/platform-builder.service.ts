@@ -346,9 +346,11 @@ export class PlatformBuilderService {
       type: dto.type,
       isRequired: dto.isRequired ?? false,
       isUnique: dto.isUnique ?? false,
+      readOnly: dto.readOnly ?? false,
       referenceTable: dto.referenceTable ?? null,
       choiceOptions: dto.choiceOptions ?? null,
       defaultValue: dto.defaultValue ?? null,
+      maxLength: dto.maxLength ?? null,
       fieldOrder,
       isActive: dto.isActive ?? true,
       createdBy: userId,
@@ -385,11 +387,13 @@ export class PlatformBuilderService {
     if (dto.type !== undefined) field.type = dto.type;
     if (dto.isRequired !== undefined) field.isRequired = dto.isRequired;
     if (dto.isUnique !== undefined) field.isUnique = dto.isUnique;
+    if (dto.readOnly !== undefined) field.readOnly = dto.readOnly;
     if (dto.referenceTable !== undefined)
       field.referenceTable = dto.referenceTable;
     if (dto.choiceOptions !== undefined)
       field.choiceOptions = dto.choiceOptions;
     if (dto.defaultValue !== undefined) field.defaultValue = dto.defaultValue;
+    if (dto.maxLength !== undefined) field.maxLength = dto.maxLength;
     if (dto.fieldOrder !== undefined) field.fieldOrder = dto.fieldOrder;
     if (dto.isActive !== undefined) field.isActive = dto.isActive;
     field.updatedBy = userId;

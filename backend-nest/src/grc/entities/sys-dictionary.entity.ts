@@ -44,6 +44,9 @@ export class SysDictionary extends BaseEntity {
   @Column({ name: 'is_unique', type: 'boolean', default: false })
   isUnique: boolean;
 
+  @Column({ name: 'read_only', type: 'boolean', default: false })
+  readOnly: boolean;
+
   @Column({
     name: 'reference_table',
     type: 'varchar',
@@ -62,6 +65,9 @@ export class SysDictionary extends BaseEntity {
     nullable: true,
   })
   defaultValue: string | null;
+
+  @Column({ name: 'max_length', type: 'int', nullable: true })
+  maxLength: number | null;
 
   @Column({ name: 'field_order', type: 'int', default: 0 })
   fieldOrder: number;

@@ -740,6 +740,341 @@ describe('Platform Builder (e2e)', () => {
       });
     });
 
+    // ==================== PHASE 4: DATA POLICY VALIDATIONS ====================
+    describe('Phase 4: Data Policy Validations', () => {
+      let policyTableId: string;
+      let policyRefTableId: string;
+      let policyRefRecordId: string;
+      const policyTableName = 'u_policy_e2e_' + Date.now();
+      const policyRefTableName = 'u_polref_e2e_' + Date.now();
+
+      it('should create reference table and record for ref integrity tests', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post('/grc/admin/tables')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            name: policyRefTableName,
+            label: 'Policy Ref Table',
+            isActive: true,
+          })
+          .expect(201);
+
+        policyRefTableId = res.body.data.id;
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${policyRefTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'ref_name',
+            label: 'Ref Name',
+            type: 'string',
+            isRequired: true,
+          })
+          .expect(201);
+
+        const recRes = await request(app.getHttpServer())
+          .post(`/grc/data/${policyRefTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({ data: { ref_name: 'Valid Ref' } })
+          .expect(201);
+
+        policyRefRecordId = recRes.body.data.recordId;
+      });
+
+      it('should create policy table with maxLength, readOnly, unique, and reference fields', async () => {
+        if (!dbConnected || !tenantId) {
+          console.log('Skipping test: database not connected');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post('/grc/admin/tables')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            name: policyTableName,
+            label: 'Policy Test Table',
+            isActive: true,
+          })
+          .expect(201);
+
+        policyTableId = res.body.data.id;
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${policyTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'short_text',
+            label: 'Short Text',
+            type: 'string',
+            maxLength: 10,
+            isRequired: true,
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${policyTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'locked_field',
+            label: 'Locked Field',
+            type: 'string',
+            readOnly: true,
+            isRequired: false,
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${policyTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'unique_code',
+            label: 'Unique Code',
+            type: 'string',
+            isUnique: true,
+            isRequired: true,
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/grc/admin/tables/${policyTableId}/fields`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            fieldName: 'ref_link',
+            label: 'Ref Link',
+            type: 'reference',
+            referenceTable: policyRefTableName,
+            isRequired: false,
+          })
+          .expect(201);
+      });
+
+      it('should reject record when field exceeds maxLength', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'this string is way too long for maxLength 10',
+              unique_code: 'ML001',
+            },
+          })
+          .expect(400);
+
+        expect(res.body.message).toContain('exceeds max length');
+      });
+
+      it('should accept record within maxLength', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: '0123456789',
+              unique_code: 'OK001',
+            },
+          })
+          .expect(201);
+
+        expect(res.body).toHaveProperty('success', true);
+      });
+
+      it('should reject duplicate unique field value', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'abc',
+              unique_code: 'OK001',
+            },
+          })
+          .expect(400);
+
+        expect(res.body.message).toContain('must be unique');
+      });
+
+      it('should reject reference to non-existent record', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'ref test',
+              unique_code: 'REF001',
+              ref_link: '00000000-0000-0000-0000-000000000000',
+            },
+          })
+          .expect(400);
+
+        expect(res.body.message).toContain('referenced record');
+        expect(res.body.message).toContain('not found');
+      });
+
+      it('should accept valid reference', async () => {
+        if (!dbConnected || !tenantId || !policyTableId || !policyRefRecordId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const res = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'valid ref',
+              unique_code: 'REF002',
+              ref_link: policyRefRecordId,
+            },
+          })
+          .expect(201);
+
+        expect(res.body).toHaveProperty('success', true);
+      });
+
+      it('should reject update to read-only field', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const createRes = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'readonly',
+              unique_code: 'RO001',
+            },
+          })
+          .expect(201);
+
+        const recordId = createRes.body.data.recordId;
+
+        const res = await request(app.getHttpServer())
+          .patch(`/grc/data/${policyTableName}/${recordId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              locked_field: 'trying to update',
+            },
+          })
+          .expect(400);
+
+        expect(res.body.message).toContain('read-only');
+        expect(res.body.message).toContain('locked_field');
+      });
+
+      it('should allow updating non-read-only fields', async () => {
+        if (!dbConnected || !tenantId || !policyTableId) {
+          console.log('Skipping test: setup incomplete');
+          return;
+        }
+
+        const createRes = await request(app.getHttpServer())
+          .post(`/grc/data/${policyTableName}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'editable',
+              unique_code: 'ED001',
+            },
+          })
+          .expect(201);
+
+        const recordId = createRes.body.data.recordId;
+
+        const res = await request(app.getHttpServer())
+          .patch(`/grc/data/${policyTableName}/${recordId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send({
+            data: {
+              short_text: 'updated',
+            },
+          })
+          .expect(200);
+
+        expect(res.body).toHaveProperty('success', true);
+        expect(res.body.data.data).toHaveProperty('short_text', 'updated');
+      });
+
+      afterAll(async () => {
+        if (!dbConnected || !tenantId) return;
+
+        const tablesToClean = [policyTableName, policyRefTableName];
+        for (const tn of tablesToClean) {
+          const recordsRes = await request(app.getHttpServer())
+            .get(`/grc/data/${tn}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+
+          if (recordsRes.body.data?.records?.items) {
+            for (const rec of recordsRes.body.data.records.items) {
+              await request(app.getHttpServer())
+                .delete(`/grc/data/${tn}/${rec.recordId}`)
+                .set('Authorization', `Bearer ${adminToken}`)
+                .set('x-tenant-id', tenantId);
+            }
+          }
+        }
+
+        if (policyTableId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/admin/tables/${policyTableId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+
+        if (policyRefTableId) {
+          await request(app.getHttpServer())
+            .delete(`/grc/admin/tables/${policyRefTableId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('x-tenant-id', tenantId);
+        }
+      });
+    });
+
     // ==================== CLEANUP ====================
     describe('Cleanup', () => {
       it('should delete the test table', async () => {
