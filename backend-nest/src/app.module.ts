@@ -29,6 +29,7 @@ import { NotificationEngineModule } from './notification-engine/notification-eng
 import { ApiCatalogModule } from './api-catalog/api-catalog.module';
 import { CmdbModule } from './itsm/cmdb/cmdb.module';
 import { CmdbImportModule } from './itsm/cmdb/import/cmdb-import.module';
+import { CmdbHealthModule } from './itsm/cmdb/health/cmdb-health.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -185,6 +186,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // CMDB Import & Reconciliation (Discovery-lite)
     CmdbImportModule,
+
+    // CMDB Health Rules & Quality Score (Quality Gate)
+    CmdbHealthModule,
 
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,
