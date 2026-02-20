@@ -27,6 +27,7 @@ import { TodosModule } from './todos/todos.module';
 import { EventBusModule } from './event-bus/event-bus.module';
 import { NotificationEngineModule } from './notification-engine/notification-engine.module';
 import { ApiCatalogModule } from './api-catalog/api-catalog.module';
+import { CmdbModule } from './itsm/cmdb/cmdb.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -177,6 +178,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // API Catalog v1 (published APIs, API keys, public gateway)
     ApiCatalogModule,
+
+    // CMDB Foundation (CI Classes, CIs, Relationships)
+    CmdbModule,
 
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,

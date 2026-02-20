@@ -327,6 +327,31 @@ export const API_PATHS = {
     },
   },
 
+  // CMDB (Configuration Management Database) endpoints
+  CMDB: {
+    CLASSES: {
+      LIST: '/grc/cmdb/classes',
+      GET: (id: string) => `/grc/cmdb/classes/${id}`,
+      CREATE: '/grc/cmdb/classes',
+      UPDATE: (id: string) => `/grc/cmdb/classes/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/classes/${id}`,
+    },
+    CIS: {
+      LIST: '/grc/cmdb/cis',
+      GET: (id: string) => `/grc/cmdb/cis/${id}`,
+      CREATE: '/grc/cmdb/cis',
+      UPDATE: (id: string) => `/grc/cmdb/cis/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/cis/${id}`,
+    },
+    RELATIONSHIPS: {
+      LIST: '/grc/cmdb/relationships',
+      GET: (id: string) => `/grc/cmdb/relationships/${id}`,
+      CREATE: '/grc/cmdb/relationships',
+      UPDATE: (id: string) => `/grc/cmdb/relationships/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/relationships/${id}`,
+    },
+  },
+
   // User endpoints (limited in NestJS)
   USERS: {
     ME: '/users/me',
@@ -1765,6 +1790,183 @@ export const itsmApi = {
     counts: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.COUNTS),
     validateBaseline: () => api.post(API_PATHS.ITSM.DIAGNOSTICS.VALIDATE_BASELINE, {}),
     slaSummary: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.SLA_SUMMARY),
+  },
+};
+
+// CMDB Types
+export interface CmdbCiClassData {
+  id: string;
+  name: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  parentClassId?: string;
+  isActive: boolean;
+  sortOrder: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbCiClassDto {
+  name: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  parentClassId?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateCmdbCiClassDto {
+  name?: string;
+  label?: string;
+  description?: string;
+  icon?: string;
+  parentClassId?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CmdbCiData {
+  id: string;
+  name: string;
+  description?: string;
+  classId: string;
+  ciClass?: CmdbCiClassData;
+  lifecycle: string;
+  environment: string;
+  category?: string;
+  assetTag?: string;
+  serialNumber?: string;
+  ipAddress?: string;
+  dnsName?: string;
+  managedBy?: string;
+  ownedBy?: string;
+  attributes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbCiDto {
+  name: string;
+  description?: string;
+  classId: string;
+  lifecycle?: string;
+  environment?: string;
+  category?: string;
+  assetTag?: string;
+  serialNumber?: string;
+  ipAddress?: string;
+  dnsName?: string;
+  managedBy?: string;
+  ownedBy?: string;
+  attributes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateCmdbCiDto {
+  name?: string;
+  description?: string;
+  classId?: string;
+  lifecycle?: string;
+  environment?: string;
+  category?: string;
+  assetTag?: string;
+  serialNumber?: string;
+  ipAddress?: string;
+  dnsName?: string;
+  managedBy?: string;
+  ownedBy?: string;
+  attributes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CmdbCiRelData {
+  id: string;
+  sourceCiId: string;
+  sourceCi?: CmdbCiData;
+  targetCiId: string;
+  targetCi?: CmdbCiData;
+  type: string;
+  notes?: string;
+  isActive: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbCiRelDto {
+  sourceCiId: string;
+  targetCiId: string;
+  type: string;
+  notes?: string;
+  isActive?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CmdbListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  classId?: string;
+  lifecycle?: string;
+  environment?: string;
+  isActive?: boolean;
+}
+
+// CMDB API object
+export const cmdbApi = {
+  classes: {
+    list: (params?: CmdbListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.CLASSES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.CLASSES.GET(id)),
+    create: (data: CreateCmdbCiClassDto) => api.post(API_PATHS.CMDB.CLASSES.CREATE, data),
+    update: (id: string, data: UpdateCmdbCiClassDto) => api.patch(API_PATHS.CMDB.CLASSES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.CLASSES.DELETE(id)),
+  },
+  cis: {
+    list: (params?: CmdbListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.classId) searchParams.set('classId', params.classId);
+      if (params?.lifecycle) searchParams.set('lifecycle', params.lifecycle);
+      if (params?.environment) searchParams.set('environment', params.environment);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.CIS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.CIS.GET(id)),
+    create: (data: CreateCmdbCiDto) => api.post(API_PATHS.CMDB.CIS.CREATE, data),
+    update: (id: string, data: UpdateCmdbCiDto) => api.patch(API_PATHS.CMDB.CIS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.CIS.DELETE(id)),
+  },
+  relationships: {
+    list: (params?: CmdbListParams & { ciId?: string; sourceCiId?: string; targetCiId?: string; type?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.ciId) searchParams.set('ciId', params.ciId);
+      if (params?.sourceCiId) searchParams.set('sourceCiId', params.sourceCiId);
+      if (params?.targetCiId) searchParams.set('targetCiId', params.targetCiId);
+      if (params?.type) searchParams.set('type', params.type);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.RELATIONSHIPS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.RELATIONSHIPS.GET(id)),
+    create: (data: CreateCmdbCiRelDto) => api.post(API_PATHS.CMDB.RELATIONSHIPS.CREATE, data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.RELATIONSHIPS.DELETE(id)),
   },
 };
 

@@ -58,6 +58,7 @@ import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
 import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics } from './pages/itsm';
+import { CmdbCiList, CmdbCiDetail, CmdbCiClassList } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -181,6 +182,28 @@ function App() {
                       description="Generate comprehensive audit reports with findings and recommendations."
                       moduleName="Audit Management"
                     />
+                  } />
+                  
+                  {/* CMDB (Configuration Management Database) Routes */}
+                  <Route path="cmdb/cis" element={
+                    <ErrorBoundary>
+                      <CmdbCiList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/cis/new" element={
+                    <ErrorBoundary>
+                      <CmdbCiDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/cis/:id" element={
+                    <ErrorBoundary>
+                      <CmdbCiDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/classes" element={
+                    <ErrorBoundary>
+                      <CmdbCiClassList />
+                    </ErrorBoundary>
                   } />
                   
                   {/* ITSM (IT Service Management) Routes - ITIL v5 aligned */}
