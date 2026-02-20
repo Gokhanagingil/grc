@@ -206,7 +206,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   useEffect(() => {
     const loadServices = async () => {
       try {
-        const res = await cmdbApi.services.list({ pageSize: 200 });
+        const res = await cmdbApi.services.list({ pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceData[] } };
         if (d?.data?.items) setCmdbServices(d.data.items);
       } catch { /* ignore */ }
@@ -221,7 +221,7 @@ export const ItsmIncidentDetail: React.FC = () => {
         return;
       }
       try {
-        const res = await cmdbApi.serviceOfferings.list({ serviceId: incident.serviceId, pageSize: 200 });
+        const res = await cmdbApi.serviceOfferings.list({ serviceId: incident.serviceId, pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceOfferingData[] } };
         if (d?.data?.items) setCmdbOfferings(d.data.items);
         else setCmdbOfferings([]);

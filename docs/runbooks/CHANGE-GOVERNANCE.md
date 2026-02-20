@@ -131,6 +131,51 @@ All endpoints require:
 
 ---
 
+## Canonical Pagination Contract
+
+All LIST endpoints in the GRC platform enforce a consistent pagination contract via `PaginationQueryDto`:
+
+| Parameter | Type | Default | Min | Max | Description |
+|-----------|------|---------|-----|-----|-------------|
+| `page` | number | 1 | 1 | — | Page number (1-indexed) |
+| `pageSize` | number | 20 | 1 | 100 | Items per page |
+| `sortBy` | string | — | — | — | Field to sort by |
+| `sortOrder` | string | `ASC` | — | — | `ASC` or `DESC` |
+
+### Response Envelope (LIST-CONTRACT)
+
+All successful LIST responses are wrapped by the `ResponseTransformInterceptor`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "total": 42,
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 3
+  }
+}
+```
+
+### Troubleshooting: 400 Bad Request on List Endpoints
+
+**Symptom**: `GET /api/grc/cmdb/services?pageSize=200` returns 400.
+
+**Root Cause**: `PaginationQueryDto` enforces `@Max(100)` on `pageSize`. Any value > 100 is rejected by class-validator.
+
+**Fix**: Frontend must send `pageSize <= 100`. If more items are needed, paginate through pages using `page` parameter.
+
+**Affected Endpoints**:
+- `/grc/cmdb/services` (extends `PaginationQueryDto`)
+- `/grc/cmdb/service-offerings` (extends `PaginationQueryDto`)
+- `/grc/itsm/calendar/events` (has own `@Max(100)` on `pageSize`)
+- `/grc/itsm/sla/definitions` (extends `PaginationQueryDto`)
+- All other endpoints using `PaginationQueryDto`
+
+---
+
 ## Acceptance Checklist
 
 ### Data Model

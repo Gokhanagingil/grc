@@ -130,18 +130,21 @@ export const ItsmChangeCalendar: React.FC = () => {
         startTo: end.toISOString(),
         type: typeFilter || undefined,
         status: statusFilter || undefined,
-        pageSize: 200,
+        pageSize: 100,
       });
-      const data = response.data as { data?: ItsmCalendarEventData[]; items?: ItsmCalendarEventData[] };
-      if (data?.data) {
-        setEvents(Array.isArray(data.data) ? data.data : []);
-      } else if (data?.items) {
-        setEvents(Array.isArray(data.items) ? data.items : []);
-      } else if (Array.isArray(data)) {
-        setEvents(data);
-      } else {
-        setEvents([]);
+      const raw = response.data as Record<string, unknown>;
+      const inner = raw?.data as Record<string, unknown> | ItsmCalendarEventData[] | undefined;
+      let items: ItsmCalendarEventData[] = [];
+      if (Array.isArray(inner)) {
+        items = inner;
+      } else if (inner && typeof inner === 'object' && 'items' in inner && Array.isArray(inner.items)) {
+        items = inner.items as ItsmCalendarEventData[];
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        items = raw.items as ItsmCalendarEventData[];
+      } else if (Array.isArray(raw)) {
+        items = raw as unknown as ItsmCalendarEventData[];
       }
+      setEvents(items);
     } catch (err) {
       console.error('Failed to fetch calendar events:', err);
       setError('Failed to load calendar events.');
@@ -155,16 +158,19 @@ export const ItsmChangeCalendar: React.FC = () => {
     setLoadingFreezes(true);
     try {
       const response = await itsmApi.calendar.freezeWindows.list({ pageSize: 100 });
-      const data = response.data as { data?: ItsmFreezeWindowData[]; items?: ItsmFreezeWindowData[] };
-      if (data?.data) {
-        setFreezeWindows(Array.isArray(data.data) ? data.data : []);
-      } else if (data?.items) {
-        setFreezeWindows(Array.isArray(data.items) ? data.items : []);
-      } else if (Array.isArray(data)) {
-        setFreezeWindows(data);
-      } else {
-        setFreezeWindows([]);
+      const raw = response.data as Record<string, unknown>;
+      const inner = raw?.data as Record<string, unknown> | ItsmFreezeWindowData[] | undefined;
+      let fwItems: ItsmFreezeWindowData[] = [];
+      if (Array.isArray(inner)) {
+        fwItems = inner;
+      } else if (inner && typeof inner === 'object' && 'items' in inner && Array.isArray(inner.items)) {
+        fwItems = inner.items as ItsmFreezeWindowData[];
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        fwItems = raw.items as ItsmFreezeWindowData[];
+      } else if (Array.isArray(raw)) {
+        fwItems = raw as unknown as ItsmFreezeWindowData[];
       }
+      setFreezeWindows(fwItems);
     } catch (err) {
       console.error('Failed to fetch freeze windows:', err);
       setFreezeWindows([]);
