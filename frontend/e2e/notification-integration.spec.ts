@@ -21,10 +21,10 @@ test.describe('Notification Integration @smoke', () => {
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only - verifies frontend call patterns');
 
-    test('Notification bell calls /api/grc/notifications/me with correct prefix', async ({ page }) => {
+    test('Notification bell calls /api/grc/user-notifications with correct prefix', async ({ page }) => {
       const notifRequests: string[] = [];
       page.on('request', (req) => {
-        if (req.url().includes('/grc/notifications')) {
+        if (req.url().includes('/grc/user-notifications')) {
           notifRequests.push(req.url());
         }
       });
@@ -34,11 +34,11 @@ test.describe('Notification Integration @smoke', () => {
 
       await expect.poll(() => notifRequests.length, {
         timeout: 15000,
-        message: 'Expected at least one request to notification endpoint',
+        message: 'Expected at least one request to /grc/user-notifications',
       }).toBeGreaterThanOrEqual(1);
 
       for (const url of notifRequests) {
-        expect(url).toContain('/api/grc/notifications/');
+        expect(url).toContain('/api/grc/user-notifications');
       }
     });
   });
@@ -49,7 +49,7 @@ test.describe('Notification Integration @smoke', () => {
     test('Notification requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
       page.on('request', (req) => {
-        if (req.url().includes('/grc/notifications')) {
+        if (req.url().includes('/grc/user-notifications')) {
           capturedHeaders.push(req.headers()['authorization'] ?? null);
         }
       });
@@ -59,7 +59,7 @@ test.describe('Notification Integration @smoke', () => {
 
       await expect.poll(() => capturedHeaders.length, {
         timeout: 15000,
-        message: 'Expected at least one notification request',
+        message: 'Expected at least one user-notifications request',
       }).toBeGreaterThanOrEqual(1);
 
       expect(capturedHeaders[0]).toBeTruthy();
@@ -80,35 +80,28 @@ test.describe('Notification Integration @smoke', () => {
     test('Bell icon shows unread badge when notifications exist', async ({ page }) => {
       await login(page);
 
-      await page.route('**/grc/notifications/**', async (route) => {
-        const url = route.request().url();
-        if (url.includes('/unread-count') || url.includes('unreadCount')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ success: true, data: { unreadCount: 3 } }),
-          });
-        } else {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              success: true,
-              data: {
-                items: [
-                  { id: '1', title: 'Test Notification', body: 'Test body', readAt: null, createdAt: new Date().toISOString() },
-                ],
-                total: 1, page: 1, pageSize: 20, totalPages: 1, unreadCount: 3,
-              },
-            }),
-          });
-        }
+      await page.route('**/grc/user-notifications**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              items: [
+                { id: '1', title: 'Test Notification 1', body: 'Body 1', isRead: false, createdAt: new Date().toISOString() },
+                { id: '2', title: 'Test Notification 2', body: 'Body 2', isRead: false, createdAt: new Date().toISOString() },
+                { id: '3', title: 'Test Notification 3', body: 'Body 3', isRead: false, createdAt: new Date().toISOString() },
+              ],
+              total: 3, page: 1, pageSize: 20, totalPages: 1,
+            },
+          }),
+        });
       });
 
       await page.goto('/dashboard');
 
       const badge = page.locator('.MuiBadge-badge');
-      await expect(badge).toBeVisible({ timeout: 10000 });
+      await expect(badge).toHaveText('3', { timeout: 10000 });
     });
   });
 
