@@ -38,7 +38,6 @@ import {
   Add as AddIcon,
   AcUnit as FreezeIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
 } from '@mui/icons-material';
 import {
   format,
