@@ -1,0 +1,133 @@
+import {
+  Connector,
+  ConnectorType,
+  ConnectorConfig,
+  ConnectorResult,
+} from '../connector.types';
+
+export class HttpPullConnector implements Connector {
+  type = ConnectorType.HTTP_PULL;
+
+  async fetch(config: ConnectorConfig): Promise<ConnectorResult> {
+    if (!config.url) {
+      throw new Error('HTTP_PULL connector requires a url in config');
+    }
+
+    const allowedProtocols = ['http:', 'https:'];
+    const parsed = new URL(config.url);
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      throw new Error(
+        `HTTP_PULL connector only supports http/https protocols, got: ${parsed.protocol}`,
+      );
+    }
+
+    if (this.isPrivateHost(parsed.hostname)) {
+      throw new Error(
+        'HTTP_PULL connector does not allow requests to private/internal networks',
+      );
+    }
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      ...(config.headers || {}),
+    };
+
+    const method = (config.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'POST') {
+      throw new Error(
+        `HTTP_PULL connector only supports GET and POST methods, got: ${method}`,
+      );
+    }
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(30_000),
+    };
+
+    if (method === 'POST' && config.body) {
+      fetchOptions.body = JSON.stringify(config.body);
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(config.url, fetchOptions);
+    if (!response.ok) {
+      throw new Error(
+        `HTTP_PULL fetch failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data: unknown = await response.json();
+
+    let rows: Record<string, unknown>[];
+    if (config.responseRowsPath) {
+      rows = this.extractPath(data, config.responseRowsPath);
+    } else if (Array.isArray(data)) {
+      rows = data as Record<string, unknown>[];
+    } else if (
+      typeof data === 'object' &&
+      data !== null &&
+      'items' in data &&
+      Array.isArray((data as Record<string, unknown>).items)
+    ) {
+      rows = (data as Record<string, unknown>).items as Record<
+        string,
+        unknown
+      >[];
+    } else {
+      throw new Error(
+        'HTTP_PULL: response is not an array and no responseRowsPath configured',
+      );
+    }
+
+    return {
+      rows,
+      metadata: {
+        totalFetched: rows.length,
+        fetchedAt: new Date().toISOString(),
+        source: config.url,
+      },
+    };
+  }
+
+  private isPrivateHost(hostname: string): boolean {
+    const lower = hostname.toLowerCase();
+
+    if (
+      lower === 'localhost' ||
+      lower === '127.0.0.1' ||
+      lower === '::1' ||
+      lower === '0.0.0.0' ||
+      lower.endsWith('.local') ||
+      lower.endsWith('.internal')
+    ) {
+      return true;
+    }
+
+    const parts = lower.split('.').map(Number);
+    if (parts.length === 4 && parts.every((p) => !isNaN(p))) {
+      if (parts[0] === 10) return true;
+      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+      if (parts[0] === 192 && parts[1] === 168) return true;
+      if (parts[0] === 169 && parts[1] === 254) return true;
+      if (parts[0] === 0) return true;
+    }
+
+    return false;
+  }
+
+  private extractPath(data: unknown, path: string): Record<string, unknown>[] {
+    const parts = path.split('.');
+    let current: unknown = data;
+    for (const part of parts) {
+      if (current === null || current === undefined) {
+        throw new Error(`HTTP_PULL: path "${path}" not found in response`);
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    if (!Array.isArray(current)) {
+      throw new Error(`HTTP_PULL: value at path "${path}" is not an array`);
+    }
+    return current as Record<string, unknown>[];
+  }
+}
