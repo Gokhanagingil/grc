@@ -35,9 +35,12 @@ export class CreateImportSourceDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+$/, {
-    message: 'cronExpr must be a valid 5-field cron expression',
-  })
+  @Matches(
+    /^[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+$/,
+    {
+      message: 'cronExpr must be a valid 5-field cron expression',
+    },
+  )
   cronExpr?: string;
 
   @IsString()
@@ -79,9 +82,12 @@ export class UpdateImportSourceDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+\s+[0-9*,\-\/]+$/, {
-    message: 'cronExpr must be a valid 5-field cron expression',
-  })
+  @Matches(
+    /^[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+\s+[0-9*,\-/]+$/,
+    {
+      message: 'cronExpr must be a valid 5-field cron expression',
+    },
+  )
   cronExpr?: string;
 
   @IsString()

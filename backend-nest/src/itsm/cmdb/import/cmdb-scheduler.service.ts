@@ -195,7 +195,9 @@ export class CmdbSchedulerService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    this.logger.log(`Created scheduled job ${saved.id} for source ${source.id}`);
+    this.logger.log(
+      `Created scheduled job ${saved.id} for source ${source.id}`,
+    );
     return saved;
   }
 

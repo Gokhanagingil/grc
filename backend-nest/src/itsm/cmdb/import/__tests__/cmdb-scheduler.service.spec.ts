@@ -1,5 +1,8 @@
 import { CmdbSchedulerService } from '../cmdb-scheduler.service';
-import { CmdbImportSource, ImportSourceType } from '../cmdb-import-source.entity';
+import {
+  CmdbImportSource,
+  ImportSourceType,
+} from '../cmdb-import-source.entity';
 import { CmdbImportJob, ImportJobStatus } from '../cmdb-import-job.entity';
 import { Repository } from 'typeorm';
 import { EventBusService } from '../../../../event-bus/event-bus.service';
@@ -211,7 +214,9 @@ describe('CmdbSchedulerService', () => {
     });
   });
 
-  function createSource(overrides: Partial<CmdbImportSource> & { cronExpr?: string | null } = {}): CmdbImportSource {
+  function createSource(
+    overrides: Partial<CmdbImportSource> & { cronExpr?: string | null } = {},
+  ): CmdbImportSource {
     return {
       id: 'src-default',
       tenantId,

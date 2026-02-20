@@ -1,17 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddScheduleFieldsToCmdbImportSource1740300000000
-  implements MigrationInterface
-{
+export class AddScheduleFieldsToCmdbImportSource1740300000000 implements MigrationInterface {
   name = 'AddScheduleFieldsToCmdbImportSource1740300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const table = await queryRunner.query(
+    const table = (await queryRunner.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'cmdb_import_source'`,
-    );
-    const cols = new Set(
-      (table as { column_name: string }[]).map((r) => r.column_name),
-    );
+    )) as { column_name: string }[];
+    const cols = new Set(table.map((r) => r.column_name));
 
     if (!cols.has('schedule_enabled')) {
       await queryRunner.query(
