@@ -234,7 +234,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .send({
           shortDescription: `Test incident phantom ${Date.now()}`,
           description: 'Should fail - non-existent service',
-          serviceId: '00000000-0000-0000-0000-000000000099',
+          serviceId: 'a0000000-0000-4000-8000-000000000099',
         })
         .expect(404);
     });
