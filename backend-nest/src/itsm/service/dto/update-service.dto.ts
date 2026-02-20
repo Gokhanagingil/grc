@@ -30,6 +30,14 @@ export class UpdateServiceDto {
   @IsOptional()
   ownerUserId?: string;
 
+  @IsUUID('4')
+  @IsOptional()
+  serviceId?: string;
+
+  @IsUUID('4')
+  @IsOptional()
+  offeringId?: string;
+
   @IsObject()
   @IsOptional()
   metadata?: Record<string, unknown>;

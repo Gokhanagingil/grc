@@ -53,6 +53,8 @@ import { DiagnosticsController } from './diagnostics/diagnostics.controller';
 import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
 
 import { EventBusModule } from '../event-bus/event-bus.module';
+import { CmdbService as CmdbServiceEntity } from './cmdb/service/cmdb-service.entity';
+import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offering.entity';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { EventBusModule } from '../event-bus/event-bus.module';
       SlaInstance,
       SysChoice,
       ItsmJournal,
+      CmdbServiceEntity,
+      CmdbServiceOffering,
     ]),
     AuditModule,
     AuthModule,

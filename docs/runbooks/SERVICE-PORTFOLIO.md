@@ -179,3 +179,97 @@ wget -qO- --header="Authorization: Bearer <TOKEN>" \
 8. Click "Link CI", select a CI and relationship type, click Link
 9. Verify the linked CI appears in the table
 10. Unlink a relationship and verify it disappears
+
+---
+
+# ITSM Service Binding (PR-B3)
+
+## Overview
+
+PR-B3 binds ITSM records (Incidents, Changes, Services) to CMDB Services and Offerings. This makes ITSM "service-centric" by allowing each incident or change to reference the affected service and offering.
+
+## What Changed
+
+### Backend
+- **Migration**: `1740000000000-AddServiceOfferingToItsmRecords` adds nullable `service_id` and `offering_id` columns to `itsm_incidents`, `itsm_changes`, and `itsm_services` tables with foreign keys to `cmdb_service` and `cmdb_service_offering`
+- **Entities**: `ItsmIncident`, `ItsmChange`, `ItsmService` entities updated with `@ManyToOne` relations to `CmdbService` and `CmdbServiceOffering`
+- **DTOs**: Create/Update DTOs for all three entities accept optional `serviceId` and `offeringId` (validated as UUID)
+- **Validation**: If `offeringId` is provided, `serviceId` must match `offering.serviceId`; tenant isolation enforced on referenced service/offering
+- **Filters**: List endpoints support `?serviceId=...&offeringId=...` query params
+- **RBAC**: Unchanged — uses existing `ITSM_INCIDENT_*`, `ITSM_CHANGE_*`, `ITSM_SERVICE_*` permissions
+
+### Frontend
+- **Incident create/edit**: "Service Binding" card with CMDB Service dropdown and Offering dropdown (filtered by selected service)
+- **Change create/edit**: Same "Service Binding" card pattern
+- **UX**: Offering dropdown disabled when no service selected; changing service clears offering to prevent invalid state
+- **Data attributes**: `data-testid="incident-service-select"`, `data-testid="incident-offering-select"`, `data-testid="change-service-select"`, `data-testid="change-offering-select"`
+
+## Validation Rules
+
+| Rule | HTTP Status | Description |
+|------|-------------|-------------|
+| `offeringId` without `serviceId` | 400 | `serviceId` is required when `offeringId` is provided |
+| Non-existent `serviceId` | 404 | Service not found in this tenant |
+| Non-existent `offeringId` | 404 | Offering not found in this tenant |
+| `offeringId` belongs to different service | 400 | Offering does not belong to the specified service |
+| Cross-tenant `serviceId` | 404 | Tenant isolation — service not visible |
+
+## Staging Verification (PR-B3)
+
+### 1. Run Migration
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc \
+  'npx typeorm migration:run -d dist/data-source.js'
+```
+
+### 2. Verify Columns Exist
+```bash
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc -d grc -c \
+  "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'itsm_incidents' AND column_name IN ('service_id', 'offering_id');"
+```
+
+### 3. Verify API — Create Incident with Service Binding
+```bash
+# Create incident with service + offering
+wget -qO- --method=POST \
+  --header="Authorization: Bearer <TOKEN>" \
+  --header="x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  --header="Content-Type: application/json" \
+  --body-data='{"title":"Test binding","serviceId":"<SERVICE_ID>","offeringId":"<OFFERING_ID>"}' \
+  http://localhost:3002/grc/itsm/incidents
+```
+
+### 4. Verify API — Filter by Service
+```bash
+wget -qO- --header="Authorization: Bearer <TOKEN>" \
+  --header="x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3002/grc/itsm/incidents?serviceId=<SERVICE_ID>
+```
+
+### 5. Frontend Verification
+1. Log in to the platform
+2. Navigate to ITSM > Incidents > New Incident
+3. Verify "Service Binding" section appears with CMDB Service and Offering dropdowns
+4. Select a CMDB Service — verify Offering dropdown becomes enabled and loads offerings
+5. Select an Offering and save the incident
+6. Reopen the incident — verify service and offering values are persisted
+7. Navigate to ITSM > Changes > New Change
+8. Verify same "Service Binding" section appears
+9. Select a service and offering, save, reopen — verify persistence
+
+## Acceptance Checklist
+
+- [ ] Migration adds `service_id` and `offering_id` to `itsm_incidents`, `itsm_changes`, `itsm_services`
+- [ ] Foreign keys reference `cmdb_service` and `cmdb_service_offering` with `ON DELETE SET NULL`
+- [ ] Create/update incident with valid service+offering succeeds
+- [ ] Create incident with mismatched offering/service returns 400
+- [ ] Create incident with non-existent service returns 404
+- [ ] Create incident with offering but no service returns 400
+- [ ] Filter incidents by `serviceId` and `offeringId` works
+- [ ] Filter changes by `serviceId` and `offeringId` works
+- [ ] Frontend: Service Binding card visible on incident create/edit
+- [ ] Frontend: Service Binding card visible on change create/edit
+- [ ] Frontend: Offering dropdown filtered by selected service
+- [ ] Frontend: Changing service clears offering selection
+- [ ] E2E tests pass for service binding validation
+- [ ] Playwright smoke test passes

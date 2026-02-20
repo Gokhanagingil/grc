@@ -63,6 +63,14 @@ export class IncidentFilterDto extends PaginationQueryDto {
   createdTo?: string;
 
   @IsOptional()
+  @IsUUID()
+  serviceId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  offeringId?: string;
+
+  @IsOptional()
   @IsString()
   search?: string;
 }

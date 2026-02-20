@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
 import { ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../change.entity';
 import { PaginationQueryDto } from '../../../grc/dto/pagination.dto';
 
@@ -18,6 +18,14 @@ export class ChangeFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ChangeApprovalStatus)
   approvalStatus?: ChangeApprovalStatus;
+
+  @IsOptional()
+  @IsUUID()
+  serviceId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  offeringId?: string;
 
   @IsOptional()
   @IsString()

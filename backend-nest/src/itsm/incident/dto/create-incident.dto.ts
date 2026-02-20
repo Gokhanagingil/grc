@@ -65,6 +65,14 @@ export class CreateIncidentDto {
   @MaxLength(100, { message: 'Related service must not exceed 100 characters' })
   relatedService?: string;
 
+  @IsUUID('4', { message: 'Service ID must be a valid UUID' })
+  @IsOptional()
+  serviceId?: string;
+
+  @IsUUID('4', { message: 'Offering ID must be a valid UUID' })
+  @IsOptional()
+  offeringId?: string;
+
   @IsUUID('4', { message: 'Related risk ID must be a valid UUID' })
   @IsOptional()
   relatedRiskId?: string;
