@@ -79,13 +79,13 @@ export class ChoiceService {
     return grouped;
   }
 
-  async validateChoice(
+  async resolveCanonicalValue(
     tenantId: string,
     tableName: string,
     fieldName: string,
     value: string,
-  ): Promise<boolean> {
-    const count = await this.repository.count({
+  ): Promise<string | null> {
+    const exact = await this.repository.findOne({
       where: {
         tenantId,
         tableName,
@@ -95,7 +95,37 @@ export class ChoiceService {
         isDeleted: false,
       },
     });
-    return count > 0;
+    if (exact) {
+      return exact.value;
+    }
+
+    const choices = await this.repository.find({
+      where: {
+        tenantId,
+        tableName,
+        fieldName,
+        isActive: true,
+        isDeleted: false,
+      },
+    });
+    const lowerInput = value.toLowerCase();
+    const match = choices.find((c) => c.value.toLowerCase() === lowerInput);
+    return match ? match.value : null;
+  }
+
+  async validateChoice(
+    tenantId: string,
+    tableName: string,
+    fieldName: string,
+    value: string,
+  ): Promise<boolean> {
+    const canonical = await this.resolveCanonicalValue(
+      tenantId,
+      tableName,
+      fieldName,
+      value,
+    );
+    return canonical !== null;
   }
 
   async validateChoiceFields(
@@ -131,21 +161,25 @@ export class ChoiceService {
         continue;
       }
 
-      const isValid = await this.validateChoice(
+      const canonical = await this.resolveCanonicalValue(
         tenantId,
         tableName,
         field,
         strValue,
       );
 
-      if (!isValid) {
+      if (canonical === null) {
+        const validChoices = await this.getChoices(tenantId, tableName, field);
+        const validValues = validChoices.map((c) => c.value);
         errors.push({
           error: 'INVALID_CHOICE',
           field,
           value: strValue,
           table: tableName,
-          message: `Invalid value '${strValue}' for choice field '${field}' on table '${tableName}'`,
+          message: `Invalid value '${strValue}' for choice field '${field}' on table '${tableName}'. Valid values: [${validValues.join(', ')}]`,
         });
+      } else if (canonical !== strValue) {
+        data[field] = canonical;
       }
     }
 
