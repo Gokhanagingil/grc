@@ -106,9 +106,73 @@ describe('ChoiceService', () => {
     });
   });
 
+  describe('resolveCanonicalValue', () => {
+    it('should return exact match value when found', async () => {
+      repository.findOne.mockResolvedValue(mockChoice as SysChoice);
+
+      const result = await service.resolveCanonicalValue(
+        mockTenantId,
+        'itsm_incidents',
+        'category',
+        'hardware',
+      );
+
+      expect(result).toBe('hardware');
+    });
+
+    it('should return canonical value for case-insensitive match', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+        { ...mockChoice, value: 'software' } as SysChoice,
+      ]);
+
+      const result = await service.resolveCanonicalValue(
+        mockTenantId,
+        'itsm_incidents',
+        'category',
+        'Hardware',
+      );
+
+      expect(result).toBe('hardware');
+    });
+
+    it('should return canonical value for UPPERCASE input', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+      ]);
+
+      const result = await service.resolveCanonicalValue(
+        mockTenantId,
+        'itsm_incidents',
+        'category',
+        'HARDWARE',
+      );
+
+      expect(result).toBe('hardware');
+    });
+
+    it('should return null when no match exists', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+      ]);
+
+      const result = await service.resolveCanonicalValue(
+        mockTenantId,
+        'itsm_incidents',
+        'category',
+        'nonexistent',
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('validateChoice', () => {
-    it('should return true for valid active choice', async () => {
-      repository.count.mockResolvedValue(1);
+    it('should return true for valid active choice (exact match)', async () => {
+      repository.findOne.mockResolvedValue(mockChoice as SysChoice);
 
       const result = await service.validateChoice(
         mockTenantId,
@@ -118,20 +182,29 @@ describe('ChoiceService', () => {
       );
 
       expect(result).toBe(true);
-      expect(repository.count).toHaveBeenCalledWith({
-        where: {
-          tenantId: mockTenantId,
-          tableName: 'itsm_incidents',
-          fieldName: 'category',
-          value: 'hardware',
-          isActive: true,
-          isDeleted: false,
-        },
-      });
+    });
+
+    it('should return true for case-insensitive match', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+      ]);
+
+      const result = await service.validateChoice(
+        mockTenantId,
+        'itsm_incidents',
+        'category',
+        'HARDWARE',
+      );
+
+      expect(result).toBe(true);
     });
 
     it('should return false for invalid choice value', async () => {
-      repository.count.mockResolvedValue(0);
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+      ]);
 
       const result = await service.validateChoice(
         mockTenantId,
@@ -142,28 +215,12 @@ describe('ChoiceService', () => {
 
       expect(result).toBe(false);
     });
-
-    it('should return false for inactive choice', async () => {
-      repository.count.mockResolvedValue(0);
-
-      const result = await service.validateChoice(
-        mockTenantId,
-        'itsm_incidents',
-        'category',
-        'hardware',
-      );
-
-      expect(result).toBe(false);
-    });
   });
 
   describe('validateChoiceFields', () => {
-    it('should return no errors when all values are valid', async () => {
-      repository.count
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(1);
+    it('should return no errors when all values are valid (exact match)', async () => {
+      repository.count.mockResolvedValue(1);
+      repository.findOne.mockResolvedValue(mockChoice as SysChoice);
 
       const errors = await service.validateChoiceFields(
         mockTenantId,
@@ -174,23 +231,43 @@ describe('ChoiceService', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should return errors for invalid values', async () => {
-      repository.count
-        .mockResolvedValueOnce(5)
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(5)
-        .mockResolvedValueOnce(1);
+    it('should normalize case-insensitive input to canonical value', async () => {
+      repository.count.mockResolvedValue(1);
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+      ]);
+
+      const data: Record<string, unknown> = { category: 'HARDWARE' };
+      const errors = await service.validateChoiceFields(
+        mockTenantId,
+        'itsm_incidents',
+        data,
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data.category).toBe('hardware');
+    });
+
+    it('should return errors for invalid values with valid values listed', async () => {
+      repository.count.mockResolvedValue(5);
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([
+        { ...mockChoice, value: 'hardware' } as SysChoice,
+        { ...mockChoice, value: 'software' } as SysChoice,
+      ]);
 
       const errors = await service.validateChoiceFields(
         mockTenantId,
         'itsm_incidents',
-        { category: 'invalid_cat', impact: 'medium' },
+        { category: 'invalid_cat' },
       );
 
       expect(errors).toHaveLength(1);
       expect(errors[0].error).toBe('INVALID_CHOICE');
       expect(errors[0].field).toBe('category');
       expect(errors[0].value).toBe('invalid_cat');
+      expect(errors[0].message).toContain('Valid values:');
     });
 
     it('should skip validation when no choices are seeded for a field', async () => {
