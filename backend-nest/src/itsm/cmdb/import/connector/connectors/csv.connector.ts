@@ -8,7 +8,7 @@ import {
 export class CsvConnector implements Connector {
   type = ConnectorType.CSV;
 
-  async fetch(config: ConnectorConfig): Promise<ConnectorResult> {
+  fetch(config: ConnectorConfig): Promise<ConnectorResult> {
     const raw = (config.body as string) || '';
     const delimiter = config.csvDelimiter || ',';
     const hasHeader = config.csvHasHeader !== false;
@@ -19,7 +19,14 @@ export class CsvConnector implements Connector {
       .filter((l) => l.length > 0);
 
     if (lines.length === 0) {
-      return { rows: [], metadata: { totalFetched: 0, fetchedAt: new Date().toISOString(), source: 'csv' } };
+      return Promise.resolve({
+        rows: [],
+        metadata: {
+          totalFetched: 0,
+          fetchedAt: new Date().toISOString(),
+          source: 'csv',
+        },
+      });
     }
 
     let headers: string[];
@@ -44,14 +51,14 @@ export class CsvConnector implements Connector {
       rows.push(row);
     }
 
-    return {
+    return Promise.resolve({
       rows,
       metadata: {
         totalFetched: rows.length,
         fetchedAt: new Date().toISOString(),
         source: 'csv',
       },
-    };
+    });
   }
 
   private parseLine(line: string, delimiter: string): string[] {

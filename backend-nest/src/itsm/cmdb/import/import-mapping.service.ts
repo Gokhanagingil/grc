@@ -28,7 +28,9 @@ export class ImportMappingService extends MultiTenantServiceBase<CmdbImportMappi
     const errors: string[] = [];
     for (const t of transforms) {
       if (!ALLOWED_TRANSFORMS.has(t.name)) {
-        errors.push(`Unsafe transform rejected: "${t.name}". Allowed: ${[...ALLOWED_TRANSFORMS].join(', ')}`);
+        errors.push(
+          `Unsafe transform rejected: "${t.name}". Allowed: ${[...ALLOWED_TRANSFORMS].join(', ')}`,
+        );
       }
     }
     return errors;

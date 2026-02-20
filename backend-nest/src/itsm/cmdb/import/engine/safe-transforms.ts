@@ -41,23 +41,30 @@ function applyUpper(value: unknown): unknown {
   return value;
 }
 
+function toStr(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return `${value}`;
+  return '';
+}
+
 function applyParseInt(value: unknown): unknown {
   if (value === null || value === undefined || value === '') return null;
-  const str = String(value).trim();
+  const str = toStr(value).trim();
   const parsed = parseInt(str, 10);
   return isNaN(parsed) ? null : parsed;
 }
 
 function applyParseFloat(value: unknown): unknown {
   if (value === null || value === undefined || value === '') return null;
-  const str = String(value).trim();
+  const str = toStr(value).trim();
   const parsed = parseFloat(str);
   return isNaN(parsed) ? null : parsed;
 }
 
 function applyDate(value: unknown): unknown {
   if (value === null || value === undefined || value === '') return null;
-  const str = String(value).trim();
+  const str = toStr(value).trim();
   const d = new Date(str);
   if (isNaN(d.getTime())) return null;
   return d.toISOString();
@@ -66,7 +73,7 @@ function applyDate(value: unknown): unknown {
 function applyBoolean(value: unknown): unknown {
   if (value === null || value === undefined) return null;
   if (typeof value === 'boolean') return value;
-  const str = String(value).trim().toLowerCase();
+  const str = toStr(value).trim().toLowerCase();
   if (['true', '1', 'yes', 'on'].includes(str)) return true;
   if (['false', '0', 'no', 'off', ''].includes(str)) return false;
   return null;
@@ -74,7 +81,7 @@ function applyBoolean(value: unknown): unknown {
 
 function applyToString(value: unknown): unknown {
   if (value === null || value === undefined) return null;
-  return String(value);
+  return toStr(value);
 }
 
 function applyDefault(value: unknown, args?: Record<string, unknown>): unknown {

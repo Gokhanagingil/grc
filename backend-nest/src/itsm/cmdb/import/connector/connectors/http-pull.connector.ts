@@ -84,10 +84,7 @@ export class HttpPullConnector implements Connector {
     };
   }
 
-  private extractPath(
-    data: unknown,
-    path: string,
-  ): Record<string, unknown>[] {
+  private extractPath(data: unknown, path: string): Record<string, unknown>[] {
     const parts = path.split('.');
     let current: unknown = data;
     for (const part of parts) {
@@ -97,9 +94,7 @@ export class HttpPullConnector implements Connector {
       current = (current as Record<string, unknown>)[part];
     }
     if (!Array.isArray(current)) {
-      throw new Error(
-        `HTTP_PULL: value at path "${path}" is not an array`,
-      );
+      throw new Error(`HTTP_PULL: value at path "${path}" is not an array`);
     }
     return current as Record<string, unknown>[];
   }

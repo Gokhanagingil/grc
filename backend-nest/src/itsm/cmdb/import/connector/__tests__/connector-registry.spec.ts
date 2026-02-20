@@ -1,4 +1,7 @@
-import { getConnector, getSupportedConnectorTypes } from '../connector-registry';
+import {
+  getConnector,
+  getSupportedConnectorTypes,
+} from '../connector-registry';
 import { ConnectorType } from '../connector.types';
 
 describe('connector-registry', () => {

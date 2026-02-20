@@ -31,9 +31,7 @@ import {
 @Controller('grc/cmdb/import-mappings')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class ImportMappingController {
-  constructor(
-    private readonly importMappingService: ImportMappingService,
-  ) {}
+  constructor(private readonly importMappingService: ImportMappingService) {}
 
   @Get()
   @Permissions(Permission.CMDB_IMPORT_READ)
