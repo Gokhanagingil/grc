@@ -803,7 +803,126 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Generic fallback for other API endpoints
+    // ─── Notification Engine endpoints ───────────────────────────────────
+
+    // Handle grc/user-notifications - GET (Bell icon, drawer, notification list)
+    // The NotificationBell component calls /grc/user-notifications
+    if (url.includes('/grc/user-notifications') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/user-notifications - PUT (mark as read, read-all)
+    if (url.includes('/grc/user-notifications') && method === 'PUT') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({ success: true }));
+      return;
+    }
+
+    // Handle grc/notification-rules - GET (Notification Studio rules tab)
+    if (url.includes('/grc/notification-rules') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/notification-templates - GET (Notification Studio templates tab)
+    if (url.includes('/grc/notification-templates') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/notification-deliveries - GET (Notification Studio deliveries tab)
+    if (url.includes('/grc/notification-deliveries') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/notifications - GET (legacy/alternative notification endpoints)
+    // MUST come after notification-rules/templates/deliveries to avoid prefix collision
+    if (url.includes('/grc/notifications') && method === 'GET') {
+      logMock(method, url, true);
+      if (url.includes('/unread-count')) {
+        await route.fulfill(successResponse({ unreadCount: 0 }));
+      } else {
+        await route.fulfill(successResponse({
+          items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0,
+        }));
+      }
+      return;
+    }
+
+    // Handle grc/notifications - PATCH/PUT (mark as read)
+    if (url.includes('/grc/notifications') && (method === 'PATCH' || method === 'PUT')) {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({ success: true }));
+      return;
+    }
+
+    // ─── API Catalog endpoints ────────────────────────────────────────────
+
+    // Handle grc/published-apis - GET (API Catalog published APIs list)
+    if (url.includes('/grc/published-apis') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/api-keys - GET (API Catalog keys list)
+    if (url.includes('/grc/api-keys') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // ─── Webhook endpoints ────────────────────────────────────────────────
+
+    // Handle grc/webhook-endpoints - GET (Webhook management list)
+    if (url.includes('/grc/webhook-endpoints') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        items: [], total: 0, page: 1, pageSize: 20, totalPages: 0,
+      }));
+      return;
+    }
+
+    // Handle grc/webhook-endpoints - POST (test delivery, create)
+    if (url.includes('/grc/webhook-endpoints') && method === 'POST') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({ id: 'mock-webhook-1', status: 'created' }));
+      return;
+    }
+
+    // ─── Generic fallback (catch-all) ─────────────────────────────────────
+    // P2 regression guard: warn when catch-all handles a request that looks
+    // like it should have an explicit handler above.
+    const knownPatterns = [
+      '/grc/user-notifications', '/grc/notifications', '/grc/notification-rules',
+      '/grc/notification-templates', '/grc/notification-deliveries',
+      '/grc/published-apis', '/grc/api-keys', '/grc/webhook-endpoints',
+    ];
+    if (knownPatterns.some(p => url.includes(p))) {
+      console.warn(
+        `[mock] WARN: CATCH-ALL intercepted a request that should have an explicit handler: ${method} ${url}. ` +
+        'This usually means a new HTTP method or sub-path was added without updating setupMockApi in helpers.ts.',
+      );
+    }
+
     if (method === 'GET') {
       logMock(method, url, true);
       await route.fulfill(successResponse([]));
