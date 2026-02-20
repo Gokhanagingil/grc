@@ -24,6 +24,10 @@ import { CmdbServiceOffering } from './service-offering/cmdb-service-offering.en
 import { CmdbServiceOfferingService } from './service-offering/cmdb-service-offering.service';
 import { CmdbServiceOfferingController } from './service-offering/cmdb-service-offering.controller';
 
+import { CmdbServiceCi } from './service-ci/cmdb-service-ci.entity';
+import { CmdbServiceCiService } from './service-ci/cmdb-service-ci.service';
+import { CmdbServiceCiController } from './service-ci/cmdb-service-ci.controller';
+
 import { SysChoice } from '../choice/sys-choice.entity';
 import { ChoiceService } from '../choice/choice.service';
 
@@ -35,6 +39,7 @@ import { ChoiceService } from '../choice/choice.service';
       CmdbCiRel,
       CmdbService,
       CmdbServiceOffering,
+      CmdbServiceCi,
       SysChoice,
     ]),
     AuditModule,
@@ -47,6 +52,7 @@ import { ChoiceService } from '../choice/choice.service';
     CiRelService,
     CmdbServiceService,
     CmdbServiceOfferingService,
+    CmdbServiceCiService,
     ChoiceService,
   ],
   controllers: [
@@ -55,6 +61,7 @@ import { ChoiceService } from '../choice/choice.service';
     CiRelController,
     CmdbServiceController,
     CmdbServiceOfferingController,
+    CmdbServiceCiController,
   ],
   exports: [
     CiClassService,
@@ -62,6 +69,7 @@ import { ChoiceService } from '../choice/choice.service';
     CiRelService,
     CmdbServiceService,
     CmdbServiceOfferingService,
+    CmdbServiceCiService,
   ],
 })
 export class CmdbModule {}

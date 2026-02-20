@@ -31,6 +31,7 @@ const CHOICE_MANAGED_FIELDS: Record<string, string[]> = {
   cmdb_ci_rel: ['type'],
   cmdb_service: ['type', 'status', 'tier', 'criticality'],
   cmdb_service_offering: ['status'],
+  cmdb_service_ci: ['relationship_type'],
 };
 
 @Injectable()
