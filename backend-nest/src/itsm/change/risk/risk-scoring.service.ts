@@ -232,7 +232,7 @@ export class RiskScoringService {
         break;
       default:
         rawScore = 40;
-        evidence = `Unknown change type: ${type}`;
+        evidence = `Unknown change type: ${String(type)}`;
     }
 
     return {

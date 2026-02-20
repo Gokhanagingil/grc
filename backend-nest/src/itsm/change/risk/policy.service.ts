@@ -2,8 +2,8 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChangePolicy, PolicyConditions, PolicyActions } from './change-policy.entity';
-import { ItsmChange, ChangeType } from '../change.entity';
-import { RiskAssessment, RiskLevel } from './risk-assessment.entity';
+import { ItsmChange } from '../change.entity';
+import { RiskAssessment } from './risk-assessment.entity';
 import {
   PolicyFilterDto,
   POLICY_SORTABLE_FIELDS,
