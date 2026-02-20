@@ -178,6 +178,32 @@ describe('ITSM Incident Affected CIs & Impact (e2e)', () => {
         .send({ relationshipType: 'runs_on' })
         .expect(201);
     });
+
+    it('should seed sys_choice entries for itsm_incident_ci', async () => {
+      if (!dbConnected || !tenantId || !adminToken) {
+        console.log('Skipping test: prerequisites not met');
+        return;
+      }
+
+      const choices = [
+        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'affected_by', label: 'Affected By' },
+        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'caused_by', label: 'Caused By' },
+        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'related_to', label: 'Related To' },
+        { tableName: 'itsm_incident_ci', fieldName: 'impactScope', value: 'service_impacting', label: 'Service Impacting' },
+        { tableName: 'itsm_incident_ci', fieldName: 'impactScope', value: 'informational', label: 'Informational' },
+      ];
+
+      for (const choice of choices) {
+        const res = await request(app.getHttpServer())
+          .post('/grc/itsm/choices')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .send(choice);
+        if (res.status !== 201) {
+          console.log(`Choice seed (${choice.value}): status=${res.status}`);
+        }
+      }
+    });
   });
 
   // ==================== AFFECTED CIs CRUD ====================
