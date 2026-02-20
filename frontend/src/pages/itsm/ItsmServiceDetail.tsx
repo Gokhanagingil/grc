@@ -22,6 +22,7 @@ import {
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
+import { ActivityStream } from '../../components/itsm/ActivityStream';
 
 interface ItsmService {
   id: string;
@@ -247,6 +248,12 @@ export const ItsmServiceDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {!isNew && service.id && (
+        <Box sx={{ mt: 3 }}>
+          <ActivityStream table="services" recordId={service.id} />
+        </Box>
+      )}
     </Box>
   );
 };

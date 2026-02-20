@@ -256,6 +256,13 @@ export const API_PATHS = {
       LINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
       UNLINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
     },
+    // ITSM Journal endpoints
+    JOURNAL: {
+      LIST: (table: string, recordId: string) => `/grc/itsm/${table}/${recordId}/journal`,
+      CREATE: (table: string, recordId: string) => `/grc/itsm/${table}/${recordId}/journal`,
+      COUNT: (table: string, recordId: string) => `/grc/itsm/${table}/${recordId}/journal/count`,
+    },
+
     // ITSM Choice endpoints
     CHOICES: {
       LIST: '/grc/itsm/choices',
@@ -1561,6 +1568,24 @@ export interface UpdateItsmChoiceDto {
   metadata?: Record<string, unknown>;
 }
 
+export type ItsmJournalType = 'work_note' | 'comment';
+
+export interface ItsmJournalEntryData {
+  id: string;
+  tenantId: string;
+  tableName: string;
+  recordId: string;
+  type: ItsmJournalType;
+  message: string;
+  createdAt: string;
+  createdBy?: string | null;
+}
+
+export interface CreateItsmJournalDto {
+  type: ItsmJournalType;
+  message: string;
+}
+
 export interface ItsmManagedTable {
   name: string;
   fields: string[];
@@ -1643,6 +1668,26 @@ export const itsmApi = {
     getLinkedControls: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.CONTROLS(changeId)),
     linkControl: (changeId: string, controlId: string) => api.post(API_PATHS.ITSM.CHANGES.LINK_CONTROL(changeId, controlId), {}),
     unlinkControl: (changeId: string, controlId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_CONTROL(changeId, controlId)),
+  },
+
+  // ITSM Journal
+  journal: {
+    list: (
+      table: string,
+      recordId: string,
+      params?: { page?: number; pageSize?: number; type?: ItsmJournalType; sortOrder?: 'ASC' | 'DESC' },
+    ) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.type) searchParams.set('type', params.type);
+      if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+      const queryString = searchParams.toString();
+      const url = API_PATHS.ITSM.JOURNAL.LIST(table, recordId);
+      return api.get(`${url}${queryString ? `?${queryString}` : ''}`);
+    },
+    create: (table: string, recordId: string, data: CreateItsmJournalDto) =>
+      api.post(API_PATHS.ITSM.JOURNAL.CREATE(table, recordId), data),
   },
 
   // ITSM Choices

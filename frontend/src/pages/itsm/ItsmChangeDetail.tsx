@@ -30,6 +30,7 @@ import {
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
+import { ActivityStream } from '../../components/itsm/ActivityStream';
 
 interface ItsmChange {
   id: string;
@@ -553,6 +554,12 @@ export const ItsmChangeDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {!isNew && change.id && (
+        <Box sx={{ mt: 3 }}>
+          <ActivityStream table="changes" recordId={change.id} />
+        </Box>
+      )}
     </Box>
   );
 };

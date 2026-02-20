@@ -86,6 +86,10 @@ export enum Permission {
   ITSM_CHOICE_READ = 'itsm:choice:read',
   ITSM_CHOICE_WRITE = 'itsm:choice:write',
 
+  // ITSM Journal permissions
+  ITSM_JOURNAL_READ = 'itsm:journal:read',
+  ITSM_JOURNAL_WRITE = 'itsm:journal:write',
+
   // ITSM Statistics permissions
   ITSM_STATISTICS_READ = 'itsm:statistics:read',
 
@@ -180,6 +184,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_CHOICE_READ]: 'View choice definitions for ITSM tables',
   [Permission.ITSM_CHOICE_WRITE]:
     'Create, update, and deactivate choice definitions',
+  [Permission.ITSM_JOURNAL_READ]: 'View journal entries (work notes and comments)',
+  [Permission.ITSM_JOURNAL_WRITE]: 'Create journal entries (work notes and comments)',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',
