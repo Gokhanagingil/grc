@@ -21,9 +21,12 @@ import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { IncidentService } from './incident.service';
+import { IncidentCiService } from './incident-ci.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentFilterDto } from './dto/incident-filter.dto';
+import { CreateIncidentCiDto } from './dto/create-incident-ci.dto';
+import { IncidentCiFilterDto } from './dto/incident-ci-filter.dto';
 import { Perf } from '../../common/decorators';
 
 /**
@@ -49,7 +52,10 @@ import { Perf } from '../../common/decorators';
 @Controller('grc/itsm/incidents')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class IncidentController {
-  constructor(private readonly incidentService: IncidentService) {}
+  constructor(
+    private readonly incidentService: IncidentService,
+    private readonly incidentCiService: IncidentCiService,
+  ) {}
 
   /**
    * GET /itsm/incidents
@@ -270,5 +276,102 @@ export class IncidentController {
     }
 
     return incident;
+  }
+
+  /**
+   * GET /itsm/incidents/:id/affected-cis
+   * List affected CIs for an incident
+   */
+  @Get(':id/affected-cis')
+  @Permissions(Permission.ITSM_INCIDENT_READ)
+  @Perf()
+  async listAffectedCis(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Query() filterDto: IncidentCiFilterDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.incidentCiService.findAffectedCis(tenantId, id, filterDto);
+  }
+
+  /**
+   * POST /itsm/incidents/:id/affected-cis
+   * Add an affected CI to an incident
+   */
+  @Post(':id/affected-cis')
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async addAffectedCi(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: CreateIncidentCiDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.incidentCiService.addAffectedCi(
+      tenantId,
+      req.user.id,
+      id,
+      dto.ciId,
+      dto.relationshipType,
+      dto.impactScope,
+    );
+  }
+
+  /**
+   * DELETE /itsm/incidents/:id/affected-cis/:linkId
+   * Remove an affected CI link
+   */
+  @Delete(':id/affected-cis/:linkId')
+  @Permissions(Permission.ITSM_INCIDENT_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async removeAffectedCi(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Param('linkId') linkId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const deleted = await this.incidentCiService.removeAffectedCi(
+      tenantId,
+      req.user.id,
+      id,
+      linkId,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException(
+        `Affected CI link with ID ${linkId} not found`,
+      );
+    }
+  }
+
+  /**
+   * GET /itsm/incidents/:id/impact-summary
+   * Get impact/blast radius summary for an incident
+   */
+  @Get(':id/impact-summary')
+  @Permissions(Permission.ITSM_INCIDENT_READ)
+  @Perf()
+  async getImpactSummary(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.incidentCiService.getImpactSummary(tenantId, id);
   }
 }

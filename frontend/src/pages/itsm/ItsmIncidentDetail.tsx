@@ -35,6 +35,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
+import { IncidentImpactTab } from '../../components/itsm/IncidentImpactTab';
 
 interface ItsmIncident {
   id: string;
@@ -663,6 +664,12 @@ export const ItsmIncidentDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {!isNew && incident.id && (
+        <Box sx={{ mt: 3 }}>
+          <IncidentImpactTab incidentId={incident.id} />
+        </Box>
+      )}
 
       {!isNew && incident.id && (
         <Box sx={{ mt: 3 }}>

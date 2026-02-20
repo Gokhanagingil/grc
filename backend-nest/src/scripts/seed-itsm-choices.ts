@@ -356,6 +356,45 @@ const ITSM_CHOICES: ChoiceSeed[] = [
     label: 'Comment',
     sortOrder: 20,
   },
+
+  // ---- itsm_incident_ci.relationshipType ----
+  {
+    tableName: 'itsm_incident_ci',
+    fieldName: 'relationshipType',
+    value: 'affected_by',
+    label: 'Affected By',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_incident_ci',
+    fieldName: 'relationshipType',
+    value: 'caused_by',
+    label: 'Caused By',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'itsm_incident_ci',
+    fieldName: 'relationshipType',
+    value: 'related_to',
+    label: 'Related To',
+    sortOrder: 30,
+  },
+
+  // ---- itsm_incident_ci.impactScope ----
+  {
+    tableName: 'itsm_incident_ci',
+    fieldName: 'impactScope',
+    value: 'service_impacting',
+    label: 'Service Impacting',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_incident_ci',
+    fieldName: 'impactScope',
+    value: 'informational',
+    label: 'Informational',
+    sortOrder: 20,
+  },
 ];
 
 async function seedItsmChoices() {
