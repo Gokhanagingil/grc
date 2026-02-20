@@ -84,47 +84,12 @@ export class CreateServicePortfolioTables1739800000000 implements MigrationInter
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_cmdb_service_offering_tenant_created ON cmdb_service_offering (tenant_id, created_at);
     `);
-
-    const demoTenantId = '00000000-0000-0000-0000-000000000001';
-
-    await queryRunner.query(`
-      INSERT INTO sys_choice (id, tenant_id, table_name, field_name, value, label, sort_order, is_active, is_deleted, created_at, updated_at)
-      VALUES
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'type', 'business_service', 'Business Service', 1, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'type', 'technical_service', 'Technical Service', 2, true, false, NOW(), NOW()),
-
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'status', 'planned', 'Planned', 1, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'status', 'design', 'Design', 2, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'status', 'live', 'Live', 3, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'status', 'retired', 'Retired', 4, true, false, NOW(), NOW()),
-
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'tier', 'tier_0', 'Tier 0 - Mission Critical', 1, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'tier', 'tier_1', 'Tier 1 - Business Critical', 2, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'tier', 'tier_2', 'Tier 2 - Business Operational', 3, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'tier', 'tier_3', 'Tier 3 - Administrative', 4, true, false, NOW(), NOW()),
-
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'criticality', 'critical', 'Critical', 1, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'criticality', 'high', 'High', 2, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'criticality', 'medium', 'Medium', 3, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service', 'criticality', 'low', 'Low', 4, true, false, NOW(), NOW()),
-
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service_offering', 'status', 'planned', 'Planned', 1, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service_offering', 'status', 'live', 'Live', 2, true, false, NOW(), NOW()),
-        (gen_random_uuid(), '${demoTenantId}', 'cmdb_service_offering', 'status', 'retired', 'Retired', 3, true, false, NOW(), NOW())
-      ON CONFLICT DO NOTHING;
-    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const demoTenantId = '00000000-0000-0000-0000-000000000001';
-
-    await queryRunner.query(`
-      DELETE FROM sys_choice
-      WHERE tenant_id = '${demoTenantId}'
-        AND table_name IN ('cmdb_service', 'cmdb_service_offering');
-    `);
-
-    await queryRunner.query(`DROP TABLE IF EXISTS cmdb_service_offering;`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS cmdb_service_offering;`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS cmdb_service;`);
   }
 }
