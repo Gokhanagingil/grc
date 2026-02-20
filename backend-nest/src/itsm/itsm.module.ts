@@ -70,6 +70,15 @@ import { CalendarEventController } from './change/calendar/calendar-event.contro
 import { FreezeWindowController } from './change/calendar/freeze-window.controller';
 import { ConflictController } from './change/calendar/conflict.controller';
 
+import { RiskAssessment } from './change/risk/risk-assessment.entity';
+import { ChangePolicy } from './change/risk/change-policy.entity';
+import { RiskScoringService } from './change/risk/risk-scoring.service';
+import { PolicyService } from './change/risk/policy.service';
+import { RiskController } from './change/risk/risk.controller';
+import { PolicyController } from './change/risk/policy.controller';
+import { CmdbCiRel } from './cmdb/ci-rel/ci-rel.entity';
+import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -92,6 +101,10 @@ import { ConflictController } from './change/calendar/conflict.controller';
       CalendarEvent,
       FreezeWindow,
       CalendarConflict,
+      RiskAssessment,
+      ChangePolicy,
+      CmdbCiRel,
+      CmdbQualitySnapshot,
     ]),
     AuditModule,
     AuthModule,
@@ -120,6 +133,8 @@ import { ConflictController } from './change/calendar/conflict.controller';
     CalendarEventService,
     FreezeWindowService,
     ConflictDetectionService,
+    RiskScoringService,
+    PolicyService,
   ],
   controllers: [
     IncidentController,
@@ -135,6 +150,8 @@ import { ConflictController } from './change/calendar/conflict.controller';
     CalendarEventController,
     FreezeWindowController,
     ConflictController,
+    RiskController,
+    PolicyController,
   ],
   exports: [
     IncidentService,
@@ -157,6 +174,8 @@ import { ConflictController } from './change/calendar/conflict.controller';
     CalendarEventService,
     FreezeWindowService,
     ConflictDetectionService,
+    RiskScoringService,
+    PolicyService,
   ],
 })
 export class ItsmModule {}

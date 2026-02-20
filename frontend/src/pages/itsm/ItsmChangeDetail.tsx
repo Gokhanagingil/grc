@@ -31,7 +31,7 @@ import {
   Warning as WarningIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -131,6 +131,11 @@ export const ItsmChangeDetail: React.FC = () => {
   const [showConflictsSection, setShowConflictsSection] = useState(true);
   const [refreshingConflicts, setRefreshingConflicts] = useState(false);
 
+  // Risk Assessment state
+  const [riskAssessment, setRiskAssessment] = useState<RiskAssessmentData | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [showRiskTab, setShowRiskTab] = useState(true);
+
   // GRC Bridge state
   const [linkedRisks, setLinkedRisks] = useState<LinkedRisk[]>([]);
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
@@ -175,6 +180,16 @@ export const ItsmChangeDetail: React.FC = () => {
         }
       } catch {
         // Ignore errors for conflicts
+      }
+
+      try {
+        const riskResponse = await itsmApi.changes.getRiskAssessment(id);
+        const rData = riskResponse.data as { data?: RiskAssessmentData };
+        if (rData?.data) {
+          setRiskAssessment(rData.data);
+        }
+      } catch {
+        // Ignore - assessment may not exist yet
       }
     } catch (error) {
       console.error('Error fetching ITSM change:', error);
@@ -316,6 +331,80 @@ export const ItsmChangeDetail: React.FC = () => {
           Back to Changes
         </Button>
       </Box>
+
+      {/* Decision Support Strip */}
+      {!isNew && riskAssessment && (
+        <Card
+          sx={{
+            mb: 2,
+            background: riskAssessment.riskLevel === 'CRITICAL'
+              ? 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)'
+              : riskAssessment.riskLevel === 'HIGH'
+              ? 'linear-gradient(135deg, #ed6c02 0%, #e65100 100%)'
+              : riskAssessment.riskLevel === 'MEDIUM'
+              ? 'linear-gradient(135deg, #2196f3 0%, #1565c0 100%)'
+              : 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+            color: 'white',
+          }}
+        >
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                  <Typography variant="h4" fontWeight={700} lineHeight={1}>
+                    {riskAssessment.riskScore}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    Risk Score
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+                <Box>
+                  <Chip
+                    label={riskAssessment.riskLevel}
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
+                  />
+                </Box>
+                <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {riskAssessment.impactedCiCount} CIs impacted
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {riskAssessment.impactedServiceCount} services
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {riskAssessment.hasFreezeConflict && (
+                  <Chip
+                    icon={<WarningIcon sx={{ color: 'white !important' }} />}
+                    label="Freeze Window"
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  />
+                )}
+                {riskAssessment.hasSlaRisk && (
+                  <Chip
+                    icon={<WarningIcon sx={{ color: 'white !important' }} />}
+                    label="SLA At Risk"
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  />
+                )}
+                {conflicts.length > 0 && (
+                  <Chip
+                    label={`${conflicts.length} conflict${conflicts.length !== 1 ? 's' : ''}`}
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  />
+                )}
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight={600}>
@@ -604,6 +693,162 @@ export const ItsmChangeDetail: React.FC = () => {
                       {refreshingConflicts ? 'Refreshing...' : 'Refresh Conflicts'}
                     </Button>
                   )}
+                </Collapse>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Risk Assessment Tab */}
+          {!isNew && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowRiskTab(!showRiskTab)}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">Risk Assessment</Typography>
+                    {riskAssessment && (
+                      <Chip
+                        label={`${riskAssessment.riskScore} - ${riskAssessment.riskLevel}`}
+                        size="small"
+                        color={
+                          riskAssessment.riskLevel === 'CRITICAL' ? 'error'
+                          : riskAssessment.riskLevel === 'HIGH' ? 'warning'
+                          : riskAssessment.riskLevel === 'MEDIUM' ? 'info'
+                          : 'success'
+                        }
+                      />
+                    )}
+                  </Box>
+                  <IconButton size="small">
+                    {showRiskTab ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                <Collapse in={showRiskTab}>
+                  {riskAssessment ? (
+                    <Box sx={{ mt: 1.5 }}>
+                      {/* Score gauge */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                          <CircularProgress
+                            variant="determinate"
+                            value={riskAssessment.riskScore}
+                            size={80}
+                            thickness={6}
+                            color={
+                              riskAssessment.riskLevel === 'CRITICAL' ? 'error'
+                              : riskAssessment.riskLevel === 'HIGH' ? 'warning'
+                              : riskAssessment.riskLevel === 'MEDIUM' ? 'info'
+                              : 'success'
+                            }
+                          />
+                          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography variant="h6" fontWeight={700}>
+                              {riskAssessment.riskScore}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Computed: {new Date(riskAssessment.computedAt).toLocaleString()}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {riskAssessment.impactedCiCount} CIs, {riskAssessment.impactedServiceCount} services impacted
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Breakdown list */}
+                      <Divider sx={{ mb: 1.5 }} />
+                      <Typography variant="subtitle2" gutterBottom>Factor Breakdown</Typography>
+                      <List dense disablePadding>
+                        {riskAssessment.breakdown.map((factor: RiskFactorData) => (
+                          <ListItem key={factor.name} disableGutters sx={{ py: 0.25 }}>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Typography variant="body2" fontWeight={500}>
+                                    {factor.name}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {factor.weightedScore.toFixed(1)} pts ({factor.weight}% x {factor.score})
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Box sx={{ mt: 0.25 }}>
+                                  <Box sx={{ width: '100%', height: 4, bgcolor: 'grey.200', borderRadius: 2 }}>
+                                    <Box sx={{
+                                      width: `${Math.min(factor.score, 100)}%`,
+                                      height: '100%',
+                                      bgcolor: factor.score >= 75 ? 'error.main' : factor.score >= 50 ? 'warning.main' : factor.score >= 25 ? 'info.main' : 'success.main',
+                                      borderRadius: 2,
+                                    }} />
+                                  </Box>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {factor.evidence}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+
+                      {/* Warnings */}
+                      {(riskAssessment.hasFreezeConflict || riskAssessment.hasSlaRisk) && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Divider sx={{ mb: 1 }} />
+                          {riskAssessment.hasFreezeConflict && (
+                            <Chip
+                              icon={<WarningIcon />}
+                              label="Change overlaps with a freeze window"
+                              color="error"
+                              variant="outlined"
+                              size="small"
+                              sx={{ mr: 0.5, mb: 0.5 }}
+                            />
+                          )}
+                          {riskAssessment.hasSlaRisk && (
+                            <Chip
+                              icon={<WarningIcon />}
+                              label="SLA breach risk during change window"
+                              color="warning"
+                              variant="outlined"
+                              size="small"
+                              sx={{ mb: 0.5 }}
+                            />
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      No risk assessment computed yet. Click Recalculate to generate one.
+                    </Typography>
+                  )}
+                  <Button
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={async () => {
+                      if (!change.id) return;
+                      setRecalculating(true);
+                      try {
+                        const resp = await itsmApi.changes.recalculateRisk(change.id);
+                        const d = resp.data as { data?: { assessment?: RiskAssessmentData } };
+                        if (d?.data?.assessment) {
+                          setRiskAssessment(d.data.assessment);
+                        }
+                        showNotification('Risk recalculated', 'success');
+                      } catch {
+                        showNotification('Failed to recalculate risk', 'error');
+                      } finally {
+                        setRecalculating(false);
+                      }
+                    }}
+                    disabled={recalculating}
+                    sx={{ mt: 1.5 }}
+                  >
+                    {recalculating ? 'Recalculating...' : 'Recalculate Risk'}
+                  </Button>
                 </Collapse>
               </CardContent>
             </Card>
