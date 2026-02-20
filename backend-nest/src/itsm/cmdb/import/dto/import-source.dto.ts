@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsObject,
+} from 'class-validator';
 import { ImportSourceType } from '../cmdb-import-source.entity';
 import { PaginationQueryDto } from '../../../../grc/dto/pagination.dto';
 

@@ -19,7 +19,11 @@ export class CmdbImportSource extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'enum', enum: ImportSourceType, default: ImportSourceType.JSON })
+  @Column({
+    type: 'enum',
+    enum: ImportSourceType,
+    default: ImportSourceType.JSON,
+  })
   type: ImportSourceType;
 
   @Column({ type: 'jsonb', nullable: true })

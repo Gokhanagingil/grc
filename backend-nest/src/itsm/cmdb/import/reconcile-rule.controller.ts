@@ -75,7 +75,10 @@ export class ReconcileRuleController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.reconcileRuleService.findOneForTenant(tenantId, id);
+    const entity = await this.reconcileRuleService.findOneForTenant(
+      tenantId,
+      id,
+    );
     if (!entity || entity.isDeleted) {
       throw new NotFoundException(`Reconcile rule with ID ${id} not found`);
     }
@@ -94,10 +97,14 @@ export class ReconcileRuleController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.reconcileRuleService.updateForTenant(tenantId, id, {
-      ...dto,
-      updatedBy: req.user.id,
-    } as Parameters<typeof this.reconcileRuleService.updateForTenant>[2]);
+    const entity = await this.reconcileRuleService.updateForTenant(
+      tenantId,
+      id,
+      {
+        ...dto,
+        updatedBy: req.user.id,
+      } as Parameters<typeof this.reconcileRuleService.updateForTenant>[2],
+    );
     if (!entity) {
       throw new NotFoundException(`Reconcile rule with ID ${id} not found`);
     }
@@ -116,10 +123,14 @@ export class ReconcileRuleController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.reconcileRuleService.updateForTenant(tenantId, id, {
-      isDeleted: true,
-      updatedBy: req.user.id,
-    } as Parameters<typeof this.reconcileRuleService.updateForTenant>[2]);
+    const entity = await this.reconcileRuleService.updateForTenant(
+      tenantId,
+      id,
+      {
+        isDeleted: true,
+        updatedBy: req.user.id,
+      } as Parameters<typeof this.reconcileRuleService.updateForTenant>[2],
+    );
     if (!entity) {
       throw new NotFoundException(`Reconcile rule with ID ${id} not found`);
     }

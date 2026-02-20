@@ -22,12 +22,7 @@ export class ReconcileRuleService extends MultiTenantServiceBase<CmdbReconcileRu
     tenantId: string,
     filterDto: ReconcileRuleFilterDto,
   ): Promise<PaginatedResponse<CmdbReconcileRule>> {
-    const {
-      page = 1,
-      pageSize = 20,
-      search,
-      q,
-    } = filterDto;
+    const { page = 1, pageSize = 20, search, q } = filterDto;
 
     const qb = this.repository.createQueryBuilder('rule');
     qb.where('rule.tenantId = :tenantId', { tenantId });

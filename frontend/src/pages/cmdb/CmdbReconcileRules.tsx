@@ -230,7 +230,7 @@ export const CmdbReconcileRules: React.FC = () => {
         </Box>
       ),
     },
-  ], []);
+  ], [handleDelete]);
 
   return (
     <Box>

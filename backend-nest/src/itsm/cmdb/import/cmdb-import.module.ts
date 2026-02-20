@@ -31,20 +31,12 @@ import { ReconcileRuleController } from './reconcile-rule.controller';
     TenantsModule,
     CmdbModule,
   ],
-  providers: [
-    ImportSourceService,
-    ImportJobService,
-    ReconcileRuleService,
-  ],
+  providers: [ImportSourceService, ImportJobService, ReconcileRuleService],
   controllers: [
     ImportSourceController,
     ImportJobController,
     ReconcileRuleController,
   ],
-  exports: [
-    ImportSourceService,
-    ImportJobService,
-    ReconcileRuleService,
-  ],
+  exports: [ImportSourceService, ImportJobService, ReconcileRuleService],
 })
 export class CmdbImportModule {}

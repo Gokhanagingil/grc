@@ -12,15 +12,16 @@ import {
 import { CmdbCi } from '../ci/ci.entity';
 import { CiService } from '../ci/ci.service';
 import { ReconcileRuleService } from './reconcile-rule.service';
-import { ImportJobFilterDto, ImportRowFilterDto, ReconcileResultFilterDto } from './dto/import-job.dto';
+import {
+  ImportJobFilterDto,
+  ImportRowFilterDto,
+  ReconcileResultFilterDto,
+} from './dto/import-job.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../../../grc/dto/pagination.dto';
-import {
-  reconcileRow,
-  ReconcileInput,
-} from './engine/reconciliation-engine';
+import { reconcileRow, ReconcileInput } from './engine/reconciliation-engine';
 
 @Injectable()
 export class ImportJobService extends MultiTenantServiceBase<CmdbImportJob> {
@@ -41,13 +42,7 @@ export class ImportJobService extends MultiTenantServiceBase<CmdbImportJob> {
     tenantId: string,
     filterDto: ImportJobFilterDto,
   ): Promise<PaginatedResponse<CmdbImportJob>> {
-    const {
-      page = 1,
-      pageSize = 20,
-      search,
-      q,
-      status,
-    } = filterDto;
+    const { page = 1, pageSize = 20, search, q, status } = filterDto;
 
     const qb = this.repository.createQueryBuilder('job');
     qb.leftJoinAndSelect('job.source', 'src');
@@ -295,30 +290,39 @@ export class ImportJobService extends MultiTenantServiceBase<CmdbImportJob> {
     });
     const rowMap = new Map(rows.map((r) => [r.id, r]));
 
+    const toStr = (v: unknown): string => {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'object') return JSON.stringify(v);
+      return `${v as string | number | boolean}`;
+    };
+
     for (const result of results) {
       if (result.action === ReconcileAction.CREATE) {
         const row = rowMap.get(result.rowId || '');
         if (row && row.parsed) {
           const parsed = row.parsed;
+          const hostname = parsed.hostname ?? parsed.name ?? `CI-${row.rowNo}`;
           await this.ciService.createCi(tenantId, userId, {
-            name: String(parsed.hostname || parsed.name || `CI-${row.rowNo}`),
-            description: parsed.description ? String(parsed.description) : null,
-            classId: parsed.classId ? String(parsed.classId) : undefined,
-            lifecycle: parsed.lifecycle ? String(parsed.lifecycle) : 'installed',
+            name: toStr(hostname),
+            description: parsed.description ? toStr(parsed.description) : null,
+            classId: parsed.classId ? toStr(parsed.classId) : undefined,
+            lifecycle: parsed.lifecycle ? toStr(parsed.lifecycle) : 'installed',
             environment: parsed.environment
-              ? String(parsed.environment)
+              ? toStr(parsed.environment)
               : 'production',
             serialNumber: parsed.serial_number
-              ? String(parsed.serial_number)
+              ? toStr(parsed.serial_number)
               : null,
-            ipAddress: parsed.ip_address || parsed.ip
-              ? String(parsed.ip_address || parsed.ip)
-              : null,
-            dnsName: parsed.fqdn || parsed.dns_name
-              ? String(parsed.fqdn || parsed.dns_name)
-              : null,
-            assetTag: parsed.asset_tag ? String(parsed.asset_tag) : null,
-            category: parsed.category ? String(parsed.category) : null,
+            ipAddress:
+              parsed.ip_address || parsed.ip
+                ? toStr(parsed.ip_address || parsed.ip)
+                : null,
+            dnsName:
+              parsed.fqdn || parsed.dns_name
+                ? toStr(parsed.fqdn || parsed.dns_name)
+                : null,
+            assetTag: parsed.asset_tag ? toStr(parsed.asset_tag) : null,
+            category: parsed.category ? toStr(parsed.category) : null,
           } as Partial<CmdbCi>);
         }
       } else if (result.action === ReconcileAction.UPDATE && result.ciId) {

@@ -75,7 +75,10 @@ export class ImportSourceController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.importSourceService.findOneForTenant(tenantId, id);
+    const entity = await this.importSourceService.findOneForTenant(
+      tenantId,
+      id,
+    );
     if (!entity || entity.isDeleted) {
       throw new NotFoundException(`Import source with ID ${id} not found`);
     }
@@ -94,10 +97,14 @@ export class ImportSourceController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.importSourceService.updateForTenant(tenantId, id, {
-      ...dto,
-      updatedBy: req.user.id,
-    } as Parameters<typeof this.importSourceService.updateForTenant>[2]);
+    const entity = await this.importSourceService.updateForTenant(
+      tenantId,
+      id,
+      {
+        ...dto,
+        updatedBy: req.user.id,
+      } as Parameters<typeof this.importSourceService.updateForTenant>[2],
+    );
     if (!entity) {
       throw new NotFoundException(`Import source with ID ${id} not found`);
     }
@@ -116,10 +123,14 @@ export class ImportSourceController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.importSourceService.updateForTenant(tenantId, id, {
-      isDeleted: true,
-      updatedBy: req.user.id,
-    } as Parameters<typeof this.importSourceService.updateForTenant>[2]);
+    const entity = await this.importSourceService.updateForTenant(
+      tenantId,
+      id,
+      {
+        isDeleted: true,
+        updatedBy: req.user.id,
+      } as Parameters<typeof this.importSourceService.updateForTenant>[2],
+    );
     if (!entity) {
       throw new NotFoundException(`Import source with ID ${id} not found`);
     }

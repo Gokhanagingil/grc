@@ -39,7 +39,11 @@ export class CmdbImportRow extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   fingerprint: string | null;
 
-  @Column({ type: 'enum', enum: ImportRowStatus, default: ImportRowStatus.PARSED })
+  @Column({
+    type: 'enum',
+    enum: ImportRowStatus,
+    default: ImportRowStatus.PARSED,
+  })
   status: ImportRowStatus;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })

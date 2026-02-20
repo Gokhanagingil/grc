@@ -47,7 +47,11 @@ export class CmdbReconcileResult extends BaseEntity {
   @Column({ name: 'ci_id', type: 'uuid', nullable: true })
   ciId: string | null;
 
-  @Column({ type: 'enum', enum: ReconcileAction, default: ReconcileAction.CREATE })
+  @Column({
+    type: 'enum',
+    enum: ReconcileAction,
+    default: ReconcileAction.CREATE,
+  })
   action: ReconcileAction;
 
   @Column({ name: 'matched_by', type: 'varchar', length: 255, nullable: true })

@@ -22,12 +22,7 @@ export class ImportSourceService extends MultiTenantServiceBase<CmdbImportSource
     tenantId: string,
     filterDto: ImportSourceFilterDto,
   ): Promise<PaginatedResponse<CmdbImportSource>> {
-    const {
-      page = 1,
-      pageSize = 20,
-      search,
-      q,
-    } = filterDto;
+    const { page = 1, pageSize = 20, search, q } = filterDto;
 
     const qb = this.repository.createQueryBuilder('src');
     qb.where('src.tenantId = :tenantId', { tenantId });

@@ -58,7 +58,9 @@ export class ImportJobController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     if (!dto.rows || !Array.isArray(dto.rows) || dto.rows.length === 0) {
-      throw new BadRequestException('rows array is required and must not be empty');
+      throw new BadRequestException(
+        'rows array is required and must not be empty',
+      );
     }
     return this.importJobService.createImportJob(
       tenantId,

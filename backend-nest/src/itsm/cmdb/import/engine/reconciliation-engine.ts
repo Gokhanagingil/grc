@@ -2,7 +2,6 @@ import { CmdbCi } from '../../ci/ci.entity';
 import {
   CmdbReconcileRule,
   MatchStrategy,
-  MatchStrategyField,
 } from '../cmdb-reconcile-rule.entity';
 import {
   ReconcileAction,
@@ -61,7 +60,8 @@ function getRowFieldValue(
 
 function normalizeValue(val: unknown): string {
   if (val === null || val === undefined) return '';
-  return String(val).trim().toLowerCase();
+  if (typeof val === 'object') return JSON.stringify(val).trim().toLowerCase();
+  return `${val as string | number | boolean}`.trim().toLowerCase();
 }
 
 export function matchCiByRule(

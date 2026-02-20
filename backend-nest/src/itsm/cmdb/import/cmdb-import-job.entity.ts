@@ -27,7 +27,11 @@ export class CmdbImportJob extends BaseEntity {
   @JoinColumn({ name: 'source_id' })
   source: CmdbImportSource | null;
 
-  @Column({ type: 'enum', enum: ImportJobStatus, default: ImportJobStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: ImportJobStatus,
+    default: ImportJobStatus.PENDING,
+  })
   status: ImportJobStatus;
 
   @Column({ name: 'dry_run', type: 'boolean', default: true })

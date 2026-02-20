@@ -6,7 +6,6 @@ import {
   IsUUID,
   IsEnum,
   ValidateNested,
-  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ImportJobStatus } from '../cmdb-import-job.entity';
