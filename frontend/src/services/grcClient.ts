@@ -261,6 +261,12 @@ export const API_PATHS = {
       UNLINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
       CONFLICTS: (id: string) => `/grc/itsm/changes/${id}/conflicts`,
       REFRESH_CONFLICTS: (id: string) => `/grc/itsm/changes/${id}/refresh-conflicts`,
+      REQUEST_APPROVAL: (id: string) => `/grc/itsm/changes/${id}/request-approval`,
+      APPROVALS: (id: string) => `/grc/itsm/changes/${id}/approvals`,
+    },
+    APPROVALS: {
+      APPROVE: (approvalId: string) => `/grc/itsm/approvals/${approvalId}/approve`,
+      REJECT: (approvalId: string) => `/grc/itsm/approvals/${approvalId}/reject`,
     },
 
     // ITSM Change Calendar endpoints
@@ -1797,6 +1803,21 @@ export interface ItsmConflictResult {
   details: Record<string, unknown>;
 }
 
+export interface ItsmApprovalData {
+  id: string;
+  tenantId: string;
+  recordTable: string;
+  recordId: string;
+  state: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  approverRole: string;
+  approverUserId?: string;
+  requestedBy: string;
+  decidedAt?: string;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RiskFactorData {
   name: string;
   weight: number;
@@ -2024,6 +2045,14 @@ export const itsmApi = {
     refreshConflicts: (changeId: string) => api.post(API_PATHS.ITSM.CHANGES.REFRESH_CONFLICTS(changeId), {}),
     getRiskAssessment: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.GET(changeId)),
     recalculateRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE(changeId), {}),
+    requestApproval: (changeId: string, comment?: string) =>
+      api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
+    listApprovals: (changeId: string) =>
+      api.get(API_PATHS.ITSM.CHANGES.APPROVALS(changeId)),
+    approveApproval: (approvalId: string, comment?: string) =>
+      api.post(API_PATHS.ITSM.APPROVALS.APPROVE(approvalId), { comment }),
+    rejectApproval: (approvalId: string, comment?: string) =>
+      api.post(API_PATHS.ITSM.APPROVALS.REJECT(approvalId), { comment }),
   },
 
   changePolicies: {

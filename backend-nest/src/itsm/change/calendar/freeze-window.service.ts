@@ -58,10 +58,9 @@ export class FreezeWindowService {
 
     const searchTerm = search || q;
     if (searchTerm) {
-      qb.andWhere(
-        '(fw.name ILIKE :search OR fw.description ILIKE :search)',
-        { search: `%${searchTerm}%` },
-      );
+      qb.andWhere('(fw.name ILIKE :search OR fw.description ILIKE :search)', {
+        search: `%${searchTerm}%`,
+      });
     }
 
     const total = await qb.getCount();
@@ -69,8 +68,7 @@ export class FreezeWindowService {
     const validSortBy = FREEZE_WINDOW_SORTABLE_FIELDS.includes(sortBy)
       ? sortBy
       : 'startAt';
-    const validSortOrder =
-      sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const validSortOrder = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     qb.orderBy(`fw.${validSortBy}`, validSortOrder);
 
     qb.skip((page - 1) * pageSize);
@@ -157,6 +155,14 @@ export class FreezeWindowService {
       updatedBy: userId,
     });
     return this.repository.save(updated);
+  }
+
+  async findActiveForRange(
+    tenantId: string,
+    startAt: Date,
+    endAt: Date,
+  ): Promise<FreezeWindow[]> {
+    return this.findActiveOverlapping(tenantId, startAt, endAt);
   }
 
   async softDelete(
