@@ -131,7 +131,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .send({
-          title: `Test incident binding ${Date.now()}`,
+          shortDescription: `Test incident binding ${Date.now()}`,
           description: 'Testing service binding',
           serviceId,
           offeringId,
@@ -155,7 +155,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .send({
-          title: `Test incident svc only ${Date.now()}`,
+          shortDescription: `Test incident svc only ${Date.now()}`,
           description: 'Testing service only',
           serviceId,
         })
@@ -177,7 +177,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .send({
-          title: `Test incident bad ${Date.now()}`,
+          shortDescription: `Test incident bad ${Date.now()}`,
           description: 'Should fail',
           offeringId,
         })
@@ -208,7 +208,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .send({
-          title: `Test incident mismatch ${Date.now()}`,
+          shortDescription: `Test incident mismatch ${Date.now()}`,
           description: 'Should fail - offering belongs to different service',
           serviceId: svc2.id,
           offeringId,
@@ -232,7 +232,7 @@ describe('ITSM Service Binding (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .send({
-          title: `Test incident phantom ${Date.now()}`,
+          shortDescription: `Test incident phantom ${Date.now()}`,
           description: 'Should fail - non-existent service',
           serviceId: '00000000-0000-0000-0000-000000000099',
         })
