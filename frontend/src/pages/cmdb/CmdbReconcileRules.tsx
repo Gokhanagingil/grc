@@ -156,7 +156,7 @@ export const CmdbReconcileRules: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await cmdbImportApi.rules.delete(id);
       showNotification('Rule deleted', 'success');
@@ -165,7 +165,7 @@ export const CmdbReconcileRules: React.FC = () => {
       console.error('Error deleting rule:', err);
       showNotification('Failed to delete rule', 'error');
     }
-  };
+  }, [showNotification, fetchItems]);
 
   const addField = () => setFields([...fields, { ...DEFAULT_FIELD }]);
   const removeField = (i: number) => setFields(fields.filter((_, idx) => idx !== i));
