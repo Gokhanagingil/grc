@@ -87,6 +87,32 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // CMDB Import & Reconciliation permissions
     Permission.CMDB_IMPORT_READ,
     Permission.CMDB_IMPORT_WRITE,
+    // CMDB Health & Quality permissions
+    Permission.CMDB_HEALTH_READ,
+    Permission.CMDB_HEALTH_WRITE,
+    // Notification Engine permissions
+    Permission.NOTIFICATION_RULE_READ,
+    Permission.NOTIFICATION_RULE_WRITE,
+    Permission.NOTIFICATION_TEMPLATE_READ,
+    Permission.NOTIFICATION_TEMPLATE_WRITE,
+    Permission.NOTIFICATION_DELIVERY_READ,
+    Permission.NOTIFICATION_DELIVERY_RETRY,
+    // Webhook Endpoint permissions
+    Permission.WEBHOOK_ENDPOINT_READ,
+    Permission.WEBHOOK_ENDPOINT_WRITE,
+    // API Catalog permissions
+    Permission.API_CATALOG_READ,
+    Permission.API_CATALOG_WRITE,
+    Permission.API_KEY_READ,
+    Permission.API_KEY_WRITE,
+    // ITSM Calendar & Freeze Window permissions
+    Permission.ITSM_CALENDAR_READ,
+    Permission.ITSM_CALENDAR_WRITE,
+    Permission.ITSM_FREEZE_READ,
+    Permission.ITSM_FREEZE_WRITE,
+    // ITSM Journal permissions
+    Permission.ITSM_JOURNAL_READ,
+    Permission.ITSM_JOURNAL_WRITE,
   ],
 
   /**
@@ -145,6 +171,16 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_SERVICE_OFFERING_WRITE,
     // CMDB Import read-only for managers
     Permission.CMDB_IMPORT_READ,
+    // CMDB Health read-only for managers
+    Permission.CMDB_HEALTH_READ,
+    // ITSM Calendar & Freeze Window permissions
+    Permission.ITSM_CALENDAR_READ,
+    Permission.ITSM_CALENDAR_WRITE,
+    Permission.ITSM_FREEZE_READ,
+    Permission.ITSM_FREEZE_WRITE,
+    // ITSM Journal permissions
+    Permission.ITSM_JOURNAL_READ,
+    Permission.ITSM_JOURNAL_WRITE,
   ],
 
   /**
@@ -178,6 +214,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_SERVICE_OFFERING_READ,
     // CMDB Import read-only
     Permission.CMDB_IMPORT_READ,
+    // CMDB Health read-only
+    Permission.CMDB_HEALTH_READ,
+    // ITSM Calendar & Freeze Window read-only
+    Permission.ITSM_CALENDAR_READ,
+    Permission.ITSM_FREEZE_READ,
+    // ITSM Journal read-only
+    Permission.ITSM_JOURNAL_READ,
   ],
 };
 
