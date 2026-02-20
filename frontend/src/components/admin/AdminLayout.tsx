@@ -29,6 +29,7 @@ import {
   Build as QueryBuilderIcon,
   Notifications as NotificationsIcon,
   Api as ApiIcon,
+  HealthAndSafety as HealthIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -119,6 +120,12 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'API Catalog',
     icon: <ApiIcon />,
     path: '/admin/api-catalog',
+  },
+  {
+    id: 'platform-health',
+    text: 'Platform Health',
+    icon: <HealthIcon />,
+    path: '/admin/platform-health',
   },
 ];
 

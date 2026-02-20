@@ -23,6 +23,7 @@ import { PlatformModule } from './platform/platform.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
+import { PlatformHealthModule } from './platform-health/platform-health.module';
 import { TodosModule } from './todos/todos.module';
 import { EventBusModule } from './event-bus/event-bus.module';
 import { NotificationEngineModule } from './notification-engine/notification-engine.module';
@@ -192,6 +193,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Background Jobs Foundation (in-process job runner with registry)
     JobsModule,
+
+    // Platform Health Dashboard (smoke test result persistence + admin UI)
+    PlatformHealthModule,
 
     // Todos Module (in-memory demo implementation)
     TodosModule,

@@ -10,3 +10,4 @@ export { AdminPlatformBuilder } from './AdminPlatformBuilder';
 export { AdminEventLog } from './AdminEventLog';
 export { AdminNotificationStudio } from './AdminNotificationStudio';
 export { AdminApiCatalog } from './AdminApiCatalog';
+export { AdminPlatformHealth } from './AdminPlatformHealth';
