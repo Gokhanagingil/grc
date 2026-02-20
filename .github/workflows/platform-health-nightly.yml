@@ -8,7 +8,7 @@ on:
       base_url:
         description: "Base URL of the GRC API"
         required: false
-        default: "http://localhost:3001"
+        default: "http://localhost:3002"
       max_tables:
         description: "Max tables to test (0 = all)"
         required: false
@@ -19,6 +19,21 @@ jobs:
     name: "Full Sweep Smoke Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -31,31 +46,53 @@ jobs:
           cache: "npm"
           cache-dependency-path: |
             package-lock.json
-            backend/package-lock.json
+            backend-nest/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install backend dependencies
+      - name: Install backend-nest dependencies
         run: npm ci
-        working-directory: backend
+        working-directory: backend-nest
 
-      - name: Start backend
+      - name: Build backend-nest
+        run: npm run build
+        working-directory: backend-nest
+
+      - name: Run database migrations
+        env:
+          NODE_ENV: development
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform
+        run: npx typeorm migration:run -d dist/data-source.js
+        working-directory: backend-nest
+
+      - name: Start backend-nest
+        env:
+          NODE_ENV: test
+          PORT: "3002"
+          JWT_SECRET: ci-smoke-test-secret
+          JWT_EXPIRES_IN: 24h
+          REFRESH_TOKEN_SECRET: ci-refresh-secret
+          REFRESH_TOKEN_EXPIRES_IN: 7d
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: changeme
         run: |
-          cp backend/.env.example backend/.env 2>/dev/null || true
-          if [ ! -f backend/.env ]; then
-            echo "NODE_ENV=test" > backend/.env
-            echo "PORT=3001" >> backend/.env
-            echo "JWT_SECRET=ci-smoke-test-secret-$(date +%s)" >> backend/.env
-            echo "DB_PATH=./database/grc-test.db" >> backend/.env
-          fi
-          cd backend && node server.js &
-          sleep 5
+          cd backend-nest && npm run start:dev &
+          sleep 15
 
       - name: Wait for backend health
         run: |
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
               echo "Backend is healthy"
               exit 0
             fi
@@ -68,9 +105,11 @@ jobs:
       - name: Run full sweep smoke tests
         run: npx playwright test --project=smoke
         env:
-          BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3001' }}
+          BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3002' }}
           SMOKE_TIER: "full"
           MAX_TABLES_PER_RUN: ${{ github.event.inputs.max_tables || '20' }}
+          SMOKE_TEST_EMAIL: admin@grc-platform.local
+          SMOKE_TEST_PASSWORD: changeme
 
       - name: Upload test report
         if: always()

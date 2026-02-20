@@ -4,9 +4,13 @@ import * as path from "path";
 
 export interface AuthTokens {
   token: string;
-  userId: number;
+  userId: string;
   role: string;
+  tenantId: string;
 }
+
+const DEFAULT_TENANT_ID =
+  process.env.SMOKE_TENANT_ID || "00000000-0000-0000-0000-000000000001";
 
 export interface TableResult {
   table: string;
@@ -56,56 +60,39 @@ export async function authenticate(
   request: APIRequestContext,
   baseURL: string,
 ): Promise<AuthTokens> {
-  const username =
-    process.env.SMOKE_TEST_USERNAME || `smoke_admin_${Date.now()}`;
   const email =
-    process.env.SMOKE_TEST_EMAIL || `smoke_${Date.now()}@test.local`;
-  const password = process.env.SMOKE_TEST_PASSWORD || "SmokeTest123!";
+    process.env.SMOKE_TEST_EMAIL || process.env.DEMO_ADMIN_EMAIL || "admin@grc.local";
+  const password =
+    process.env.SMOKE_TEST_PASSWORD || process.env.DEMO_ADMIN_PASSWORD || "Admin123!";
 
-  if (process.env.SMOKE_TEST_USERNAME && process.env.SMOKE_TEST_PASSWORD) {
-    const loginRes = await request.post(`${baseURL}/api/auth/login`, {
-      data: { username, password },
-    });
-    if (loginRes.ok()) {
-      const body = await loginRes.json();
-      return { token: body.token, userId: body.user.id, role: body.user.role };
-    }
-  }
-
-  const registerRes = await request.post(`${baseURL}/api/auth/register`, {
-    data: {
-      username,
-      email,
-      password,
-      firstName: "Smoke",
-      lastName: "Test",
-      department: "QA",
-    },
+  const loginRes = await request.post(`${baseURL}/auth/login`, {
+    data: { email, password },
+    headers: { "x-tenant-id": DEFAULT_TENANT_ID },
   });
 
-  if (registerRes.ok()) {
-    const body = await registerRes.json();
-    return { token: body.token, userId: body.user.id, role: body.user.role };
+  if (loginRes.ok()) {
+    const raw = await loginRes.json();
+    const body = raw.data || raw;
+    const user = body.user || {};
+    return {
+      token: body.accessToken || body.access_token || body.token,
+      userId: user.id || "",
+      role: user.role || "user",
+      tenantId: user.tenantId || DEFAULT_TENANT_ID,
+    };
   }
 
-  const loginRes = await request.post(`${baseURL}/api/auth/login`, {
-    data: { username, password },
-  });
-
-  if (!loginRes.ok()) {
-    throw new Error(
-      `Auth failed: register=${registerRes.status()}, login=${loginRes.status()}`,
-    );
-  }
-
-  const body = await loginRes.json();
-  return { token: body.token, userId: body.user.id, role: body.user.role };
+  throw new Error(`Auth failed: login=${loginRes.status()}`);
 }
 
-export function authHeaders(token: string): Record<string, string> {
+export function authHeaders(
+  token: string,
+  tenantId?: string,
+): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
+    "x-tenant-id": tenantId || DEFAULT_TENANT_ID,
   };
 }
 

@@ -16,8 +16,15 @@ import {
   type TableResult,
 } from "./helpers";
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3001";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 const TIER = (process.env.SMOKE_TIER as "tier1" | "full") || "tier1";
+
+function unwrap(body: Record<string, unknown>): Record<string, unknown> {
+  if (body && typeof body === "object" && "data" in body) {
+    return body.data as Record<string, unknown>;
+  }
+  return body;
+}
 
 let auth: AuthTokens;
 
@@ -55,7 +62,7 @@ for (const tableDef of tablesToRun) {
 
     test(`list ${tableDef.name}`, async ({ request }) => {
       const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
-        headers: authHeaders(auth.token),
+        headers: authHeaders(auth.token, auth.tenantId),
         params: { page: "1", limit: "5" },
       });
 
@@ -83,7 +90,8 @@ for (const tableDef of tablesToRun) {
 
       expect(res.status()).toBe(200);
 
-      const body = await res.json();
+      const raw = await res.json();
+      const body = unwrap(raw);
       if (tableDef.listDataKey) {
         expect(body).toHaveProperty(tableDef.listDataKey);
         expect(Array.isArray(body[tableDef.listDataKey])).toBe(true);
@@ -105,7 +113,7 @@ for (const tableDef of tablesToRun) {
         const res = await request.post(
           `${BASE_URL}${tableDef.createEndpoint}`,
           {
-            headers: authHeaders(auth.token),
+            headers: authHeaders(auth.token, auth.tenantId),
             data: uniquePayload,
           },
         );
@@ -133,7 +141,8 @@ for (const tableDef of tablesToRun) {
 
         expect(res.status()).toBe(201);
 
-        const body = await res.json();
+        const raw = await res.json();
+        const body = unwrap(raw);
         if (tableDef.createdIdPath) {
           createdId = resolveNestedPath(body, tableDef.createdIdPath);
           expect(createdId).toBeDefined();
@@ -153,12 +162,13 @@ for (const tableDef of tablesToRun) {
         }
 
         const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
-          headers: authHeaders(auth.token),
+          headers: authHeaders(auth.token, auth.tenantId),
           params: { page: "1", limit: "100" },
         });
 
         expect(res.status()).toBe(200);
-        const body = await res.json();
+        const raw = await res.json();
+        const body = unwrap(raw);
 
         const items = tableDef.listDataKey
           ? body[tableDef.listDataKey]
@@ -196,7 +206,7 @@ for (const tableDef of tablesToRun) {
         }
         const filter = tableDef.filters[0];
         const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
-          headers: authHeaders(auth.token),
+          headers: authHeaders(auth.token, auth.tenantId),
           params: { [filter.param]: filter.value, page: "1", limit: "5" },
         });
 
@@ -210,7 +220,8 @@ for (const tableDef of tablesToRun) {
 
         expect(res.status()).toBe(200);
 
-        const body = await res.json();
+        const raw = await res.json();
+        const body = unwrap(raw);
         const items = tableDef.listDataKey ? body[tableDef.listDataKey] : body;
         expect(Array.isArray(items)).toBe(true);
       });
@@ -231,7 +242,7 @@ for (const tableDef of tablesToRun) {
           const res = await request.get(
             `${BASE_URL}${tableDef.listEndpoint}`,
             {
-              headers: authHeaders(auth.token),
+              headers: authHeaders(auth.token, auth.tenantId),
               params: { [filter.param]: filter.value, page: "1", limit: "5" },
             },
           );
@@ -261,7 +272,7 @@ for (const tableDef of tablesToRun) {
         return;
       }
       const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
-        headers: authHeaders(auth.token),
+        headers: authHeaders(auth.token, auth.tenantId),
         params: { page: "1", limit: "5" },
       });
 
@@ -275,10 +286,10 @@ for (const tableDef of tablesToRun) {
 
       expect(res.status()).toBe(200);
 
-      const body = await res.json();
-      if (body.pagination) {
-        expect(body.pagination.page).toBe(1);
-        expect(body.pagination.limit).toBe(5);
+      const raw = await res.json();
+      const body = unwrap(raw);
+      if (body.page !== undefined) {
+        expect(body.page).toBe(1);
       }
     });
   });
