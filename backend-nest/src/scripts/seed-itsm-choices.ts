@@ -340,6 +340,22 @@ const ITSM_CHOICES: ChoiceSeed[] = [
     label: 'Deprecated',
     sortOrder: 30,
   },
+
+  // ---- itsm_journal.type ----
+  {
+    tableName: 'itsm_journal',
+    fieldName: 'type',
+    value: 'work_note',
+    label: 'Work note',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_journal',
+    fieldName: 'type',
+    value: 'comment',
+    label: 'Comment',
+    sortOrder: 20,
+  },
 ];
 
 async function seedItsmChoices() {

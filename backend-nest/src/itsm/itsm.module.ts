@@ -44,9 +44,15 @@ import { SysChoice } from './choice/sys-choice.entity';
 import { ChoiceService } from './choice/choice.service';
 import { ChoiceController } from './choice/choice.controller';
 
+import { ItsmJournal } from './journal/journal.entity';
+import { JournalService } from './journal/journal.service';
+import { JournalController } from './journal/journal.controller';
+
 import { DiagnosticsService } from './diagnostics/diagnostics.service';
 import { DiagnosticsController } from './diagnostics/diagnostics.controller';
 import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
+
+import { EventBusModule } from '../event-bus/event-bus.module';
 
 @Module({
   imports: [
@@ -61,10 +67,12 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
       SlaDefinition,
       SlaInstance,
       SysChoice,
+      ItsmJournal,
     ]),
     AuditModule,
     AuthModule,
     TenantsModule,
+    EventBusModule,
   ],
   providers: [
     IncidentService,
@@ -81,6 +89,7 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
     SlaEventListener,
     SlaBreachCheckerJob,
     ChoiceService,
+    JournalService,
     DiagnosticsService,
     RuntimeLoggerService,
   ],
@@ -89,6 +98,7 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
     ServiceController,
     ChangeController,
     ChoiceController,
+    JournalController,
     WorkflowController,
     BusinessRuleController,
     UiPolicyController,
@@ -109,6 +119,7 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
     SlaEngineService,
     SlaBreachCheckerJob,
     ChoiceService,
+    JournalService,
     DiagnosticsService,
     RuntimeLoggerService,
   ],
