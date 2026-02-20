@@ -3,11 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../../common/multi-tenant-service.base';
 import { CmdbImportSource } from './cmdb-import-source.entity';
-import { ImportSourceFilterDto } from './dto/import-source.dto';
+import {
+  CreateImportSourceDto,
+  UpdateImportSourceDto,
+  ImportSourceFilterDto,
+} from './dto/import-source.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../../../grc/dto/pagination.dto';
+import { getNextRunDate, isValidCron } from './engine/cron-utils';
 
 @Injectable()
 export class ImportSourceService extends MultiTenantServiceBase<CmdbImportSource> {
@@ -40,5 +45,24 @@ export class ImportSourceService extends MultiTenantServiceBase<CmdbImportSource
 
     const items = await qb.getMany();
     return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  computeNextRunAt(
+    dto: CreateImportSourceDto | UpdateImportSourceDto,
+    existing?: CmdbImportSource,
+  ): Date | null {
+    const cronExpr = dto.cronExpr ?? existing?.cronExpr;
+    const scheduleEnabled =
+      dto.scheduleEnabled ?? existing?.scheduleEnabled ?? false;
+
+    if (!scheduleEnabled || !cronExpr || !isValidCron(cronExpr)) {
+      return null;
+    }
+
+    try {
+      return getNextRunDate(cronExpr, new Date());
+    } catch {
+      return null;
+    }
   }
 }
