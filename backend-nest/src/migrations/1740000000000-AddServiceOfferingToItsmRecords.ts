@@ -41,10 +41,40 @@ export class AddServiceOfferingToItsmRecords1740000000000
         ON "itsm_incidents" ("tenant_id", "offering_id")
     `);
 
-    // ── itsm_changes: add offering_id + FK on existing service_id ──
+    // ── itsm_changes: add offering_id + repurpose existing service_id to point to cmdb_service ──
     await queryRunner.query(`
       ALTER TABLE "itsm_changes"
         ADD COLUMN IF NOT EXISTS "offering_id" uuid
+    `);
+
+    // Drop any existing FK constraints on service_id (may point to itsm_services)
+    await queryRunner.query(`
+      DO $$ DECLARE r RECORD;
+      BEGIN
+        FOR r IN (
+          SELECT con.conname
+          FROM pg_constraint con
+          JOIN pg_class rel ON rel.oid = con.conrelid
+          WHERE rel.relname = 'itsm_changes'
+            AND con.contype = 'f'
+            AND EXISTS (
+              SELECT 1 FROM pg_attribute a
+              WHERE a.attrelid = con.conrelid
+                AND a.attnum = ANY(con.conkey)
+                AND a.attname = 'service_id'
+            )
+        ) LOOP
+          EXECUTE 'ALTER TABLE "itsm_changes" DROP CONSTRAINT IF EXISTS "' || r.conname || '"';
+        END LOOP;
+      END $$
+    `);
+
+    // NULL out any existing service_id values that reference itsm_services (not cmdb_service)
+    await queryRunner.query(`
+      UPDATE "itsm_changes"
+      SET "service_id" = NULL
+      WHERE "service_id" IS NOT NULL
+        AND "service_id" NOT IN (SELECT "id" FROM "cmdb_service")
     `);
 
     await queryRunner.query(`
