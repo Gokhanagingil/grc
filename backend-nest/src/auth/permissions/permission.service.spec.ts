@@ -82,6 +82,22 @@ describe('PermissionService', () => {
       expect(adminPermissions).toContain(Permission.ITSM_UI_POLICY_WRITE);
       expect(adminPermissions).toContain(Permission.ITSM_STATISTICS_READ);
     });
+
+    it('should have ITSM Calendar and Freeze Window permissions', () => {
+      const adminPermissions = service.getPermissionsForRole(UserRole.ADMIN);
+
+      expect(adminPermissions).toContain(Permission.ITSM_CALENDAR_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_CALENDAR_WRITE);
+      expect(adminPermissions).toContain(Permission.ITSM_FREEZE_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_FREEZE_WRITE);
+    });
+
+    it('should have ITSM Journal permissions', () => {
+      const adminPermissions = service.getPermissionsForRole(UserRole.ADMIN);
+
+      expect(adminPermissions).toContain(Permission.ITSM_JOURNAL_READ);
+      expect(adminPermissions).toContain(Permission.ITSM_JOURNAL_WRITE);
+    });
   });
 
   describe('MANAGER role ITSM permissions', () => {
@@ -106,6 +122,17 @@ describe('PermissionService', () => {
       expect(managerPermissions).toContain(Permission.ITSM_UI_POLICY_WRITE);
       expect(managerPermissions).toContain(Permission.ITSM_STATISTICS_READ);
     });
+
+    it('should have ITSM Calendar and Freeze Window permissions', () => {
+      const managerPermissions = service.getPermissionsForRole(
+        UserRole.MANAGER,
+      );
+
+      expect(managerPermissions).toContain(Permission.ITSM_CALENDAR_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_CALENDAR_WRITE);
+      expect(managerPermissions).toContain(Permission.ITSM_FREEZE_READ);
+      expect(managerPermissions).toContain(Permission.ITSM_FREEZE_WRITE);
+    });
   });
 
   describe('USER role ITSM permissions', () => {
@@ -129,6 +156,15 @@ describe('PermissionService', () => {
       expect(userPermissions).not.toContain(Permission.ITSM_CHANGE_WRITE);
       expect(userPermissions).not.toContain(Permission.ITSM_SLA_WRITE);
       expect(userPermissions).not.toContain(Permission.ITSM_STATISTICS_READ);
+    });
+
+    it('should have ITSM Calendar and Freeze Window read-only permissions', () => {
+      const userPermissions = service.getPermissionsForRole(UserRole.USER);
+
+      expect(userPermissions).toContain(Permission.ITSM_CALENDAR_READ);
+      expect(userPermissions).toContain(Permission.ITSM_FREEZE_READ);
+      expect(userPermissions).not.toContain(Permission.ITSM_CALENDAR_WRITE);
+      expect(userPermissions).not.toContain(Permission.ITSM_FREEZE_WRITE);
     });
   });
 

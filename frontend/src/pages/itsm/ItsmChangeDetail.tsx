@@ -580,6 +580,7 @@ export const ItsmChangeDetail: React.FC = () => {
           startIcon={<SaveIcon />}
           onClick={handleSave}
           disabled={saving}
+          data-testid="change-save-btn"
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
@@ -602,6 +603,7 @@ export const ItsmChangeDetail: React.FC = () => {
                     value={change.title || ''}
                     onChange={(e) => handleChange('title', e.target.value)}
                     required
+                    data-testid="change-title-input"
                   />
                 </Grid>
 

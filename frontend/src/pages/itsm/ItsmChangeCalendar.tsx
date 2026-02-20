@@ -60,6 +60,7 @@ import {
   CreateItsmFreezeWindowDto,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { AxiosError } from 'axios';
 
 const EVENT_TYPE_COLORS: Record<string, 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success' | 'default'> = {
   CHANGE: 'primary',
@@ -106,6 +107,7 @@ export const ItsmChangeCalendar: React.FC = () => {
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loadingFreezes, setLoadingFreezes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permissionError, setPermissionError] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -146,8 +148,13 @@ export const ItsmChangeCalendar: React.FC = () => {
       }
       setEvents(items);
     } catch (err) {
-      console.error('Failed to fetch calendar events:', err);
-      setError('Failed to load calendar events.');
+      const axErr = err as AxiosError;
+      if (axErr.response?.status === 403 || axErr.response?.status === 401) {
+        setPermissionError(true);
+      } else {
+        console.error('Failed to fetch calendar events:', err);
+        setError('Failed to load calendar events.');
+      }
       setEvents([]);
     } finally {
       setLoadingEvents(false);
@@ -172,7 +179,12 @@ export const ItsmChangeCalendar: React.FC = () => {
       }
       setFreezeWindows(fwItems);
     } catch (err) {
-      console.error('Failed to fetch freeze windows:', err);
+      const axErr = err as AxiosError;
+      if (axErr.response?.status === 403 || axErr.response?.status === 401) {
+        setPermissionError(true);
+      } else {
+        console.error('Failed to fetch freeze windows:', err);
+      }
       setFreezeWindows([]);
     } finally {
       setLoadingFreezes(false);
@@ -341,6 +353,12 @@ export const ItsmChangeCalendar: React.FC = () => {
           </IconButton>
         </Stack>
       </Paper>
+
+      {permissionError && (
+        <Alert severity="warning" sx={{ mb: 2 }} data-testid="calendar-permission-banner">
+          You do not have permission to view calendar data. Contact your administrator to request calendar access.
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
