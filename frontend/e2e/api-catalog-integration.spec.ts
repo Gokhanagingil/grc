@@ -1,11 +1,15 @@
 /**
- * API Catalog Integration E2E Tests
+ * API Catalog Integration E2E Tests @smoke
  *
  * Tests the API Catalog golden paths:
  * 1. API prefix regression: catalog endpoints use /api/grc/...
  * 2. Auth header: catalog calls include Authorization
  * 3. Public API: valid/invalid API key scenarios
  * 4. Admin screens: API Catalog page loads with RBAC
+ *
+ * Relies on setupMockApi (helpers.ts) for default published-apis/api-keys
+ * route handlers. Per-test overrides use page.route() registered AFTER login()
+ * so Playwright LIFO evaluation gives them priority.
  */
 
 import { test, expect } from '@playwright/test';
@@ -13,38 +17,19 @@ import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('API Catalog Integration', () => {
+test.describe('API Catalog Integration @smoke', () => {
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Published APIs list calls /api/grc/published-apis', async ({ page }) => {
       const apiRequests: string[] = [];
+      page.on('request', (req) => {
+        if (req.url().includes('/grc/published-apis')) {
+          apiRequests.push(req.url());
+        }
+      });
 
       await login(page);
-
-      await page.route('**/grc/published-apis**', async (route) => {
-        apiRequests.push(route.request().url());
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/api-keys**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
       await page.goto('/admin/api-catalog');
 
       await expect.poll(() => apiRequests.length, {
@@ -63,21 +48,13 @@ test.describe('API Catalog Integration', () => {
 
     test('Published APIs requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
-
-      await login(page);
-
-      await page.route('**/grc/published-apis**', async (route) => {
-        capturedHeaders.push(route.request().headers()['authorization'] ?? null);
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
+      page.on('request', (req) => {
+        if (req.url().includes('/grc/published-apis')) {
+          capturedHeaders.push(req.headers()['authorization'] ?? null);
+        }
       });
 
+      await login(page);
       await page.goto('/admin/api-catalog');
 
       await expect.poll(() => capturedHeaders.length, {
@@ -95,29 +72,6 @@ test.describe('API Catalog Integration', () => {
 
     test('API Catalog page loads for admin user', async ({ page }) => {
       await login(page);
-
-      await page.route('**/grc/published-apis**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/api-keys**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
       await page.goto('/admin/api-catalog');
 
       await expect(page.locator('h4, h5, h6').filter({ hasText: 'API Catalog' })).toBeVisible({ timeout: 10000 });
@@ -126,6 +80,7 @@ test.describe('API Catalog Integration', () => {
     test('API Catalog shows error state on 403 Forbidden', async ({ page }) => {
       await login(page);
 
+      // Override published-apis to return 403 (LIFO priority over helpers.ts handler)
       await page.route('**/grc/published-apis**', async (route) => {
         await route.fulfill({
           status: 403,

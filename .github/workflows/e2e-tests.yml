@@ -103,7 +103,14 @@ jobs:
       - name: Run E2E tests
         id: run-tests
         working-directory: ./frontend
-        run: npx playwright test --project=chromium --reporter=list
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR gate: running @smoke subset only"
+            npx playwright test --project=chromium --reporter=list --grep @smoke
+          else
+            echo "Push: running full E2E suite"
+            npx playwright test --project=chromium --reporter=list
+          fi
         env:
           E2E_BASE_URL: http://127.0.0.1:3000
           E2E_MOCK_API: 1

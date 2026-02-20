@@ -1,10 +1,14 @@
 /**
- * Webhook Integration E2E Tests
+ * Webhook Integration E2E Tests @smoke
  *
  * Tests webhook delivery golden paths:
  * 1. Webhook endpoint admin CRUD works via /api/grc/webhook-endpoints
  * 2. Auth header present on webhook management calls
  * 3. Webhook test delivery endpoint returns signature header
+ *
+ * Relies on setupMockApi (helpers.ts) for default webhook/notification
+ * route handlers. Per-test overrides use page.route() registered AFTER login()
+ * so Playwright LIFO evaluation gives them priority.
  */
 
 import { test, expect } from '@playwright/test';
@@ -12,71 +16,19 @@ import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('Webhook Integration', () => {
+test.describe('Webhook Integration @smoke', () => {
   test.describe('Webhook endpoint API prefix', () => {
     test.skip(!isMockMode, 'Mock mode only');
 
     test('Webhook endpoints list calls /api/grc/webhook-endpoints', async ({ page }) => {
       const webhookRequests: string[] = [];
+      page.on('request', (req) => {
+        if (req.url().includes('/grc/webhook-endpoints')) {
+          webhookRequests.push(req.url());
+        }
+      });
 
       await login(page);
-
-      await page.route('**/grc/webhook-endpoints**', async (route) => {
-        webhookRequests.push(route.request().url());
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-rules**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-templates**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-deliveries**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
-          }),
-        });
-      });
-
       await page.goto('/admin/notification-studio');
 
       const webhooksTab = page.locator('button', { hasText: /Webhooks/i });
@@ -100,65 +52,13 @@ test.describe('Webhook Integration', () => {
 
     test('Webhook endpoint requests include Authorization Bearer token', async ({ page }) => {
       const capturedHeaders: (string | null)[] = [];
+      page.on('request', (req) => {
+        if (req.url().includes('/grc/webhook-endpoints')) {
+          capturedHeaders.push(req.headers()['authorization'] ?? null);
+        }
+      });
 
       await login(page);
-
-      await page.route('**/grc/webhook-endpoints**', async (route) => {
-        capturedHeaders.push(route.request().headers()['authorization'] ?? null);
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-rules**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-templates**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notification-deliveries**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
-          }),
-        });
-      });
-
-      await page.route('**/grc/notifications/**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            success: true,
-            data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0, unreadCount: 0 },
-          }),
-        });
-      });
-
       await page.goto('/admin/notification-studio');
 
       const webhooksTab = page.locator('button', { hasText: /Webhooks/i });
