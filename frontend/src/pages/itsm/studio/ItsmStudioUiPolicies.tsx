@@ -30,7 +30,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { itsmApi } from '../../../services/grcClient';
+import { itsmApi, unwrapArrayResponse } from '../../../services/grcClient';
 import { ConditionBuilder, Condition } from '../../../components/itsm/ConditionBuilder';
 
 interface FieldEffect {
@@ -88,8 +88,8 @@ export const ItsmStudioUiPolicies: React.FC = () => {
     try {
       setLoading(true);
       const response = await itsmApi.uiPolicies.list();
-      const data = response?.data?.data || response?.data || response || [];
-      setPolicies(Array.isArray(data) ? data : []);
+      const items = unwrapArrayResponse<UiPolicy>(response);
+      setPolicies(items);
       setError(null);
     } catch (err) {
       setError('Failed to load UI policies');
