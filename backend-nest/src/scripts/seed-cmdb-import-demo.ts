@@ -20,6 +20,7 @@ import { CmdbReconcileRule } from '../itsm/cmdb/import/cmdb-reconcile-rule.entit
 import {
   CmdbReconcileResult,
   ReconcileAction,
+  ReconcileDiffField,
 } from '../itsm/cmdb/import/cmdb-reconcile-result.entity';
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -482,12 +483,7 @@ async function seedCmdbImportDemo() {
         let action: ReconcileAction;
         let ciId: string | null = null;
         let matchedBy: string | null = null;
-        let diff: Array<{
-          field: string;
-          oldValue: unknown;
-          newValue: unknown;
-          classification: string;
-        }> | null = null;
+        let diff: ReconcileDiffField[] | null = null;
 
         if (!matchedCi) {
           action = ReconcileAction.CREATE;
