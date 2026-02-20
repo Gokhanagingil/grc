@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../../../auth/auth.module';
 import { TenantsModule } from '../../../tenants/tenants.module';
 import { CmdbModule } from '../cmdb.module';
+import { EventBusModule } from '../../../event-bus/event-bus.module';
 
 import { CmdbImportSource } from './cmdb-import-source.entity';
 import { CmdbImportJob } from './cmdb-import-job.entity';
@@ -15,6 +16,7 @@ import { ImportSourceService } from './import-source.service';
 import { ImportJobService } from './import-job.service';
 import { ReconcileRuleService } from './reconcile-rule.service';
 import { ImportMappingService } from './import-mapping.service';
+import { CmdbSchedulerService } from './cmdb-scheduler.service';
 
 import { ImportSourceController } from './import-source.controller';
 import { ImportJobController } from './import-job.controller';
@@ -34,12 +36,14 @@ import { ImportMappingController } from './import-mapping.controller';
     AuthModule,
     TenantsModule,
     CmdbModule,
+    EventBusModule,
   ],
   providers: [
     ImportSourceService,
     ImportJobService,
     ReconcileRuleService,
     ImportMappingService,
+    CmdbSchedulerService,
   ],
   controllers: [
     ImportSourceController,
@@ -52,6 +56,7 @@ import { ImportMappingController } from './import-mapping.controller';
     ImportJobService,
     ReconcileRuleService,
     ImportMappingService,
+    CmdbSchedulerService,
   ],
 })
 export class CmdbImportModule {}
