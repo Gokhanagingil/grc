@@ -66,7 +66,7 @@ describe('ITSM Change Approval Gating (e2e)', () => {
         return;
       }
 
-      const response = await request(app.getHttpServer())
+      const createResponse = await request(app.getHttpServer())
         .post('/grc/itsm/changes')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
@@ -74,15 +74,21 @@ describe('ITSM Change Approval Gating (e2e)', () => {
           title: 'E2E Approval Gating Test Change',
           description: 'Created by e2e test for approval gating',
           type: 'NORMAL',
-          state: 'ASSESS',
           risk: 'HIGH',
         })
         .expect(201);
 
-      const data = response.body.data ?? response.body;
+      const data = createResponse.body.data ?? createResponse.body;
       expect(data).toHaveProperty('id');
       expect(data).toHaveProperty('number');
       changeId = data.id;
+
+      await request(app.getHttpServer())
+        .patch(`/grc/itsm/changes/${changeId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ state: 'ASSESS' })
+        .expect(200);
     });
 
     it('should request approval for the change', async () => {
@@ -236,13 +242,19 @@ describe('ITSM Change Approval Gating (e2e)', () => {
           title: 'E2E Rejection Flow Test Change',
           description: 'Created by e2e test for rejection flow',
           type: 'NORMAL',
-          state: 'ASSESS',
           risk: 'HIGH',
         })
         .expect(201);
 
       const createData = createResponse.body.data ?? createResponse.body;
       changeId = createData.id;
+
+      await request(app.getHttpServer())
+        .patch(`/grc/itsm/changes/${changeId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ state: 'ASSESS' })
+        .expect(200);
 
       await request(app.getHttpServer())
         .post(`/grc/itsm/changes/${changeId}/request-approval`)

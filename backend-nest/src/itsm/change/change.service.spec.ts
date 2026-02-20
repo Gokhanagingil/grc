@@ -10,6 +10,7 @@ import {
   ChangeApprovalStatus,
 } from './change.entity';
 import { AuditService } from '../../audit/audit.service';
+import { ApprovalService } from './approval/approval.service';
 import { ChangeFilterDto } from './dto/change-filter.dto';
 
 describe('ChangeService', () => {
@@ -54,10 +55,19 @@ describe('ChangeService', () => {
       recordDelete: jest.fn(),
     };
 
+    const mockApprovalService = {
+      checkTransitionGate: jest.fn().mockResolvedValue({ allowed: true }),
+      requestApproval: jest.fn(),
+      approve: jest.fn(),
+      reject: jest.fn(),
+      listApprovals: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChangeService,
         { provide: getRepositoryToken(ItsmChange), useValue: mockRepository },
+        { provide: ApprovalService, useValue: mockApprovalService },
         { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
