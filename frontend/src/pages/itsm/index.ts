@@ -5,6 +5,7 @@ export { ItsmIncidentList } from './ItsmIncidentList';
 export { ItsmIncidentDetail } from './ItsmIncidentDetail';
 export { ItsmChangeList } from './ItsmChangeList';
 export { ItsmChangeDetail } from './ItsmChangeDetail';
+export { ItsmChangeCalendar } from './ItsmChangeCalendar';
 export { ItsmChoiceAdmin } from './ItsmChoiceAdmin';
 
 // ITSM Studio (Admin configuration screens)

@@ -345,6 +345,12 @@ const itsmMenuGroups: NavMenuGroup[] = [
         path: '/itsm/changes',
         testId: 'nav-itsm-changes',
       },
+      {
+        text: 'Change Calendar',
+        icon: <CalendarIcon />,
+        path: '/itsm/change-calendar',
+        testId: 'nav-itsm-change-calendar',
+      },
     ],
   },
   {
