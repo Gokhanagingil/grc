@@ -1952,11 +1952,15 @@ export const cmdbApi = {
     delete: (id: string) => api.delete(API_PATHS.CMDB.CIS.DELETE(id)),
   },
   relationships: {
-    list: (params?: CmdbListParams) => {
+    list: (params?: CmdbListParams & { ciId?: string; sourceCiId?: string; targetCiId?: string; type?: string }) => {
       const searchParams = new URLSearchParams();
       if (params?.page) searchParams.set('page', String(params.page));
       if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
       if (params?.q) searchParams.set('q', params.q);
+      if (params?.ciId) searchParams.set('ciId', params.ciId);
+      if (params?.sourceCiId) searchParams.set('sourceCiId', params.sourceCiId);
+      if (params?.targetCiId) searchParams.set('targetCiId', params.targetCiId);
+      if (params?.type) searchParams.set('type', params.type);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.CMDB.RELATIONSHIPS.LIST}${queryString ? `?${queryString}` : ''}`);
     },
