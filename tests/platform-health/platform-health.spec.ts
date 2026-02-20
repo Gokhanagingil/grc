@@ -61,7 +61,8 @@ for (const tableDef of tablesToRun) {
     });
 
     test(`list ${tableDef.name}`, async ({ request }) => {
-      const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
+      const url = `${BASE_URL}${tableDef.listEndpoint}`;
+      const res = await request.get(url, {
         headers: authHeaders(auth.token, auth.tenantId),
         params: { page: "1", limit: "5" },
       });
@@ -84,11 +85,16 @@ for (const tableDef of tablesToRun) {
         step: "list",
         status: res.status(),
         pass: res.status() === 200,
-        reason: res.status() !== 200 ? `Expected 200, got ${res.status()}` : undefined,
+        reason: res.status() !== 200
+          ? `Expected 200, got ${res.status()} — GET ${url}`
+          : undefined,
       };
       steps.push(step);
 
-      expect(res.status()).toBe(200);
+      expect(
+        res.status(),
+        `list ${tableDef.name}: expected 200 but got ${res.status()} — GET ${url}`,
+      ).toBe(200);
 
       const raw = await res.json();
       const body = unwrap(raw);
@@ -100,7 +106,62 @@ for (const tableDef of tablesToRun) {
       }
     });
 
-    if (tableDef.createEndpoint && tableDef.createPayload && !tableDef.readOnly) {
+    test(`contract: ${tableDef.name} list returns dataKey="${tableDef.listDataKey}"`, async ({ request }) => {
+      if (listSkipped) {
+        test.skip(true, "List requires elevated role");
+        return;
+      }
+
+      const url = `${BASE_URL}${tableDef.listEndpoint}`;
+      const res = await request.get(url, {
+        headers: authHeaders(auth.token, auth.tenantId),
+        params: { page: "1", limit: "1" },
+      });
+
+      if (res.status() !== 200) {
+        test.skip(true, `List returned ${res.status()}, skipping contract check`);
+        return;
+      }
+
+      const raw = await res.json();
+      const body = unwrap(raw);
+
+      const step: StepResult = {
+        step: "contract_dataKey",
+        pass: false,
+        reason: undefined,
+      };
+
+      if (tableDef.listDataKey) {
+        const hasKey = Object.prototype.hasOwnProperty.call(body, tableDef.listDataKey);
+        const isArray = hasKey && Array.isArray(body[tableDef.listDataKey]);
+        step.pass = hasKey && isArray;
+        if (!step.pass) {
+          const actualKeys = Object.keys(body).join(", ");
+          step.reason = `Expected dataKey "${tableDef.listDataKey}" (array) in response. Actual keys: [${actualKeys}] — GET ${url}`;
+        }
+      } else {
+        step.pass = Array.isArray(body);
+        if (!step.pass) {
+          step.reason = `Expected response body to be an array — GET ${url}`;
+        }
+      }
+
+      steps.push(step);
+
+      expect(
+        step.pass,
+        step.reason || `Contract assertion failed for ${tableDef.name}`,
+      ).toBe(true);
+    });
+
+    const canCreate =
+      tableDef.createEndpoint &&
+      tableDef.createPayload &&
+      !tableDef.readOnly &&
+      tableDef.canCreate !== false;
+
+    if (canCreate) {
       test(`create ${tableDef.name}`, async ({ request }) => {
         const uniquePayload = { ...tableDef.createPayload };
         if (uniquePayload.title) {
@@ -110,13 +171,11 @@ for (const tableDef of tablesToRun) {
           uniquePayload.name = `__smoke_${tableDef.name}_${Date.now()}`;
         }
 
-        const res = await request.post(
-          `${BASE_URL}${tableDef.createEndpoint}`,
-          {
-            headers: authHeaders(auth.token, auth.tenantId),
-            data: uniquePayload,
-          },
-        );
+        const url = `${BASE_URL}${tableDef.createEndpoint}`;
+        const res = await request.post(url, {
+          headers: authHeaders(auth.token, auth.tenantId),
+          data: uniquePayload,
+        });
 
         if (res.status() === 403) {
           createSkipped = true;
@@ -131,15 +190,35 @@ for (const tableDef of tablesToRun) {
           return;
         }
 
+        if (res.status() === 404) {
+          const step: StepResult = {
+            step: "create",
+            status: 404,
+            pass: false,
+            reason: `POST ${url} returned 404 — route does not exist. If this table has no create endpoint, set canCreate=false in table-registry.`,
+          };
+          steps.push(step);
+          expect.soft(
+            false,
+            `POST ${url} returned 404. Mark canCreate=false in table-registry if this route does not exist.`,
+          ).toBe(true);
+          return;
+        }
+
         const step: StepResult = {
           step: "create",
           status: res.status(),
           pass: res.status() === 201,
-          reason: res.status() !== 201 ? `Expected 201, got ${res.status()}` : undefined,
+          reason: res.status() !== 201
+            ? `Expected 201, got ${res.status()} — POST ${url}`
+            : undefined,
         };
         steps.push(step);
 
-        expect(res.status()).toBe(201);
+        expect(
+          res.status(),
+          `create ${tableDef.name}: expected 201 but got ${res.status()} — POST ${url}`,
+        ).toBe(201);
 
         const raw = await res.json();
         const body = unwrap(raw);
@@ -161,7 +240,8 @@ for (const tableDef of tablesToRun) {
           return;
         }
 
-        const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
+        const url = `${BASE_URL}${tableDef.listEndpoint}`;
+        const res = await request.get(url, {
           headers: authHeaders(auth.token, auth.tenantId),
           params: { page: "1", limit: "100" },
         });
@@ -184,7 +264,7 @@ for (const tableDef of tablesToRun) {
         const step: StepResult = {
           step: "verify_created",
           pass: found,
-          reason: found ? undefined : `Created record (id=${createdId}) not found in list`,
+          reason: found ? undefined : `Created record (id=${createdId}) not found in list — GET ${url}`,
         };
         steps.push(step);
 
@@ -205,7 +285,8 @@ for (const tableDef of tablesToRun) {
           return;
         }
         const filter = tableDef.filters[0];
-        const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
+        const url = `${BASE_URL}${tableDef.listEndpoint}`;
+        const res = await request.get(url, {
           headers: authHeaders(auth.token, auth.tenantId),
           params: { [filter.param]: filter.value, page: "1", limit: "5" },
         });
@@ -214,11 +295,16 @@ for (const tableDef of tablesToRun) {
           step: `filter_${filter.param}`,
           status: res.status(),
           pass: res.status() === 200,
-          reason: res.status() !== 200 ? `Filter ${filter.param}=${filter.value} returned ${res.status()}` : undefined,
+          reason: res.status() !== 200
+            ? `Filter ${filter.param}=${filter.value} returned ${res.status()} — GET ${url}`
+            : undefined,
         };
         steps.push(step);
 
-        expect(res.status()).toBe(200);
+        expect(
+          res.status(),
+          `filter ${tableDef.name}: expected 200 but got ${res.status()} — GET ${url}?${filter.param}=${filter.value}`,
+        ).toBe(200);
 
         const raw = await res.json();
         const body = unwrap(raw);
@@ -239,23 +325,26 @@ for (const tableDef of tablesToRun) {
             return;
           }
           const filter = tableDef.filters[1];
-          const res = await request.get(
-            `${BASE_URL}${tableDef.listEndpoint}`,
-            {
-              headers: authHeaders(auth.token, auth.tenantId),
-              params: { [filter.param]: filter.value, page: "1", limit: "5" },
-            },
-          );
+          const url = `${BASE_URL}${tableDef.listEndpoint}`;
+          const res = await request.get(url, {
+            headers: authHeaders(auth.token, auth.tenantId),
+            params: { [filter.param]: filter.value, page: "1", limit: "5" },
+          });
 
           const step: StepResult = {
             step: `filter_${filter.param}`,
             status: res.status(),
             pass: res.status() === 200,
-            reason: res.status() !== 200 ? `Filter returned ${res.status()}` : undefined,
+            reason: res.status() !== 200
+              ? `Filter ${filter.param}=${filter.value} returned ${res.status()} — GET ${url}`
+              : undefined,
           };
           steps.push(step);
 
-          expect(res.status()).toBe(200);
+          expect(
+            res.status(),
+            `filter ${tableDef.name}: expected 200 but got ${res.status()} — GET ${url}?${filter.param}=${filter.value}`,
+          ).toBe(200);
         });
       }
     }
@@ -271,7 +360,8 @@ for (const tableDef of tablesToRun) {
         test.skip(true, "List requires elevated role");
         return;
       }
-      const res = await request.get(`${BASE_URL}${tableDef.listEndpoint}`, {
+      const url = `${BASE_URL}${tableDef.listEndpoint}`;
+      const res = await request.get(url, {
         headers: authHeaders(auth.token, auth.tenantId),
         params: { page: "1", limit: "5" },
       });
@@ -280,11 +370,16 @@ for (const tableDef of tablesToRun) {
         step: "sort_page1",
         status: res.status(),
         pass: res.status() === 200,
-        reason: res.status() !== 200 ? `Sort/paginate returned ${res.status()}` : undefined,
+        reason: res.status() !== 200
+          ? `Sort/paginate returned ${res.status()} — GET ${url}`
+          : undefined,
       };
       steps.push(step);
 
-      expect(res.status()).toBe(200);
+      expect(
+        res.status(),
+        `sort ${tableDef.name}: expected 200 but got ${res.status()} — GET ${url}`,
+      ).toBe(200);
 
       const raw = await res.json();
       const body = unwrap(raw);

@@ -15,6 +15,8 @@ export interface TableDef {
   sortParam?: string;
   tier: 1 | 2;
   readOnly?: boolean;
+  canCreate?: boolean;
+  skipCreateReason?: string;
   requiresRole?: string[];
 }
 
@@ -86,16 +88,12 @@ export const TIER2_TABLES: TableDef[] = [
     name: "controls",
     listEndpoint: "/grc/controls",
     listDataKey: "items",
-    createEndpoint: "/grc/controls",
-    createPayload: {
-      name: `__smoke_control_${Date.now()}`,
-      description: "Platform health smoke test record",
-      category: "Preventive",
-    },
-    createdIdPath: "id",
     displayField: "name",
     filters: [{ param: "status", value: "draft" }],
     tier: 2,
+    readOnly: true,
+    canCreate: false,
+    skipCreateReason: "No POST /grc/controls endpoint exists; controls are created via process-control linking",
   },
   {
     name: "audits",
@@ -109,7 +107,7 @@ export const TIER2_TABLES: TableDef[] = [
   {
     name: "audit_logs",
     listEndpoint: "/audit-logs",
-    listDataKey: "items",
+    listDataKey: "logs",
     displayField: "action",
     filters: [{ param: "action", value: "CREATE" }],
     tier: 2,
