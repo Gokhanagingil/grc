@@ -143,6 +143,73 @@ The seed is **idempotent**: running it multiple times will not create duplicates
 
 ---
 
+## ITSM Studio Entity Management
+
+### How to Create and Verify a UI Policy
+
+1. Navigate to **Admin > ITSM Studio > UI Policies**
+2. Click **Create Policy**
+3. Fill in:
+   - **Name**: descriptive name (e.g., "Hide priority for low-impact incidents")
+   - **Table**: target table (e.g., `itsm_incidents`)
+   - **Field Effects**: add one or more field effects (field, visible, mandatory, readOnly)
+4. Click **Save**
+5. **Verify**: the new policy should appear in the list immediately
+
+### How to Create and Verify a UI Action
+
+1. Navigate to **Admin > ITSM Studio > UI Actions**
+2. Click **Create Action**
+3. Fill in:
+   - **Name**: internal name (e.g., "escalate_to_manager")
+   - **Label**: button label (e.g., "Escalate to Manager")
+   - **Table**: target table (e.g., `itsm_incidents`)
+   - **Style**: button style (primary, secondary, danger, etc.)
+4. Click **Save**
+5. **Verify**: the new action should appear in the list immediately
+
+### How to Create and Verify an SLA Definition
+
+1. Navigate to **Admin > ITSM Studio > SLA**
+2. Click **Create SLA**
+3. Fill in:
+   - **Name**: SLA name (e.g., "P1 Resolution Time")
+   - **Metric**: `RESOLUTION_TIME` or `RESPONSE_TIME`
+   - **Target**: duration in seconds (e.g., 14400 = 4 hours)
+   - **Schedule**: `24X7` or `BUSINESS_HOURS`
+4. Click **Save**
+5. **Verify**: the new SLA should appear in the list immediately
+
+### Staging Verification
+
+```bash
+# Verify UI Policies endpoint
+wget -qO- --header='Authorization: Bearer <TOKEN>' \
+  --header='x-tenant-id: 00000000-0000-0000-0000-000000000001' \
+  http://localhost:3002/grc/itsm/ui-policies
+
+# Verify UI Actions endpoint
+wget -qO- --header='Authorization: Bearer <TOKEN>' \
+  --header='x-tenant-id: 00000000-0000-0000-0000-000000000001' \
+  http://localhost:3002/grc/itsm/ui-policies/actions
+
+# Verify SLA Definitions endpoint (returns paginated response)
+wget -qO- --header='Authorization: Bearer <TOKEN>' \
+  --header='x-tenant-id: 00000000-0000-0000-0000-000000000001' \
+  http://localhost:3002/grc/itsm/sla/definitions
+```
+
+### Troubleshooting
+
+| Symptom | Root Cause | Fix |
+|---------|-----------|-----|
+| SLA list shows empty despite saved items | Response envelope not parsed correctly; SLA returns paginated `{items, total, ...}` wrapped in `{success, data}` | Use `unwrapArrayResponse()` helper which handles both raw arrays and paginated envelopes |
+| UI Policy/Action list empty | Response parsing falls through to empty array | Use `unwrapArrayResponse()` helper for consistent parsing |
+| 403 on create/list | Missing RBAC permission for user role | Check user role has ITSM_UI_POLICY_WRITE / ITSM_SLA_WRITE permissions |
+| 400 on create | DTO validation failure | Check required fields: name (max 100), tableName, fieldEffects (array) for policies; name, label, tableName for actions; name, targetSeconds (min 60) for SLA |
+
+---
+
 ## Rollback Notes
 
 ### Reverting the Choice System

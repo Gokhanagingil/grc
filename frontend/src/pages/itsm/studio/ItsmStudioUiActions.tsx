@@ -29,7 +29,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { itsmApi } from '../../../services/grcClient';
+import { itsmApi, unwrapArrayResponse } from '../../../services/grcClient';
 import { ConditionBuilder, Condition } from '../../../components/itsm/ConditionBuilder';
 
 interface UiAction {
@@ -90,8 +90,8 @@ export const ItsmStudioUiActions: React.FC = () => {
     try {
       setLoading(true);
       const response = await itsmApi.uiActions.list();
-      const data = response?.data?.data || response?.data || response || [];
-      setActions(Array.isArray(data) ? data : []);
+      const items = unwrapArrayResponse<UiAction>(response);
+      setActions(items);
       setError(null);
     } catch (err) {
       setError('Failed to load UI actions');

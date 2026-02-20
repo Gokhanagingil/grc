@@ -29,7 +29,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { itsmApi } from '../../../services/grcClient';
+import { itsmApi, unwrapArrayResponse } from '../../../services/grcClient';
 
 interface SlaDefinition {
   id: string;
@@ -103,8 +103,8 @@ export const ItsmStudioSla: React.FC = () => {
     try {
       setLoading(true);
       const response = await itsmApi.sla.listDefinitions();
-      const data = response?.data?.data || response?.data?.items || response?.data || response || [];
-      setDefinitions(Array.isArray(data) ? data : []);
+      const items = unwrapArrayResponse<SlaDefinition>(response);
+      setDefinitions(items);
       setError(null);
     } catch (err) {
       setError('Failed to load SLA definitions');
