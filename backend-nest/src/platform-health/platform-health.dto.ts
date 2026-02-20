@@ -4,6 +4,7 @@ import {
   IsArray,
   IsNumber,
   IsDateString,
+  IsUUID,
   ValidateNested,
   Min,
   MaxLength,
@@ -72,6 +73,10 @@ export class IngestRunDto {
   @IsNumber()
   @Min(0)
   durationMs: number;
+
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -27,15 +27,19 @@ export class PlatformHealthController {
   async listRuns(
     @Query('limit') limit?: string,
     @Query('suite') suite?: string,
+    @Query('tenantId') tenantId?: string,
   ) {
     const parsedLimit = limit ? Math.min(parseInt(limit, 10) || 20, 100) : 20;
-    return this.platformHealthService.listRuns(parsedLimit, suite);
+    return this.platformHealthService.listRuns(parsedLimit, suite, tenantId);
   }
 
   @Get('runs/:id')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async getRunDetail(@Param('id', ParseUUIDPipe) id: string) {
-    const run = await this.platformHealthService.getRunWithChecks(id);
+  async getRunDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    const run = await this.platformHealthService.getRunWithChecks(id, tenantId);
     if (!run) {
       throw new NotFoundException('Platform health run not found');
     }
@@ -44,8 +48,11 @@ export class PlatformHealthController {
 
   @Get('badge')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async getBadge(@Query('suite') suite?: string) {
-    return this.platformHealthService.getBadge(suite || 'TIER1');
+  async getBadge(
+    @Query('suite') suite?: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.platformHealthService.getBadge(suite || 'TIER1', tenantId);
   }
 
   @Post('ingest')

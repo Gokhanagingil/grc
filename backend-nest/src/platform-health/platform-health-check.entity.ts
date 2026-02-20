@@ -47,6 +47,9 @@ export class PlatformHealthCheck {
   @Column({ type: 'jsonb', name: 'response_snippet', nullable: true })
   responseSnippet: Record<string, unknown> | null;
 
+  @Column({ type: 'uuid', name: 'tenant_id', nullable: true })
+  tenantId: string | null;
+
   @ManyToOne(() => PlatformHealthRun, (run) => run.checks, {
     onDelete: 'CASCADE',
   })

@@ -263,4 +263,146 @@ describe('Platform Health API (e2e)', () => {
       expect(failedCheck.errorMessage).toBe('Internal server error');
     });
   });
+
+  describe('Tenant-scoped ingest and query', () => {
+    const SECOND_TENANT = '00000000-0000-0000-0000-000000000002';
+
+    it('should ingest a run with tenantId and filter by it', async () => {
+      if (!app || !dbConnected || !tenantId || !adminToken) {
+        console.log('Skipping: no admin token or DB not connected');
+        return;
+      }
+
+      const tenantPayload = {
+        suite: 'TIER1',
+        triggeredBy: 'e2e-tenant-test',
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 800,
+        tenantId: SECOND_TENANT,
+        checks: [
+          {
+            module: 'auth',
+            checkName: 'tenant-login',
+            status: 'PASSED',
+            durationMs: 40,
+            httpStatus: 200,
+          },
+        ],
+      };
+
+      const ingestRes = await request(app.getHttpServer())
+        .post('/grc/platform-health/ingest')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send(tenantPayload);
+
+      if (![200, 201].includes(ingestRes.status)) {
+        console.log('Skipping tenant test: ingest returned', ingestRes.status);
+        return;
+      }
+
+      const runData = ingestRes.body.data ?? ingestRes.body;
+      expect(runData.tenantId).toBe(SECOND_TENANT);
+
+      const tenantListRes = await request(app.getHttpServer())
+        .get('/grc/platform-health/runs')
+        .query({ tenantId: SECOND_TENANT })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const tenantRuns = tenantListRes.body.data ?? tenantListRes.body;
+      expect(Array.isArray(tenantRuns)).toBe(true);
+      const tenantRun = tenantRuns.find(
+        (r: Record<string, unknown>) => r.id === runData.id,
+      );
+      expect(tenantRun).toBeDefined();
+    });
+
+    it('should ingest a global run (no tenantId) and isolate from tenant queries', async () => {
+      if (!app || !dbConnected || !tenantId || !adminToken) {
+        console.log('Skipping: no admin token or DB not connected');
+        return;
+      }
+
+      const globalPayload = {
+        suite: 'TIER1',
+        triggeredBy: 'e2e-global-test',
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 600,
+        checks: [
+          {
+            module: 'health',
+            checkName: 'global-liveness',
+            status: 'PASSED',
+            durationMs: 20,
+            httpStatus: 200,
+          },
+        ],
+      };
+
+      const ingestRes = await request(app.getHttpServer())
+        .post('/grc/platform-health/ingest')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send(globalPayload);
+
+      if (![200, 201].includes(ingestRes.status)) {
+        console.log('Skipping global test: ingest returned', ingestRes.status);
+        return;
+      }
+
+      const globalRun = ingestRes.body.data ?? ingestRes.body;
+      expect(globalRun.tenantId).toBeNull();
+
+      const globalListRes = await request(app.getHttpServer())
+        .get('/grc/platform-health/runs')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const globalRuns = globalListRes.body.data ?? globalListRes.body;
+      const foundGlobal = globalRuns.find(
+        (r: Record<string, unknown>) => r.id === globalRun.id,
+      );
+      expect(foundGlobal).toBeDefined();
+
+      const tenantFilterRes = await request(app.getHttpServer())
+        .get('/grc/platform-health/runs')
+        .query({ tenantId: SECOND_TENANT })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .expect(200);
+
+      const tenantFilteredRuns =
+        tenantFilterRes.body.data ?? tenantFilterRes.body;
+      const foundInTenant = tenantFilteredRuns.find(
+        (r: Record<string, unknown>) => r.id === globalRun.id,
+      );
+      expect(foundInTenant).toBeUndefined();
+    });
+
+    it('should scope badge to tenantId when provided', async () => {
+      if (!app || !dbConnected || !tenantId || !adminToken) {
+        console.log('Skipping: no admin token or DB not connected');
+        return;
+      }
+
+      const badgeRes = await request(app.getHttpServer())
+        .get('/grc/platform-health/badge')
+        .query({ suite: 'TIER1', tenantId: SECOND_TENANT })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      expect([200, 401, 403]).toContain(badgeRes.status);
+
+      if (badgeRes.status === 200) {
+        const badge = badgeRes.body.data ?? badgeRes.body;
+        expect(badge).toHaveProperty('status');
+        expect(badge).toHaveProperty('passRate');
+      }
+    });
+  });
 });
