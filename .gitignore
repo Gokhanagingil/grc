@@ -96,3 +96,27 @@ out/
 tmp/
 temp/
 test-results/
+
+# Local ops reports (do not commit)
+*_REPORT.md
+*_ROOT_CAUSE.md
+*_EXECUTION.md
+PR_DESCRIPTION*.md
+REPORT.md
+REPOSITORY_AUDIT_REPORT.md
+AUDIT_LOGS_FIX_VALIDATION_REPORT.md
+
+# Playwright artifacts
+frontend/playwright-report/
+frontend/test-results/
+
+# Evidence packs (deployment validation artifacts)
+evidence/
+
+# local deploy keys (DO NOT COMMIT)
+grc_staging_deploy_key
+grc_staging_deploy_key.pub
+
+# Staging local data directories (created on staging host, not in repo)
+staging-data/
+_local_ignored/

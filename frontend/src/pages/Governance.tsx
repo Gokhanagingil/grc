@@ -1,41 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Alert,
-  CircularProgress,
+  Grid,
+  Button,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  AccountBalance as PolicyIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { api } from '../services/api';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { policyApi } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { PolicyVersionsTab } from '../components/PolicyVersionsTab';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
 
 interface Policy {
   id: number;
@@ -51,12 +61,141 @@ interface Policy {
   created_at: string;
 }
 
+const POLICY_STATUS_VALUES = ['draft', 'active', 'archived'] as const;
+
+const POLICY_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'string',
+    },
+    {
+      name: 'version',
+      label: 'Version',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: [...POLICY_STATUS_VALUES],
+      enumLabels: {
+        draft: 'Draft',
+        active: 'Active',
+        archived: 'Archived',
+      },
+    },
+    {
+      name: 'effective_date',
+      label: 'Effective Date',
+      type: 'date',
+    },
+    {
+      name: 'review_date',
+      label: 'Review Date',
+      type: 'date',
+    },
+    {
+      name: 'created_at',
+      label: 'Created Date',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+const getStatusColor = (status: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  switch (status) {
+    case 'active': return 'success';
+    case 'draft': return 'warning';
+    case 'archived': return 'default';
+    default: return 'default';
+  }
+};
+
+const formatStatus = (status: string): string => {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString();
+};
+
 export const Governance: React.FC = () => {
-  const [policies, setPolicies] = useState<Policy[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tenantId = user?.tenantId || '';
+
+  const statusFilter = searchParams.get('status') || '';
+
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'created_at:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, advancedFilter]);
+
+  const fetchPolicies = useCallback((params: Record<string, unknown>) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.set(key, String(value));
+      }
+    });
+    return policyApi.list(tenantId, queryParams);
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<Policy>({
+    fetchFn: fetchPolicies,
+    defaultPageSize: 10,
+    defaultSort: 'created_at:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
   const [openDialog, setOpenDialog] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [openVersionsDialog, setOpenVersionsDialog] = useState(false);
+  const [selectedPolicyForVersions, setSelectedPolicyForVersions] = useState<Policy | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -68,37 +207,15 @@ export const Governance: React.FC = () => {
     content: '',
   });
 
-  useEffect(() => {
-    fetchPolicies();
-  }, []);
+  const handleViewPolicy = useCallback((policy: Policy) => {
+    navigate(`/policies/${policy.id}`);
+  }, [navigate]);
 
-  const fetchPolicies = async () => {
-    try {
-      const response = await api.get('/governance/policies');
-      setPolicies(response.data.policies);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch policies');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleCreatePolicy = useCallback(() => {
+    navigate('/policies/new');
+  }, [navigate]);
 
-  const handleCreatePolicy = () => {
-    setEditingPolicy(null);
-    setFormData({
-      title: '',
-      description: '',
-      category: '',
-      version: '1.0',
-      status: 'draft',
-      effectiveDate: null,
-      reviewDate: null,
-      content: '',
-    });
-    setOpenDialog(true);
-  };
-
-  const handleEditPolicy = (policy: Policy) => {
+  const handleEditPolicy = useCallback((policy: Policy) => {
     setEditingPolicy(policy);
     setFormData({
       title: policy.title,
@@ -111,128 +228,298 @@ export const Governance: React.FC = () => {
       content: '',
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleSavePolicy = async () => {
+  const handleSavePolicy = useCallback(async () => {
     try {
       const policyData = {
-        ...formData,
+        name: formData.title,
+        summary: formData.description,
+        category: formData.category,
+        version: formData.version,
+        status: formData.status,
         effectiveDate: formData.effectiveDate?.toISOString().split('T')[0],
         reviewDate: formData.reviewDate?.toISOString().split('T')[0],
+        content: formData.content,
       };
 
       if (editingPolicy) {
-        await api.put(`/governance/policies/${editingPolicy.id}`, policyData);
+        await policyApi.update(tenantId, String(editingPolicy.id), policyData);
       } else {
-        await api.post('/governance/policies', policyData);
+        await policyApi.create(tenantId, policyData);
       }
 
       setOpenDialog(false);
-      fetchPolicies();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save policy');
+      refetch();
+    } catch (err) {
+      console.error('Failed to save policy:', err);
     }
-  };
+  }, [formData, editingPolicy, tenantId, refetch]);
 
-  const handleDeletePolicy = async (id: number) => {
+  const handleDeletePolicy = useCallback(async (id: number) => {
     if (window.confirm('Are you sure you want to delete this policy?')) {
       try {
-        await api.delete(`/governance/policies/${id}`);
-        fetchPolicies();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete policy');
+        await policyApi.delete(tenantId, String(id));
+        refetch();
+      } catch (err) {
+        console.error('Failed to delete policy:', err);
       }
     }
-  };
+  }, [tenantId, refetch]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'success';
-      case 'draft': return 'warning';
-      case 'archived': return 'default';
-      default: return 'default';
+  const handleViewVersions = useCallback((policy: Policy) => {
+    setSelectedPolicyForVersions(policy);
+    setOpenVersionsDialog(true);
+  }, []);
+
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
     }
-  };
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleStatusChange = useCallback((value: string) => {
+    updateFilter('status', value);
+  }, [updateFilter]);
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: formatStatus(statusFilter) });
+    }
+    return filters;
+  }, [statusFilter]);
+
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const columns: ColumnDefinition<Policy>[] = useMemo(() => [
+    {
+      key: 'title',
+      header: 'Title',
+      render: (policy) => (
+        <Box>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            component="span"
+            onClick={() => handleViewPolicy(policy)}
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+            }}
+          >
+            {policy.title}
+          </Typography>
+          {policy.description && (
+            <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+              {policy.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (policy) => policy.category || '-',
+    },
+    {
+      key: 'version',
+      header: 'Version',
+      render: (policy) => policy.version || '-',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (policy) => (
+        <Chip
+          label={formatStatus(policy.status)}
+          size="small"
+          color={getStatusColor(policy.status)}
+        />
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (policy) => (
+        policy.owner_first_name || policy.owner_last_name
+          ? `${policy.owner_first_name || ''} ${policy.owner_last_name || ''}`.trim()
+          : '-'
+      ),
+    },
+    {
+      key: 'effective_date',
+      header: 'Effective Date',
+      render: (policy) => formatDate(policy.effective_date),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (policy) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View Details">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewPolicy(policy);
+              }}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Version History">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewVersions(policy);
+              }}
+            >
+              <HistoryIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditPolicy(policy);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeletePolicy(policy.id);
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewPolicy, handleViewVersions, handleEditPolicy, handleDeletePolicy]);
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={POLICY_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Status"
+          onChange={(e) => handleStatusChange(e.target.value)}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="draft">Draft</MenuItem>
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="archived">Archived</MenuItem>
+        </Select>
+      </FormControl>
+    </Box>
+  ), [statusFilter, handleStatusChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Governance Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreatePolicy}
-        >
-          New Policy
-        </Button>
-      </Box>
+    <>
+      <GenericListPage<Policy>
+        title="Governance Management"
+        icon={<PolicyIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(policy) => String(policy.id)}
+        onRowClick={handleViewPolicy}
+        searchPlaceholder="Search policies..."
+        emptyMessage="No policies found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        headerActions={(
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreatePolicy}
+          >
+            New Policy
+          </Button>
+        )}
+        minTableWidth={900}
+        testId="governance-list-page"
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Card>
-        <CardContent>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Version</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Owner</TableCell>
-                  <TableCell>Effective Date</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {policies.map((policy) => (
-                  <TableRow key={policy.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2">{policy.title}</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {policy.description}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{policy.category}</TableCell>
-                    <TableCell>{policy.version}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={policy.status}
-                        color={getStatusColor(policy.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {policy.owner_first_name} {policy.owner_last_name}
-                    </TableCell>
-                    <TableCell>
-                      {policy.effective_date ? new Date(policy.effective_date).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditPolicy(policy)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeletePolicy(policy.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      {/* Policy Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingPolicy ? 'Edit Policy' : 'Create New Policy'}
@@ -279,6 +566,7 @@ export const Governance: React.FC = () => {
                 <InputLabel>Status</InputLabel>
                 <Select
                   value={formData.status}
+                  label="Status"
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 >
                   <MenuItem value="draft">Draft</MenuItem>
@@ -302,8 +590,12 @@ export const Governance: React.FC = () => {
                 <DatePicker
                   label="Effective Date"
                   value={formData.effectiveDate}
-                  onChange={(date) => setFormData({ ...formData, effectiveDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  onChange={(newValue: Date | null) =>
+                    setFormData({ ...formData, effectiveDate: newValue })
+                  }
+                  slotProps={{
+                    textField: { fullWidth: true },
+                  }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -312,8 +604,12 @@ export const Governance: React.FC = () => {
                 <DatePicker
                   label="Review Date"
                   value={formData.reviewDate}
-                  onChange={(date) => setFormData({ ...formData, reviewDate: date })}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  onChange={(newValue: Date | null) =>
+                    setFormData({ ...formData, reviewDate: newValue })
+                  }
+                  slotProps={{
+                    textField: { fullWidth: true },
+                  }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -326,6 +622,26 @@ export const Governance: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+
+      <Dialog
+        open={openVersionsDialog}
+        onClose={() => setOpenVersionsDialog(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Policy Version History</DialogTitle>
+        <DialogContent>
+          {selectedPolicyForVersions && (
+            <PolicyVersionsTab
+              policyId={String(selectedPolicyForVersions.id)}
+              policyTitle={selectedPolicyForVersions.title}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenVersionsDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };

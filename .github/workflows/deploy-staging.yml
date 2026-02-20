@@ -1,0 +1,703 @@
+# =============================================================================
+# GRC Platform - Staging Deployment Workflow
+# =============================================================================
+# Deploys to staging server (configured via secrets)
+#
+# Triggers:
+#   - Manual workflow dispatch
+#   - Push to main branch (optional, can be enabled)
+#
+# Secrets Required:
+#   - STAGING_SSH_HOST: Your staging server hostname or IP
+#   - STAGING_SSH_USER: root (or grcdeploy)
+#   - STAGING_SSH_KEY_B64: Base64-encoded private SSH key (preferred)
+#     To create: base64 -w 0 ~/.ssh/grc_staging (Linux)
+#     Fallback:  base64 ~/.ssh/grc_staging | tr -d '\n' (macOS/other)
+#   - (Legacy) STAGING_SSH_KEY: Plain text SSH key (deprecated, use B64 version)
+#   - DEMO_ADMIN_EMAIL: Admin email for smoke tests
+#   - DEMO_ADMIN_PASSWORD: Admin password for smoke tests
+#   - DEMO_TENANT_ID: Tenant ID for smoke tests
+#
+# Deployment Path: /opt/grc-platform
+# =============================================================================
+
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+  # Uncomment to auto-deploy on push to main:
+  # push:
+  #   branches:
+  #     - main
+
+# Prevent concurrent deployments to staging - only one deploy at a time
+# Do NOT cancel in-progress deploys to avoid partial deployment states
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: /opt/grc-platform
+  # Minimum free disk space (GB) required before docker build
+  # If below threshold, safe cleanup is attempted automatically
+  DISK_FREE_GB_MIN: 6
+
+jobs:
+  deploy:
+    name: Deploy to Staging Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      # =========================================================================
+      # Step 1: Validate required secrets (fail fast)
+      # =========================================================================
+      - name: Validate required secrets
+        run: |
+          echo "=== Validating Required Secrets ==="
+          MISSING_SECRETS=""
+          
+          # Check STAGING_SSH_HOST
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_HOST\n"
+          else
+            echo "STAGING_SSH_HOST: present"
+          fi
+          
+          # Check STAGING_SSH_USER
+          if [ -z "${{ secrets.STAGING_SSH_USER }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_USER\n"
+          else
+            echo "STAGING_SSH_USER: present"
+          fi
+          
+          # Check SSH key (prefer B64, fallback to plain)
+          if [ -z "${{ secrets.STAGING_SSH_KEY_B64 }}" ] && [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}  - STAGING_SSH_KEY_B64 (preferred) or STAGING_SSH_KEY (legacy)\n"
+          else
+            if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+              echo "STAGING_SSH_KEY_B64: present (preferred)"
+            else
+              echo "STAGING_SSH_KEY: present (legacy - consider migrating to B64)"
+            fi
+          fi
+          
+          # Fail if any secrets are missing
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo ""
+            echo "ERROR: Missing required GitHub secrets:"
+            echo -e "$MISSING_SECRETS"
+            echo ""
+            echo "To add secrets:"
+            echo "  1. Go to repository Settings > Secrets and variables > Actions"
+            echo "  2. Add the missing secrets listed above"
+            echo ""
+            echo "To create STAGING_SSH_KEY_B64:"
+            echo "  Linux:   base64 -w 0 ~/.ssh/grc_staging"
+            echo "  macOS:   base64 ~/.ssh/grc_staging | tr -d '\\n'"
+            exit 1
+          fi
+          
+          echo "All required secrets are present."
+      
+      # =========================================================================
+      # Step 2: Sanitize and validate STAGING_SSH_HOST
+      # =========================================================================
+      - name: Sanitize STAGING_SSH_HOST
+        id: sanitize_host
+        run: |
+          echo "=== Sanitizing STAGING_SSH_HOST ==="
+          
+          # Get raw host value and sanitize it
+          HOST_RAW="${{ secrets.STAGING_SSH_HOST }}"
+          
+          # Remove whitespace, carriage returns, tabs, newlines
+          # Strip any URL scheme (http:// or https://)
+          # Strip any path after hostname
+          # Strip any port suffix
+          HOST="$(echo "$HOST_RAW" | tr -d '\r\n\t ' | sed -E 's#^https?://##; s#/.*$##; s/:[0-9]+$//')"
+          
+          # Validate: must be hostname or IP (alphanumeric, dots, hyphens only)
+          if ! echo "$HOST" | grep -qE '^[A-Za-z0-9.-]+$'; then
+            echo "ERROR: Invalid STAGING_SSH_HOST format"
+            echo "  Expected: hostname or IP address (e.g., staging.example.com or 192.0.2.1)"
+            echo "  Must contain only: letters, numbers, dots, and hyphens"
+            echo "  Must NOT contain: scheme (http://), port (:22), path (/path), or special characters"
+            exit 1
+          fi
+          
+          # Additional validation: must not be empty
+          if [ -z "$HOST" ]; then
+            echo "ERROR: STAGING_SSH_HOST is empty after sanitization"
+            exit 1
+          fi
+          
+          # Export sanitized host for subsequent steps (safe to echo sanitized value)
+          echo "Sanitized host: $HOST"
+          echo "STAGING_HOST=${HOST}" >> $GITHUB_OUTPUT
+      
+      # =========================================================================
+      # Step 3: Setup SSH key (workspace-based path for container compatibility)
+      # =========================================================================
+      - name: Setup SSH key
+        id: ssh_setup
+        run: |
+          echo "=== Setting up SSH key ==="
+          
+          # Use sanitized host from previous step
+          STAGING_HOST="${{ steps.sanitize_host.outputs.STAGING_HOST }}"
+          
+          # Create .ssh directory in workspace (accessible by containerized actions)
+          SSH_DIR="${GITHUB_WORKSPACE}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          
+          KEY_FILE="${SSH_DIR}/staging_key"
+          KNOWN_HOSTS_FILE="${SSH_DIR}/known_hosts"
+          
+          # Decode SSH key (prefer B64, fallback to plain)
+          if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+            echo "Using base64-encoded SSH key..."
+            echo "${{ secrets.STAGING_SSH_KEY_B64 }}" | base64 -d > "$KEY_FILE" 2>/dev/null
+            if [ $? -ne 0 ]; then
+              echo "ERROR: Failed to decode STAGING_SSH_KEY_B64. Ensure it is valid base64."
+              echo "To regenerate: base64 -w 0 ~/.ssh/grc_staging"
+              exit 1
+            fi
+          else
+            echo "Using plain SSH key (legacy)..."
+            echo "${{ secrets.STAGING_SSH_KEY }}" > "$KEY_FILE"
+          fi
+          
+          chmod 600 "$KEY_FILE"
+          
+          # Validate key file
+          if [ ! -s "$KEY_FILE" ]; then
+            echo "ERROR: SSH key file is empty after decoding"
+            exit 1
+          fi
+          
+          # Print safe diagnostics (fingerprint and size only, never content)
+          echo "=== SSH Key Diagnostics (safe) ==="
+          echo "Key file size: $(wc -c < "$KEY_FILE") bytes"
+          ssh-keygen -lf "$KEY_FILE" 2>/dev/null || echo "WARNING: Could not read key fingerprint"
+          
+          # Setup known_hosts using ssh-keyscan (use sanitized host)
+          echo "=== Setting up known_hosts ==="
+          echo "Scanning host: $STAGING_HOST"
+          ssh-keyscan -H "$STAGING_HOST" >> "$KNOWN_HOSTS_FILE" 2>/dev/null
+          if [ ! -s "$KNOWN_HOSTS_FILE" ]; then
+            echo "WARNING: ssh-keyscan returned empty result, host key verification may fail"
+          else
+            echo "Known hosts entries: $(wc -l < "$KNOWN_HOSTS_FILE")"
+          fi
+          
+          # Export paths for subsequent steps
+          echo "SSH_KEY_PATH=${KEY_FILE}" >> $GITHUB_OUTPUT
+          echo "KNOWN_HOSTS_PATH=${KNOWN_HOSTS_FILE}" >> $GITHUB_OUTPUT
+          
+          echo "SSH setup complete."
+          echo "  Key path: ${KEY_FILE}"
+          echo "  Known hosts: ${KNOWN_HOSTS_FILE}"
+      
+      # =========================================================================
+      # Step 4: Connectivity preflight check (direct SSH test before heavy deploy)
+      # =========================================================================
+      - name: SSH connectivity preflight
+        run: |
+          echo "=== SSH Connectivity Preflight ==="
+          
+          # Use sanitized host
+          STAGING_HOST="${{ steps.sanitize_host.outputs.STAGING_HOST }}"
+          echo "Testing SSH connection to $STAGING_HOST..."
+          
+          SSH_KEY_PATH="${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}"
+          KNOWN_HOSTS_PATH="${{ steps.ssh_setup.outputs.KNOWN_HOSTS_PATH }}"
+          
+          # Attempt SSH connection with strict host key checking
+          ssh -i "$SSH_KEY_PATH" \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$KNOWN_HOSTS_PATH" \
+              -o ConnectTimeout=30 \
+              -o BatchMode=yes \
+              "${{ secrets.STAGING_SSH_USER }}@${STAGING_HOST}" \
+              "echo PRECHECK_OK" 2>&1
+          
+          if [ $? -eq 0 ]; then
+            echo "SSH connectivity preflight PASSED"
+          else
+            echo ""
+            echo "ERROR: SSH connectivity preflight FAILED"
+            echo ""
+            echo "Troubleshooting hints:"
+            echo "  1. Verify the SSH key is correct and has access to the server"
+            echo "  2. Check that STAGING_SSH_HOST ($STAGING_HOST) is reachable"
+            echo "  3. Verify STAGING_SSH_USER (${{ secrets.STAGING_SSH_USER }}) is correct"
+            echo "  4. Ensure the public key is in ~/.ssh/authorized_keys on the server"
+            echo "  5. Check server firewall allows SSH from GitHub Actions IPs"
+            echo ""
+            echo "Manual test command:"
+            echo "  ssh -i /path/to/key ${{ secrets.STAGING_SSH_USER }}@$STAGING_HOST 'echo OK'"
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 5: Deploy to staging server
+      # =========================================================================
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          STAGING_HOST: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
+          DISK_FREE_GB_MIN: ${{ env.DISK_FREE_GB_MIN }}
+        with:
+          host: ${{ steps.sanitize_host.outputs.STAGING_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key_path: ${{ steps.ssh_setup.outputs.SSH_KEY_PATH }}
+          envs: DEPLOY_PATH,STAGING_HOST,DISK_FREE_GB_MIN
+          script: |
+            set -euo pipefail
+            
+            echo "=== Starting Staging Deployment ==="
+            echo "Deploy path: $DEPLOY_PATH"
+            echo "Timestamp: $(date)"
+            
+            # Navigate to deploy path
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Deploy path $DEPLOY_PATH does not exist!"
+              exit 1
+            }
+            
+            # Check git status
+            echo "=== Git Status ==="
+            git status
+            
+            # Fetch latest changes
+            echo "=== Fetching latest changes ==="
+            git fetch --all
+            
+            # Checkout main branch
+            echo "=== Checking out main branch ==="
+            git checkout main || {
+              echo "ERROR: Failed to checkout main branch"
+              exit 1
+            }
+            
+            # Pull latest changes
+            echo "=== Pulling latest changes ==="
+            git pull origin main || {
+              echo "ERROR: Failed to pull latest changes"
+              exit 1
+            }
+            
+            # Show current commit
+            echo "=== Current Commit ==="
+            git log -1 --oneline
+            
+            # Export version info for docker-compose
+            export GIT_COMMIT_SHA=$(git rev-parse HEAD)
+            export GIT_COMMIT_SHORT=$(git rev-parse --short HEAD)
+            export BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            echo "GIT_COMMIT_SHA=$GIT_COMMIT_SHA"
+            echo "GIT_COMMIT_SHORT=$GIT_COMMIT_SHORT"
+            echo "BUILD_TIMESTAMP=$BUILD_TIMESTAMP"
+            
+            # Check Docker and Docker Compose
+            echo "=== Docker Environment ==="
+            docker --version
+            docker compose version || docker-compose --version
+            
+            # =============================================================================
+            # Disk Preflight + Safe Cleanup
+            # =============================================================================
+            # Prevents "no space left on device" errors during docker build by:
+            # 1. Checking available disk space
+            # 2. Running safe cleanup if below threshold (NO volume prune - protects DB)
+            # 3. Failing fast with actionable message if still insufficient
+            # =============================================================================
+            echo ""
+            echo "=== Disk Preflight Check ==="
+            
+            # Configurable threshold (default 6GB)
+            DISK_THRESHOLD_GB="${DISK_FREE_GB_MIN:-6}"
+            echo "Minimum required free space: ${DISK_THRESHOLD_GB}GB"
+            
+            # Function to get free space in GB for a path
+            get_free_space_gb() {
+              local path="$1"
+              # df outputs in 1K blocks, convert to GB
+              df -P "$path" 2>/dev/null | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
+            }
+            
+            # Function to check if we have enough space
+            check_disk_space() {
+              local required_gb="$1"
+              local root_free_gb
+              local docker_free_gb
+              
+              # Check root filesystem
+              root_free_gb=$(get_free_space_gb "/")
+              echo "  Root (/) free space: ${root_free_gb}GB"
+              
+              # Check docker data directory if it exists on separate mount
+              if [ -d "/var/lib/docker" ]; then
+                docker_free_gb=$(get_free_space_gb "/var/lib/docker")
+                echo "  Docker (/var/lib/docker) free space: ${docker_free_gb}GB"
+              elif [ -d "/var" ]; then
+                docker_free_gb=$(get_free_space_gb "/var")
+                echo "  /var free space: ${docker_free_gb}GB"
+              else
+                docker_free_gb="$root_free_gb"
+              fi
+              
+              # Check if either is below threshold (use awk for float comparison)
+              local root_ok docker_ok
+              root_ok=$(awk "BEGIN {print ($root_free_gb >= $required_gb) ? 1 : 0}")
+              docker_ok=$(awk "BEGIN {print ($docker_free_gb >= $required_gb) ? 1 : 0}")
+              
+              if [ "$root_ok" -eq 1 ] && [ "$docker_ok" -eq 1 ]; then
+                return 0  # Enough space
+              else
+                return 1  # Not enough space
+              fi
+            }
+            
+            # Print initial diagnostics
+            echo ""
+            echo "--- Initial Disk Diagnostics ---"
+            echo "Filesystem usage (df -h):"
+            df -h
+            echo ""
+            echo "Docker disk usage (docker system df):"
+            docker system df
+            echo ""
+            
+            # Check if we have enough space
+            if check_disk_space "$DISK_THRESHOLD_GB"; then
+              echo ""
+              echo "DISK_PREFLIGHT: OK - Sufficient disk space available"
+            else
+              echo ""
+              echo "DISK_PREFLIGHT: WARNING - Below ${DISK_THRESHOLD_GB}GB threshold, running safe cleanup..."
+              echo ""
+              echo "--- Running Safe Docker Cleanup (NO volumes) ---"
+              echo "NOTE: Volume prune is NOT run to protect database volumes"
+              echo ""
+              
+              # Safe cleanup commands (NO volume prune)
+              echo "1. Pruning stopped containers..."
+              docker container prune -f || true
+              
+              echo "2. Pruning unused networks..."
+              docker network prune -f || true
+              
+              echo "3. Pruning build cache..."
+              docker builder prune -af || true
+              
+              echo "4. Pruning dangling and unused images..."
+              docker image prune -af || true
+              
+              echo ""
+              echo "--- Post-Cleanup Disk Diagnostics ---"
+              echo "Filesystem usage (df -h):"
+              df -h
+              echo ""
+              echo "Docker disk usage (docker system df):"
+              docker system df
+              echo ""
+              
+              # Re-check disk space after cleanup
+              if check_disk_space "$DISK_THRESHOLD_GB"; then
+                echo ""
+                echo "DISK_PREFLIGHT: OK - Cleanup freed sufficient space"
+              else
+                echo ""
+                echo "============================================================"
+                echo "DISK_PREFLIGHT: FAILED - Still below ${DISK_THRESHOLD_GB}GB threshold"
+                echo "============================================================"
+                echo ""
+                echo "ACTIONABLE STEPS TO RESOLVE:"
+                echo ""
+                echo "1. EXPAND DISK: Increase the staging server's disk size"
+                echo "   - Check cloud provider console for disk resize options"
+                echo ""
+                echo "2. REMOVE OLD LOGS: Clear old application/system logs"
+                echo "   - sudo journalctl --vacuum-time=7d"
+                echo "   - sudo find /var/log -type f -name '*.gz' -delete"
+                echo "   - sudo truncate -s 0 /var/log/*.log"
+                echo ""
+                echo "3. MANUAL CLEANUP: SSH to server and investigate"
+                echo "   - du -sh /* | sort -hr | head -20"
+                echo "   - du -sh /var/* | sort -hr | head -20"
+                echo ""
+                echo "WARNING: Do NOT run 'docker volume prune' - this will DELETE"
+                echo "         database volumes and cause DATA LOSS!"
+                echo ""
+                echo "============================================================"
+                exit 1
+              fi
+            fi
+            
+            echo ""
+            
+            # Deploy with Docker Compose
+            echo "=== Deploying with Docker Compose ==="
+            docker compose -f docker-compose.staging.yml up -d --build --force-recreate || {
+              echo ""
+              echo "ERROR: Docker Compose deployment failed"
+              echo ""
+              echo "=== Failure Diagnostics ==="
+              echo ""
+              echo "--- Container Status ---"
+              docker compose -f docker-compose.staging.yml ps || true
+              echo ""
+              echo "--- Container Logs (last 200 lines) ---"
+              docker compose -f docker-compose.staging.yml logs --tail=200 backend frontend db || true
+              echo ""
+              echo "--- Disk Usage (df -h) ---"
+              df -h || true
+              echo ""
+              echo "--- Docker Disk Usage ---"
+              docker system df || true
+              echo ""
+              exit 1
+            }
+            
+            # Wait for services to be healthy
+            echo "=== Waiting for services to be healthy ==="
+            sleep 10
+            
+            # Check container status
+            echo "=== Container Status ==="
+            docker compose -f docker-compose.staging.yml ps
+            
+            # Health checks
+            echo "=== Health Checks ==="
+            
+            # Backend health check
+            echo "Checking backend health..."
+            for i in {1..30}; do
+              if curl -sf http://localhost:3002/health/live > /dev/null; then
+                echo "Backend health check passed"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Backend health check failed after 30 attempts"
+                echo "=== Container Status ==="
+                docker compose -f docker-compose.staging.yml ps || true
+                echo "=== Backend Logs (last 200 lines) ==="
+                docker compose -f docker-compose.staging.yml logs --tail=200 backend || true
+                exit 1
+              fi
+              echo "Waiting for backend... ($i/30)"
+              sleep 2
+            done
+            
+            # Frontend health check
+            echo "Checking frontend health..."
+            for i in {1..30}; do
+              if curl -sf http://localhost/health > /dev/null; then
+                echo "Frontend health check passed"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Frontend health check failed after 30 attempts"
+                echo "=== Container Status ==="
+                docker compose -f docker-compose.staging.yml ps || true
+                echo "=== Frontend Logs (last 200 lines) ==="
+                docker compose -f docker-compose.staging.yml logs --tail=200 frontend || true
+                exit 1
+              fi
+              echo "Waiting for frontend... ($i/30)"
+              sleep 2
+            done
+            
+            # =============================================================================
+            # Database Migrations - Auto-run pending migrations
+            # =============================================================================
+            echo ""
+            echo "=== Database Migrations ==="
+            echo "MIGRATIONS: RUNNING"
+            
+            # Run migrations inside backend container
+            if docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:run -d dist/data-source.js 2>&1; then
+              echo "MIGRATIONS: OK - Migrations completed successfully"
+            else
+              echo "MIGRATIONS: FAILED - Migration run failed"
+              echo ""
+              echo "=== Migration Status (migration:show) ==="
+              docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:show -d dist/data-source.js 2>&1 || true
+              echo ""
+              echo "=== Backend Logs (last 100 lines) ==="
+              docker compose -f docker-compose.staging.yml logs --tail=100 backend || true
+              exit 1
+            fi
+            
+            # Verify no pending migrations via /health/ready
+            echo ""
+            echo "Verifying migration status via /health/ready..."
+            HEALTH_RESPONSE=$(curl -sf http://localhost:3002/health/ready 2>/dev/null || echo '{}')
+            
+            if command -v jq &> /dev/null; then
+              PENDING_COUNT=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.pending // .migrationStatus.pending // "unknown"' 2>/dev/null || echo "unknown")
+              EXECUTED_COUNT=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.executed // .migrationStatus.executed // "unknown"' 2>/dev/null || echo "unknown")
+              LAST_MIGRATION=$(echo "$HEALTH_RESPONSE" | jq -r '.details.migrationStatus.lastMigration // .migrationStatus.lastMigration // "unknown"' 2>/dev/null || echo "unknown")
+              
+              echo "  Pending migrations: $PENDING_COUNT"
+              echo "  Executed migrations: $EXECUTED_COUNT"
+              echo "  Last migration: $LAST_MIGRATION"
+              
+              if [ "$PENDING_COUNT" = "0" ]; then
+                echo "MIGRATIONS: VERIFIED - No pending migrations"
+              elif [ "$PENDING_COUNT" = "unknown" ]; then
+                echo "MIGRATIONS: WARNING - Could not verify pending count (continuing)"
+              else
+                echo "MIGRATIONS: FAILED - Still have $PENDING_COUNT pending migrations"
+                echo ""
+                echo "=== Migration Status (migration:show) ==="
+                docker compose -f docker-compose.staging.yml exec -T backend npx typeorm migration:show -d dist/data-source.js 2>&1 || true
+                exit 1
+              fi
+            else
+              echo "  jq not available, skipping detailed migration verification"
+              echo "MIGRATIONS: OK (unverified)"
+            fi
+            
+            # =============================================================================
+            # Standards Seed - Ensure standards library is populated (idempotent)
+            # =============================================================================
+            echo ""
+            echo "=== Standards Seed ==="
+            echo "Running standards seed (idempotent - safe to re-run)..."
+            
+            if docker compose -f docker-compose.staging.yml exec -T backend node dist/scripts/seed-standards.js 2>&1; then
+              echo "STANDARDS_SEED: OK"
+            else
+              echo "STANDARDS_SEED: WARNING - Seed script failed (non-fatal, continuing)"
+            fi
+            
+            # =============================================================================
+            # Security Smoke Tests - Tenant Isolation Verification
+            # =============================================================================
+            echo "=== Security Smoke Tests ==="
+            
+            # Track test status for final summary
+            SECURITY_TESTS_STATUS="SKIPPED"
+            SECURITY_TESTS_REASON=""
+            
+            # Check if jq is available (required for reliable JSON parsing)
+            if ! command -v jq &> /dev/null; then
+              echo "WARNING: jq is not installed, skipping security smoke tests"
+              echo "  (GitHub Actions ubuntu runners should have jq pre-installed)"
+              SECURITY_TESTS_REASON="jq not available"
+            else
+              # Get auth token for security tests
+              # Uses DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD from staging .env
+              echo "Authenticating for security tests..."
+              DEMO_EMAIL="${DEMO_ADMIN_EMAIL:-admin@demo.local}"
+              DEMO_PASS="${DEMO_ADMIN_PASSWORD:-}"
+              
+              if [ -z "$DEMO_PASS" ]; then
+                echo "WARNING: DEMO_ADMIN_PASSWORD not set, skipping security smoke tests"
+                SECURITY_TESTS_REASON="DEMO_ADMIN_PASSWORD not set"
+              else
+                AUTH_RESPONSE=$(curl -sf -X POST http://localhost:3002/auth/login \
+                  -H "Content-Type: application/json" \
+                  -d "{\"email\":\"$DEMO_EMAIL\",\"password\":\"$DEMO_PASS\"}" 2>/dev/null) || {
+                  echo "WARNING: Could not authenticate for security tests (demo admin may not exist)"
+                  SECURITY_TESTS_REASON="authentication failed"
+                  AUTH_RESPONSE=""
+                }
+                
+                if [ -n "$AUTH_RESPONSE" ]; then
+                  # Parse token and tenant ID using jq (handles both envelope and non-envelope responses)
+                  # Envelope format: {"success": true, "data": {"accessToken": "...", "tenantId": "..."}}
+                  # Non-envelope format: {"accessToken": "...", "tenantId": "..."}
+                  TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty' 2>/dev/null)
+                  TENANT_ID=$(echo "$AUTH_RESPONSE" | jq -r '.data.tenantId // .tenantId // empty' 2>/dev/null)
+                  
+                  if [ -z "$TOKEN" ] || [ -z "$TENANT_ID" ]; then
+                    echo "WARNING: Could not extract token or tenant ID from auth response"
+                    # Print safe redacted snippet for debugging (no secrets)
+                    echo "  Response structure (redacted): $(echo "$AUTH_RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'invalid JSON')"
+                    if echo "$AUTH_RESPONSE" | jq -e '.data' &>/dev/null; then
+                      echo "  Data keys: $(echo "$AUTH_RESPONSE" | jq -r '.data | keys | join(", ")' 2>/dev/null || echo 'none')"
+                    fi
+                    SECURITY_TESTS_REASON="token/tenant extraction failed"
+                  else
+                    SECURITY_TESTS_STATUS="RUNNING"
+                    echo "Authentication successful. Running security tests..."
+                    
+                    # Test 1: Missing x-tenant-id header should return 400
+                    echo "Test 1: /platform/modules/menu/nested without x-tenant-id..."
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      http://localhost:3002/platform/modules/menu/nested)
+                    if [ "$HTTP_CODE" = "400" ]; then
+                      echo "  PASS: Missing tenant header returns 400"
+                    else
+                      echo "  FAIL: Expected 400, got $HTTP_CODE"
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
+                      exit 1
+                    fi
+                    
+                    # Test 2: Spoof tenant ID should return 403
+                    echo "Test 2: /platform/modules/menu/nested with spoof tenant ID..."
+                    SPOOF_TENANT="00000000-0000-0000-0000-000000000099"
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      -H "x-tenant-id: $SPOOF_TENANT" \
+                      http://localhost:3002/platform/modules/menu/nested)
+                    if [ "$HTTP_CODE" = "403" ]; then
+                      echo "  PASS: Spoof tenant ID returns 403"
+                    else
+                      echo "  FAIL: Expected 403, got $HTTP_CODE"
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
+                      exit 1
+                    fi
+                    
+                    # Test 3: /onboarding/context with correct headers should return 200
+                    echo "Test 3: /onboarding/context with valid headers..."
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      -H "x-tenant-id: $TENANT_ID" \
+                      http://localhost:3002/onboarding/context)
+                    if [ "$HTTP_CODE" = "200" ]; then
+                      echo "  PASS: Valid request returns 200"
+                    else
+                      echo "  FAIL: Expected 200, got $HTTP_CODE"
+                      echo "=== Container Status ==="
+                      docker compose -f docker-compose.staging.yml ps || true
+                      echo "=== Backend/DB Logs (last 200 lines) ==="
+                      docker compose -f docker-compose.staging.yml logs --tail=200 backend db || true
+                      exit 1
+                    fi
+                    
+                    echo "All security smoke tests passed!"
+                  fi
+                fi
+              fi
+            fi
+            
+            # Final status summary for workflow output
+            echo ""
+            echo "=== Security Smoke Tests Status ==="
+            if [ "$SECURITY_TESTS_STATUS" = "RUNNING" ]; then
+              echo "SECURITY_SMOKE_TESTS: PASSED - All tests executed and passed"
+            else
+              echo "SECURITY_SMOKE_TESTS: SKIPPED - Reason: ${SECURITY_TESTS_REASON:-unknown}"
+            fi
+            
+            echo "=== Deployment Complete ==="
+            echo "Frontend: http://${STAGING_HOST}"
+            echo "Backend API: http://${STAGING_HOST}:3002"
+            echo "Backend Health: http://${STAGING_HOST}:3002/health/live"
+

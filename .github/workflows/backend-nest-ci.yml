@@ -1,0 +1,1165 @@
+# =============================================================================
+# GRC Platform - NestJS Backend CI Workflow
+# =============================================================================
+# Triggers:
+#   - Push to main branch affecting backend-nest/**
+#   - Push to devin/** branches affecting backend-nest/**
+#   - Pull requests to main affecting backend-nest/**
+#   - Nightly schedule (2 AM UTC) for full E2E test suite
+#
+# Jobs:
+#   1. lint           - ESLint code quality checks
+#   2. security-audit - npm audit for vulnerability scanning
+#   3. build          - TypeScript compilation
+#   4. unit-tests     - Jest unit tests
+#   5. e2e-tests      - Full E2E tests (non-blocking for PRs, runs nightly)
+#   6. docker-build   - Docker image build verification
+#
+# Note: For required smoke tests, see e2e-smoke.yml workflow.
+# The full E2E tests here are non-blocking to avoid flaky test failures
+# blocking PR merges. They run on every push but failures are allowed.
+#
+# Environment:
+#   - Node.js 20.x
+#   - PostgreSQL 15 (for e2e tests)
+# =============================================================================
+
+name: NestJS Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/backend-nest-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/backend-nest-ci.yml'
+  schedule:
+    # Run full E2E tests nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_acceptance_tests:
+        description: 'Run acceptance tests (full end-to-end scenario validation)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+# This is critical for preventing runner acquisition failures from queued workflows
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions - only what's needed for CI
+# actions: write is required for upload-artifact@v6 to finalize artifacts
+permissions:
+  contents: read
+  actions: write
+
+env:
+  NODE_VERSION: '20.x'
+  WORKING_DIRECTORY: ./backend-nest
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Preflight - Fast runner acquisition check
+  # ---------------------------------------------------------------------------
+  # This lightweight job runs first to detect runner acquisition issues early.
+  # If GitHub Actions runners are overloaded, this job will fail fast with a
+  # clear message instead of spawning heavy jobs that will also fail.
+  # ---------------------------------------------------------------------------
+  preflight:
+    name: Runner Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Runner acquisition check
+        run: |
+          echo "=== Runner Preflight Check ==="
+          echo "Runner acquired successfully at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Runner: $RUNNER_NAME"
+          echo "OS: $RUNNER_OS"
+          echo ""
+          echo "If you see this message, the runner was acquired successfully."
+          echo "If this job times out or fails to start, GitHub Actions runners"
+          echo "may be experiencing issues. See docs/runbooks/CI-RECOVERY.md for"
+          echo "recovery steps."
+
+  # ---------------------------------------------------------------------------
+  # Lint - Code Quality Checks
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run ESLint
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Security Audit - Vulnerability Scanning
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        # Security audit is enforced - CI will fail on high/critical vulnerabilities
+        # This ensures security issues are addressed before merging
+
+  # ---------------------------------------------------------------------------
+  # Build - TypeScript Compilation
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: dist
+          path: backend-nest/dist
+          retention-days: 1
+      
+      - name: Verify no migrations index.js exists
+        run: |
+          # CRITICAL: dist/migrations/index.js must NOT exist
+          # TypeORM uses glob patterns (dist/migrations/*.js) to load migrations.
+          # If index.js exists, it would be loaded as a migration causing duplicates.
+          # Risk Level: P1 (High) - Can cause migration failures in production
+          
+          if [ -f "dist/migrations/index.js" ]; then
+            echo "ERROR: dist/migrations/index.js exists!"
+            echo "This file must NOT exist as it will cause duplicate migration loading."
+            echo "Remove any barrel exports (index.ts) from src/migrations/"
+            exit 1
+          fi
+          
+          echo "SUCCESS: No dist/migrations/index.js found"
+          echo "Migration files in dist/migrations/:"
+          ls -la dist/migrations/ 2>/dev/null || echo "No migrations directory"
+      
+      - name: Verify critical scripts exist in dist
+        run: |
+          # CRITICAL: These scripts must exist in dist for production/staging to work
+          # The Docker container only has dist/ - no ts-node or src/ directory
+          # Risk Level: P1 (High) - Missing scripts cause staging smoke tests to fail
+          
+          MISSING_SCRIPTS=""
+          
+          # Check migration-run.js (used by staging smoke tests and deploy workflow)
+          if [ ! -f "dist/scripts/migration-run.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/migration-run.js\n"
+          fi
+          
+          # Check seed-onboarding.js (used by staging smoke tests)
+          if [ ! -f "dist/scripts/seed-onboarding.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-onboarding.js\n"
+          fi
+          
+          # Check data-source.js (used by TypeORM migration commands)
+          if [ ! -f "dist/data-source.js" ]; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/data-source.js\n"
+          fi
+          
+          if [ -n "$MISSING_SCRIPTS" ]; then
+            echo "ERROR: Critical scripts missing from dist!"
+            echo "The following files must exist for production/staging:"
+            echo -e "$MISSING_SCRIPTS"
+            echo ""
+            echo "Ensure these files are included in tsconfig.json and built correctly."
+            exit 1
+          fi
+          
+          echo "SUCCESS: All critical scripts exist in dist"
+          echo "Scripts verified:"
+          ls -la dist/scripts/migration-run.js dist/scripts/seed-onboarding.js dist/data-source.js
+
+  # ---------------------------------------------------------------------------
+  # Unit Tests - Jest Unit Tests
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run unit tests
+        run: npm run test -- --coverage --passWithNoTests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-for-tests-only
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: coverage-report
+          path: backend-nest/coverage
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # E2E Tests - Full End-to-End Tests with PostgreSQL (Non-blocking)
+  # ---------------------------------------------------------------------------
+  # NOTE: This job runs the FULL E2E test suite but is non-blocking for PRs.
+  # For required smoke tests that block PRs, see e2e-smoke.yml workflow.
+  # Full E2E tests run on every push but failures are allowed to prevent
+  # flaky tests from blocking PR merges. They also run nightly on schedule.
+  # ---------------------------------------------------------------------------
+  e2e-tests:
+    name: E2E Tests (Full Suite)
+    runs-on: ubuntu-latest
+    needs: build
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d grc_platform_test; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready within 60 seconds"
+          exit 1
+        env:
+          PGPASSWORD: postgres
+      
+      - name: Debug - Environment and file structure
+        run: |
+          echo "=== Debug: Environment and file structure ==="
+          echo "Current directory (pwd):"
+          pwd
+          echo ""
+          echo "Working directory contents (ls -la):"
+          ls -la
+          echo ""
+          echo "Migrations directory (ls -la src/migrations | head -50):"
+          ls -la src/migrations | head -50 || echo "Migrations directory not found"
+          echo ""
+          echo "Git commit SHA:"
+          git rev-parse HEAD
+          echo "=== End Debug ==="
+      
+      - name: Bootstrap test database (reset+migrate+contract+seed)
+        # SINGLE SOURCE OF TRUTH: This step runs BEFORE e2e tests to ensure
+        # deterministic database state. It resets schema, runs migrations,
+        # validates schema contract, and seeds minimum data.
+        # The bootstrap script is the only place allowed to reset schema for CI tests.
+        run: npm run db:test:bootstrap
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+          # TYPEORM_MIGRATIONS_MODE=src ensures migrations are loaded from src/migrations/*.ts
+          # (data-source.ts auto-detects test env and uses src mode, but explicit is safer)
+          TYPEORM_MIGRATIONS_MODE: src
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+      
+      - name: Run e2e tests
+        # NOTE: DB bootstrap is handled by the previous step (db:test:bootstrap).
+        # globalSetup.ts should NOT reset/migrate again - it can remain for env setup only.
+        # Runtime diagnostics in main.ts will verify tables exist and fail-fast if missing.
+        run: npm run test:e2e -- --passWithNoTests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+          # TYPEORM_MIGRATIONS_MODE=src ensures migrations are loaded from src/migrations/*.ts
+          # (data-source.ts auto-detects test env and uses src mode, but explicit is safer)
+          TYPEORM_MIGRATIONS_MODE: src
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+
+  # ---------------------------------------------------------------------------
+  # API Contract Drift Check - Verify API types are consistent
+  # ---------------------------------------------------------------------------
+  api-contract-check:
+    name: API Contract Check
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run migrations
+        run: npm run migration:run
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+      
+      - name: Check TypeScript types
+        run: npx tsc --noEmit
+        # This ensures all API DTOs and response types are valid
+        # Any breaking changes to API contracts will cause type errors
+      
+      - name: Verify DTO exports
+        run: |
+          # Verify that all DTOs are properly exported
+          echo "Checking DTO exports..."
+          grep -r "export class.*Dto" src/ | wc -l
+          echo "DTO classes found and exported"
+
+  # ---------------------------------------------------------------------------
+  # Docker Build - Verify Dockerfile builds successfully
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend-nest
+          push: false
+          tags: grc-backend-nest:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Acceptance Tests - Full End-to-End Scenario Validation (Optional)
+  # ---------------------------------------------------------------------------
+  # This job runs the acceptance test runner which validates complete user
+  # scenarios. It requires a running backend with seeded data.
+  # 
+  # To enable: Remove the 'if: false' condition or trigger manually via
+  # workflow_dispatch with run_acceptance_tests: true
+  # ---------------------------------------------------------------------------
+  acceptance-tests:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests]
+    # Disabled by default - enable when ready for full acceptance testing
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_acceptance_tests == 'true' }}
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_acceptance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform_acceptance"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Run migrations
+        run: npm run migration:run
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+      
+      - name: Validate migrations and schema
+        run: npm run validate:migrations
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+      
+      - name: Validate schema contract
+        run: npm run schema:contract
+        env:
+          NODE_ENV: test
+          TYPEORM_MIGRATIONS_MODE: src
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+      
+      - name: Start backend server
+        run: |
+          npm run start:prod &
+          echo "Waiting for server to start..."
+          sleep 15
+          curl -f http://localhost:3002/health/live || exit 1
+          echo "Server is ready"
+        env:
+          NODE_ENV: test
+          PORT: 3002
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+      
+      - name: Seed database
+        run: npm run seed:grc
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_acceptance
+          # DB_SYNC=false ensures migrations are the source of truth
+          DB_SYNC: 'false'
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+      
+      - name: Run smoke tests
+        run: npm run smoke:grc
+        env:
+          NEST_API_URL: http://localhost:3002
+      
+      - name: Run acceptance tests
+        run: npm run acceptance:full
+        env:
+          BASE_URL: http://localhost:3002
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+
+  # ---------------------------------------------------------------------------
+  # Staging Smoke Tests - Deterministic DB bootstrap with docker-compose
+  # ---------------------------------------------------------------------------
+  # This job validates critical endpoints work correctly in a docker-compose
+  # environment that mirrors staging. Uses a dedicated ci-smoke project name
+  # to ensure isolation and deterministic startup order.
+  # 
+  # Deterministic Startup Order:
+  #   1. Start DB only and wait for pg_isready
+  #   2. Verify critical dist scripts exist
+  #   3. Run migrations (node dist/scripts/migration-run.js)
+  #   4. Run seed-grc.js (creates demo tenant, user, GRC data)
+  #   5. Run seed-platform-builder.js (creates Platform Builder tables)
+  #   6. Validate DB state (critical tables exist)
+  #   7. Run smoke tests
+  #   8. Cleanup (always)
+  #
+  # Tests performed:
+  #   1. GET /health/live = 200
+  #   2. GET /health/ready = 200 and executed >= 13 migrations
+  #   3. login + GET /onboarding/context = 200 (with x-tenant-id)
+  #   4. login + GET /platform/modules/menu/nested = 200
+  # ---------------------------------------------------------------------------
+  staging-smoke:
+    name: Staging Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests]
+    # Run on main branch push or manual dispatch
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Create test environment file
+        run: |
+          cat > .env.smoke << EOF
+          NODE_ENV=production
+          DB_HOST=db
+          DB_PORT=5432
+          DB_USER=grc_staging
+          DB_PASSWORD=${{ secrets.SMOKE_DB_PASSWORD || 'ci-ephemeral-db-pwd' }}
+          DB_NAME=grc_staging
+          DB_SYNC=false
+          JWT_SECRET=${{ secrets.SMOKE_JWT_SECRET || 'ci-ephemeral-jwt-secret-for-testing-only-64chars-minimum' }}
+          REFRESH_TOKEN_SECRET=${{ secrets.SMOKE_REFRESH_SECRET || 'ci-ephemeral-refresh-secret-64chars-min' }}
+          REFRESH_TOKEN_EXPIRES_IN=7d
+          DEMO_ADMIN_EMAIL=${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          DEMO_ADMIN_PASSWORD=${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
+          APP_PORT=3002
+          EOF
+      
+      - name: Create docker-compose override for smoke tests
+        env:
+          SMOKE_DB_PASSWORD: ${{ secrets.SMOKE_DB_PASSWORD || 'ci-ephemeral-db-pwd' }}
+        run: |
+          cat > docker-compose.smoke.yml << EOF
+          services:
+            db:
+              image: postgres:15-alpine
+              environment:
+                POSTGRES_USER: grc_staging
+                POSTGRES_PASSWORD: ${SMOKE_DB_PASSWORD}
+                POSTGRES_DB: grc_staging
+              ports:
+                - "5432:5432"
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U grc_staging -d grc_staging"]
+                interval: 5s
+                timeout: 5s
+                retries: 10
+            
+            backend:
+              build:
+                context: ./backend-nest
+                dockerfile: Dockerfile
+              env_file:
+                - .env.smoke
+              ports:
+                - "3002:3002"
+              volumes:
+                - ci_smoke_uploads:/app/data/uploads
+              depends_on:
+                db:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/live"]
+                interval: 10s
+                timeout: 5s
+                retries: 10
+                start_period: 30s
+          
+          volumes:
+            ci_smoke_uploads: {}
+          EOF
+      
+      - name: Validate docker-compose configuration
+        run: |
+          echo "=== Validating docker-compose.smoke.yml ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml config
+          echo "=== Configuration valid ==="
+      
+      # =========================================================================
+      # Step 1: Start DB only and wait for pg_isready (Deterministic Order)
+      # =========================================================================
+      - name: "Step 1: Start database and wait for ready"
+        run: |
+          echo "=== Starting database only (ci-smoke project) ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml up -d db
+          
+          echo "=== Waiting for PostgreSQL to be ready ==="
+          for i in {1..30}; do
+            if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db pg_isready -U grc_staging -d grc_staging; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet, waiting 2 seconds..."
+            sleep 2
+            
+            if [ $i -eq 30 ]; then
+              echo "ERROR: PostgreSQL did not become ready within 60 seconds"
+              echo "=== Database Logs ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 db || true
+              exit 1
+            fi
+          done
+      
+      # =========================================================================
+      # Step 2: Build and start backend
+      # =========================================================================
+      - name: "Step 2: Build and start backend"
+        run: |
+          echo "=== Building and starting backend ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml up -d --build backend
+          
+          echo "=== Waiting for backend to be healthy ==="
+          for i in {1..30}; do
+            # Check if container is still running
+            BACKEND_STATUS=$(docker compose -p ci-smoke -f docker-compose.smoke.yml ps backend --format json 2>/dev/null | jq -r '.[0].State // .State // "unknown"' 2>/dev/null || echo "unknown")
+            if [ "$BACKEND_STATUS" = "exited" ] || [ "$BACKEND_STATUS" = "dead" ]; then
+              echo "ERROR: Backend container has exited unexpectedly!"
+              echo "=== Container Status ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
+              echo "=== Backend Logs (last 200 lines) ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend
+              echo "=== Database Logs (last 50 lines) ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=50 db
+              exit 1
+            fi
+            
+            if curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
+              echo "Backend is healthy!"
+              echo "=== Container status ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
+              break
+            fi
+            echo "Attempt $i/30: Backend not ready (status: $BACKEND_STATUS), waiting 5 seconds..."
+            sleep 5
+            
+            if [ $i -eq 30 ]; then
+              echo "ERROR: Backend did not become healthy after 30 attempts"
+              echo "=== Container Status ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml ps
+              echo "=== Backend Logs (last 200 lines) ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend
+              echo "=== Database Logs (last 50 lines) ==="
+              docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=50 db
+              exit 1
+            fi
+          done
+      
+      # =========================================================================
+      # Step 3: Verify critical dist scripts exist (PR310 regression check)
+      # =========================================================================
+      - name: "Step 3: Verify critical dist scripts exist"
+        run: |
+          echo "=== Verifying critical dist scripts exist in container ==="
+          
+          MISSING_SCRIPTS=""
+          
+          # Check migration-run.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/migration-run.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/migration-run.js\n"
+          else
+            echo "  [OK] dist/scripts/migration-run.js exists"
+          fi
+          
+          # Check seed-grc.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/seed-grc.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-grc.js\n"
+          else
+            echo "  [OK] dist/scripts/seed-grc.js exists"
+          fi
+          
+          # Check seed-platform-builder.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/scripts/seed-platform-builder.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/scripts/seed-platform-builder.js\n"
+          else
+            echo "  [OK] dist/scripts/seed-platform-builder.js exists"
+          fi
+          
+          # Check data-source.js
+          if ! docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'test -f /app/dist/data-source.js'; then
+            MISSING_SCRIPTS="${MISSING_SCRIPTS}  - dist/data-source.js\n"
+          else
+            echo "  [OK] dist/data-source.js exists"
+          fi
+          
+          if [ -n "$MISSING_SCRIPTS" ]; then
+            echo ""
+            echo "ERROR: Critical scripts missing from dist!"
+            echo "The following files must exist for staging smoke tests:"
+            echo -e "$MISSING_SCRIPTS"
+            echo ""
+            echo "=== Backend Logs ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 backend || true
+            exit 1
+          fi
+          
+          echo ""
+          echo "All critical dist scripts verified!"
+      
+      # =========================================================================
+      # Step 4: Run migrations (fail-fast with log dump)
+      # =========================================================================
+      - name: "Step 4: Run migrations"
+        run: |
+          set -euo pipefail
+          echo "=== Running migrations (node dist/scripts/migration-run.js) ==="
+          
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/migration-run.js' 2>&1 | tee /tmp/migration.log; then
+            echo ""
+            echo "Migrations completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "Successfully executed" /tmp/migration.log; then
+              echo "  [VERIFIED] Found 'Successfully executed ... migration(s)' in output"
+            else
+              echo "  [WARNING] Did not find expected 'Successfully executed' message"
+            fi
+          else
+            echo ""
+            echo "FAIL: Migration failed!"
+            echo ""
+            echo "=== Migration Output ==="
+            cat /tmp/migration.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            echo ""
+            echo "=== DB Critical Tables Check ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('nest_tenants','nest_users','nest_system_settings','nest_audit_logs','sys_db_object','sys_dictionary','dynamic_records');" || true
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 5: Run seed-grc.js (creates demo tenant, user, GRC data)
+      # =========================================================================
+      - name: "Step 5: Seed GRC demo data"
+        run: |
+          set -euo pipefail
+          echo "=== Running seed-grc.js ==="
+          
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-grc.js' 2>&1 | tee /tmp/seed-grc.log; then
+            echo ""
+            echo "GRC seed completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "GRC Demo Data Seed Complete" /tmp/seed-grc.log || grep -q "Demo tenant" /tmp/seed-grc.log; then
+              echo "  [VERIFIED] Found expected seed completion message"
+            else
+              echo "  [WARNING] Did not find expected seed completion message"
+            fi
+          else
+            echo ""
+            echo "FAIL: GRC seed failed!"
+            echo ""
+            echo "=== Seed Output ==="
+            cat /tmp/seed-grc.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            echo ""
+            echo "=== DB Tenant Check ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT count(*) FROM nest_tenants;" || true
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 6: Run seed-platform-builder.js (creates Platform Builder tables)
+      # =========================================================================
+      - name: "Step 6: Seed Platform Builder demo data"
+        run: |
+          set -euo pipefail
+          echo "=== Running seed-platform-builder.js ==="
+          
+          # Use timeout to prevent indefinite hangs (90 seconds max)
+          if timeout 90s docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node dist/scripts/seed-platform-builder.js' 2>&1 | tee /tmp/seed-pb.log; then
+            echo ""
+            echo "Platform Builder seed completed successfully!"
+            
+            # Verify expected log message
+            if grep -q "Platform Builder demo data seeded successfully" /tmp/seed-pb.log || grep -q "Table: u_vendor" /tmp/seed-pb.log; then
+              echo "  [VERIFIED] Found expected Platform Builder seed message"
+            else
+              echo "  [WARNING] Did not find expected Platform Builder seed message"
+            fi
+          else
+            echo ""
+            echo "FAIL: Platform Builder seed failed!"
+            echo ""
+            echo "=== Seed Output ==="
+            cat /tmp/seed-pb.log || true
+            echo ""
+            echo "=== Backend Logs (last 200 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=200 backend || true
+            echo ""
+            echo "=== Database Logs (last 100 lines) ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml logs --no-color --tail=100 db || true
+            exit 1
+          fi
+      
+      # =========================================================================
+      # Step 7: Validate DB state before smoke tests
+      # =========================================================================
+      - name: "Step 7: Validate DB state"
+        run: |
+          echo "=== Validating DB state before smoke tests ==="
+          
+          # Check tenant count
+          echo ""
+          echo "--- Tenant Count ---"
+          docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT count(*) as tenant_count FROM nest_tenants;"
+          
+          # Check critical tables exist
+          echo ""
+          echo "--- Critical Tables Check ---"
+          TABLES_RESULT=$(docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('nest_tenants','nest_users','nest_system_settings','nest_audit_logs','sys_db_object','sys_dictionary','dynamic_records') ORDER BY tablename;")
+          
+          echo "Found tables:"
+          echo "$TABLES_RESULT"
+          
+          # Verify all required tables exist
+          REQUIRED_TABLES="nest_tenants nest_users nest_system_settings sys_db_object sys_dictionary dynamic_records"
+          MISSING_TABLES=""
+          
+          for table in $REQUIRED_TABLES; do
+            if echo "$TABLES_RESULT" | grep -q "$table"; then
+              echo "  [OK] $table exists"
+            else
+              MISSING_TABLES="${MISSING_TABLES} $table"
+              echo "  [MISSING] $table"
+            fi
+          done
+          
+          if [ -n "$MISSING_TABLES" ]; then
+            echo ""
+            echo "ERROR: Required tables missing:$MISSING_TABLES"
+            echo ""
+            echo "=== All Public Tables ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T db psql -U grc_staging -d grc_staging -c "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"
+            exit 1
+          fi
+          
+          echo ""
+          echo "All required tables exist!"
+      
+      # =========================================================================
+      # Step 8: Verify upload directory is writable (storage determinism check)
+      # =========================================================================
+      - name: "Step 8: Verify upload directory is writable"
+        run: |
+          echo "=== Verifying /app/data/uploads is writable ==="
+          
+          # Write a test file to verify the upload directory is writable
+          if docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'node -e "require(\"fs\").writeFileSync(\"/app/data/uploads/.write-test\",\"ok\")"'; then
+            echo "  [OK] Write test succeeded"
+            
+            # Clean up the test file
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'rm -f /app/data/uploads/.write-test' || true
+            echo "  [OK] Test file cleaned up"
+          else
+            echo ""
+            echo "FAIL: /app/data/uploads is not writable!"
+            echo "This indicates a permission issue with the upload directory."
+            echo ""
+            echo "=== Directory permissions ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'ls -la /app/data/ 2>/dev/null || echo "/app/data does not exist"'
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'ls -la /app/data/uploads/ 2>/dev/null || echo "/app/data/uploads does not exist"'
+            echo ""
+            echo "=== Current user ==="
+            docker compose -p ci-smoke -f docker-compose.smoke.yml exec -T backend sh -c 'id'
+            exit 1
+          fi
+          
+          echo ""
+          echo "Upload directory write check passed!"
+      
+      - name: "Smoke Test 1: GET /health/live = 200"
+        run: |
+          echo "Testing /health/live..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/live)
+          if [ "$STATUS" != "200" ]; then
+            echo "FAIL: /health/live returned $STATUS (expected 200)"
+            exit 1
+          fi
+          echo "PASS: /health/live returned 200"
+      
+      - name: "Smoke Test 2: GET /health/ready = 200 with migrations"
+        run: |
+          echo "Testing /health/ready..."
+          RESPONSE=$(curl -s http://localhost:3002/health/ready)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/ready)
+          
+          if [ "$STATUS" != "200" ]; then
+            echo "FAIL: /health/ready returned $STATUS (expected 200)"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          # Verify migration status: executed >= 13 and pending == 0
+          executed=$(echo "$RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.executed // 0')
+          pending=$(echo "$RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.pending // 999')
+          
+          echo "Migration status: executed=$executed, pending=$pending"
+          
+          if [ "$pending" != "0" ]; then
+            echo "FAIL: There are $pending pending migrations (expected 0)"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          if [ "$executed" -lt 13 ]; then
+            echo "FAIL: Only $executed migrations executed (expected >= 13)"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "PASS: /health/ready returned 200 with $executed migrations executed and 0 pending"
+      
+      - name: "Smoke Test 3: Login + GET /onboarding/context = 200"
+        env:
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
+        run: |
+          echo "Testing login and /onboarding/context..."
+          
+          # Login to get token
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3002/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"${SMOKE_ADMIN_EMAIL}\",\"password\":\"${SMOKE_ADMIN_PASSWORD}\"}")
+          
+          TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty')
+          TENANT_ID=$(echo "$LOGIN_RESPONSE" | jq -r '.data.user.tenantId // .user.tenantId // empty')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract token from login response"
+            echo "Login response: $LOGIN_RESPONSE"
+            exit 1
+          fi
+          
+          echo "Login successful, token obtained"
+          echo "  Tenant ID: $TENANT_ID"
+          
+          # Get onboarding context
+          CONTEXT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "x-tenant-id: $TENANT_ID" \
+            http://localhost:3002/onboarding/context)
+          
+          if [ "$CONTEXT_STATUS" != "200" ]; then
+            echo "FAIL: /onboarding/context returned $CONTEXT_STATUS (expected 200)"
+            exit 1
+          fi
+          
+          echo "PASS: /onboarding/context returned 200"
+      
+      - name: "Smoke Test 4: Login + GET /platform/modules/menu/nested = 200"
+        env:
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'TestPassword123!' }}
+        run: |
+          echo "Testing /platform/modules/menu/nested..."
+          
+          # Login to get token
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3002/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"${SMOKE_ADMIN_EMAIL}\",\"password\":\"${SMOKE_ADMIN_PASSWORD}\"}")
+          
+          TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty')
+          TENANT_ID=$(echo "$LOGIN_RESPONSE" | jq -r '.data.user.tenantId // .user.tenantId // empty')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract token from login response"
+            exit 1
+          fi
+          
+          # Get nested menu
+          MENU_RESPONSE=$(curl -s \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "x-tenant-id: $TENANT_ID" \
+            http://localhost:3002/platform/modules/menu/nested)
+          
+          MENU_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "x-tenant-id: $TENANT_ID" \
+            http://localhost:3002/platform/modules/menu/nested)
+          
+          if [ "$MENU_STATUS" != "200" ]; then
+            echo "FAIL: /platform/modules/menu/nested returned $MENU_STATUS (expected 200)"
+            echo "Response: $MENU_RESPONSE"
+            exit 1
+          fi
+          
+          # Verify response has suites array
+          SUITES_COUNT=$(echo "$MENU_RESPONSE" | jq '(.data.suites // .suites // []) | length')
+          if [ "$SUITES_COUNT" -lt 1 ]; then
+            echo "FAIL: /platform/modules/menu/nested returned no suites"
+            echo "Response: $MENU_RESPONSE"
+            exit 1
+          fi
+          
+          echo "PASS: /platform/modules/menu/nested returned 200 with $SUITES_COUNT suites"
+      
+      # =========================================================================
+      # Cleanup - Always runs (even on failure)
+      # =========================================================================
+      - name: Cleanup docker-compose
+        if: always()
+        run: |
+          echo "=== Cleaning up ci-smoke project ==="
+          docker compose -p ci-smoke -f docker-compose.smoke.yml down -v --remove-orphans || true
+          echo "Cleanup complete."

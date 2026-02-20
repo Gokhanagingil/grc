@@ -1,0 +1,93 @@
+# =============================================================================
+# GRC Platform - NestJS Backend Docker Compose
+# =============================================================================
+# Provides a complete local development/demo environment with:
+#   - PostgreSQL 15 database
+#   - NestJS backend API
+#
+# Usage:
+#   Start:    docker compose -f docker-compose.nest.yml up
+#   Stop:     docker compose -f docker-compose.nest.yml down
+#   Rebuild:  docker compose -f docker-compose.nest.yml up --build
+#   Logs:     docker compose -f docker-compose.nest.yml logs -f backend-nest
+#   Seed:     docker compose -f docker-compose.nest.yml exec backend-nest npm run seed:grc
+#
+# After starting, access:
+#   - API:     http://localhost:3002
+#   - Health:  http://localhost:3002/health/live
+#   - Ready:   http://localhost:3002/health/ready
+#
+# Demo credentials (after seeding):
+#   - Email:    admin@grc-platform.local
+#   - Password: TestPassword123!
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: grc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-grc_platform}
+    ports:
+      - "${DB_EXTERNAL_PORT:-5432}:5432"
+    volumes:
+      - grc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-grc_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # NestJS Backend API
+  # ---------------------------------------------------------------------------
+  backend-nest:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    container_name: grc-backend-nest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${APP_PORT:-3002}
+      
+      # Database
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-grc_platform}
+      DB_SYNC: ${DB_SYNC:-true}
+      
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-32chars}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002}
+    ports:
+      - "${APP_PORT:-3002}:3002"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# -----------------------------------------------------------------------------
+# Named Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  grc_postgres_data:
+    driver: local

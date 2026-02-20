@@ -9,10 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   IconButton,
   Dialog,
@@ -25,7 +23,6 @@ import {
   Select,
   MenuItem,
   Alert,
-  CircularProgress,
   Switch,
   FormControlLabel,
 } from '@mui/material';
@@ -33,20 +30,10 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  People as UsersIcon,
 } from '@mui/icons-material';
-import { api } from '../services/api';
-
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  department: string;
-  is_active: boolean;
-  created_at: string;
-}
+import { userClient, User, UserFormData } from '../services/userClient';
+import { LoadingState, ErrorState, EmptyState, ResponsiveTable } from '../components/common';
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -71,10 +58,24 @@ export const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/users');
-      setUsers(response.data.users);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch users');
+      setError('');
+      const response = await userClient.list();
+      setUsers(response.users || []);
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } };
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message || error.response?.data?.message;
+      
+      if (status === 401) {
+        setError('Session expired. Please login again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view users.');
+      } else if (status === 404 || status === 502) {
+        setUsers([]);
+        console.warn('User management backend not available');
+      } else {
+        setError(message || 'Failed to fetch users. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -112,46 +113,58 @@ export const UserManagement: React.FC = () => {
 
   const handleSaveUser = async () => {
     try {
-      const userData = { ...formData };
+      const userData: UserFormData = {
+        username: formData.username,
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role,
+        department: formData.department,
+        isActive: formData.isActive,
+      };
       
-      // Don't send empty password for updates
-      if (editingUser && !userData.password) {
-        delete userData.password;
+      // Only include password if provided
+      if (formData.password) {
+        userData.password = formData.password;
       }
 
       if (editingUser) {
-        await api.put(`/users/${editingUser.id}`, userData);
+        await userClient.update(editingUser.id, userData);
       } else {
-        await api.post('/users', userData);
+        await userClient.create(userData);
       }
 
       setOpenDialog(false);
       fetchUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save user');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to save user');
     }
   };
 
-  const handleDeleteUser = async (id: number) => {
+  const handleDeleteUser = async (id: string | number) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await api.delete(`/users/${id}`);
+        await userClient.delete(id);
         fetchUsers();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete user');
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || 'Failed to delete user');
       }
     }
   };
 
   const handleToggleUserStatus = async (user: User) => {
     try {
-      await api.put(`/users/${user.id}`, {
-        ...user,
-        is_active: !user.is_active,
-      });
+      if (user.is_active) {
+        await userClient.deactivate(user.id);
+      } else {
+        await userClient.activate(user.id);
+      }
       fetchUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update user status');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to update user status');
     }
   };
 
@@ -165,10 +178,16 @@ export const UserManagement: React.FC = () => {
   };
 
   if (loading) {
+    return <LoadingState message="Loading users..." />;
+  }
+
+  if (error && users.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <ErrorState
+        title="Failed to load users"
+        message={error}
+        onRetry={fetchUsers}
+      />
     );
   }
 
@@ -189,7 +208,7 @@ export const UserManagement: React.FC = () => {
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
+          <ResponsiveTable minWidth={800}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -204,52 +223,67 @@ export const UserManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2">
-                        {user.first_name} {user.last_name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role}
-                        color={getRoleColor(user.role) as any}
-                        size="small"
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 0, border: 'none' }}>
+                      <EmptyState
+                        icon={<UsersIcon sx={{ fontSize: 64, color: 'text.disabled' }} />}
+                        title="No users found"
+                        message="Get started by adding your first user."
+                        actionLabel="New User"
+                        onAction={handleCreateUser}
+                        minHeight="200px"
                       />
-                    </TableCell>
-                    <TableCell>{user.department || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.is_active ? 'Active' : 'Inactive'}
-                        color={user.is_active ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditUser(user)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleToggleUserStatus(user)}>
-                        <Switch
-                          checked={user.is_active}
-                          size="small"
-                        />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteUser(user.id)}>
-                        <DeleteIcon />
-                      </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Typography variant="subtitle2">
+                          {user.first_name} {user.last_name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role}
+                          color={getRoleColor(user.role) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{user.department || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.is_active ? 'Active' : 'Inactive'}
+                          color={user.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleEditUser(user)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleToggleUserStatus(user)}>
+                          <Switch
+                            checked={user.is_active}
+                            size="small"
+                          />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteUser(user.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 

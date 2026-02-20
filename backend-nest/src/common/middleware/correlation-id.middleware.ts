@@ -1,0 +1,80 @@
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
+import { StructuredLoggerService } from '../logger/structured-logger.service';
+import { RequestWithUser } from '../types';
+
+/**
+ * Header name for correlation ID
+ */
+export const CORRELATION_ID_HEADER = 'x-correlation-id';
+
+/**
+ * Extended request interface for correlation context
+ * Note: Express.Request augmentation is done via RequestWithUser interface
+ */
+interface CorrelationRequest extends Request {
+  correlationId?: string;
+  tenantId?: string;
+  userId?: string;
+  requestStartTime?: number;
+  user?: RequestWithUser['user'];
+}
+
+/**
+ * Correlation ID Middleware
+ *
+ * Generates or extracts a correlation ID for each request and:
+ * 1. Attaches it to the request object
+ * 2. Sets it in the response header
+ * 3. Sets it in the global logger context
+ *
+ * This enables request tracing across all services and logs.
+ */
+@Injectable()
+export class CorrelationIdMiddleware implements NestMiddleware {
+  use(req: CorrelationRequest, res: Response, next: NextFunction): void {
+    // Get correlation ID from header or generate a new one
+    const correlationId =
+      (req.headers[CORRELATION_ID_HEADER] as string) || randomUUID();
+
+    // Record request start time
+    const requestStartTime = Date.now();
+
+    // Attach to request object
+    req.correlationId = correlationId;
+    req.requestStartTime = requestStartTime;
+
+    // Set response header
+    res.setHeader(CORRELATION_ID_HEADER, correlationId);
+
+    // Extract tenant ID from header (if present)
+    const tenantId = req.headers['x-tenant-id'] as string | undefined;
+    if (tenantId) {
+      req.tenantId = tenantId;
+    }
+
+    // Extract user ID from JWT (if authenticated)
+    // This will be populated by the auth guard later
+    const user = req.user;
+    if (user?.sub) {
+      req.userId = user.sub;
+    }
+
+    // Set global logger context for this request
+    StructuredLoggerService.setRequestContext({
+      correlationId,
+      tenantId,
+      userId: req.userId,
+      path: req.path,
+      method: req.method,
+    });
+
+    // Clear context when response finishes
+    res.on('finish', () => {
+      StructuredLoggerService.clearRequestContext();
+    });
+
+    next();
+  }
+}

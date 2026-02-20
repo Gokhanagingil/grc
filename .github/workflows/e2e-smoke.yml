@@ -1,0 +1,126 @@
+# =============================================================================
+# GRC Platform - E2E Smoke Tests (Required)
+# =============================================================================
+# This workflow runs a small, stable subset of E2E tests that must pass
+# before any PR can be merged. These tests validate critical functionality:
+#   - Health endpoints (live/ready)
+#   - Authentication (login)
+#   - Tenant context
+#   - Settings with proper headers
+#   - Basic GRC operations (controls list)
+#
+# For full E2E coverage, see backend-nest-ci.yml (runs nightly or on-demand)
+# =============================================================================
+
+name: E2E Smoke Tests (Required)
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/e2e-smoke.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/e2e-smoke.yml'
+
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.x'
+  WORKING_DIRECTORY: ./backend-nest
+
+jobs:
+  smoke-tests:
+    name: E2E Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d grc_platform_test; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready within 60 seconds"
+          exit 1
+        env:
+          PGPASSWORD: postgres
+
+      - name: Bootstrap test database (reset+migrate+contract+seed)
+        run: npm run db:test:bootstrap
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+          DB_SYNC: 'false'
+          TYPEORM_MIGRATIONS_MODE: src
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+
+      - name: Run smoke tests
+        run: |
+          npm run test:e2e -- \
+            --testPathPatterns="app.e2e-spec|settings.e2e-spec|tenants.e2e-spec" \
+            --passWithNoTests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform_test
+          DB_SYNC: 'false'
+          TYPEORM_MIGRATIONS_MODE: src
+          DEMO_ADMIN_EMAIL: admin@grc-platform.local
+          DEMO_ADMIN_PASSWORD: TestPassword123!
+          LOG_LEVEL: error

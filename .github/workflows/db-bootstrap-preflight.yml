@@ -1,0 +1,409 @@
+# =============================================================================
+# GRC Platform - DB Bootstrap Preflight
+# =============================================================================
+# CI-local validation that migrations and seeds run cleanly on a fresh database.
+# Catches "relation does not exist" and schema regressions BEFORE deploy.
+#
+# This workflow does NOT:
+#   - SSH to any remote server
+#   - Access secrets (uses CI-local ephemeral credentials only)
+#   - Trigger actual deployments
+#
+# Validates:
+#   1. Migrations run cleanly on fresh PostgreSQL
+#   2. Seeds run cleanly (staging-relevant: seed:grc, seed:onboarding)
+#   3. API boots and health endpoints respond
+#   4. No "relation does not exist" errors in logs
+# =============================================================================
+
+name: DB Bootstrap Preflight
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend-nest/src/migrations/**'
+      - 'backend-nest/src/scripts/seed*.ts'
+      - 'backend-nest/src/data-source.ts'
+      - 'backend-nest/src/config/database-config.ts'
+      - 'backend-nest/src/**/*.entity.ts'
+      - '.github/workflows/db-bootstrap-preflight.yml'
+  push:
+    branches:
+      - 'hardening/**'
+    paths:
+      - 'backend-nest/src/migrations/**'
+      - 'backend-nest/src/scripts/seed*.ts'
+      - 'backend-nest/src/data-source.ts'
+      - 'backend-nest/src/config/database-config.ts'
+      - 'backend-nest/src/**/*.entity.ts'
+      - '.github/workflows/db-bootstrap-preflight.yml'
+
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.x'
+  WORKING_DIRECTORY: ./backend-nest
+  # CI-local database credentials (NOT secrets - ephemeral container only)
+  DB_HOST: localhost
+  DB_PORT: 5432
+  DB_USER: preflight_user
+  DB_PASSWORD: preflight_pass_ci_only
+  DB_NAME: preflight_db
+  # Application config (use 'production' to pass validation and use dist mode)
+  NODE_ENV: production
+  DB_SYNC: 'false'
+  JWT_SECRET: ci-preflight-jwt-secret-for-testing-only-64chars-minimum-length
+  REFRESH_TOKEN_SECRET: ci-preflight-refresh-secret-64chars-minimum-length
+  REFRESH_TOKEN_EXPIRES_IN: 7d
+  DEMO_ADMIN_EMAIL: admin@preflight.local
+  DEMO_ADMIN_PASSWORD: PreflightTest123!
+  APP_PORT: 3002
+
+jobs:
+  db-bootstrap-preflight:
+    name: DB Bootstrap Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: preflight_user
+          POSTGRES_PASSWORD: preflight_pass_ci_only
+          POSTGRES_DB: preflight_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U preflight_user -d preflight_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+        # Note: --include=dev is needed because NODE_ENV=production causes npm ci
+        # to skip devDependencies, but we need @nestjs/cli for the build step
+
+      - name: Build application
+        run: npm run build
+
+      - name: Verify dist/migrations exists
+        run: |
+          echo "=== Verifying build output ==="
+          if [ ! -d "dist/migrations" ]; then
+            echo "ERROR: dist/migrations directory not found"
+            exit 1
+          fi
+          MIGRATION_COUNT=$(ls -1 dist/migrations/*.js 2>/dev/null | wc -l)
+          echo "Found $MIGRATION_COUNT migration files in dist/migrations/"
+          if [ "$MIGRATION_COUNT" -lt 1 ]; then
+            echo "ERROR: No migration files found in dist/migrations/"
+            exit 1
+          fi
+          echo "Migration files:"
+          ls -la dist/migrations/*.js | head -20
+
+      - name: Wait for PostgreSQL
+        run: |
+          echo "=== Waiting for PostgreSQL ==="
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U preflight_user -d preflight_db; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL not ready, waiting 2s..."
+            sleep 2
+          done
+          echo "ERROR: PostgreSQL did not become ready"
+          exit 1
+        env:
+          PGPASSWORD: preflight_pass_ci_only
+
+      - name: Run migrations (dist mode - like staging)
+        id: migrations
+        run: |
+          echo "=== Running migrations using dist (staging mode) ==="
+          set -o pipefail
+          
+          # Run migrations and capture output
+          npm run migration:run:prod 2>&1 | tee migration_output.log
+          MIGRATION_EXIT=$?
+          
+          # Check for "relation does not exist" errors
+          if grep -qi "relation.*does not exist" migration_output.log; then
+            echo ""
+            echo "=========================================="
+            echo "FATAL: 'relation does not exist' detected!"
+            echo "=========================================="
+            grep -i "relation.*does not exist" migration_output.log
+            echo "=========================================="
+            exit 1
+          fi
+          
+          # Check for other common schema errors
+          if grep -qi "missing tables\|table.*not found\|column.*does not exist" migration_output.log; then
+            echo ""
+            echo "=========================================="
+            echo "FATAL: Schema error detected in migrations!"
+            echo "=========================================="
+            grep -i "missing tables\|table.*not found\|column.*does not exist" migration_output.log
+            echo "=========================================="
+            exit 1
+          fi
+          
+          if [ $MIGRATION_EXIT -ne 0 ]; then
+            echo "ERROR: Migration command failed with exit code $MIGRATION_EXIT"
+            exit 1
+          fi
+          
+          echo "Migrations completed successfully"
+
+      - name: Seed demo data (seed:grc)
+        id: seed_grc
+        run: |
+          echo "=== Running seed:grc ==="
+          set -o pipefail
+          
+          # seed:grc creates tenant + admin + GRC data
+          # Use compiled dist script (matches staging behavior, avoids ts-node in production mode)
+          node dist/scripts/seed-grc.js 2>&1 | tee seed_grc_output.log
+          SEED_EXIT=$?
+          
+          # Check for relation errors
+          if grep -qi "relation.*does not exist" seed_grc_output.log; then
+            echo ""
+            echo "=========================================="
+            echo "FATAL: 'relation does not exist' in seed:grc!"
+            echo "=========================================="
+            grep -i "relation.*does not exist" seed_grc_output.log
+            exit 1
+          fi
+          
+          if [ $SEED_EXIT -ne 0 ]; then
+            echo "ERROR: seed:grc failed with exit code $SEED_EXIT"
+            cat seed_grc_output.log
+            exit 1
+          fi
+          
+          echo "seed:grc completed successfully"
+
+      - name: Seed onboarding data
+        id: seed_onboarding
+        run: |
+          echo "=== Running seed:onboarding ==="
+          set -o pipefail
+          
+          # Use compiled dist script (matches staging behavior)
+          node dist/scripts/seed-onboarding.js 2>&1 | tee seed_onboarding_output.log
+          SEED_EXIT=$?
+          
+          if grep -qi "relation.*does not exist" seed_onboarding_output.log; then
+            echo ""
+            echo "=========================================="
+            echo "FATAL: 'relation does not exist' in seed:onboarding!"
+            echo "=========================================="
+            grep -i "relation.*does not exist" seed_onboarding_output.log
+            exit 1
+          fi
+          
+          if [ $SEED_EXIT -ne 0 ]; then
+            echo "ERROR: seed:onboarding failed with exit code $SEED_EXIT"
+            cat seed_onboarding_output.log
+            exit 1
+          fi
+          
+          echo "seed:onboarding completed successfully"
+
+      - name: Start API server
+        id: start_api
+        run: |
+          echo "=== Starting API server ==="
+          
+          # Start server in background and capture logs
+          npm run start:prod > api_output.log 2>&1 &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          
+          echo "Waiting for API to be ready (PID: $API_PID)..."
+          
+          # Wait for health endpoint
+          for i in {1..30}; do
+            if curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
+              echo "API is ready!"
+              break
+            fi
+            
+            # Check if process is still running
+            if ! kill -0 $API_PID 2>/dev/null; then
+              echo "ERROR: API process died unexpectedly"
+              echo "=== API Logs ==="
+              cat api_output.log
+              exit 1
+            fi
+            
+            echo "Attempt $i/30: API not ready, waiting 2s..."
+            sleep 2
+          done
+          
+          # Final check
+          if ! curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
+            echo "ERROR: API did not become ready"
+            echo "=== API Logs ==="
+            cat api_output.log
+            exit 1
+          fi
+          
+          # Check for relation errors in startup logs
+          if grep -qi "relation.*does not exist" api_output.log; then
+            echo ""
+            echo "=========================================="
+            echo "FATAL: 'relation does not exist' in API startup!"
+            echo "=========================================="
+            grep -i "relation.*does not exist" api_output.log
+            exit 1
+          fi
+
+      - name: Smoke test - Health endpoints
+        run: |
+          echo "=== Smoke Test: Health Endpoints ==="
+          
+          # Test /health/live
+          echo "Testing /health/live..."
+          LIVE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/live)
+          if [ "$LIVE_STATUS" != "200" ]; then
+            echo "FAIL: /health/live returned $LIVE_STATUS (expected 200)"
+            exit 1
+          fi
+          echo "PASS: /health/live returned 200"
+          
+          # Test /health/ready
+          echo "Testing /health/ready..."
+          READY_RESPONSE=$(curl -s http://localhost:3002/health/ready)
+          READY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health/ready)
+          
+          if [ "$READY_STATUS" != "200" ]; then
+            echo "FAIL: /health/ready returned $READY_STATUS (expected 200)"
+            echo "Response: $READY_RESPONSE"
+            exit 1
+          fi
+          echo "PASS: /health/ready returned 200"
+          
+          # Verify migrations executed
+          EXECUTED=$(echo "$READY_RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.executed // 0' 2>/dev/null || echo "0")
+          PENDING=$(echo "$READY_RESPONSE" | jq -r '.data.checks.database.details.migrationStatus.pending // 999' 2>/dev/null || echo "999")
+          
+          echo "Migration status: executed=$EXECUTED, pending=$PENDING"
+          
+          if [ "$PENDING" != "0" ]; then
+            echo "WARNING: There are $PENDING pending migrations"
+          fi
+          
+          if [ "$EXECUTED" -lt 10 ]; then
+            echo "WARNING: Only $EXECUTED migrations executed (expected >= 10)"
+          fi
+
+      - name: Smoke test - Login and authenticated endpoint
+        run: |
+          echo "=== Smoke Test: Login + Authenticated Endpoint ==="
+          
+          # Login
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3002/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@preflight.local","password":"PreflightTest123!"}')
+          
+          TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.accessToken // .accessToken // empty')
+          TENANT_ID=$(echo "$LOGIN_RESPONSE" | jq -r '.data.user.tenantId // .user.tenantId // empty')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract token from login response"
+            echo "Response keys: $(echo "$LOGIN_RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'invalid JSON')"
+            exit 1
+          fi
+          echo "PASS: Login successful, token obtained"
+          
+          # Test authenticated endpoint
+          CONTEXT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "x-tenant-id: $TENANT_ID" \
+            http://localhost:3002/onboarding/context)
+          
+          if [ "$CONTEXT_STATUS" != "200" ]; then
+            echo "FAIL: /onboarding/context returned $CONTEXT_STATUS (expected 200)"
+            exit 1
+          fi
+          echo "PASS: /onboarding/context returned 200"
+
+      - name: Check logs for schema errors
+        if: always()
+        run: |
+          echo "=== Final Log Analysis ==="
+          
+          ERRORS_FOUND=0
+          
+          # Check all log files for relation errors
+          for logfile in migration_output.log seed_grc_output.log seed_onboarding_output.log api_output.log; do
+            if [ -f "$logfile" ]; then
+              if grep -qi "relation.*does not exist\|missing tables\|table.*not found" "$logfile"; then
+                echo "ERROR: Schema issues found in $logfile:"
+                grep -i "relation.*does not exist\|missing tables\|table.*not found" "$logfile"
+                ERRORS_FOUND=1
+              fi
+            fi
+          done
+          
+          if [ $ERRORS_FOUND -eq 1 ]; then
+            echo ""
+            echo "=========================================="
+            echo "PREFLIGHT FAILED: Schema errors detected"
+            echo "=========================================="
+            exit 1
+          fi
+          
+          echo "No schema errors found in logs"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Kill API server if running
+          if [ -n "$API_PID" ]; then
+            kill $API_PID 2>/dev/null || true
+          fi
+
+      - name: Preflight summary
+        if: success()
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  DB BOOTSTRAP PREFLIGHT: PASSED"
+          echo "=========================================="
+          echo ""
+          echo "Validated:"
+          echo "  - Migrations run cleanly on fresh DB"
+          echo "  - seed:grc completed successfully"
+          echo "  - seed:onboarding completed successfully"
+          echo "  - API boots and health endpoints respond"
+          echo "  - Login + authenticated endpoint works"
+          echo "  - No 'relation does not exist' errors"
+          echo ""
+          echo "This PR is safe to merge from a DB schema perspective."
+          echo "=========================================="

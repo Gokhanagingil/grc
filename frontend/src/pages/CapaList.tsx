@@ -1,0 +1,575 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Box,
+  Chip,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tooltip,
+  Typography,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+} from '@mui/material';
+import {
+  Visibility as ViewIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Build as CapaIcon,
+} from '@mui/icons-material';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { capaApi, CapaData, CreateCapaDto, CapaStatus, CapaPriority } from '../services/grcClient';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  GenericListPage,
+  ColumnDefinition,
+  FilterOption,
+  FilterBuilderBasic,
+  FilterTree,
+  FilterConfig,
+} from '../components/common';
+import { GrcFrameworkWarningBanner } from '../components/onboarding';
+import { useUniversalList } from '../hooks/useUniversalList';
+import {
+  parseListQuery,
+  serializeFilterTree,
+  countFilterConditions,
+} from '../utils/listQueryUtils';
+
+const CAPA_STATUS_VALUES: CapaStatus[] = ['planned', 'in_progress', 'implemented', 'verified', 'rejected', 'closed'];
+const CAPA_PRIORITY_VALUES: CapaPriority[] = ['low', 'medium', 'high', 'critical'];
+
+const getStatusColor = (status: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  switch (status) {
+    case 'planned': return 'info';
+    case 'in_progress': return 'warning';
+    case 'implemented': return 'info';
+    case 'verified': return 'success';
+    case 'closed': return 'success';
+    case 'rejected': return 'error';
+    default: return 'default';
+  }
+};
+
+const getPriorityColor = (priority: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+  switch (priority) {
+    case 'critical': return 'error';
+    case 'high': return 'error';
+    case 'medium': return 'warning';
+    case 'low': return 'info';
+    default: return 'default';
+  }
+};
+
+const formatStatus = (status: string): string => {
+  return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString();
+};
+
+/**
+ * CAPA filter configuration for the advanced filter builder
+ */
+const CAPA_FILTER_CONFIG: FilterConfig = {
+  fields: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'enum',
+      enumValues: CAPA_STATUS_VALUES,
+      enumLabels: {
+        planned: 'Planned',
+        in_progress: 'In Progress',
+        implemented: 'Implemented',
+        verified: 'Verified',
+        rejected: 'Rejected',
+        closed: 'Closed',
+      },
+    },
+    {
+      name: 'priority',
+      label: 'Priority',
+      type: 'enum',
+      enumValues: CAPA_PRIORITY_VALUES,
+      enumLabels: {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical',
+      },
+    },
+    {
+      name: 'dueDate',
+      label: 'Due Date',
+      type: 'date',
+    },
+    {
+      name: 'createdAt',
+      label: 'Created At',
+      type: 'date',
+    },
+  ],
+  maxConditions: 10,
+};
+
+export const CapaList: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newCapa, setNewCapa] = useState<CreateCapaDto>({
+    title: '',
+    description: '',
+    issueId: '',
+    priority: 'medium',
+  });
+  
+  const tenantId = user?.tenantId || '';
+  
+  const statusFilter = searchParams.get('status') || '';
+  const priorityFilter = searchParams.get('priority') || '';
+  const issueIdFilter = searchParams.get('issueId') || '';
+
+  const parsedQuery = useMemo(() => parseListQuery(searchParams, {
+    pageSize: 10,
+    sort: 'createdAt:DESC',
+  }), [searchParams]);
+
+  const advancedFilter = parsedQuery.filterTree;
+
+  const additionalFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (priorityFilter) filters.priority = priorityFilter;
+    if (issueIdFilter) filters.issueId = issueIdFilter;
+    if (advancedFilter) {
+      const serialized = serializeFilterTree(advancedFilter);
+      if (serialized) filters.filter = serialized;
+    }
+    return filters;
+  }, [statusFilter, priorityFilter, issueIdFilter, advancedFilter]);
+
+  const fetchCapas = useCallback((params: Record<string, unknown>) => {
+    return capaApi.list(tenantId, params);
+  }, [tenantId]);
+
+  const isAuthReady = !authLoading && !!tenantId;
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    search,
+    isLoading,
+    error,
+    setPage,
+    setPageSize,
+    setSearch,
+    refetch,
+  } = useUniversalList<CapaData>({
+    fetchFn: fetchCapas,
+    defaultPageSize: 10,
+    defaultSort: 'createdAt:DESC',
+    syncToUrl: true,
+    enabled: isAuthReady,
+    additionalFilters,
+  });
+
+  const handleViewCapa = useCallback((capa: CapaData) => {
+    navigate(`/capa/${capa.id}`);
+  }, [navigate]);
+
+  const handleDeleteCapa = useCallback(async (capa: CapaData) => {
+    if (window.confirm(`Are you sure you want to delete "${capa.title}"?`)) {
+      try {
+        await capaApi.delete(tenantId, capa.id);
+        refetch();
+      } catch (err) {
+        console.error('Failed to delete CAPA:', err);
+      }
+    }
+  }, [tenantId, refetch]);
+
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreateCapa = useCallback(async () => {
+    if (!newCapa.title) {
+      setCreateError('Title is required');
+      return;
+    }
+    setCreateError(null);
+    try {
+      // Create CAPA - issueId is optional for standalone CAPAs
+      // Pass undefined instead of empty string for issueId to avoid validation issues
+      const payload = {
+        ...newCapa,
+        issueId: newCapa.issueId?.trim() || undefined,
+      };
+      await capaApi.create(tenantId, payload);
+      setCreateDialogOpen(false);
+      setNewCapa({
+        title: '',
+        description: '',
+        issueId: '',
+        priority: 'medium',
+      });
+      refetch();
+    } catch (err: unknown) {
+      console.error('Failed to create CAPA:', err);
+      const error = err as { response?: { data?: { message?: string; fieldErrors?: Record<string, string[]> } } };
+      if (error.response?.data?.fieldErrors) {
+        const fieldErrors = error.response.data.fieldErrors;
+        const errorMessages = Object.entries(fieldErrors)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('; ');
+        setCreateError(errorMessages);
+      } else if (error.response?.data?.message) {
+        setCreateError(error.response.data.message);
+      } else {
+        setCreateError('Failed to create CAPA. Please try again.');
+      }
+    }
+  }, [tenantId, newCapa, refetch]);
+
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleStatusChange = useCallback((value: string) => {
+    updateFilter('status', value);
+  }, [updateFilter]);
+
+  const handlePriorityChange = useCallback((value: string) => {
+    updateFilter('priority', value);
+  }, [updateFilter]);
+
+  const getActiveFilters = useCallback((): FilterOption[] => {
+    const filters: FilterOption[] = [];
+    if (statusFilter) {
+      filters.push({ key: 'status', label: 'Status', value: formatStatus(statusFilter) });
+    }
+    if (priorityFilter) {
+      filters.push({ key: 'priority', label: 'Priority', value: formatStatus(priorityFilter) });
+    }
+    if (issueIdFilter) {
+      filters.push({ key: 'issueId', label: 'Issue', value: issueIdFilter });
+    }
+    return filters;
+  }, [statusFilter, priorityFilter, issueIdFilter]);
+
+  const handleFilterRemove = useCallback((key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleClearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    const currentSearch = searchParams.get('search');
+    const currentSort = searchParams.get('sort');
+    const currentPageSize = searchParams.get('pageSize');
+    if (currentSearch) newParams.set('search', currentSearch);
+    if (currentSort) newParams.set('sort', currentSort);
+    if (currentPageSize) newParams.set('pageSize', currentPageSize);
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const columns: ColumnDefinition<CapaData>[] = useMemo(() => [
+    {
+      key: 'title',
+      header: 'Title',
+      render: (capa) => (
+        <Tooltip title={capa.description || ''}>
+          <Typography 
+            variant="body2" 
+            component="span"
+            onClick={() => handleViewCapa(capa)}
+            sx={{ 
+              maxWidth: 250, 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              whiteSpace: 'nowrap',
+              color: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': { 
+                textDecoration: 'underline',
+                color: 'primary.dark',
+              },
+              fontWeight: 500,
+            }}
+          >
+            {capa.title}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      key: 'priority',
+      header: 'Priority',
+      render: (capa) => (
+        <Chip
+          label={formatStatus(capa.priority)}
+          size="small"
+          color={getPriorityColor(capa.priority)}
+        />
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (capa) => (
+        <Chip
+          label={formatStatus(capa.status)}
+          size="small"
+          color={getStatusColor(capa.status)}
+        />
+      ),
+    },
+    {
+      key: 'issue',
+      header: 'Issue',
+      render: (capa) => (
+        <Typography variant="body2">
+          {capa.issue?.title || capa.issueId || '-'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (capa) => (
+        <Typography variant="body2">
+          {capa.owner ? `${capa.owner.firstName} ${capa.owner.lastName}` : '-'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'dueDate',
+      header: 'Due Date',
+      render: (capa) => formatDate(capa.dueDate),
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      render: (capa) => formatDate(capa.createdAt),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (capa) => (
+        <Box display="flex" gap={0.5}>
+          <Tooltip title="View Details">
+            <IconButton
+              size="small"
+              onClick={() => handleViewCapa(capa)}
+              data-testid={`view-capa-${capa.id}`}
+            >
+              <ViewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={() => handleDeleteCapa(capa)}
+              color="error"
+              data-testid={`delete-capa-${capa.id}`}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], [handleViewCapa, handleDeleteCapa]);
+
+  const handleAdvancedFilterApply = useCallback((filter: FilterTree | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter) {
+      const serialized = serializeFilterTree(filter);
+      if (serialized) {
+        newParams.set('filter', serialized);
+      }
+    } else {
+      newParams.delete('filter');
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdvancedFilterClear = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('filter');
+    newParams.set('page', '1');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeAdvancedFilterCount = advancedFilter ? countFilterConditions(advancedFilter) : 0;
+
+  const toolbarActions = useMemo(() => (
+    <Box display="flex" gap={1} alignItems="center">
+      <FilterBuilderBasic
+        config={CAPA_FILTER_CONFIG}
+        initialFilter={advancedFilter}
+        onApply={handleAdvancedFilterApply}
+        onClear={handleAdvancedFilterClear}
+        activeFilterCount={activeAdvancedFilterCount}
+      />
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Status"
+          onChange={(e) => handleStatusChange(e.target.value)}
+          data-testid="capa-status-filter"
+        >
+          <MenuItem value="">All</MenuItem>
+          {CAPA_STATUS_VALUES.map((status) => (
+            <MenuItem key={status} value={status}>{formatStatus(status)}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>Priority</InputLabel>
+        <Select
+          value={priorityFilter}
+          label="Priority"
+          onChange={(e) => handlePriorityChange(e.target.value)}
+          data-testid="capa-priority-filter"
+        >
+          <MenuItem value="">All</MenuItem>
+          {CAPA_PRIORITY_VALUES.map((priority) => (
+            <MenuItem key={priority} value={priority}>{formatStatus(priority)}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => setCreateDialogOpen(true)}
+        data-testid="add-capa-button"
+      >
+        Add CAPA
+      </Button>
+    </Box>
+  ), [statusFilter, priorityFilter, handleStatusChange, handlePriorityChange, advancedFilter, handleAdvancedFilterApply, handleAdvancedFilterClear, activeAdvancedFilterCount]);
+
+  return (
+    <>
+      <GenericListPage<CapaData>
+        title="CAPAs"
+        icon={<CapaIcon />}
+        items={items}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        isLoading={isLoading || authLoading}
+        error={error}
+        search={search}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        onRefresh={refetch}
+        getRowKey={(capa) => capa.id}
+        searchPlaceholder="Search CAPAs..."
+        emptyMessage="No CAPAs found"
+        emptyFilteredMessage="Try adjusting your filters or search query"
+        filters={getActiveFilters()}
+        onFilterRemove={handleFilterRemove}
+        onClearFilters={handleClearFilters}
+        toolbarActions={toolbarActions}
+        banner={<GrcFrameworkWarningBanner />}
+        minTableWidth={1000}
+        testId="capa-list-page"
+      />
+
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth data-testid="create-capa-dialog">
+        <DialogTitle>Add New CAPA</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            {createError && (
+              <Alert severity="error" onClose={() => setCreateError(null)} data-testid="capa-create-error">
+                {createError}
+              </Alert>
+            )}
+            <TextField
+              label="Title"
+              value={newCapa.title}
+              onChange={(e) => setNewCapa({ ...newCapa, title: e.target.value })}
+              fullWidth
+              required
+              data-testid="capa-title-input"
+            />
+            <TextField
+              label="Description"
+              value={newCapa.description}
+              onChange={(e) => setNewCapa({ ...newCapa, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={3}
+              data-testid="capa-description-input"
+            />
+            <TextField
+              label="Issue ID (Optional)"
+              value={newCapa.issueId}
+              onChange={(e) => setNewCapa({ ...newCapa, issueId: e.target.value })}
+              fullWidth
+              helperText="Leave empty for standalone CAPA, or enter the UUID of an Issue to link"
+              data-testid="capa-issue-id-input"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={newCapa.priority}
+                label="Priority"
+                onChange={(e) => setNewCapa({ ...newCapa, priority: e.target.value as CapaPriority })}
+                data-testid="capa-priority-select"
+              >
+                {CAPA_PRIORITY_VALUES.map((priority) => (
+                  <MenuItem key={priority} value={priority}>{formatStatus(priority)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialogOpen(false)} data-testid="cancel-capa-button">Cancel</Button>
+          <Button 
+            onClick={handleCreateCapa} 
+            variant="contained"
+            disabled={!newCapa.title}
+            data-testid="create-capa-button"
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+export default CapaList;

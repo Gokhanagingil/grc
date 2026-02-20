@@ -1,0 +1,184 @@
+# =============================================================================
+# GRC Platform - Frontend CI Workflow
+# =============================================================================
+# Triggers:
+#   - Push to main branch affecting frontend/**
+#   - Push to devin/** branches affecting frontend/**
+#   - Pull requests to main affecting frontend/**
+#
+# Jobs:
+#   1. lint           - ESLint code quality checks
+#   2. security-audit - npm audit for vulnerability scanning
+#   3. build          - Production build verification
+#   4. test           - Jest unit tests
+#
+# Environment:
+#   - Node.js 20.x
+# =============================================================================
+
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  workflow_dispatch:
+
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions - only what's needed for CI
+# actions: write is required for upload-artifact@v6 to finalize artifacts
+permissions:
+  contents: read
+  actions: write
+
+env:
+  NODE_VERSION: '20.x'
+  WORKING_DIRECTORY: ./frontend
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint - Code Quality Checks
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        # Use --legacy-peer-deps to work around react-scripts@5.0.1 peer constraint
+        # (typescript ^3.2.1 || ^4) vs project's typescript@^5.9.3
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run ESLint
+        run: npx eslint src/ --ext .ts,.tsx
+
+  # ---------------------------------------------------------------------------
+  # Security Audit - Vulnerability Scanning
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        # Use --legacy-peer-deps to work around react-scripts@5.0.1 peer constraint
+        # (typescript ^3.2.1 || ^4) vs project's typescript@^5.9.3
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run npm audit
+        # Use --audit-level=critical because react-scripts@5.0.1 has unfixable high-severity
+        # vulnerabilities in transitive deps (nth-check, svgo, webpack-dev-server) that require
+        # breaking changes to fix. These are dev-time only, not production runtime issues.
+        run: npm audit --audit-level=critical
+
+  # ---------------------------------------------------------------------------
+  # Build - Production Build Verification
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        # Use --legacy-peer-deps to work around react-scripts@5.0.1 peer constraint
+        # (typescript ^3.2.1 || ^4) vs project's typescript@^5.9.3
+        run: npm ci --legacy-peer-deps
+      
+      - name: Build application
+        run: npm run build
+        env:
+          CI: true
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: build
+          path: frontend/build
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Test - Jest Unit Tests
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        # Use --legacy-peer-deps to work around react-scripts@5.0.1 peer constraint
+        # (typescript ^3.2.1 || ^4) vs project's typescript@^5.9.3
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run unit tests
+        run: npm test -- --coverage --watchAll=false --passWithNoTests
+        env:
+          CI: true
+

@@ -1,0 +1,175 @@
+# =============================================================================
+# GRC Platform - Staging Environment Docker Compose
+# =============================================================================
+# Staging deployment configuration for Hetzner server
+#
+# IMPORTANT: Project Name & Volume Stability
+#   This file pins the project name to "grc-platform" to ensure consistent
+#   volume naming across all invocations. The database volume is configured
+#   as external to prevent accidental creation of new volumes.
+#
+#   If you see "volume not found" errors, the external volume must be created
+#   first or already exist from a previous deployment.
+#
+# Usage:
+#   Start:    docker compose -f docker-compose.staging.yml up -d
+#   Stop:     docker compose -f docker-compose.staging.yml down
+#   Rebuild:  docker compose -f docker-compose.staging.yml up -d --build --force-recreate
+#   Logs:     docker compose -f docker-compose.staging.yml logs -f
+#   Validate: bash ops/staging-db-validate.sh
+#
+# After starting, access (replace with your STAGING_BASE_URL):
+#   - Frontend: https://niles-grc.com (or your staging domain)
+#   - Backend API: https://niles-grc.com/api/* (via nginx proxy)
+#   - Backend Health: https://niles-grc.com/api/health/live (proxied to backend)
+#   - Frontend Health: https://niles-grc.com/frontend-health
+#
+# =============================================================================
+
+# Pin the project name to ensure consistent volume naming
+# This prevents volume drift when compose is invoked from different directories
+# or with different environment variables
+name: grc-platform
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: grc-staging-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-grc_platform}
+    volumes:
+      - grc_staging_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-grc_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - grc-staging-network
+
+  # ---------------------------------------------------------------------------
+  # NestJS Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    container_name: grc-staging-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: production
+      PORT: 3002
+      
+      # Database
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-grc_platform}
+      DB_SYNC: ${DB_SYNC:-false}
+      
+      # Security
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET environment variable is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET}}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
+      
+      # CORS - Allow staging domain (set via environment or use localhost defaults for dev)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002}
+      
+      # Demo admin (staging)
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD}
+      
+      # Version info (set by deploy workflow)
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
+      GIT_COMMIT_SHORT: ${GIT_COMMIT_SHORT:-unknown}
+      BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
+    ports:
+      - "3002:3002"
+    volumes:
+      # Mount host directory for general data storage (platform builder, etc.)
+      # The LocalFsAdapter uses /app/data/uploads by default in production
+      - ./staging-data:/app/data
+      # Named volume for uploads - bypasses bind mount permission issues
+      # This sub-mount takes precedence over the bind mount for /app/data/uploads
+      # ensuring the directory is always writable by the container user (nestjs:1001)
+      - grc_uploads:/app/data/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - grc-staging-network
+
+  # ---------------------------------------------------------------------------
+  # React Frontend (Nginx)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Empty string means use relative URL (nginx reverse proxy handles routing)
+        # This allows API calls to go to same origin, which nginx proxies to backend
+        REACT_APP_API_URL: ""
+    container_name: grc-staging-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/frontend-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - grc-staging-network
+
+# -----------------------------------------------------------------------------
+# Named Volumes
+# -----------------------------------------------------------------------------
+# IMPORTANT: The database volume is configured as EXTERNAL to prevent
+# accidental creation of new volumes with different names.
+#
+# The volume "grc-platform_grc_staging_postgres_data" must already exist
+# on the staging host. This is the volume that contains the production
+# staging data.
+#
+# If deploying to a fresh host, create the volume first:
+#   docker volume create grc-platform_grc_staging_postgres_data
+#
+# To verify the correct volume is mounted, run:
+#   bash ops/staging-db-validate.sh
+# -----------------------------------------------------------------------------
+volumes:
+  grc_staging_db_data:
+    external: true
+    name: grc-platform_grc_staging_postgres_data
+  # Named volume for uploads - ensures /app/data/uploads is always writable
+  # regardless of bind mount permissions on ./staging-data
+  grc_uploads:
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  grc-staging-network:
+    driver: bridge
+

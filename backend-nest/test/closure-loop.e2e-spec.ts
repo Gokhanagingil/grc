@@ -1,0 +1,1318 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import * as request from 'supertest';
+import { App } from 'supertest/types';
+import { AppModule } from '../src/app.module';
+
+describe('Closure Loop MVP (e2e)', () => {
+  let app: INestApplication<App>;
+  let dbConnected = false;
+  let adminToken: string;
+  let tenantId: string;
+
+  const DEMO_ADMIN_EMAIL =
+    process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local';
+  const DEMO_ADMIN_PASSWORD =
+    process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!';
+
+  // Helper to extract error message from response body (handles different envelope formats)
+  const getErrorMessage = (body: Record<string, unknown>): string => {
+    if (typeof body.message === 'string') return body.message;
+    if (
+      body.error &&
+      typeof (body.error as Record<string, unknown>).message === 'string'
+    ) {
+      return (body.error as Record<string, unknown>).message as string;
+    }
+    return JSON.stringify(body);
+  };
+
+  beforeAll(async () => {
+    try {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
+      }).compile();
+
+      app = moduleFixture.createNestApplication();
+      app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+        }),
+      );
+      await app.init();
+      dbConnected = true;
+
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: DEMO_ADMIN_EMAIL,
+          password: DEMO_ADMIN_PASSWORD,
+        });
+
+      const responseData = loginResponse.body.data ?? loginResponse.body;
+      adminToken = responseData.accessToken;
+      tenantId = responseData.user?.tenantId;
+    } catch (error) {
+      console.warn(
+        'Could not connect to database, skipping DB-dependent tests',
+      );
+      console.warn('Error:', (error as Error).message);
+      dbConnected = false;
+    }
+  });
+
+  afterAll(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+
+  describe('CAPA Status Transitions', () => {
+    let testCapaId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const capasResponse = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capas = capasResponse.body.data ?? capasResponse.body;
+      if (Array.isArray(capas) && capas.length > 0) {
+        testCapaId = capas[0].id;
+      }
+    });
+
+    it('should update CAPA status with valid transition', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/capas/${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capa = getResponse.body.data ?? getResponse.body;
+      const currentStatus = capa.status;
+
+      let targetStatus: string;
+      if (currentStatus === 'planned') {
+        targetStatus = 'in_progress';
+      } else if (currentStatus === 'in_progress') {
+        targetStatus = 'implemented';
+      } else if (currentStatus === 'implemented') {
+        targetStatus = 'verified';
+      } else if (currentStatus === 'verified') {
+        targetStatus = 'closed';
+      } else {
+        targetStatus = 'in_progress';
+      }
+
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: targetStatus, comment: 'E2E test transition' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', targetStatus);
+    });
+
+    it('should reject invalid CAPA status transition', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/capas/${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capa = getResponse.body.data ?? getResponse.body;
+      const currentStatus = capa.status;
+
+      let invalidStatus: string;
+      if (currentStatus === 'planned') {
+        invalidStatus = 'closed';
+      } else if (currentStatus === 'in_progress') {
+        invalidStatus = 'closed';
+      } else {
+        invalidStatus = 'planned';
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: invalidStatus, comment: 'Invalid transition' })
+        .expect(400);
+    });
+
+    it('should return 401 without authentication', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress' })
+        .expect(401);
+    });
+
+    it('should return 400 without x-tenant-id header', async () => {
+      if (!dbConnected || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'in_progress' })
+        .expect(400);
+    });
+  });
+
+  describe('Issue Status Transitions', () => {
+    let testIssueId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issues = issuesResponse.body.data ?? issuesResponse.body;
+      if (Array.isArray(issues) && issues.length > 0) {
+        testIssueId = issues[0].id;
+      }
+    });
+
+    it('should update Issue status with valid transition', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/issues/${testIssueId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issue = getResponse.body.data ?? getResponse.body;
+      const currentStatus = issue.status;
+
+      let targetStatus: string;
+      if (currentStatus === 'open') {
+        targetStatus = 'in_progress';
+      } else if (currentStatus === 'in_progress') {
+        targetStatus = 'resolved';
+      } else if (currentStatus === 'resolved') {
+        targetStatus = 'closed';
+      } else {
+        targetStatus = 'in_progress';
+      }
+
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: targetStatus, comment: 'E2E test transition' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', targetStatus);
+    });
+
+    it('should reject invalid Issue status transition', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/issues/${testIssueId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issue = getResponse.body.data ?? getResponse.body;
+      const currentStatus = issue.status;
+
+      let invalidStatus: string;
+      if (currentStatus === 'open') {
+        invalidStatus = 'closed';
+      } else if (currentStatus === 'in_progress') {
+        invalidStatus = 'closed';
+      } else {
+        invalidStatus = 'open';
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: invalidStatus, comment: 'Invalid transition' })
+        .expect(400);
+    });
+  });
+
+  describe('CAPA Task Status Transitions', () => {
+    let testCapaTaskId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      const tasksResponse = await request(app.getHttpServer())
+        .get('/grc/capa-tasks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const tasks = tasksResponse.body.data ?? tasksResponse.body;
+      if (Array.isArray(tasks) && tasks.length > 0) {
+        testCapaTaskId = tasks[0].id;
+      }
+    });
+
+    it('should update CAPA Task status with valid transition', async () => {
+      if (!dbConnected || !tenantId || !testCapaTaskId) {
+        console.log(
+          'Skipping test: database not connected or no CAPA Task found',
+        );
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/capa-tasks/${testCapaTaskId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const task = getResponse.body.data ?? getResponse.body;
+      const currentStatus = task.status;
+
+      let targetStatus: string;
+      if (currentStatus === 'PENDING') {
+        targetStatus = 'IN_PROGRESS';
+      } else if (currentStatus === 'IN_PROGRESS') {
+        targetStatus = 'COMPLETED';
+      } else {
+        targetStatus = 'IN_PROGRESS';
+      }
+
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testCapaTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: targetStatus, comment: 'E2E test transition' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', targetStatus);
+    });
+
+    it('should reject invalid CAPA Task status transition', async () => {
+      if (!dbConnected || !tenantId || !testCapaTaskId) {
+        console.log(
+          'Skipping test: database not connected or no CAPA Task found',
+        );
+        return;
+      }
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/capa-tasks/${testCapaTaskId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const task = getResponse.body.data ?? getResponse.body;
+      const currentStatus = task.status;
+
+      let invalidStatus: string;
+      if (currentStatus === 'PENDING') {
+        invalidStatus = 'COMPLETED';
+      } else if (currentStatus === 'IN_PROGRESS') {
+        invalidStatus = 'PENDING';
+      } else {
+        invalidStatus = 'PENDING';
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testCapaTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: invalidStatus, comment: 'Invalid transition' })
+        .expect(400);
+    });
+  });
+
+  describe('Status History Tracking', () => {
+    it('should create status history entry on CAPA status change', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const capasResponse = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capas = capasResponse.body.data ?? capasResponse.body;
+      if (!Array.isArray(capas) || capas.length === 0) {
+        console.log('Skipping test: no CAPAs found');
+        return;
+      }
+
+      const testCapaId = capas[0].id;
+
+      const getResponse = await request(app.getHttpServer())
+        .get(`/grc/capas/${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capa = getResponse.body.data ?? getResponse.body;
+      const currentStatus = capa.status;
+
+      let targetStatus: string;
+      if (currentStatus === 'planned') {
+        targetStatus = 'in_progress';
+      } else if (currentStatus === 'in_progress') {
+        targetStatus = 'implemented';
+      } else if (currentStatus === 'implemented') {
+        targetStatus = 'verified';
+      } else if (currentStatus === 'verified') {
+        targetStatus = 'closed';
+      } else {
+        targetStatus = 'in_progress';
+      }
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: targetStatus, comment: 'E2E history test' })
+        .expect(200);
+
+      const historyResponse = await request(app.getHttpServer())
+        .get(`/grc/status-history?entityType=capa&entityId=${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const history = historyResponse.body.data ?? historyResponse.body;
+      expect(Array.isArray(history)).toBe(true);
+
+      if (history.length > 0) {
+        const latestEntry = history[0];
+        expect(latestEntry).toHaveProperty('entityType', 'capa');
+        expect(latestEntry).toHaveProperty('entityId', testCapaId);
+        expect(latestEntry).toHaveProperty('toStatus', targetStatus);
+      }
+    });
+  });
+
+  describe('Issue from Test Result - Control Linkage', () => {
+    let testControlId: string;
+    let testControlTestId: string;
+    let testResultId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing control
+      const controlsResponse = await request(app.getHttpServer())
+        .get('/grc/controls')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const controlsData = controlsResponse.body.data ?? controlsResponse.body;
+      const controls = controlsData.items ?? controlsData;
+      if (Array.isArray(controls) && controls.length > 0) {
+        testControlId = controls[0].id;
+      }
+    });
+
+    it('should create issue with controlId linked when creating from test result via controlTestId', async () => {
+      if (!dbConnected || !tenantId || !testControlId) {
+        console.log(
+          'Skipping test: database not connected or no control found',
+        );
+        return;
+      }
+
+      // Step 1: Create a control test for the control
+      const controlTestResponse = await request(app.getHttpServer())
+        .post('/grc/control-tests')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          controlId: testControlId,
+          name: 'E2E Test - Issue Linkage Test',
+          testType: 'MANUAL',
+          status: 'IN_PROGRESS',
+        })
+        .expect(201);
+
+      const controlTestData =
+        controlTestResponse.body.data ?? controlTestResponse.body;
+      testControlTestId = controlTestData.id;
+
+      // Step 2: Create a test result with FAIL outcome via controlTestId
+      const testResultResponse = await request(app.getHttpServer())
+        .post('/grc/test-results')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          controlTestId: testControlTestId,
+          result: 'FAIL',
+          resultDetails: 'E2E test - testing issue control linkage',
+        })
+        .expect(201);
+
+      const testResultData =
+        testResultResponse.body.data ?? testResultResponse.body;
+      testResultId = testResultData.id;
+
+      // Step 3: Create an issue from the test result
+      const issueResponse = await request(app.getHttpServer())
+        .post(`/grc/test-results/${testResultId}/issues`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({})
+        .expect(201);
+
+      const issueData = issueResponse.body.data ?? issueResponse.body;
+
+      // Verify the issue has controlId set (the fix we're testing)
+      expect(issueData).toHaveProperty('controlId', testControlId);
+      expect(issueData).toHaveProperty('testResultId', testResultId);
+      expect(issueData).toHaveProperty('status', 'open');
+      expect(issueData).toHaveProperty('severity', 'high'); // FAIL -> HIGH severity
+      expect(issueData.metadata).toHaveProperty('createdFromTestResult', true);
+      expect(issueData.metadata).toHaveProperty('testResultOutcome', 'FAIL');
+
+      // Cleanup: soft delete the created issue
+      if (issueData.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${issueData.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test result and control test
+      if (testResultId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/test-results/${testResultId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (testControlTestId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/control-tests/${testControlTestId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
+
+  describe('CAPA Creation with Lowercase Priority (Regression)', () => {
+    let testIssueId: string;
+    let createdCapaId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing issue to link the CAPA to
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issues = issuesResponse.body.data ?? issuesResponse.body;
+      if (Array.isArray(issues) && issues.length > 0) {
+        testIssueId = issues[0].id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the created CAPA
+      if (createdCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${createdCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA with lowercase priority "high" and store as "HIGH"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Create CAPA via Issue -> CAPA endpoint with lowercase priority
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Lowercase Priority CAPA',
+          description: 'Testing case-insensitive priority normalization',
+          priority: 'high', // lowercase - should be normalized to HIGH
+          type: 'corrective',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+
+      const capa = response.body.data;
+      createdCapaId = capa.id;
+
+      // Verify the priority was normalized to uppercase
+      expect(capa).toHaveProperty('priority', 'HIGH');
+      expect(capa).toHaveProperty(
+        'title',
+        'E2E Test - Lowercase Priority CAPA',
+      );
+    });
+
+    it('should create CAPA with mixed case priority "Medium" and store as "MEDIUM"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Mixed Case Priority CAPA',
+          description: 'Testing case-insensitive priority normalization',
+          priority: 'Medium', // mixed case - should be normalized to MEDIUM
+          type: 'preventive',
+        })
+        .expect(201);
+
+      const capa = response.body.data;
+
+      // Verify the priority was normalized to uppercase
+      expect(capa).toHaveProperty('priority', 'MEDIUM');
+
+      // Cleanup
+      if (capa.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${capa.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should reject invalid priority value after normalization', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to create CAPA with invalid priority
+      await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Invalid Priority CAPA',
+          description: 'Testing validation still works',
+          priority: 'urgent', // invalid - should be rejected even after normalization
+          type: 'corrective',
+        })
+        .expect(400);
+    });
+
+    it('should keep uppercase priority "CRITICAL" as "CRITICAL"', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Uppercase Priority CAPA',
+          description: 'Testing uppercase priority is preserved',
+          priority: 'CRITICAL', // uppercase - should remain CRITICAL
+          type: 'both',
+        })
+        .expect(201);
+
+      const capa = response.body.data;
+
+      // Verify the priority remains uppercase
+      expect(capa).toHaveProperty('priority', 'CRITICAL');
+
+      // Cleanup
+      if (capa.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${capa.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
+
+  describe('CAPA Creation - issueId Validation', () => {
+    let testIssueId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get an existing issue for testing
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issuesData = issuesResponse.body.data ?? issuesResponse.body;
+      const issues = issuesData.items ?? issuesData;
+      if (Array.isArray(issues) && issues.length > 0) {
+        testIssueId = issues[0].id;
+      }
+    });
+
+    it('should create CAPA without issueId (standalone CAPA)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - Standalone CAPA',
+          description: 'Testing CAPA creation without issueId',
+          priority: 'MEDIUM',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - Standalone CAPA',
+      );
+      expect(response.body.data.issueId).toBeNull();
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA with empty string issueId (treated as omitted)', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA with empty issueId',
+          description: 'Testing CAPA creation with empty string issueId',
+          issueId: '',
+          priority: 'LOW',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - CAPA with empty issueId',
+      );
+      expect(response.body.data.issueId).toBeNull();
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should return 400 for invalid non-empty issueId that is not a UUID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA with invalid issueId',
+          issueId: 'not-a-uuid',
+          priority: 'HIGH',
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should create CAPA via POST /grc/issues/:issueId/capas with lowercase priority', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA from Issue with lowercase priority',
+          description: 'Testing priority normalization',
+          priority: 'high',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty(
+        'title',
+        'E2E Test - CAPA from Issue with lowercase priority',
+      );
+      expect(response.body.data).toHaveProperty('issueId', testIssueId);
+      expect(response.body.data).toHaveProperty('priority', 'HIGH');
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should create CAPA via POST /grc/issues/:issueId/capas with mixed case priority', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log('Skipping test: database not connected or no issue found');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post(`/grc/issues/${testIssueId}/capas`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Test - CAPA from Issue with mixed case priority',
+          description: 'Testing priority normalization',
+          priority: 'Medium',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('priority', 'MEDIUM');
+
+      // Cleanup
+      if (response.body.data.id) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${response.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+  });
+
+  describe('Tenant Isolation - Cross-Tenant Data Access Prevention', () => {
+    const FAKE_TENANT_ID = '99999999-9999-9999-9999-999999999999';
+    let realCapaId: string;
+    let realIssueId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Get a real CAPA from the authenticated tenant
+      const capasResponse = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const capas = capasResponse.body.data ?? capasResponse.body;
+      if (Array.isArray(capas) && capas.length > 0) {
+        realCapaId = capas[0].id;
+      }
+
+      // Get a real Issue from the authenticated tenant
+      const issuesResponse = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId);
+
+      const issues = issuesResponse.body.data ?? issuesResponse.body;
+      if (Array.isArray(issues) && issues.length > 0) {
+        realIssueId = issues[0].id;
+      }
+    });
+
+    it('should NOT return CAPAs from another tenant when using wrong x-tenant-id', async () => {
+      if (!dbConnected || !tenantId || !realCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      // Try to access CAPA with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get(`/grc/capas/${realCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT return Issues from another tenant when using wrong x-tenant-id', async () => {
+      if (!dbConnected || !tenantId || !realIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to access Issue with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get(`/grc/issues/${realIssueId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT allow updating CAPA status from another tenant', async () => {
+      if (!dbConnected || !tenantId || !realCapaId) {
+        console.log('Skipping test: database not connected or no CAPA found');
+        return;
+      }
+
+      // Try to update CAPA status with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/capas/${realCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID)
+        .send({
+          status: 'in_progress',
+          comment: 'Cross-tenant attack attempt',
+        });
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should NOT allow updating Issue status from another tenant', async () => {
+      if (!dbConnected || !tenantId || !realIssueId) {
+        console.log('Skipping test: database not connected or no Issue found');
+        return;
+      }
+
+      // Try to update Issue status with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .patch(`/grc/issues/${realIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID)
+        .send({
+          status: 'in_progress',
+          comment: 'Cross-tenant attack attempt',
+        });
+
+      // Should return 404 (not found in that tenant) or 403 (forbidden)
+      expect([403, 404]).toContain(response.status);
+    });
+
+    it('should return empty list when querying CAPAs with wrong tenant ID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Query CAPAs with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return empty list (no CAPAs for that tenant) or 403
+      if (response.status === 200) {
+        const data = response.body.data ?? response.body;
+        const items = data.items ?? data;
+        expect(Array.isArray(items) ? items.length : 0).toBe(0);
+      } else {
+        expect([403]).toContain(response.status);
+      }
+    });
+
+    it('should return empty list when querying Issues with wrong tenant ID', async () => {
+      if (!dbConnected || !tenantId) {
+        console.log('Skipping test: database not connected');
+        return;
+      }
+
+      // Query Issues with a different tenant ID
+      const response = await request(app.getHttpServer())
+        .get('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', FAKE_TENANT_ID);
+
+      // Should return empty list (no Issues for that tenant) or 403
+      if (response.status === 200) {
+        const data = response.body.data ?? response.body;
+        const items = data.items ?? data;
+        expect(Array.isArray(items) ? items.length : 0).toBe(0);
+      } else {
+        expect([403]).toContain(response.status);
+      }
+    });
+  });
+
+  describe('Closure Loop Validation - CAPA Verification Required', () => {
+    let testCapaId: string;
+    let testTaskId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create a fresh CAPA for closure testing
+      const createCapaResponse = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Closure Test CAPA',
+          description: 'Testing closure validation rules',
+          type: 'corrective',
+          priority: 'medium',
+          status: 'planned',
+        });
+
+      if (createCapaResponse.status === 201) {
+        const capaData =
+          createCapaResponse.body.data ?? createCapaResponse.body;
+        testCapaId = capaData.id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test CAPA
+      if (testCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${testCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should reject CAPA closure without verification fields', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA created');
+        return;
+      }
+
+      // Progress CAPA through valid transitions: planned -> in_progress -> implemented -> verified
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Starting work' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'implemented', reason: 'Implementation complete' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'verified', reason: 'Verified implementation' })
+        .expect(200);
+
+      // Attempt to close without verification fields - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Attempting closure' });
+
+      // Should return 400 because verification fields are not set
+      expect(closeResponse.status).toBe(400);
+      const errorMsg = getErrorMessage(closeResponse.body);
+      expect(errorMsg).toContain('closure requirements not met');
+    });
+
+    it('should reject CAPA closure with incomplete tasks', async () => {
+      if (!dbConnected || !tenantId || !testCapaId) {
+        console.log('Skipping test: database not connected or no CAPA created');
+        return;
+      }
+
+      // Create a task for the CAPA
+      const createTaskResponse = await request(app.getHttpServer())
+        .post('/grc/capa-tasks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          capaId: testCapaId,
+          title: 'E2E Test Task',
+          description: 'Task for closure testing',
+          status: 'PENDING',
+        });
+
+      if (createTaskResponse.status === 201) {
+        const taskData =
+          createTaskResponse.body.data ?? createTaskResponse.body;
+        testTaskId = taskData.id;
+      }
+
+      // Set verification fields on CAPA
+      await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          verifiedAt: new Date().toISOString(),
+          verificationNotes: 'Verified for testing',
+        });
+
+      // Attempt to close with incomplete task - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          status: 'closed',
+          reason: 'Attempting closure with incomplete task',
+        });
+
+      // Should return 400 because task is not completed
+      expect(closeResponse.status).toBe(400);
+      const errorMsg2 = getErrorMessage(closeResponse.body);
+      expect(errorMsg2).toContain('closure requirements not met');
+    });
+
+    it('should allow CAPA closure when all tasks completed and verification set', async () => {
+      if (!dbConnected || !tenantId || !testCapaId || !testTaskId) {
+        console.log(
+          'Skipping test: database not connected or no CAPA/task created',
+        );
+        return;
+      }
+
+      // Complete the task: PENDING -> IN_PROGRESS -> COMPLETED
+      await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'IN_PROGRESS', comment: 'Starting task' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/capa-tasks/${testTaskId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'COMPLETED', comment: 'Task completed' })
+        .expect(200);
+
+      // Now closure should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/capas/${testCapaId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'All requirements met' });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
+    });
+  });
+
+  describe('Closure Loop Validation - Issue Closure with Open CAPAs', () => {
+    let testIssueId: string;
+    let testCapaId: string;
+
+    beforeAll(async () => {
+      if (!dbConnected || !tenantId) return;
+
+      // Create a fresh Issue for closure testing
+      const createIssueResponse = await request(app.getHttpServer())
+        .post('/grc/issues')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Closure Test Issue',
+          description: 'Testing issue closure validation rules',
+          severity: 'medium',
+          status: 'open',
+        });
+
+      if (createIssueResponse.status === 201) {
+        const issueData =
+          createIssueResponse.body.data ?? createIssueResponse.body;
+        testIssueId = issueData.id;
+      }
+    });
+
+    afterAll(async () => {
+      // Cleanup: soft delete the test entities
+      if (testCapaId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/capas/${testCapaId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+      if (testIssueId && dbConnected && tenantId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/issues/${testIssueId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
+    });
+
+    it('should allow Issue closure when no CAPAs are linked', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log(
+          'Skipping test: database not connected or no Issue created',
+        );
+        return;
+      }
+
+      // Progress Issue: open -> in_progress -> resolved
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Starting investigation' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'resolved', reason: 'Issue resolved' })
+        .expect(200);
+
+      // Close Issue (no CAPAs linked) - should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Closing issue' });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
+    });
+
+    it('should reject Issue closure when linked CAPA is not closed', async () => {
+      if (!dbConnected || !tenantId || !testIssueId) {
+        console.log(
+          'Skipping test: database not connected or no Issue created',
+        );
+        return;
+      }
+
+      // Reopen the Issue: closed -> in_progress
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'in_progress', reason: 'Reopening for CAPA test' })
+        .expect(200);
+
+      // Create a CAPA linked to this Issue
+      const createCapaResponse = await request(app.getHttpServer())
+        .post('/grc/capas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          title: 'E2E Linked CAPA',
+          description: 'CAPA linked to test issue',
+          type: 'corrective',
+          priority: 'medium',
+          status: 'planned',
+          issueId: testIssueId,
+        });
+
+      if (createCapaResponse.status === 201) {
+        const capaData =
+          createCapaResponse.body.data ?? createCapaResponse.body;
+        testCapaId = capaData.id;
+      }
+
+      // Progress Issue to resolved
+      await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'resolved', reason: 'Issue resolved' })
+        .expect(200);
+
+      // Attempt to close Issue with open CAPA - should fail
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({ status: 'closed', reason: 'Attempting closure' });
+
+      expect(closeResponse.status).toBe(400);
+      const errorMsg3 = getErrorMessage(closeResponse.body);
+      expect(errorMsg3).toContain('not all CAPAs are closed');
+    });
+
+    it('should allow Issue closure with override reason when CAPA is open', async () => {
+      if (!dbConnected || !tenantId || !testIssueId || !testCapaId) {
+        console.log(
+          'Skipping test: database not connected or no Issue/CAPA created',
+        );
+        return;
+      }
+
+      // Close Issue with override reason - should succeed
+      const closeResponse = await request(app.getHttpServer())
+        .patch(`/grc/issues/${testIssueId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          status: 'closed',
+          reason: 'Closing with override',
+          overrideReason: 'CAPA transferred to external tracking system',
+        });
+
+      expect(closeResponse.status).toBe(200);
+      expect(closeResponse.body.data.status).toBe('closed');
+    });
+  });
+});
