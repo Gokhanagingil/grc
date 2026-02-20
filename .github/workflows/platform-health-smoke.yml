@@ -1,0 +1,82 @@
+name: Platform Health Smoke (PR Gate)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the GRC API"
+        required: false
+        default: "http://localhost:3001"
+
+jobs:
+  smoke-tier1:
+    name: "Tier-1 Smoke Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    services:
+      backend:
+        image: node:18
+        options: --health-cmd "echo ok" --health-interval 10s --health-timeout 5s --health-retries 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Start backend
+        run: |
+          cp backend/.env.example backend/.env 2>/dev/null || true
+          if [ ! -f backend/.env ]; then
+            echo "NODE_ENV=test" > backend/.env
+            echo "PORT=3001" >> backend/.env
+            echo "JWT_SECRET=ci-smoke-test-secret-$(date +%s)" >> backend/.env
+            echo "DB_PATH=./database/grc-test.db" >> backend/.env
+          fi
+          cd backend && node server.js &
+          sleep 5
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Run Tier-1 smoke tests
+        run: npx playwright test --project=smoke
+        env:
+          BASE_URL: "http://localhost:3001"
+          SMOKE_TIER: "tier1"
+          MAX_TABLES_PER_RUN: "5"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-health-report-tier1
+          path: test-results/platform-health-report.json
+          retention-days: 30

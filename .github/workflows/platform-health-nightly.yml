@@ -1,0 +1,104 @@
+name: Platform Health Smoke (Nightly / Full)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the GRC API"
+        required: false
+        default: "http://localhost:3001"
+      max_tables:
+        description: "Max tables to test (0 = all)"
+        required: false
+        default: "20"
+
+jobs:
+  smoke-full:
+    name: "Full Sweep Smoke Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Start backend
+        run: |
+          cp backend/.env.example backend/.env 2>/dev/null || true
+          if [ ! -f backend/.env ]; then
+            echo "NODE_ENV=test" > backend/.env
+            echo "PORT=3001" >> backend/.env
+            echo "JWT_SECRET=ci-smoke-test-secret-$(date +%s)" >> backend/.env
+            echo "DB_PATH=./database/grc-test.db" >> backend/.env
+          fi
+          cd backend && node server.js &
+          sleep 5
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Run full sweep smoke tests
+        run: npx playwright test --project=smoke
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3001' }}
+          SMOKE_TIER: "full"
+          MAX_TABLES_PER_RUN: ${{ github.event.inputs.max_tables || '20' }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-health-report-full
+          path: test-results/platform-health-report.json
+          retention-days: 90
+
+      - name: Report summary
+        if: always()
+        run: |
+          if [ -f test-results/platform-health-report.json ]; then
+            echo "## Platform Health Smoke Report" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat test-results/platform-health-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          summary = data.get('summary', {})
+          print(json.dumps(summary, indent=2))
+          print()
+          for t in data.get('tables', []):
+              status = 'PASS' if t['pass'] else 'FAIL'
+              print(f\"{status}  {t['table']}  ({t['durationMs']}ms)\")
+              for s in t.get('steps', []):
+                  step_status = 'ok' if s['pass'] else 'FAIL'
+                  reason = f' - {s[\"reason\"]}' if s.get('reason') else ''
+                  print(f\"  {step_status}  {s['step']}{reason}\")
+          " >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

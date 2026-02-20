@@ -1,0 +1,20 @@
+{
+  "name": "grc",
+  "version": "1.0.0",
+  "description": "A comprehensive Governance, Risk, and Compliance (GRC) platform built with Node.js, Express.js, React, and TypeScript.",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test --project=smoke",
+    "test:smoke": "SMOKE_TIER=tier1 npx playwright test --project=smoke",
+    "test:smoke:full": "SMOKE_TIER=full npx playwright test --project=smoke"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

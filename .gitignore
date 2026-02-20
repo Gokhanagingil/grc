@@ -95,3 +95,4 @@ out/
 # Temporary files
 tmp/
 temp/
+test-results/
