@@ -10,7 +10,9 @@ export interface AuthTokens {
 }
 
 const DEFAULT_TENANT_ID =
-  process.env.SMOKE_TENANT_ID || "00000000-0000-0000-0000-000000000001";
+  process.env.E2E_TENANT_ID ||
+  process.env.SMOKE_TENANT_ID ||
+  "00000000-0000-0000-0000-000000000001";
 
 export interface TableResult {
   table: string;
@@ -61,13 +63,22 @@ export async function authenticate(
   baseURL: string,
 ): Promise<AuthTokens> {
   const email =
-    process.env.SMOKE_TEST_EMAIL || process.env.DEMO_ADMIN_EMAIL || "admin@grc.local";
+    process.env.E2E_EMAIL ||
+    process.env.SMOKE_TEST_EMAIL ||
+    process.env.DEMO_ADMIN_EMAIL ||
+    "admin@grc.local";
   const password =
-    process.env.SMOKE_TEST_PASSWORD || process.env.DEMO_ADMIN_PASSWORD || "Admin123!";
+    process.env.E2E_PASSWORD ||
+    process.env.SMOKE_TEST_PASSWORD ||
+    process.env.DEMO_ADMIN_PASSWORD ||
+    "Admin123!";
 
-  const loginRes = await request.post(`${baseURL}/auth/login`, {
+  const tenantId = DEFAULT_TENANT_ID;
+
+  const loginUrl = `${baseURL}/auth/login`;
+  const loginRes = await request.post(loginUrl, {
     data: { email, password },
-    headers: { "x-tenant-id": DEFAULT_TENANT_ID },
+    headers: { "x-tenant-id": tenantId },
   });
 
   if (loginRes.ok()) {
@@ -78,11 +89,23 @@ export async function authenticate(
       token: body.accessToken || body.access_token || body.token,
       userId: user.id || "",
       role: user.role || "user",
-      tenantId: user.tenantId || DEFAULT_TENANT_ID,
+      tenantId: user.tenantId || tenantId,
     };
   }
 
-  throw new Error(`Auth failed: login=${loginRes.status()}`);
+  const status = loginRes.status();
+  if (status === 403) {
+    throw new Error(
+      `Auth failed: POST ${loginUrl} returned 403 Forbidden. ` +
+        `Ensure x-tenant-id header ("${tenantId}") is correct and credentials are valid. ` +
+        `For staging, set E2E_EMAIL, E2E_PASSWORD, and E2E_TENANT_ID secrets.`,
+    );
+  }
+
+  throw new Error(
+    `Auth failed: POST ${loginUrl} returned ${status}. ` +
+      `Check BASE_URL and credentials (email=${email}).`,
+  );
 }
 
 export function authHeaders(
