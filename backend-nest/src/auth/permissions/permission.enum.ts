@@ -144,6 +144,10 @@ export enum Permission {
   CMDB_SERVICE_WRITE = 'cmdb:service:write',
   CMDB_SERVICE_OFFERING_READ = 'cmdb:service_offering:read',
   CMDB_SERVICE_OFFERING_WRITE = 'cmdb:service_offering:write',
+
+  // CMDB Import & Reconciliation permissions
+  CMDB_IMPORT_READ = 'cmdb:import:read',
+  CMDB_IMPORT_WRITE = 'cmdb:import:write',
 }
 
 /**
@@ -251,4 +255,7 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.CMDB_SERVICE_OFFERING_READ]: 'View CMDB service offerings',
   [Permission.CMDB_SERVICE_OFFERING_WRITE]:
     'Create, update, and delete CMDB service offerings',
+  [Permission.CMDB_IMPORT_READ]: 'View CMDB import jobs and reconciliation results',
+  [Permission.CMDB_IMPORT_WRITE]:
+    'Create import jobs, manage import sources, configure reconcile rules, and apply imports',
 };

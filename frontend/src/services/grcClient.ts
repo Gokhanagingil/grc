@@ -374,6 +374,29 @@ export const API_PATHS = {
       LINK: (serviceId: string, ciId: string) => `/grc/cmdb/services/${serviceId}/cis/${ciId}`,
       UNLINK: (serviceId: string, ciId: string) => `/grc/cmdb/services/${serviceId}/cis/${ciId}`,
     },
+    IMPORT_SOURCES: {
+      LIST: '/grc/cmdb/import-sources',
+      GET: (id: string) => `/grc/cmdb/import-sources/${id}`,
+      CREATE: '/grc/cmdb/import-sources',
+      UPDATE: (id: string) => `/grc/cmdb/import-sources/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/import-sources/${id}`,
+    },
+    IMPORT_JOBS: {
+      LIST: '/grc/cmdb/import-jobs',
+      GET: (id: string) => `/grc/cmdb/import-jobs/${id}`,
+      CREATE: '/grc/cmdb/import-jobs',
+      ROWS: (id: string) => `/grc/cmdb/import-jobs/${id}/rows`,
+      RESULTS: (id: string) => `/grc/cmdb/import-jobs/${id}/results`,
+      APPLY: (id: string) => `/grc/cmdb/import-jobs/${id}/apply`,
+      REPORT: (id: string) => `/grc/cmdb/import-jobs/${id}/report`,
+    },
+    RECONCILE_RULES: {
+      LIST: '/grc/cmdb/reconcile-rules',
+      GET: (id: string) => `/grc/cmdb/reconcile-rules/${id}`,
+      CREATE: '/grc/cmdb/reconcile-rules',
+      UPDATE: (id: string) => `/grc/cmdb/reconcile-rules/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/reconcile-rules/${id}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -2104,6 +2127,149 @@ export interface CreateCmdbServiceCiDto {
   isPrimary?: boolean;
 }
 
+// CMDB Import & Reconciliation types
+export interface CmdbImportSourceData {
+  id: string;
+  tenantId: string;
+  name: string;
+  type: 'CSV' | 'HTTP' | 'WEBHOOK' | 'JSON';
+  config: Record<string, unknown> | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbImportSourceDto {
+  name: string;
+  type?: 'CSV' | 'HTTP' | 'WEBHOOK' | 'JSON';
+  config?: Record<string, unknown>;
+  enabled?: boolean;
+}
+
+export interface CmdbImportJobData {
+  id: string;
+  tenantId: string;
+  sourceId: string | null;
+  source: CmdbImportSourceData | null;
+  status: 'PENDING' | 'PARSING' | 'RECONCILING' | 'COMPLETED' | 'FAILED' | 'APPLIED';
+  dryRun: boolean;
+  totalRows: number;
+  parsedCount: number;
+  matchedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  conflictCount: number;
+  errorCount: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+}
+
+export interface CreateCmdbImportJobDto {
+  sourceId?: string;
+  dryRun?: boolean;
+  rows: Record<string, unknown>[];
+}
+
+export interface CmdbImportRowData {
+  id: string;
+  jobId: string;
+  rowNo: number;
+  raw: Record<string, unknown> | null;
+  parsed: Record<string, unknown> | null;
+  fingerprint: string | null;
+  status: 'PARSED' | 'MATCHED' | 'CREATED' | 'UPDATED' | 'CONFLICT' | 'ERROR';
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface ReconcileDiffField {
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+  classification: 'safe_update' | 'conflict';
+}
+
+export interface ReconcileExplainData {
+  ruleId: string;
+  ruleName: string;
+  fieldsUsed: string[];
+  confidence: number;
+  matchedCiId?: string;
+  matchedCiName?: string;
+}
+
+export interface CmdbReconcileResultData {
+  id: string;
+  jobId: string;
+  rowId: string | null;
+  ciId: string | null;
+  action: 'CREATE' | 'UPDATE' | 'SKIP' | 'CONFLICT';
+  matchedBy: string | null;
+  diff: ReconcileDiffField[] | null;
+  explain: ReconcileExplainData | null;
+  createdAt: string;
+}
+
+export interface CmdbReconcileRuleData {
+  id: string;
+  tenantId: string;
+  name: string;
+  targetClassId: string | null;
+  matchStrategy: {
+    type: 'exact' | 'composite';
+    fields: Array<{
+      field: string;
+      ciField: string;
+      weight?: number;
+      uniqueRequired?: boolean;
+    }>;
+  };
+  precedence: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbReconcileRuleDto {
+  name: string;
+  targetClassId?: string;
+  matchStrategy: Record<string, unknown>;
+  precedence?: number;
+  enabled?: boolean;
+}
+
+export interface UpdateCmdbReconcileRuleDto {
+  name?: string;
+  targetClassId?: string;
+  matchStrategy?: Record<string, unknown>;
+  precedence?: number;
+  enabled?: boolean;
+}
+
+export interface CmdbImportJobReport {
+  job: CmdbImportJobData;
+  summary: {
+    totalRows: number;
+    wouldCreate: number;
+    wouldUpdate: number;
+    conflicts: number;
+    errors: number;
+    skipped: number;
+  };
+  topConflicts: CmdbReconcileResultData[];
+  explainSamples: CmdbReconcileResultData[];
+}
+
+export interface CmdbImportListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: string;
+}
+
 export interface CmdbListParams {
   page?: number;
   pageSize?: number;
@@ -2115,6 +2281,69 @@ export interface CmdbListParams {
 }
 
 // CMDB API object
+// CMDB Import & Reconciliation API
+export const cmdbImportApi = {
+  sources: {
+    list: (params?: CmdbImportListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.IMPORT_SOURCES.LIST}${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.IMPORT_SOURCES.GET(id)),
+    create: (data: CreateCmdbImportSourceDto) => api.post(API_PATHS.CMDB.IMPORT_SOURCES.CREATE, data),
+    update: (id: string, data: Partial<CreateCmdbImportSourceDto>) => api.patch(API_PATHS.CMDB.IMPORT_SOURCES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.IMPORT_SOURCES.DELETE(id)),
+  },
+  jobs: {
+    list: (params?: CmdbImportListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.status) searchParams.set('status', params.status);
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.IMPORT_JOBS.LIST}${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.IMPORT_JOBS.GET(id)),
+    create: (data: CreateCmdbImportJobDto) => api.post(API_PATHS.CMDB.IMPORT_JOBS.CREATE, data),
+    rows: (id: string, params?: { page?: number; pageSize?: number; status?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.status) searchParams.set('status', params.status);
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.IMPORT_JOBS.ROWS(id)}${qs ? `?${qs}` : ''}`);
+    },
+    results: (id: string, params?: { page?: number; pageSize?: number; action?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.action) searchParams.set('action', params.action);
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.IMPORT_JOBS.RESULTS(id)}${qs ? `?${qs}` : ''}`);
+    },
+    apply: (id: string) => api.post(API_PATHS.CMDB.IMPORT_JOBS.APPLY(id), {}),
+    report: (id: string) => api.get(API_PATHS.CMDB.IMPORT_JOBS.REPORT(id)),
+  },
+  rules: {
+    list: (params?: CmdbImportListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.RECONCILE_RULES.LIST}${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.RECONCILE_RULES.GET(id)),
+    create: (data: CreateCmdbReconcileRuleDto) => api.post(API_PATHS.CMDB.RECONCILE_RULES.CREATE, data),
+    update: (id: string, data: UpdateCmdbReconcileRuleDto) => api.patch(API_PATHS.CMDB.RECONCILE_RULES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.RECONCILE_RULES.DELETE(id)),
+  },
+};
+
 export const cmdbApi = {
   classes: {
     list: (params?: CmdbListParams) => {
