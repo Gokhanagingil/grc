@@ -277,6 +277,12 @@ const itsmMenuGroups: NavMenuGroup[] = [
     icon: <SystemIcon />,
     items: [
       {
+        text: 'Services',
+        icon: <ItsmIcon />,
+        path: '/cmdb/services',
+        testId: 'nav-cmdb-services',
+      },
+      {
         text: 'Configuration Items',
         icon: <SystemIcon />,
         path: '/cmdb/cis',

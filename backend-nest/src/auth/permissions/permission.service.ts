@@ -77,6 +77,11 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_CLASS_WRITE,
     Permission.CMDB_REL_READ,
     Permission.CMDB_REL_WRITE,
+    // CMDB Service Portfolio permissions
+    Permission.CMDB_SERVICE_READ,
+    Permission.CMDB_SERVICE_WRITE,
+    Permission.CMDB_SERVICE_OFFERING_READ,
+    Permission.CMDB_SERVICE_OFFERING_WRITE,
   ],
 
   /**
@@ -126,6 +131,11 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_CLASS_WRITE,
     Permission.CMDB_REL_READ,
     Permission.CMDB_REL_WRITE,
+    // CMDB Service Portfolio permissions
+    Permission.CMDB_SERVICE_READ,
+    Permission.CMDB_SERVICE_WRITE,
+    Permission.CMDB_SERVICE_OFFERING_READ,
+    Permission.CMDB_SERVICE_OFFERING_WRITE,
   ],
 
   /**
@@ -153,6 +163,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_CI_READ,
     Permission.CMDB_CLASS_READ,
     Permission.CMDB_REL_READ,
+    // CMDB Service Portfolio read-only
+    Permission.CMDB_SERVICE_READ,
+    Permission.CMDB_SERVICE_OFFERING_READ,
   ],
 };
 

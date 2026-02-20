@@ -29,6 +29,8 @@ const CHOICE_MANAGED_FIELDS: Record<string, string[]> = {
   itsm_services: ['criticality', 'status'],
   cmdb_ci: ['lifecycle', 'environment'],
   cmdb_ci_rel: ['type'],
+  cmdb_service: ['type', 'status', 'tier', 'criticality'],
+  cmdb_service_offering: ['status'],
 };
 
 @Injectable()
