@@ -240,6 +240,10 @@ export const API_PATHS = {
       CONTROLS: (id: string) => `/grc/itsm/incidents/${id}/controls`,
       LINK_CONTROL: (incidentId: string, controlId: string) => `/grc/itsm/incidents/${incidentId}/controls/${controlId}`,
       UNLINK_CONTROL: (incidentId: string, controlId: string) => `/grc/itsm/incidents/${incidentId}/controls/${controlId}`,
+      // Impact & Blast Radius
+      AFFECTED_CIS: (id: string) => `/grc/itsm/incidents/${id}/affected-cis`,
+      DELETE_AFFECTED_CI: (incidentId: string, linkId: string) => `/grc/itsm/incidents/${incidentId}/affected-cis/${linkId}`,
+      IMPACT_SUMMARY: (id: string) => `/grc/itsm/incidents/${id}/impact-summary`,
     },
     // ITSM Change endpoints
     CHANGES: {
@@ -1540,6 +1544,55 @@ export interface UpdateItsmIncidentDto {
   assigneeId?: string;
 }
 
+export interface ItsmAffectedCiListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  relationshipType?: string;
+  impactScope?: string;
+}
+
+export interface ItsmIncidentCiLinkData {
+  id: string;
+  incidentId: string;
+  ciId: string;
+  relationshipType: string;
+  impactScope: string | null;
+  ci?: CmdbCiData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmIncidentCiDto {
+  ciId: string;
+  relationshipType: string;
+  impactScope?: string;
+}
+
+export interface ItsmIncidentImpactSummary {
+  affectedCis: {
+    count: number;
+    topClasses: { className: string; count: number }[];
+    criticalCount: number;
+  };
+  impactedServices: {
+    serviceId: string;
+    name: string;
+    criticality: string | null;
+    status: string;
+    offeringsCount: number;
+    isBoundToIncident: boolean;
+  }[];
+  impactedOfferings: {
+    offeringId: string;
+    name: string;
+    serviceId: string;
+    serviceName: string;
+    status: string;
+    isInferred: boolean;
+  }[];
+}
+
 export interface ItsmChangeData {
   id: string;
   number: string;
@@ -1700,6 +1753,23 @@ export const itsmApi = {
     getLinkedControls: (incidentId: string) => api.get(API_PATHS.ITSM.INCIDENTS.CONTROLS(incidentId)),
     linkControl: (incidentId: string, controlId: string) => api.post(API_PATHS.ITSM.INCIDENTS.LINK_CONTROL(incidentId, controlId), {}),
     unlinkControl: (incidentId: string, controlId: string) => api.delete(API_PATHS.ITSM.INCIDENTS.UNLINK_CONTROL(incidentId, controlId)),
+    // Impact & Blast Radius
+    listAffectedCis: (incidentId: string, params?: ItsmAffectedCiListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.relationshipType) searchParams.set('relationshipType', params.relationshipType);
+      if (params?.impactScope) searchParams.set('impactScope', params.impactScope);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.INCIDENTS.AFFECTED_CIS(incidentId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    addAffectedCi: (incidentId: string, data: CreateItsmIncidentCiDto) =>
+      api.post(API_PATHS.ITSM.INCIDENTS.AFFECTED_CIS(incidentId), data),
+    removeAffectedCi: (incidentId: string, linkId: string) =>
+      api.delete(API_PATHS.ITSM.INCIDENTS.DELETE_AFFECTED_CI(incidentId, linkId)),
+    getImpactSummary: (incidentId: string) =>
+      api.get(API_PATHS.ITSM.INCIDENTS.IMPACT_SUMMARY(incidentId)),
   },
 
   // ITSM Changes

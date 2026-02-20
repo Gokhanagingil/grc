@@ -5,7 +5,9 @@ import { AuthModule } from '../auth/auth.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { ItsmIncident } from './incident/incident.entity';
+import { ItsmIncidentCi } from './incident/incident-ci.entity';
 import { IncidentService } from './incident/incident.service';
+import { IncidentCiService } from './incident/incident-ci.service';
 import { IncidentController } from './incident/incident.controller';
 
 import { ItsmService } from './service/service.entity';
@@ -55,6 +57,8 @@ import { RuntimeLoggerService } from './diagnostics/runtime-logger.service';
 import { EventBusModule } from '../event-bus/event-bus.module';
 import { CmdbService as CmdbServiceEntity } from './cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offering.entity';
+import { CmdbCi } from './cmdb/ci/ci.entity';
+import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
 
 @Module({
   imports: [
@@ -72,6 +76,9 @@ import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offeri
       ItsmJournal,
       CmdbServiceEntity,
       CmdbServiceOffering,
+      CmdbCi,
+      CmdbServiceCi,
+      ItsmIncidentCi,
     ]),
     AuditModule,
     AuthModule,
@@ -80,6 +87,7 @@ import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offeri
   ],
   providers: [
     IncidentService,
+    IncidentCiService,
     ItsmServiceService,
     ChangeService,
     WorkflowService,
@@ -111,6 +119,7 @@ import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offeri
   ],
   exports: [
     IncidentService,
+    IncidentCiService,
     ItsmServiceService,
     ChangeService,
     WorkflowService,
