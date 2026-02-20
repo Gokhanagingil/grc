@@ -59,6 +59,31 @@ describe('ITSM Change Approval Gating (e2e)', () => {
 
   describe('Approval Gating Flow', () => {
     let changeId: string;
+    let policyId: string;
+
+    it('should seed a CAB-required policy for NORMAL changes (e2e)', async () => {
+      if (!dbConnected || !tenantId || !adminToken) {
+        console.log('Skipping: database not connected');
+        return;
+      }
+
+      const response = await request(app.getHttpServer())
+        .post('/grc/itsm/change-policies')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          name: 'E2E CAB Policy',
+          description: 'Require CAB for NORMAL changes (e2e)',
+          isActive: true,
+          priority: 0,
+          conditions: { changeType: ['NORMAL'] },
+          actions: { requireCABApproval: true, blockDuringFreeze: false },
+        })
+        .expect(201);
+
+      const data = response.body.data ?? response.body;
+      policyId = data.id;
+    });
 
     it('should create a HIGH risk change in ASSESS state', async () => {
       if (!dbConnected || !tenantId || !adminToken) {
@@ -175,7 +200,8 @@ describe('ITSM Change Approval Gating (e2e)', () => {
         .expect(200);
 
       const data = response.body.data ?? response.body;
-      expect(data).toHaveProperty('state', 'APPROVED');
+      expect(data).toHaveProperty('approval');
+      expect(data.approval).toHaveProperty('state', 'APPROVED');
     });
 
     it('should verify change approval status is APPROVED', async () => {
@@ -211,28 +237,55 @@ describe('ITSM Change Approval Gating (e2e)', () => {
       expect(data).toHaveProperty('state', 'IMPLEMENT');
     });
 
-    it('should clean up by soft-deleting the test change', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !changeId) {
+    it('should clean up by soft-deleting the test change and policy', async () => {
+      if (!dbConnected || !tenantId || !adminToken) {
         console.log('Skipping: prerequisites not met');
         return;
       }
 
-      await request(app.getHttpServer())
-        .delete(`/grc/itsm/changes/${changeId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .expect(204);
+      if (changeId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/itsm/changes/${changeId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      }
+
+      if (policyId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/itsm/change-policies/${policyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId);
+      }
     });
   });
 
   describe('Rejection Flow', () => {
     let changeId: string;
+    let policyId: string;
 
     it('should create a change and request approval', async () => {
       if (!dbConnected || !tenantId || !adminToken) {
         console.log('Skipping: database not connected');
         return;
       }
+
+      const policyResponse = await request(app.getHttpServer())
+        .post('/grc/itsm/change-policies')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-tenant-id', tenantId)
+        .send({
+          name: 'E2E Rejection Policy',
+          description: 'Require CAB for NORMAL changes (rejection e2e)',
+          isActive: true,
+          priority: 0,
+          conditions: { changeType: ['NORMAL'] },
+          actions: { requireCABApproval: true, blockDuringFreeze: false },
+        })
+        .expect(201);
+
+      const policyData = policyResponse.body.data ?? policyResponse.body;
+      policyId = policyData.id;
 
       const createResponse = await request(app.getHttpServer())
         .post('/grc/itsm/changes')
@@ -294,7 +347,8 @@ describe('ITSM Change Approval Gating (e2e)', () => {
         .expect(200);
 
       const data = response.body.data ?? response.body;
-      expect(data).toHaveProperty('state', 'REJECTED');
+      expect(data).toHaveProperty('approval');
+      expect(data.approval).toHaveProperty('state', 'REJECTED');
     });
 
     it('should block transition to IMPLEMENT after rejection', async () => {
@@ -328,17 +382,27 @@ describe('ITSM Change Approval Gating (e2e)', () => {
       expect(data).toHaveProperty('approvalStatus', 'REJECTED');
     });
 
-    it('should clean up by soft-deleting the test change', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !changeId) {
+    it('should clean up by soft-deleting the test change and policy', async () => {
+      if (!dbConnected || !tenantId || !adminToken) {
         console.log('Skipping: prerequisites not met');
         return;
       }
 
-      await request(app.getHttpServer())
-        .delete(`/grc/itsm/changes/${changeId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('x-tenant-id', tenantId)
-        .expect(204);
+      if (changeId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/itsm/changes/${changeId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      }
+
+      if (policyId) {
+        await request(app.getHttpServer())
+          .delete(`/grc/itsm/change-policies/${policyId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('x-tenant-id', tenantId)
+          .expect(204);
+      }
     });
   });
 
