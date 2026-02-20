@@ -95,6 +95,7 @@ out/
 # Temporary files
 tmp/
 temp/
+test-results/
 
 # Local ops reports (do not commit)
 *_REPORT.md

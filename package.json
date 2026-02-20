@@ -29,6 +29,10 @@
     "test:e2e": "npm --prefix frontend run test:e2e",
     "e2e:ci": "npm --prefix frontend run test:e2e -- --project=chromium",
     
+    "---SMOKE---": "echo 'Platform Health Smoke Commands'",
+    "test:smoke": "SMOKE_TIER=tier1 npx playwright test --project=smoke",
+    "test:smoke:full": "SMOKE_TIER=full npx playwright test --project=smoke",
+    
     "---SETUP---": "echo 'Setup Commands'",
     "install:all": "npm run nest:install && npm run backend:install && npm run frontend:install",
     
@@ -37,5 +41,11 @@
   },
   "keywords": ["grc", "governance", "risk", "compliance"],
   "author": "GRC Platform Team",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
 }
