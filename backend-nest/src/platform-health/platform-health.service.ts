@@ -20,6 +20,7 @@ export interface IngestPayload {
   startedAt: string;
   finishedAt: string;
   durationMs: number;
+  tenantId?: string;
   checks: {
     module: string;
     checkName: string;
@@ -74,6 +75,8 @@ export class PlatformHealthService {
     const runStatus =
       failedChecks > 0 ? HealthRunStatus.FAILED : HealthRunStatus.PASSED;
 
+    const tenantId = payload.tenantId || null;
+
     const run = this.runRepo.create({
       suite,
       status: runStatus,
@@ -87,6 +90,7 @@ export class PlatformHealthService {
       gitRef: payload.gitRef || null,
       startedAt: new Date(payload.startedAt),
       finishedAt: payload.finishedAt ? new Date(payload.finishedAt) : null,
+      tenantId,
       checks: checks.map((c) =>
         this.checkRepo.create({
           module: c.module,
@@ -97,6 +101,7 @@ export class PlatformHealthService {
           errorMessage: c.errorMessage || null,
           requestUrl: c.requestUrl || null,
           responseSnippet: c.responseSnippet || null,
+          tenantId,
         }),
       ),
     });
@@ -118,6 +123,7 @@ export class PlatformHealthService {
   async listRuns(
     limit: number = 20,
     suite?: string,
+    tenantId?: string,
   ): Promise<PlatformHealthRun[]> {
     const qb = this.runRepo
       .createQueryBuilder('run')
@@ -128,19 +134,39 @@ export class PlatformHealthService {
       qb.where('run.suite = :suite', { suite: suite.toUpperCase() });
     }
 
+    if (tenantId) {
+      qb.andWhere('run.tenantId = :tenantId', { tenantId });
+    } else {
+      qb.andWhere('run.tenantId IS NULL');
+    }
+
     return qb.getMany();
   }
 
-  async getRunWithChecks(runId: string): Promise<PlatformHealthRun | null> {
+  async getRunWithChecks(
+    runId: string,
+    tenantId?: string,
+  ): Promise<PlatformHealthRun | null> {
+    const where: Record<string, unknown> = { id: runId };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
     return this.runRepo.findOne({
-      where: { id: runId },
+      where,
       relations: ['checks'],
     });
   }
 
-  async getBadge(suite: string = 'TIER1'): Promise<HealthBadge> {
+  async getBadge(
+    suite: string = 'TIER1',
+    tenantId?: string,
+  ): Promise<HealthBadge> {
+    const where: Record<string, unknown> = { suite: this.parseSuite(suite) };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
     const latestRun = await this.runRepo.findOne({
-      where: { suite: this.parseSuite(suite) },
+      where,
       order: { startedAt: 'DESC' },
     });
 

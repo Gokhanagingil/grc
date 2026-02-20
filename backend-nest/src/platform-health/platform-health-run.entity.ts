@@ -64,6 +64,9 @@ export class PlatformHealthRun {
   @Column({ type: 'timestamp', name: 'finished_at', nullable: true })
   finishedAt: Date | null;
 
+  @Column({ type: 'uuid', name: 'tenant_id', nullable: true })
+  tenantId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

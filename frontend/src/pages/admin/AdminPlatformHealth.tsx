@@ -25,6 +25,8 @@ import {
   Tooltip,
   LinearProgress,
   Skeleton,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -39,7 +41,7 @@ import {
   GitHub as GitIcon,
 } from '@mui/icons-material';
 import { AdminPageHeader } from '../../components/admin';
-import { api } from '../../services/api';
+import { api, getTenantId } from '../../services/api';
 
 interface HealthCheck {
   id: string;
@@ -67,6 +69,7 @@ interface HealthRun {
   gitRef: string | null;
   startedAt: string;
   finishedAt: string | null;
+  tenantId: string | null;
   checks?: HealthCheck[];
 }
 
@@ -137,16 +140,23 @@ export const AdminPlatformHealth: React.FC = () => {
   const [runChecks, setRunChecks] = useState<Record<string, HealthCheck[]>>({});
   const [checksLoading, setChecksLoading] = useState<string | null>(null);
   const [checkFilter, setCheckFilter] = useState<string>('all');
+  const [scope, setScope] = useState<'global' | 'tenant'>('global');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const tenantParam = scope === 'tenant' ? getTenantId() : undefined;
+      const baseParams: Record<string, string> = { suite: 'TIER1' };
+      const runsParams: Record<string, string | number> = { limit: 20 };
+      if (suiteFilter) runsParams.suite = suiteFilter;
+      if (tenantParam) {
+        baseParams.tenantId = tenantParam;
+        runsParams.tenantId = tenantParam;
+      }
       const [badgeRes, runsRes] = await Promise.all([
-        api.get('/grc/platform-health/badge', { params: { suite: 'TIER1' } }),
-        api.get('/grc/platform-health/runs', {
-          params: { limit: 20, ...(suiteFilter ? { suite: suiteFilter } : {}) },
-        }),
+        api.get('/grc/platform-health/badge', { params: baseParams }),
+        api.get('/grc/platform-health/runs', { params: runsParams }),
       ]);
       const badgeData = badgeRes.data?.data ?? badgeRes.data;
       setBadge(badgeData);
@@ -158,7 +168,7 @@ export const AdminPlatformHealth: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [suiteFilter]);
+  }, [suiteFilter, scope]);
 
   useEffect(() => {
     fetchData();
@@ -173,7 +183,10 @@ export const AdminPlatformHealth: React.FC = () => {
     if (!runChecks[runId]) {
       setChecksLoading(runId);
       try {
-        const res = await api.get(`/grc/platform-health/runs/${runId}`);
+        const tenantParam = scope === 'tenant' ? getTenantId() : undefined;
+        const params: Record<string, string> = {};
+        if (tenantParam) params.tenantId = tenantParam;
+        const res = await api.get(`/grc/platform-health/runs/${runId}`, { params });
         const data = res.data?.data ?? res.data;
         setRunChecks((prev) => ({ ...prev, [runId]: data.checks || [] }));
       } catch {
@@ -369,19 +382,31 @@ export const AdminPlatformHealth: React.FC = () => {
       {/* Run History */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Run History</Typography>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Suite</InputLabel>
-          <Select
-            value={suiteFilter}
-            label="Suite"
-            onChange={(e) => setSuiteFilter(e.target.value)}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <ToggleButtonGroup
+            value={scope}
+            exclusive
+            onChange={(_e, val) => { if (val) setScope(val); }}
+            size="small"
+            data-testid="scope-toggle"
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="TIER1">Tier-1</MenuItem>
-            <MenuItem value="NIGHTLY">Nightly</MenuItem>
-            <MenuItem value="MANUAL">Manual</MenuItem>
-          </Select>
-        </FormControl>
+            <ToggleButton value="global">Global</ToggleButton>
+            <ToggleButton value="tenant">Tenant</ToggleButton>
+          </ToggleButtonGroup>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Suite</InputLabel>
+            <Select
+              value={suiteFilter}
+              label="Suite"
+              onChange={(e) => setSuiteFilter(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="TIER1">Tier-1</MenuItem>
+              <MenuItem value="NIGHTLY">Nightly</MenuItem>
+              <MenuItem value="MANUAL">Manual</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
       </Box>
 
       {loading && runs.length === 0 ? (

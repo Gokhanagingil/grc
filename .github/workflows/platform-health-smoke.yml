@@ -107,6 +107,68 @@ jobs:
           SMOKE_TEST_EMAIL: admin@grc-platform.local
           SMOKE_TEST_PASSWORD: changeme
 
+      - name: Ingest results to Platform Health API
+        if: always() && hashFiles('test-results/platform-health-report.json') != ''
+        env:
+          BASE_URL: "http://localhost:3002"
+          SMOKE_TEST_EMAIL: admin@grc-platform.local
+          SMOKE_TEST_PASSWORD: changeme
+          TENANT_ID: "00000000-0000-0000-0000-000000000001"
+        run: |
+          REPORT="test-results/platform-health-report.json"
+          if [ ! -f "$REPORT" ]; then
+            echo "No report file found, skipping ingest"
+            exit 0
+          fi
+
+          TOKEN=$(curl -sf "$BASE_URL/auth/login" \
+            -H 'Content-Type: application/json' \
+            -H "x-tenant-id: $TENANT_ID" \
+            -d "{\"email\":\"$SMOKE_TEST_EMAIL\",\"password\":\"$SMOKE_TEST_PASSWORD\"}" \
+            | jq -r '.data.accessToken // .accessToken // .token // empty')
+
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Could not obtain auth token for ingest, skipping"
+            exit 0
+          fi
+
+          PAYLOAD=$(jq -c '{
+            suite: "TIER1",
+            triggeredBy: "ci",
+            gitSha: $ENV.GITHUB_SHA,
+            gitRef: $ENV.GITHUB_REF,
+            startedAt: .timestamp,
+            finishedAt: (now | todate),
+            durationMs: ([.tables[].durationMs] | add // 0),
+            checks: [.tables[] | .steps[] | {
+              module: .table,
+              checkName: .step,
+              status: (if .pass then "PASSED" else "FAILED" end),
+              durationMs: 0,
+              httpStatus: .status,
+              errorMessage: .reason
+            }]
+          }' < "$REPORT" 2>/dev/null || echo '')
+
+          if [ -z "$PAYLOAD" ] || [ "$PAYLOAD" = "null" ]; then
+            echo "::warning::Failed to transform report to ingest payload, skipping"
+            exit 0
+          fi
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            "$BASE_URL/grc/platform-health/ingest" \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "x-tenant-id: $TENANT_ID" \
+            -d "$PAYLOAD")
+
+          echo "Ingest response: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Platform health results ingested successfully"
+          else
+            echo "::warning::Ingest returned HTTP $HTTP_CODE (non-fatal)"
+          fi
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
