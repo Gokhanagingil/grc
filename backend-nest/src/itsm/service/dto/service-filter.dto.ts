@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
 import { ServiceCriticality, ServiceStatus } from '../service.entity';
 import { PaginationQueryDto } from '../../../grc/dto/pagination.dto';
 
@@ -10,6 +10,14 @@ export class ServiceFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ServiceCriticality)
   criticality?: ServiceCriticality;
+
+  @IsOptional()
+  @IsUUID()
+  serviceId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  offeringId?: string;
 
   @IsOptional()
   @IsString()

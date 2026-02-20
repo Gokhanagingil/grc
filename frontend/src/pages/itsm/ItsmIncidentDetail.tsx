@@ -30,7 +30,7 @@ import {
   Delete as DeleteIcon,
   AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
-import { itsmApi } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
@@ -48,6 +48,7 @@ interface ItsmIncident {
   category?: string;
   riskReviewRequired: boolean;
   serviceId?: string;
+  offeringId?: string;
   service?: { id: string; name: string };
   assigneeId?: string;
   assignee?: { id: string; firstName: string; lastName: string };
@@ -148,6 +149,10 @@ export const ItsmIncidentDetail: React.FC = () => {
     urgency: 'medium',
   });
 
+  // CMDB Service/Offering picker state
+  const [cmdbServices, setCmdbServices] = useState<CmdbServiceData[]>([]);
+  const [cmdbOfferings, setCmdbOfferings] = useState<CmdbServiceOfferingData[]>([]);
+
   // GRC Bridge state
   const [linkedRisks, setLinkedRisks] = useState<LinkedRisk[]>([]);
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
@@ -197,6 +202,33 @@ export const ItsmIncidentDetail: React.FC = () => {
     fetchIncident();
   }, [fetchIncident]);
 
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const res = await cmdbApi.services.list({ pageSize: 200 });
+        const d = res.data as { data?: { items?: CmdbServiceData[] } };
+        if (d?.data?.items) setCmdbServices(d.data.items);
+      } catch { /* ignore */ }
+    };
+    loadServices();
+  }, []);
+
+  useEffect(() => {
+    const loadOfferings = async () => {
+      if (!incident.serviceId) {
+        setCmdbOfferings([]);
+        return;
+      }
+      try {
+        const res = await cmdbApi.serviceOfferings.list({ serviceId: incident.serviceId, pageSize: 200 });
+        const d = res.data as { data?: { items?: CmdbServiceOfferingData[] } };
+        if (d?.data?.items) setCmdbOfferings(d.data.items);
+        else setCmdbOfferings([]);
+      } catch { setCmdbOfferings([]); }
+    };
+    loadOfferings();
+  }, [incident.serviceId]);
+
   const handleChange = (field: keyof ItsmIncident, value: string) => {
     setIncident((prev) => ({ ...prev, [field]: value }));
   };
@@ -219,6 +251,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           urgency: incident.urgency,
           category: incident.category,
           serviceId: incident.serviceId,
+          offeringId: incident.offeringId,
         });
         const data = response.data;
         if (data && 'data' in data && data.data?.id) {
@@ -235,6 +268,8 @@ export const ItsmIncidentDetail: React.FC = () => {
           urgency: incident.urgency,
           category: incident.category,
           resolutionNotes: incident.resolutionNotes,
+          serviceId: incident.serviceId,
+          offeringId: incident.offeringId,
         });
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
@@ -465,17 +500,48 @@ export const ItsmIncidentDetail: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          {/* Service Info */}
-          {incident.service && (
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Service
-                </Typography>
-                <Typography variant="body1">{incident.service.name}</Typography>
-              </CardContent>
-            </Card>
-          )}
+          {/* CMDB Service / Offering Picker */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Service Binding
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>CMDB Service</InputLabel>
+                <Select
+                  value={incident.serviceId || ''}
+                  label="CMDB Service"
+                  data-testid="incident-service-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setIncident((prev) => ({ ...prev, serviceId: val, offeringId: undefined }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {cmdbServices.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth disabled={!incident.serviceId}>
+                <InputLabel>Offering</InputLabel>
+                <Select
+                  value={incident.offeringId || ''}
+                  label="Offering"
+                  data-testid="incident-offering-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setIncident((prev) => ({ ...prev, offeringId: val }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {cmdbOfferings.map((o) => (
+                    <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </CardContent>
+          </Card>
 
           {/* Timestamps */}
           {!isNew && (

@@ -27,7 +27,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { itsmApi } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -48,6 +48,7 @@ interface ItsmChange {
   actualStartAt?: string;
   actualEndAt?: string;
   serviceId?: string;
+  offeringId?: string;
   service?: { id: string; name: string };
   createdAt: string;
   updatedAt: string;
@@ -117,6 +118,10 @@ export const ItsmChangeDetail: React.FC = () => {
     approvalStatus: 'NOT_REQUESTED',
   });
 
+  // CMDB Service/Offering picker state
+  const [cmdbServices, setCmdbServices] = useState<CmdbServiceData[]>([]);
+  const [cmdbOfferings, setCmdbOfferings] = useState<CmdbServiceOfferingData[]>([]);
+
   // GRC Bridge state
   const [linkedRisks, setLinkedRisks] = useState<LinkedRisk[]>([]);
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
@@ -165,7 +170,34 @@ export const ItsmChangeDetail: React.FC = () => {
     fetchChange();
   }, [fetchChange]);
 
-  const handleChange = (field: keyof ItsmChange, value: string) => {
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const res = await cmdbApi.services.list({ pageSize: 200 });
+        const d = res.data as { data?: { items?: CmdbServiceData[] } };
+        if (d?.data?.items) setCmdbServices(d.data.items);
+      } catch { /* ignore */ }
+    };
+    loadServices();
+  }, []);
+
+  useEffect(() => {
+    const loadOfferings = async () => {
+      if (!change.serviceId) {
+        setCmdbOfferings([]);
+        return;
+      }
+      try {
+        const res = await cmdbApi.serviceOfferings.list({ serviceId: change.serviceId, pageSize: 200 });
+        const d = res.data as { data?: { items?: CmdbServiceOfferingData[] } };
+        if (d?.data?.items) setCmdbOfferings(d.data.items);
+        else setCmdbOfferings([]);
+      } catch { setCmdbOfferings([]); }
+    };
+    loadOfferings();
+  }, [change.serviceId]);
+
+  const handleChange= (field: keyof ItsmChange, value: string) => {
     setChange((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -190,6 +222,7 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedStartAt: change.plannedStartAt,
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
+          offeringId: change.offeringId,
         });
         const data = response.data;
         if (data && 'data' in data && data.data?.id) {
@@ -208,6 +241,8 @@ export const ItsmChangeDetail: React.FC = () => {
           backoutPlan: change.backoutPlan,
           plannedStartAt: change.plannedStartAt,
           plannedEndAt: change.plannedEndAt,
+          serviceId: change.serviceId,
+          offeringId: change.offeringId,
         });
         showNotification('Change updated successfully', 'success');
         fetchChange();
@@ -425,17 +460,48 @@ export const ItsmChangeDetail: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          {/* Service Info */}
-          {change.service && (
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Service
-                </Typography>
-                <Typography variant="body1">{change.service.name}</Typography>
-              </CardContent>
-            </Card>
-          )}
+          {/* CMDB Service / Offering Picker */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Service Binding
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>CMDB Service</InputLabel>
+                <Select
+                  value={change.serviceId || ''}
+                  label="CMDB Service"
+                  data-testid="change-service-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setChange((prev) => ({ ...prev, serviceId: val, offeringId: undefined }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {cmdbServices.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth disabled={!change.serviceId}>
+                <InputLabel>Offering</InputLabel>
+                <Select
+                  value={change.offeringId || ''}
+                  label="Offering"
+                  data-testid="change-offering-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setChange((prev) => ({ ...prev, offeringId: val }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {cmdbOfferings.map((o) => (
+                    <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </CardContent>
+          </Card>
 
           {/* Timestamps */}
           {!isNew && (

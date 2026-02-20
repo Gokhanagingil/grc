@@ -2,6 +2,8 @@ import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
+import { CmdbService } from '../cmdb/service/cmdb-service.entity';
+import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
 
 export enum ChangeType {
   STANDARD = 'STANDARD',
@@ -38,6 +40,8 @@ export enum ChangeApprovalStatus {
 @Index(['tenantId', 'risk'])
 @Index(['tenantId', 'approvalStatus'])
 @Index(['tenantId', 'createdAt'])
+@Index(['tenantId', 'serviceId'])
+@Index(['tenantId', 'offeringId'])
 export class ItsmChange extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
@@ -97,6 +101,17 @@ export class ItsmChange extends BaseEntity {
 
   @Column({ name: 'service_id', type: 'uuid', nullable: true })
   serviceId: string | null;
+
+  @ManyToOne(() => CmdbService, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'service_id' })
+  cmdbService: CmdbService | null;
+
+  @Column({ name: 'offering_id', type: 'uuid', nullable: true })
+  offeringId: string | null;
+
+  @ManyToOne(() => CmdbServiceOffering, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'offering_id' })
+  offering: CmdbServiceOffering | null;
 
   @Column({ name: 'planned_start_at', type: 'timestamptz', nullable: true })
   plannedStartAt: Date | null;

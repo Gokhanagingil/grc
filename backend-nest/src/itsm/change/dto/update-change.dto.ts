@@ -52,6 +52,10 @@ export class UpdateChangeDto {
   @IsOptional()
   serviceId?: string;
 
+  @IsUUID('4')
+  @IsOptional()
+  offeringId?: string;
+
   @IsDateString()
   @IsOptional()
   plannedStartAt?: string;

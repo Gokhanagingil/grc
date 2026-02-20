@@ -1,8 +1,10 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ItsmService } from './service.entity';
+import { CmdbService as CmdbServiceEntity } from '../cmdb/service/cmdb-service.entity';
+import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
 import {
   ServiceFilterDto,
   SERVICE_SORTABLE_FIELDS,
@@ -21,8 +23,53 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
     repository: Repository<ItsmService>,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly choiceService?: ChoiceService,
+    @Optional()
+    @InjectRepository(CmdbServiceEntity)
+    private readonly cmdbServiceRepo?: Repository<CmdbServiceEntity>,
+    @Optional()
+    @InjectRepository(CmdbServiceOffering)
+    private readonly cmdbOfferingRepo?: Repository<CmdbServiceOffering>,
   ) {
     super(repository);
+  }
+
+  private async validateServiceOffering(
+    tenantId: string,
+    serviceId?: string | null,
+    offeringId?: string | null,
+  ): Promise<void> {
+    if (offeringId && !serviceId) {
+      throw new BadRequestException(
+        'serviceId is required when offeringId is provided',
+      );
+    }
+
+    if (serviceId && this.cmdbServiceRepo) {
+      const svc = await this.cmdbServiceRepo.findOne({
+        where: { id: serviceId, tenantId, isDeleted: false },
+      });
+      if (!svc) {
+        throw new NotFoundException(
+          `Service with ID ${serviceId} not found in this tenant`,
+        );
+      }
+    }
+
+    if (offeringId && this.cmdbOfferingRepo) {
+      const off = await this.cmdbOfferingRepo.findOne({
+        where: { id: offeringId, tenantId, isDeleted: false },
+      });
+      if (!off) {
+        throw new NotFoundException(
+          `Offering with ID ${offeringId} not found in this tenant`,
+        );
+      }
+      if (serviceId && off.serviceId !== serviceId) {
+        throw new BadRequestException(
+          `Offering ${offeringId} does not belong to service ${serviceId}`,
+        );
+      }
+    }
   }
 
   async findOneActiveForTenant(
@@ -52,6 +99,12 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
       );
       this.choiceService.throwIfInvalidChoices(errors);
     }
+
+    await this.validateServiceOffering(
+      tenantId,
+      data.serviceId,
+      data.offeringId,
+    );
 
     const service = await this.createForTenant(tenantId, {
       ...data,
@@ -89,6 +142,14 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
         data as Record<string, unknown>,
       );
       this.choiceService.throwIfInvalidChoices(errors);
+    }
+
+    if (data.serviceId !== undefined || data.offeringId !== undefined) {
+      await this.validateServiceOffering(
+        tenantId,
+        data.serviceId !== undefined ? data.serviceId : existing.serviceId,
+        data.offeringId !== undefined ? data.offeringId : existing.offeringId,
+      );
     }
 
     const service = await this.updateForTenant(tenantId, id, {
@@ -146,6 +207,8 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
       sortOrder = 'DESC',
       status,
       criticality,
+      serviceId,
+      offeringId,
       search,
       q,
     } = filterDto;
@@ -161,6 +224,14 @@ export class ItsmServiceService extends MultiTenantServiceBase<ItsmService> {
 
     if (criticality) {
       qb.andWhere('service.criticality = :criticality', { criticality });
+    }
+
+    if (serviceId) {
+      qb.andWhere('service.serviceId = :serviceId', { serviceId });
+    }
+
+    if (offeringId) {
+      qb.andWhere('service.offeringId = :offeringId', { offeringId });
     }
 
     const searchTerm = search || q;

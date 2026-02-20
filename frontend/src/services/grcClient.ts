@@ -1460,6 +1460,8 @@ export interface ItsmServiceData {
   criticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   status: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
   ownerUserId?: string;
+  serviceId?: string;
+  offeringId?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -1471,6 +1473,8 @@ export interface CreateItsmServiceDto {
   criticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
   ownerUserId?: string;
+  serviceId?: string;
+  offeringId?: string;
 }
 
 export interface UpdateItsmServiceDto {
@@ -1479,6 +1483,8 @@ export interface UpdateItsmServiceDto {
   criticality?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE';
   ownerUserId?: string;
+  serviceId?: string;
+  offeringId?: string;
 }
 
 export interface ItsmIncidentData {
@@ -1494,6 +1500,7 @@ export interface ItsmIncidentData {
   category?: string;
   riskReviewRequired: boolean;
   serviceId?: string;
+  offeringId?: string;
   service?: ItsmServiceData;
   assigneeId?: string;
   requesterId?: string;
@@ -1514,6 +1521,7 @@ export interface CreateItsmIncidentDto {
   urgency?: string;
   category?: string;
   serviceId?: string;
+  offeringId?: string;
   assigneeId?: string;
   requesterId?: string;
 }
@@ -1528,6 +1536,7 @@ export interface UpdateItsmIncidentDto {
   category?: string;
   resolutionNotes?: string;
   serviceId?: string;
+  offeringId?: string;
   assigneeId?: string;
 }
 
@@ -1547,6 +1556,7 @@ export interface ItsmChangeData {
   actualStartAt?: string;
   actualEndAt?: string;
   serviceId?: string;
+  offeringId?: string;
   service?: ItsmServiceData;
   createdAt: string;
   updatedAt: string;
@@ -1564,6 +1574,7 @@ export interface CreateItsmChangeDto {
   plannedStartAt?: string;
   plannedEndAt?: string;
   serviceId?: string;
+  offeringId?: string;
 }
 
 export interface UpdateItsmChangeDto {
@@ -1577,6 +1588,8 @@ export interface UpdateItsmChangeDto {
   backoutPlan?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
+  serviceId?: string;
+  offeringId?: string;
 }
 
 export interface ItsmChoiceData {
