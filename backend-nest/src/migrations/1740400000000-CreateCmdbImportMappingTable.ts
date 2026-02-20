@@ -19,7 +19,7 @@ export class CreateCmdbImportMappingTable1740400000000 implements MigrationInter
         "source_id" uuid NOT NULL,
         "target_class_id" uuid,
         "connector_type" varchar(50) NOT NULL DEFAULT 'JSON_ROWS',
-        "field_map" jsonb NOT NULL DEFAULT '{}',
+        "field_map" jsonb NOT NULL DEFAULT '[]',
         "key_fields" jsonb NOT NULL DEFAULT '[]',
         "transforms" jsonb NOT NULL DEFAULT '[]',
         "connector_config" jsonb NOT NULL DEFAULT '{}',

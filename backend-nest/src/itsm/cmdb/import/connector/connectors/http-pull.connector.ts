@@ -21,6 +21,12 @@ export class HttpPullConnector implements Connector {
       );
     }
 
+    if (this.isPrivateHost(parsed.hostname)) {
+      throw new Error(
+        'HTTP_PULL connector does not allow requests to private/internal networks',
+      );
+    }
+
     const headers: Record<string, string> = {
       Accept: 'application/json',
       ...(config.headers || {}),
@@ -82,6 +88,32 @@ export class HttpPullConnector implements Connector {
         source: config.url,
       },
     };
+  }
+
+  private isPrivateHost(hostname: string): boolean {
+    const lower = hostname.toLowerCase();
+
+    if (
+      lower === 'localhost' ||
+      lower === '127.0.0.1' ||
+      lower === '::1' ||
+      lower === '0.0.0.0' ||
+      lower.endsWith('.local') ||
+      lower.endsWith('.internal')
+    ) {
+      return true;
+    }
+
+    const parts = lower.split('.').map(Number);
+    if (parts.length === 4 && parts.every((p) => !isNaN(p))) {
+      if (parts[0] === 10) return true;
+      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+      if (parts[0] === 192 && parts[1] === 168) return true;
+      if (parts[0] === 169 && parts[1] === 254) return true;
+      if (parts[0] === 0) return true;
+    }
+
+    return false;
   }
 
   private extractPath(data: unknown, path: string): Record<string, unknown>[] {
