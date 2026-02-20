@@ -27,7 +27,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-import { cmdbApi, CmdbCiData, CmdbCiClassData, CmdbCiRelData, CmdbListParams } from '../../services/grcClient';
+import { cmdbApi, CmdbCiData, CmdbCiClassData, CmdbCiRelData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
