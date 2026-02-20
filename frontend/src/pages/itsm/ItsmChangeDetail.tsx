@@ -237,7 +237,7 @@ export const ItsmChangeDetail: React.FC = () => {
   useEffect(() => {
     const loadServices = async () => {
       try {
-        const res = await cmdbApi.services.list({ pageSize: 200 });
+        const res = await cmdbApi.services.list({ pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceData[] } };
         if (d?.data?.items) setCmdbServices(d.data.items);
       } catch { /* ignore */ }
@@ -252,7 +252,7 @@ export const ItsmChangeDetail: React.FC = () => {
         return;
       }
       try {
-        const res = await cmdbApi.serviceOfferings.list({ serviceId: change.serviceId, pageSize: 200 });
+        const res = await cmdbApi.serviceOfferings.list({ serviceId: change.serviceId, pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceOfferingData[] } };
         if (d?.data?.items) setCmdbOfferings(d.data.items);
         else setCmdbOfferings([]);
