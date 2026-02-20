@@ -82,6 +82,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_SERVICE_WRITE,
     Permission.CMDB_SERVICE_OFFERING_READ,
     Permission.CMDB_SERVICE_OFFERING_WRITE,
+    // CMDB Import & Reconciliation permissions
+    Permission.CMDB_IMPORT_READ,
+    Permission.CMDB_IMPORT_WRITE,
   ],
 
   /**
@@ -136,6 +139,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CMDB_SERVICE_WRITE,
     Permission.CMDB_SERVICE_OFFERING_READ,
     Permission.CMDB_SERVICE_OFFERING_WRITE,
+    // CMDB Import read-only for managers
+    Permission.CMDB_IMPORT_READ,
   ],
 
   /**
@@ -166,6 +171,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // CMDB Service Portfolio read-only
     Permission.CMDB_SERVICE_READ,
     Permission.CMDB_SERVICE_OFFERING_READ,
+    // CMDB Import read-only
+    Permission.CMDB_IMPORT_READ,
   ],
 };
 

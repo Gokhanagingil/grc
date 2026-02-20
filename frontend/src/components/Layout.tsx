@@ -294,6 +294,18 @@ const itsmMenuGroups: NavMenuGroup[] = [
         path: '/cmdb/classes',
         testId: 'nav-cmdb-classes',
       },
+      {
+        text: 'Import Jobs',
+        icon: <SystemIcon />,
+        path: '/cmdb/import-jobs',
+        testId: 'nav-cmdb-import-jobs',
+      },
+      {
+        text: 'Reconcile Rules',
+        icon: <LibraryIcon />,
+        path: '/cmdb/reconcile-rules',
+        testId: 'nav-cmdb-reconcile-rules',
+      },
     ],
   },
   {

@@ -58,7 +58,7 @@ import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
 import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics } from './pages/itsm';
-import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbServiceList, CmdbServiceDetail } from './pages/cmdb';
+import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -307,6 +307,25 @@ function App() {
                     <ProtectedRoute allowedRoles={['admin']}>
                       <ErrorBoundary>
                         <ItsmDiagnostics />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* CMDB Import & Reconciliation Routes */}
+                  <Route path="cmdb/import-jobs" element={
+                    <ErrorBoundary>
+                      <CmdbImportJobList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/import-jobs/:id" element={
+                    <ErrorBoundary>
+                      <CmdbImportJobDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/reconcile-rules" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <CmdbReconcileRules />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />
