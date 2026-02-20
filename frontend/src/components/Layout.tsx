@@ -272,6 +272,25 @@ const grcMenuGroups: NavMenuGroup[] = [
 // ITSM domain menu groups - ITIL v5 aligned
 const itsmMenuGroups: NavMenuGroup[] = [
   {
+    id: 'cmdb',
+    text: 'CMDB',
+    icon: <SystemIcon />,
+    items: [
+      {
+        text: 'Configuration Items',
+        icon: <SystemIcon />,
+        path: '/cmdb/cis',
+        testId: 'nav-cmdb-cis',
+      },
+      {
+        text: 'CI Classes',
+        icon: <LibraryIcon />,
+        path: '/cmdb/classes',
+        testId: 'nav-cmdb-classes',
+      },
+    ],
+  },
+  {
     id: 'itsm-service-management',
     text: 'Service Management',
     icon: <ItsmIcon />,

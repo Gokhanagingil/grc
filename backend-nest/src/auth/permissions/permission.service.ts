@@ -70,6 +70,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DATA_RECORDS_WRITE,
     Permission.PLATFORM_DICTIONARY_READ,
     Permission.PLATFORM_DICTIONARY_WRITE,
+    // CMDB permissions
+    Permission.CMDB_CI_READ,
+    Permission.CMDB_CI_WRITE,
+    Permission.CMDB_CLASS_READ,
+    Permission.CMDB_CLASS_WRITE,
+    Permission.CMDB_REL_READ,
+    Permission.CMDB_REL_WRITE,
   ],
 
   /**
@@ -112,10 +119,17 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_CHOICE_READ,
     Permission.ITSM_CHOICE_WRITE,
     Permission.ITSM_STATISTICS_READ,
+    // CMDB permissions
+    Permission.CMDB_CI_READ,
+    Permission.CMDB_CI_WRITE,
+    Permission.CMDB_CLASS_READ,
+    Permission.CMDB_CLASS_WRITE,
+    Permission.CMDB_REL_READ,
+    Permission.CMDB_REL_WRITE,
   ],
 
   /**
-   * USER - Read-only accessto GRC and ITSM data (no statistics)
+   * USER - Read-only access to GRC and ITSM data (no statistics)
    */
   [UserRole.USER]: [
     Permission.GRC_RISK_READ,
@@ -135,6 +149,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_BUSINESS_RULE_READ,
     Permission.ITSM_UI_POLICY_READ,
     Permission.ITSM_CHOICE_READ,
+    // CMDB read permissions
+    Permission.CMDB_CI_READ,
+    Permission.CMDB_CLASS_READ,
+    Permission.CMDB_REL_READ,
   ],
 };
 

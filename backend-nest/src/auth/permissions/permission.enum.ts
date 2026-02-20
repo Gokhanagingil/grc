@@ -130,6 +130,14 @@ export enum Permission {
   API_CATALOG_WRITE = 'api_catalog:write',
   API_KEY_READ = 'api_key:read',
   API_KEY_WRITE = 'api_key:write',
+
+  // CMDB permissions
+  CMDB_CI_READ = 'cmdb:ci:read',
+  CMDB_CI_WRITE = 'cmdb:ci:write',
+  CMDB_CLASS_READ = 'cmdb:class:read',
+  CMDB_CLASS_WRITE = 'cmdb:class:write',
+  CMDB_REL_READ = 'cmdb:rel:read',
+  CMDB_REL_WRITE = 'cmdb:rel:write',
 }
 
 /**
@@ -218,4 +226,10 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.API_CATALOG_WRITE]: 'Create, update, and delete published APIs',
   [Permission.API_KEY_READ]: 'View API keys',
   [Permission.API_KEY_WRITE]: 'Create, rotate, and revoke API keys',
+  [Permission.CMDB_CI_READ]: 'View CMDB configuration items',
+  [Permission.CMDB_CI_WRITE]: 'Create, update, and delete CMDB configuration items',
+  [Permission.CMDB_CLASS_READ]: 'View CMDB CI classes',
+  [Permission.CMDB_CLASS_WRITE]: 'Create, update, and delete CMDB CI classes',
+  [Permission.CMDB_REL_READ]: 'View CMDB CI relationships',
+  [Permission.CMDB_REL_WRITE]: 'Create, update, and delete CMDB CI relationships',
 };
