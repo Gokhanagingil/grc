@@ -288,6 +288,105 @@ const ITSM_CHOICES: ChoiceSeed[] = [
     sortOrder: 30,
   },
 
+  // ---- itsm_change_calendar_event.type ----
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'type',
+    value: 'CHANGE',
+    label: 'Change',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'type',
+    value: 'MAINTENANCE',
+    label: 'Maintenance',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'type',
+    value: 'FREEZE',
+    label: 'Freeze',
+    sortOrder: 30,
+  },
+
+  // ---- itsm_change_calendar_event.status ----
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'status',
+    value: 'SCHEDULED',
+    label: 'Scheduled',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'status',
+    value: 'IN_PROGRESS',
+    label: 'In progress',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'status',
+    value: 'COMPLETED',
+    label: 'Completed',
+    sortOrder: 30,
+  },
+  {
+    tableName: 'itsm_change_calendar_event',
+    fieldName: 'status',
+    value: 'CANCELLED',
+    label: 'Cancelled',
+    sortOrder: 40,
+  },
+
+  // ---- itsm_freeze_window.scope ----
+  {
+    tableName: 'itsm_freeze_window',
+    fieldName: 'scope',
+    value: 'GLOBAL',
+    label: 'Global',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_freeze_window',
+    fieldName: 'scope',
+    value: 'SERVICE',
+    label: 'Service',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'itsm_freeze_window',
+    fieldName: 'scope',
+    value: 'CLASS',
+    label: 'Class',
+    sortOrder: 30,
+  },
+
+  // ---- itsm_calendar_conflict.conflictType ----
+  {
+    tableName: 'itsm_calendar_conflict',
+    fieldName: 'conflictType',
+    value: 'OVERLAP',
+    label: 'Overlap',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'itsm_calendar_conflict',
+    fieldName: 'conflictType',
+    value: 'FREEZE_WINDOW',
+    label: 'Freeze window',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'itsm_calendar_conflict',
+    fieldName: 'conflictType',
+    value: 'ADJACENCY',
+    label: 'Adjacency',
+    sortOrder: 30,
+  },
+
   // ---- itsm_services.criticality ----
   {
     tableName: 'itsm_services',

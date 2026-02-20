@@ -33,6 +33,10 @@ const CHOICE_MANAGED_FIELDS: Record<string, string[]> = {
   cmdb_service_offering: ['status'],
   cmdb_service_ci: ['relationship_type'],
   itsm_incident_ci: ['relationshipType', 'impactScope'],
+
+  itsm_change_calendar_event: ['type', 'status'],
+  itsm_freeze_window: ['scope'],
+  itsm_calendar_conflict: ['conflictType'],
 };
 
 @Injectable()

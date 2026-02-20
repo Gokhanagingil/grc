@@ -15,6 +15,8 @@ import {
 } from '../../grc/dto/pagination.dto';
 import { AuditService } from '../../audit/audit.service';
 import { ChoiceService } from '../choice/choice.service';
+import { CalendarEventService } from './calendar/calendar-event.service';
+import { ConflictDetectionService } from './calendar/conflict-detection.service';
 
 @Injectable()
 export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
@@ -31,6 +33,9 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     @Optional()
     @InjectRepository(CmdbServiceOffering)
     private readonly cmdbOfferingRepo?: Repository<CmdbServiceOffering>,
+    @Optional() private readonly calendarEventService?: CalendarEventService,
+    @Optional()
+    private readonly conflictDetectionService?: ConflictDetectionService,
   ) {
     super(repository);
   }
@@ -130,6 +135,30 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
       tenantId,
     );
 
+    if (
+      change.plannedStartAt &&
+      change.plannedEndAt &&
+      this.calendarEventService &&
+      this.conflictDetectionService
+    ) {
+      await this.calendarEventService.upsertForChange(
+        tenantId,
+        userId,
+        change.id,
+        `${change.number} - ${change.title}`,
+        change.plannedStartAt,
+        change.plannedEndAt,
+      );
+      await this.conflictDetectionService.refreshConflictsForChange(
+        tenantId,
+        userId,
+        change.id,
+        change.plannedStartAt,
+        change.plannedEndAt,
+        change.serviceId || undefined,
+      );
+    }
+
     return change;
   }
 
@@ -177,6 +206,44 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
         userId,
         tenantId,
       );
+
+      if (
+        (data.plannedStartAt !== undefined ||
+          data.plannedEndAt !== undefined ||
+          data.title !== undefined) &&
+        this.calendarEventService &&
+        this.conflictDetectionService
+      ) {
+        if (change.plannedStartAt && change.plannedEndAt) {
+          await this.calendarEventService.upsertForChange(
+            tenantId,
+            userId,
+            change.id,
+            `${change.number} - ${change.title}`,
+            change.plannedStartAt,
+            change.plannedEndAt,
+          );
+          await this.conflictDetectionService.refreshConflictsForChange(
+            tenantId,
+            userId,
+            change.id,
+            change.plannedStartAt,
+            change.plannedEndAt,
+            change.serviceId || undefined,
+          );
+        } else {
+          await this.calendarEventService.softDeleteByChangeId(
+            tenantId,
+            userId,
+            change.id,
+          );
+          await this.conflictDetectionService.clearConflictsForChange(
+            tenantId,
+            userId,
+            change.id,
+          );
+        }
+      }
     }
 
     return change;
@@ -203,6 +270,19 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
       userId,
       tenantId,
     );
+
+    if (this.calendarEventService && this.conflictDetectionService) {
+      await this.calendarEventService.softDeleteByChangeId(
+        tenantId,
+        userId,
+        existing.id,
+      );
+      await this.conflictDetectionService.clearConflictsForChange(
+        tenantId,
+        userId,
+        existing.id,
+      );
+    }
 
     return true;
   }

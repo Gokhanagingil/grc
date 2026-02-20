@@ -60,6 +60,16 @@ import { CmdbServiceOffering } from './cmdb/service-offering/cmdb-service-offeri
 import { CmdbCi } from './cmdb/ci/ci.entity';
 import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
 
+import { CalendarEvent } from './change/calendar/calendar-event.entity';
+import { FreezeWindow } from './change/calendar/freeze-window.entity';
+import { CalendarConflict } from './change/calendar/calendar-conflict.entity';
+import { CalendarEventService } from './change/calendar/calendar-event.service';
+import { FreezeWindowService } from './change/calendar/freeze-window.service';
+import { ConflictDetectionService } from './change/calendar/conflict-detection.service';
+import { CalendarEventController } from './change/calendar/calendar-event.controller';
+import { FreezeWindowController } from './change/calendar/freeze-window.controller';
+import { ConflictController } from './change/calendar/conflict.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -79,6 +89,9 @@ import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
       CmdbCi,
       CmdbServiceCi,
       ItsmIncidentCi,
+      CalendarEvent,
+      FreezeWindow,
+      CalendarConflict,
     ]),
     AuditModule,
     AuthModule,
@@ -104,6 +117,9 @@ import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
     JournalService,
     DiagnosticsService,
     RuntimeLoggerService,
+    CalendarEventService,
+    FreezeWindowService,
+    ConflictDetectionService,
   ],
   controllers: [
     IncidentController,
@@ -116,6 +132,9 @@ import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
     UiPolicyController,
     SlaController,
     DiagnosticsController,
+    CalendarEventController,
+    FreezeWindowController,
+    ConflictController,
   ],
   exports: [
     IncidentService,
@@ -135,6 +154,9 @@ import { CmdbServiceCi } from './cmdb/service-ci/cmdb-service-ci.entity';
     JournalService,
     DiagnosticsService,
     RuntimeLoggerService,
+    CalendarEventService,
+    FreezeWindowService,
+    ConflictDetectionService,
   ],
 })
 export class ItsmModule {}

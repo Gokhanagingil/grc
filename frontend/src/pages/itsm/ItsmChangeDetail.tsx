@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
+  Badge,
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Collapse,
   Divider,
@@ -26,8 +28,10 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
+  Warning as WarningIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -122,6 +126,11 @@ export const ItsmChangeDetail: React.FC = () => {
   const [cmdbServices, setCmdbServices] = useState<CmdbServiceData[]>([]);
   const [cmdbOfferings, setCmdbOfferings] = useState<CmdbServiceOfferingData[]>([]);
 
+  // Conflicts state
+  const [conflicts, setConflicts] = useState<ItsmCalendarConflictData[]>([]);
+  const [showConflictsSection, setShowConflictsSection] = useState(true);
+  const [refreshingConflicts, setRefreshingConflicts] = useState(false);
+
   // GRC Bridge state
   const [linkedRisks, setLinkedRisks] = useState<LinkedRisk[]>([]);
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
@@ -156,6 +165,16 @@ export const ItsmChangeDetail: React.FC = () => {
         }
       } catch {
         // Ignore errors for linked controls
+      }
+
+      try {
+        const conflictsResponse = await itsmApi.changes.conflicts(id);
+        const cData = conflictsResponse.data as { data?: ItsmCalendarConflictData[] };
+        if (cData?.data) {
+          setConflicts(Array.isArray(cData.data) ? cData.data : []);
+        }
+      } catch {
+        // Ignore errors for conflicts
       }
     } catch (error) {
       console.error('Error fetching ITSM change:', error);
@@ -502,6 +521,93 @@ export const ItsmChangeDetail: React.FC = () => {
               </FormControl>
             </CardContent>
           </Card>
+
+          {/* Scheduling & Conflicts */}
+          {!isNew && (change.plannedStartAt || change.plannedEndAt || conflicts.length > 0) && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowConflictsSection(!showConflictsSection)}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">Scheduling</Typography>
+                    {conflicts.length > 0 && (
+                      <Badge badgeContent={conflicts.length} color="error">
+                        <WarningIcon color="error" fontSize="small" />
+                      </Badge>
+                    )}
+                  </Box>
+                  <IconButton size="small">
+                    {showConflictsSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                <Collapse in={showConflictsSection}>
+                  {change.plannedStartAt && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Planned Start: {new Date(change.plannedStartAt).toLocaleString()}
+                    </Typography>
+                  )}
+                  {change.plannedEndAt && (
+                    <Typography variant="body2" color="text.secondary">
+                      Planned End: {new Date(change.plannedEndAt).toLocaleString()}
+                    </Typography>
+                  )}
+                  {conflicts.length > 0 && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <Divider sx={{ mb: 1 }} />
+                      <Typography variant="subtitle2" color="error.main" gutterBottom>
+                        {conflicts.length} Conflict{conflicts.length !== 1 ? 's' : ''} Detected
+                      </Typography>
+                      <List dense disablePadding>
+                        {conflicts.map(c => (
+                          <ListItem key={c.id} disableGutters sx={{ py: 0.25 }}>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Chip label={c.conflictType} size="small" color={c.conflictType === 'FREEZE_WINDOW' ? 'error' : c.conflictType === 'OVERLAP' ? 'warning' : 'default'} variant="outlined" />
+                                  <Chip label={c.severity} size="small" color={c.severity === 'CRITICAL' ? 'error' : c.severity === 'HIGH' ? 'warning' : 'default'} variant="outlined" />
+                                </Box>
+                              }
+                              secondary={
+                                c.conflictingEvent?.title || c.conflictingFreeze?.name || (c.details as Record<string, string>)?.reason || 'Scheduling conflict'
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  {conflicts.length === 0 && change.plannedStartAt && change.plannedEndAt && (
+                    <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
+                      No scheduling conflicts detected
+                    </Typography>
+                  )}
+                  {change.id && (
+                    <Button
+                      size="small"
+                      startIcon={<RefreshIcon />}
+                      onClick={async () => {
+                        setRefreshingConflicts(true);
+                        try {
+                          await itsmApi.changes.refreshConflicts(change.id!);
+                          const resp = await itsmApi.changes.conflicts(change.id!);
+                          const d = resp.data as { data?: ItsmCalendarConflictData[] };
+                          if (d?.data) setConflicts(Array.isArray(d.data) ? d.data : []);
+                          showNotification('Conflicts refreshed', 'success');
+                        } catch {
+                          showNotification('Failed to refresh conflicts', 'error');
+                        } finally {
+                          setRefreshingConflicts(false);
+                        }
+                      }}
+                      disabled={refreshingConflicts}
+                      sx={{ mt: 1 }}
+                    >
+                      {refreshingConflicts ? 'Refreshing...' : 'Refresh Conflicts'}
+                    </Button>
+                  )}
+                </Collapse>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Timestamps */}
           {!isNew && (

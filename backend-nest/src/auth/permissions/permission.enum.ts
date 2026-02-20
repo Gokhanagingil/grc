@@ -152,6 +152,14 @@ export enum Permission {
   // CMDB Health & Quality permissions
   CMDB_HEALTH_READ = 'cmdb:health:read',
   CMDB_HEALTH_WRITE = 'cmdb:health:write',
+
+  // ITSM Calendar permissions
+  ITSM_CALENDAR_READ = 'itsm:calendar:read',
+  ITSM_CALENDAR_WRITE = 'itsm:calendar:write',
+
+  // ITSM Freeze Window permissions
+  ITSM_FREEZE_READ = 'itsm:freeze:read',
+  ITSM_FREEZE_WRITE = 'itsm:freeze:write',
 }
 
 /**
@@ -267,4 +275,11 @@ export const PermissionDescriptions: Record<Permission, string> = {
     'View CMDB health rules, findings, and quality scores',
   [Permission.CMDB_HEALTH_WRITE]:
     'Create, update, and delete health rules; waive findings; trigger evaluations',
+  [Permission.ITSM_CALENDAR_READ]:
+    'View change calendar events and conflict details',
+  [Permission.ITSM_CALENDAR_WRITE]:
+    'Create, update, and delete change calendar events',
+  [Permission.ITSM_FREEZE_READ]: 'View freeze windows',
+  [Permission.ITSM_FREEZE_WRITE]:
+    'Create, update, and delete freeze windows',
 };

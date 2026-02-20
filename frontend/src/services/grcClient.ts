@@ -259,7 +259,29 @@ export const API_PATHS = {
       CONTROLS: (id: string) => `/grc/itsm/changes/${id}/controls`,
       LINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
       UNLINK_CONTROL: (changeId: string, controlId: string) => `/grc/itsm/changes/${changeId}/controls/${controlId}`,
+      CONFLICTS: (id: string) => `/grc/itsm/changes/${id}/conflicts`,
+      REFRESH_CONFLICTS: (id: string) => `/grc/itsm/changes/${id}/refresh-conflicts`,
     },
+
+    // ITSM Change Calendar endpoints
+    CALENDAR: {
+      EVENTS: {
+        LIST: '/grc/itsm/calendar/events',
+        CREATE: '/grc/itsm/calendar/events',
+        GET: (id: string) => `/grc/itsm/calendar/events/${id}`,
+        UPDATE: (id: string) => `/grc/itsm/calendar/events/${id}`,
+        DELETE: (id: string) => `/grc/itsm/calendar/events/${id}`,
+        PREVIEW_CONFLICTS: '/grc/itsm/calendar/events/preview-conflicts',
+      },
+      FREEZE_WINDOWS: {
+        LIST: '/grc/itsm/calendar/freeze-windows',
+        CREATE: '/grc/itsm/calendar/freeze-windows',
+        GET: (id: string) => `/grc/itsm/calendar/freeze-windows/${id}`,
+        UPDATE: (id: string) => `/grc/itsm/calendar/freeze-windows/${id}`,
+        DELETE: (id: string) => `/grc/itsm/calendar/freeze-windows/${id}`,
+      },
+    },
+
     // ITSM Journal endpoints
     JOURNAL: {
       LIST: (table: string, recordId: string) => `/grc/itsm/${table}/${recordId}/journal`,
@@ -1668,6 +1690,98 @@ export interface UpdateItsmChangeDto {
   offeringId?: string;
 }
 
+export interface ItsmCalendarEventData {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  startAt: string;
+  endAt: string;
+  changeId?: string | null;
+  change?: Partial<ItsmChangeData>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmCalendarEventDto {
+  title: string;
+  type?: string;
+  status?: string;
+  startAt: string;
+  endAt: string;
+  changeId?: string;
+}
+
+export interface UpdateItsmCalendarEventDto {
+  title?: string;
+  type?: string;
+  status?: string;
+  startAt?: string;
+  endAt?: string;
+  changeId?: string | null;
+}
+
+export interface ItsmFreezeWindowData {
+  id: string;
+  name: string;
+  description?: string | null;
+  startAt: string;
+  endAt: string;
+  scope: string;
+  scopeRefId?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmFreezeWindowDto {
+  name: string;
+  description?: string;
+  startAt: string;
+  endAt: string;
+  scope: string;
+  scopeRefId?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateItsmFreezeWindowDto {
+  name?: string;
+  description?: string;
+  startAt?: string;
+  endAt?: string;
+  scope?: string;
+  scopeRefId?: string | null;
+  isActive?: boolean;
+}
+
+export interface ItsmCalendarConflictData {
+  id: string;
+  changeId: string;
+  conflictType: string;
+  severity: string;
+  conflictingEventId?: string | null;
+  conflictingFreezeId?: string | null;
+  details: Record<string, unknown>;
+  conflictingEvent?: ItsmCalendarEventData | null;
+  conflictingFreeze?: ItsmFreezeWindowData | null;
+  createdAt: string;
+}
+
+export interface ItsmPreviewConflictsDto {
+  startAt: string;
+  endAt: string;
+  changeId?: string;
+  serviceId?: string;
+}
+
+export interface ItsmConflictResult {
+  conflictType: string;
+  severity: string;
+  conflictingEventId?: string;
+  conflictingFreezeId?: string;
+  details: Record<string, unknown>;
+}
+
 export interface ItsmChoiceData {
   id: string;
   tenantId: string;
@@ -1819,6 +1933,70 @@ export const itsmApi = {
     getLinkedControls: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.CONTROLS(changeId)),
     linkControl: (changeId: string, controlId: string) => api.post(API_PATHS.ITSM.CHANGES.LINK_CONTROL(changeId, controlId), {}),
     unlinkControl: (changeId: string, controlId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_CONTROL(changeId, controlId)),
+    conflicts: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.CONFLICTS(changeId)),
+    refreshConflicts: (changeId: string) => api.post(API_PATHS.ITSM.CHANGES.REFRESH_CONFLICTS(changeId), {}),
+  },
+
+  // ITSM Change Calendar
+  calendar: {
+    events: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        type?: string;
+        status?: string;
+        startFrom?: string;
+        startTo?: string;
+        q?: string;
+      }) => {
+        const searchParams = new URLSearchParams();
+        if (params?.page) searchParams.set('page', String(params.page));
+        if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+        if (params?.type) searchParams.set('type', params.type);
+        if (params?.status) searchParams.set('status', params.status);
+        if (params?.startFrom) searchParams.set('startFrom', params.startFrom);
+        if (params?.startTo) searchParams.set('startTo', params.startTo);
+        if (params?.q) searchParams.set('q', params.q);
+        const queryString = searchParams.toString();
+        return api.get(`${API_PATHS.ITSM.CALENDAR.EVENTS.LIST}${queryString ? `?${queryString}` : ''}`);
+      },
+      get: (id: string) => api.get(API_PATHS.ITSM.CALENDAR.EVENTS.GET(id)),
+      create: (data: CreateItsmCalendarEventDto) =>
+        api.post(API_PATHS.ITSM.CALENDAR.EVENTS.CREATE, data),
+      update: (id: string, data: UpdateItsmCalendarEventDto) =>
+        api.patch(API_PATHS.ITSM.CALENDAR.EVENTS.UPDATE(id), data),
+      delete: (id: string) => api.delete(API_PATHS.ITSM.CALENDAR.EVENTS.DELETE(id)),
+      previewConflicts: (data: ItsmPreviewConflictsDto) =>
+        api.post(API_PATHS.ITSM.CALENDAR.EVENTS.PREVIEW_CONFLICTS, data),
+    },
+    freezeWindows: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        scope?: string;
+        isActive?: string;
+        startFrom?: string;
+        startTo?: string;
+        q?: string;
+      }) => {
+        const searchParams = new URLSearchParams();
+        if (params?.page) searchParams.set('page', String(params.page));
+        if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+        if (params?.scope) searchParams.set('scope', params.scope);
+        if (params?.isActive !== undefined) searchParams.set('isActive', String(params.isActive));
+        if (params?.startFrom) searchParams.set('startFrom', params.startFrom);
+        if (params?.startTo) searchParams.set('startTo', params.startTo);
+        if (params?.q) searchParams.set('q', params.q);
+        const queryString = searchParams.toString();
+        return api.get(`${API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.LIST}${queryString ? `?${queryString}` : ''}`);
+      },
+      get: (id: string) => api.get(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.GET(id)),
+      create: (data: CreateItsmFreezeWindowDto) =>
+        api.post(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.CREATE, data),
+      update: (id: string, data: UpdateItsmFreezeWindowDto) =>
+        api.patch(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.UPDATE(id), data),
+      delete: (id: string) => api.delete(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.DELETE(id)),
+    },
   },
 
   // ITSM Journal
