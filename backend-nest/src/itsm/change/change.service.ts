@@ -1,8 +1,14 @@
-import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
-import { ItsmChange } from './change.entity';
+import { ItsmChange, ChangeState } from './change.entity';
 import { CmdbService as CmdbServiceEntity } from '../cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
 import {
@@ -18,6 +24,7 @@ import { ChoiceService } from '../choice/choice.service';
 import { CalendarEventService } from './calendar/calendar-event.service';
 import { ConflictDetectionService } from './calendar/conflict-detection.service';
 import { RiskScoringService } from './risk/risk-scoring.service';
+import { ApprovalService } from './approval/approval.service';
 
 @Injectable()
 export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
@@ -26,6 +33,7 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
   constructor(
     @InjectRepository(ItsmChange)
     repository: Repository<ItsmChange>,
+    private readonly approvalService: ApprovalService,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly choiceService?: ChoiceService,
     @Optional()
@@ -86,6 +94,27 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     const count = await this.countForTenant(tenantId);
     this.changeCounter = count + 1;
     return `CHG${String(this.changeCounter).padStart(6, '0')}`;
+  }
+
+  private assertValidStateTransition(
+    currentState: ChangeState,
+    targetState: ChangeState,
+  ): void {
+    const validTransitions: Record<ChangeState, ChangeState[]> = {
+      [ChangeState.DRAFT]: [ChangeState.ASSESS],
+      [ChangeState.ASSESS]: [ChangeState.AUTHORIZE, ChangeState.IMPLEMENT],
+      [ChangeState.AUTHORIZE]: [ChangeState.IMPLEMENT, ChangeState.ASSESS],
+      [ChangeState.IMPLEMENT]: [ChangeState.REVIEW],
+      [ChangeState.REVIEW]: [ChangeState.CLOSED],
+      [ChangeState.CLOSED]: [],
+    };
+
+    const allowed = validTransitions[currentState];
+    if (!allowed || !allowed.includes(targetState)) {
+      throw new BadRequestException(
+        `Invalid state transition from ${currentState} to ${targetState}`,
+      );
+    }
   }
 
   async findOneActiveForTenant(
@@ -181,6 +210,46 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     }
 
     const beforeState = { ...existing };
+
+    if (data.approvalStatus !== undefined) {
+      throw new BadRequestException('approvalStatus is managed by the system');
+    }
+
+    const requestedState = data.state;
+    if (requestedState !== undefined && requestedState !== existing.state) {
+      this.assertValidStateTransition(existing.state, requestedState);
+
+      if (requestedState === ChangeState.AUTHORIZE) {
+        throw new BadRequestException(
+          'Use /grc/itsm/changes/:id/request-approval to submit for CAB approval',
+        );
+      }
+
+      if (requestedState === ChangeState.IMPLEMENT) {
+        const gate = await this.approvalService.checkTransitionGate(
+          tenantId,
+          id,
+          ChangeState.IMPLEMENT,
+        );
+        if (!gate.allowed) {
+          throw new ConflictException({
+            statusCode: 409,
+            reasonCode: gate.reasonCode,
+            message: gate.reason,
+          });
+        }
+
+        if (!existing.actualStartAt && data.actualStartAt === undefined) {
+          data.actualStartAt = new Date();
+        }
+      }
+
+      if (requestedState === ChangeState.CLOSED) {
+        if (!existing.actualEndAt && data.actualEndAt === undefined) {
+          data.actualEndAt = new Date();
+        }
+      }
+    }
 
     if (this.choiceService) {
       const errors = await this.choiceService.validateChoiceFields(

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Badge,
   Button,
@@ -9,6 +10,10 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   Grid,
@@ -30,11 +35,16 @@ import {
   Delete as DeleteIcon,
   Warning as WarningIcon,
   Refresh as RefreshIcon,
+  Gavel as GavelIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
+import { AxiosError } from 'axios';
 
 interface ItsmChange {
   id: string;
@@ -142,6 +152,16 @@ export const ItsmChangeDetail: React.FC = () => {
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
 
+  // Approval state
+  const [approvals, setApprovals] = useState<ItsmApprovalData[]>([]);
+  const [showApprovals, setShowApprovals] = useState(true);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalDialogMode, setApprovalDialogMode] = useState<'approve' | 'reject'>('approve');
+  const [approvalDialogTarget, setApprovalDialogTarget] = useState<string>('');
+  const [approvalComment, setApprovalComment] = useState('');
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [governanceError, setGovernanceError] = useState<string | null>(null);
+
   const fetchChange = useCallback(async () => {
     if (isNew || !id) return;
     
@@ -190,6 +210,16 @@ export const ItsmChangeDetail: React.FC = () => {
         }
       } catch {
         // Ignore - assessment may not exist yet
+      }
+
+      try {
+        const approvalsResponse = await itsmApi.changes.listApprovals(id);
+        const aData = approvalsResponse.data as { data?: ItsmApprovalData[] };
+        if (aData?.data) {
+          setApprovals(Array.isArray(aData.data) ? aData.data : []);
+        }
+      } catch {
+        // Ignore - approvals may not exist yet
       }
     } catch (error) {
       console.error('Error fetching ITSM change:', error);
@@ -289,6 +319,84 @@ export const ItsmChangeDetail: React.FC = () => {
     }
   };
 
+  const handleRequestApproval = async () => {
+    if (!id) return;
+    setApprovalBusy(true);
+    setGovernanceError(null);
+    try {
+      await itsmApi.changes.requestApproval(id);
+      showNotification('CAB approval requested', 'success');
+      fetchChange();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ message?: string; reason?: string }>;
+      if (axiosErr.response?.status === 409) {
+        const msg = axiosErr.response.data?.message || axiosErr.response.data?.reason || 'Conflict detected';
+        setGovernanceError(msg);
+      } else {
+        showNotification('Failed to request approval', 'error');
+      }
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const openApprovalDialog = (mode: 'approve' | 'reject', approvalId: string) => {
+    setApprovalDialogMode(mode);
+    setApprovalDialogTarget(approvalId);
+    setApprovalComment('');
+    setApprovalDialogOpen(true);
+  };
+
+  const handleApprovalDecision = async () => {
+    if (!approvalDialogTarget) return;
+    setApprovalBusy(true);
+    setGovernanceError(null);
+    try {
+      if (approvalDialogMode === 'approve') {
+        await itsmApi.changes.approveApproval(approvalDialogTarget, approvalComment || undefined);
+        showNotification('Approval granted', 'success');
+      } else {
+        await itsmApi.changes.rejectApproval(approvalDialogTarget, approvalComment || undefined);
+        showNotification('Approval rejected', 'success');
+      }
+      setApprovalDialogOpen(false);
+      fetchChange();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ message?: string }>;
+      showNotification(axiosErr.response?.data?.message || 'Failed to process approval', 'error');
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleTransitionToImplement = async () => {
+    if (!id) return;
+    setApprovalBusy(true);
+    setGovernanceError(null);
+    try {
+      await itsmApi.changes.update(id, {
+        state: 'IMPLEMENT' as 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED',
+      });
+      showNotification('Change moved to Implement', 'success');
+      fetchChange();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ message?: string; reason?: string }>;
+      if (axiosErr.response?.status === 409 || axiosErr.response?.status === 403) {
+        const msg = axiosErr.response.data?.message || 'Transition blocked - approvals may be required';
+        setGovernanceError(msg);
+      } else {
+        showNotification('Failed to transition change', 'error');
+      }
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const approvalStatusLabel = change.approvalStatus || 'NOT_REQUESTED';
+  const hasRequestedApprovals = approvals.some(a => a.state === 'REQUESTED');
+  const allApproved = approvals.length > 0 && approvals.every(a => a.state === 'APPROVED');
+  const anyRejected = approvals.some(a => a.state === 'REJECTED');
+
   const handleUnlinkRisk = async (riskId: string) => {
     if (!id) return;
     try {
@@ -332,7 +440,23 @@ export const ItsmChangeDetail: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Decision Support Strip */}
+      {/* Governance Error Banner */}
+      {governanceError && (
+        <Alert
+          severity="error"
+          onClose={() => setGovernanceError(null)}
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/itsm/calendar')}>
+              View Calendar
+            </Button>
+          }
+        >
+          {governanceError}
+        </Alert>
+      )}
+
+      {/* Decision Support + Governance Strip */}
       {!isNew && riskAssessment && (
         <Card
           sx={{
@@ -375,6 +499,20 @@ export const ItsmChangeDetail: React.FC = () => {
                     {riskAssessment.impactedServiceCount} services
                   </Typography>
                 </Box>
+                <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+                <Chip
+                  label={approvalStatusLabel.replace('_', ' ')}
+                  size="small"
+                  data-testid="approval-status-badge"
+                  sx={{
+                    bgcolor: approvalStatusLabel === 'APPROVED' ? 'rgba(76,175,80,0.3)'
+                      : approvalStatusLabel === 'REJECTED' ? 'rgba(244,67,54,0.3)'
+                      : approvalStatusLabel === 'REQUESTED' ? 'rgba(255,193,7,0.3)'
+                      : 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    fontWeight: 600,
+                  }}
+                />
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {riskAssessment.hasFreezeConflict && (
@@ -399,6 +537,33 @@ export const ItsmChangeDetail: React.FC = () => {
                     size="small"
                     sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
                   />
+                )}
+                {/* Governance CTA Button */}
+                {approvalStatusLabel === 'NOT_REQUESTED' && (change.state === 'ASSESS' || change.state === 'AUTHORIZE') && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<GavelIcon />}
+                    onClick={handleRequestApproval}
+                    disabled={approvalBusy}
+                    data-testid="request-cab-btn"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.4)' } }}
+                  >
+                    {approvalBusy ? 'Requesting...' : 'Request CAB Approval'}
+                  </Button>
+                )}
+                {allApproved && change.state !== 'IMPLEMENT' && change.state !== 'REVIEW' && change.state !== 'CLOSED' && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={handleTransitionToImplement}
+                    disabled={approvalBusy}
+                    data-testid="implement-btn"
+                    sx={{ bgcolor: 'rgba(76,175,80,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(76,175,80,0.7)' } }}
+                  >
+                    {approvalBusy ? 'Processing...' : 'Implement'}
+                  </Button>
                 )}
               </Box>
             </Box>
@@ -882,6 +1047,84 @@ export const ItsmChangeDetail: React.FC = () => {
             </Card>
           )}
 
+          {/* CAB Approvals */}
+          {!isNew && approvals.length > 0 && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowApprovals(!showApprovals)}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">CAB Approvals</Typography>
+                    <Chip
+                      label={approvals.length}
+                      size="small"
+                      color={anyRejected ? 'error' : allApproved ? 'success' : hasRequestedApprovals ? 'warning' : 'default'}
+                    />
+                  </Box>
+                  <IconButton size="small">
+                    {showApprovals ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                <Collapse in={showApprovals}>
+                  <List dense disablePadding>
+                    {approvals.map((a) => (
+                      <ListItem key={a.id} disableGutters sx={{ py: 0.5 }}>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Chip
+                                label={a.state}
+                                size="small"
+                                color={a.state === 'APPROVED' ? 'success' : a.state === 'REJECTED' ? 'error' : a.state === 'REQUESTED' ? 'warning' : 'default'}
+                                variant="outlined"
+                              />
+                              <Typography variant="body2" fontWeight={500}>
+                                {a.approverRole}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={
+                            <Box component="span">
+                              {a.decidedAt && (
+                                <Typography variant="caption" color="text.secondary" component="span">
+                                  {new Date(a.decidedAt).toLocaleString()}
+                                </Typography>
+                              )}
+                              {a.comment && (
+                                <Typography variant="caption" color="text.secondary" component="span" sx={{ ml: 0.5 }}>
+                                  - {a.comment}
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                        {a.state === 'REQUESTED' && (
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => openApprovalDialog('approve', a.id)}
+                              data-testid={`approve-btn-${a.id}`}
+                            >
+                              <CheckCircleIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => openApprovalDialog('reject', a.id)}
+                              data-testid={`reject-btn-${a.id}`}
+                            >
+                              <CancelIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </CardContent>
+            </Card>
+          )}
+
           {/* GRC Bridge - Linked Risks */}
           {!isNew && (
             <Card sx={{ mb: 2 }}>
@@ -977,6 +1220,39 @@ export const ItsmChangeDetail: React.FC = () => {
           <ActivityStream table="changes" recordId={change.id} />
         </Box>
       )}
+
+      {/* Approve/Reject Dialog */}
+      <Dialog open={approvalDialogOpen} onClose={() => setApprovalDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {approvalDialogMode === 'approve' ? 'Approve Change' : 'Reject Change'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            rows={3}
+            label="Comment (optional)"
+            value={approvalComment}
+            onChange={(e) => setApprovalComment(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApprovalDialogOpen(false)} disabled={approvalBusy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color={approvalDialogMode === 'approve' ? 'success' : 'error'}
+            onClick={handleApprovalDecision}
+            disabled={approvalBusy}
+            data-testid="confirm-approval-btn"
+          >
+            {approvalBusy ? 'Processing...' : approvalDialogMode === 'approve' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

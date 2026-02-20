@@ -160,6 +160,10 @@ export enum Permission {
   // ITSM Freeze Window permissions
   ITSM_FREEZE_READ = 'itsm:freeze:read',
   ITSM_FREEZE_WRITE = 'itsm:freeze:write',
+
+  // ITSM Approval permissions
+  ITSM_APPROVAL_READ = 'itsm:approval:read',
+  ITSM_APPROVAL_WRITE = 'itsm:approval:write',
 }
 
 /**
@@ -280,6 +284,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_CALENDAR_WRITE]:
     'Create, update, and delete change calendar events',
   [Permission.ITSM_FREEZE_READ]: 'View freeze windows',
-  [Permission.ITSM_FREEZE_WRITE]:
-    'Create, update, and delete freeze windows',
+  [Permission.ITSM_FREEZE_WRITE]: 'Create, update, and delete freeze windows',
+  [Permission.ITSM_APPROVAL_READ]: 'View change approval requests',
+  [Permission.ITSM_APPROVAL_WRITE]:
+    'Approve or reject change approval requests',
 };

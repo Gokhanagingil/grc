@@ -79,6 +79,10 @@ import { PolicyController } from './change/risk/policy.controller';
 import { CmdbCiRel } from './cmdb/ci-rel/ci-rel.entity';
 import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity';
 
+import { ItsmApproval } from './change/approval/itsm-approval.entity';
+import { ApprovalService } from './change/approval/approval.service';
+import { ApprovalController } from './change/approval/approval.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -105,6 +109,7 @@ import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity'
       ChangePolicy,
       CmdbCiRel,
       CmdbQualitySnapshot,
+      ItsmApproval,
     ]),
     AuditModule,
     AuthModule,
@@ -135,6 +140,7 @@ import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity'
     ConflictDetectionService,
     RiskScoringService,
     PolicyService,
+    ApprovalService,
   ],
   controllers: [
     IncidentController,
@@ -152,6 +158,7 @@ import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity'
     ConflictController,
     RiskController,
     PolicyController,
+    ApprovalController,
   ],
   exports: [
     IncidentService,
@@ -176,6 +183,7 @@ import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity'
     ConflictDetectionService,
     RiskScoringService,
     PolicyService,
+    ApprovalService,
   ],
 })
 export class ItsmModule {}
