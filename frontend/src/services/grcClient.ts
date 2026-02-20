@@ -364,6 +364,12 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/cmdb/service-offerings/${id}`,
       DELETE: (id: string) => `/grc/cmdb/service-offerings/${id}`,
     },
+    SERVICE_CI: {
+      CIS_FOR_SERVICE: (serviceId: string) => `/grc/cmdb/services/${serviceId}/cis`,
+      SERVICES_FOR_CI: (ciId: string) => `/grc/cmdb/cis/${ciId}/services`,
+      LINK: (serviceId: string, ciId: string) => `/grc/cmdb/services/${serviceId}/cis/${ciId}`,
+      UNLINK: (serviceId: string, ciId: string) => `/grc/cmdb/services/${serviceId}/cis/${ciId}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1994,6 +2000,27 @@ export interface UpdateCmdbServiceOfferingDto {
   defaultSlaProfileId?: string;
 }
 
+export interface CmdbServiceCiData {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  ciId: string;
+  relationshipType: string;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+  service?: CmdbServiceData;
+  ci?: CmdbCiData;
+}
+
+export interface CreateCmdbServiceCiDto {
+  relationshipType: string;
+  isPrimary?: boolean;
+}
+
 export interface CmdbListParams {
   page?: number;
   pageSize?: number;
@@ -2071,6 +2098,30 @@ export const cmdbApi = {
     create: (data: CreateCmdbServiceDto) => api.post(API_PATHS.CMDB.SERVICES.CREATE, data),
     update: (id: string, data: UpdateCmdbServiceDto) => api.patch(API_PATHS.CMDB.SERVICES.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.CMDB.SERVICES.DELETE(id)),
+  },
+  serviceCi: {
+    cisForService: (serviceId: string, params?: { page?: number; pageSize?: number; relationshipType?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.relationshipType) searchParams.set('relationshipType', params.relationshipType);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.SERVICE_CI.CIS_FOR_SERVICE(serviceId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    servicesForCi: (ciId: string, params?: { page?: number; pageSize?: number; relationshipType?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.relationshipType) searchParams.set('relationshipType', params.relationshipType);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.SERVICE_CI.SERVICES_FOR_CI(ciId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    link: (serviceId: string, ciId: string, data: CreateCmdbServiceCiDto) =>
+      api.post(API_PATHS.CMDB.SERVICE_CI.LINK(serviceId, ciId), data),
+    unlink: (serviceId: string, ciId: string, relationshipType?: string) => {
+      const queryString = relationshipType ? `?relationshipType=${encodeURIComponent(relationshipType)}` : '';
+      return api.delete(`${API_PATHS.CMDB.SERVICE_CI.UNLINK(serviceId, ciId)}${queryString}`);
+    },
   },
   serviceOfferings: {
     list: (params?: CmdbListParams & { serviceId?: string; status?: string }) => {

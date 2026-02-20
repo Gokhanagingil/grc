@@ -87,7 +87,6 @@ wget -qO- --header="Authorization: Bearer <TOKEN>" \
 
 - `ownerUserId` is a nullable UUID field; no FK constraint to users table (users may be in Express backend)
 - `defaultSlaProfileId` on offerings is a placeholder UUID; will be wired to SLA profiles in PR-B3/B4
-- Service-to-CI mapping is not yet implemented (planned for PR-B2)
 - Incident/Change binding to services is not yet implemented (planned for PR-B3)
 
 ## RBAC Matrix
@@ -97,3 +96,86 @@ wget -qO- --header="Authorization: Bearer <TOKEN>" \
 | ADMIN | Yes | Yes | Yes | Yes |
 | MANAGER | Yes | Yes | Yes | Yes |
 | USER | Yes | No | Yes | No |
+
+---
+
+# Service-CI Mapping (PR-B2)
+
+## Overview
+
+PR-B2 introduces **CSDM-lite Service-to-CI Mapping** via a many-to-many `cmdb_service_ci` table. This enables linking services to configuration items with typed relationships (depends_on, hosted_on, consumed_by, supports, managed_by, monitored_by).
+
+## What Changed
+
+### Backend
+- **Entity**: `CmdbServiceCi` M2M entity with `serviceId`, `ciId`, `relationshipType`, `isPrimary`
+- **Migration**: `1739900000000-CreateServiceCiMappingTable` (idempotent, creates table + indexes + unique constraint)
+- **Controller**: Endpoints under `/grc/cmdb/services/:serviceId/cis/:ciId` and `/grc/cmdb/cis/:ciId/services`
+- **RBAC**: Reuses `CMDB_SERVICE_READ` for listing, `CMDB_SERVICE_WRITE` for link/unlink
+- **Choice validation**: `relationshipType` validated via ChoiceService (`cmdb_service_ci.relationship_type`)
+- **Seed script**: `seed-service-ci-mapping.ts` with 6 relationship type choices and sample mappings
+
+### Frontend
+- **CI Detail page**: "Related Services" section with link/unlink modal
+- **Service Detail page**: "Related CIs" section with link/unlink modal
+- **API client**: New `cmdbApi.serviceCi` methods for link, unlink, cisForService, servicesForCi
+
+## Service-CI API Endpoints
+
+| Method | Endpoint | Permission | Description |
+|--------|----------|------------|-------------|
+| POST | `/grc/cmdb/services/:serviceId/cis/:ciId` | `CMDB_SERVICE_WRITE` | Link CI to service |
+| DELETE | `/grc/cmdb/services/:serviceId/cis/:ciId?relationshipType=...` | `CMDB_SERVICE_WRITE` | Unlink CI from service |
+| GET | `/grc/cmdb/services/:serviceId/cis` | `CMDB_SERVICE_READ` | List CIs for a service |
+| GET | `/grc/cmdb/cis/:ciId/services` | `CMDB_SERVICE_READ` | List services for a CI |
+
+## Service-CI Choice Fields (sys_choice)
+
+| Table | Field | Values |
+|-------|-------|--------|
+| `cmdb_service_ci` | `relationship_type` | `depends_on`, `hosted_on`, `consumed_by`, `supports`, `managed_by`, `monitored_by` |
+
+## Staging Verification (PR-B2)
+
+### 1. Run Migration
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc \
+  'npx typeorm migration:run -d dist/data-source.js'
+```
+
+### 2. Verify Table Exists
+```bash
+docker compose -f docker-compose.staging.yml exec -T db psql -U grc -d grc -c \
+  "SELECT table_name FROM information_schema.tables WHERE table_name = 'cmdb_service_ci';"
+```
+
+### 3. Run Seed (Optional)
+```bash
+docker compose -f docker-compose.staging.yml exec -T backend sh -lc \
+  'node dist/scripts/seed-service-ci-mapping.js'
+```
+
+### 4. Verify API
+```bash
+# List CIs for a service
+wget -qO- --header="Authorization: Bearer <TOKEN>" \
+  --header="x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3002/grc/cmdb/services/<SERVICE_ID>/cis
+
+# List services for a CI
+wget -qO- --header="Authorization: Bearer <TOKEN>" \
+  --header="x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3002/grc/cmdb/cis/<CI_ID>/services
+```
+
+### 5. Frontend Verification
+1. Log in to the platform
+2. Navigate to CMDB > CIs and open a CI detail
+3. Verify "Related Services" section appears with "Link Service" button
+4. Click "Link Service", select a service and relationship type, click Link
+5. Verify the linked service appears in the table
+6. Navigate to CMDB > Services and open a service detail
+7. Verify "Related CIs" section appears with "Link CI" button
+8. Click "Link CI", select a CI and relationship type, click Link
+9. Verify the linked CI appears in the table
+10. Unlink a relationship and verify it disappears

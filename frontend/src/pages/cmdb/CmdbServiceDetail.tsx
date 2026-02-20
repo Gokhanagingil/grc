@@ -32,16 +32,20 @@ import {
   Save as SaveIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import {
   cmdbApi,
   CmdbServiceData,
   CmdbServiceOfferingData,
+  CmdbServiceCiData,
+  CmdbCiData,
   CreateCmdbServiceDto,
   UpdateCmdbServiceDto,
   CreateCmdbServiceOfferingDto,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { Divider } from '@mui/material';
 import { useItsmChoices } from '../../hooks/useItsmChoices';
 
 const statusColors: Record<string, 'success' | 'warning' | 'error' | 'default' | 'info'> = {
@@ -73,6 +77,12 @@ export const CmdbServiceDetail: React.FC = () => {
   const [newOfferingName, setNewOfferingName] = useState('');
   const [newOfferingStatus, setNewOfferingStatus] = useState('planned');
   const [newOfferingSupportHours, setNewOfferingSupportHours] = useState('');
+
+  const [relatedCis, setRelatedCis] = useState<CmdbServiceCiData[]>([]);
+  const [allCis, setAllCis] = useState<CmdbCiData[]>([]);
+  const [linkCiDialogOpen, setLinkCiDialogOpen] = useState(false);
+  const [selectedCiId, setSelectedCiId] = useState('');
+  const [selectedCiRelType, setSelectedCiRelType] = useState('depends_on');
 
   const { choices: serviceChoices } = useItsmChoices('cmdb_service');
   const { choices: offeringChoices } = useItsmChoices('cmdb_service_offering');
@@ -126,15 +136,85 @@ export const CmdbServiceDetail: React.FC = () => {
     }
   }, [id, isNew]);
 
+  const fetchRelatedCis = useCallback(async () => {
+    if (isNew || !id) return;
+    try {
+      const response = await cmdbApi.serviceCi.cisForService(id, { pageSize: 50 });
+      const data = response.data;
+      let items: CmdbServiceCiData[] = [];
+      if (data && 'data' in data) {
+        const inner = data.data;
+        if (inner && 'items' in inner) {
+          items = Array.isArray(inner.items) ? inner.items : [];
+        }
+      } else if (data && 'items' in data) {
+        items = Array.isArray(data.items) ? data.items : [];
+      }
+      setRelatedCis(items);
+    } catch (err) {
+      console.error('Error fetching related CIs:', err);
+    }
+  }, [id, isNew]);
+
+  const fetchAllCis = useCallback(async () => {
+    try {
+      const response = await cmdbApi.cis.list({ pageSize: 100 });
+      const data = response.data;
+      let items: CmdbCiData[] = [];
+      if (data && 'data' in data) {
+        const inner = data.data;
+        if (inner && 'items' in inner) {
+          items = Array.isArray(inner.items) ? inner.items : [];
+        }
+      } else if (data && 'items' in data) {
+        items = Array.isArray(data.items) ? data.items : [];
+      }
+      setAllCis(items);
+    } catch (err) {
+      console.error('Error fetching CIs:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchService();
-  }, [fetchService]);
+    fetchAllCis();
+  }, [fetchService, fetchAllCis]);
 
   useEffect(() => {
     if (!isNew && id) {
       fetchOfferings();
+      fetchRelatedCis();
     }
-  }, [fetchOfferings, isNew, id]);
+  }, [fetchOfferings, fetchRelatedCis, isNew, id]);
+
+  const handleLinkCi = async () => {
+    if (!id || !selectedCiId) return;
+    try {
+      await cmdbApi.serviceCi.link(id, selectedCiId, {
+        relationshipType: selectedCiRelType,
+      });
+      showNotification('CI linked successfully.', 'success');
+      setLinkCiDialogOpen(false);
+      setSelectedCiId('');
+      setSelectedCiRelType('depends_on');
+      fetchRelatedCis();
+    } catch (err) {
+      console.error('Error linking CI:', err);
+      showNotification('Failed to link CI.', 'error');
+    }
+  };
+
+  const handleUnlinkCi = async (ciId: string, relationshipType: string) => {
+    if (!id) return;
+    try {
+      await cmdbApi.serviceCi.unlink(id, ciId, relationshipType);
+      showNotification('CI unlinked successfully.', 'success');
+      fetchRelatedCis();
+    } catch (err) {
+      console.error('Error unlinking CI:', err);
+      showNotification('Failed to unlink CI.', 'error');
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -472,6 +552,80 @@ export const CmdbServiceDetail: React.FC = () => {
         </Card>
       )}
 
+      {!isNew && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" fontWeight={600}>
+                Related CIs
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<LinkIcon />}
+                onClick={() => setLinkCiDialogOpen(true)}
+                data-testid="btn-link-ci"
+              >
+                Link CI
+              </Button>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small" data-testid="related-cis-table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>CI Name</TableCell>
+                    <TableCell>Relationship</TableCell>
+                    <TableCell>Primary</TableCell>
+                    <TableCell>Lifecycle</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {relatedCis.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          No CIs linked yet
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    relatedCis.map((link) => (
+                      <TableRow key={link.id} hover data-testid={`ci-link-row-${link.id}`}>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{ cursor: 'pointer', color: 'primary.main' }}
+                            onClick={() => navigate(`/cmdb/cis/${link.ciId}`)}
+                          >
+                            {link.ci?.name || link.ciId.substring(0, 8)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={link.relationshipType} size="small" />
+                        </TableCell>
+                        <TableCell>{link.isPrimary ? 'Yes' : 'No'}</TableCell>
+                        <TableCell>{link.ci?.lifecycle || '-'}</TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleUnlinkCi(link.ciId, link.relationshipType)}
+                            data-testid={`btn-unlink-ci-${link.id}`}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
+
       <Dialog open={offeringDialogOpen} onClose={() => setOfferingDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add Service Offering</DialogTitle>
         <DialogContent>
@@ -524,6 +678,61 @@ export const CmdbServiceDetail: React.FC = () => {
             data-testid="btn-save-offering"
           >
             Add
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={linkCiDialogOpen}
+        onClose={() => setLinkCiDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Link CI to Service</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <FormControl fullWidth required>
+              <InputLabel>Configuration Item</InputLabel>
+              <Select
+                value={selectedCiId}
+                onChange={(e) => setSelectedCiId(e.target.value)}
+                label="Configuration Item"
+                data-testid="select-link-ci"
+              >
+                {allCis.map((ci) => (
+                  <MenuItem key={ci.id} value={ci.id}>
+                    {ci.name} ({ci.lifecycle || 'N/A'})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth required>
+              <InputLabel>Relationship Type</InputLabel>
+              <Select
+                value={selectedCiRelType}
+                onChange={(e) => setSelectedCiRelType(e.target.value)}
+                label="Relationship Type"
+                data-testid="select-link-ci-rel-type"
+              >
+                <MenuItem value="depends_on">Depends On</MenuItem>
+                <MenuItem value="hosted_on">Hosted On</MenuItem>
+                <MenuItem value="consumed_by">Consumed By</MenuItem>
+                <MenuItem value="supports">Supports</MenuItem>
+                <MenuItem value="managed_by">Managed By</MenuItem>
+                <MenuItem value="monitored_by">Monitored By</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkCiDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleLinkCi}
+            disabled={!selectedCiId}
+            data-testid="btn-confirm-link-ci"
+          >
+            Link
           </Button>
         </DialogActions>
       </Dialog>
