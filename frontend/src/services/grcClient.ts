@@ -810,6 +810,21 @@ export const API_PATHS = {
     },
   },
 
+  // Change Risk Assessment endpoints
+  ITSM_CHANGE_RISK: {
+    GET: (changeId: string) => `/grc/itsm/changes/${changeId}/risk`,
+    RECALCULATE: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-risk`,
+  },
+
+  // Change Policy endpoints
+  ITSM_CHANGE_POLICIES: {
+    LIST: '/grc/itsm/change-policies',
+    CREATE: '/grc/itsm/change-policies',
+    GET: (id: string) => `/grc/itsm/change-policies/${id}`,
+    UPDATE: (id: string) => `/grc/itsm/change-policies/${id}`,
+    DELETE: (id: string) => `/grc/itsm/change-policies/${id}`,
+  },
+
   // Calendar endpoints
   GRC_CALENDAR: {
     EVENTS: '/grc/calendar/events',
@@ -1782,6 +1797,78 @@ export interface ItsmConflictResult {
   details: Record<string, unknown>;
 }
 
+export interface RiskFactorData {
+  name: string;
+  weight: number;
+  score: number;
+  weightedScore: number;
+  evidence: string;
+}
+
+export interface RiskAssessmentData {
+  id: string;
+  changeId: string;
+  riskScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  computedAt: string;
+  breakdown: RiskFactorData[];
+  impactedCiCount: number;
+  impactedServiceCount: number;
+  hasFreezeConflict: boolean;
+  hasSlaRisk: boolean;
+}
+
+export interface PolicyEvaluationResult {
+  policyId: string;
+  policyName: string;
+  matched: boolean;
+  actionsTriggered: Record<string, unknown>;
+}
+
+export interface PolicyEvaluationSummary {
+  requireCABApproval: boolean;
+  blockDuringFreeze: boolean;
+  minLeadTimeHours: number | null;
+  autoApproveIfRiskBelow: number | null;
+  matchedPolicies: PolicyEvaluationResult[];
+}
+
+export interface RiskRecalculateResponse {
+  assessment: RiskAssessmentData;
+  policyEvaluation: PolicyEvaluationSummary;
+}
+
+export interface ChangePolicyData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  priority: number;
+  conditions: Record<string, unknown>;
+  actions: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChangePolicyDto {
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  priority?: number;
+  conditions?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+}
+
+export interface UpdateChangePolicyDto {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+  priority?: number;
+  conditions?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+}
+
 export interface ItsmChoiceData {
   id: string;
   tenantId: string;
@@ -1935,6 +2022,24 @@ export const itsmApi = {
     unlinkControl: (changeId: string, controlId: string) => api.delete(API_PATHS.ITSM.CHANGES.UNLINK_CONTROL(changeId, controlId)),
     conflicts: (changeId: string) => api.get(API_PATHS.ITSM.CHANGES.CONFLICTS(changeId)),
     refreshConflicts: (changeId: string) => api.post(API_PATHS.ITSM.CHANGES.REFRESH_CONFLICTS(changeId), {}),
+    getRiskAssessment: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.GET(changeId)),
+    recalculateRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE(changeId), {}),
+  },
+
+  changePolicies: {
+    list: (params?: { page?: number; pageSize?: number; isActive?: boolean; q?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.isActive !== undefined) searchParams.set('isActive', String(params.isActive));
+      if (params?.q) searchParams.set('q', params.q);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM_CHANGE_POLICIES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM_CHANGE_POLICIES.GET(id)),
+    create: (data: CreateChangePolicyDto) => api.post(API_PATHS.ITSM_CHANGE_POLICIES.CREATE, data),
+    update: (id: string, data: UpdateChangePolicyDto) => api.put(API_PATHS.ITSM_CHANGE_POLICIES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM_CHANGE_POLICIES.DELETE(id)),
   },
 
   // ITSM Change Calendar

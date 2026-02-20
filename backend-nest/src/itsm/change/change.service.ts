@@ -17,6 +17,7 @@ import { AuditService } from '../../audit/audit.service';
 import { ChoiceService } from '../choice/choice.service';
 import { CalendarEventService } from './calendar/calendar-event.service';
 import { ConflictDetectionService } from './calendar/conflict-detection.service';
+import { RiskScoringService } from './risk/risk-scoring.service';
 
 @Injectable()
 export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
@@ -36,6 +37,8 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     @Optional() private readonly calendarEventService?: CalendarEventService,
     @Optional()
     private readonly conflictDetectionService?: ConflictDetectionService,
+    @Optional()
+    private readonly riskScoringService?: RiskScoringService,
   ) {
     super(repository);
   }
@@ -159,6 +162,10 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
       );
     }
 
+    if (this.riskScoringService) {
+      await this.riskScoringService.calculateRisk(tenantId, userId, change);
+    }
+
     return change;
   }
 
@@ -243,6 +250,16 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
             change.id,
           );
         }
+      }
+
+      const shouldRecalcRisk =
+        data.plannedStartAt !== undefined ||
+        data.plannedEndAt !== undefined ||
+        data.serviceId !== undefined ||
+        data.offeringId !== undefined ||
+        data.type !== undefined;
+      if (shouldRecalcRisk && this.riskScoringService) {
+        await this.riskScoringService.calculateRisk(tenantId, userId, change);
       }
     }
 
