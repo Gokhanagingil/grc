@@ -22,16 +22,21 @@ import { Permissions } from '../../../auth/permissions/permissions.decorator';
 import { Permission } from '../../../auth/permissions/permission.enum';
 import { Perf } from '../../../common/decorators';
 import { ImportSourceService } from './import-source.service';
+import { ImportJobService } from './import-job.service';
 import {
   CreateImportSourceDto,
   UpdateImportSourceDto,
   ImportSourceFilterDto,
 } from './dto/import-source.dto';
+import { ImportJobFilterDto } from './dto/import-job.dto';
 
 @Controller('grc/cmdb/import-sources')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class ImportSourceController {
-  constructor(private readonly importSourceService: ImportSourceService) {}
+  constructor(
+    private readonly importSourceService: ImportSourceService,
+    private readonly importJobService: ImportJobService,
+  ) {}
 
   @Get()
   @Permissions(Permission.CMDB_IMPORT_READ)
@@ -134,5 +139,62 @@ export class ImportSourceController {
     if (!entity) {
       throw new NotFoundException(`Import source with ID ${id} not found`);
     }
+  }
+
+  @Get(':id/runs')
+  @Permissions(Permission.CMDB_IMPORT_READ)
+  @Perf()
+  async findRuns(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') sourceId: string,
+    @Query() filterDto: ImportJobFilterDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const source = await this.importSourceService.findOneForTenant(
+      tenantId,
+      sourceId,
+    );
+    if (!source || source.isDeleted) {
+      throw new NotFoundException(
+        `Import source with ID ${sourceId} not found`,
+      );
+    }
+    return this.importJobService.findRunsForSource(
+      tenantId,
+      sourceId,
+      filterDto,
+    );
+  }
+
+  @Post(':id/run-now')
+  @Permissions(Permission.CMDB_IMPORT_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async runNow(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') sourceId: string,
+    @Body() body: { dryRun?: boolean },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const source = await this.importSourceService.findOneForTenant(
+      tenantId,
+      sourceId,
+    );
+    if (!source || source.isDeleted) {
+      throw new NotFoundException(
+        `Import source with ID ${sourceId} not found`,
+      );
+    }
+    return this.importJobService.createRunNowJob(
+      tenantId,
+      req.user.id,
+      source,
+      body.dryRun !== false,
+    );
   }
 }

@@ -9,6 +9,7 @@ import {
   CmdbReconcileResult,
   ReconcileAction,
 } from './cmdb-reconcile-result.entity';
+import { CmdbImportSource } from './cmdb-import-source.entity';
 import { CmdbCi } from '../ci/ci.entity';
 import { CiService } from '../ci/ci.service';
 import { ReconcileRuleService } from './reconcile-rule.service';
@@ -350,6 +351,50 @@ export class ImportJobService extends MultiTenantServiceBase<CmdbImportJob> {
     });
 
     return this.findOneWithDetails(tenantId, jobId) as Promise<CmdbImportJob>;
+  }
+
+  async findRunsForSource(
+    tenantId: string,
+    sourceId: string,
+    filterDto: ImportJobFilterDto,
+  ): Promise<PaginatedResponse<CmdbImportJob>> {
+    const { page = 1, pageSize = 20, status } = filterDto;
+
+    const qb = this.repository.createQueryBuilder('job');
+    qb.where('job.tenantId = :tenantId', { tenantId });
+    qb.andWhere('job.sourceId = :sourceId', { sourceId });
+    qb.andWhere('job.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (status) {
+      qb.andWhere('job.status = :status', { status });
+    }
+
+    const total = await qb.getCount();
+    qb.orderBy('job.createdAt', 'DESC');
+    qb.skip((page - 1) * pageSize);
+    qb.take(pageSize);
+
+    const items = await qb.getMany();
+    return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  async createRunNowJob(
+    tenantId: string,
+    userId: string,
+    source: CmdbImportSource,
+    dryRun: boolean,
+  ): Promise<CmdbImportJob> {
+    const job = this.repository.create({
+      tenantId,
+      sourceId: source.id,
+      status: ImportJobStatus.PENDING,
+      dryRun,
+      totalRows: 0,
+      createdBy: userId,
+      isDeleted: false,
+    });
+
+    return this.repository.save(job);
   }
 
   async getJobReport(
