@@ -167,13 +167,14 @@ describe('CMDB Access Control (e2e)', () => {
         })
         .expect(201);
 
-      expect(response.body).toHaveProperty('id');
-      expect(response.body.name).toBe(uniqueName);
+      const created = response.body.data ?? response.body;
+      expect(created).toHaveProperty('id');
+      expect(created.name).toBe(uniqueName);
 
       // Clean up: soft-delete the created class
-      if (response.body.id) {
+      if (created.id) {
         await request(app.getHttpServer())
-          .delete(`/grc/cmdb/classes/${response.body.id}`)
+          .delete(`/grc/cmdb/classes/${created.id}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('x-tenant-id', tenantId)
           .expect(204);
@@ -195,7 +196,8 @@ describe('CMDB Access Control (e2e)', () => {
         .send({ name: uniqueName, label: 'Before Update' })
         .expect(201);
 
-      const classId = createRes.body.id;
+      const created = createRes.body.data ?? createRes.body;
+      const classId = created.id;
 
       const updateRes = await request(app.getHttpServer())
         .patch(`/grc/cmdb/classes/${classId}`)
@@ -204,7 +206,8 @@ describe('CMDB Access Control (e2e)', () => {
         .send({ label: 'After Update' })
         .expect(200);
 
-      expect(updateRes.body.label).toBe('After Update');
+      const updated = updateRes.body.data ?? updateRes.body;
+      expect(updated.label).toBe('After Update');
 
       // Clean up
       await request(app.getHttpServer())
@@ -229,15 +232,17 @@ describe('CMDB Access Control (e2e)', () => {
         .send({ name: uniqueName, label: 'To Delete' })
         .expect(201);
 
+      const created = createRes.body.data ?? createRes.body;
+
       await request(app.getHttpServer())
-        .delete(`/grc/cmdb/classes/${createRes.body.id}`)
+        .delete(`/grc/cmdb/classes/${created.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .expect(204);
 
       // Verify it's gone (soft-deleted)
       await request(app.getHttpServer())
-        .get(`/grc/cmdb/classes/${createRes.body.id}`)
+        .get(`/grc/cmdb/classes/${created.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .expect(404);
