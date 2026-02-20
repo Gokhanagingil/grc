@@ -58,7 +58,7 @@ import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
 import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics } from './pages/itsm';
-import { CmdbCiList, CmdbCiDetail, CmdbCiClassList } from './pages/cmdb';
+import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbServiceList, CmdbServiceDetail } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -310,6 +310,11 @@ function App() {
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />
+                  
+                  {/* CMDB Service Portfolio Routes */}
+                  <Route path="cmdb/services" element={<CmdbServiceList />} />
+                  <Route path="cmdb/services/new" element={<CmdbServiceDetail />} />
+                  <Route path="cmdb/services/:id" element={<CmdbServiceDetail />} />
                   
                   {/* Copilot (AI Decision & Action Layer) */}
                   <Route path="copilot" element={

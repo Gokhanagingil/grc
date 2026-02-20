@@ -138,6 +138,12 @@ export enum Permission {
   CMDB_CLASS_WRITE = 'cmdb:class:write',
   CMDB_REL_READ = 'cmdb:rel:read',
   CMDB_REL_WRITE = 'cmdb:rel:write',
+
+  // CMDB Service Portfolio permissions
+  CMDB_SERVICE_READ = 'cmdb:service:read',
+  CMDB_SERVICE_WRITE = 'cmdb:service:write',
+  CMDB_SERVICE_OFFERING_READ = 'cmdb:service_offering:read',
+  CMDB_SERVICE_OFFERING_WRITE = 'cmdb:service_offering:write',
 }
 
 /**
@@ -192,8 +198,10 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_CHOICE_READ]: 'View choice definitions for ITSM tables',
   [Permission.ITSM_CHOICE_WRITE]:
     'Create, update, and deactivate choice definitions',
-  [Permission.ITSM_JOURNAL_READ]: 'View journal entries (work notes and comments)',
-  [Permission.ITSM_JOURNAL_WRITE]: 'Create journal entries (work notes and comments)',
+  [Permission.ITSM_JOURNAL_READ]:
+    'View journal entries (work notes and comments)',
+  [Permission.ITSM_JOURNAL_WRITE]:
+    'Create journal entries (work notes and comments)',
   [Permission.ITSM_STATISTICS_READ]:
     'View ITSM statistics and analytics dashboards',
   [Permission.ADMIN_USERS_READ]: 'View users and user details',
@@ -215,21 +223,32 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.PLATFORM_DICTIONARY_WRITE]:
     'Create, update, and delete field, relationship, and index definitions',
   [Permission.NOTIFICATION_RULE_READ]: 'View notification rules',
-  [Permission.NOTIFICATION_RULE_WRITE]: 'Create, update, and delete notification rules',
+  [Permission.NOTIFICATION_RULE_WRITE]:
+    'Create, update, and delete notification rules',
   [Permission.NOTIFICATION_TEMPLATE_READ]: 'View notification templates',
-  [Permission.NOTIFICATION_TEMPLATE_WRITE]: 'Create, update, and delete notification templates',
+  [Permission.NOTIFICATION_TEMPLATE_WRITE]:
+    'Create, update, and delete notification templates',
   [Permission.NOTIFICATION_DELIVERY_READ]: 'View notification delivery logs',
-  [Permission.NOTIFICATION_DELIVERY_RETRY]: 'Retry failed notification deliveries',
+  [Permission.NOTIFICATION_DELIVERY_RETRY]:
+    'Retry failed notification deliveries',
   [Permission.WEBHOOK_ENDPOINT_READ]: 'View webhook endpoints',
-  [Permission.WEBHOOK_ENDPOINT_WRITE]: 'Create, update, and delete webhook endpoints',
+  [Permission.WEBHOOK_ENDPOINT_WRITE]:
+    'Create, update, and delete webhook endpoints',
   [Permission.API_CATALOG_READ]: 'View published APIs',
   [Permission.API_CATALOG_WRITE]: 'Create, update, and delete published APIs',
   [Permission.API_KEY_READ]: 'View API keys',
   [Permission.API_KEY_WRITE]: 'Create, rotate, and revoke API keys',
   [Permission.CMDB_CI_READ]: 'View CMDB configuration items',
-  [Permission.CMDB_CI_WRITE]: 'Create, update, and delete CMDB configuration items',
+  [Permission.CMDB_CI_WRITE]:
+    'Create, update, and delete CMDB configuration items',
   [Permission.CMDB_CLASS_READ]: 'View CMDB CI classes',
   [Permission.CMDB_CLASS_WRITE]: 'Create, update, and delete CMDB CI classes',
   [Permission.CMDB_REL_READ]: 'View CMDB CI relationships',
-  [Permission.CMDB_REL_WRITE]: 'Create, update, and delete CMDB CI relationships',
+  [Permission.CMDB_REL_WRITE]:
+    'Create, update, and delete CMDB CI relationships',
+  [Permission.CMDB_SERVICE_READ]: 'View CMDB services',
+  [Permission.CMDB_SERVICE_WRITE]: 'Create, update, and delete CMDB services',
+  [Permission.CMDB_SERVICE_OFFERING_READ]: 'View CMDB service offerings',
+  [Permission.CMDB_SERVICE_OFFERING_WRITE]:
+    'Create, update, and delete CMDB service offerings',
 };

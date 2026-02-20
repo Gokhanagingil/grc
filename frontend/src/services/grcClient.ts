@@ -350,6 +350,20 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/cmdb/relationships/${id}`,
       DELETE: (id: string) => `/grc/cmdb/relationships/${id}`,
     },
+    SERVICES: {
+      LIST: '/grc/cmdb/services',
+      GET: (id: string) => `/grc/cmdb/services/${id}`,
+      CREATE: '/grc/cmdb/services',
+      UPDATE: (id: string) => `/grc/cmdb/services/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/services/${id}`,
+    },
+    SERVICE_OFFERINGS: {
+      LIST: '/grc/cmdb/service-offerings',
+      GET: (id: string) => `/grc/cmdb/service-offerings/${id}`,
+      CREATE: '/grc/cmdb/service-offerings',
+      UPDATE: (id: string) => `/grc/cmdb/service-offerings/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/service-offerings/${id}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -1908,6 +1922,78 @@ export interface CreateCmdbCiRelDto {
   metadata?: Record<string, unknown>;
 }
 
+export interface CmdbServiceData {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  type: string;
+  status: string;
+  tier: string | null;
+  criticality: string | null;
+  ownerUserId: string | null;
+  ownerEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+  offerings?: CmdbServiceOfferingData[];
+}
+
+export interface CreateCmdbServiceDto {
+  name: string;
+  description?: string;
+  type: string;
+  status?: string;
+  tier?: string;
+  criticality?: string;
+  ownerUserId?: string;
+  ownerEmail?: string;
+}
+
+export interface UpdateCmdbServiceDto {
+  name?: string;
+  description?: string;
+  type?: string;
+  status?: string;
+  tier?: string;
+  criticality?: string;
+  ownerUserId?: string;
+  ownerEmail?: string;
+}
+
+export interface CmdbServiceOfferingData {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  name: string;
+  status: string;
+  supportHours: string | null;
+  defaultSlaProfileId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  isDeleted: boolean;
+  service?: CmdbServiceData;
+}
+
+export interface CreateCmdbServiceOfferingDto {
+  serviceId: string;
+  name: string;
+  status?: string;
+  supportHours?: string;
+  defaultSlaProfileId?: string;
+}
+
+export interface UpdateCmdbServiceOfferingDto {
+  name?: string;
+  status?: string;
+  supportHours?: string;
+  defaultSlaProfileId?: string;
+}
+
 export interface CmdbListParams {
   page?: number;
   pageSize?: number;
@@ -1967,6 +2053,40 @@ export const cmdbApi = {
     get: (id: string) => api.get(API_PATHS.CMDB.RELATIONSHIPS.GET(id)),
     create: (data: CreateCmdbCiRelDto) => api.post(API_PATHS.CMDB.RELATIONSHIPS.CREATE, data),
     delete: (id: string) => api.delete(API_PATHS.CMDB.RELATIONSHIPS.DELETE(id)),
+  },
+  services: {
+    list: (params?: CmdbListParams & { type?: string; status?: string; tier?: string; criticality?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.type) searchParams.set('type', params.type);
+      if (params?.status) searchParams.set('status', params.status);
+      if (params?.tier) searchParams.set('tier', params.tier);
+      if (params?.criticality) searchParams.set('criticality', params.criticality);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.SERVICES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.SERVICES.GET(id)),
+    create: (data: CreateCmdbServiceDto) => api.post(API_PATHS.CMDB.SERVICES.CREATE, data),
+    update: (id: string, data: UpdateCmdbServiceDto) => api.patch(API_PATHS.CMDB.SERVICES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.SERVICES.DELETE(id)),
+  },
+  serviceOfferings: {
+    list: (params?: CmdbListParams & { serviceId?: string; status?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.serviceId) searchParams.set('serviceId', params.serviceId);
+      if (params?.status) searchParams.set('status', params.status);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.SERVICE_OFFERINGS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.SERVICE_OFFERINGS.GET(id)),
+    create: (data: CreateCmdbServiceOfferingDto) => api.post(API_PATHS.CMDB.SERVICE_OFFERINGS.CREATE, data),
+    update: (id: string, data: UpdateCmdbServiceOfferingDto) => api.patch(API_PATHS.CMDB.SERVICE_OFFERINGS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.SERVICE_OFFERINGS.DELETE(id)),
   },
 };
 
