@@ -263,7 +263,7 @@ export const ItsmProblemDetail: React.FC = () => {
     if (!query || query.length < 2) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
-      const response = await itsmApi.incidents.list({ search: query, pageSize: 10 });
+      const response = await itsmApi.incidents.list({ q: query, pageSize: 10 });
       const data = response.data;
       const envelope = data as Record<string, unknown>;
       const inner = envelope?.data;
@@ -281,7 +281,7 @@ export const ItsmProblemDetail: React.FC = () => {
     if (!query || query.length < 2) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
-      const response = await itsmApi.changes.list({ search: query, pageSize: 10 });
+      const response = await itsmApi.changes.list({ q: query, pageSize: 10 });
       const data = response.data;
       const envelope = data as Record<string, unknown>;
       const inner = envelope?.data;
@@ -675,7 +675,7 @@ export const ItsmProblemDetail: React.FC = () => {
                         sx={{ mt: 1, ml: 1 }}
                       />
                     )}
-                    {(problemData as unknown as { reopenCount?: number }).reopenCount > 0 && (
+                    {((problemData as unknown as { reopenCount?: number }).reopenCount ?? 0) > 0 && (
                       <Tooltip title={`Reopened ${(problemData as unknown as { reopenCount: number }).reopenCount} time(s)`}>
                         <Chip
                           label={`Reopened ×${(problemData as unknown as { reopenCount: number }).reopenCount}`}
