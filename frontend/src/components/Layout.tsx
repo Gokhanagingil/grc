@@ -354,6 +354,19 @@ const itsmMenuGroups: NavMenuGroup[] = [
     ],
   },
   {
+    id: 'itsm-major-incidents',
+    text: 'Major Incidents',
+    icon: <IncidentIcon />,
+    items: [
+      {
+        text: 'Major Incidents',
+        icon: <IncidentIcon />,
+        path: '/itsm/major-incidents',
+        testId: 'nav-itsm-major-incidents',
+      },
+    ],
+  },
+  {
     id: 'itsm-problems',
     text: 'Problem Management',
     icon: <FindingsIcon />,

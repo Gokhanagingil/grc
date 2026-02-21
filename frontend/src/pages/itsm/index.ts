@@ -14,6 +14,10 @@ export { ItsmProblemDetail } from './ItsmProblemDetail';
 export { ItsmKnownErrorList } from './ItsmKnownErrorList';
 export { ItsmKnownErrorDetail } from './ItsmKnownErrorDetail';
 
+// ITSM Major Incident Coordination
+export { ItsmMajorIncidentList } from './ItsmMajorIncidentList';
+export { ItsmMajorIncidentDetail } from './ItsmMajorIncidentDetail';
+
 // ITSM Studio (Admin configuration screens)
 export { ItsmStudioTables } from './studio/ItsmStudioTables';
 export { ItsmStudioBusinessRules } from './studio/ItsmStudioBusinessRules';

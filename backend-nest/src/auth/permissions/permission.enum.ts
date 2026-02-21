@@ -178,6 +178,12 @@ export enum Permission {
   ITSM_KNOWN_ERROR_CREATE = 'itsm:known_error:create',
   ITSM_KNOWN_ERROR_UPDATE = 'itsm:known_error:update',
 
+  // ITSM Major Incident permissions
+  ITSM_MAJOR_INCIDENT_READ = 'itsm:major_incident:read',
+  ITSM_MAJOR_INCIDENT_CREATE = 'itsm:major_incident:create',
+  ITSM_MAJOR_INCIDENT_UPDATE = 'itsm:major_incident:update',
+  ITSM_MAJOR_INCIDENT_LINK = 'itsm:major_incident:link',
+
   // Customer Risk Catalog permissions
   GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
   GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
@@ -331,4 +337,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_KNOWN_ERROR_READ]: 'View known errors and known error details',
   [Permission.ITSM_KNOWN_ERROR_CREATE]: 'Create new known errors',
   [Permission.ITSM_KNOWN_ERROR_UPDATE]: 'Update and delete known errors',
+  [Permission.ITSM_MAJOR_INCIDENT_READ]: 'View major incidents and major incident details',
+  [Permission.ITSM_MAJOR_INCIDENT_CREATE]: 'Declare and delete major incidents',
+  [Permission.ITSM_MAJOR_INCIDENT_UPDATE]: 'Update major incidents and post timeline updates',
+  [Permission.ITSM_MAJOR_INCIDENT_LINK]: 'Link and unlink records to major incidents',
 };

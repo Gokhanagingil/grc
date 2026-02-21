@@ -98,6 +98,12 @@ import { ItsmKnownError } from './known-error/known-error.entity';
 import { KnownErrorService } from './known-error/known-error.service';
 import { KnownErrorController } from './known-error/known-error.controller';
 
+import { ItsmMajorIncident } from './major-incident/major-incident.entity';
+import { ItsmMajorIncidentUpdate } from './major-incident/major-incident-update.entity';
+import { ItsmMajorIncidentLink } from './major-incident/major-incident-link.entity';
+import { MajorIncidentService } from './major-incident/major-incident.service';
+import { MajorIncidentController } from './major-incident/major-incident.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -132,6 +138,9 @@ import { KnownErrorController } from './known-error/known-error.controller';
       ItsmProblemIncident,
       ItsmProblemChange,
       ItsmKnownError,
+      ItsmMajorIncident,
+      ItsmMajorIncidentUpdate,
+      ItsmMajorIncidentLink,
     ]),
     AuditModule,
     AuthModule,
@@ -166,6 +175,7 @@ import { KnownErrorController } from './known-error/known-error.controller';
     ApprovalService,
     ProblemService,
     KnownErrorService,
+    MajorIncidentService,
   ],
   controllers: [
     IncidentController,
@@ -186,6 +196,7 @@ import { KnownErrorController } from './known-error/known-error.controller';
     ApprovalController,
     ProblemController,
     KnownErrorController,
+    MajorIncidentController,
   ],
   exports: [
     IncidentService,
@@ -214,6 +225,7 @@ import { KnownErrorController } from './known-error/known-error.controller';
     ApprovalService,
     ProblemService,
     KnownErrorService,
+    MajorIncidentService,
   ],
 })
 export class ItsmModule {}
