@@ -140,6 +140,26 @@ The following workflows run platform health tests (all enforce `E2E_MODE=REAL_ST
 Mock-only UI tests run separately via `e2e-mock-ui.yml` (`E2E_MODE=MOCK_UI`).
 See [E2E-MODES.md](./E2E-MODES.md) for details.
 
+### Customer Risk Intelligence Smoke
+
+A dedicated smoke suite (`smoke-customer-risk` project) validates the ITSM Customer Risk
+Intelligence endpoints introduced in the Customer Risk Intelligence feature:
+
+```bash
+npx playwright test --project=smoke-customer-risk
+```
+
+This suite tests:
+- ITSM changes list endpoint
+- Change policies endpoint
+- Customer risk impact endpoint (response shape validation)
+- Recalculate customer risk (policy evaluation response)
+- Risk assessment with policy evaluation
+- Mitigation actions CRUD (create + delete round-trip)
+- Permission boundaries (401/404 not 500)
+
+See [CUSTOMER-RISK-INTELLIGENCE.md](./CUSTOMER-RISK-INTELLIGENCE.md) for the full runbook.
+
 ---
 
 ## Health Badge Status Logic

@@ -29,6 +29,14 @@ export default defineConfig({
       },
     },
     {
+      name: "smoke-customer-risk",
+      testDir: "./tests/platform-health",
+      testMatch: "customer-risk-smoke.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
+    },
+    {
       name: "real-stack",
       testDir: "./tests/e2e-real",
       testMatch: "**/*.spec.ts",

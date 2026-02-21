@@ -114,6 +114,28 @@ export const TIER2_TABLES: TableDef[] = [
     readOnly: true,
     requiresRole: ["admin"],
   },
+  {
+    name: "itsm_changes",
+    listEndpoint: "/grc/itsm/changes",
+    listDataKey: "items",
+    displayField: "title",
+    filters: [{ param: "status", value: "draft" }],
+    tier: 2,
+    readOnly: true,
+    canCreate: false,
+    skipCreateReason: "Changes are created via ITSM workflow, not direct POST",
+  },
+  {
+    name: "itsm_change_policies",
+    listEndpoint: "/grc/itsm/change-policies",
+    listDataKey: "items",
+    displayField: "name",
+    filters: [],
+    tier: 2,
+    readOnly: true,
+    canCreate: false,
+    skipCreateReason: "Change policies are managed via admin UI, not smoke-tested for create",
+  },
 ];
 
 export const DENYLIST = ["dashboard", "auth"];
