@@ -86,6 +86,10 @@ import {
   ItsmChange,
   ItsmChangeRisk,
   ItsmChangeControl,
+  // Customer Risk Catalog entities (ITSM↔GRC Bridge)
+  CustomerRiskCatalog,
+  CustomerRiskBinding,
+  CustomerRiskObservation,
 } from './entities';
 
 // Services
@@ -218,6 +222,12 @@ import { BcmController } from './controllers/bcm.controller';
 // Calendar controllers
 import { CalendarController } from './controllers/calendar.controller';
 
+// Customer Risk Catalog controller (ITSM↔GRC Bridge)
+import { CustomerRiskCatalogController } from './controllers/customer-risk-catalog.controller';
+
+// Customer Risk Catalog service (ITSM↔GRC Bridge)
+import { CustomerRiskCatalogService } from './services/customer-risk-catalog.service';
+
 // NOTE: ITSM controllers (ItsmServiceController, ItsmChangeController) removed from GrcModule
 // to eliminate duplicate route registration. Canonical ITSM controllers live in ItsmModule.
 // See: PR #363 (removed ItsmIncidentController), this PR (removed remaining duplicates).
@@ -323,6 +333,10 @@ import { CalendarController } from './controllers/calendar.controller';
       ItsmChange,
       ItsmChangeRisk,
       ItsmChangeControl,
+      // Customer Risk Catalog entities (ITSM↔GRC Bridge)
+      CustomerRiskCatalog,
+      CustomerRiskBinding,
+      CustomerRiskObservation,
     ]),
     AuditModule,
     AuthModule,
@@ -386,6 +400,8 @@ import { CalendarController } from './controllers/calendar.controller';
     // ITSM (IT Service Management) services - ITIL v5 aligned
     ItsmServiceService,
     ItsmChangeService,
+    // Customer Risk Catalog service (ITSM↔GRC Bridge)
+    CustomerRiskCatalogService,
   ],
   controllers: [
     // Core controllers
@@ -444,6 +460,8 @@ import { CalendarController } from './controllers/calendar.controller';
     BcmController,
     // Calendar controllers
     CalendarController,
+    // Customer Risk Catalog controller (ITSM↔GRC Bridge)
+    CustomerRiskCatalogController,
     // NOTE: ITSM controllers moved to ItsmModule (no duplicate route registration)
   ],
   exports: [
@@ -500,6 +518,8 @@ import { CalendarController } from './controllers/calendar.controller';
     // ITSM (IT Service Management) services - ITIL v5 aligned
     ItsmServiceService,
     ItsmChangeService,
+    // Customer Risk Catalog service (ITSM↔GRC Bridge)
+    CustomerRiskCatalogService,
   ],
 })
 export class GrcModule {}

@@ -113,6 +113,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // ITSM Journal permissions
     Permission.ITSM_JOURNAL_READ,
     Permission.ITSM_JOURNAL_WRITE,
+    // Customer Risk Catalog permissions
+    Permission.GRC_CUSTOMER_RISK_READ,
+    Permission.GRC_CUSTOMER_RISK_WRITE,
+    Permission.GRC_CUSTOMER_RISK_BIND_READ,
+    Permission.GRC_CUSTOMER_RISK_BIND_WRITE,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE,
   ],
 
   /**
@@ -181,6 +188,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // ITSM Journal permissions
     Permission.ITSM_JOURNAL_READ,
     Permission.ITSM_JOURNAL_WRITE,
+    // Customer Risk Catalog permissions
+    Permission.GRC_CUSTOMER_RISK_READ,
+    Permission.GRC_CUSTOMER_RISK_WRITE,
+    Permission.GRC_CUSTOMER_RISK_BIND_READ,
+    Permission.GRC_CUSTOMER_RISK_BIND_WRITE,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE,
   ],
 
   /**
@@ -221,6 +235,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_FREEZE_READ,
     // ITSM Journal read-only
     Permission.ITSM_JOURNAL_READ,
+    // Customer Risk Catalog read-only
+    Permission.GRC_CUSTOMER_RISK_READ,
+    Permission.GRC_CUSTOMER_RISK_BIND_READ,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
   ],
 };
 

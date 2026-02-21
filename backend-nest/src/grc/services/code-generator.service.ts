@@ -24,6 +24,8 @@ export enum CodePrefix {
   ITSM_INCIDENT = 'INC',
   ITSM_CHANGE = 'CHG',
   ITSM_SERVICE = 'SVC',
+  // Customer Risk Catalog
+  CUSTOMER_RISK = 'CRK',
 }
 
 /**

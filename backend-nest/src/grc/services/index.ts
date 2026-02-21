@@ -77,3 +77,6 @@ export { CalendarService } from './calendar.service';
 export { ItsmServiceService } from './itsm-service.service';
 export { ItsmIncidentService } from './itsm-incident.service';
 export { ItsmChangeService } from './itsm-change.service';
+
+// Customer Risk Catalog Services (ITSM↔GRC Bridge)
+export { CustomerRiskCatalogService } from './customer-risk-catalog.service';

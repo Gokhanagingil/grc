@@ -153,6 +153,27 @@ export {
 } from './treatment-action.dto';
 
 // ITSM (IT Service Management) DTOs - ITIL v5 aligned
+// Customer Risk Catalog DTOs (ITSM↔GRC Bridge)
+export {
+  CreateCustomerRiskCatalogDto,
+  UpdateCustomerRiskCatalogDto,
+  CustomerRiskCatalogFilterDto,
+  CUSTOMER_RISK_CATALOG_SORTABLE_FIELDS,
+  CreateCustomerRiskBindingDto,
+  CustomerRiskBindingFilterDto,
+  CustomerRiskObservationFilterDto,
+  CUSTOMER_RISK_CATEGORIES,
+  CUSTOMER_RISK_SIGNAL_TYPES,
+  CUSTOMER_RISK_SEVERITIES,
+  CUSTOMER_RISK_SCORE_MODELS,
+  CUSTOMER_RISK_STATUSES,
+  CUSTOMER_RISK_SOURCES,
+  CUSTOMER_RISK_BINDING_TARGET_TYPES,
+  CUSTOMER_RISK_BINDING_SCOPE_MODES,
+  CUSTOMER_RISK_OBSERVATION_STATUSES,
+  CUSTOMER_RISK_OBSERVATION_EVIDENCE_TYPES,
+} from './customer-risk-catalog.dto';
+
 export {
   CreateItsmServiceDto,
   UpdateItsmServiceDto,
