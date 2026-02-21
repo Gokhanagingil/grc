@@ -13,19 +13,31 @@ import {
   Typography,
   Alert,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
+  Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
+  CheckCircle as CheckCircleIcon,
+  Publish as PublishIcon,
+  Archive as ArchiveIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { itsmApi, ItsmKnownErrorData, CreateItsmKnownErrorDto, UpdateItsmKnownErrorDto } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const STATE_OPTIONS = [
   { value: 'DRAFT', label: 'Draft' },
+  { value: 'VALIDATED', label: 'Validated' },
   { value: 'PUBLISHED', label: 'Published' },
   { value: 'RETIRED', label: 'Retired' },
 ];
@@ -59,6 +71,17 @@ export const ItsmKnownErrorDetail: React.FC = () => {
   const [state, setState] = useState('DRAFT');
   const [problemId, setProblemId] = useState(prefillProblemId);
 
+  // Phase 2: Knowledge candidate
+  const [knowledgeCandidate, setKnowledgeCandidate] = useState(false);
+
+  // Phase 2: Reopen dialog
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopening, setReopening] = useState(false);
+
+  // Phase 2: Lifecycle transition loading
+  const [transitioning, setTransitioning] = useState(false);
+
   const [knownErrorData, setKnownErrorData] = useState<ItsmKnownErrorData | null>(null);
 
   const fetchKnownError = useCallback(async () => {
@@ -78,6 +101,7 @@ export const ItsmKnownErrorDetail: React.FC = () => {
       setArticleRef(ke.articleRef || '');
       setState(ke.state || 'DRAFT');
       setProblemId(ke.problemId || '');
+      setKnowledgeCandidate((ke as unknown as { knowledgeCandidate?: boolean }).knowledgeCandidate || false);
     } catch (err) {
       console.error('Error fetching known error:', err);
       setError('Failed to load known error details.');
@@ -123,6 +147,7 @@ export const ItsmKnownErrorDetail: React.FC = () => {
           articleRef: articleRef || undefined,
           state,
           problemId: problemId || undefined,
+          knowledgeCandidate,
         };
         await itsmApi.knownErrors.update(id, dto);
         showNotification('Known Error updated successfully', 'success');
@@ -135,6 +160,66 @@ export const ItsmKnownErrorDetail: React.FC = () => {
       setSaving(false);
     }
   };
+
+  // Phase 2: Lifecycle transitions
+  const handleValidate = async () => {
+    if (!id) return;
+    setTransitioning(true);
+    try {
+      await itsmApi.knownErrors.validate(id);
+      showNotification('Known Error validated', 'success');
+      fetchKnownError();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to validate';
+      showNotification(errMsg, 'error');
+    } finally { setTransitioning(false); }
+  };
+
+  const handlePublish = async () => {
+    if (!id) return;
+    setTransitioning(true);
+    try {
+      await itsmApi.knownErrors.publish(id);
+      showNotification('Known Error published', 'success');
+      fetchKnownError();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to publish';
+      showNotification(errMsg, 'error');
+    } finally { setTransitioning(false); }
+  };
+
+  const handleRetire = async () => {
+    if (!id) return;
+    setTransitioning(true);
+    try {
+      await itsmApi.knownErrors.retire(id);
+      showNotification('Known Error retired', 'success');
+      fetchKnownError();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to retire';
+      showNotification(errMsg, 'error');
+    } finally { setTransitioning(false); }
+  };
+
+  const handleReopen = async () => {
+    if (!id || !reopenReason.trim()) return;
+    setReopening(true);
+    try {
+      await itsmApi.knownErrors.reopen(id, reopenReason.trim());
+      showNotification('Known Error reopened', 'success');
+      setReopenDialogOpen(false);
+      setReopenReason('');
+      fetchKnownError();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to reopen';
+      showNotification(errMsg, 'error');
+    } finally { setReopening(false); }
+  };
+
+  const canValidate = knownErrorData?.state === 'DRAFT';
+  const canPublish = knownErrorData?.state === 'VALIDATED';
+  const canRetire = knownErrorData?.state === 'PUBLISHED';
+  const canReopen = knownErrorData?.state === 'RETIRED';
 
   if (loading) {
     return (
@@ -175,15 +260,71 @@ export const ItsmKnownErrorDetail: React.FC = () => {
             />
           )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
-          data-testid="save-known-error-btn"
-        >
-          {saving ? 'Saving...' : isNew ? 'Create' : 'Save'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {!isNew && canValidate && (
+            <Tooltip title="Validate this Known Error (DRAFT → VALIDATED)">
+              <Button
+                variant="outlined"
+                color="info"
+                startIcon={<CheckCircleIcon />}
+                onClick={handleValidate}
+                disabled={transitioning}
+                data-testid="validate-ke-btn"
+              >
+                Validate
+              </Button>
+            </Tooltip>
+          )}
+          {!isNew && canPublish && (
+            <Tooltip title="Publish this Known Error (VALIDATED → PUBLISHED)">
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<PublishIcon />}
+                onClick={handlePublish}
+                disabled={transitioning}
+                data-testid="publish-ke-btn"
+              >
+                Publish
+              </Button>
+            </Tooltip>
+          )}
+          {!isNew && canRetire && (
+            <Tooltip title="Retire this Known Error (PUBLISHED → RETIRED)">
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<ArchiveIcon />}
+                onClick={handleRetire}
+                disabled={transitioning}
+                data-testid="retire-ke-btn"
+              >
+                Retire
+              </Button>
+            </Tooltip>
+          )}
+          {!isNew && canReopen && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<RefreshIcon />}
+              onClick={() => setReopenDialogOpen(true)}
+              disabled={transitioning}
+              data-testid="reopen-ke-btn"
+            >
+              Reopen
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+            data-testid="save-known-error-btn"
+          >
+            {saving ? 'Saving...' : isNew ? 'Create' : 'Save'}
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>
@@ -277,6 +418,18 @@ export const ItsmKnownErrorDetail: React.FC = () => {
                   onChange={(e) => setProblemId(e.target.value)}
                   helperText="UUID of the related problem"
                 />
+                {!isNew && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={knowledgeCandidate}
+                        onChange={(e) => setKnowledgeCandidate(e.target.checked)}
+                        data-testid="knowledge-candidate-switch"
+                      />
+                    }
+                    label="Knowledge Article Candidate"
+                  />
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -309,6 +462,39 @@ export const ItsmKnownErrorDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Reopen Dialog */}
+      <Dialog open={reopenDialogOpen} onClose={() => setReopenDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reopen Known Error</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Reopening will change the state back to DRAFT.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Reason for Reopening"
+            value={reopenReason}
+            onChange={(e) => setReopenReason(e.target.value)}
+            placeholder="Explain why this known error needs to be reopened..."
+            required
+            data-testid="reopen-ke-reason-input"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReopenDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleReopen}
+            disabled={reopening || !reopenReason.trim()}
+            data-testid="confirm-reopen-ke-btn"
+          >
+            {reopening ? 'Reopening...' : 'Reopen'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

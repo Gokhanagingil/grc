@@ -61,6 +61,25 @@ export class ItsmKnownError extends BaseEntity {
   @Column({ name: 'problem_id', type: 'uuid', nullable: true })
   problemId: string | null;
 
+  @Column({ name: 'knowledge_candidate', type: 'boolean', default: false })
+  knowledgeCandidate: boolean;
+
+  @Column({
+    name: 'knowledge_candidate_payload',
+    type: 'jsonb',
+    nullable: true,
+  })
+  knowledgeCandidatePayload: Record<string, unknown> | null;
+
+  @Column({ name: 'retired_at', type: 'timestamptz', nullable: true })
+  retiredAt: Date | null;
+
+  @Column({ name: 'validated_at', type: 'timestamptz', nullable: true })
+  validatedAt: Date | null;
+
+  @Column({ name: 'validated_by', type: 'uuid', nullable: true })
+  validatedBy: string | null;
+
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 }

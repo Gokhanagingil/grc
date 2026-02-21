@@ -3,6 +3,8 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsBoolean,
+  IsObject,
   MaxLength,
 } from 'class-validator';
 import { KnownErrorState, KnownErrorFixStatus } from '../../enums';
@@ -44,4 +46,12 @@ export class UpdateKnownErrorDto {
   @IsOptional()
   @IsUUID()
   problemId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  knowledgeCandidate?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  knowledgeCandidatePayload?: Record<string, unknown>;
 }

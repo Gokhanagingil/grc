@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
   Logger,
   Request,
 } from '@nestjs/common';
@@ -140,5 +141,120 @@ export class KnownErrorController {
     if (!deleted) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
+  }
+
+  // ============================================================================
+  // Lifecycle Actions (Phase 2)
+  // ============================================================================
+
+  /**
+   * POST /grc/itsm/known-errors/:id/validate
+   * Transition Known Error from DRAFT to VALIDATED
+   */
+  @Post(':id/validate')
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Perf()
+  async validate(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const knownError = await this.knownErrorService.validateKnownError(
+      tenantId,
+      req.user.id,
+      id,
+    );
+    if (!knownError) {
+      throw new NotFoundException(`Known Error ${id} not found`);
+    }
+    return { data: knownError };
+  }
+
+  /**
+   * POST /grc/itsm/known-errors/:id/publish
+   * Transition Known Error to PUBLISHED
+   */
+  @Post(':id/publish')
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Perf()
+  async publish(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const knownError = await this.knownErrorService.publishKnownError(
+      tenantId,
+      req.user.id,
+      id,
+    );
+    if (!knownError) {
+      throw new NotFoundException(`Known Error ${id} not found`);
+    }
+    return { data: knownError };
+  }
+
+  /**
+   * POST /grc/itsm/known-errors/:id/retire
+   * Transition Known Error to RETIRED
+   */
+  @Post(':id/retire')
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Perf()
+  async retire(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const knownError = await this.knownErrorService.retireKnownError(
+      tenantId,
+      req.user.id,
+      id,
+    );
+    if (!knownError) {
+      throw new NotFoundException(`Known Error ${id} not found`);
+    }
+    return { data: knownError };
+  }
+
+  /**
+   * POST /grc/itsm/known-errors/:id/reopen
+   * Reopen a RETIRED Known Error back to DRAFT
+   */
+  @Post(':id/reopen')
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Perf()
+  async reopen(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() body: { reason: string },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    if (!body.reason) {
+      throw new BadRequestException(
+        'Reason is required to reopen a Known Error',
+      );
+    }
+    const knownError = await this.knownErrorService.reopenKnownError(
+      tenantId,
+      req.user.id,
+      id,
+      body.reason,
+    );
+    if (!knownError) {
+      throw new NotFoundException(`Known Error ${id} not found`);
+    }
+    return { data: knownError };
   }
 }

@@ -198,8 +198,25 @@ export enum ProblemRiskLevel {
  */
 export enum KnownErrorState {
   DRAFT = 'DRAFT',
+  VALIDATED = 'VALIDATED',
   PUBLISHED = 'PUBLISHED',
   RETIRED = 'RETIRED',
+}
+
+/**
+ * RootCauseCategory - Categorization of root causes for structured RCA
+ */
+export enum RootCauseCategory {
+  HUMAN_ERROR = 'HUMAN_ERROR',
+  PROCESS_FAILURE = 'PROCESS_FAILURE',
+  TECHNOLOGY_FAILURE = 'TECHNOLOGY_FAILURE',
+  EXTERNAL_FACTOR = 'EXTERNAL_FACTOR',
+  DESIGN_FLAW = 'DESIGN_FLAW',
+  CAPACITY_ISSUE = 'CAPACITY_ISSUE',
+  CHANGE_RELATED = 'CHANGE_RELATED',
+  CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+  VENDOR_ISSUE = 'VENDOR_ISSUE',
+  UNKNOWN = 'UNKNOWN',
 }
 
 /**

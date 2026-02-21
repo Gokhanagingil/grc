@@ -10,6 +10,7 @@ import {
   ProblemSource,
   ProblemRiskLevel,
   RcaEntryType,
+  RootCauseCategory,
 } from '../enums';
 
 /**
@@ -169,6 +170,50 @@ export class ItsmProblem extends BaseEntity {
 
   @Column({ name: 'rca_entries', type: 'jsonb', nullable: true })
   rcaEntries: RcaEntry[] | null;
+
+  // ============================================================================
+  // Structured RCA Fields (Phase 2)
+  // ============================================================================
+
+  @Column({ name: 'five_why_summary', type: 'text', nullable: true })
+  fiveWhySummary: string | null;
+
+  @Column({ name: 'contributing_factors', type: 'jsonb', nullable: true })
+  contributingFactors: string[] | null;
+
+  @Column({
+    name: 'root_cause_category',
+    type: 'enum',
+    enum: RootCauseCategory,
+    enumName: 'itsm_root_cause_category_enum',
+    nullable: true,
+  })
+  rootCauseCategory: RootCauseCategory | null;
+
+  @Column({ name: 'detection_gap', type: 'text', nullable: true })
+  detectionGap: string | null;
+
+  @Column({ name: 'monitoring_gap', type: 'text', nullable: true })
+  monitoringGap: string | null;
+
+  @Column({ name: 'rca_completed_at', type: 'timestamptz', nullable: true })
+  rcaCompletedAt: Date | null;
+
+  @Column({ name: 'rca_completed_by', type: 'uuid', nullable: true })
+  rcaCompletedBy: string | null;
+
+  // ============================================================================
+  // Reopen tracking (Phase 2)
+  // ============================================================================
+
+  @Column({ name: 'reopen_count', type: 'int', default: 0 })
+  reopenCount: number;
+
+  @Column({ name: 'last_reopen_reason', type: 'text', nullable: true })
+  lastReopenReason: string | null;
+
+  @Column({ name: 'last_reopened_at', type: 'timestamptz', nullable: true })
+  lastReopenedAt: Date | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;

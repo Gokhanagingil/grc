@@ -23,6 +23,7 @@ import {
   ProblemIncidentLinkType,
   ProblemChangeLinkType,
   IncidentStatus,
+  RootCauseCategory,
   calculateProblemPriority,
 } from '../enums';
 import {
@@ -680,6 +681,199 @@ export class ProblemService extends MultiTenantServiceBase<ItsmProblem> {
       workaroundCount,
       impactedServices: Array.from(serviceIds),
     };
+  }
+
+  // ============================================================================
+  // Reopen Logic (Phase 2)
+  // ============================================================================
+
+  async reopenProblem(
+    tenantId: string,
+    userId: string,
+    id: string,
+    reason: string,
+  ): Promise<ItsmProblem | null> {
+    const existing = await this.findOneActiveForTenant(tenantId, id);
+    if (!existing) {
+      return null;
+    }
+
+    // Only allow reopen from RESOLVED or CLOSED states
+    if (
+      existing.state !== ProblemState.RESOLVED &&
+      existing.state !== ProblemState.CLOSED
+    ) {
+      throw new BadRequestException(
+        `Cannot reopen a problem in state ${existing.state}. Only RESOLVED or CLOSED problems can be reopened.`,
+      );
+    }
+
+    const previousState = existing.state;
+    const reopenCount = (existing.reopenCount || 0) + 1;
+
+    const problem = await this.updateForTenant(tenantId, id, {
+      state: ProblemState.UNDER_INVESTIGATION,
+      reopenCount,
+      lastReopenReason: reason,
+      lastReopenedAt: new Date(),
+      resolvedAt: null,
+      closedAt: null,
+      updatedBy: userId,
+    } as Partial<ItsmProblem>);
+
+    if (problem) {
+      await this.auditService?.recordUpdate(
+        'ItsmProblem',
+        id,
+        {
+          state: previousState,
+          reopenCount: reopenCount - 1,
+        } as unknown as Record<string, unknown>,
+        {
+          state: ProblemState.UNDER_INVESTIGATION,
+          reopenCount,
+          reopenReason: reason,
+        } as unknown as Record<string, unknown>,
+        userId,
+        tenantId,
+      );
+
+      this.eventEmitter.emit('problem.reopened', {
+        problemId: id,
+        tenantId,
+        userId,
+        previousState,
+        reason,
+        reopenCount,
+      });
+    }
+
+    return problem;
+  }
+
+  // ============================================================================
+  // RCA Completion (Phase 2)
+  // ============================================================================
+
+  async completeRca(
+    tenantId: string,
+    userId: string,
+    id: string,
+    data: {
+      rootCauseSummary?: string;
+      fiveWhySummary?: string;
+      contributingFactors?: string[];
+      rootCauseCategory?: RootCauseCategory;
+      detectionGap?: string;
+      monitoringGap?: string;
+    },
+  ): Promise<ItsmProblem | null> {
+    const existing = await this.findOneActiveForTenant(tenantId, id);
+    if (!existing) {
+      return null;
+    }
+
+    if (!data.rootCauseSummary && !existing.rootCauseSummary) {
+      throw new BadRequestException(
+        'Root cause summary is required to complete RCA',
+      );
+    }
+
+    const updateData: Partial<ItsmProblem> = {
+      ...data,
+      rcaCompletedAt: new Date(),
+      rcaCompletedBy: userId,
+      updatedBy: userId,
+    };
+
+    const problem = await this.updateForTenant(tenantId, id, updateData);
+
+    if (problem) {
+      this.eventEmitter.emit('problem.rca-completed', {
+        problemId: id,
+        tenantId,
+        userId,
+        rootCauseCategory: data.rootCauseCategory || existing.rootCauseCategory,
+      });
+    }
+
+    return problem;
+  }
+
+  // ============================================================================
+  // Recurrence Tracking (Phase 2)
+  // ============================================================================
+
+  async getRecurrenceCandidates(
+    tenantId: string,
+    options?: {
+      serviceId?: string;
+      daysWindow?: number;
+      minIncidents?: number;
+    },
+  ): Promise<
+    Array<{
+      problemId: string;
+      problemNumber: string;
+      shortDescription: string;
+      incidentCount: number;
+      reopenCount: number;
+      serviceId: string | null;
+      state: string;
+    }>
+  > {
+    const daysWindow = options?.daysWindow || 90;
+    const minIncidents = options?.minIncidents || 2;
+
+    const qb = this.repository.createQueryBuilder('p');
+    qb.leftJoin(
+      'itsm_problem_incidents',
+      'pi',
+      'pi.problem_id = p.id AND pi.tenant_id = p.tenant_id',
+    );
+    qb.select([
+      'p.id AS "problemId"',
+      'p.number AS "problemNumber"',
+      'p.short_description AS "shortDescription"',
+      'COUNT(pi.id) AS "incidentCount"',
+      'p.reopen_count AS "reopenCount"',
+      'p.service_id AS "serviceId"',
+      'p.state AS "state"',
+    ]);
+    qb.where('p.tenant_id = :tenantId', { tenantId });
+    qb.andWhere('p.is_deleted = false');
+    qb.andWhere('p.created_at >= NOW() - :interval::interval', {
+      interval: `${daysWindow} days`,
+    });
+
+    if (options?.serviceId) {
+      qb.andWhere('p.service_id = :serviceId', {
+        serviceId: options.serviceId,
+      });
+    }
+
+    qb.groupBy('p.id');
+    qb.having('COUNT(pi.id) >= :minIncidents', { minIncidents });
+    qb.orderBy('"incidentCount"', 'DESC');
+
+    const raw: Array<{
+      problemId: string;
+      problemNumber: string;
+      shortDescription: string;
+      incidentCount: string;
+      reopenCount: string;
+      serviceId: string | null;
+      state: string;
+    }> = await qb.getRawMany();
+    return raw.map((r) => ({
+      problemId: r.problemId,
+      problemNumber: r.problemNumber,
+      shortDescription: r.shortDescription,
+      incidentCount: parseInt(r.incidentCount, 10),
+      reopenCount: parseInt(r.reopenCount, 10) || 0,
+      serviceId: r.serviceId,
+      state: r.state,
+    }));
   }
 
   // ============================================================================

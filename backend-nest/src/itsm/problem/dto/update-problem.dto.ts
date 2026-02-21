@@ -17,6 +17,7 @@ import {
   ProblemUrgency,
   ProblemState,
   ProblemSource,
+  RootCauseCategory,
 } from '../../enums';
 import { RcaEntryDto } from './create-problem.dto';
 
@@ -123,6 +124,34 @@ export class UpdateProblemDto {
   @Type(() => RcaEntryDto)
   @IsOptional()
   rcaEntries?: RcaEntryDto[];
+
+  // ============================================================================
+  // Structured RCA Fields (Phase 2)
+  // ============================================================================
+
+  @IsString({ message: 'Five-Why summary must be a string' })
+  @IsOptional()
+  fiveWhySummary?: string;
+
+  @IsArray({ message: 'Contributing factors must be an array' })
+  @IsString({
+    each: true,
+    message: 'Each contributing factor must be a string',
+  })
+  @IsOptional()
+  contributingFactors?: string[];
+
+  @IsEnum(RootCauseCategory, { message: 'Invalid root cause category' })
+  @IsOptional()
+  rootCauseCategory?: RootCauseCategory;
+
+  @IsString({ message: 'Detection gap must be a string' })
+  @IsOptional()
+  detectionGap?: string;
+
+  @IsString({ message: 'Monitoring gap must be a string' })
+  @IsOptional()
+  monitoringGap?: string;
 
   @IsObject({ message: 'Metadata must be an object' })
   @IsOptional()
