@@ -26,6 +26,7 @@ import { UpdateProblemDto } from './dto/update-problem.dto';
 import { ProblemFilterDto } from './dto/problem-filter.dto';
 import { LinkIncidentDto } from './dto/problem-link.dto';
 import { LinkChangeDto } from './dto/problem-link.dto';
+import { ReopenProblemDto } from './dto/reopen-problem.dto';
 import { Perf } from '../../common/decorators';
 import { RcaEntry } from './problem.entity';
 
@@ -524,7 +525,7 @@ export class ProblemController {
 
   /**
    * GET /grc/itsm/problems/:id/rca
-   * Get RCA entries for a problem
+   * Get RCA entries and structured RCA data for a problem
    */
   @Get(':id/rca')
   @Permissions(Permission.ITSM_PROBLEM_READ)
@@ -549,6 +550,115 @@ export class ProblemController {
       problemId: problem.id,
       rcaEntries: problem.rcaEntries || [],
       rootCauseSummary: problem.rootCauseSummary,
+      fiveWhySummary: problem.fiveWhySummary,
+      contributingFactors: problem.contributingFactors || [],
+      rootCauseCategory: problem.rootCauseCategory,
+      detectionGap: problem.detectionGap,
+      monitoringGap: problem.monitoringGap,
+      rcaCompletedAt: problem.rcaCompletedAt,
+      rcaCompletedBy: problem.rcaCompletedBy,
     };
+  }
+
+  /**
+   * POST /grc/itsm/problems/:id/rca/complete
+   * Mark RCA as complete with structured data
+   */
+  @Post(':id/rca/complete')
+  @Permissions(Permission.ITSM_PROBLEM_UPDATE)
+  @Perf()
+  async completeRca(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body()
+    body: {
+      rootCauseSummary?: string;
+      fiveWhySummary?: string;
+      contributingFactors?: string[];
+      rootCauseCategory?: string;
+      detectionGap?: string;
+      monitoringGap?: string;
+    },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const problem = await this.problemService.completeRca(
+      tenantId,
+      req.user.id,
+      id,
+      body as Parameters<typeof this.problemService.completeRca>[3],
+    );
+
+    if (!problem) {
+      throw new NotFoundException(`Problem with ID ${id} not found`);
+    }
+
+    return problem;
+  }
+
+  // ============================================================================
+  // Reopen (Phase 2)
+  // ============================================================================
+
+  /**
+   * POST /grc/itsm/problems/:id/reopen
+   * Reopen a resolved/closed problem with a reason
+   */
+  @Post(':id/reopen')
+  @Permissions(Permission.ITSM_PROBLEM_UPDATE)
+  @Perf()
+  async reopenProblem(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: ReopenProblemDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const problem = await this.problemService.reopenProblem(
+      tenantId,
+      req.user.id,
+      id,
+      dto.reason,
+    );
+
+    if (!problem) {
+      throw new NotFoundException(`Problem with ID ${id} not found`);
+    }
+
+    return problem;
+  }
+
+  // ============================================================================
+  // Recurrence Tracking (Phase 2)
+  // ============================================================================
+
+  /**
+   * GET /grc/itsm/problems/recurrence-candidates
+   * Get problems with recurring incident patterns
+   */
+  @Get('recurrence-candidates')
+  @Permissions(Permission.ITSM_PROBLEM_READ)
+  @Perf()
+  async getRecurrenceCandidates(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('daysWindow') daysWindow?: string,
+    @Query('minIncidents') minIncidents?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    return this.problemService.getRecurrenceCandidates(tenantId, {
+      serviceId,
+      daysWindow: daysWindow ? parseInt(daysWindow, 10) : undefined,
+      minIncidents: minIncidents ? parseInt(minIncidents, 10) : undefined,
+    });
   }
 }

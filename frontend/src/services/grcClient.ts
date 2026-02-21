@@ -376,6 +376,9 @@ export const API_PATHS = {
       CHANGES: (id: string) => `/grc/itsm/problems/${id}/changes`,
       LINK_CHANGE: (id: string, changeId: string) => `/grc/itsm/problems/${id}/changes/${changeId}`,
       UNLINK_CHANGE: (id: string, changeId: string) => `/grc/itsm/problems/${id}/changes/${changeId}`,
+      RCA_COMPLETE: (id: string) => `/grc/itsm/problems/${id}/rca/complete`,
+      REOPEN: (id: string) => `/grc/itsm/problems/${id}/reopen`,
+      RECURRENCE_CANDIDATES: '/grc/itsm/problems/recurrence-candidates',
     },
 
     // ITSM Known Error endpoints
@@ -385,6 +388,10 @@ export const API_PATHS = {
       GET: (id: string) => `/grc/itsm/known-errors/${id}`,
       UPDATE: (id: string) => `/grc/itsm/known-errors/${id}`,
       DELETE: (id: string) => `/grc/itsm/known-errors/${id}`,
+      VALIDATE: (id: string) => `/grc/itsm/known-errors/${id}/validate`,
+      PUBLISH: (id: string) => `/grc/itsm/known-errors/${id}/publish`,
+      RETIRE: (id: string) => `/grc/itsm/known-errors/${id}/retire`,
+      REOPEN: (id: string) => `/grc/itsm/known-errors/${id}/reopen`,
     },
 
     // ITSM Major Incident endpoints
@@ -2363,6 +2370,17 @@ export const itsmApi = {
     listChanges: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.CHANGES(id)),
     linkChange: (id: string, changeId: string) => api.post(API_PATHS.ITSM.PROBLEMS.LINK_CHANGE(id, changeId), {}),
     unlinkChange: (id: string, changeId: string) => api.delete(API_PATHS.ITSM.PROBLEMS.UNLINK_CHANGE(id, changeId)),
+    // Phase 2: RCA completion, reopen, recurrence
+    completeRca: (id: string, data: CompleteRcaDto) => api.post(API_PATHS.ITSM.PROBLEMS.RCA_COMPLETE(id), data),
+    reopen: (id: string, reason: string) => api.post(API_PATHS.ITSM.PROBLEMS.REOPEN(id), { reason }),
+    recurrenceCandidates: (params?: { serviceId?: string; daysWindow?: number; minIncidents?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.serviceId) searchParams.set('serviceId', params.serviceId);
+      if (params?.daysWindow) searchParams.set('daysWindow', String(params.daysWindow));
+      if (params?.minIncidents) searchParams.set('minIncidents', String(params.minIncidents));
+      const qs = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.PROBLEMS.RECURRENCE_CANDIDATES}${qs ? `?${qs}` : ''}`);
+    },
   },
 
   // ITSM Known Errors
@@ -2382,6 +2400,11 @@ export const itsmApi = {
     create: (data: CreateItsmKnownErrorDto) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.CREATE, data),
     update: (id: string, data: UpdateItsmKnownErrorDto) => api.patch(API_PATHS.ITSM.KNOWN_ERRORS.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.ITSM.KNOWN_ERRORS.DELETE(id)),
+    // Phase 2: Lifecycle actions
+    validate: (id: string) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.VALIDATE(id), {}),
+    publish: (id: string) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.PUBLISH(id), {}),
+    retire: (id: string) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.RETIRE(id), {}),
+    reopen: (id: string, reason: string) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.REOPEN(id), { reason }),
   },
 
   // ITSM Major Incidents
@@ -2492,6 +2515,44 @@ export interface UpdateItsmProblemDto {
   assigneeId?: string;
   serviceId?: string;
   offeringId?: string;
+  // Phase 2: Structured RCA fields
+  fiveWhySummary?: string;
+  contributingFactors?: string[];
+  rootCauseCategory?: string;
+  detectionGap?: string;
+  monitoringGap?: string;
+}
+
+export interface CompleteRcaDto {
+  rootCauseSummary?: string;
+  fiveWhySummary?: string;
+  contributingFactors?: string[];
+  rootCauseCategory?: string;
+  detectionGap?: string;
+  monitoringGap?: string;
+}
+
+export interface ProblemRcaData {
+  problemId: string;
+  rcaEntries: Array<{ type: string; content: string; order: number; createdAt?: string; createdBy?: string }>;
+  rootCauseSummary: string | null;
+  fiveWhySummary: string | null;
+  contributingFactors: string[];
+  rootCauseCategory: string | null;
+  detectionGap: string | null;
+  monitoringGap: string | null;
+  rcaCompletedAt: string | null;
+  rcaCompletedBy: string | null;
+}
+
+export interface RecurrenceCandidateData {
+  problemId: string;
+  problemNumber: string;
+  shortDescription: string;
+  incidentCount: number;
+  reopenCount: number;
+  serviceId: string | null;
+  state: string;
 }
 
 export interface ItsmProblemListParams {
@@ -2514,6 +2575,11 @@ export interface ItsmKnownErrorData {
   articleRef?: string;
   state: string;
   publishedAt?: string;
+  validatedAt?: string;
+  validatedBy?: string;
+  retiredAt?: string;
+  knowledgeCandidate?: boolean;
+  knowledgeCandidatePayload?: Record<string, unknown>;
   problemId?: string;
   metadata?: Record<string, unknown>;
   tenantId: string;
@@ -2543,6 +2609,8 @@ export interface UpdateItsmKnownErrorDto {
   articleRef?: string;
   state?: string;
   problemId?: string;
+  knowledgeCandidate?: boolean;
+  knowledgeCandidatePayload?: Record<string, unknown>;
 }
 
 export interface ItsmKnownErrorListParams {

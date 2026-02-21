@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -101,6 +101,11 @@ export class KnownErrorService {
 
     const oldState = existing.state;
 
+    // Validate state transitions
+    if (dto.state !== undefined && dto.state !== oldState) {
+      this.validateStateTransition(oldState, dto.state);
+    }
+
     // Merge updates
     if (dto.title !== undefined) existing.title = dto.title;
     if (dto.symptoms !== undefined) existing.symptoms = dto.symptoms;
@@ -111,13 +116,30 @@ export class KnownErrorService {
     if (dto.articleRef !== undefined) existing.articleRef = dto.articleRef;
     if (dto.state !== undefined) existing.state = dto.state;
     if (dto.problemId !== undefined) existing.problemId = dto.problemId;
+    if (dto.knowledgeCandidate !== undefined)
+      existing.knowledgeCandidate = dto.knowledgeCandidate;
+    if (dto.knowledgeCandidatePayload !== undefined)
+      existing.knowledgeCandidatePayload = dto.knowledgeCandidatePayload;
 
-    // Set publishedAt on transition to PUBLISHED
+    // Set lifecycle timestamps on state transitions
+    if (
+      dto.state === KnownErrorState.VALIDATED &&
+      oldState !== KnownErrorState.VALIDATED
+    ) {
+      existing.validatedAt = new Date();
+      existing.validatedBy = userId;
+    }
     if (
       dto.state === KnownErrorState.PUBLISHED &&
       oldState !== KnownErrorState.PUBLISHED
     ) {
       existing.publishedAt = new Date();
+    }
+    if (
+      dto.state === KnownErrorState.RETIRED &&
+      oldState !== KnownErrorState.RETIRED
+    ) {
+      existing.retiredAt = new Date();
     }
 
     existing.updatedBy = userId;
@@ -283,5 +305,191 @@ export class KnownErrorService {
       where: { tenantId, problemId, isDeleted: false },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  // ============================================================================
+  // State Transition Validation (Phase 2)
+  // ============================================================================
+
+  /**
+   * Valid state transitions for Known Errors:
+   * DRAFT → VALIDATED → PUBLISHED → RETIRED
+   * DRAFT → PUBLISHED (skip validation if needed)
+   * RETIRED → DRAFT (reopen/rework)
+   */
+  private static readonly VALID_TRANSITIONS: Record<
+    KnownErrorState,
+    KnownErrorState[]
+  > = {
+    [KnownErrorState.DRAFT]: [
+      KnownErrorState.VALIDATED,
+      KnownErrorState.PUBLISHED,
+    ],
+    [KnownErrorState.VALIDATED]: [
+      KnownErrorState.PUBLISHED,
+      KnownErrorState.DRAFT,
+    ],
+    [KnownErrorState.PUBLISHED]: [KnownErrorState.RETIRED],
+    [KnownErrorState.RETIRED]: [KnownErrorState.DRAFT],
+  };
+
+  private validateStateTransition(
+    currentState: KnownErrorState,
+    targetState: KnownErrorState,
+  ): void {
+    const allowed = KnownErrorService.VALID_TRANSITIONS[currentState] || [];
+    if (!allowed.includes(targetState)) {
+      throw new BadRequestException(
+        `Cannot transition Known Error from ${currentState} to ${targetState}. ` +
+          `Allowed transitions from ${currentState}: ${allowed.join(', ') || 'none'}`,
+      );
+    }
+  }
+
+  // ============================================================================
+  // Lifecycle Actions (Phase 2)
+  // ============================================================================
+
+  /**
+   * Validate a Known Error (DRAFT → VALIDATED)
+   */
+  async validateKnownError(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<ItsmKnownError | null> {
+    const existing = await this.findOne(tenantId, id);
+    if (!existing) return null;
+
+    this.validateStateTransition(existing.state, KnownErrorState.VALIDATED);
+
+    existing.state = KnownErrorState.VALIDATED;
+    existing.validatedAt = new Date();
+    existing.validatedBy = userId;
+    existing.updatedBy = userId;
+
+    const saved = await this.knownErrorRepository.save(existing);
+
+    this.eventEmitter.emit('known-error.validated', {
+      tenantId,
+      userId,
+      knownErrorId: saved.id,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Publish a Known Error (DRAFT/VALIDATED → PUBLISHED)
+   */
+  async publishKnownError(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<ItsmKnownError | null> {
+    const existing = await this.findOne(tenantId, id);
+    if (!existing) return null;
+
+    this.validateStateTransition(existing.state, KnownErrorState.PUBLISHED);
+
+    existing.state = KnownErrorState.PUBLISHED;
+    existing.publishedAt = new Date();
+    existing.updatedBy = userId;
+
+    const saved = await this.knownErrorRepository.save(existing);
+
+    this.eventEmitter.emit('known-error.published', {
+      tenantId,
+      userId,
+      knownErrorId: saved.id,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Retire a Known Error (PUBLISHED → RETIRED)
+   */
+  async retireKnownError(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<ItsmKnownError | null> {
+    const existing = await this.findOne(tenantId, id);
+    if (!existing) return null;
+
+    this.validateStateTransition(existing.state, KnownErrorState.RETIRED);
+
+    existing.state = KnownErrorState.RETIRED;
+    existing.retiredAt = new Date();
+    existing.updatedBy = userId;
+
+    const saved = await this.knownErrorRepository.save(existing);
+
+    this.eventEmitter.emit('known-error.retired', {
+      tenantId,
+      userId,
+      knownErrorId: saved.id,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Reopen a retired Known Error (RETIRED → DRAFT)
+   */
+  async reopenKnownError(
+    tenantId: string,
+    userId: string,
+    id: string,
+    reason: string,
+  ): Promise<ItsmKnownError | null> {
+    const existing = await this.findOne(tenantId, id);
+    if (!existing) return null;
+
+    if (existing.state !== KnownErrorState.RETIRED) {
+      throw new BadRequestException(
+        `Cannot reopen a Known Error in state ${existing.state}. Only RETIRED Known Errors can be reopened.`,
+      );
+    }
+
+    existing.state = KnownErrorState.DRAFT;
+    existing.updatedBy = userId;
+    // Store reason in metadata
+    existing.metadata = {
+      ...((existing.metadata as Record<string, unknown>) || {}),
+      lastReopenReason: reason,
+      lastReopenedAt: new Date().toISOString(),
+    };
+
+    const saved = await this.knownErrorRepository.save(existing);
+
+    try {
+      await this.auditService.recordUpdate(
+        'ItsmKnownError',
+        saved.id,
+        { state: KnownErrorState.RETIRED } as unknown as Record<
+          string,
+          unknown
+        >,
+        {
+          state: KnownErrorState.DRAFT,
+          reopenReason: reason,
+        } as unknown as Record<string, unknown>,
+        userId,
+        tenantId,
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to record audit for known error reopen: ${err}`);
+    }
+
+    this.eventEmitter.emit('known-error.reopened', {
+      tenantId,
+      userId,
+      knownErrorId: saved.id,
+      reason,
+    });
+
+    return saved;
   }
 }
