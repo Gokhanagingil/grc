@@ -165,6 +165,14 @@ export enum Permission {
   ITSM_APPROVAL_READ = 'itsm:approval:read',
   ITSM_APPROVAL_WRITE = 'itsm:approval:write',
 
+  // ITSM Problem permissions
+  ITSM_PROBLEM_READ = 'itsm:problem:read',
+  ITSM_PROBLEM_CREATE = 'itsm:problem:create',
+  ITSM_PROBLEM_UPDATE = 'itsm:problem:update',
+  ITSM_PROBLEM_LINK_INCIDENT = 'itsm:problem:link_incident',
+  ITSM_PROBLEM_LINK_CHANGE = 'itsm:problem:link_change',
+  ITSM_PROBLEM_RISK_READ = 'itsm:problem:risk_read',
+
   // Customer Risk Catalog permissions
   GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
   GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
@@ -296,8 +304,7 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_APPROVAL_READ]: 'View change approval requests',
   [Permission.ITSM_APPROVAL_WRITE]:
     'Approve or reject change approval requests',
-  [Permission.GRC_CUSTOMER_RISK_READ]:
-    'View customer risk catalog entries',
+  [Permission.GRC_CUSTOMER_RISK_READ]: 'View customer risk catalog entries',
   [Permission.GRC_CUSTOMER_RISK_WRITE]:
     'Create, update, and delete customer risk catalog entries',
   [Permission.GRC_CUSTOMER_RISK_BIND_READ]:
@@ -308,4 +315,12 @@ export const PermissionDescriptions: Record<Permission, string> = {
     'View customer risk observations and signals',
   [Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE]:
     'Create and manage customer risk observations',
+  [Permission.ITSM_PROBLEM_READ]: 'View problems and problem details',
+  [Permission.ITSM_PROBLEM_CREATE]: 'Create new problems',
+  [Permission.ITSM_PROBLEM_UPDATE]: 'Update existing problems',
+  [Permission.ITSM_PROBLEM_LINK_INCIDENT]:
+    'Link and unlink incidents to problems',
+  [Permission.ITSM_PROBLEM_LINK_CHANGE]: 'Link and unlink changes to problems',
+  [Permission.ITSM_PROBLEM_RISK_READ]:
+    'View problem preventive risk intelligence',
 };

@@ -79,6 +79,153 @@ export enum IncidentSource {
  * | Medium           | P2   | P3     | P4  |
  * | Low              | P3   | P4     | P4  |
  */
+// ============================================================================
+// Problem Enums
+// ============================================================================
+
+/**
+ * ProblemState - Problem lifecycle states (ITIL-aligned)
+ */
+export enum ProblemState {
+  NEW = 'NEW',
+  UNDER_INVESTIGATION = 'UNDER_INVESTIGATION',
+  KNOWN_ERROR = 'KNOWN_ERROR',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+/**
+ * ProblemPriority - Problem priority levels
+ */
+export enum ProblemPriority {
+  P1 = 'P1',
+  P2 = 'P2',
+  P3 = 'P3',
+  P4 = 'P4',
+}
+
+/**
+ * ProblemImpact - Business impact level for problems
+ */
+export enum ProblemImpact {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+}
+
+/**
+ * ProblemUrgency - Time sensitivity for problems
+ */
+export enum ProblemUrgency {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+}
+
+/**
+ * ProblemCategory - Problem categories
+ */
+export enum ProblemCategory {
+  HARDWARE = 'HARDWARE',
+  SOFTWARE = 'SOFTWARE',
+  NETWORK = 'NETWORK',
+  SECURITY = 'SECURITY',
+  DATABASE = 'DATABASE',
+  APPLICATION = 'APPLICATION',
+  INFRASTRUCTURE = 'INFRASTRUCTURE',
+  OTHER = 'OTHER',
+}
+
+/**
+ * ProblemSource - How the problem was identified
+ */
+export enum ProblemSource {
+  MANUAL = 'MANUAL',
+  INCIDENT_CLUSTER = 'INCIDENT_CLUSTER',
+  MONITORING = 'MONITORING',
+  POSTMORTEM = 'POSTMORTEM',
+  PROACTIVE = 'PROACTIVE',
+}
+
+/**
+ * ProblemIncidentLinkType - Type of incident-problem relationship
+ */
+export enum ProblemIncidentLinkType {
+  PRIMARY_SYMPTOM = 'PRIMARY_SYMPTOM',
+  RELATED = 'RELATED',
+  RECURRENCE = 'RECURRENCE',
+}
+
+/**
+ * ProblemChangeLinkType - Type of change-problem relationship
+ */
+export enum ProblemChangeLinkType {
+  INVESTIGATES = 'INVESTIGATES',
+  WORKAROUND = 'WORKAROUND',
+  PERMANENT_FIX = 'PERMANENT_FIX',
+  ROLLBACK_RELATED = 'ROLLBACK_RELATED',
+}
+
+/**
+ * RcaEntryType - Type of RCA entry
+ */
+export enum RcaEntryType {
+  TIMELINE = 'TIMELINE',
+  CONTRIBUTING_FACTOR = 'CONTRIBUTING_FACTOR',
+  FIVE_WHYS = 'FIVE_WHYS',
+  ROOT_CAUSE = 'ROOT_CAUSE',
+  CORRECTIVE_ACTION = 'CORRECTIVE_ACTION',
+  PREVENTIVE_ACTION = 'PREVENTIVE_ACTION',
+  LESSON_LEARNED = 'LESSON_LEARNED',
+}
+
+/**
+ * ProblemRiskLevel - Problem operational risk level
+ */
+export enum ProblemRiskLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+/**
+ * Calculate problem priority from impact and urgency
+ *
+ * | Impact \ Urgency | High | Medium | Low |
+ * |------------------|------|--------|-----|
+ * | High             | P1   | P2     | P3  |
+ * | Medium           | P2   | P3     | P4  |
+ * | Low              | P3   | P4     | P4  |
+ */
+export function calculateProblemPriority(
+  impact: ProblemImpact,
+  urgency: ProblemUrgency,
+): ProblemPriority {
+  const matrix: Record<
+    ProblemImpact,
+    Record<ProblemUrgency, ProblemPriority>
+  > = {
+    [ProblemImpact.HIGH]: {
+      [ProblemUrgency.HIGH]: ProblemPriority.P1,
+      [ProblemUrgency.MEDIUM]: ProblemPriority.P2,
+      [ProblemUrgency.LOW]: ProblemPriority.P3,
+    },
+    [ProblemImpact.MEDIUM]: {
+      [ProblemUrgency.HIGH]: ProblemPriority.P2,
+      [ProblemUrgency.MEDIUM]: ProblemPriority.P3,
+      [ProblemUrgency.LOW]: ProblemPriority.P4,
+    },
+    [ProblemImpact.LOW]: {
+      [ProblemUrgency.HIGH]: ProblemPriority.P3,
+      [ProblemUrgency.MEDIUM]: ProblemPriority.P4,
+      [ProblemUrgency.LOW]: ProblemPriority.P4,
+    },
+  };
+
+  return matrix[impact][urgency];
+}
+
 export function calculatePriority(
   impact: IncidentImpact,
   urgency: IncidentUrgency,

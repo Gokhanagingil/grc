@@ -120,6 +120,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_CUSTOMER_RISK_BIND_WRITE,
     Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
     Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE,
+    // ITSM Problem permissions
+    Permission.ITSM_PROBLEM_READ,
+    Permission.ITSM_PROBLEM_CREATE,
+    Permission.ITSM_PROBLEM_UPDATE,
+    Permission.ITSM_PROBLEM_LINK_INCIDENT,
+    Permission.ITSM_PROBLEM_LINK_CHANGE,
+    Permission.ITSM_PROBLEM_RISK_READ,
   ],
 
   /**
@@ -195,6 +202,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_CUSTOMER_RISK_BIND_WRITE,
     Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
     Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE,
+    // ITSM Problem permissions
+    Permission.ITSM_PROBLEM_READ,
+    Permission.ITSM_PROBLEM_CREATE,
+    Permission.ITSM_PROBLEM_UPDATE,
+    Permission.ITSM_PROBLEM_LINK_INCIDENT,
+    Permission.ITSM_PROBLEM_LINK_CHANGE,
+    Permission.ITSM_PROBLEM_RISK_READ,
   ],
 
   /**
@@ -239,6 +253,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GRC_CUSTOMER_RISK_READ,
     Permission.GRC_CUSTOMER_RISK_BIND_READ,
     Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
+    // ITSM Problem read-only
+    Permission.ITSM_PROBLEM_READ,
+    Permission.ITSM_PROBLEM_RISK_READ,
   ],
 };
 
