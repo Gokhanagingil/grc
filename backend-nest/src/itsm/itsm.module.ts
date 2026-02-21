@@ -76,12 +76,17 @@ import { RiskScoringService } from './change/risk/risk-scoring.service';
 import { PolicyService } from './change/risk/policy.service';
 import { RiskController } from './change/risk/risk.controller';
 import { PolicyController } from './change/risk/policy.controller';
+import { CustomerRiskImpactService } from './change/risk/customer-risk-impact.service';
 import { CmdbCiRel } from './cmdb/ci-rel/ci-rel.entity';
 import { CmdbQualitySnapshot } from './cmdb/health/cmdb-quality-snapshot.entity';
 
 import { ItsmApproval } from './change/approval/itsm-approval.entity';
 import { ApprovalService } from './change/approval/approval.service';
 import { ApprovalController } from './change/approval/approval.controller';
+
+import { CustomerRiskCatalog } from '../grc/entities/customer-risk-catalog.entity';
+import { CustomerRiskBinding } from '../grc/entities/customer-risk-binding.entity';
+import { CustomerRiskObservation } from '../grc/entities/customer-risk-observation.entity';
 
 @Module({
   imports: [
@@ -110,6 +115,9 @@ import { ApprovalController } from './change/approval/approval.controller';
       CmdbCiRel,
       CmdbQualitySnapshot,
       ItsmApproval,
+      CustomerRiskCatalog,
+      CustomerRiskBinding,
+      CustomerRiskObservation,
     ]),
     AuditModule,
     AuthModule,
@@ -140,6 +148,7 @@ import { ApprovalController } from './change/approval/approval.controller';
     ConflictDetectionService,
     RiskScoringService,
     PolicyService,
+    CustomerRiskImpactService,
     ApprovalService,
   ],
   controllers: [
@@ -183,6 +192,7 @@ import { ApprovalController } from './change/approval/approval.controller';
     ConflictDetectionService,
     RiskScoringService,
     PolicyService,
+    CustomerRiskImpactService,
     ApprovalService,
   ],
 })
