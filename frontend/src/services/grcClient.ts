@@ -386,6 +386,19 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/itsm/known-errors/${id}`,
       DELETE: (id: string) => `/grc/itsm/known-errors/${id}`,
     },
+
+    // ITSM Major Incident endpoints
+    MAJOR_INCIDENTS: {
+      LIST: '/grc/itsm/major-incidents',
+      CREATE: '/grc/itsm/major-incidents',
+      GET: (id: string) => `/grc/itsm/major-incidents/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/major-incidents/${id}`,
+      DELETE: (id: string) => `/grc/itsm/major-incidents/${id}`,
+      STATISTICS: '/grc/itsm/major-incidents/statistics',
+      TIMELINE: (id: string) => `/grc/itsm/major-incidents/${id}/timeline`,
+      LINKS: (id: string) => `/grc/itsm/major-incidents/${id}/links`,
+      UNLINK: (id: string, linkId: string) => `/grc/itsm/major-incidents/${id}/links/${linkId}`,
+    },
   },
 
   // CMDB (Configuration Management Database) endpoints
@@ -2370,6 +2383,47 @@ export const itsmApi = {
     update: (id: string, data: UpdateItsmKnownErrorDto) => api.patch(API_PATHS.ITSM.KNOWN_ERRORS.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.ITSM.KNOWN_ERRORS.DELETE(id)),
   },
+
+  // ITSM Major Incidents
+  majorIncidents: {
+    list: (params?: ItsmMajorIncidentListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.status) searchParams.set('status', params.status);
+      if (params?.severity) searchParams.set('severity', params.severity);
+      if (params?.commanderId) searchParams.set('commanderId', params.commanderId);
+      if (params?.sortBy) searchParams.set('sortBy', params.sortBy);
+      if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+      if (params?.createdFrom) searchParams.set('createdFrom', params.createdFrom);
+      if (params?.createdTo) searchParams.set('createdTo', params.createdTo);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.MAJOR_INCIDENTS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.MAJOR_INCIDENTS.GET(id)),
+    create: (data: CreateItsmMajorIncidentDto) => api.post(API_PATHS.ITSM.MAJOR_INCIDENTS.CREATE, data),
+    update: (id: string, data: UpdateItsmMajorIncidentDto) => api.patch(API_PATHS.ITSM.MAJOR_INCIDENTS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.MAJOR_INCIDENTS.DELETE(id)),
+    statistics: () => api.get(API_PATHS.ITSM.MAJOR_INCIDENTS.STATISTICS),
+    getTimeline: (id: string, page?: number, pageSize?: number) => {
+      const searchParams = new URLSearchParams();
+      if (page) searchParams.set('page', String(page));
+      if (pageSize) searchParams.set('pageSize', String(pageSize));
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.MAJOR_INCIDENTS.TIMELINE(id)}${queryString ? `?${queryString}` : ''}`);
+    },
+    postTimelineUpdate: (id: string, data: CreateItsmMajorIncidentUpdateDto) =>
+      api.post(API_PATHS.ITSM.MAJOR_INCIDENTS.TIMELINE(id), data),
+    getLinks: (id: string, linkType?: string) => {
+      const queryString = linkType ? `?linkType=${linkType}` : '';
+      return api.get(`${API_PATHS.ITSM.MAJOR_INCIDENTS.LINKS(id)}${queryString}`);
+    },
+    linkRecord: (id: string, data: CreateItsmMajorIncidentLinkDto) =>
+      api.post(API_PATHS.ITSM.MAJOR_INCIDENTS.LINKS(id), data),
+    unlinkRecord: (id: string, linkId: string) =>
+      api.delete(API_PATHS.ITSM.MAJOR_INCIDENTS.UNLINK(id, linkId)),
+  },
 };
 
 // ============================================================================
@@ -2498,6 +2552,134 @@ export interface ItsmKnownErrorListParams {
   state?: string;
   permanentFixStatus?: string;
   problemId?: string;
+}
+
+// ============================================================================
+// ITSM Major Incident Types
+// ============================================================================
+
+export interface ItsmMajorIncidentData {
+  id: string;
+  tenantId: string;
+  number: string;
+  title: string;
+  description: string | null;
+  status: string;
+  severity: string;
+  commanderId: string | null;
+  communicationsLeadId: string | null;
+  techLeadId: string | null;
+  bridgeUrl: string | null;
+  bridgeChannel: string | null;
+  bridgeStartedAt: string | null;
+  bridgeEndedAt: string | null;
+  customerImpactSummary: string | null;
+  businessImpactSummary: string | null;
+  primaryServiceId: string | null;
+  primaryOfferingId: string | null;
+  declaredAt: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  resolutionSummary: string | null;
+  resolutionCode: string | null;
+  sourceIncidentId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  isDeleted: boolean;
+}
+
+export interface CreateItsmMajorIncidentDto {
+  title: string;
+  description?: string;
+  severity?: string;
+  commanderId?: string;
+  communicationsLeadId?: string;
+  techLeadId?: string;
+  bridgeUrl?: string;
+  bridgeChannel?: string;
+  bridgeStartedAt?: string;
+  customerImpactSummary?: string;
+  businessImpactSummary?: string;
+  primaryServiceId?: string;
+  primaryOfferingId?: string;
+  sourceIncidentId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateItsmMajorIncidentDto {
+  title?: string;
+  description?: string;
+  status?: string;
+  severity?: string;
+  commanderId?: string;
+  communicationsLeadId?: string;
+  techLeadId?: string;
+  bridgeUrl?: string;
+  bridgeChannel?: string;
+  bridgeStartedAt?: string;
+  bridgeEndedAt?: string;
+  customerImpactSummary?: string;
+  businessImpactSummary?: string;
+  primaryServiceId?: string;
+  primaryOfferingId?: string;
+  resolutionSummary?: string;
+  resolutionCode?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ItsmMajorIncidentUpdateData {
+  id: string;
+  tenantId: string;
+  majorIncidentId: string;
+  message: string;
+  updateType: string;
+  visibility: string;
+  previousStatus: string | null;
+  newStatus: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface CreateItsmMajorIncidentUpdateDto {
+  message: string;
+  updateType?: string;
+  visibility?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ItsmMajorIncidentLinkData {
+  id: string;
+  tenantId: string;
+  majorIncidentId: string;
+  linkType: string;
+  linkedRecordId: string;
+  linkedRecordLabel: string | null;
+  notes: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface CreateItsmMajorIncidentLinkDto {
+  linkType: string;
+  linkedRecordId: string;
+  linkedRecordLabel?: string;
+  notes?: string;
+}
+
+export interface ItsmMajorIncidentListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  severity?: string;
+  commanderId?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  createdFrom?: string;
+  createdTo?: string;
 }
 
 // CMDB Types
