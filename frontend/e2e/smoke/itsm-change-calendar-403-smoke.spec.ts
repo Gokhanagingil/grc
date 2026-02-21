@@ -8,9 +8,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { login, setupMockApi, TEST_CREDENTIALS } from '../helpers';
-
-const isMockMode = process.env.E2E_MOCK_API === '1';
+import { login, setupMockApi, TEST_CREDENTIALS, isMockUi, logE2eConfig } from '../helpers';
 
 /**
  * Setup mock API with calendar endpoints returning 403
@@ -81,7 +79,9 @@ async function setupCalendar200Mocks(page: Page) {
 }
 
 test.describe('ITSM Change Create Resilience @mock @smoke', () => {
-  test.skip(isMockMode, 'ITSM routes require real backend - mock API does not enable ITSM_SUITE modules');
+  test.beforeAll(() => {
+    logE2eConfig('ITSM Change Create Resilience');
+  });
 
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);

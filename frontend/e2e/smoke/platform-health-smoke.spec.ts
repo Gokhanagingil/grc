@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { login, assertE2eMode } from '../helpers';
+import { login, assertE2eMode, logE2eConfig } from '../helpers';
 
 test.describe('Platform Health UI Smoke @real', () => {
   test.beforeAll(() => {
+    logE2eConfig('Platform Health UI Smoke');
     assertE2eMode('REAL_STACK');
   });
 

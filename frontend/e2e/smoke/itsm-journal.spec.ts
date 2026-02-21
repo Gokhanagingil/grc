@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login } from '../helpers';
+import { login, assertE2eMode, logE2eConfig } from '../helpers';
 
 const MOCK_INCIDENT_ID = '00000000-aaaa-bbbb-cccc-000000000001';
 
@@ -25,6 +25,11 @@ const mockIncident = {
 };
 
 test.describe('ITSM Journal smoke @mock', () => {
+  test.beforeAll(() => {
+    logE2eConfig('ITSM Journal smoke');
+    assertE2eMode('MOCK_UI');
+  });
+
   test('post work note and verify it appears', async ({ page }) => {
     await login(page);
 
