@@ -135,9 +135,11 @@ export class PlatformHealthService {
     }
 
     if (tenantId) {
-      qb.andWhere('run.tenantId = :tenantId', { tenantId });
-    } else {
-      qb.andWhere('run.tenantId IS NULL');
+      if (suite) {
+        qb.andWhere('run.tenantId = :tenantId', { tenantId });
+      } else {
+        qb.where('run.tenantId = :tenantId', { tenantId });
+      }
     }
 
     return qb.getMany();
@@ -161,14 +163,17 @@ export class PlatformHealthService {
     suite: string = 'TIER1',
     tenantId?: string,
   ): Promise<HealthBadge> {
-    const where: Record<string, unknown> = { suite: this.parseSuite(suite) };
+    const qb = this.runRepo
+      .createQueryBuilder('run')
+      .where('run.suite = :suite', { suite: this.parseSuite(suite) })
+      .orderBy('run.startedAt', 'DESC')
+      .limit(1);
+
     if (tenantId) {
-      where.tenantId = tenantId;
+      qb.andWhere('run.tenantId = :tenantId', { tenantId });
     }
-    const latestRun = await this.runRepo.findOne({
-      where,
-      order: { startedAt: 'DESC' },
-    });
+
+    const latestRun = await qb.getOne();
 
     if (!latestRun) {
       return {

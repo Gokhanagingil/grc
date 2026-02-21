@@ -137,11 +137,12 @@ jobs:
             exit 0
           fi
 
-          PAYLOAD=$(jq -c '{
+          PAYLOAD=$(jq -c --arg tid "$TENANT_ID" '{
             suite: "TIER1",
             triggeredBy: "ci",
             gitSha: $ENV.GITHUB_SHA,
             gitRef: $ENV.GITHUB_REF,
+            tenantId: $tid,
             startedAt: .timestamp,
             finishedAt: (now | todate),
             durationMs: ([.tables[].durationMs] | add // 0),
