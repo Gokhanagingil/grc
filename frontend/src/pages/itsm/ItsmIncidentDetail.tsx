@@ -36,6 +36,15 @@ import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { IncidentImpactTab } from '../../components/itsm/IncidentImpactTab';
+import { AxiosError } from 'axios';
+
+interface ApiValidationErrorData {
+  error?: {
+    message?: string;
+    fieldErrors?: { field: string; message: string }[];
+  };
+  message?: string | string[];
+}
 
 interface ItsmIncident {
   id: string;
@@ -246,8 +255,6 @@ export const ItsmIncidentDetail: React.FC = () => {
         const response = await itsmApi.incidents.create({
           shortDescription: incident.shortDescription,
           description: incident.description,
-          state: incident.state,
-          priority: incident.priority,
           impact: incident.impact,
           urgency: incident.urgency,
           category: incident.category,
@@ -277,11 +284,22 @@ export const ItsmIncidentDetail: React.FC = () => {
       }
     } catch (error: unknown) {
       console.error('Error saving incident:', error);
-      const axiosErr = error as { response?: { status?: number } };
+      const axiosErr = error as AxiosError<ApiValidationErrorData>;
       if (axiosErr?.response?.status === 403) {
         showNotification('You don\'t have permission to create incidents.', 'error');
       } else {
-        showNotification('Failed to save incident', 'error');
+        const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
+        const errMsg = axiosErr?.response?.data?.error?.message;
+        const msgArr = axiosErr?.response?.data?.message;
+        if (fieldErrors && fieldErrors.length > 0) {
+          showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
+        } else if (errMsg) {
+          showNotification(errMsg, 'error');
+        } else if (Array.isArray(msgArr)) {
+          showNotification(msgArr.join(', '), 'error');
+        } else {
+          showNotification('Failed to save incident', 'error');
+        }
       }
     } finally {
       setSaving(false);

@@ -119,10 +119,19 @@ export const ItsmIncidentList: React.FC = () => {
       });
       const data = response.data;
       if (data && typeof data === 'object') {
-        const d = data as Record<string, unknown>;
-        const items = d.data ?? d.items;
-        setIncidents(Array.isArray(items) ? items as ItsmIncident[] : []);
-        setTotal((d.total as number) || 0);
+        const envelope = data as Record<string, unknown>;
+        const inner = envelope.data;
+        if (inner && typeof inner === 'object' && !Array.isArray(inner) && 'items' in (inner as Record<string, unknown>)) {
+          const paginated = inner as { items: ItsmIncident[]; total: number };
+          setIncidents(Array.isArray(paginated.items) ? paginated.items : []);
+          setTotal(paginated.total || 0);
+        } else if (Array.isArray(inner)) {
+          setIncidents(inner as ItsmIncident[]);
+          setTotal((inner as ItsmIncident[]).length);
+        } else {
+          setIncidents([]);
+          setTotal(0);
+        }
       } else {
         setIncidents([]);
         setTotal(0);
