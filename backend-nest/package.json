@@ -46,6 +46,8 @@
     "seed:webhook-demo:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-webhook-demo.ts",
     "seed:api-catalog-demo": "node dist/scripts/seed-api-catalog-demo.js",
     "seed:api-catalog-demo:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-api-catalog-demo.ts",
+    "seed:customer-risk-demo": "node dist/scripts/seed-customer-risk-demo.js",
+    "seed:customer-risk-demo:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-customer-risk-demo.ts",
     "seed:soa:prod": "node dist/scripts/seed-soa.js",
     "smoke:grc": "ts-node -r tsconfig-paths/register src/scripts/smoke-grc.ts",
     "smoke:soa": "ts-node -r tsconfig-paths/register src/scripts/smoke-soa.ts",
