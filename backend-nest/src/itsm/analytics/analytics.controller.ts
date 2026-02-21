@@ -1,6 +1,6 @@
 import { Controller, Get, Headers, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { TenantGuard } from '../../auth/tenant.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
 import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { ItsmProblem } from '../problem/problem.entity';
 import { ItsmKnownError } from '../known-error/known-error.entity';
 import { ItsmMajorIncident } from '../major-incident/major-incident.entity';
@@ -408,7 +408,7 @@ export class AnalyticsService {
   // Private Helpers — Counts
   // ============================================================================
 
-  private applyDateFilter<T>(
+  private applyDateFilter<T extends ObjectLiteral>(
     qb: SelectQueryBuilder<T>,
     alias: string,
     filter: AnalyticsFilterDto,
