@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail, ItsmMajorIncidentList, ItsmMajorIncidentDetail } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail, ItsmMajorIncidentList, ItsmMajorIncidentDetail, ItsmAnalyticsDashboard } from './pages/itsm';
 import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -395,6 +395,12 @@ function App() {
                   <Route path="itsm/major-incidents/:id" element={
                     <ErrorBoundary>
                       <ItsmMajorIncidentDetail />
+                    </ErrorBoundary>
+                  } />
+                  {/* ITSM Analytics Dashboard */}
+                  <Route path="itsm/analytics" element={
+                    <ErrorBoundary>
+                      <ItsmAnalyticsDashboard />
                     </ErrorBoundary>
                   } />
                   {/* Legacy /problems redirect */}

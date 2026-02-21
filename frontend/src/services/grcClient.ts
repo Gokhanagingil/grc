@@ -428,6 +428,17 @@ export const API_PATHS = {
       OVERDUE: '/grc/itsm/pir-actions/overdue',
     },
 
+    // ITSM Analytics endpoints (Phase 4 - Closed-Loop Analytics)
+    ANALYTICS: {
+      EXECUTIVE_SUMMARY: '/grc/itsm/analytics/executive-summary',
+      PROBLEM_TRENDS: '/grc/itsm/analytics/problem-trends',
+      MAJOR_INCIDENT_METRICS: '/grc/itsm/analytics/major-incident-metrics',
+      PIR_EFFECTIVENESS: '/grc/itsm/analytics/pir-effectiveness',
+      KNOWN_ERROR_LIFECYCLE: '/grc/itsm/analytics/known-error-lifecycle',
+      CLOSURE_EFFECTIVENESS: '/grc/itsm/analytics/closure-effectiveness',
+      BACKLOG: '/grc/itsm/analytics/backlog',
+    },
+
     // ITSM Knowledge Candidate endpoints
     KNOWLEDGE_CANDIDATES: {
       LIST: '/grc/itsm/knowledge-candidates',
@@ -2995,6 +3006,171 @@ export const knowledgeCandidateApi = {
   publish: (id: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.PUBLISH(id), {}),
   reject: (id: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.REJECT(id), {}),
   delete: (id: string) => api.delete(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.DELETE(id)),
+};
+
+// ============================================================================
+// ITSM Analytics Types (Phase 4 - Closed-Loop Analytics Dashboard)
+// ============================================================================
+
+export interface AnalyticsFilterParams {
+  dateFrom?: string;
+  dateTo?: string;
+  serviceId?: string;
+  severity?: string;
+  team?: string;
+  priority?: string;
+  category?: string;
+}
+
+export interface CountByLabel {
+  label: string;
+  count: number;
+}
+
+export interface TrendPoint {
+  [key: string]: string | number;
+  period: string;
+  opened: number;
+  closed: number;
+  resolved: number;
+}
+
+export interface AgingBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface BacklogItem {
+  id: string;
+  type: string;
+  title: string;
+  priority: string;
+  state: string;
+  ageDays: number;
+  lastUpdated: string;
+  assignee: string | null;
+}
+
+export interface ExecutiveSummaryData {
+  totalProblems: number;
+  openProblems: number;
+  reopenRate: number;
+  openMajorIncidents: number;
+  pirCompletionPct: number;
+  overdueActions: number;
+  publishedKnownErrors: number;
+  knowledgeCandidates: number;
+  closureRate: number;
+  avgDaysToClose: number | null;
+  actionCompletionRate: number;
+  avgDaysToCompleteAction: number | null;
+  problemTrend: TrendPoint[];
+  majorIncidentTrend: TrendPoint[];
+  severityDistribution: CountByLabel[];
+}
+
+export interface ProblemTrendsData {
+  stateDistribution: CountByLabel[];
+  priorityDistribution: CountByLabel[];
+  categoryDistribution: CountByLabel[];
+  trend: TrendPoint[];
+  aging: AgingBucket[];
+  reopenedCount: number;
+  avgDaysOpen: number;
+}
+
+export interface MajorIncidentMetricsData {
+  totalCount: number;
+  byStatus: CountByLabel[];
+  bySeverity: CountByLabel[];
+  mttrHours: number | null;
+  avgBridgeDurationMinutes: number | null;
+  pirCompletionRate: number;
+  trend: TrendPoint[];
+}
+
+export interface PirEffectivenessData {
+  totalPirs: number;
+  statusDistribution: CountByLabel[];
+  actionCompletionRate: number;
+  overdueActions: number;
+  avgDaysToComplete: number | null;
+  knowledgeCandidates: number;
+  kcByStatus: CountByLabel[];
+}
+
+export interface KnownErrorLifecycleData {
+  totalCount: number;
+  stateDistribution: CountByLabel[];
+  fixStatusDistribution: CountByLabel[];
+  publishedCount: number;
+  retiredCount: number;
+  fromProblemCount: number;
+  problemLinkRate: number;
+}
+
+export interface ClosureEffectivenessData {
+  closureTrend: TrendPoint[];
+  reopenedCount: number;
+  totalProblems: number;
+  reopenRate: number;
+  actionCompletionRate: number;
+  avgProblemDays: number | null;
+  avgActionDays: number | null;
+  pirClosureRate: number;
+}
+
+export interface BacklogSummaryData {
+  problemsByPriority: CountByLabel[];
+  actionsByPriority: CountByLabel[];
+  overdueCount: number;
+  staleCount: number;
+  items: BacklogItem[];
+}
+
+function buildAnalyticsQuery(params?: AnalyticsFilterParams): string {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+  if (params.dateFrom) searchParams.set('dateFrom', params.dateFrom);
+  if (params.dateTo) searchParams.set('dateTo', params.dateTo);
+  if (params.serviceId) searchParams.set('serviceId', params.serviceId);
+  if (params.severity) searchParams.set('severity', params.severity);
+  if (params.team) searchParams.set('team', params.team);
+  if (params.priority) searchParams.set('priority', params.priority);
+  if (params.category) searchParams.set('category', params.category);
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export const itsmAnalyticsApi = {
+  getExecutiveSummary: async (params?: AnalyticsFilterParams): Promise<ExecutiveSummaryData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.EXECUTIVE_SUMMARY}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<ExecutiveSummaryData>(response);
+  },
+  getProblemTrends: async (params?: AnalyticsFilterParams): Promise<ProblemTrendsData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.PROBLEM_TRENDS}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<ProblemTrendsData>(response);
+  },
+  getMajorIncidentMetrics: async (params?: AnalyticsFilterParams): Promise<MajorIncidentMetricsData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.MAJOR_INCIDENT_METRICS}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<MajorIncidentMetricsData>(response);
+  },
+  getPirEffectiveness: async (params?: AnalyticsFilterParams): Promise<PirEffectivenessData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.PIR_EFFECTIVENESS}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<PirEffectivenessData>(response);
+  },
+  getKnownErrorLifecycle: async (params?: AnalyticsFilterParams): Promise<KnownErrorLifecycleData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.KNOWN_ERROR_LIFECYCLE}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<KnownErrorLifecycleData>(response);
+  },
+  getClosureEffectiveness: async (params?: AnalyticsFilterParams): Promise<ClosureEffectivenessData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.CLOSURE_EFFECTIVENESS}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<ClosureEffectivenessData>(response);
+  },
+  getBacklog: async (params?: AnalyticsFilterParams): Promise<BacklogSummaryData> => {
+    const response = await api.get(`${API_PATHS.ITSM.ANALYTICS.BACKLOG}${buildAnalyticsQuery(params)}`);
+    return unwrapResponse<BacklogSummaryData>(response);
+  },
 };
 
 // CMDB Types
