@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { login, assertE2eMode } from '../helpers';
 
-assertE2eMode('REAL_STACK');
-
 test.describe('Platform Health UI Smoke @real', () => {
+  test.beforeAll(() => {
+    assertE2eMode('REAL_STACK');
+  });
 
   test('should display platform health page with last run after ingest', async ({ page }) => {
     await login(page);
