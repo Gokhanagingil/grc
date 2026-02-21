@@ -3052,21 +3052,26 @@ export interface BacklogItem {
 }
 
 export interface ExecutiveSummaryData {
-  totalProblems: number;
-  openProblems: number;
-  reopenRate: number;
-  openMajorIncidents: number;
-  pirCompletionPct: number;
-  overdueActions: number;
-  publishedKnownErrors: number;
-  knowledgeCandidates: number;
-  closureRate: number;
-  avgDaysToClose: number | null;
-  actionCompletionRate: number;
-  avgDaysToCompleteAction: number | null;
+  kpis: {
+    totalProblems: number;
+    openProblems: number;
+    openMajorIncidents: number;
+    pirCompletionPct: number;
+    actionOverdueCount: number;
+    knownErrorsPublished: number;
+    knowledgeCandidatesGenerated: number;
+    problemReopenRate: number;
+  };
   problemTrend: TrendPoint[];
   majorIncidentTrend: TrendPoint[];
+  closureEffectiveness: {
+    problemClosureRate: number;
+    actionClosureRate: number;
+    avgDaysToCloseProblem: number;
+    avgDaysToCloseAction: number;
+  };
   severityDistribution: CountByLabel[];
+  generatedAt: string;
 }
 
 export interface ProblemTrendsData {
@@ -3084,48 +3089,51 @@ export interface MajorIncidentMetricsData {
   byStatus: CountByLabel[];
   bySeverity: CountByLabel[];
   mttrHours: number | null;
-  avgBridgeDurationMinutes: number | null;
+  avgBridgeDurationHours: number | null;
   pirCompletionRate: number;
   trend: TrendPoint[];
+  generatedAt: string;
 }
 
 export interface PirEffectivenessData {
   totalPirs: number;
   statusDistribution: CountByLabel[];
   actionCompletionRate: number;
-  overdueActions: number;
-  avgDaysToComplete: number | null;
-  knowledgeCandidates: number;
-  kcByStatus: CountByLabel[];
+  actionOverdueCount: number;
+  avgDaysToCompleteAction: number | null;
+  knowledgeCandidateCount: number;
+  knowledgeCandidatesByStatus: CountByLabel[];
+  generatedAt: string;
 }
 
 export interface KnownErrorLifecycleData {
   totalCount: number;
   stateDistribution: CountByLabel[];
   fixStatusDistribution: CountByLabel[];
-  publishedCount: number;
-  retiredCount: number;
-  fromProblemCount: number;
-  problemLinkRate: number;
+  publicationRate: number;
+  retirementRate: number;
+  problemToKeConversionRate: number;
+  generatedAt: string;
 }
 
 export interface ClosureEffectivenessData {
-  closureTrend: TrendPoint[];
-  reopenedCount: number;
-  totalProblems: number;
-  reopenRate: number;
-  actionCompletionRate: number;
-  avgProblemDays: number | null;
-  avgActionDays: number | null;
+  problemClosureRateTrend: TrendPoint[];
+  reopenedProblemRate: number;
+  reopenedProblems: number;
+  actionClosureRate: number;
+  avgDaysToCloseProblem: number | null;
+  avgDaysToCloseAction: number | null;
   pirClosureRate: number;
+  generatedAt: string;
 }
 
 export interface BacklogSummaryData {
-  problemsByPriority: CountByLabel[];
-  actionsByPriority: CountByLabel[];
-  overdueCount: number;
-  staleCount: number;
+  openProblemsByPriority: CountByLabel[];
+  openActionsByPriority: CountByLabel[];
+  overdueActions: number;
+  staleItems: number;
   items: BacklogItem[];
+  generatedAt: string;
 }
 
 function buildAnalyticsQuery(params?: AnalyticsFilterParams): string {

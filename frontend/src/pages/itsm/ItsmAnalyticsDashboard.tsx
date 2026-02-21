@@ -360,8 +360,8 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Open Problems"
-            value={data.openProblems}
-            subtitle={`${data.totalProblems} total`}
+            value={data.kpis.openProblems}
+            subtitle={`${data.kpis.totalProblems} total`}
             icon={<ProblemIcon />}
             color={COLORS.warning}
           />
@@ -369,7 +369,7 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Major Incidents"
-            value={data.openMajorIncidents}
+            value={data.kpis.openMajorIncidents}
             subtitle="Active"
             icon={<MajorIncidentIcon />}
             color={COLORS.error}
@@ -378,7 +378,7 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Overdue Actions"
-            value={data.overdueActions}
+            value={data.kpis.actionOverdueCount}
             subtitle="Past due date"
             icon={<PirIcon />}
             color={COLORS.deepOrange}
@@ -387,8 +387,8 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Published KEs"
-            value={data.publishedKnownErrors}
-            subtitle={`${data.knowledgeCandidates} KC pending`}
+            value={data.kpis.knownErrorsPublished}
+            subtitle={`${data.kpis.knowledgeCandidatesGenerated} KC pending`}
             icon={<KnownErrorIcon />}
             color={COLORS.teal}
           />
@@ -400,37 +400,37 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Closure Rate"
-            value={`${data.closureRate}%`}
-            subtitle={data.avgDaysToClose != null ? `Avg ${data.avgDaysToClose}d to close` : 'No closures yet'}
+            value={`${data.closureEffectiveness.problemClosureRate}%`}
+            subtitle={data.closureEffectiveness.avgDaysToCloseProblem != null ? `Avg ${data.closureEffectiveness.avgDaysToCloseProblem}d to close` : 'No closures yet'}
             icon={<ClosureIcon />}
-            color={data.closureRate >= 70 ? COLORS.success : data.closureRate >= 40 ? COLORS.warning : COLORS.error}
+            color={data.closureEffectiveness.problemClosureRate >= 70 ? COLORS.success : data.closureEffectiveness.problemClosureRate >= 40 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="PIR Completion"
-            value={`${data.pirCompletionPct}%`}
+            value={`${data.kpis.pirCompletionPct}%`}
             subtitle="PIRs approved/closed"
             icon={<PirIcon />}
-            color={data.pirCompletionPct >= 80 ? COLORS.success : data.pirCompletionPct >= 50 ? COLORS.warning : COLORS.error}
+            color={data.kpis.pirCompletionPct >= 80 ? COLORS.success : data.kpis.pirCompletionPct >= 50 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Action Completion"
-            value={`${data.actionCompletionRate}%`}
-            subtitle={data.avgDaysToCompleteAction != null ? `Avg ${data.avgDaysToCompleteAction}d` : 'No completions'}
+            value={`${data.closureEffectiveness.actionClosureRate}%`}
+            subtitle={data.closureEffectiveness.avgDaysToCloseAction != null ? `Avg ${data.closureEffectiveness.avgDaysToCloseAction}d` : 'No completions'}
             icon={<TrendIcon />}
-            color={data.actionCompletionRate >= 80 ? COLORS.success : data.actionCompletionRate >= 50 ? COLORS.warning : COLORS.error}
+            color={data.closureEffectiveness.actionClosureRate >= 80 ? COLORS.success : data.closureEffectiveness.actionClosureRate >= 50 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Reopen Rate"
-            value={`${data.reopenRate}%`}
+            value={`${data.kpis.problemReopenRate}%`}
             subtitle="Problems reopened"
             icon={<ProblemIcon />}
-            color={data.reopenRate <= 5 ? COLORS.success : data.reopenRate <= 15 ? COLORS.warning : COLORS.error}
+            color={data.kpis.problemReopenRate <= 5 ? COLORS.success : data.kpis.problemReopenRate <= 15 ? COLORS.warning : COLORS.error}
           />
         </Grid>
       </Grid>
@@ -452,7 +452,7 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
               <DonutChart
                 data={severityDonut}
                 height={280}
-                centerValue={data.totalProblems}
+                centerValue={data.kpis.totalProblems}
                 centerLabel="Total"
               />
             ) : (
@@ -632,7 +632,7 @@ const MajorIncidentTab: React.FC<{ data: MajorIncidentMetricsData | null }> = ({
         <Grid item xs={12} sm={3}>
           <MetricCard
             title="Avg Bridge Duration"
-            value={data.avgBridgeDurationMinutes != null ? `${data.avgBridgeDurationMinutes}m` : 'N/A'}
+            value={data.avgBridgeDurationHours != null ? `${data.avgBridgeDurationHours}h` : 'N/A'}
             subtitle="Average bridge call"
             icon={<TrendIcon />}
             color={COLORS.info}
@@ -695,7 +695,7 @@ const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ 
     color: STATE_COLORS[s.label] || COLORS.info,
   }));
 
-  const kcStatusDonut = data.kcByStatus.map(s => ({
+  const kcStatusDonut = data.knowledgeCandidatesByStatus.map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
@@ -718,15 +718,15 @@ const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ 
         <Grid item xs={12} sm={4} md={2}>
           <MetricCard
             title="Overdue Actions"
-            value={data.overdueActions}
+            value={data.actionOverdueCount}
             icon={<MajorIncidentIcon />}
-            color={data.overdueActions > 0 ? COLORS.error : COLORS.success}
+            color={data.actionOverdueCount > 0 ? COLORS.error : COLORS.success}
           />
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
           <MetricCard
             title="Avg Days to Complete"
-            value={data.avgDaysToComplete ?? 'N/A'}
+            value={data.avgDaysToCompleteAction ?? 'N/A'}
             icon={<SpeedIcon />}
             color={COLORS.info}
           />
@@ -734,7 +734,7 @@ const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ 
         <Grid item xs={12} sm={4} md={2}>
           <MetricCard
             title="Knowledge Candidates"
-            value={data.knowledgeCandidates}
+            value={data.knowledgeCandidateCount}
             icon={<KnownErrorIcon />}
             color={COLORS.teal}
           />
@@ -754,7 +754,7 @@ const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ 
         <Grid item xs={12} md={6}>
           <DashboardCard title="Knowledge Candidate Status" subtitle="KC status breakdown">
             {kcStatusDonut.length > 0 ? (
-              <DonutChart data={kcStatusDonut} height={280} centerValue={data.knowledgeCandidates} centerLabel="KC" />
+              <DonutChart data={kcStatusDonut} height={280} centerValue={data.knowledgeCandidateCount} centerLabel="KC" />
             ) : (
               <EmptyState message="No KC data" />
             )}
@@ -791,20 +791,17 @@ const KnownErrorTab: React.FC<{ data: KnownErrorLifecycleData | null }> = ({ dat
           <MetricCard title="Total KEs" value={data.totalCount} icon={<KnownErrorIcon />} color={COLORS.primary} />
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
-          <MetricCard title="Published" value={data.publishedCount} icon={<ClosureIcon />} color={COLORS.success} />
+          <MetricCard title="Publication Rate" value={`${data.publicationRate}%`} icon={<ClosureIcon />} color={COLORS.success} />
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
-          <MetricCard title="Retired" value={data.retiredCount} icon={<BacklogIcon />} color="#78909c" />
-        </Grid>
-        <Grid item xs={12} sm={4} md={2}>
-          <MetricCard title="From Problems" value={data.fromProblemCount} icon={<ProblemIcon />} color={COLORS.warning} />
+          <MetricCard title="Retirement Rate" value={`${data.retirementRate}%`} icon={<BacklogIcon />} color="#78909c" />
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
           <MetricCard
-            title="Problem Link Rate"
-            value={`${data.problemLinkRate}%`}
-            icon={<TrendIcon />}
-            color={data.problemLinkRate >= 50 ? COLORS.success : COLORS.warning}
+            title="Problem→KE Conversion"
+            value={`${data.problemToKeConversionRate}%`}
+            icon={<ProblemIcon />}
+            color={data.problemToKeConversionRate >= 50 ? COLORS.success : COLORS.warning}
           />
         </Grid>
       </Grid>
@@ -852,24 +849,24 @@ const ClosureTab: React.FC<{ data: ClosureEffectivenessData | null }> = ({ data 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Reopen Rate"
-            value={`${data.reopenRate}%`}
-            subtitle={`${data.reopenedCount} of ${data.totalProblems}`}
+            value={`${data.reopenedProblemRate}%`}
+            subtitle={`${data.reopenedProblems} reopened`}
             icon={<ProblemIcon />}
-            color={data.reopenRate <= 5 ? COLORS.success : data.reopenRate <= 15 ? COLORS.warning : COLORS.error}
+            color={data.reopenedProblemRate <= 5 ? COLORS.success : data.reopenedProblemRate <= 15 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Action Completion"
-            value={`${data.actionCompletionRate}%`}
+            value={`${data.actionClosureRate}%`}
             icon={<ClosureIcon />}
-            color={data.actionCompletionRate >= 80 ? COLORS.success : COLORS.warning}
+            color={data.actionClosureRate >= 80 ? COLORS.success : COLORS.warning}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Avg Problem Close"
-            value={data.avgProblemDays != null ? `${data.avgProblemDays}d` : 'N/A'}
+            value={data.avgDaysToCloseProblem != null ? `${data.avgDaysToCloseProblem}d` : 'N/A'}
             subtitle="Days to close"
             icon={<SpeedIcon />}
             color={COLORS.info}
@@ -888,8 +885,8 @@ const ClosureTab: React.FC<{ data: ClosureEffectivenessData | null }> = ({ data 
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <DashboardCard title="Closure Trend" subtitle="Problem open/close trend over time">
-            {data.closureTrend.length > 0 ? (
-              <TrendChart data={data.closureTrend} xAxisKey="period" lines={trendLines} height={320} />
+            {data.problemClosureRateTrend.length > 0 ? (
+              <TrendChart data={data.problemClosureRateTrend} xAxisKey="period" lines={trendLines} height={320} />
             ) : (
               <EmptyState message="No closure trend data" />
             )}
@@ -907,13 +904,13 @@ const ClosureTab: React.FC<{ data: ClosureEffectivenessData | null }> = ({ data 
 const BacklogTab: React.FC<{ data: BacklogSummaryData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No backlog data available" />;
 
-  const problemBars = data.problemsByPriority.map(p => ({
+  const problemBars = data.openProblemsByPriority.map(p => ({
     label: p.label || 'Unset',
     value: p.count,
     color: PRIORITY_COLORS[p.label] || COLORS.info,
   }));
 
-  const actionBars = data.actionsByPriority.map(a => ({
+  const actionBars = data.openActionsByPriority.map(a => ({
     label: a.label || 'Unset',
     value: a.count,
     color: PRIORITY_COLORS[a.label] || COLORS.info,
@@ -925,18 +922,18 @@ const BacklogTab: React.FC<{ data: BacklogSummaryData | null }> = ({ data }) => 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Overdue Actions"
-            value={data.overdueCount}
+            value={data.overdueActions}
             icon={<MajorIncidentIcon />}
-            color={data.overdueCount > 0 ? COLORS.error : COLORS.success}
+            color={data.overdueActions > 0 ? COLORS.error : COLORS.success}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Stale Items"
-            value={data.staleCount}
+            value={data.staleItems}
             subtitle="Not updated in 30+ days"
             icon={<BacklogIcon />}
-            color={data.staleCount > 0 ? COLORS.warning : COLORS.success}
+            color={data.staleItems > 0 ? COLORS.warning : COLORS.success}
           />
         </Grid>
       </Grid>

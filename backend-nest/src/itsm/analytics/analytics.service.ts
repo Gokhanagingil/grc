@@ -10,7 +10,7 @@ import { ItsmKnowledgeCandidate } from '../pir/knowledge-candidate.entity';
 import { AnalyticsFilterDto } from './dto';
 import { KnownErrorState, ProblemState } from '../enums';
 import { MajorIncidentStatus } from '../major-incident/major-incident.enums';
-import { KnowledgeCandidateStatus, PirActionStatus, PirStatus } from '../pir/pir.enums';
+import { PirActionStatus, PirStatus } from '../pir/pir.enums';
 
 // ============================================================================
 // Response Interfaces
@@ -581,8 +581,10 @@ export class AnalyticsService {
 
   private async countStaleItems(
     tenantId: string,
-    _filter: AnalyticsFilterDto,
+    filter: AnalyticsFilterDto,
   ): Promise<number> {
+    // filter param reserved for future date-range scoping of stale items
+    void filter;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
