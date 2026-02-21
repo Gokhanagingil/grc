@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -59,9 +59,7 @@ export class KnownErrorService {
 
     const saved = await this.knownErrorRepository.save(knownError);
 
-    this.logger.log(
-      `Known Error created: ${saved.id} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Known Error created: ${saved.id} for tenant ${tenantId}`);
 
     try {
       await this.auditService.recordCreate(

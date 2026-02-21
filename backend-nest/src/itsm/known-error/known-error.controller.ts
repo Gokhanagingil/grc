@@ -13,13 +13,14 @@ import {
   HttpStatus,
   NotFoundException,
   Logger,
+  Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantGuard } from '../../auth/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
-import { RequirePermissions } from '../../auth/permissions/permissions.decorator';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
-import { CurrentUser } from '../../auth/current-user.decorator';
+import { Perf } from '../../common/decorators';
 import { KnownErrorService } from './known-error.service';
 import { CreateKnownErrorDto } from './dto/create-known-error.dto';
 import { UpdateKnownErrorDto } from './dto/update-known-error.dto';
@@ -45,7 +46,8 @@ export class KnownErrorController {
    * List Known Errors with filters and pagination
    */
   @Get()
-  @RequirePermissions(Permission.ITSM_KNOWN_ERROR_READ)
+  @Permissions(Permission.ITSM_KNOWN_ERROR_READ)
+  @Perf()
   async list(
     @Headers('x-tenant-id') tenantId: string,
     @Query() filterDto: KnownErrorFilterDto,
@@ -61,16 +63,17 @@ export class KnownErrorController {
    * Create a new Known Error
    */
   @Post()
-  @RequirePermissions(Permission.ITSM_KNOWN_ERROR_CREATE)
+  @Permissions(Permission.ITSM_KNOWN_ERROR_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @Perf()
   async create(
     @Headers('x-tenant-id') tenantId: string,
-    @CurrentUser('id') userId: string,
+    @Request() req: { user: { id: string } },
     @Body() dto: CreateKnownErrorDto,
   ) {
     const knownError = await this.knownErrorService.createKnownError(
       tenantId,
-      userId,
+      req.user.id,
       dto,
     );
     return { data: knownError };
@@ -80,7 +83,8 @@ export class KnownErrorController {
    * Get a single Known Error by ID
    */
   @Get(':id')
-  @RequirePermissions(Permission.ITSM_KNOWN_ERROR_READ)
+  @Permissions(Permission.ITSM_KNOWN_ERROR_READ)
+  @Perf()
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
@@ -96,16 +100,17 @@ export class KnownErrorController {
    * Update a Known Error
    */
   @Patch(':id')
-  @RequirePermissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Perf()
   async update(
     @Headers('x-tenant-id') tenantId: string,
-    @CurrentUser('id') userId: string,
+    @Request() req: { user: { id: string } },
     @Param('id') id: string,
     @Body() dto: UpdateKnownErrorDto,
   ) {
     const knownError = await this.knownErrorService.updateKnownError(
       tenantId,
-      userId,
+      req.user.id,
       id,
       dto,
     );
@@ -119,16 +124,17 @@ export class KnownErrorController {
    * Soft delete a Known Error
    */
   @Delete(':id')
-  @RequirePermissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
+  @Permissions(Permission.ITSM_KNOWN_ERROR_UPDATE)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
   async remove(
     @Headers('x-tenant-id') tenantId: string,
-    @CurrentUser('id') userId: string,
+    @Request() req: { user: { id: string } },
     @Param('id') id: string,
   ) {
     const deleted = await this.knownErrorService.softDeleteKnownError(
       tenantId,
-      userId,
+      req.user.id,
       id,
     );
     if (!deleted) {
