@@ -68,6 +68,9 @@ export { BcmController } from './bcm.controller';
 // Calendar Controllers
 export { CalendarController } from './calendar.controller';
 
+// Customer Risk Catalog Controller (ITSM↔GRC Bridge)
+export { CustomerRiskCatalogController } from './customer-risk-catalog.controller';
+
 // NOTE: ITSM controllers (ItsmServiceController, ItsmChangeController) are no longer
 // exported here. Canonical ITSM controllers live in ItsmModule (src/itsm/).
 // The files in this directory are kept for GRC Bridge reference only.

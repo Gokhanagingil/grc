@@ -120,3 +120,8 @@ export { ItsmChange } from './itsm-change.entity';
 // ITSM-GRC Bridge Entities (Change management only; Incident bridge is in ItsmModule)
 export { ItsmChangeRisk } from './itsm-change-risk.entity';
 export { ItsmChangeControl } from './itsm-change-control.entity';
+
+// Customer Risk Catalog Entities (ITSM↔GRC Bridge)
+export { CustomerRiskCatalog } from './customer-risk-catalog.entity';
+export { CustomerRiskBinding } from './customer-risk-binding.entity';
+export { CustomerRiskObservation } from './customer-risk-observation.entity';

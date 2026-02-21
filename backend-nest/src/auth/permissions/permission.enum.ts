@@ -164,6 +164,14 @@ export enum Permission {
   // ITSM Approval permissions
   ITSM_APPROVAL_READ = 'itsm:approval:read',
   ITSM_APPROVAL_WRITE = 'itsm:approval:write',
+
+  // Customer Risk Catalog permissions
+  GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
+  GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
+  GRC_CUSTOMER_RISK_BIND_READ = 'grc:customer_risk_bind:read',
+  GRC_CUSTOMER_RISK_BIND_WRITE = 'grc:customer_risk_bind:write',
+  GRC_CUSTOMER_RISK_OBSERVATION_READ = 'grc:customer_risk_observation:read',
+  GRC_CUSTOMER_RISK_OBSERVATION_WRITE = 'grc:customer_risk_observation:write',
 }
 
 /**
@@ -288,4 +296,16 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_APPROVAL_READ]: 'View change approval requests',
   [Permission.ITSM_APPROVAL_WRITE]:
     'Approve or reject change approval requests',
+  [Permission.GRC_CUSTOMER_RISK_READ]:
+    'View customer risk catalog entries',
+  [Permission.GRC_CUSTOMER_RISK_WRITE]:
+    'Create, update, and delete customer risk catalog entries',
+  [Permission.GRC_CUSTOMER_RISK_BIND_READ]:
+    'View customer risk bindings to CIs, services, and offerings',
+  [Permission.GRC_CUSTOMER_RISK_BIND_WRITE]:
+    'Create and delete customer risk bindings',
+  [Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ]:
+    'View customer risk observations and signals',
+  [Permission.GRC_CUSTOMER_RISK_OBSERVATION_WRITE]:
+    'Create and manage customer risk observations',
 };
