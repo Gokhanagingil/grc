@@ -7,3 +7,4 @@
 export * from './safeHelpers';
 export * from './errorSanitizer';
 export * from './queryParams';
+export * from './apiErrorClassifier';

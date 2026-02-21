@@ -46,15 +46,8 @@ import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { AxiosError } from 'axios';
-
-interface ApiValidationErrorData {
-  error?: {
-    message?: string;
-    fieldErrors?: { field: string; message: string }[];
-  };
-  message?: string | string[];
-}
 
 interface ItsmChange {
   id: string;
@@ -122,6 +115,37 @@ const APPROVAL_OPTIONS = [
 
 /** Maximum time (ms) to wait for page initialization before forcing ready state */
 const INIT_TIMEOUT_MS = 15_000;
+
+/**
+ * Centralized helper to extract the created record ID from various response envelope shapes.
+ * Supports:
+ * - { success: true, data: { id } } (NestJS ResponseTransformInterceptor)
+ * - { data: { id } } (legacy envelope)
+ * - { id } (flat)
+ */
+function extractCreatedRecordId(response: { data: unknown }): string | undefined {
+  const raw = response.data;
+  if (!raw || typeof raw !== 'object') return undefined;
+
+  // Try unwrapResponse first (handles { success: true, data: ... })
+  try {
+    const unwrapped = unwrapResponse<{ id?: string }>(response);
+    if (unwrapped && typeof unwrapped === 'object' && 'id' in unwrapped) {
+      return (unwrapped as { id: string }).id;
+    }
+  } catch { /* fallback below */ }
+
+  // Manual envelope check
+  const d = raw as Record<string, unknown>;
+  if ('data' in d && d.data && typeof d.data === 'object' && 'id' in (d.data as Record<string, unknown>)) {
+    return (d.data as { id: string }).id;
+  }
+  if ('id' in d && typeof d.id === 'string') {
+    return d.id;
+  }
+
+  return undefined;
+}
 
 export const ItsmChangeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -200,47 +224,83 @@ export const ItsmChangeDetail: React.FC = () => {
     if (isNew || !id) return;
     
     setLoading(true);
+    const initStart = Date.now();
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[ItsmChangeDetail] init:start', { mode: 'edit', id });
+    }
     try {
+      // CRITICAL: Fetch the change record itself — must succeed
       const response = await itsmApi.changes.get(id);
       const data = response.data;
       if (data && 'data' in data) {
         setChange(data.data);
       }
-
-      // Fetch linked risks and controls
-      try {
-        const risksResponse = await itsmApi.changes.getLinkedRisks(id);
-        if (risksResponse.data && 'data' in risksResponse.data) {
-          setLinkedRisks(Array.isArray(risksResponse.data.data) ? risksResponse.data.data : []);
-        }
-      } catch {
-        // Ignore errors for linked risks
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[ItsmChangeDetail] init:change:success', { elapsed: Date.now() - initStart });
       }
 
-      try {
-        const controlsResponse = await itsmApi.changes.getLinkedControls(id);
-        if (controlsResponse.data && 'data' in controlsResponse.data) {
-          setLinkedControls(Array.isArray(controlsResponse.data.data) ? controlsResponse.data.data : []);
+      // OPTIONAL: Fetch enrichment data in parallel using Promise.allSettled
+      // These MUST NOT block form render — failures show warnings, not errors
+      const optionalResults = await Promise.allSettled([
+        // [0] Linked risks
+        itsmApi.changes.getLinkedRisks(id),
+        // [1] Linked controls
+        itsmApi.changes.getLinkedControls(id),
+        // [2] Conflicts
+        itsmApi.changes.conflicts(id),
+        // [3] Risk assessment
+        itsmApi.changes.getRiskAssessment(id),
+        // [4] Approvals
+        itsmApi.changes.listApprovals(id),
+      ]);
+
+      if (!mountedRef.current) return;
+
+      const optionalWarnings: string[] = [];
+
+      // [0] Linked risks
+      if (optionalResults[0].status === 'fulfilled') {
+        const risksData = optionalResults[0].value.data;
+        if (risksData && 'data' in risksData) {
+          setLinkedRisks(Array.isArray(risksData.data) ? risksData.data : []);
         }
-      } catch {
-        // Ignore errors for linked controls
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:linkedRisks:error', optionalResults[0].reason);
+        }
+        optionalWarnings.push('Linked risks could not be loaded.');
       }
 
-      try {
-        const conflictsResponse = await itsmApi.changes.conflicts(id);
-        const cData = conflictsResponse.data as { data?: ItsmCalendarConflictData[] };
+      // [1] Linked controls
+      if (optionalResults[1].status === 'fulfilled') {
+        const controlsData = optionalResults[1].value.data;
+        if (controlsData && 'data' in controlsData) {
+          setLinkedControls(Array.isArray(controlsData.data) ? controlsData.data : []);
+        }
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:linkedControls:error', optionalResults[1].reason);
+        }
+        optionalWarnings.push('Linked controls could not be loaded.');
+      }
+
+      // [2] Conflicts
+      if (optionalResults[2].status === 'fulfilled') {
+        const cData = optionalResults[2].value.data as { data?: ItsmCalendarConflictData[] };
         if (cData?.data) {
           setConflicts(Array.isArray(cData.data) ? cData.data : []);
         }
-      } catch {
-        // Ignore errors for conflicts
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:conflicts:error', optionalResults[2].reason);
+        }
+        optionalWarnings.push('Calendar conflicts could not be loaded.');
       }
 
-      try {
-        const riskResponse = await itsmApi.changes.getRiskAssessment(id);
-        const rData = riskResponse.data as { data?: { assessment?: RiskAssessmentData } | RiskAssessmentData };
+      // [3] Risk assessment
+      if (optionalResults[3].status === 'fulfilled') {
+        const rData = optionalResults[3].value.data as { data?: { assessment?: RiskAssessmentData } | RiskAssessmentData };
         if (rData?.data) {
-          // Handle both old shape (direct assessment) and new shape ({ assessment, policyEvaluation })
           const payload = rData.data;
           if ('assessment' in payload && payload.assessment) {
             setRiskAssessment(payload.assessment);
@@ -248,25 +308,47 @@ export const ItsmChangeDetail: React.FC = () => {
             setRiskAssessment(payload as RiskAssessmentData);
           }
         }
-      } catch {
-        // Ignore - assessment may not exist yet
+      } else {
+        // Risk assessment may not exist yet — only warn in dev
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:riskAssessment:error', optionalResults[3].reason);
+        }
       }
 
-      try {
-        const approvalsResponse = await itsmApi.changes.listApprovals(id);
-        const aData = approvalsResponse.data as { data?: ItsmApprovalData[] };
+      // [4] Approvals
+      if (optionalResults[4].status === 'fulfilled') {
+        const aData = optionalResults[4].value.data as { data?: ItsmApprovalData[] };
         if (aData?.data) {
           setApprovals(Array.isArray(aData.data) ? aData.data : []);
         }
-      } catch {
-        // Ignore - approvals may not exist yet
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:approvals:error', optionalResults[4].reason);
+        }
+      }
+
+      // Show aggregated warnings for optional dependency failures
+      if (optionalWarnings.length > 0 && mountedRef.current) {
+        setInitWarnings(prev => {
+          const newWarnings = optionalWarnings.filter(w => !prev.includes(w));
+          return newWarnings.length > 0 ? [...prev, ...newWarnings] : prev;
+        });
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[ItsmChangeDetail] init:ready', { elapsed: Date.now() - initStart });
       }
     } catch (error) {
       console.error('Error fetching ITSM change:', error);
-      showNotification('Failed to load ITSM change', 'error');
+      const classified = classifyApiError(error);
+      if (classified.kind === 'not_found') {
+        showNotification('Change not found', 'error');
+      } else {
+        showNotification(classified.message || 'Failed to load ITSM change', 'error');
+      }
       navigate('/itsm/changes');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [id, isNew, navigate, showNotification]);
 
@@ -331,9 +413,14 @@ export const ItsmChangeDetail: React.FC = () => {
 
     setSaving(true);
     setSaveError(null);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[ItsmChangeDetail] save:click', { mode: isNew ? 'create' : 'edit', id });
+    }
     try {
       if (isNew) {
-        const response = await itsmApi.changes.create({
+        // CREATE: Only send fields accepted by backend CreateChangeDto
+        // Do NOT send state, approvalStatus (server-managed)
+        const createPayload = {
           title: change.title,
           description: change.description,
           type: change.type as 'STANDARD' | 'NORMAL' | 'EMERGENCY',
@@ -344,73 +431,62 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
-        });
-        // Robustly extract the created change ID from multiple possible response shapes
-        const raw = response.data;
-        let createdId: string | undefined;
-        try {
-          // Try centralized unwrapper first (handles { success: true, data: ... })
-          const unwrapped = unwrapResponse<{ id?: string }>(response);
-          if (unwrapped && typeof unwrapped === 'object' && 'id' in unwrapped) {
-            createdId = (unwrapped as { id: string }).id;
-          }
-        } catch { /* fallback below */ }
-        // Fallback: manual envelope check
-        if (!createdId && raw && typeof raw === 'object') {
-          const d = raw as Record<string, unknown>;
-          if ('data' in d && d.data && typeof d.data === 'object' && 'id' in (d.data as Record<string, unknown>)) {
-            createdId = (d.data as { id: string }).id;
-          } else if ('id' in d) {
-            createdId = d.id as string;
-          }
+        };
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[ItsmChangeDetail] save:payload', createPayload);
         }
+        const response = await itsmApi.changes.create(createPayload);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[ItsmChangeDetail] save:response', response.data);
+        }
+        // Robustly extract the created change ID
+        const createdId = extractCreatedRecordId(response);
         if (createdId) {
           showNotification('Change created successfully', 'success');
           navigate(`/itsm/changes/${createdId}`);
         } else {
-          // Response succeeded (2xx) but we couldn't extract an ID — treat as success with warning
-          console.warn('[ItsmChangeDetail] Create succeeded but response shape unexpected:', raw);
-          showNotification('Change created but response format was unexpected. Redirecting to list.', 'warning');
+          // Response succeeded (2xx) but we couldn't extract an ID — still success
+          console.warn('[ItsmChangeDetail] Create succeeded but response shape unexpected:', response.data);
+          showNotification('Change created. Redirecting to list.', 'success');
           navigate('/itsm/changes');
         }
       } else if (id) {
-        await itsmApi.changes.update(id, {
+        // UPDATE: Do NOT send approvalStatus (server-managed, backend rejects it)
+        const updatePayload = {
           title: change.title,
           description: change.description,
           type: change.type as 'STANDARD' | 'NORMAL' | 'EMERGENCY',
           state: change.state as 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED',
           risk: change.risk as 'LOW' | 'MEDIUM' | 'HIGH',
-          approvalStatus: change.approvalStatus as 'NOT_REQUESTED' | 'REQUESTED' | 'APPROVED' | 'REJECTED',
+          // approvalStatus intentionally omitted — managed by backend
           implementationPlan: change.implementationPlan,
           backoutPlan: change.backoutPlan,
           plannedStartAt: change.plannedStartAt,
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
-        });
+        };
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[ItsmChangeDetail] save:payload', updatePayload);
+        }
+        await itsmApi.changes.update(id, updatePayload);
         showNotification('Change updated successfully', 'success');
         fetchChange();
       }
     } catch (error: unknown) {
       console.error('Error saving change:', error);
-      const axiosErr = error as AxiosError<ApiValidationErrorData>;
-      const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
-      const errMsg = axiosErr?.response?.data?.error?.message;
-      const msgArr = axiosErr?.response?.data?.message;
-      let displayMsg = 'Failed to save change';
-      if (fieldErrors && fieldErrors.length > 0) {
-        displayMsg = fieldErrors.map(e => `${e.field}: ${e.message}`).join(', ');
-      } else if (errMsg) {
-        displayMsg = errMsg;
-      } else if (Array.isArray(msgArr)) {
-        displayMsg = msgArr.join(', ');
-      } else if (axiosErr?.message) {
-        displayMsg = axiosErr.message;
-      }
+      const classified = classifyApiError(error);
+      const displayMsg = classified.message || 'Failed to save change';
       showNotification(displayMsg, 'error');
       if (mountedRef.current) setSaveError(displayMsg);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[ItsmChangeDetail] save:error', { kind: classified.kind, status: classified.status, message: displayMsg });
+      }
     } finally {
       if (mountedRef.current) setSaving(false);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[ItsmChangeDetail] save:finally');
+      }
     }
   };
 

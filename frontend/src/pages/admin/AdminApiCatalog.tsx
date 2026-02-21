@@ -35,8 +35,10 @@ import {
   VpnKey as KeyIcon,
   ContentCopy as CopyIcon,
   PlayArrow as PlayIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { api } from '../../services/api';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -427,54 +429,128 @@ function ApiKeysPanel() {
 
 function OpenApiPanel() {
   const [apis, setApis] = useState<Record<string, unknown>[]>([]);
-  const [selectedApi, setSelectedApi] = useState('');
+  const [selectedApiId, setSelectedApiId] = useState('');
+  const [selectedApiName, setSelectedApiName] = useState('');
   const [spec, setSpec] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingApis, setLoadingApis] = useState(true);
   const [error, setError] = useState('');
+  const [errorKind, setErrorKind] = useState<string>('');
 
   useEffect(() => {
     (async () => {
       try {
+        setLoadingApis(true);
         const res = await api.get('/grc/published-apis');
         const data = res.data?.data || res.data;
         setApis(data.items || []);
-      } catch { /* ignore */ }
+      } catch (err) {
+        const classified = classifyApiError(err);
+        if (classified.kind === 'forbidden') {
+          setError('You do not have permission to view published APIs.');
+          setErrorKind('forbidden');
+        } else if (classified.kind !== 'auth') {
+          // Only set error for non-auth errors; auth errors are handled by interceptor
+          setError(classified.message || 'Failed to load APIs');
+          setErrorKind(classified.kind);
+        }
+      } finally {
+        setLoadingApis(false);
+      }
     })();
   }, []);
 
-  const loadSpec = async (apiName: string) => {
-    setSelectedApi(apiName);
+  const loadSpec = async (apiId: string) => {
+    const selectedItem = apis.find(a => (a.id as string) === apiId);
+    setSelectedApiId(apiId);
+    setSelectedApiName(selectedItem ? (selectedItem.name as string) : '');
     try {
       setLoading(true);
       setError('');
-      const res = await api.get(`/grc/public/v1/${apiName}/openapi.json`);
+      setErrorKind('');
+      // Use authenticated endpoint (JWT + tenant) instead of public endpoint (X-API-Key)
+      // The public endpoint /grc/public/v1/:name/openapi.json requires X-API-Key auth,
+      // which caused 401 → token refresh → false logout when called with JWT
+      const res = await api.get(`/grc/published-apis/${apiId}/openapi`);
       const data = res.data?.data || res.data;
       setSpec(JSON.stringify(data, null, 2));
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      setError(e.message || 'Failed to load spec');
+      const classified = classifyApiError(err);
+      if (classified.kind === 'forbidden') {
+        setError('You do not have permission to view this API specification.');
+        setErrorKind('forbidden');
+      } else if (classified.kind === 'not_found') {
+        setError('API specification not found.');
+        setErrorKind('not_found');
+      } else if (classified.kind === 'auth') {
+        // True auth expiry — interceptor handles redirect, don't show stale error
+        setError('Session expired. Please log in again.');
+        setErrorKind('auth');
+      } else {
+        setError(classified.message || 'Failed to load specification.');
+        setErrorKind(classified.kind);
+      }
       setSpec('');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRetry = () => {
+    if (selectedApiId) {
+      loadSpec(selectedApiId);
+    }
+  };
+
   return (
     <Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Box display="flex" gap={2} mb={2} alignItems="center">
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Select API</InputLabel>
-          <Select value={selectedApi} label="Select API" onChange={(e) => loadSpec(e.target.value)}>
-            {apis.map((a) => <MenuItem key={a.id as string} value={a.name as string}>{a.name as string}</MenuItem>)}
-          </Select>
-        </FormControl>
-        {selectedApi && (
-          <Typography variant="body2" color="text.secondary">
-            Endpoint: /api/grc/public/v1/{selectedApi}/records
-          </Typography>
-        )}
-      </Box>
+      {error && (
+        <Alert
+          severity={errorKind === 'forbidden' ? 'warning' : 'error'}
+          sx={{ mb: 2 }}
+          data-testid="openapi-error-banner"
+          action={
+            errorKind !== 'auth' && errorKind !== 'forbidden' ? (
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={handleRetry}
+              >
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
+          {error}
+        </Alert>
+      )}
+      {loadingApis ? (
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress size={24} /></Box>
+      ) : (
+        <Box display="flex" gap={2} mb={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Select API</InputLabel>
+            <Select
+              value={selectedApiId}
+              label="Select API"
+              onChange={(e) => loadSpec(e.target.value)}
+              data-testid="openapi-select-api"
+            >
+              {apis.map((a) => (
+                <MenuItem key={a.id as string} value={a.id as string}>
+                  {a.name as string}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {selectedApiName && (
+            <Typography variant="body2" color="text.secondary">
+              Endpoint: /api/grc/public/v1/{selectedApiName}/records
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
@@ -482,9 +558,9 @@ function OpenApiPanel() {
         <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.900', color: 'grey.100', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}>
           {spec}
         </Paper>
-      ) : (
+      ) : !error ? (
         <Typography color="text.secondary" textAlign="center" py={4}>Select a published API to view its OpenAPI specification.</Typography>
-      )}
+      ) : null}
     </Box>
   );
 }
