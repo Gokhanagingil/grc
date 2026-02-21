@@ -24,7 +24,7 @@ const mockIncident = {
   updatedAt: '2025-01-01T00:00:00Z',
 };
 
-test.describe('ITSM Journal smoke', () => {
+test.describe('ITSM Journal smoke @mock', () => {
   test('post work note and verify it appears', async ({ page }) => {
     await login(page);
 

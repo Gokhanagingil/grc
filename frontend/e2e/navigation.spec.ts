@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers';
 
-test.describe('Navigation', () => {
+test.describe('Navigation @mock', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

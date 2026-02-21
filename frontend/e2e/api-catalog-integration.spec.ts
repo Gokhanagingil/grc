@@ -17,7 +17,7 @@ import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('API Catalog Integration @smoke', () => {
+test.describe('API Catalog Integration @mock @smoke', () => {
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only');
 

@@ -18,7 +18,7 @@ import { login } from './helpers';
  * - CAPA: mock-capa-001
  */
 
-test.describe('Closure Loop Smoke Tests', () => {
+test.describe('Closure Loop Smoke Tests @mock', () => {
   test('should navigate to Issues list and see issues', async ({ page }) => {
     await login(page);
     
@@ -156,7 +156,7 @@ test.describe('Closure Loop Smoke Tests', () => {
   });
 });
 
-test.describe('Closure Loop - Issue Navigation', () => {
+test.describe('Closure Loop - Issue Navigation @mock', () => {
   test('should navigate from Issues list to Issue detail on title click', async ({ page }) => {
     await login(page);
     await page.goto('/issues');
@@ -186,7 +186,7 @@ test.describe('Closure Loop - Issue Navigation', () => {
   });
 });
 
-test.describe('Closure Loop - CAPA Navigation', () => {
+test.describe('Closure Loop - CAPA Navigation @mock', () => {
   test('should navigate from CAPAs list to CAPA detail on title click', async ({ page }) => {
     await login(page);
     await page.goto('/capa');
@@ -219,7 +219,7 @@ test.describe('Closure Loop - CAPA Navigation', () => {
  * requires backend API calls which are mocked in E2E tests. This test verifies
  * the UI flow and data-testid anchors are in place.
  */
-test.describe('Closure Loop v1 - Full Workflow', () => {
+test.describe('Closure Loop v1 - Full Workflow @mock', () => {
   test('should complete the full closure loop workflow', async ({ page }) => {
     await login(page);
     

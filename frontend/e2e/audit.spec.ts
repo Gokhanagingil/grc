@@ -14,7 +14,7 @@ async function collectConsoleErrors(page: Page): Promise<string[]> {
   return errors;
 }
 
-test.describe('Audit Module', () => {
+test.describe('Audit Module @mock', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

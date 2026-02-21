@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers';
 
-test.describe('BCM, Calendar, and Standards Smoke Tests', () => {
+test.describe('BCM, Calendar, and Standards Smoke Tests @mock', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

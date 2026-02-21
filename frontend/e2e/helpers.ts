@@ -1,6 +1,52 @@
 import { Page, expect } from '@playwright/test';
 
 /**
+ * E2E_MODE controls whether tests run with mocked APIs or a real backend.
+ *
+ * - MOCK_UI:    Fast UI regression checks using Playwright route interception.
+ *               Uses local frontend dev server only; no backend required.
+ * - REAL_STACK: Validates real API contracts, RBAC, migrations, and seeds.
+ *               Uses docker compose stack or staging base URL; NO mocks allowed.
+ *
+ * Default is REAL_STACK (safe) so that accidentally omitting the flag
+ * never hides real API issues behind mocks.
+ */
+export type E2eMode = 'MOCK_UI' | 'REAL_STACK';
+
+export function getE2eMode(): E2eMode {
+  const raw = process.env.E2E_MODE;
+  if (raw === 'MOCK_UI') return 'MOCK_UI';
+  if (raw === 'REAL_STACK' || !raw) return 'REAL_STACK';
+  throw new Error(
+    `Invalid E2E_MODE="${raw}". Must be MOCK_UI or REAL_STACK.`,
+  );
+}
+
+export function isMockUi(): boolean {
+  return getE2eMode() === 'MOCK_UI';
+}
+
+export function isRealStack(): boolean {
+  return getE2eMode() === 'REAL_STACK';
+}
+
+/**
+ * Asserts the current E2E_MODE matches the expected value.
+ * Call at the top of a test suite to hard-fail if misconfigured.
+ */
+export function assertE2eMode(expected: E2eMode): void {
+  const actual = getE2eMode();
+  if (actual !== expected) {
+    throw new Error(
+      `E2E_MODE mismatch: expected "${expected}" but got "${actual}". ` +
+      (expected === 'REAL_STACK'
+        ? 'This suite MUST run against a real backend. Do not set E2E_MODE=MOCK_UI.'
+        : 'This suite MUST run with mocks. Do not set E2E_MODE=REAL_STACK.'),
+    );
+  }
+}
+
+/**
  * Test credentials - can be overridden via environment variables
  */
 export const TEST_CREDENTIALS = {
@@ -9,14 +55,30 @@ export const TEST_CREDENTIALS = {
 };
 
 /**
- * Setup API mocking for E2E tests when E2E_MOCK_API=1
- * This allows tests to run without a real backend service
- * 
+ * Setup API mocking for E2E tests.
+ *
+ * Gating logic (in priority order):
+ *   1. If E2E_MODE is set, honour it:  MOCK_UI -> enable mocks,  REAL_STACK -> block mocks.
+ *   2. Legacy fallback: if E2E_MODE is unset, check E2E_MOCK_API=1 (old flag).
+ *
+ * In REAL_STACK mode this function throws so that any test accidentally calling
+ * it will hard-fail instead of silently hiding real API issues.
+ *
  * CRITICAL: Only intercepts API requests (xhr/fetch resource types)
  * Never intercepts HTML, CSS, JS, images, fonts, or other static assets
  */
 export async function setupMockApi(page: Page) {
-  const mockEnabled = process.env.E2E_MOCK_API === '1';
+  const mode = getE2eMode();
+
+  if (mode === 'REAL_STACK') {
+    throw new Error(
+      'setupMockApi() called in REAL_STACK mode. ' +
+      'Mock API interception is not allowed when running against a real backend. ' +
+      'If you see this in CI, check that E2E_MODE is set correctly for this workflow.',
+    );
+  }
+
+  const mockEnabled = mode === 'MOCK_UI' || process.env.E2E_MOCK_API === '1';
   if (!mockEnabled) {
     return;
   }
@@ -974,11 +1036,14 @@ export async function ensureSidebarOpen(page: Page) {
 }
 
 /**
- * Login helper function
+ * Login helper function.
+ * In MOCK_UI mode, sets up route interception before navigating.
+ * In REAL_STACK mode, skips mock setup entirely.
  */
 export async function login(page: Page) {
-  // Setup mock API if enabled (MUST be called before any navigation)
-  await setupMockApi(page);
+  if (isMockUi()) {
+    await setupMockApi(page);
+  }
   
   await page.goto('/login');
   

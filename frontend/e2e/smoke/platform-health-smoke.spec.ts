@@ -1,14 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from '../helpers';
+import { login, assertE2eMode } from '../helpers';
 
-const isMockMode = process.env.E2E_MOCK_API === '1';
+assertE2eMode('REAL_STACK');
 
-test.describe('Platform Health UI Smoke', () => {
-  test.skip(isMockMode, 'Smoke tests require real backend');
-
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
-  });
+test.describe('Platform Health UI Smoke @real', () => {
 
   test('should display platform health page with last run after ingest', async ({ page }) => {
     await login(page);

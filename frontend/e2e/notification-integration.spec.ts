@@ -17,7 +17,7 @@ import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('Notification Integration @smoke', () => {
+test.describe('Notification Integration @mock @smoke', () => {
   test.describe('API prefix regression', () => {
     test.skip(!isMockMode, 'Mock mode only - verifies frontend call patterns');
 

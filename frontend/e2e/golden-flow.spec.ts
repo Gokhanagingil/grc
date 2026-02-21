@@ -210,7 +210,7 @@ async function setupGoldenFlowMocks(page: import('@playwright/test').Page) {
   });
 }
 
-test.describe('Golden Flow - GRC Core Workflow', () => {
+test.describe('Golden Flow - GRC Core Workflow @mock', () => {
   test.beforeEach(async ({ page }) => {
     // Setup mocks before each test
     await setupGoldenFlowMocks(page);

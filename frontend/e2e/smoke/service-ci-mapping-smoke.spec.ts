@@ -18,7 +18,7 @@ import { login, setupMockApi } from '../helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('Service-CI Mapping Smoke: Link/Unlink @smoke', () => {
+test.describe('Service-CI Mapping Smoke: Link/Unlink @mock @smoke', () => {
   test.skip(isMockMode, 'Smoke tests require real backend - skipping in mock API mode');
 
   test.beforeEach(async ({ page }) => {

@@ -44,25 +44,17 @@ jobs:
       - name: Set E2E environment variables
         id: set-env
         run: |
-          # Set REACT_APP_E2E_API_MODE to nest (always use NestJS for E2E tests)
-          # This is embedded at build time by Create React App
           echo "REACT_APP_E2E_API_MODE=nest" >> $GITHUB_ENV
-          
-          # Set E2E_BASE_URL explicitly for CI (do not read secrets in PR)
-          # Use localhost for static server in CI
           echo "E2E_BASE_URL=http://127.0.0.1:3000" >> $GITHUB_ENV
-          
-          # Enable API mocking in CI (tests run without real backend)
+          echo "E2E_MODE=MOCK_UI" >> $GITHUB_ENV
           echo "E2E_MOCK_API=1" >> $GITHUB_ENV
           
-          # Set E2E_EMAIL with fallback (do not depend on secrets for PRs)
           if [ -n "${{ secrets.E2E_EMAIL }}" ]; then
             echo "E2E_EMAIL=${{ secrets.E2E_EMAIL }}" >> $GITHUB_ENV
           else
             echo "E2E_EMAIL=admin@grc-platform.local" >> $GITHUB_ENV
           fi
           
-          # Set E2E_PASSWORD with fallback (do not depend on secrets for PRs)
           if [ -n "${{ secrets.E2E_PASSWORD }}" ]; then
             echo "E2E_PASSWORD=${{ secrets.E2E_PASSWORD }}" >> $GITHUB_ENV
           else
@@ -100,18 +92,19 @@ jobs:
           done
           echo "Static server is ready!"
 
-      - name: Run E2E tests
+      - name: Run E2E tests (MOCK_UI)
         id: run-tests
         working-directory: ./frontend
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "PR gate: running @smoke subset only"
-            npx playwright test --project=chromium --reporter=list --grep @smoke
+            echo "PR gate: running @mock subset only"
+            npx playwright test --project=mock-ui --reporter=list
           else
-            echo "Push: running full E2E suite"
-            npx playwright test --project=chromium --reporter=list
+            echo "Push: running full mock-ui suite"
+            npx playwright test --project=mock-ui --reporter=list
           fi
         env:
+          E2E_MODE: MOCK_UI
           E2E_BASE_URL: http://127.0.0.1:3000
           E2E_MOCK_API: 1
 

@@ -23,7 +23,7 @@ import { login, expectListLoaded, setupMockApi } from '../helpers';
 // These tests are designed for staging/real backend verification
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('RC1 Smoke: Login + Risks', () => {
+test.describe('RC1 Smoke: Login + Risks @mock', () => {
   // Skip entire suite in mock mode
   test.skip(isMockMode, 'Smoke tests require real backend - skipping in mock API mode');
 

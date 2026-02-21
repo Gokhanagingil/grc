@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 
 export default defineConfig({
-  testDir: "./tests/platform-health",
+  testDir: "./tests",
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   retries: 1,
@@ -22,7 +22,19 @@ export default defineConfig({
   projects: [
     {
       name: "smoke",
+      testDir: "./tests/platform-health",
       testMatch: "platform-health.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
+    },
+    {
+      name: "real-stack",
+      testDir: "./tests/e2e-real",
+      testMatch: "**/*.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
     },
   ],
 });
