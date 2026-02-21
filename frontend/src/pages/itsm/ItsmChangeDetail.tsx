@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -120,19 +120,25 @@ const APPROVAL_OPTIONS = [
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
+/** Maximum time (ms) to wait for page initialization before forcing ready state */
+const INIT_TIMEOUT_MS = 15_000;
+
 export const ItsmChangeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const isNew = id === 'new';
   const { choices } = useItsmChoices('itsm_changes', FALLBACK_CHOICES);
+  const mountedRef = useRef(true);
 
   const typeOptions = choices['type'] || FALLBACK_CHOICES['type'];
   const stateOptions = choices['state'] || FALLBACK_CHOICES['state'];
   const riskOptions = choices['risk'] || FALLBACK_CHOICES['risk'];
 
-  const [loading, setLoading]= useState(!isNew);
+  const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [initWarnings, setInitWarnings] = useState<string[]>([]);
   const [change, setChange] = useState<Partial<ItsmChange>>({
     title: '',
     description: '',
@@ -141,6 +147,24 @@ export const ItsmChangeDetail: React.FC = () => {
     risk: 'LOW',
     approvalStatus: 'NOT_REQUESTED',
   });
+
+  // Cleanup ref on unmount
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Safety timeout: if loading persists beyond INIT_TIMEOUT_MS, force-exit loading state
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      if (mountedRef.current && loading) {
+        console.warn('[ItsmChangeDetail] Init timeout reached — forcing ready state');
+        setLoading(false);
+        setInitWarnings(prev => [...prev, 'Page initialization timed out. Some data may be unavailable.']);
+      }
+    }, INIT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   // CMDB Service/Offering picker state
   const [cmdbServices, setCmdbServices] = useState<CmdbServiceData[]>([]);
@@ -255,8 +279,20 @@ export const ItsmChangeDetail: React.FC = () => {
       try {
         const res = await cmdbApi.services.list({ pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceData[] } };
-        if (d?.data?.items) setCmdbServices(d.data.items);
-      } catch { /* ignore */ }
+        if (d?.data?.items) {
+          if (mountedRef.current) setCmdbServices(d.data.items);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] CMDB services load failed (non-critical):', err);
+        }
+        if (mountedRef.current) {
+          setInitWarnings(prev => {
+            const msg = 'CMDB services unavailable — service binding disabled.';
+            return prev.includes(msg) ? prev : [...prev, msg];
+          });
+        }
+      }
     };
     loadServices();
   }, []);
@@ -270,9 +306,14 @@ export const ItsmChangeDetail: React.FC = () => {
       try {
         const res = await cmdbApi.serviceOfferings.list({ serviceId: change.serviceId, pageSize: 100 });
         const d = res.data as { data?: { items?: CmdbServiceOfferingData[] } };
-        if (d?.data?.items) setCmdbOfferings(d.data.items);
-        else setCmdbOfferings([]);
-      } catch { setCmdbOfferings([]); }
+        if (d?.data?.items) {
+          if (mountedRef.current) setCmdbOfferings(d.data.items);
+        } else {
+          if (mountedRef.current) setCmdbOfferings([]);
+        }
+      } catch {
+        if (mountedRef.current) setCmdbOfferings([]);
+      }
     };
     loadOfferings();
   }, [change.serviceId]);
@@ -284,10 +325,12 @@ export const ItsmChangeDetail: React.FC = () => {
   const handleSave = async () => {
     if (!change.title?.trim()) {
       showNotification('Title is required', 'error');
+      setSaveError('Title is required');
       return;
     }
 
     setSaving(true);
+    setSaveError(null);
     try {
       if (isNew) {
         const response = await itsmApi.changes.create({
@@ -302,10 +345,33 @@ export const ItsmChangeDetail: React.FC = () => {
           serviceId: change.serviceId,
           offeringId: change.offeringId,
         });
-        const data = response.data;
-        if (data && 'data' in data && data.data?.id) {
+        // Robustly extract the created change ID from multiple possible response shapes
+        const raw = response.data;
+        let createdId: string | undefined;
+        try {
+          // Try centralized unwrapper first (handles { success: true, data: ... })
+          const unwrapped = unwrapResponse<{ id?: string }>(response);
+          if (unwrapped && typeof unwrapped === 'object' && 'id' in unwrapped) {
+            createdId = (unwrapped as { id: string }).id;
+          }
+        } catch { /* fallback below */ }
+        // Fallback: manual envelope check
+        if (!createdId && raw && typeof raw === 'object') {
+          const d = raw as Record<string, unknown>;
+          if ('data' in d && d.data && typeof d.data === 'object' && 'id' in (d.data as Record<string, unknown>)) {
+            createdId = (d.data as { id: string }).id;
+          } else if ('id' in d) {
+            createdId = d.id as string;
+          }
+        }
+        if (createdId) {
           showNotification('Change created successfully', 'success');
-          navigate(`/itsm/changes/${data.data.id}`);
+          navigate(`/itsm/changes/${createdId}`);
+        } else {
+          // Response succeeded (2xx) but we couldn't extract an ID — treat as success with warning
+          console.warn('[ItsmChangeDetail] Create succeeded but response shape unexpected:', raw);
+          showNotification('Change created but response format was unexpected. Redirecting to list.', 'warning');
+          navigate('/itsm/changes');
         }
       } else if (id) {
         await itsmApi.changes.update(id, {
@@ -331,17 +397,20 @@ export const ItsmChangeDetail: React.FC = () => {
       const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
       const errMsg = axiosErr?.response?.data?.error?.message;
       const msgArr = axiosErr?.response?.data?.message;
+      let displayMsg = 'Failed to save change';
       if (fieldErrors && fieldErrors.length > 0) {
-        showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
+        displayMsg = fieldErrors.map(e => `${e.field}: ${e.message}`).join(', ');
       } else if (errMsg) {
-        showNotification(errMsg, 'error');
+        displayMsg = errMsg;
       } else if (Array.isArray(msgArr)) {
-        showNotification(msgArr.join(', '), 'error');
-      } else {
-        showNotification('Failed to save change', 'error');
+        displayMsg = msgArr.join(', ');
+      } else if (axiosErr?.message) {
+        displayMsg = axiosErr.message;
       }
+      showNotification(displayMsg, 'error');
+      if (mountedRef.current) setSaveError(displayMsg);
     } finally {
-      setSaving(false);
+      if (mountedRef.current) setSaving(false);
     }
   };
 
@@ -449,14 +518,20 @@ export const ItsmChangeDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+      <Box
+        data-testid="change-form-loading"
+        sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 400, gap: 2 }}
+      >
         <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Loading change details...
+        </Typography>
       </Box>
     );
   }
 
   return (
-    <Box>
+    <Box data-testid="change-form-ready">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
@@ -465,6 +540,32 @@ export const ItsmChangeDetail: React.FC = () => {
           Back to Changes
         </Button>
       </Box>
+
+      {/* Init Warnings Banner — non-critical dependency failures */}
+      {initWarnings.length > 0 && (
+        <Alert
+          severity="warning"
+          data-testid="change-form-warning-init"
+          onClose={() => setInitWarnings([])}
+          sx={{ mb: 2 }}
+        >
+          {initWarnings.map((w, i) => (
+            <Typography key={i} variant="body2">{w}</Typography>
+          ))}
+        </Alert>
+      )}
+
+      {/* Save Error Banner — submit failure with inline detail */}
+      {saveError && (
+        <Alert
+          severity="error"
+          data-testid="change-form-error"
+          onClose={() => setSaveError(null)}
+          sx={{ mb: 2 }}
+        >
+          {saveError}
+        </Alert>
+      )}
 
       {/* Governance Error Banner */}
       {governanceError && (
@@ -603,10 +704,10 @@ export const ItsmChangeDetail: React.FC = () => {
         </Typography>
         <Button
           variant="contained"
-          startIcon={<SaveIcon />}
+          startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
           disabled={saving}
-          data-testid="change-save-btn"
+          data-testid="change-form-submit"
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
