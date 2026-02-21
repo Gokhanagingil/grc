@@ -37,7 +37,6 @@ import {
   CustomerRiskImpactData,
   ResolvedCustomerRiskData,
   RelevancePath,
-  RiskFactorData,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AxiosError } from 'axios';
