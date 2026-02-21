@@ -64,9 +64,20 @@ export const ItsmServiceList: React.FC = () => {
     try {
       const response = await itsmApi.services.list({ page, pageSize, q: search });
       const data = response.data;
-      if (data && 'data' in data) {
-        setServices(Array.isArray(data.data) ? data.data : []);
-        setTotal(data.total || 0);
+      if (data && typeof data === 'object') {
+        const envelope = data as Record<string, unknown>;
+        const inner = envelope.data;
+        if (inner && typeof inner === 'object' && !Array.isArray(inner) && 'items' in (inner as Record<string, unknown>)) {
+          const paginated = inner as { items: ItsmService[]; total: number };
+          setServices(Array.isArray(paginated.items) ? paginated.items : []);
+          setTotal(paginated.total || 0);
+        } else if (Array.isArray(inner)) {
+          setServices(inner as ItsmService[]);
+          setTotal((inner as ItsmService[]).length);
+        } else {
+          setServices([]);
+          setTotal(0);
+        }
       } else {
         setServices([]);
         setTotal(0);
