@@ -820,6 +820,8 @@ export const API_PATHS = {
   ITSM_CHANGE_RISK: {
     GET: (changeId: string) => `/grc/itsm/changes/${changeId}/risk`,
     RECALCULATE: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-risk`,
+    CUSTOMER_RISK_IMPACT: (changeId: string) => `/grc/itsm/changes/${changeId}/customer-risk-impact`,
+    RECALCULATE_CUSTOMER_RISK: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-customer-risk`,
   },
 
   // Change Policy endpoints
@@ -1846,15 +1848,71 @@ export interface PolicyEvaluationResult {
   actionsTriggered: Record<string, unknown>;
 }
 
+export type DecisionRecommendation = 'ALLOW' | 'REVIEW' | 'CAB_REQUIRED' | 'BLOCK';
+
+export interface RuleTriggeredData {
+  policyId: string;
+  policyName: string;
+  conditionsSummary: string;
+  actionsSummary: string;
+}
+
 export interface PolicyEvaluationSummary {
   requireCABApproval: boolean;
   blockDuringFreeze: boolean;
   minLeadTimeHours: number | null;
   autoApproveIfRiskBelow: number | null;
   matchedPolicies: PolicyEvaluationResult[];
+  rulesTriggered: RuleTriggeredData[];
+  reasons: string[];
+  requiredActions: string[];
+  decisionRecommendation: DecisionRecommendation;
 }
 
 export interface RiskRecalculateResponse {
+  assessment: RiskAssessmentData;
+  policyEvaluation: PolicyEvaluationSummary;
+}
+
+export interface RiskAssessmentWithPolicyData {
+  assessment: RiskAssessmentData | null;
+  policyEvaluation: PolicyEvaluationSummary | null;
+}
+
+// Customer Risk Intelligence types
+export type RelevancePath = 'service_binding' | 'offering_binding' | 'affected_ci' | 'blast_radius_ci';
+
+export interface ResolvedCustomerRiskData {
+  catalogRiskId: string;
+  title: string;
+  code: string | null;
+  category: string;
+  severity: string;
+  likelihoodWeight: number;
+  impactWeight: number;
+  scoreContributionModel: string;
+  scoreValue: number;
+  status: string;
+  remediationGuidance: string | null;
+  relevancePaths: RelevancePath[];
+  activeObservationCount: number;
+  latestObservationStatus: string | null;
+  contributionScore: number;
+  contributionReason: string;
+}
+
+export interface CustomerRiskImpactData {
+  changeId: string;
+  resolvedRisks: ResolvedCustomerRiskData[];
+  aggregateScore: number;
+  aggregateLabel: string;
+  topReasons: string[];
+  calculatedAt: string;
+  riskFactor: RiskFactorData;
+}
+
+export interface CustomerRiskRecalculateResponse {
+  customerRiskImpact: CustomerRiskImpactData;
   assessment: RiskAssessmentData;
   policyEvaluation: PolicyEvaluationSummary;
 }
@@ -2045,7 +2103,9 @@ export const itsmApi = {
     refreshConflicts: (changeId: string) => api.post(API_PATHS.ITSM.CHANGES.REFRESH_CONFLICTS(changeId), {}),
     getRiskAssessment: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.GET(changeId)),
     recalculateRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE(changeId), {}),
-    requestApproval: (changeId: string, comment?: string) =>
+    getCustomerRiskImpact: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.CUSTOMER_RISK_IMPACT(changeId)),
+    recalculateCustomerRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE_CUSTOMER_RISK(changeId), {}),
+    requestApproval:(changeId: string, comment?: string) =>
       api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
     listApprovals: (changeId: string) =>
       api.get(API_PATHS.ITSM.CHANGES.APPROVALS(changeId)),

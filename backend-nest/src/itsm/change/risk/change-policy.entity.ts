@@ -9,6 +9,10 @@ export interface PolicyConditions {
   minLeadTimeHours?: number;
   riskScoreMin?: number;
   riskScoreMax?: number;
+  /** Trigger when customer risk aggregate score >= this value (0-100) */
+  customerRiskScoreMin?: number;
+  /** Trigger when customer risk aggregate label >= this level */
+  customerRiskLabelMin?: string;
 }
 
 export interface PolicyActions {
@@ -18,6 +22,12 @@ export interface PolicyActions {
   requireRiskBelowLevelForAutoApprove?: string;
   autoApproveIfRiskBelow?: number;
   notifyRoles?: string[];
+  /** Require implementation plan when triggered */
+  requireImplementationPlan?: boolean;
+  /** Require backout plan when triggered */
+  requireBackoutPlan?: boolean;
+  /** Require justification when triggered */
+  requireJustification?: boolean;
 }
 
 @Entity('itsm_change_policy')

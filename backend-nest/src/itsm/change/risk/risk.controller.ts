@@ -15,9 +15,12 @@ import { PermissionsGuard } from '../../../auth/permissions/permissions.guard';
 import { Permissions } from '../../../auth/permissions/permissions.decorator';
 import { Permission } from '../../../auth/permissions/permission.enum';
 import { RiskScoringService } from './risk-scoring.service';
-import { PolicyService } from './policy.service';
+import { PolicyService, PolicyEvaluationSummary } from './policy.service';
 import { ChangeService } from '../change.service';
-import { CustomerRiskImpactService } from './customer-risk-impact.service';
+import {
+  CustomerRiskImpactService,
+  CustomerRiskImpactResult,
+} from './customer-risk-impact.service';
 
 @Controller('grc/itsm/changes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -35,12 +38,38 @@ export class RiskController {
     @Param('changeId') changeId: string,
     @Req() req: { tenantId: string },
   ) {
+    const change = await this.changeService.findOneActiveForTenant(
+      req.tenantId,
+      changeId,
+    );
+
     const assessment = await this.riskScoringService.getAssessment(
       req.tenantId,
       changeId,
     );
 
-    return { data: assessment };
+    // Include policy evaluation with customer risk context when change exists
+    let policyEvaluation: PolicyEvaluationSummary | null = null;
+    if (change) {
+      let customerRiskImpact: CustomerRiskImpactResult | null = null;
+      try {
+        customerRiskImpact =
+          await this.customerRiskImpactService.evaluateForChange(
+            req.tenantId,
+            change,
+          );
+      } catch {
+        // Customer risk impact is optional; do not block risk response
+      }
+      policyEvaluation = await this.policyService.evaluatePolicies(
+        req.tenantId,
+        change,
+        assessment,
+        customerRiskImpact,
+      );
+    }
+
+    return { data: { assessment, policyEvaluation } };
   }
 
   @Post(':changeId/recalculate-risk')
@@ -64,10 +93,23 @@ export class RiskController {
       change,
     );
 
+    // Evaluate customer risk impact for policy context
+    let customerRiskImpact: CustomerRiskImpactResult | null = null;
+    try {
+      customerRiskImpact =
+        await this.customerRiskImpactService.evaluateForChange(
+          req.tenantId,
+          change,
+        );
+    } catch {
+      // Customer risk impact is optional
+    }
+
     const policyEvaluation = await this.policyService.evaluatePolicies(
       req.tenantId,
       change,
       assessment,
+      customerRiskImpact,
     );
 
     return {
@@ -140,6 +182,7 @@ export class RiskController {
       req.tenantId,
       change,
       assessment,
+      impact,
     );
 
     return {
