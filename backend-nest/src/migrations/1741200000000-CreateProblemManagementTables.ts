@@ -97,9 +97,7 @@ export class CreateProblemManagementTables1741200000000 implements MigrationInte
         "updated_by" uuid,
         "is_deleted" boolean NOT NULL DEFAULT false,
         CONSTRAINT "PK_itsm_problems" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_itsm_problems_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-        CONSTRAINT "FK_itsm_problems_service" FOREIGN KEY ("service_id") REFERENCES "cmdb_services"("id") ON DELETE SET NULL ON UPDATE NO ACTION,
-        CONSTRAINT "FK_itsm_problems_offering" FOREIGN KEY ("offering_id") REFERENCES "cmdb_service_offerings"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+        CONSTRAINT "FK_itsm_problems_tenant" FOREIGN KEY ("tenant_id") REFERENCES "nest_tenants"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
       )
     `);
 

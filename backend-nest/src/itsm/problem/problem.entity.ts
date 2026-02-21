@@ -1,8 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
-import { CmdbService } from '../cmdb/service/cmdb-service.entity';
-import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
 import {
   ProblemState,
   ProblemPriority,
@@ -138,19 +136,8 @@ export class ItsmProblem extends BaseEntity {
   @Column({ name: 'service_id', type: 'uuid', nullable: true })
   serviceId: string | null;
 
-  @ManyToOne(() => CmdbService, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'service_id' })
-  cmdbService: CmdbService | null;
-
   @Column({ name: 'offering_id', type: 'uuid', nullable: true })
   offeringId: string | null;
-
-  @ManyToOne(() => CmdbServiceOffering, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'offering_id' })
-  offering: CmdbServiceOffering | null;
 
   @Column({ name: 'detected_at', type: 'timestamptz', nullable: true })
   detectedAt: Date | null;
