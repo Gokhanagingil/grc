@@ -49,14 +49,6 @@ import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { AxiosError } from 'axios';
 
-interface ApiValidationErrorData {
-  error?: {
-    message?: string;
-    fieldErrors?: { field: string; message: string }[];
-  };
-  message?: string | string[];
-}
-
 interface ItsmChange {
   id: string;
   number: string;
