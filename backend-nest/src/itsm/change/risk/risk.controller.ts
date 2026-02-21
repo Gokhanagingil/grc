@@ -35,12 +35,38 @@ export class RiskController {
     @Param('changeId') changeId: string,
     @Req() req: { tenantId: string },
   ) {
+    const change = await this.changeService.findOneActiveForTenant(
+      req.tenantId,
+      changeId,
+    );
+
     const assessment = await this.riskScoringService.getAssessment(
       req.tenantId,
       changeId,
     );
 
-    return { data: assessment };
+    // Include policy evaluation with customer risk context when change exists
+    let policyEvaluation = null;
+    if (change) {
+      let customerRiskImpact = null;
+      try {
+        customerRiskImpact =
+          await this.customerRiskImpactService.evaluateForChange(
+            req.tenantId,
+            change,
+          );
+      } catch {
+        // Customer risk impact is optional; do not block risk response
+      }
+      policyEvaluation = await this.policyService.evaluatePolicies(
+        req.tenantId,
+        change,
+        assessment,
+        customerRiskImpact,
+      );
+    }
+
+    return { data: { assessment, policyEvaluation } };
   }
 
   @Post(':changeId/recalculate-risk')
@@ -64,10 +90,23 @@ export class RiskController {
       change,
     );
 
+    // Evaluate customer risk impact for policy context
+    let customerRiskImpact = null;
+    try {
+      customerRiskImpact =
+        await this.customerRiskImpactService.evaluateForChange(
+          req.tenantId,
+          change,
+        );
+    } catch {
+      // Customer risk impact is optional
+    }
+
     const policyEvaluation = await this.policyService.evaluatePolicies(
       req.tenantId,
       change,
       assessment,
+      customerRiskImpact,
     );
 
     return {
@@ -140,6 +179,7 @@ export class RiskController {
       req.tenantId,
       change,
       assessment,
+      impact,
     );
 
     return {

@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
+import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -213,9 +214,15 @@ export const ItsmChangeDetail: React.FC = () => {
 
       try {
         const riskResponse = await itsmApi.changes.getRiskAssessment(id);
-        const rData = riskResponse.data as { data?: RiskAssessmentData };
+        const rData = riskResponse.data as { data?: { assessment?: RiskAssessmentData } | RiskAssessmentData };
         if (rData?.data) {
-          setRiskAssessment(rData.data);
+          // Handle both old shape (direct assessment) and new shape ({ assessment, policyEvaluation })
+          const payload = rData.data;
+          if ('assessment' in payload && payload.assessment) {
+            setRiskAssessment(payload.assessment);
+          } else if ('riskScore' in payload) {
+            setRiskAssessment(payload as RiskAssessmentData);
+          }
         }
       } catch {
         // Ignore - assessment may not exist yet
@@ -1038,6 +1045,11 @@ export const ItsmChangeDetail: React.FC = () => {
                 </Collapse>
               </CardContent>
             </Card>
+          )}
+
+          {/* Change Governance Banner */}
+          {!isNew && change.id && (
+            <GovernanceBanner changeId={change.id} />
           )}
 
           {/* Customer Risk Intelligence Panel */}

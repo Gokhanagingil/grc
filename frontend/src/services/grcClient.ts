@@ -1848,17 +1848,35 @@ export interface PolicyEvaluationResult {
   actionsTriggered: Record<string, unknown>;
 }
 
+export type DecisionRecommendation = 'ALLOW' | 'REVIEW' | 'CAB_REQUIRED' | 'BLOCK';
+
+export interface RuleTriggeredData {
+  policyId: string;
+  policyName: string;
+  conditionsSummary: string;
+  actionsSummary: string;
+}
+
 export interface PolicyEvaluationSummary {
   requireCABApproval: boolean;
   blockDuringFreeze: boolean;
   minLeadTimeHours: number | null;
   autoApproveIfRiskBelow: number | null;
   matchedPolicies: PolicyEvaluationResult[];
+  rulesTriggered: RuleTriggeredData[];
+  reasons: string[];
+  requiredActions: string[];
+  decisionRecommendation: DecisionRecommendation;
 }
 
 export interface RiskRecalculateResponse {
   assessment: RiskAssessmentData;
   policyEvaluation: PolicyEvaluationSummary;
+}
+
+export interface RiskAssessmentWithPolicyData {
+  assessment: RiskAssessmentData | null;
+  policyEvaluation: PolicyEvaluationSummary | null;
 }
 
 // Customer Risk Intelligence types
