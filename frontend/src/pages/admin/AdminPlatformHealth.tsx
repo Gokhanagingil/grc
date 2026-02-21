@@ -147,7 +147,8 @@ export const AdminPlatformHealth: React.FC = () => {
     setError(null);
     try {
       const tenantParam = scope === 'tenant' ? getTenantId() : undefined;
-      const baseParams: Record<string, string> = { suite: 'TIER1' };
+      const badgeSuite = suiteFilter || 'TIER1';
+      const baseParams: Record<string, string> = { suite: badgeSuite };
       const runsParams: Record<string, string | number> = { limit: 20 };
       if (suiteFilter) runsParams.suite = suiteFilter;
       if (tenantParam) {
