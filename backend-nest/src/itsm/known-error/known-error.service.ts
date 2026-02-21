@@ -63,11 +63,10 @@ export class KnownErrorService {
 
     try {
       await this.auditService.recordCreate(
-        tenantId,
-        userId,
         'ItsmKnownError',
-        saved.id,
         saved,
+        userId,
+        tenantId,
       );
     } catch (err) {
       this.logger.warn(`Failed to record audit for known error create: ${err}`);
@@ -127,11 +126,12 @@ export class KnownErrorService {
 
     try {
       await this.auditService.recordUpdate(
-        tenantId,
-        userId,
         'ItsmKnownError',
         saved.id,
-        dto,
+        {} as Record<string, unknown>,
+        dto as unknown as Record<string, unknown>,
+        userId,
+        tenantId,
       );
     } catch (err) {
       this.logger.warn(`Failed to record audit for known error update: ${err}`);
@@ -169,10 +169,10 @@ export class KnownErrorService {
 
     try {
       await this.auditService.recordDelete(
-        tenantId,
-        userId,
         'ItsmKnownError',
-        id,
+        existing,
+        userId,
+        tenantId,
       );
     } catch (err) {
       this.logger.warn(`Failed to record audit for known error delete: ${err}`);
