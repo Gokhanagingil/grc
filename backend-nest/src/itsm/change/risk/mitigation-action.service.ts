@@ -125,6 +125,7 @@ export class MitigationActionService {
     comment?: string,
   ): Promise<MitigationAction> {
     const action = await this.getById(tenantId, actionId);
+    const previousStatus = action.status;
 
     action.status = status;
     action.updatedBy = userId;
@@ -145,7 +146,7 @@ export class MitigationActionService {
         payload: {
           changeId: action.changeId,
           actionType: action.actionType,
-          oldStatus: action.status,
+          oldStatus: previousStatus,
           newStatus: status,
           title: action.title,
         },

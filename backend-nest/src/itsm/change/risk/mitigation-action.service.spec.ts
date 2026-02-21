@@ -6,7 +6,13 @@ import {
   MitigationActionStatus,
 } from './mitigation-action.entity';
 import { CreateMitigationActionDto } from './dto/create-mitigation-action.dto';
-import { ItsmChange, ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../change.entity';
+import {
+  ItsmChange,
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from '../change.entity';
 
 // ---- helpers ----
 
@@ -46,7 +52,9 @@ function makeChange(overrides: Partial<ItsmChange> = {}): ItsmChange {
   } as ItsmChange;
 }
 
-function makeMitigationAction(overrides: Partial<MitigationAction> = {}): MitigationAction {
+function makeMitigationAction(
+  overrides: Partial<MitigationAction> = {},
+): MitigationAction {
   return {
     id: 'ma-1',
     tenantId: 'tenant-1',
@@ -221,7 +229,12 @@ describe('MitigationActionService', () => {
       mockMitigationRepo.create.mockReturnValue(created);
       mockMitigationRepo.save.mockResolvedValue(created);
 
-      const result = await serviceNoEvents.create('tenant-1', 'user-1', 'chg-1', dto);
+      const result = await serviceNoEvents.create(
+        'tenant-1',
+        'user-1',
+        'chg-1',
+        dto,
+      );
       expect(result).toBe(created);
       // No event bus emit called
       expect(mockEventBus.emit).not.toHaveBeenCalled();
@@ -246,9 +259,16 @@ describe('MitigationActionService', () => {
 
       const result = await service.listByChange('tenant-1', 'chg-1');
 
-      expect(mockQb.where).toHaveBeenCalledWith('ma.tenantId = :tenantId', { tenantId: 'tenant-1' });
-      expect(mockQb.andWhere).toHaveBeenCalledWith('ma.changeId = :changeId', { changeId: 'chg-1' });
-      expect(mockQb.andWhere).toHaveBeenCalledWith('ma.isDeleted = :isDeleted', { isDeleted: false });
+      expect(mockQb.where).toHaveBeenCalledWith('ma.tenantId = :tenantId', {
+        tenantId: 'tenant-1',
+      });
+      expect(mockQb.andWhere).toHaveBeenCalledWith('ma.changeId = :changeId', {
+        changeId: 'chg-1',
+      });
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'ma.isDeleted = :isDeleted',
+        { isDeleted: false },
+      );
       expect(result.items).toEqual(items);
       expect(result.total).toBe(1);
     });
@@ -267,7 +287,9 @@ describe('MitigationActionService', () => {
 
       await service.listByChange('tenant-1', 'chg-1', { status: 'OPEN' });
 
-      expect(mockQb.andWhere).toHaveBeenCalledWith('ma.status = :status', { status: 'OPEN' });
+      expect(mockQb.andWhere).toHaveBeenCalledWith('ma.status = :status', {
+        status: 'OPEN',
+      });
     });
 
     it('should apply pagination defaults', async () => {
@@ -324,17 +346,17 @@ describe('MitigationActionService', () => {
     it('should throw NotFoundException when action not found', async () => {
       mockMitigationRepo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.getById('tenant-1', 'ma-999'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getById('tenant-1', 'ma-999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should enforce tenant isolation - different tenant cannot access', async () => {
       mockMitigationRepo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.getById('tenant-2', 'ma-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getById('tenant-2', 'ma-1')).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockMitigationRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'ma-1', tenantId: 'tenant-2', isDeleted: false },
@@ -346,7 +368,9 @@ describe('MitigationActionService', () => {
 
   describe('updateStatus', () => {
     it('should update status and emit event', async () => {
-      const action = makeMitigationAction({ status: MitigationActionStatus.OPEN });
+      const action = makeMitigationAction({
+        status: MitigationActionStatus.OPEN,
+      });
       mockMitigationRepo.findOne.mockResolvedValue(action);
       mockMitigationRepo.save.mockResolvedValue({
         ...action,
@@ -376,7 +400,7 @@ describe('MitigationActionService', () => {
     it('should update comment when provided', async () => {
       const action = makeMitigationAction();
       mockMitigationRepo.findOne.mockResolvedValue(action);
-      mockMitigationRepo.save.mockImplementation(async (a) => a);
+      mockMitigationRepo.save.mockResolvedValue(action);
 
       await service.updateStatus(
         'tenant-1',
@@ -394,7 +418,12 @@ describe('MitigationActionService', () => {
       mockMitigationRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus('tenant-1', 'user-1', 'ma-999', MitigationActionStatus.COMPLETED),
+        service.updateStatus(
+          'tenant-1',
+          'user-1',
+          'ma-999',
+          MitigationActionStatus.COMPLETED,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -405,7 +434,7 @@ describe('MitigationActionService', () => {
     it('should set isDeleted=true and updatedBy', async () => {
       const action = makeMitigationAction({ isDeleted: false });
       mockMitigationRepo.findOne.mockResolvedValue(action);
-      mockMitigationRepo.save.mockImplementation(async (a) => a);
+      mockMitigationRepo.save.mockResolvedValue(action);
 
       await service.softDelete('tenant-1', 'user-1', 'ma-1');
 
