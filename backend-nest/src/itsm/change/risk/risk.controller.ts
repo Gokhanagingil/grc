@@ -15,9 +15,12 @@ import { PermissionsGuard } from '../../../auth/permissions/permissions.guard';
 import { Permissions } from '../../../auth/permissions/permissions.decorator';
 import { Permission } from '../../../auth/permissions/permission.enum';
 import { RiskScoringService } from './risk-scoring.service';
-import { PolicyService } from './policy.service';
+import { PolicyService, PolicyEvaluationSummary } from './policy.service';
 import { ChangeService } from '../change.service';
-import { CustomerRiskImpactService } from './customer-risk-impact.service';
+import {
+  CustomerRiskImpactService,
+  CustomerRiskImpactResult,
+} from './customer-risk-impact.service';
 
 @Controller('grc/itsm/changes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -46,9 +49,9 @@ export class RiskController {
     );
 
     // Include policy evaluation with customer risk context when change exists
-    let policyEvaluation = null;
+    let policyEvaluation: PolicyEvaluationSummary | null = null;
     if (change) {
-      let customerRiskImpact = null;
+      let customerRiskImpact: CustomerRiskImpactResult | null = null;
       try {
         customerRiskImpact =
           await this.customerRiskImpactService.evaluateForChange(
@@ -91,7 +94,7 @@ export class RiskController {
     );
 
     // Evaluate customer risk impact for policy context
-    let customerRiskImpact = null;
+    let customerRiskImpact: CustomerRiskImpactResult | null = null;
     try {
       customerRiskImpact =
         await this.customerRiskImpactService.evaluateForChange(
