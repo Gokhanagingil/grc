@@ -99,7 +99,7 @@ test.describe('ITSM Change Create Resilience @mock @smoke', () => {
     const titleInput = page.locator('[data-testid="change-title-input"] input, input[name="title"]').first();
     await expect(titleInput).toBeVisible({ timeout: 15000 });
 
-    const saveBtn = page.locator('[data-testid="change-save-btn"]');
+    const saveBtn = page.locator('[data-testid="change-form-submit"], [data-testid="change-save-btn"]').first();
     const hasSaveBtn = await saveBtn.count();
     if (hasSaveBtn > 0) {
       await expect(saveBtn).toBeVisible({ timeout: 5000 });
@@ -130,7 +130,7 @@ test.describe('ITSM Change Create Resilience @mock @smoke', () => {
     const titleInput = page.locator('[data-testid="change-title-input"] input, input[name="title"]').first();
     await expect(titleInput).toBeVisible({ timeout: 15000 });
 
-    const saveBtn = page.locator('[data-testid="change-save-btn"]');
+    const saveBtn = page.locator('[data-testid="change-form-submit"], [data-testid="change-save-btn"]').first();
     const hasSaveBtn = await saveBtn.count();
     if (hasSaveBtn > 0) {
       await expect(saveBtn).toBeVisible({ timeout: 5000 });
