@@ -140,7 +140,8 @@ export const ItsmProblemDetail: React.FC = () => {
   const [knownErrors, setKnownErrors] = useState<Array<{ id: string; title: string; state: string; permanentFixStatus: string }>>([]);
 
   // RCA data (Phase 2)
-  const [rcaData, setRcaData] = useState<ProblemRcaData | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_rcaData, setRcaData] = useState<ProblemRcaData | null>(null);
   const [fiveWhySummary, setFiveWhySummary] = useState('');
   const [contributingFactors, setContributingFactors] = useState<string[]>([]);
   const [newContributingFactor, setNewContributingFactor] = useState('');
