@@ -151,7 +151,9 @@ export const ItsmChangeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const isNew = id === 'new';
+  // The /itsm/changes/new route has no :id param, so id is undefined.
+  // The /itsm/changes/:id route with id='new' also means create mode.
+  const isNew = !id || id === 'new';
   const { choices } = useItsmChoices('itsm_changes', FALLBACK_CHOICES);
   const mountedRef = useRef(true);
 

@@ -13,7 +13,9 @@
  *
  * NOTE: These tests override the onboarding context to enable ITSM_SUITE modules,
  * which the default setupMockApi does not do (ITSM_SUITE is empty by default).
- * Route overrides are registered AFTER setupMockApi so they win (LIFO order).
+ * Per-test route overrides MUST be registered AFTER login() because login()
+ * calls setupMockApi() which registers a catch-all that would shadow earlier routes.
+ * Playwright uses LIFO (Last In, First Out) for route matching.
  *
  * @smoke @regression
  */
@@ -319,9 +321,9 @@ test.describe('ITSM Change Create — Infinite Spinner Regression @mock @smoke @
   });
 
   test('1 — form renders when calendar/freeze endpoints return 403', async ({ page }) => {
-    // Override calendar mocks with 403 (registered AFTER defaults, so wins)
-    await overrideCalendar403(page);
     await login(page);
+    // Override calendar mocks with 403 — registered AFTER login so it wins (LIFO)
+    await overrideCalendar403(page);
 
     await page.goto('/itsm/changes/new');
     await page.waitForLoadState('networkidle');
@@ -343,9 +345,10 @@ test.describe('ITSM Change Create — Infinite Spinner Regression @mock @smoke @
   });
 
   test('2 — form renders when CMDB services return 500 and choices return 500', async ({ page }) => {
+    await login(page);
+    // Override after login so they win (LIFO) over setupMockApi catch-all
     await overrideCmdbServices500(page);
     await overrideChoices500(page);
-    await login(page);
 
     await page.goto('/itsm/changes/new');
     await page.waitForLoadState('networkidle');
@@ -361,8 +364,9 @@ test.describe('ITSM Change Create — Infinite Spinner Regression @mock @smoke @
   });
 
   test('3 — submit success: spinner stops and user gets feedback', async ({ page }) => {
-    await overrideCreateSuccess(page);
     await login(page);
+    // Override after login so it wins (LIFO) over setupMockApi catch-all
+    await overrideCreateSuccess(page);
 
     await page.goto('/itsm/changes/new');
     await page.waitForLoadState('networkidle');
@@ -393,8 +397,9 @@ test.describe('ITSM Change Create — Infinite Spinner Regression @mock @smoke @
   });
 
   test('4 — submit 400 validation error: spinner stops + error shown', async ({ page }) => {
-    await overrideCreate400(page);
     await login(page);
+    // Override after login so it wins (LIFO) over setupMockApi catch-all
+    await overrideCreate400(page);
 
     await page.goto('/itsm/changes/new');
     await page.waitForLoadState('networkidle');
@@ -423,9 +428,9 @@ test.describe('ITSM Change Create — Infinite Spinner Regression @mock @smoke @
   });
 
   test('5 — slow dependency does not block form render', async ({ page }) => {
-    // Override CMDB services with 5-second delay
-    await overrideCmdbServicesSlow(page);
     await login(page);
+    // Override after login so it wins (LIFO) over setupMockApi catch-all
+    await overrideCmdbServicesSlow(page);
 
     await page.goto('/itsm/changes/new');
 
