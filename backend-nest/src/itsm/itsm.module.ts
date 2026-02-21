@@ -114,6 +114,9 @@ import { PirController } from './pir/pir.controller';
 import { PirActionController } from './pir/pir-action.controller';
 import { KnowledgeCandidateController } from './pir/knowledge-candidate.controller';
 
+import { AnalyticsService } from './analytics/analytics.service';
+import { AnalyticsController } from './analytics/analytics.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -192,6 +195,7 @@ import { KnowledgeCandidateController } from './pir/knowledge-candidate.controll
     PirService,
     PirActionService,
     KnowledgeCandidateService,
+    AnalyticsService,
   ],
   controllers: [
     IncidentController,
@@ -216,6 +220,7 @@ import { KnowledgeCandidateController } from './pir/knowledge-candidate.controll
     PirController,
     PirActionController,
     KnowledgeCandidateController,
+    AnalyticsController,
   ],
   exports: [
     IncidentService,

@@ -386,6 +386,19 @@ const itsmMenuGroups: NavMenuGroup[] = [
     ],
   },
   {
+    id: 'itsm-analytics',
+    text: 'Analytics',
+    icon: <InsightsIcon />,
+    items: [
+      {
+        text: 'ITSM Analytics',
+        icon: <InsightsIcon />,
+        path: '/itsm/analytics',
+        testId: 'nav-itsm-analytics',
+      },
+    ],
+  },
+  {
     id: 'itsm-studio',
     text: 'ITSM Studio',
     icon: <AdminIcon />,

@@ -28,3 +28,6 @@ export { ItsmStudioSla } from './studio/ItsmStudioSla';
 
 // ITSM Diagnostics (Admin runtime health)
 export { ItsmDiagnostics } from './ItsmDiagnostics';
+
+// ITSM Analytics Dashboard (Phase 4 - Closed-Loop Analytics)
+export { default as ItsmAnalyticsDashboard } from './ItsmAnalyticsDashboard';
