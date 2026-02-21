@@ -2490,7 +2490,8 @@ export const itsmApi = {
 export interface ItsmProblemData {
   id: string;
   number: string;
-  title: string;
+  shortDescription: string;
+  title?: string; // deprecated alias – backend returns shortDescription
   description?: string;
   state: string;
   priority: string;
@@ -2518,7 +2519,7 @@ export interface ItsmProblemData {
 }
 
 export interface CreateItsmProblemDto {
-  title: string;
+  shortDescription: string;
   description?: string;
   state?: string;
   priority?: string;
@@ -2534,7 +2535,7 @@ export interface CreateItsmProblemDto {
 }
 
 export interface UpdateItsmProblemDto {
-  title?: string;
+  shortDescription?: string;
   description?: string;
   state?: string;
   priority?: string;

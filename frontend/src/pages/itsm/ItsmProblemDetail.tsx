@@ -173,7 +173,7 @@ export const ItsmProblemDetail: React.FC = () => {
       const data = response.data;
       const problem = (data as { data?: ItsmProblemData })?.data || data as ItsmProblemData;
       setProblemData(problem);
-      setTitle(problem.title || '');
+      setTitle(problem.shortDescription || problem.title || '');
       setDescription(problem.description || '');
       setState(problem.state || 'NEW');
       setPriority(problem.priority || 'P3');
@@ -304,7 +304,7 @@ export const ItsmProblemDetail: React.FC = () => {
     try {
       if (isNew) {
         const dto: CreateItsmProblemDto = {
-          title,
+          shortDescription: title,
           description: description || undefined,
           state,
           impact,
@@ -320,7 +320,7 @@ export const ItsmProblemDetail: React.FC = () => {
         navigate(`/itsm/problems/${created.id}`, { replace: true });
       } else if (id) {
         const dto: UpdateItsmProblemDto = {
-          title,
+          shortDescription: title,
           description: description || undefined,
           state,
           priority,
@@ -334,9 +334,19 @@ export const ItsmProblemDetail: React.FC = () => {
         showNotification('Problem updated successfully', 'success');
         fetchProblem();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error saving problem:', err);
-      showNotification('Failed to save problem', 'error');
+      const axErr = err as { response?: { status?: number; data?: { message?: string | string[] } } };
+      const status = axErr?.response?.status;
+      const msg = axErr?.response?.data?.message;
+      if (status === 400) {
+        const detail = Array.isArray(msg) ? msg.join(', ') : msg || 'Validation error';
+        showNotification(`Validation failed: ${detail}`, 'error');
+      } else if (status === 403) {
+        showNotification('Permission denied: you do not have access to save problems', 'error');
+      } else {
+        showNotification('Failed to save problem', 'error');
+      }
     } finally {
       setSaving(false);
     }

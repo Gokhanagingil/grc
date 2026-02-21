@@ -32,14 +32,35 @@ export class SuggestService {
     similarLimit: number,
     kbLimit: number,
   ): Promise<CopilotSuggestResponse> {
-    const incident = await this.snClient.getIncident(tenantId, sysId);
+    // Check if ServiceNow is configured for this tenant
+    const snConfig = this.snClient.getTenantConfig(tenantId);
+    let incident: SnIncident | null = null;
+
+    if (snConfig) {
+      incident = await this.snClient.getIncident(tenantId, sysId);
+    } else {
+      this.logger.warn(
+        'ServiceNow not configured for tenant, falling back to index',
+        {
+          tenantId,
+          sysId,
+        },
+      );
+    }
 
     if (!incident) {
       const indexed = await this.incidentIndexRepo.findOne({
         where: { tenantId, sysId },
       });
       if (!indexed) {
-        throw new Error(`Incident ${sysId} not found`);
+        if (!snConfig) {
+          throw new Error(
+            'ServiceNow integration is not configured for this tenant. Please configure ServiceNow credentials in the admin settings.',
+          );
+        }
+        throw new Error(
+          `Incident ${sysId} not found in ServiceNow or local index`,
+        );
       }
       return this.buildResponseFromIndex(
         tenantId,

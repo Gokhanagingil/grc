@@ -102,9 +102,19 @@ export const ItsmKnownErrorDetail: React.FC = () => {
       setState(ke.state || 'DRAFT');
       setProblemId(ke.problemId || '');
       setKnowledgeCandidate((ke as unknown as { knowledgeCandidate?: boolean }).knowledgeCandidate || false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching known error:', err);
-      setError('Failed to load known error details.');
+      const axErr = err as { response?: { status?: number; data?: { message?: string } } };
+      const status = axErr?.response?.status;
+      if (status === 401) {
+        setError('Session expired. Please log in again.');
+      } else if (status === 403) {
+        setError('Permission denied: you do not have access to view this known error.');
+      } else if (status === 404) {
+        setError('Known error not found. It may have been deleted.');
+      } else {
+        setError(axErr?.response?.data?.message || 'Failed to load known error details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -153,9 +163,19 @@ export const ItsmKnownErrorDetail: React.FC = () => {
         showNotification('Known Error updated successfully', 'success');
         fetchKnownError();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error saving known error:', err);
-      showNotification('Failed to save known error', 'error');
+      const axErr = err as { response?: { status?: number; data?: { message?: string | string[] } } };
+      const status = axErr?.response?.status;
+      const msg = axErr?.response?.data?.message;
+      if (status === 400) {
+        const detail = Array.isArray(msg) ? msg.join(', ') : msg || 'Validation error';
+        showNotification(`Validation failed: ${detail}`, 'error');
+      } else if (status === 403) {
+        showNotification('Permission denied: you do not have access to save known errors', 'error');
+      } else {
+        showNotification('Failed to save known error', 'error');
+      }
     } finally {
       setSaving(false);
     }

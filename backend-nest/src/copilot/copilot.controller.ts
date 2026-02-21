@@ -139,8 +139,13 @@ export class CopilotController {
       );
       return { success: true, data: result };
     } catch (error) {
-      if (error instanceof Error && error.message.includes('not found')) {
-        throw new NotFoundException(error.message);
+      if (error instanceof Error) {
+        if (error.message.includes('not configured')) {
+          throw new BadRequestException(error.message);
+        }
+        if (error.message.includes('not found')) {
+          throw new NotFoundException(error.message);
+        }
       }
       throw error;
     }

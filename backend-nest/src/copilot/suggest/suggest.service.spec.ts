@@ -50,7 +50,11 @@ describe('SuggestService', () => {
       listIncidents: jest.fn(),
       postComment: jest.fn(),
       listKbArticles: jest.fn(),
-      getTenantConfig: jest.fn(),
+      getTenantConfig: jest.fn().mockReturnValue({
+        instanceUrl: 'https://test.service-now.com',
+        username: 'admin',
+        password: 'pass',
+      }),
     };
 
     const qb = {
@@ -155,7 +159,51 @@ describe('SuggestService', () => {
 
       await expect(
         service.suggest(mockTenantId, 'nonexistent', 5, 3),
-      ).rejects.toThrow('Incident nonexistent not found');
+      ).rejects.toThrow(
+        'Incident nonexistent not found in ServiceNow or local index',
+      );
+    });
+
+    it('should throw config-missing error when SN not configured and incident not in index', async () => {
+      snClient.getTenantConfig.mockReturnValue(null);
+      mockIncidentIndexRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.suggest(mockTenantId, 'inc123', 5, 3),
+      ).rejects.toThrow(
+        'ServiceNow integration is not configured for this tenant',
+      );
+    });
+
+    it('should skip SN call and fall back to index when SN not configured', async () => {
+      snClient.getTenantConfig.mockReturnValue(null);
+      const mockIndexed = {
+        id: 'idx1',
+        tenantId: mockTenantId,
+        sysId: 'inc123',
+        number: 'INC0001',
+        shortDescription: 'Email server not responding',
+        description: 'Down since morning',
+        state: '6',
+        resolutionCode: 'Solved',
+        resolutionNotes: 'Restarted service',
+        category: 'Software',
+        priority: '3',
+        assignmentGroup: 'IT Support',
+        resolvedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      mockIncidentIndexRepo.findOne.mockResolvedValue(mockIndexed);
+
+      const result = await service.suggest(mockTenantId, 'inc123', 5, 3);
+
+      // Should NOT call getIncident when config is missing
+      expect(snClient.getIncident).not.toHaveBeenCalled();
+      // Should still return valid response from index
+      expect(result).toHaveProperty('incidentSysId', 'inc123');
+      expect(result).toHaveProperty('actionCards');
+      expect(Array.isArray(result.actionCards)).toBe(true);
     });
 
     it('should include confidence scores on action cards', async () => {
