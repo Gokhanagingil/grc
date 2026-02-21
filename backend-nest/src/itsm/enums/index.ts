@@ -189,6 +189,29 @@ export enum ProblemRiskLevel {
   CRITICAL = 'CRITICAL',
 }
 
+// ============================================================================
+// Known Error Enums
+// ============================================================================
+
+/**
+ * KnownErrorState - Known Error lifecycle states
+ */
+export enum KnownErrorState {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+  RETIRED = 'RETIRED',
+}
+
+/**
+ * KnownErrorFixStatus - Permanent fix progress
+ */
+export enum KnownErrorFixStatus {
+  NONE = 'NONE',
+  WORKAROUND_AVAILABLE = 'WORKAROUND_AVAILABLE',
+  FIX_IN_PROGRESS = 'FIX_IN_PROGRESS',
+  FIX_DEPLOYED = 'FIX_DEPLOYED',
+}
+
 /**
  * Calculate problem priority from impact and urgency
  *

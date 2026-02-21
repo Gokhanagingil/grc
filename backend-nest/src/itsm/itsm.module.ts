@@ -94,6 +94,10 @@ import { ItsmProblemChange } from './problem/problem-change.entity';
 import { ProblemService } from './problem/problem.service';
 import { ProblemController } from './problem/problem.controller';
 
+import { ItsmKnownError } from './known-error/known-error.entity';
+import { KnownErrorService } from './known-error/known-error.service';
+import { KnownErrorController } from './known-error/known-error.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -127,6 +131,7 @@ import { ProblemController } from './problem/problem.controller';
       ItsmProblem,
       ItsmProblemIncident,
       ItsmProblemChange,
+      ItsmKnownError,
     ]),
     AuditModule,
     AuthModule,
@@ -160,6 +165,7 @@ import { ProblemController } from './problem/problem.controller';
     CustomerRiskImpactService,
     ApprovalService,
     ProblemService,
+    KnownErrorService,
   ],
   controllers: [
     IncidentController,
@@ -179,6 +185,7 @@ import { ProblemController } from './problem/problem.controller';
     PolicyController,
     ApprovalController,
     ProblemController,
+    KnownErrorController,
   ],
   exports: [
     IncidentService,
@@ -206,6 +213,7 @@ import { ProblemController } from './problem/problem.controller';
     CustomerRiskImpactService,
     ApprovalService,
     ProblemService,
+    KnownErrorService,
   ],
 })
 export class ItsmModule {}

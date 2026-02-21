@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail } from './pages/itsm';
 import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -355,13 +355,39 @@ function App() {
                       moduleName="ITSM"
                     />
                   } />
-                  <Route path="problems" element={
-                    <ComingSoonPage 
-                      title="Problem Management" 
-                      description="Root cause analysis and problem resolution tracking."
-                      moduleName="ITSM"
-                    />
+                  {/* ITSM Problem Management Routes */}
+                  <Route path="itsm/problems" element={
+                    <ErrorBoundary>
+                      <ItsmProblemList />
+                    </ErrorBoundary>
                   } />
+                  <Route path="itsm/problems/new" element={
+                    <ErrorBoundary>
+                      <ItsmProblemDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/problems/:id" element={
+                    <ErrorBoundary>
+                      <ItsmProblemDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/known-errors" element={
+                    <ErrorBoundary>
+                      <ItsmKnownErrorList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/known-errors/new" element={
+                    <ErrorBoundary>
+                      <ItsmKnownErrorDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="itsm/known-errors/:id" element={
+                    <ErrorBoundary>
+                      <ItsmKnownErrorDetail />
+                    </ErrorBoundary>
+                  } />
+                  {/* Legacy /problems redirect */}
+                  <Route path="problems" element={<Navigate to="/itsm/problems" replace />} />
                   {/* Redirect /audit to /audits to prevent white screen */}
                   <Route path="audit" element={<Navigate to="/audits" replace />} />
                   <Route path="audits" element={<AuditList />} />

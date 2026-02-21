@@ -173,6 +173,11 @@ export enum Permission {
   ITSM_PROBLEM_LINK_CHANGE = 'itsm:problem:link_change',
   ITSM_PROBLEM_RISK_READ = 'itsm:problem:risk_read',
 
+  // ITSM Known Error permissions
+  ITSM_KNOWN_ERROR_READ = 'itsm:known_error:read',
+  ITSM_KNOWN_ERROR_CREATE = 'itsm:known_error:create',
+  ITSM_KNOWN_ERROR_UPDATE = 'itsm:known_error:update',
+
   // Customer Risk Catalog permissions
   GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
   GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
@@ -323,4 +328,7 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_PROBLEM_LINK_CHANGE]: 'Link and unlink changes to problems',
   [Permission.ITSM_PROBLEM_RISK_READ]:
     'View problem preventive risk intelligence',
+  [Permission.ITSM_KNOWN_ERROR_READ]: 'View known errors and known error details',
+  [Permission.ITSM_KNOWN_ERROR_CREATE]: 'Create new known errors',
+  [Permission.ITSM_KNOWN_ERROR_UPDATE]: 'Update and delete known errors',
 };

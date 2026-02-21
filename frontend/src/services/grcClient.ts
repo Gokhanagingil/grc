@@ -357,6 +357,35 @@ export const API_PATHS = {
       VALIDATE_BASELINE: '/grc/itsm/diagnostics/validate-baseline',
       SLA_SUMMARY: '/grc/itsm/diagnostics/sla-summary',
     },
+
+    // ITSM Problem Management endpoints
+    PROBLEMS: {
+      LIST: '/grc/itsm/problems',
+      CREATE: '/grc/itsm/problems',
+      GET: (id: string) => `/grc/itsm/problems/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/problems/${id}`,
+      DELETE: (id: string) => `/grc/itsm/problems/${id}`,
+      STATISTICS: '/grc/itsm/problems/statistics',
+      SUMMARY: (id: string) => `/grc/itsm/problems/${id}/summary`,
+      RCA: (id: string) => `/grc/itsm/problems/${id}/rca`,
+      MARK_KNOWN_ERROR: (id: string) => `/grc/itsm/problems/${id}/mark-known-error`,
+      UNMARK_KNOWN_ERROR: (id: string) => `/grc/itsm/problems/${id}/unmark-known-error`,
+      INCIDENTS: (id: string) => `/grc/itsm/problems/${id}/incidents`,
+      LINK_INCIDENT: (id: string, incidentId: string) => `/grc/itsm/problems/${id}/incidents/${incidentId}`,
+      UNLINK_INCIDENT: (id: string, incidentId: string) => `/grc/itsm/problems/${id}/incidents/${incidentId}`,
+      CHANGES: (id: string) => `/grc/itsm/problems/${id}/changes`,
+      LINK_CHANGE: (id: string, changeId: string) => `/grc/itsm/problems/${id}/changes/${changeId}`,
+      UNLINK_CHANGE: (id: string, changeId: string) => `/grc/itsm/problems/${id}/changes/${changeId}`,
+    },
+
+    // ITSM Known Error endpoints
+    KNOWN_ERRORS: {
+      LIST: '/grc/itsm/known-errors',
+      CREATE: '/grc/itsm/known-errors',
+      GET: (id: string) => `/grc/itsm/known-errors/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/known-errors/${id}`,
+      DELETE: (id: string) => `/grc/itsm/known-errors/${id}`,
+    },
   },
 
   // CMDB (Configuration Management Database) endpoints
@@ -2289,7 +2318,187 @@ export const itsmApi = {
     validateBaseline: () => api.post(API_PATHS.ITSM.DIAGNOSTICS.VALIDATE_BASELINE, {}),
     slaSummary: () => api.get(API_PATHS.ITSM.DIAGNOSTICS.SLA_SUMMARY),
   },
+
+  // ITSM Problems
+  problems: {
+    list: (params?: ItsmProblemListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.state) searchParams.set('state', params.state);
+      if (params?.priority) searchParams.set('priority', params.priority);
+      if (params?.impact) searchParams.set('impact', params.impact);
+      if (params?.category) searchParams.set('category', params.category);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.PROBLEMS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.GET(id)),
+    create: (data: CreateItsmProblemDto) => api.post(API_PATHS.ITSM.PROBLEMS.CREATE, data),
+    update: (id: string, data: UpdateItsmProblemDto) => api.patch(API_PATHS.ITSM.PROBLEMS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.PROBLEMS.DELETE(id)),
+    statistics: () => api.get(API_PATHS.ITSM.PROBLEMS.STATISTICS),
+    summary: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.SUMMARY(id)),
+    rca: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.RCA(id)),
+    markKnownError: (id: string) => api.post(API_PATHS.ITSM.PROBLEMS.MARK_KNOWN_ERROR(id), {}),
+    unmarkKnownError: (id: string) => api.post(API_PATHS.ITSM.PROBLEMS.UNMARK_KNOWN_ERROR(id), {}),
+    // Incident linking
+    listIncidents: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.INCIDENTS(id)),
+    linkIncident: (id: string, incidentId: string) => api.post(API_PATHS.ITSM.PROBLEMS.LINK_INCIDENT(id, incidentId), {}),
+    unlinkIncident: (id: string, incidentId: string) => api.delete(API_PATHS.ITSM.PROBLEMS.UNLINK_INCIDENT(id, incidentId)),
+    // Change linking
+    listChanges: (id: string) => api.get(API_PATHS.ITSM.PROBLEMS.CHANGES(id)),
+    linkChange: (id: string, changeId: string) => api.post(API_PATHS.ITSM.PROBLEMS.LINK_CHANGE(id, changeId), {}),
+    unlinkChange: (id: string, changeId: string) => api.delete(API_PATHS.ITSM.PROBLEMS.UNLINK_CHANGE(id, changeId)),
+  },
+
+  // ITSM Known Errors
+  knownErrors: {
+    list: (params?: ItsmKnownErrorListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.state) searchParams.set('state', params.state);
+      if (params?.permanentFixStatus) searchParams.set('permanentFixStatus', params.permanentFixStatus);
+      if (params?.problemId) searchParams.set('problemId', params.problemId);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.KNOWN_ERRORS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.KNOWN_ERRORS.GET(id)),
+    create: (data: CreateItsmKnownErrorDto) => api.post(API_PATHS.ITSM.KNOWN_ERRORS.CREATE, data),
+    update: (id: string, data: UpdateItsmKnownErrorDto) => api.patch(API_PATHS.ITSM.KNOWN_ERRORS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.KNOWN_ERRORS.DELETE(id)),
+  },
 };
+
+// ============================================================================
+// Problem Management Types
+// ============================================================================
+
+export interface ItsmProblemData {
+  id: string;
+  number: string;
+  title: string;
+  description?: string;
+  state: string;
+  priority: string;
+  impact: string;
+  urgency: string;
+  category?: string;
+  source?: string;
+  rootCauseSummary?: string;
+  workaroundSummary?: string;
+  knownErrorStatus?: string;
+  riskLevel?: string;
+  detectedAt?: string;
+  openedAt?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  ownerGroup?: string;
+  assigneeId?: string;
+  serviceId?: string;
+  offeringId?: string;
+  tenantId: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmProblemDto {
+  title: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
+  category?: string;
+  source?: string;
+  rootCauseSummary?: string;
+  workaroundSummary?: string;
+  assigneeId?: string;
+  serviceId?: string;
+  offeringId?: string;
+}
+
+export interface UpdateItsmProblemDto {
+  title?: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
+  category?: string;
+  source?: string;
+  rootCauseSummary?: string;
+  workaroundSummary?: string;
+  knownErrorStatus?: string;
+  riskLevel?: string;
+  assigneeId?: string;
+  serviceId?: string;
+  offeringId?: string;
+}
+
+export interface ItsmProblemListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  state?: string;
+  priority?: string;
+  impact?: string;
+  category?: string;
+}
+
+export interface ItsmKnownErrorData {
+  id: string;
+  title: string;
+  symptoms?: string;
+  rootCause?: string;
+  workaround?: string;
+  permanentFixStatus: string;
+  articleRef?: string;
+  state: string;
+  publishedAt?: string;
+  problemId?: string;
+  metadata?: Record<string, unknown>;
+  tenantId: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmKnownErrorDto {
+  title: string;
+  symptoms?: string;
+  rootCause?: string;
+  workaround?: string;
+  permanentFixStatus?: string;
+  articleRef?: string;
+  state?: string;
+  problemId?: string;
+}
+
+export interface UpdateItsmKnownErrorDto {
+  title?: string;
+  symptoms?: string;
+  rootCause?: string;
+  workaround?: string;
+  permanentFixStatus?: string;
+  articleRef?: string;
+  state?: string;
+  problemId?: string;
+}
+
+export interface ItsmKnownErrorListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  state?: string;
+  permanentFixStatus?: string;
+  problemId?: string;
+}
 
 // CMDB Types
 export interface CmdbCiClassData {
