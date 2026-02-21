@@ -17,6 +17,7 @@ import { Permission } from '../../../auth/permissions/permission.enum';
 import { RiskScoringService } from './risk-scoring.service';
 import { PolicyService } from './policy.service';
 import { ChangeService } from '../change.service';
+import { CustomerRiskImpactService } from './customer-risk-impact.service';
 
 @Controller('grc/itsm/changes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -25,6 +26,7 @@ export class RiskController {
     private readonly riskScoringService: RiskScoringService,
     private readonly policyService: PolicyService,
     private readonly changeService: ChangeService,
+    private readonly customerRiskImpactService: CustomerRiskImpactService,
   ) {}
 
   @Get(':changeId/risk')
@@ -70,6 +72,79 @@ export class RiskController {
 
     return {
       data: {
+        assessment,
+        policyEvaluation,
+      },
+    };
+  }
+
+  @Get(':changeId/customer-risk-impact')
+  @Permissions(
+    Permission.ITSM_CHANGE_READ,
+    Permission.GRC_CUSTOMER_RISK_READ,
+    Permission.GRC_CUSTOMER_RISK_BIND_READ,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
+  )
+  async getCustomerRiskImpact(
+    @Param('changeId') changeId: string,
+    @Req() req: { tenantId: string },
+  ) {
+    const change = await this.changeService.findOneActiveForTenant(
+      req.tenantId,
+      changeId,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change ${changeId} not found`);
+    }
+
+    const impact = await this.customerRiskImpactService.evaluateForChange(
+      req.tenantId,
+      change,
+    );
+
+    return { data: impact };
+  }
+
+  @Post(':changeId/recalculate-customer-risk')
+  @Permissions(
+    Permission.ITSM_CHANGE_WRITE,
+    Permission.GRC_CUSTOMER_RISK_READ,
+    Permission.GRC_CUSTOMER_RISK_BIND_READ,
+    Permission.GRC_CUSTOMER_RISK_OBSERVATION_READ,
+  )
+  @HttpCode(HttpStatus.OK)
+  async recalculateCustomerRisk(
+    @Param('changeId') changeId: string,
+    @Req() req: { tenantId: string; user: { id: string } },
+  ) {
+    const change = await this.changeService.findOneActiveForTenant(
+      req.tenantId,
+      changeId,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change ${changeId} not found`);
+    }
+
+    const impact = await this.customerRiskImpactService.evaluateForChange(
+      req.tenantId,
+      change,
+    );
+
+    const assessment = await this.riskScoringService.calculateRisk(
+      req.tenantId,
+      req.user.id,
+      change,
+    );
+
+    const policyEvaluation = await this.policyService.evaluatePolicies(
+      req.tenantId,
+      change,
+      assessment,
+    );
+
+    return {
+      data: {
+        customerRiskImpact: impact,
         assessment,
         policyEvaluation,
       },

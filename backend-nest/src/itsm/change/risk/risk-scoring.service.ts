@@ -1,21 +1,27 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { RiskAssessment, RiskLevel, RiskFactor } from './risk-assessment.entity';
+import {
+  RiskAssessment,
+  RiskLevel,
+  RiskFactor,
+} from './risk-assessment.entity';
 import { ItsmChange, ChangeType } from '../change.entity';
 import { CmdbServiceCi } from '../../cmdb/service-ci/cmdb-service-ci.entity';
 import { CmdbCiRel } from '../../cmdb/ci-rel/ci-rel.entity';
 import { CmdbQualitySnapshot } from '../../cmdb/health/cmdb-quality-snapshot.entity';
 import { SlaInstance, SlaInstanceStatus } from '../../sla/sla-instance.entity';
 import { CalendarConflict } from '../calendar/calendar-conflict.entity';
+import { CustomerRiskImpactService } from './customer-risk-impact.service';
 
 const FACTOR_WEIGHTS = {
-  BLAST_RADIUS: 25,
-  CMDB_QUALITY: 15,
-  CHANGE_TYPE: 20,
-  LEAD_TIME: 20,
-  SLA_BREACH_FORECAST: 10,
-  CONFLICT_STATUS: 10,
+  BLAST_RADIUS: 22,
+  CMDB_QUALITY: 13,
+  CHANGE_TYPE: 18,
+  LEAD_TIME: 17,
+  SLA_BREACH_FORECAST: 8,
+  CONFLICT_STATUS: 8,
+  CUSTOMER_RISK_EXPOSURE: 14,
 };
 
 function scoreToLevel(score: number): RiskLevel {
@@ -46,6 +52,8 @@ export class RiskScoringService {
     @Optional()
     @InjectRepository(CalendarConflict)
     private readonly conflictRepo?: Repository<CalendarConflict>,
+    @Optional()
+    private readonly customerRiskImpactService?: CustomerRiskImpactService,
   ) {}
 
   async getAssessment(
@@ -87,13 +95,23 @@ export class RiskScoringService {
     factors.push(slaResult.factor);
     hasSlaRisk = slaResult.hasRisk;
 
-    const conflictResult = await this.calculateConflictStatus(tenantId, change.id);
+    const conflictResult = await this.calculateConflictStatus(
+      tenantId,
+      change.id,
+    );
     factors.push(conflictResult.factor);
     hasFreezeConflict = conflictResult.hasFreezeConflict;
 
+    const customerRiskResult = await this.calculateCustomerRiskExposure(
+      tenantId,
+      change,
+    );
+    factors.push(customerRiskResult.factor);
+
     const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
     const weightedSum = factors.reduce((sum, f) => sum + f.weightedScore, 0);
-    const riskScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+    const riskScore =
+      totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
     const riskLevel = scoreToLevel(riskScore);
 
     const existing = await this.riskRepo.findOne({
@@ -145,7 +163,7 @@ export class RiskScoringService {
       ciCount = serviceCis.length;
 
       if (this.ciRelRepo && ciCount > 0) {
-        const ciIds = serviceCis.map(sc => sc.ciId);
+        const ciIds = serviceCis.map((sc) => sc.ciId);
         for (const ciId of ciIds) {
           const rels = await this.ciRelRepo.find({
             where: [
@@ -153,10 +171,10 @@ export class RiskScoringService {
               { tenantId, targetCiId: ciId, isActive: true },
             ],
           });
-          const relatedIds = rels.map(r =>
+          const relatedIds = rels.map((r) =>
             r.sourceCiId === ciId ? r.targetCiId : r.sourceCiId,
           );
-          ciCount += relatedIds.filter(rid => !ciIds.includes(rid)).length;
+          ciCount += relatedIds.filter((rid) => !ciIds.includes(rid)).length;
         }
       }
 
@@ -297,7 +315,12 @@ export class RiskScoringService {
     let rawScore = 5;
     let evidence = 'No active SLA instances at risk';
 
-    if (change.serviceId && this.slaInstanceRepo && change.plannedStartAt && change.plannedEndAt) {
+    if (
+      change.serviceId &&
+      this.slaInstanceRepo &&
+      change.plannedStartAt &&
+      change.plannedEndAt
+    ) {
       const activeInstances = await this.slaInstanceRepo.find({
         where: {
           tenantId,
@@ -306,7 +329,7 @@ export class RiskScoringService {
         },
       });
 
-      const atRisk = activeInstances.filter(inst => {
+      const atRisk = activeInstances.filter((inst) => {
         const dueAt = new Date(inst.dueAt).getTime();
         const changeStart = new Date(change.plannedStartAt!).getTime();
         const changeEnd = new Date(change.plannedEndAt!).getTime();
@@ -346,9 +369,15 @@ export class RiskScoringService {
       });
 
       if (conflicts.length > 0) {
-        const freezeConflicts = conflicts.filter(c => c.conflictType === 'FREEZE_WINDOW');
-        const overlapConflicts = conflicts.filter(c => c.conflictType === 'OVERLAP');
-        const adjacencyConflicts = conflicts.filter(c => c.conflictType === 'ADJACENCY');
+        const freezeConflicts = conflicts.filter(
+          (c) => c.conflictType === 'FREEZE_WINDOW',
+        );
+        const overlapConflicts = conflicts.filter(
+          (c) => c.conflictType === 'OVERLAP',
+        );
+        const adjacencyConflicts = conflicts.filter(
+          (c) => c.conflictType === 'ADJACENCY',
+        );
 
         hasFreezeConflict = freezeConflicts.length > 0;
 
@@ -374,6 +403,35 @@ export class RiskScoringService {
         evidence,
       },
       hasFreezeConflict,
+    };
+  }
+
+  private async calculateCustomerRiskExposure(
+    tenantId: string,
+    change: ItsmChange,
+  ): Promise<{ factor: RiskFactor }> {
+    if (!this.customerRiskImpactService) {
+      return {
+        factor: {
+          name: 'Customer Risk Exposure',
+          weight: FACTOR_WEIGHTS.CUSTOMER_RISK_EXPOSURE,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'Customer risk impact service not available',
+        },
+      };
+    }
+
+    const impact = await this.customerRiskImpactService.evaluateForChange(
+      tenantId,
+      change,
+      {
+        factorWeight: FACTOR_WEIGHTS.CUSTOMER_RISK_EXPOSURE,
+      },
+    );
+
+    return {
+      factor: impact.riskFactor,
     };
   }
 }

@@ -1,5 +1,11 @@
 import { RiskScoringService } from './risk-scoring.service';
-import { ItsmChange, ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../change.entity';
+import {
+  ItsmChange,
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from '../change.entity';
 import { RiskLevel } from './risk-assessment.entity';
 
 function makeChange(overrides: Partial<ItsmChange> = {}): ItsmChange {
@@ -47,11 +53,14 @@ describe('RiskScoringService', () => {
   let mockQualitySnapshotRepo: Record<string, jest.Mock>;
   let mockSlaInstanceRepo: Record<string, jest.Mock>;
   let mockConflictRepo: Record<string, jest.Mock>;
+  let mockCustomerRiskImpactService: { evaluateForChange: jest.Mock };
 
   beforeEach(() => {
     mockRiskRepo = {
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockImplementation((data) => ({ ...data, id: 'risk-1' })),
+      create: jest
+        .fn()
+        .mockImplementation((data) => ({ ...data, id: 'risk-1' })),
       save: jest.fn().mockImplementation((data) => Promise.resolve(data)),
     };
     mockServiceCiRepo = {
@@ -70,6 +79,24 @@ describe('RiskScoringService', () => {
       find: jest.fn().mockResolvedValue([]),
     };
 
+    mockCustomerRiskImpactService = {
+      evaluateForChange: jest.fn().mockResolvedValue({
+        changeId: 'change-1',
+        resolvedRisks: [],
+        aggregateScore: 0,
+        aggregateLabel: 'LOW',
+        topReasons: [],
+        calculatedAt: new Date().toISOString(),
+        riskFactor: {
+          name: 'Customer Risk Exposure',
+          weight: 14,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'No customer risks bound to affected service/CIs',
+        },
+      }),
+    };
+
     service = new RiskScoringService(
       mockRiskRepo as never,
       mockServiceCiRepo as never,
@@ -77,6 +104,7 @@ describe('RiskScoringService', () => {
       mockQualitySnapshotRepo as never,
       mockSlaInstanceRepo as never,
       mockConflictRepo as never,
+      mockCustomerRiskImpactService as never,
     );
   });
 
@@ -88,14 +116,15 @@ describe('RiskScoringService', () => {
       expect(result).toBeDefined();
       expect(result!.riskScore).toBeGreaterThanOrEqual(0);
       expect(result!.riskScore).toBeLessThanOrEqual(100);
-      expect(result!.breakdown).toHaveLength(6);
-      expect(result!.breakdown.map(f => f.name)).toEqual([
+      expect(result!.breakdown).toHaveLength(7);
+      expect(result!.breakdown.map((f) => f.name)).toEqual([
         'Blast Radius',
         'CMDB Quality',
         'Change Type',
         'Lead Time',
         'SLA Breach Forecast',
         'Conflict Status',
+        'Customer Risk Exposure',
       ]);
     });
 
@@ -113,9 +142,17 @@ describe('RiskScoringService', () => {
       const standardChange = makeChange({ type: ChangeType.STANDARD });
       const normalChange = makeChange({ type: ChangeType.NORMAL });
 
-      const standardResult = await service.calculateRisk('tenant-1', 'user-1', standardChange);
+      const standardResult = await service.calculateRisk(
+        'tenant-1',
+        'user-1',
+        standardChange,
+      );
       mockRiskRepo.findOne.mockResolvedValue(null);
-      const normalResult = await service.calculateRisk('tenant-1', 'user-1', normalChange);
+      const normalResult = await service.calculateRisk(
+        'tenant-1',
+        'user-1',
+        normalChange,
+      );
 
       expect(standardResult!.riskScore).toBeLessThan(normalResult!.riskScore);
     });
@@ -124,11 +161,21 @@ describe('RiskScoringService', () => {
       const emergencyChange = makeChange({ type: ChangeType.EMERGENCY });
       const normalChange = makeChange({ type: ChangeType.NORMAL });
 
-      const emergencyResult = await service.calculateRisk('tenant-1', 'user-1', emergencyChange);
+      const emergencyResult = await service.calculateRisk(
+        'tenant-1',
+        'user-1',
+        emergencyChange,
+      );
       mockRiskRepo.findOne.mockResolvedValue(null);
-      const normalResult = await service.calculateRisk('tenant-1', 'user-1', normalChange);
+      const normalResult = await service.calculateRisk(
+        'tenant-1',
+        'user-1',
+        normalChange,
+      );
 
-      expect(emergencyResult!.riskScore).toBeGreaterThan(normalResult!.riskScore);
+      expect(emergencyResult!.riskScore).toBeGreaterThan(
+        normalResult!.riskScore,
+      );
     });
 
     it('should increase score when many CIs are impacted (blast radius)', async () => {
@@ -143,28 +190,40 @@ describe('RiskScoringService', () => {
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const blastFactor = result!.breakdown.find(f => f.name === 'Blast Radius');
+      const blastFactor = result!.breakdown.find(
+        (f) => f.name === 'Blast Radius',
+      );
       expect(blastFactor!.score).toBeGreaterThanOrEqual(75);
       expect(result!.impactedCiCount).toBeGreaterThanOrEqual(30);
     });
 
     it('should increase score when CMDB quality is low', async () => {
       const change = makeChange();
-      mockQualitySnapshotRepo.findOne.mockResolvedValue({ score: 30, tenantId: 'tenant-1' });
+      mockQualitySnapshotRepo.findOne.mockResolvedValue({
+        score: 30,
+        tenantId: 'tenant-1',
+      });
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const qualityFactor = result!.breakdown.find(f => f.name === 'CMDB Quality');
+      const qualityFactor = result!.breakdown.find(
+        (f) => f.name === 'CMDB Quality',
+      );
       expect(qualityFactor!.score).toBe(70);
     });
 
     it('should decrease score when CMDB quality is high', async () => {
       const change = makeChange();
-      mockQualitySnapshotRepo.findOne.mockResolvedValue({ score: 95, tenantId: 'tenant-1' });
+      mockQualitySnapshotRepo.findOne.mockResolvedValue({
+        score: 95,
+        tenantId: 'tenant-1',
+      });
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const qualityFactor = result!.breakdown.find(f => f.name === 'CMDB Quality');
+      const qualityFactor = result!.breakdown.find(
+        (f) => f.name === 'CMDB Quality',
+      );
       expect(qualityFactor!.score).toBe(5);
     });
 
@@ -177,7 +236,7 @@ describe('RiskScoringService', () => {
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const leadFactor = result!.breakdown.find(f => f.name === 'Lead Time');
+      const leadFactor = result!.breakdown.find((f) => f.name === 'Lead Time');
       expect(leadFactor!.score).toBe(90);
     });
 
@@ -190,19 +249,26 @@ describe('RiskScoringService', () => {
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const leadFactor = result!.breakdown.find(f => f.name === 'Lead Time');
+      const leadFactor = result!.breakdown.find((f) => f.name === 'Lead Time');
       expect(leadFactor!.score).toBe(5);
     });
 
     it('should detect freeze window conflicts as critical', async () => {
       const change = makeChange();
       mockConflictRepo.find.mockResolvedValue([
-        { tenantId: 'tenant-1', changeId: 'change-1', conflictType: 'FREEZE_WINDOW', isDeleted: false },
+        {
+          tenantId: 'tenant-1',
+          changeId: 'change-1',
+          conflictType: 'FREEZE_WINDOW',
+          isDeleted: false,
+        },
       ]);
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const conflictFactor = result!.breakdown.find(f => f.name === 'Conflict Status');
+      const conflictFactor = result!.breakdown.find(
+        (f) => f.name === 'Conflict Status',
+      );
       expect(conflictFactor!.score).toBe(95);
       expect(result!.hasFreezeConflict).toBe(true);
     });
@@ -210,13 +276,25 @@ describe('RiskScoringService', () => {
     it('should detect overlap conflicts', async () => {
       const change = makeChange();
       mockConflictRepo.find.mockResolvedValue([
-        { tenantId: 'tenant-1', changeId: 'change-1', conflictType: 'OVERLAP', isDeleted: false },
-        { tenantId: 'tenant-1', changeId: 'change-1', conflictType: 'OVERLAP', isDeleted: false },
+        {
+          tenantId: 'tenant-1',
+          changeId: 'change-1',
+          conflictType: 'OVERLAP',
+          isDeleted: false,
+        },
+        {
+          tenantId: 'tenant-1',
+          changeId: 'change-1',
+          conflictType: 'OVERLAP',
+          isDeleted: false,
+        },
       ]);
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
-      const conflictFactor = result!.breakdown.find(f => f.name === 'Conflict Status');
+      const conflictFactor = result!.breakdown.find(
+        (f) => f.name === 'Conflict Status',
+      );
       expect(conflictFactor!.score).toBeGreaterThanOrEqual(70);
       expect(result!.hasFreezeConflict).toBe(false);
     });
@@ -225,9 +303,16 @@ describe('RiskScoringService', () => {
       const change = makeChange({ type: ChangeType.STANDARD });
       const now = new Date();
       change.createdAt = now;
-      change.plannedStartAt = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
-      change.plannedEndAt = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000);
-      mockQualitySnapshotRepo.findOne.mockResolvedValue({ score: 95, tenantId: 'tenant-1' });
+      change.plannedStartAt = new Date(
+        now.getTime() + 10 * 24 * 60 * 60 * 1000,
+      );
+      change.plannedEndAt = new Date(
+        now.getTime() + 10 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+      );
+      mockQualitySnapshotRepo.findOne.mockResolvedValue({
+        score: 95,
+        tenantId: 'tenant-1',
+      });
 
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
@@ -255,7 +340,9 @@ describe('RiskScoringService', () => {
       const result = await service.calculateRisk('tenant-1', 'user-1', change);
 
       expect(result!.hasSlaRisk).toBe(true);
-      const slaFactor = result!.breakdown.find(f => f.name === 'SLA Breach Forecast');
+      const slaFactor = result!.breakdown.find(
+        (f) => f.name === 'SLA Breach Forecast',
+      );
       expect(slaFactor!.score).toBeGreaterThanOrEqual(50);
     });
 
