@@ -42,12 +42,22 @@ import {
 } from '@mui/icons-material';
 import {
   itsmApi,
+  pirApi,
+  pirActionApi,
+  knowledgeCandidateApi,
   ItsmMajorIncidentData,
   ItsmMajorIncidentUpdateData,
   ItsmMajorIncidentLinkData,
   UpdateItsmMajorIncidentDto,
   CreateItsmMajorIncidentUpdateDto,
   CreateItsmMajorIncidentLinkDto,
+  ItsmPirData,
+  ItsmPirActionData,
+  ItsmKnowledgeCandidateData,
+  CreateItsmPirDto,
+  UpdateItsmPirDto,
+  CreateItsmPirActionDto,
+  UpdateItsmPirActionDto,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -153,6 +163,29 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
   const [resolutionSummary, setResolutionSummary] = useState('');
   const [changingStatus, setChangingStatus] = useState(false);
 
+  // PIR state
+  const [pir, setPir] = useState<ItsmPirData | null>(null);
+  const [pirLoading, setPirLoading] = useState(false);
+  const [pirError, setPirError] = useState<string | null>(null);
+  const [pirEditing, setPirEditing] = useState(false);
+  const [pirForm, setPirForm] = useState<UpdateItsmPirDto>({});
+  const [pirSaving, setPirSaving] = useState(false);
+  const [creatingPir, setCreatingPir] = useState(false);
+
+  // PIR Actions state
+  const [pirActions, setPirActions] = useState<ItsmPirActionData[]>([]);
+  const [pirActionsLoading, setPirActionsLoading] = useState(false);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [actionForm, setActionForm] = useState<CreateItsmPirActionDto>({ pirId: '', title: '' });
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionFilter, setActionFilter] = useState<string>('');
+
+  // Knowledge Candidate state
+  const [knowledgeCandidates, setKnowledgeCandidates] = useState<ItsmKnowledgeCandidateData[]>([]);
+  const [kcLoading, setKcLoading] = useState(false);
+  const [generatingKc, setGeneratingKc] = useState(false);
+  const [selectedKc, setSelectedKc] = useState<ItsmKnowledgeCandidateData | null>(null);
+
   const fetchMi = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -205,6 +238,175 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     }
   }, [id]);
 
+  const fetchPir = useCallback(async () => {
+    if (!id) return;
+    setPirLoading(true);
+    setPirError(null);
+    try {
+      const response = await pirApi.getByMajorIncident(id);
+      const data = response.data as Record<string, unknown>;
+      if (data && 'items' in data && Array.isArray(data.items) && data.items.length > 0) {
+        setPir(data.items[0] as ItsmPirData);
+      } else if (data && 'data' in data) {
+        const inner = data.data;
+        if (Array.isArray(inner) && inner.length > 0) {
+          setPir(inner[0] as ItsmPirData);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching PIR:', err);
+      setPirError('Failed to load PIR');
+    } finally {
+      setPirLoading(false);
+    }
+  }, [id]);
+
+  const fetchPirActions = useCallback(async (pirId: string) => {
+    setPirActionsLoading(true);
+    try {
+      const response = await pirActionApi.list({ pirId, pageSize: 100 });
+      const data = response.data as Record<string, unknown>;
+      if (data && 'items' in data && Array.isArray(data.items)) {
+        setPirActions(data.items as ItsmPirActionData[]);
+      }
+    } catch (err) {
+      console.error('Error fetching PIR actions:', err);
+    } finally {
+      setPirActionsLoading(false);
+    }
+  }, []);
+
+  const fetchKnowledgeCandidates = useCallback(async (pirId: string) => {
+    setKcLoading(true);
+    try {
+      const response = await knowledgeCandidateApi.list({ sourceType: 'PIR' });
+      const data = response.data as Record<string, unknown>;
+      if (data && 'items' in data && Array.isArray(data.items)) {
+        setKnowledgeCandidates(
+          (data.items as ItsmKnowledgeCandidateData[]).filter(kc => kc.sourceId === pirId)
+        );
+      }
+    } catch (err) {
+      console.error('Error fetching knowledge candidates:', err);
+    } finally {
+      setKcLoading(false);
+    }
+  }, []);
+
+  const handleCreatePir = async () => {
+    if (!id || !mi) return;
+    setCreatingPir(true);
+    try {
+      const dto: CreateItsmPirDto = {
+        majorIncidentId: id,
+        title: `PIR: ${mi.title}`,
+        summary: mi.resolutionSummary || '',
+      };
+      const response = await pirApi.create(dto);
+      const created = (response.data as { data?: ItsmPirData })?.data;
+      if (created) {
+        setPir(created);
+        showNotification('PIR created successfully', 'success');
+      }
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to create PIR', 'error');
+    } finally {
+      setCreatingPir(false);
+    }
+  };
+
+  const handlePirSave = async () => {
+    if (!pir) return;
+    setPirSaving(true);
+    try {
+      await pirApi.update(pir.id, pirForm);
+      showNotification('PIR updated', 'success');
+      setPirEditing(false);
+      fetchPir();
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to update PIR', 'error');
+    } finally {
+      setPirSaving(false);
+    }
+  };
+
+  const handlePirStatusChange = async (newPirStatus: string) => {
+    if (!pir) return;
+    try {
+      if (newPirStatus === 'APPROVED') {
+        await pirApi.approve(pir.id);
+      } else {
+        await pirApi.update(pir.id, { status: newPirStatus as UpdateItsmPirDto['status'] });
+      }
+      showNotification(`PIR status changed to ${newPirStatus}`, 'success');
+      fetchPir();
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to change PIR status', 'error');
+    }
+  };
+
+  const handleCreateAction = async () => {
+    if (!pir) return;
+    setActionSaving(true);
+    try {
+      await pirActionApi.create({ ...actionForm, pirId: pir.id });
+      showNotification('Action created', 'success');
+      setActionDialogOpen(false);
+      setActionForm({ pirId: '', title: '' });
+      fetchPirActions(pir.id);
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to create action', 'error');
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
+  const handleUpdateActionStatus = async (actionId: string, newActionStatus: string) => {
+    try {
+      await pirActionApi.update(actionId, { status: newActionStatus as UpdateItsmPirActionDto['status'] });
+      showNotification('Action updated', 'success');
+      if (pir) fetchPirActions(pir.id);
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to update action', 'error');
+    }
+  };
+
+  const handleGenerateKc = async () => {
+    if (!pir) return;
+    setGeneratingKc(true);
+    try {
+      const response = await knowledgeCandidateApi.generateFromPir(pir.id);
+      const created = (response.data as { data?: ItsmKnowledgeCandidateData })?.data;
+      if (created) {
+        showNotification('Knowledge Candidate generated', 'success');
+        fetchKnowledgeCandidates(pir.id);
+      }
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || 'Failed to generate knowledge candidate', 'error');
+    } finally {
+      setGeneratingKc(false);
+    }
+  };
+
+  const handleKcAction = async (kcId: string, action: 'review' | 'publish' | 'reject') => {
+    try {
+      if (action === 'review') await knowledgeCandidateApi.review(kcId);
+      else if (action === 'publish') await knowledgeCandidateApi.publish(kcId);
+      else await knowledgeCandidateApi.reject(kcId);
+      showNotification(`Knowledge Candidate ${action}ed`, 'success');
+      if (pir) fetchKnowledgeCandidates(pir.id);
+    } catch (err) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      showNotification(axErr.response?.data?.message || `Failed to ${action} KC`, 'error');
+    }
+  };
+
   useEffect(() => {
     fetchMi();
   }, [fetchMi]);
@@ -212,7 +414,17 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
   useEffect(() => {
     if (tabIndex === 1) fetchTimeline();
     if (tabIndex === 2) fetchLinks();
-  }, [tabIndex, fetchTimeline, fetchLinks]);
+    if (tabIndex === 5) {
+      fetchPir();
+    }
+  }, [tabIndex, fetchTimeline, fetchLinks, fetchPir]);
+
+  useEffect(() => {
+    if (pir) {
+      fetchPirActions(pir.id);
+      fetchKnowledgeCandidates(pir.id);
+    }
+  }, [pir?.id, fetchPirActions, fetchKnowledgeCandidates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startEditing = () => {
     if (!mi) return;
@@ -775,20 +987,400 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         </Card>
       </TabPanel>
 
-      {/* PIR Tab (Placeholder) */}
+      {/* PIR Tab */}
       <TabPanel value={tabIndex} index={5}>
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>Post-Incident Review</Typography>
-          <Typography color="text.secondary" gutterBottom>
-            PIR functionality will be available after this major incident is resolved.
-          </Typography>
-          {mi.status === 'PIR_PENDING' && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              This major incident is pending PIR. PIR creation will be available in a future update.
-            </Alert>
-          )}
-        </Paper>
+        {pirLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+        ) : pirError ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>{pirError}</Alert>
+        ) : !pir ? (
+          <Paper sx={{ p: 4, textAlign: 'center' }} data-testid="pir-empty-state">
+            <Typography variant="h6" gutterBottom>Post-Incident Review</Typography>
+            {['RESOLVED', 'PIR_PENDING', 'CLOSED'].includes(mi.status) ? (
+              <>
+                <Typography color="text.secondary" gutterBottom>
+                  No PIR exists yet for this major incident.
+                </Typography>
+                <Button
+                  variant="contained"
+                  onClick={handleCreatePir}
+                  disabled={creatingPir}
+                  startIcon={<AddIcon />}
+                  sx={{ mt: 2 }}
+                  data-testid="create-pir-btn"
+                >
+                  {creatingPir ? 'Creating...' : 'Create PIR'}
+                </Button>
+              </>
+            ) : (
+              <Typography color="text.secondary">
+                PIR can be created after the major incident is resolved (current status: {toDisplayLabel(mi.status)}).
+              </Typography>
+            )}
+          </Paper>
+        ) : (
+          <Box data-testid="pir-content">
+            {/* PIR Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="h6">{pir.title}</Typography>
+                <Chip
+                  label={pir.status}
+                  color={
+                    pir.status === 'APPROVED' ? 'success' :
+                    pir.status === 'IN_REVIEW' ? 'warning' :
+                    pir.status === 'CLOSED' ? 'default' : 'info'
+                  }
+                  size="small"
+                  data-testid="pir-status-chip"
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {pir.status === 'DRAFT' && (
+                  <>
+                    {!pirEditing ? (
+                      <Button size="small" startIcon={<EditIcon />} onClick={() => {
+                        setPirForm({
+                          title: pir.title,
+                          summary: pir.summary || '',
+                          whatHappened: pir.whatHappened || '',
+                          timelineHighlights: pir.timelineHighlights || '',
+                          rootCauses: pir.rootCauses || '',
+                          whatWorkedWell: pir.whatWorkedWell || '',
+                          whatDidNotWork: pir.whatDidNotWork || '',
+                          customerImpact: pir.customerImpact || '',
+                          detectionEffectiveness: pir.detectionEffectiveness || '',
+                          responseEffectiveness: pir.responseEffectiveness || '',
+                          preventiveActions: pir.preventiveActions || '',
+                          correctiveActions: pir.correctiveActions || '',
+                        });
+                        setPirEditing(true);
+                      }} data-testid="edit-pir-btn">Edit</Button>
+                    ) : (
+                      <>
+                        <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handlePirSave} disabled={pirSaving}>
+                          {pirSaving ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button size="small" startIcon={<CancelIcon />} onClick={() => setPirEditing(false)}>Cancel</Button>
+                      </>
+                    )}
+                    <Button size="small" variant="outlined" color="warning" onClick={() => handlePirStatusChange('IN_REVIEW')} data-testid="submit-pir-btn">
+                      Submit for Review
+                    </Button>
+                  </>
+                )}
+                {pir.status === 'IN_REVIEW' && (
+                  <>
+                    <Button size="small" variant="contained" color="success" onClick={() => handlePirStatusChange('APPROVED')} data-testid="approve-pir-btn">
+                      Approve
+                    </Button>
+                    <Button size="small" variant="outlined" onClick={() => handlePirStatusChange('DRAFT')}>
+                      Return to Draft
+                    </Button>
+                  </>
+                )}
+                {pir.status === 'APPROVED' && (
+                  <Button size="small" variant="outlined" onClick={() => handlePirStatusChange('CLOSED')} data-testid="close-pir-btn">
+                    Close PIR
+                  </Button>
+                )}
+              </Box>
+            </Box>
+
+            {/* PIR Sections */}
+            <Grid container spacing={2}>
+              {[
+                { key: 'summary', label: 'Summary' },
+                { key: 'whatHappened', label: 'What Happened' },
+                { key: 'timelineHighlights', label: 'Timeline Highlights' },
+                { key: 'rootCauses', label: 'Root Causes' },
+                { key: 'whatWorkedWell', label: 'What Worked Well' },
+                { key: 'whatDidNotWork', label: 'What Did Not Work' },
+                { key: 'customerImpact', label: 'Customer Impact' },
+                { key: 'detectionEffectiveness', label: 'Detection Effectiveness' },
+                { key: 'responseEffectiveness', label: 'Response Effectiveness' },
+                { key: 'preventiveActions', label: 'Preventive Actions' },
+                { key: 'correctiveActions', label: 'Corrective Actions' },
+              ].map(({ key, label }) => (
+                <Grid item xs={12} md={6} key={key}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>{label}</Typography>
+                      {pirEditing ? (
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          value={(pirForm as Record<string, string>)[key] || ''}
+                          onChange={(e) => setPirForm({ ...pirForm, [key]: e.target.value })}
+                          size="small"
+                          data-testid={`pir-field-${key}`}
+                        />
+                      ) : (
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                          {(pir as unknown as Record<string, string | null>)[key] || <em>Not filled</em>}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* PIR Metadata */}
+            {pir.approvedAt && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                Approved on {new Date(pir.approvedAt).toLocaleString()}
+              </Alert>
+            )}
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Action Tracker */}
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">Action Items</Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Filter</InputLabel>
+                    <Select value={actionFilter} label="Filter" onChange={(e) => setActionFilter(e.target.value)} data-testid="action-filter-select">
+                      <MenuItem value="">All</MenuItem>
+                      <MenuItem value="OPEN">Open</MenuItem>
+                      <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                      <MenuItem value="COMPLETED">Completed</MenuItem>
+                      <MenuItem value="OVERDUE">Overdue</MenuItem>
+                      <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setActionDialogOpen(true)} data-testid="add-action-btn">
+                    Add Action
+                  </Button>
+                </Box>
+              </Box>
+
+              {pirActionsLoading ? (
+                <CircularProgress size={24} />
+              ) : (
+                <List data-testid="pir-actions-list">
+                  {(actionFilter ? pirActions.filter(a => a.status === actionFilter) : pirActions).length === 0 ? (
+                    <Paper sx={{ p: 2, textAlign: 'center' }}>
+                      <Typography color="text.secondary">No action items{actionFilter ? ` with status "${actionFilter}"` : ''}.</Typography>
+                    </Paper>
+                  ) : (
+                    (actionFilter ? pirActions.filter(a => a.status === actionFilter) : pirActions).map((action) => {
+                      const isOverdue = action.dueDate && new Date(action.dueDate) < new Date() && !['COMPLETED', 'CANCELLED'].includes(action.status);
+                      return (
+                        <ListItem
+                          key={action.id}
+                          sx={{
+                            border: 1,
+                            borderColor: isOverdue ? 'error.main' : 'divider',
+                            borderRadius: 1,
+                            mb: 1,
+                            bgcolor: isOverdue ? 'error.lighter' : undefined,
+                          }}
+                          data-testid={`action-item-${action.id}`}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography fontWeight={500}>{action.title}</Typography>
+                                <Chip
+                                  label={action.status}
+                                  size="small"
+                                  color={
+                                    action.status === 'COMPLETED' ? 'success' :
+                                    action.status === 'IN_PROGRESS' ? 'info' :
+                                    action.status === 'OVERDUE' || isOverdue ? 'error' :
+                                    action.status === 'CANCELLED' ? 'default' : 'warning'
+                                  }
+                                />
+                                <Chip label={action.priority} size="small" variant="outlined" />
+                                {isOverdue && <Chip label="OVERDUE" size="small" color="error" />}
+                              </Box>
+                            }
+                            secondary={
+                              <Box sx={{ mt: 0.5 }}>
+                                {action.description && <Typography variant="body2">{action.description}</Typography>}
+                                {action.dueDate && (
+                                  <Typography variant="caption" color={isOverdue ? 'error' : 'text.secondary'}>
+                                    Due: {new Date(action.dueDate).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            {action.status === 'OPEN' && (
+                              <Tooltip title="Start">
+                                <Button size="small" onClick={() => handleUpdateActionStatus(action.id, 'IN_PROGRESS')}>Start</Button>
+                              </Tooltip>
+                            )}
+                            {action.status === 'IN_PROGRESS' && (
+                              <Tooltip title="Complete">
+                                <Button size="small" color="success" onClick={() => handleUpdateActionStatus(action.id, 'COMPLETED')}>Complete</Button>
+                              </Tooltip>
+                            )}
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      );
+                    })
+                  )}
+                </List>
+              )}
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Knowledge Candidates */}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">Knowledge Candidates</Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleGenerateKc}
+                  disabled={generatingKc}
+                  data-testid="generate-kc-btn"
+                >
+                  {generatingKc ? 'Generating...' : 'Generate Knowledge Candidate'}
+                </Button>
+              </Box>
+
+              {kcLoading ? (
+                <CircularProgress size={24} />
+              ) : knowledgeCandidates.length === 0 ? (
+                <Paper sx={{ p: 2, textAlign: 'center' }}>
+                  <Typography color="text.secondary">No knowledge candidates generated yet.</Typography>
+                </Paper>
+              ) : (
+                <Grid container spacing={2} data-testid="kc-list">
+                  {knowledgeCandidates.map((kc) => (
+                    <Grid item xs={12} md={6} key={kc.id}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                            <Typography variant="subtitle1" fontWeight={500}>{kc.title}</Typography>
+                            <Chip
+                              label={kc.status}
+                              size="small"
+                              color={
+                                kc.status === 'PUBLISHED' ? 'success' :
+                                kc.status === 'REVIEWED' ? 'info' :
+                                kc.status === 'REJECTED' ? 'error' : 'default'
+                              }
+                            />
+                          </Box>
+                          {kc.synopsis && <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{kc.synopsis}</Typography>}
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                            <Button size="small" onClick={() => setSelectedKc(selectedKc?.id === kc.id ? null : kc)}>
+                              {selectedKc?.id === kc.id ? 'Hide Preview' : 'Preview'}
+                            </Button>
+                            {kc.status === 'DRAFT' && (
+                              <>
+                                <Button size="small" color="info" onClick={() => handleKcAction(kc.id, 'review')}>Review</Button>
+                                <Button size="small" color="error" onClick={() => handleKcAction(kc.id, 'reject')}>Reject</Button>
+                              </>
+                            )}
+                            {kc.status === 'REVIEWED' && (
+                              <>
+                                <Button size="small" color="success" onClick={() => handleKcAction(kc.id, 'publish')}>Publish</Button>
+                                <Button size="small" color="error" onClick={() => handleKcAction(kc.id, 'reject')}>Reject</Button>
+                              </>
+                            )}
+                          </Box>
+                          {selectedKc?.id === kc.id && kc.content && (
+                            <Paper sx={{ mt: 2, p: 2, bgcolor: 'grey.50' }} data-testid="kc-preview">
+                              <Typography variant="subtitle2" gutterBottom>Content Preview</Typography>
+                              {Object.entries(kc.content).map(([key, value]) => (
+                                <Box key={key} sx={{ mb: 1 }}>
+                                  <Typography variant="caption" color="text.secondary">{toDisplayLabel(key)}</Typography>
+                                  <Typography variant="body2">{String(value || '-')}</Typography>
+                                </Box>
+                              ))}
+                            </Paper>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Box>
+          </Box>
+        )}
       </TabPanel>
+
+      {/* Add Action Dialog */}
+      <Dialog
+        open={actionDialogOpen}
+        onClose={() => setActionDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="add-action-dialog"
+      >
+        <DialogTitle>Add PIR Action</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Title"
+              value={actionForm.title}
+              onChange={(e) => setActionForm({ ...actionForm, title: e.target.value })}
+              fullWidth
+              required
+              data-testid="action-title-input"
+            />
+            <TextField
+              label="Description"
+              value={actionForm.description || ''}
+              onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+            />
+            <TextField
+              label="Owner ID"
+              value={actionForm.ownerId || ''}
+              onChange={(e) => setActionForm({ ...actionForm, ownerId: e.target.value })}
+              fullWidth
+              helperText="UUID of the assignee"
+            />
+            <TextField
+              label="Due Date"
+              type="date"
+              value={actionForm.dueDate || ''}
+              onChange={(e) => setActionForm({ ...actionForm, dueDate: e.target.value })}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              data-testid="action-due-date-input"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={actionForm.priority || 'MEDIUM'}
+                label="Priority"
+                onChange={(e) => setActionForm({ ...actionForm, priority: e.target.value as CreateItsmPirActionDto['priority'] })}
+              >
+                <MenuItem value="CRITICAL">Critical</MenuItem>
+                <MenuItem value="HIGH">High</MenuItem>
+                <MenuItem value="MEDIUM">Medium</MenuItem>
+                <MenuItem value="LOW">Low</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActionDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleCreateAction}
+            variant="contained"
+            disabled={!actionForm.title.trim() || actionSaving}
+            data-testid="confirm-add-action-btn"
+          >
+            {actionSaving ? 'Adding...' : 'Add Action'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Status Change Dialog */}
       <Dialog

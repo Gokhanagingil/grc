@@ -104,6 +104,16 @@ import { ItsmMajorIncidentLink } from './major-incident/major-incident-link.enti
 import { MajorIncidentService } from './major-incident/major-incident.service';
 import { MajorIncidentController } from './major-incident/major-incident.controller';
 
+import { ItsmPir } from './pir/pir.entity';
+import { ItsmPirAction } from './pir/pir-action.entity';
+import { ItsmKnowledgeCandidate } from './pir/knowledge-candidate.entity';
+import { PirService } from './pir/pir.service';
+import { PirActionService } from './pir/pir-action.service';
+import { KnowledgeCandidateService } from './pir/knowledge-candidate.service';
+import { PirController } from './pir/pir.controller';
+import { PirActionController } from './pir/pir-action.controller';
+import { KnowledgeCandidateController } from './pir/knowledge-candidate.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -141,6 +151,9 @@ import { MajorIncidentController } from './major-incident/major-incident.control
       ItsmMajorIncident,
       ItsmMajorIncidentUpdate,
       ItsmMajorIncidentLink,
+      ItsmPir,
+      ItsmPirAction,
+      ItsmKnowledgeCandidate,
     ]),
     AuditModule,
     AuthModule,
@@ -176,6 +189,9 @@ import { MajorIncidentController } from './major-incident/major-incident.control
     ProblemService,
     KnownErrorService,
     MajorIncidentService,
+    PirService,
+    PirActionService,
+    KnowledgeCandidateService,
   ],
   controllers: [
     IncidentController,
@@ -197,6 +213,9 @@ import { MajorIncidentController } from './major-incident/major-incident.control
     ProblemController,
     KnownErrorController,
     MajorIncidentController,
+    PirController,
+    PirActionController,
+    KnowledgeCandidateController,
   ],
   exports: [
     IncidentService,
@@ -226,6 +245,9 @@ import { MajorIncidentController } from './major-incident/major-incident.control
     ProblemService,
     KnownErrorService,
     MajorIncidentService,
+    PirService,
+    PirActionService,
+    KnowledgeCandidateService,
   ],
 })
 export class ItsmModule {}

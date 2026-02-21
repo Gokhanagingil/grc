@@ -184,6 +184,22 @@ export enum Permission {
   ITSM_MAJOR_INCIDENT_UPDATE = 'itsm:major_incident:update',
   ITSM_MAJOR_INCIDENT_LINK = 'itsm:major_incident:link',
 
+  // ITSM PIR permissions
+  ITSM_PIR_READ = 'itsm:pir:read',
+  ITSM_PIR_CREATE = 'itsm:pir:create',
+  ITSM_PIR_UPDATE = 'itsm:pir:update',
+  ITSM_PIR_APPROVE = 'itsm:pir:approve',
+
+  // ITSM PIR Action permissions
+  ITSM_PIR_ACTION_READ = 'itsm:pir_action:read',
+  ITSM_PIR_ACTION_CREATE = 'itsm:pir_action:create',
+  ITSM_PIR_ACTION_UPDATE = 'itsm:pir_action:update',
+
+  // ITSM Knowledge Candidate permissions
+  ITSM_KNOWLEDGE_CANDIDATE_READ = 'itsm:knowledge_candidate:read',
+  ITSM_KNOWLEDGE_CANDIDATE_CREATE = 'itsm:knowledge_candidate:create',
+  ITSM_KNOWLEDGE_CANDIDATE_UPDATE = 'itsm:knowledge_candidate:update',
+
   // Customer Risk Catalog permissions
   GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
   GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
@@ -341,4 +357,14 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_MAJOR_INCIDENT_CREATE]: 'Declare and delete major incidents',
   [Permission.ITSM_MAJOR_INCIDENT_UPDATE]: 'Update major incidents and post timeline updates',
   [Permission.ITSM_MAJOR_INCIDENT_LINK]: 'Link and unlink records to major incidents',
+  [Permission.ITSM_PIR_READ]: 'View post-incident reviews',
+  [Permission.ITSM_PIR_CREATE]: 'Create post-incident reviews',
+  [Permission.ITSM_PIR_UPDATE]: 'Update post-incident reviews',
+  [Permission.ITSM_PIR_APPROVE]: 'Approve post-incident reviews',
+  [Permission.ITSM_PIR_ACTION_READ]: 'View PIR action items',
+  [Permission.ITSM_PIR_ACTION_CREATE]: 'Create PIR action items',
+  [Permission.ITSM_PIR_ACTION_UPDATE]: 'Update PIR action items',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_READ]: 'View knowledge candidates',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_CREATE]: 'Create and generate knowledge candidates',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_UPDATE]: 'Update knowledge candidate status',
 };
