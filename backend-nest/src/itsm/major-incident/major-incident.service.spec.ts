@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { MajorIncidentService } from './major-incident.service';
 import { AuditService } from '../../audit/audit.service';
@@ -23,6 +27,7 @@ describe('MajorIncidentService', () => {
   let updateRepo: jest.Mocked<Repository<ItsmMajorIncidentUpdate>>;
   let linkRepo: jest.Mocked<Repository<ItsmMajorIncidentLink>>;
   let eventEmitter: jest.Mocked<EventEmitter2>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let auditService: jest.Mocked<AuditService>;
 
   const mockTenantId = '00000000-0000-0000-0000-000000000001';
@@ -103,9 +108,18 @@ describe('MajorIncidentService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MajorIncidentService,
-        { provide: getRepositoryToken(ItsmMajorIncident), useValue: mockMiRepo },
-        { provide: getRepositoryToken(ItsmMajorIncidentUpdate), useValue: mockUpdateRepo },
-        { provide: getRepositoryToken(ItsmMajorIncidentLink), useValue: mockLinkRepo },
+        {
+          provide: getRepositoryToken(ItsmMajorIncident),
+          useValue: mockMiRepo,
+        },
+        {
+          provide: getRepositoryToken(ItsmMajorIncidentUpdate),
+          useValue: mockUpdateRepo,
+        },
+        {
+          provide: getRepositoryToken(ItsmMajorIncidentLink),
+          useValue: mockLinkRepo,
+        },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AuditService, useValue: mockAuditService },
       ],
@@ -211,9 +225,14 @@ describe('MajorIncidentService', () => {
       updateRepo.create.mockReturnValue({} as any);
       updateRepo.save.mockResolvedValue({} as any);
 
-      const result = await service.update(mockTenantId, mockUserId, existing.id!, {
-        status: MajorIncidentStatus.INVESTIGATING,
-      });
+      const result = await service.update(
+        mockTenantId,
+        mockUserId,
+        existing.id,
+        {
+          status: MajorIncidentStatus.INVESTIGATING,
+        },
+      );
 
       expect(result.status).toBe(MajorIncidentStatus.INVESTIGATING);
       expect(eventEmitter.emit).toHaveBeenCalledWith(
@@ -231,7 +250,7 @@ describe('MajorIncidentService', () => {
       miRepo.findOne.mockResolvedValue(existing);
 
       await expect(
-        service.update(mockTenantId, mockUserId, existing.id!, {
+        service.update(mockTenantId, mockUserId, existing.id, {
           status: MajorIncidentStatus.RESOLVED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -246,7 +265,7 @@ describe('MajorIncidentService', () => {
       miRepo.findOne.mockResolvedValue(existing);
 
       await expect(
-        service.update(mockTenantId, mockUserId, existing.id!, {
+        service.update(mockTenantId, mockUserId, existing.id, {
           status: MajorIncidentStatus.RESOLVED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -263,10 +282,15 @@ describe('MajorIncidentService', () => {
       updateRepo.create.mockReturnValue({} as any);
       updateRepo.save.mockResolvedValue({} as any);
 
-      const result = await service.update(mockTenantId, mockUserId, existing.id!, {
-        status: MajorIncidentStatus.RESOLVED,
-        resolutionSummary: 'Root cause identified and fixed',
-      });
+      const result = await service.update(
+        mockTenantId,
+        mockUserId,
+        existing.id,
+        {
+          status: MajorIncidentStatus.RESOLVED,
+          resolutionSummary: 'Root cause identified and fixed',
+        },
+      );
 
       expect(result.status).toBe(MajorIncidentStatus.RESOLVED);
       expect(result.resolvedAt).toBeDefined();
@@ -284,9 +308,14 @@ describe('MajorIncidentService', () => {
       updateRepo.create.mockReturnValue({} as any);
       updateRepo.save.mockResolvedValue({} as any);
 
-      const result = await service.update(mockTenantId, mockUserId, existing.id!, {
-        status: MajorIncidentStatus.CLOSED,
-      });
+      const result = await service.update(
+        mockTenantId,
+        mockUserId,
+        existing.id,
+        {
+          status: MajorIncidentStatus.CLOSED,
+        },
+      );
 
       expect(result.status).toBe(MajorIncidentStatus.CLOSED);
       expect(result.closedAt).toBeDefined();
@@ -357,9 +386,14 @@ describe('MajorIncidentService', () => {
         message: 'Test',
       } as any);
 
-      const result = await service.createTimelineUpdate(mockTenantId, mockUserId, 'missing', {
-        message: 'Test',
-      });
+      const result = await service.createTimelineUpdate(
+        mockTenantId,
+        mockUserId,
+        'missing',
+        {
+          message: 'Test',
+        },
+      );
       expect(result).toBeDefined();
       expect(updateRepo.save).toHaveBeenCalled();
     });
@@ -453,7 +487,11 @@ describe('MajorIncidentService', () => {
     it('should return false if link not found', async () => {
       linkRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.unlinkRecord(mockTenantId, mockMi.id!, 'missing-link');
+      const result = await service.unlinkRecord(
+        mockTenantId,
+        mockMi.id!,
+        'missing-link',
+      );
       expect(result).toBe(false);
       expect(linkRepo.remove).not.toHaveBeenCalled();
     });
