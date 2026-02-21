@@ -127,6 +127,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_PROBLEM_LINK_INCIDENT,
     Permission.ITSM_PROBLEM_LINK_CHANGE,
     Permission.ITSM_PROBLEM_RISK_READ,
+    // ITSM Known Error permissions
+    Permission.ITSM_KNOWN_ERROR_READ,
+    Permission.ITSM_KNOWN_ERROR_CREATE,
+    Permission.ITSM_KNOWN_ERROR_UPDATE,
   ],
 
   /**
@@ -209,6 +213,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_PROBLEM_LINK_INCIDENT,
     Permission.ITSM_PROBLEM_LINK_CHANGE,
     Permission.ITSM_PROBLEM_RISK_READ,
+    // ITSM Known Error permissions
+    Permission.ITSM_KNOWN_ERROR_READ,
+    Permission.ITSM_KNOWN_ERROR_CREATE,
+    Permission.ITSM_KNOWN_ERROR_UPDATE,
   ],
 
   /**
@@ -256,6 +264,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // ITSM Problem read-only
     Permission.ITSM_PROBLEM_READ,
     Permission.ITSM_PROBLEM_RISK_READ,
+    // ITSM Known Error read-only
+    Permission.ITSM_KNOWN_ERROR_READ,
   ],
 };
 

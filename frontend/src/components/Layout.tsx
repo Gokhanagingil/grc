@@ -354,6 +354,25 @@ const itsmMenuGroups: NavMenuGroup[] = [
     ],
   },
   {
+    id: 'itsm-problems',
+    text: 'Problem Management',
+    icon: <FindingsIcon />,
+    items: [
+      {
+        text: 'Problems',
+        icon: <FindingsIcon />,
+        path: '/itsm/problems',
+        testId: 'nav-itsm-problems',
+      },
+      {
+        text: 'Known Errors',
+        icon: <FindingsIcon />,
+        path: '/itsm/known-errors',
+        testId: 'nav-itsm-known-errors',
+      },
+    ],
+  },
+  {
     id: 'itsm-studio',
     text: 'ITSM Studio',
     icon: <AdminIcon />,

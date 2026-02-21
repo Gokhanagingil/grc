@@ -8,6 +8,12 @@ export { ItsmChangeDetail } from './ItsmChangeDetail';
 export { ItsmChangeCalendar } from './ItsmChangeCalendar';
 export { ItsmChoiceAdmin } from './ItsmChoiceAdmin';
 
+// ITSM Problem Management
+export { ItsmProblemList } from './ItsmProblemList';
+export { ItsmProblemDetail } from './ItsmProblemDetail';
+export { ItsmKnownErrorList } from './ItsmKnownErrorList';
+export { ItsmKnownErrorDetail } from './ItsmKnownErrorDetail';
+
 // ITSM Studio (Admin configuration screens)
 export { ItsmStudioTables } from './studio/ItsmStudioTables';
 export { ItsmStudioBusinessRules } from './studio/ItsmStudioBusinessRules';
