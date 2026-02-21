@@ -16,6 +16,14 @@ import {
   type TableResult,
 } from "./helpers";
 
+const E2E_MODE = process.env.E2E_MODE || "REAL_STACK";
+if (E2E_MODE !== "REAL_STACK") {
+  throw new Error(
+    `platform-health.spec.ts MUST run in REAL_STACK mode (got E2E_MODE="${E2E_MODE}"). ` +
+      "This suite validates real API contracts and must never use mocks.",
+  );
+}
+
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 const TIER = (process.env.SMOKE_TIER as "tier1" | "full") || "tier1";
 

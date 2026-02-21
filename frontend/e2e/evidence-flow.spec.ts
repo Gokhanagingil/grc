@@ -237,7 +237,7 @@ async function setupEvidenceFlowMocks(page: import('@playwright/test').Page) {
   });
 }
 
-test.describe('Evidence Golden Flow', () => {
+test.describe('Evidence Golden Flow @mock', () => {
   test.beforeEach(async ({ page }) => {
     // Setup mocks before each test
     await setupEvidenceFlowMocks(page);

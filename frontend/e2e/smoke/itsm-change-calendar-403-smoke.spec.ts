@@ -80,7 +80,7 @@ async function setupCalendar200Mocks(page: Page) {
   });
 }
 
-test.describe('ITSM Change Create Resilience @smoke', () => {
+test.describe('ITSM Change Create Resilience @mock @smoke', () => {
   test.skip(isMockMode, 'ITSM routes require real backend - mock API does not enable ITSM_SUITE modules');
 
   test.beforeEach(async ({ page }) => {

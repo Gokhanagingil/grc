@@ -13,7 +13,7 @@ import { login, setupMockApi } from '../helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('ITSM API prefix verification', () => {
+test.describe('ITSM API prefix verification @mock', () => {
   test.skip(isMockMode, 'Requires real or proxy backend');
 
   test.beforeEach(async ({ page }) => {

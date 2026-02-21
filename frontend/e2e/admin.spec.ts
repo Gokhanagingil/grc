@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers';
 
-test.describe('Admin Panel', () => {
+test.describe('Admin Panel @mock', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

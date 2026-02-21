@@ -102,9 +102,10 @@ jobs:
           echo "Backend failed to start"
           exit 1
 
-      - name: Run full sweep smoke tests
+      - name: Run full sweep smoke tests (REAL_STACK)
         run: npx playwright test --project=smoke
         env:
+          E2E_MODE: "REAL_STACK"
           BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3002' }}
           SMOKE_TIER: "full"
           MAX_TABLES_PER_RUN: ${{ github.event.inputs.max_tables || '20' }}

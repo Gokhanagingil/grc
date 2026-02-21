@@ -12,7 +12,7 @@ import { login, setupMockApi, waitForApiResponse, expectListLoaded } from './hel
  * Regression test for: Controls List 401 fix (Sprint A)
  */
 
-test.describe('Controls List Page', () => {
+test.describe('Controls List Page @mock', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

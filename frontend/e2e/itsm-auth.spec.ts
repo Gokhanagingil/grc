@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers';
 
-test.describe('ITSM Auth Header Regression', () => {
+test.describe('ITSM Auth Header Regression @mock', () => {
   test('ITSM Changes request includes Authorization header', async ({ page }) => {
     const itsmRequests: { url: string; authorization: string | null }[] = [];
 

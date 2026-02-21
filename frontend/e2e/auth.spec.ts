@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers';
 
-test.describe('Authentication', () => {
+test.describe('Authentication @mock', () => {
   test('Login page loads correctly', async ({ page }) => {
     await page.goto('/login');
     

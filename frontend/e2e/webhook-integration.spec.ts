@@ -16,7 +16,7 @@ import { login } from './helpers';
 
 const isMockMode = process.env.E2E_MOCK_API === '1';
 
-test.describe('Webhook Integration @smoke', () => {
+test.describe('Webhook Integration @mock @smoke', () => {
   test.describe('Webhook endpoint API prefix', () => {
     test.skip(!isMockMode, 'Mock mode only');
 

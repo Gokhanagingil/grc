@@ -4,6 +4,10 @@
 
 The platform-health smoke suite verifies every registered API table (list, create, filter, sort) against both local and staging environments. Results are persisted in the Platform Health Dashboard (Admin > Platform Health).
 
+> **E2E Mode:** Platform health tests **always** run in `REAL_STACK` mode.
+> They will hard-fail if `E2E_MODE=MOCK_UI` is set.
+> See [E2E-MODES.md](./E2E-MODES.md) for the full mode separation design.
+
 ---
 
 ## Running Locally
@@ -124,9 +128,17 @@ The smoke suite includes a **contract assertion** test for each table that verif
 
 ### CI Integration
 
-The `platform-health-smoke.yml` workflow:
-- **smoke-tier1**: Runs on every PR against a CI-local backend + Postgres.
-- **smoke-staging**: Runs via `workflow_dispatch` when `base_url` is set to a remote URL and `E2E_*` secrets exist.
+The following workflows run platform health tests (all enforce `E2E_MODE=REAL_STACK`):
+
+| Workflow | Trigger | Scope |
+|----------|---------|-------|
+| `e2e-smoke-real.yml` | PR to main | Tier-1 smoke + e2e-real core |
+| `platform-health-smoke.yml` | PR to main | Tier-1 smoke |
+| `platform-health-nightly.yml` | Nightly cron | Full sweep |
+| `smoke-staging.yml` | Manual / post-deploy | Staging smoke |
+
+Mock-only UI tests run separately via `e2e-mock-ui.yml` (`E2E_MODE=MOCK_UI`).
+See [E2E-MODES.md](./E2E-MODES.md) for details.
 
 ---
 
@@ -151,6 +163,8 @@ The `platform-health-smoke.yml` workflow:
 | Badge shows UNKNOWN | No runs ingested yet | Trigger a smoke test or use ingest API |
 | 403 on badge/runs | User lacks ADMIN_SETTINGS_READ | Ensure admin role |
 | Migration not applied | Tables missing in DB | Run `npx typeorm migration:run -d dist/data-source.js` |
+| `E2E_MODE mismatch` error | Suite was run with `E2E_MODE=MOCK_UI` | Platform health requires `REAL_STACK` — check workflow env |
+| `[mock] ...127.0.0.1:3000` in logs | Test intercepting requests via mock API | This should never happen in platform-health. If it does, the guard in `setupMockApi` will throw. Check `E2E_MODE` env. |
 
 ---
 

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login, setupMockApi, expectListLoaded } from './helpers';
 
-test.describe('Universal List Experience Smoke Tests', () => {
+test.describe('Universal List Experience Smoke Tests @mock', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await login(page);
