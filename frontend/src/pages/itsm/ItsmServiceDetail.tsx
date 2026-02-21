@@ -23,6 +23,15 @@ import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
+import { AxiosError } from 'axios';
+
+interface ApiValidationErrorData {
+  error?: {
+    message?: string;
+    fieldErrors?: { field: string; message: string }[];
+  };
+  message?: string | string[];
+}
 
 interface ItsmService {
   id: string;
@@ -128,11 +137,22 @@ export const ItsmServiceDetail: React.FC = () => {
       }
     } catch (error: unknown) {
       console.error('Error saving ITSM service:', error);
-      const axiosErr = error as { response?: { status?: number } };
+      const axiosErr = error as AxiosError<ApiValidationErrorData>;
       if (axiosErr?.response?.status === 403) {
         showNotification('You don\'t have permission to create services.', 'error');
       } else {
-        showNotification('Failed to save ITSM service', 'error');
+        const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
+        const errMsg = axiosErr?.response?.data?.error?.message;
+        const msgArr = axiosErr?.response?.data?.message;
+        if (fieldErrors && fieldErrors.length > 0) {
+          showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
+        } else if (errMsg) {
+          showNotification(errMsg, 'error');
+        } else if (Array.isArray(msgArr)) {
+          showNotification(msgArr.join(', '), 'error');
+        } else {
+          showNotification('Failed to save ITSM service', 'error');
+        }
       }
     } finally {
       setSaving(false);

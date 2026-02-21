@@ -46,6 +46,14 @@ import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { AxiosError } from 'axios';
 
+interface ApiValidationErrorData {
+  error?: {
+    message?: string;
+    fieldErrors?: { field: string; message: string }[];
+  };
+  message?: string | string[];
+}
+
 interface ItsmChange {
   id: string;
   number: string;
@@ -278,9 +286,7 @@ export const ItsmChangeDetail: React.FC = () => {
           title: change.title,
           description: change.description,
           type: change.type as 'STANDARD' | 'NORMAL' | 'EMERGENCY',
-          state: change.state as 'DRAFT' | 'ASSESS' | 'AUTHORIZE' | 'IMPLEMENT' | 'REVIEW' | 'CLOSED',
           risk: change.risk as 'LOW' | 'MEDIUM' | 'HIGH',
-          approvalStatus: change.approvalStatus as 'NOT_REQUESTED' | 'REQUESTED' | 'APPROVED' | 'REJECTED',
           implementationPlan: change.implementationPlan,
           backoutPlan: change.backoutPlan,
           plannedStartAt: change.plannedStartAt,
@@ -311,9 +317,21 @@ export const ItsmChangeDetail: React.FC = () => {
         showNotification('Change updated successfully', 'success');
         fetchChange();
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving change:', error);
-      showNotification('Failed to save change', 'error');
+      const axiosErr = error as AxiosError<ApiValidationErrorData>;
+      const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
+      const errMsg = axiosErr?.response?.data?.error?.message;
+      const msgArr = axiosErr?.response?.data?.message;
+      if (fieldErrors && fieldErrors.length > 0) {
+        showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
+      } else if (errMsg) {
+        showNotification(errMsg, 'error');
+      } else if (Array.isArray(msgArr)) {
+        showNotification(msgArr.join(', '), 'error');
+      } else {
+        showNotification('Failed to save change', 'error');
+      }
     } finally {
       setSaving(false);
     }

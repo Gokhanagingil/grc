@@ -84,9 +84,20 @@ export const ItsmChangeList: React.FC = () => {
     try {
       const response = await itsmApi.changes.list({ page, pageSize, q: search });
       const data = response.data;
-      if (data && 'data' in data) {
-        setChanges(Array.isArray(data.data) ? data.data : []);
-        setTotal(data.total || 0);
+      if (data && typeof data === 'object') {
+        const envelope = data as Record<string, unknown>;
+        const inner = envelope.data;
+        if (inner && typeof inner === 'object' && !Array.isArray(inner) && 'items' in (inner as Record<string, unknown>)) {
+          const paginated = inner as { items: ItsmChange[]; total: number };
+          setChanges(Array.isArray(paginated.items) ? paginated.items : []);
+          setTotal(paginated.total || 0);
+        } else if (Array.isArray(inner)) {
+          setChanges(inner as ItsmChange[]);
+          setTotal((inner as ItsmChange[]).length);
+        } else {
+          setChanges([]);
+          setTotal(0);
+        }
       } else {
         setChanges([]);
         setTotal(0);
