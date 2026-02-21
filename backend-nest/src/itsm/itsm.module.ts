@@ -88,6 +88,12 @@ import { CustomerRiskCatalog } from '../grc/entities/customer-risk-catalog.entit
 import { CustomerRiskBinding } from '../grc/entities/customer-risk-binding.entity';
 import { CustomerRiskObservation } from '../grc/entities/customer-risk-observation.entity';
 
+import { ItsmProblem } from './problem/problem.entity';
+import { ItsmProblemIncident } from './problem/problem-incident.entity';
+import { ItsmProblemChange } from './problem/problem-change.entity';
+import { ProblemService } from './problem/problem.service';
+import { ProblemController } from './problem/problem.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -118,6 +124,9 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
       CustomerRiskCatalog,
       CustomerRiskBinding,
       CustomerRiskObservation,
+      ItsmProblem,
+      ItsmProblemIncident,
+      ItsmProblemChange,
     ]),
     AuditModule,
     AuthModule,
@@ -150,6 +159,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     PolicyService,
     CustomerRiskImpactService,
     ApprovalService,
+    ProblemService,
   ],
   controllers: [
     IncidentController,
@@ -168,6 +178,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     RiskController,
     PolicyController,
     ApprovalController,
+    ProblemController,
   ],
   exports: [
     IncidentService,
@@ -194,6 +205,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     PolicyService,
     CustomerRiskImpactService,
     ApprovalService,
+    ProblemService,
   ],
 })
 export class ItsmModule {}
