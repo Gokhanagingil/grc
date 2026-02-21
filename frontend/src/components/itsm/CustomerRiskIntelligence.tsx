@@ -40,6 +40,7 @@ import {
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AxiosError } from 'axios';
+import { CreateMitigationModal } from './CreateMitigationModal';
 
 // ---------- helpers ----------
 
@@ -360,6 +361,8 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
   const [recalculating, setRecalculating] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [showTable, setShowTable] = useState(false);
+  const [mitigationModalOpen, setMitigationModalOpen] = useState(false);
+  const [selectedRisk, setSelectedRisk] = useState<ResolvedCustomerRiskData | null>(null);
 
   const fetchImpact = useCallback(async () => {
     setLoading(true);
@@ -545,18 +548,17 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
                 >
                   Risk Details
                 </Button>
-                <Tooltip title="Create a mitigation task for customer risks (coming soon)" arrow>
-                  <span>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled
-                      data-testid="create-mitigation-task-btn"
-                    >
-                      Create Mitigation
-                    </Button>
-                  </span>
-                </Tooltip>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setSelectedRisk(null);
+                    setMitigationModalOpen(true);
+                  }}
+                  data-testid="create-mitigation-task-btn"
+                >
+                  Create Mitigation
+                </Button>
                 <Tooltip title="Request waiver or risk acceptance (coming soon)" arrow>
                   <span>
                     <Button
@@ -572,6 +574,22 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
               </Box>
             </Box>
           )}
+
+          {/* Mitigation modal */}
+          <CreateMitigationModal
+            open={mitigationModalOpen}
+            onClose={() => {
+              setMitigationModalOpen(false);
+              setSelectedRisk(null);
+            }}
+            onSuccess={() => {
+              setMitigationModalOpen(false);
+              setSelectedRisk(null);
+              fetchImpact();
+            }}
+            changeId={changeId}
+            selectedRisk={selectedRisk}
+          />
         </Collapse>
       </CardContent>
     </Card>

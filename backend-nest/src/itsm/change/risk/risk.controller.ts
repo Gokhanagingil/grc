@@ -21,6 +21,7 @@ import {
   CustomerRiskImpactService,
   CustomerRiskImpactResult,
 } from './customer-risk-impact.service';
+import { EventBusService } from '../../../event-bus/event-bus.service';
 
 @Controller('grc/itsm/changes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -30,6 +31,7 @@ export class RiskController {
     private readonly policyService: PolicyService,
     private readonly changeService: ChangeService,
     private readonly customerRiskImpactService: CustomerRiskImpactService,
+    private readonly eventBusService: EventBusService,
   ) {}
 
   @Get(':changeId/risk')
@@ -184,6 +186,48 @@ export class RiskController {
       assessment,
       impact,
     );
+
+    // Emit event for customer risk recalculation
+    await this.eventBusService.emit({
+      tenantId: req.tenantId,
+      source: 'itsm.change.customer_risk',
+      eventName: 'itsm.change.customer_risk.recalculated',
+      tableName: 'itsm_changes',
+      recordId: changeId,
+      actorId: req.user.id,
+      payload: {
+        changeNumber: change.number,
+        changeTitle: change.title,
+        aggregateScore: impact.aggregateScore,
+        aggregateLabel: impact.aggregateLabel,
+        resolvedRiskCount: impact.resolvedRisks.length,
+        decisionRecommendation: policyEvaluation.decisionRecommendation,
+      },
+    });
+
+    // Emit policy triggered event if governance action is required
+    if (
+      policyEvaluation.decisionRecommendation !== 'ALLOW' &&
+      policyEvaluation.rulesTriggered.length > 0
+    ) {
+      await this.eventBusService.emit({
+        tenantId: req.tenantId,
+        source: 'itsm.change.customer_risk',
+        eventName: 'itsm.change.customer_risk.policy_triggered',
+        tableName: 'itsm_changes',
+        recordId: changeId,
+        actorId: req.user.id,
+        payload: {
+          changeNumber: change.number,
+          decisionRecommendation: policyEvaluation.decisionRecommendation,
+          rulesTriggered: policyEvaluation.rulesTriggered.map((r) => ({
+            policyId: r.policyId,
+            policyName: r.policyName,
+          })),
+          requiredActions: policyEvaluation.requiredActions,
+        },
+      });
+    }
 
     return {
       data: {

@@ -88,6 +88,10 @@ import { CustomerRiskCatalog } from '../grc/entities/customer-risk-catalog.entit
 import { CustomerRiskBinding } from '../grc/entities/customer-risk-binding.entity';
 import { CustomerRiskObservation } from '../grc/entities/customer-risk-observation.entity';
 
+import { MitigationAction } from './change/risk/mitigation-action.entity';
+import { MitigationActionService } from './change/risk/mitigation-action.service';
+import { MitigationActionController } from './change/risk/mitigation-action.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -118,6 +122,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
       CustomerRiskCatalog,
       CustomerRiskBinding,
       CustomerRiskObservation,
+      MitigationAction,
     ]),
     AuditModule,
     AuthModule,
@@ -150,6 +155,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     PolicyService,
     CustomerRiskImpactService,
     ApprovalService,
+    MitigationActionService,
   ],
   controllers: [
     IncidentController,
@@ -168,6 +174,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     RiskController,
     PolicyController,
     ApprovalController,
+    MitigationActionController,
   ],
   exports: [
     IncidentService,
@@ -194,6 +201,7 @@ import { CustomerRiskObservation } from '../grc/entities/customer-risk-observati
     PolicyService,
     CustomerRiskImpactService,
     ApprovalService,
+    MitigationActionService,
   ],
 })
 export class ItsmModule {}

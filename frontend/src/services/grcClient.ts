@@ -822,6 +822,9 @@ export const API_PATHS = {
     RECALCULATE: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-risk`,
     CUSTOMER_RISK_IMPACT: (changeId: string) => `/grc/itsm/changes/${changeId}/customer-risk-impact`,
     RECALCULATE_CUSTOMER_RISK: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-customer-risk`,
+    MITIGATION_ACTIONS: (changeId: string) => `/grc/itsm/changes/${changeId}/mitigation-actions`,
+    MITIGATION_ACTION: (changeId: string, actionId: string) => `/grc/itsm/changes/${changeId}/mitigation-actions/${actionId}`,
+    MITIGATION_ACTION_STATUS: (changeId: string, actionId: string) => `/grc/itsm/changes/${changeId}/mitigation-actions/${actionId}/status`,
   },
 
   // Change Policy endpoints
@@ -1917,6 +1920,39 @@ export interface CustomerRiskRecalculateResponse {
   policyEvaluation: PolicyEvaluationSummary;
 }
 
+// Mitigation Action types
+export type MitigationActionType = 'CHANGE_TASK' | 'RISK_OBSERVATION' | 'RISK_ACCEPTANCE' | 'WAIVER_REQUEST' | 'REMEDIATION';
+export type MitigationActionStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface MitigationActionData {
+  id: string;
+  tenantId: string;
+  changeId: string;
+  catalogRiskId: string | null;
+  bindingId: string | null;
+  actionType: MitigationActionType;
+  status: MitigationActionStatus;
+  title: string;
+  description: string | null;
+  ownerId: string | null;
+  dueDate: string | null;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+}
+
+export interface CreateMitigationActionDto {
+  actionType: MitigationActionType;
+  title: string;
+  description?: string;
+  catalogRiskId?: string;
+  bindingId?: string;
+  ownerId?: string;
+  dueDate?: string;
+  comment?: string;
+}
+
 export interface ChangePolicyData {
   id: string;
   tenantId: string;
@@ -2105,6 +2141,21 @@ export const itsmApi = {
     recalculateRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE(changeId), {}),
     getCustomerRiskImpact: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.CUSTOMER_RISK_IMPACT(changeId)),
     recalculateCustomerRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE_CUSTOMER_RISK(changeId), {}),
+    // Mitigation Actions
+    listMitigationActions: (changeId: string, params?: { page?: number; pageSize?: number; status?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.status) searchParams.set('status', params.status);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM_CHANGE_RISK.MITIGATION_ACTIONS(changeId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    createMitigationAction: (changeId: string, data: CreateMitigationActionDto) =>
+      api.post(API_PATHS.ITSM_CHANGE_RISK.MITIGATION_ACTIONS(changeId), data),
+    updateMitigationActionStatus: (changeId: string, actionId: string, data: { status: MitigationActionStatus; comment?: string }) =>
+      api.patch(API_PATHS.ITSM_CHANGE_RISK.MITIGATION_ACTION_STATUS(changeId, actionId), data),
+    deleteMitigationAction: (changeId: string, actionId: string) =>
+      api.delete(API_PATHS.ITSM_CHANGE_RISK.MITIGATION_ACTION(changeId, actionId)),
     requestApproval:(changeId: string, comment?: string) =>
       api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
     listApprovals: (changeId: string) =>
