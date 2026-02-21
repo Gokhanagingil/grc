@@ -102,6 +102,37 @@ test.describe('ITSM Journal smoke @mock', () => {
       });
     });
 
+    await page.route('**/grc/itsm/incidents/' + MOCK_INCIDENT_ID + '/affected-cis**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 } }),
+      });
+    });
+
+    await page.route('**/grc/itsm/incidents/' + MOCK_INCIDENT_ID + '/impact-summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            affectedCis: { count: 0, criticalCount: 0, topClasses: [] },
+            impactedServices: [],
+            impactedOfferings: [],
+          },
+        }),
+      });
+    });
+
+    await page.route('**/grc/cmdb/services**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { items: [], total: 0, page: 1, pageSize: 100, totalPages: 0 } }),
+      });
+    });
+
     await page.goto(`/itsm/incidents/${MOCK_INCIDENT_ID}`);
 
     const activityCard = page.locator('[data-testid="activity-stream"]');
