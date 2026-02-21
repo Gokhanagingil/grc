@@ -41,6 +41,7 @@ import {
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData } from '../../services/grcClient';
+import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -1037,6 +1038,11 @@ export const ItsmChangeDetail: React.FC = () => {
                 </Collapse>
               </CardContent>
             </Card>
+          )}
+
+          {/* Customer Risk Intelligence Panel */}
+          {!isNew && change.id && (
+            <CustomerRiskIntelligence changeId={change.id} />
           )}
 
           {/* Timestamps */}
