@@ -406,6 +406,40 @@ export const API_PATHS = {
       LINKS: (id: string) => `/grc/itsm/major-incidents/${id}/links`,
       UNLINK: (id: string, linkId: string) => `/grc/itsm/major-incidents/${id}/links/${linkId}`,
     },
+
+    // ITSM PIR (Post-Incident Review) endpoints
+    PIRS: {
+      LIST: '/grc/itsm/pirs',
+      CREATE: '/grc/itsm/pirs',
+      GET: (id: string) => `/grc/itsm/pirs/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/pirs/${id}`,
+      DELETE: (id: string) => `/grc/itsm/pirs/${id}`,
+      APPROVE: (id: string) => `/grc/itsm/pirs/${id}/approve`,
+      BY_MI: (majorIncidentId: string) => `/grc/itsm/pirs/by-major-incident/${majorIncidentId}`,
+    },
+
+    // ITSM PIR Action endpoints
+    PIR_ACTIONS: {
+      LIST: '/grc/itsm/pir-actions',
+      CREATE: '/grc/itsm/pir-actions',
+      GET: (id: string) => `/grc/itsm/pir-actions/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/pir-actions/${id}`,
+      DELETE: (id: string) => `/grc/itsm/pir-actions/${id}`,
+      OVERDUE: '/grc/itsm/pir-actions/overdue',
+    },
+
+    // ITSM Knowledge Candidate endpoints
+    KNOWLEDGE_CANDIDATES: {
+      LIST: '/grc/itsm/knowledge-candidates',
+      GET: (id: string) => `/grc/itsm/knowledge-candidates/${id}`,
+      DELETE: (id: string) => `/grc/itsm/knowledge-candidates/${id}`,
+      GENERATE_FROM_PIR: (pirId: string) => `/grc/itsm/knowledge-candidates/generate/pir/${pirId}`,
+      GENERATE_FROM_KE: (keId: string) => `/grc/itsm/knowledge-candidates/generate/known-error/${keId}`,
+      GENERATE_FROM_PROBLEM: (problemId: string) => `/grc/itsm/knowledge-candidates/generate/problem/${problemId}`,
+      REVIEW: (id: string) => `/grc/itsm/knowledge-candidates/${id}/review`,
+      PUBLISH: (id: string) => `/grc/itsm/knowledge-candidates/${id}/publish`,
+      REJECT: (id: string) => `/grc/itsm/knowledge-candidates/${id}/reject`,
+    },
   },
 
   // CMDB (Configuration Management Database) endpoints
@@ -2749,6 +2783,218 @@ export interface ItsmMajorIncidentListParams {
   createdFrom?: string;
   createdTo?: string;
 }
+
+// ============================================================================
+// PIR (Post-Incident Review) Types
+// ============================================================================
+
+export interface ItsmPirData {
+  id: string;
+  tenantId: string;
+  majorIncidentId: string;
+  title: string;
+  status: 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'CLOSED';
+  summary: string | null;
+  whatHappened: string | null;
+  timelineHighlights: string | null;
+  rootCauses: string | null;
+  whatWorkedWell: string | null;
+  whatDidNotWork: string | null;
+  customerImpact: string | null;
+  detectionEffectiveness: string | null;
+  responseEffectiveness: string | null;
+  preventiveActions: string | null;
+  correctiveActions: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  submittedAt: string | null;
+  closedAt: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+export interface CreateItsmPirDto {
+  majorIncidentId: string;
+  title: string;
+  summary?: string;
+  whatHappened?: string;
+  timelineHighlights?: string;
+  rootCauses?: string;
+  whatWorkedWell?: string;
+  whatDidNotWork?: string;
+  customerImpact?: string;
+  detectionEffectiveness?: string;
+  responseEffectiveness?: string;
+  preventiveActions?: string;
+  correctiveActions?: string;
+}
+
+export interface UpdateItsmPirDto {
+  title?: string;
+  status?: 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'CLOSED';
+  summary?: string;
+  whatHappened?: string;
+  timelineHighlights?: string;
+  rootCauses?: string;
+  whatWorkedWell?: string;
+  whatDidNotWork?: string;
+  customerImpact?: string;
+  detectionEffectiveness?: string;
+  responseEffectiveness?: string;
+  preventiveActions?: string;
+  correctiveActions?: string;
+}
+
+export interface ItsmPirActionData {
+  id: string;
+  tenantId: string;
+  pirId: string;
+  title: string;
+  description: string | null;
+  ownerId: string | null;
+  dueDate: string | null;
+  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED';
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  problemId: string | null;
+  changeId: string | null;
+  riskObservationId: string | null;
+  completedAt: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItsmPirActionDto {
+  pirId: string;
+  title: string;
+  description?: string;
+  ownerId?: string;
+  dueDate?: string;
+  priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  problemId?: string;
+  changeId?: string;
+  riskObservationId?: string;
+}
+
+export interface UpdateItsmPirActionDto {
+  title?: string;
+  description?: string;
+  ownerId?: string;
+  dueDate?: string;
+  status?: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED';
+  priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  problemId?: string;
+  changeId?: string;
+  riskObservationId?: string;
+}
+
+export interface ItsmKnowledgeCandidateData {
+  id: string;
+  tenantId: string;
+  title: string;
+  sourceType: 'PIR' | 'KNOWN_ERROR' | 'PROBLEM';
+  sourceId: string;
+  status: 'DRAFT' | 'REVIEWED' | 'PUBLISHED' | 'REJECTED';
+  content: Record<string, unknown> | null;
+  synopsis: string | null;
+  resolution: string | null;
+  rootCauseSummary: string | null;
+  workaround: string | null;
+  symptoms: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  publishedAt: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ItsmPirListParams {
+  page?: number;
+  pageSize?: number;
+  majorIncidentId?: string;
+  status?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export interface ItsmPirActionListParams {
+  page?: number;
+  pageSize?: number;
+  pirId?: string;
+  status?: string;
+  ownerId?: string;
+  overdue?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+// PIR API methods
+export const pirApi = {
+  list: (params?: ItsmPirListParams) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+    if (params?.majorIncidentId) searchParams.set('majorIncidentId', params.majorIncidentId);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.sortBy) searchParams.set('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+    const queryString = searchParams.toString();
+    return api.get(`${API_PATHS.ITSM.PIRS.LIST}${queryString ? `?${queryString}` : ''}`);
+  },
+  get: (id: string) => api.get(API_PATHS.ITSM.PIRS.GET(id)),
+  getByMajorIncident: (majorIncidentId: string) => api.get(API_PATHS.ITSM.PIRS.BY_MI(majorIncidentId)),
+  create: (data: CreateItsmPirDto) => api.post(API_PATHS.ITSM.PIRS.CREATE, data),
+  update: (id: string, data: UpdateItsmPirDto) => api.patch(API_PATHS.ITSM.PIRS.UPDATE(id), data),
+  approve: (id: string) => api.post(API_PATHS.ITSM.PIRS.APPROVE(id), {}),
+  delete: (id: string) => api.delete(API_PATHS.ITSM.PIRS.DELETE(id)),
+};
+
+export const pirActionApi = {
+  list: (params?: ItsmPirActionListParams) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+    if (params?.pirId) searchParams.set('pirId', params.pirId);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.ownerId) searchParams.set('ownerId', params.ownerId);
+    if (params?.overdue) searchParams.set('overdue', params.overdue);
+    if (params?.sortBy) searchParams.set('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+    const queryString = searchParams.toString();
+    return api.get(`${API_PATHS.ITSM.PIR_ACTIONS.LIST}${queryString ? `?${queryString}` : ''}`);
+  },
+  get: (id: string) => api.get(API_PATHS.ITSM.PIR_ACTIONS.GET(id)),
+  create: (data: CreateItsmPirActionDto) => api.post(API_PATHS.ITSM.PIR_ACTIONS.CREATE, data),
+  update: (id: string, data: UpdateItsmPirActionDto) => api.patch(API_PATHS.ITSM.PIR_ACTIONS.UPDATE(id), data),
+  delete: (id: string) => api.delete(API_PATHS.ITSM.PIR_ACTIONS.DELETE(id)),
+  overdue: () => api.get(API_PATHS.ITSM.PIR_ACTIONS.OVERDUE),
+};
+
+export const knowledgeCandidateApi = {
+  list: (params?: { page?: number; pageSize?: number; status?: string; sourceType?: string; search?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.sourceType) searchParams.set('sourceType', params.sourceType);
+    if (params?.search) searchParams.set('search', params.search);
+    const queryString = searchParams.toString();
+    return api.get(`${API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.LIST}${queryString ? `?${queryString}` : ''}`);
+  },
+  get: (id: string) => api.get(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.GET(id)),
+  generateFromPir: (pirId: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.GENERATE_FROM_PIR(pirId), {}),
+  generateFromKnownError: (keId: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.GENERATE_FROM_KE(keId), {}),
+  generateFromProblem: (problemId: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.GENERATE_FROM_PROBLEM(problemId), {}),
+  review: (id: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.REVIEW(id), {}),
+  publish: (id: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.PUBLISH(id), {}),
+  reject: (id: string) => api.post(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.REJECT(id), {}),
+  delete: (id: string) => api.delete(API_PATHS.ITSM.KNOWLEDGE_CANDIDATES.DELETE(id)),
+};
 
 // CMDB Types
 export interface CmdbCiClassData {
