@@ -6,7 +6,8 @@ import { AppModule } from '../app.module';
 import { Tenant } from '../tenants/tenant.entity';
 import { CmdbService } from '../itsm/cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../itsm/cmdb/service-offering/cmdb-service-offering.entity';
-import { ConfigurationItem } from '../itsm/cmdb/ci/ci.entity';
+import { CmdbCi } from '../itsm/cmdb/ci/ci.entity';
+import { CmdbCiClass } from '../itsm/cmdb/ci-class/ci-class.entity';
 import {
   ChangeApprovalStatus,
   ChangeRisk,
@@ -216,40 +217,72 @@ async function seedCustomerRiskDemo(): Promise<void> {
     }
 
     // ---------------------------------------------------------------
-    // 4. Ensure CIs exist
+    // 4. Ensure CI classes + CIs exist
     // ---------------------------------------------------------------
     console.log('');
     console.log('4. Seeding configuration items...');
-    const ciRepo = ds.getRepository(ConfigurationItem);
+    const classRepo = ds.getRepository(CmdbCiClass);
+    const ciRepo = ds.getRepository(CmdbCi);
+
+    // Resolve CI class IDs (created by seed-cmdb-baseline)
+    const classMap: Record<string, string> = {};
+    for (const className of ['server', 'database', 'network_device']) {
+      const cls = await classRepo.findOne({
+        where: { tenantId: DEMO_TENANT_ID, name: className, isDeleted: false },
+      });
+      if (cls) {
+        classMap[className] = cls.id;
+      } else {
+        console.warn(
+          `   WARN: CI class '${className}' not found. Run seed:cmdb-baseline first.`,
+        );
+      }
+    }
 
     const cis = [
       {
         id: CI_DB_SERVER_ID,
         name: 'db-erp-prod-01',
-        className: 'server',
+        description: 'ERP Finance primary database server (PostgreSQL 9.6)',
+        className: 'database',
+        lifecycle: 'active',
+        environment: 'production',
         category: 'Database Server',
-        status: 'INSTALLED',
-        serviceId: SVC_ERP_ID,
+        ipAddress: '10.0.5.10',
+        dnsName: 'db-erp-prod-01.internal',
       },
       {
         id: CI_APP_SERVER_ID,
         name: 'app-erp-prod-01',
+        description: 'ERP Finance application server (Windows Server 2012 R2)',
         className: 'server',
+        lifecycle: 'active',
+        environment: 'production',
         category: 'Application Server',
-        status: 'INSTALLED',
-        serviceId: SVC_ERP_ID,
+        ipAddress: '10.0.5.20',
+        dnsName: 'app-erp-prod-01.internal',
       },
       {
         id: CI_PAYMENT_GW_ID,
         name: 'gw-payment-prod-01',
+        description: 'Payment gateway — single instance, no failover',
         className: 'server',
+        lifecycle: 'active',
+        environment: 'production',
         category: 'Gateway',
-        status: 'INSTALLED',
-        serviceId: SVC_PAYMENT_ID,
+        ipAddress: '10.0.6.10',
+        dnsName: 'gw-payment-prod-01.internal',
       },
     ];
 
     for (const ci of cis) {
+      const classId = classMap[ci.className];
+      if (!classId) {
+        console.warn(
+          `   WARN: Skipping CI '${ci.name}' — class '${ci.className}' not found`,
+        );
+        continue;
+      }
       let item = await ciRepo.findOne({
         where: { id: ci.id, tenantId: DEMO_TENANT_ID },
       });
@@ -258,20 +291,26 @@ async function seedCustomerRiskDemo(): Promise<void> {
           id: ci.id,
           tenantId: DEMO_TENANT_ID,
           name: ci.name,
-          className: ci.className,
+          description: ci.description,
+          classId,
+          lifecycle: ci.lifecycle,
+          environment: ci.environment,
           category: ci.category,
-          status: ci.status,
-          serviceId: ci.serviceId,
+          ipAddress: ci.ipAddress,
+          dnsName: ci.dnsName,
           createdBy: DEMO_ADMIN_ID,
           isDeleted: false,
         });
       } else {
         Object.assign(item, {
           name: ci.name,
-          className: ci.className,
+          description: ci.description,
+          classId,
+          lifecycle: ci.lifecycle,
+          environment: ci.environment,
           category: ci.category,
-          status: ci.status,
-          serviceId: ci.serviceId,
+          ipAddress: ci.ipAddress,
+          dnsName: ci.dnsName,
           updatedBy: DEMO_ADMIN_ID,
         });
       }
