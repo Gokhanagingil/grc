@@ -53,11 +53,7 @@ export class KnownErrorController {
     @Headers('x-tenant-id') tenantId: string,
     @Query() filterDto: KnownErrorFilterDto,
   ) {
-    const result = await this.knownErrorService.findWithFilters(
-      tenantId,
-      filterDto,
-    );
-    return { data: result };
+    return this.knownErrorService.findWithFilters(tenantId, filterDto);
   }
 
   /**
@@ -72,12 +68,7 @@ export class KnownErrorController {
     @Request() req: { user: { id: string } },
     @Body() dto: CreateKnownErrorDto,
   ) {
-    const knownError = await this.knownErrorService.createKnownError(
-      tenantId,
-      req.user.id,
-      dto,
-    );
-    return { data: knownError };
+    return this.knownErrorService.createKnownError(tenantId, req.user.id, dto);
   }
 
   /**
@@ -94,7 +85,7 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 
   /**
@@ -118,7 +109,7 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 
   /**
@@ -170,7 +161,7 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 
   /**
@@ -196,7 +187,7 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 
   /**
@@ -222,7 +213,7 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 
   /**
@@ -255,6 +246,6 @@ export class KnownErrorController {
     if (!knownError) {
       throw new NotFoundException(`Known Error ${id} not found`);
     }
-    return { data: knownError };
+    return knownError;
   }
 }
