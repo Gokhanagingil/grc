@@ -96,8 +96,22 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
       } catch {
         // Learning event recording is best-effort
       }
-    } catch (err) {
-      setSuggestError(err instanceof Error ? err.message : 'Failed to generate suggestions');
+    } catch (err: unknown) {
+      const axErr = err as { response?: { status?: number; data?: { message?: string } } };
+      const status = axErr?.response?.status;
+      const backendMsg = axErr?.response?.data?.message;
+      if (status === 400 && backendMsg) {
+        // Config missing or validation error - show actionable message
+        setSuggestError(backendMsg);
+      } else if (status === 401) {
+        setSuggestError('Session expired. Please log in again.');
+      } else if (status === 403) {
+        setSuggestError('Permission denied: you do not have access to the Copilot feature.');
+      } else if (status === 404) {
+        setSuggestError(backendMsg || 'Incident not found in ServiceNow or local index.');
+      } else {
+        setSuggestError(backendMsg || (err instanceof Error ? err.message : 'An unexpected error occurred'));
+      }
     } finally {
       setSuggestLoading(false);
     }
