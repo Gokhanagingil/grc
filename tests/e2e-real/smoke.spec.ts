@@ -14,6 +14,11 @@ if (E2E_MODE !== "REAL_STACK") {
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 
+const ci = process.env.CI ? "CI" : "local";
+console.log(
+  `[E2E] suite="REAL_STACK Core Smoke" mode=${E2E_MODE} baseURL=${BASE_URL} env=${ci}`,
+);
+
 let auth: AuthTokens;
 
 test.beforeAll(async ({ request }) => {

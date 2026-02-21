@@ -47,6 +47,21 @@ export function assertE2eMode(expected: E2eMode): void {
 }
 
 /**
+ * Logs E2E configuration at the start of a test suite.
+ * Call in beforeAll() to make mode/baseURL visible in CI logs
+ * for faster failure diagnosis.
+ */
+export function logE2eConfig(suiteName: string): void {
+  const mode = getE2eMode();
+  const baseUrl = process.env.E2E_BASE_URL || process.env.BASE_URL || '(default)';
+  const ci = process.env.CI ? 'CI' : 'local';
+  // eslint-disable-next-line no-console
+  console.log(
+    `[E2E] suite="${suiteName}" mode=${mode} baseURL=${baseUrl} env=${ci}`,
+  );
+}
+
+/**
  * Test credentials - can be overridden via environment variables
  */
 export const TEST_CREDENTIALS = {

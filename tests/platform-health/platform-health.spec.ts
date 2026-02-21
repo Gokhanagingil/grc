@@ -27,6 +27,11 @@ if (E2E_MODE !== "REAL_STACK") {
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 const TIER = (process.env.SMOKE_TIER as "tier1" | "full") || "tier1";
 
+const ci = process.env.CI ? "CI" : "local";
+console.log(
+  `[E2E] suite="Platform Health Smoke" mode=${E2E_MODE} tier=${TIER} baseURL=${BASE_URL} env=${ci}`,
+);
+
 function unwrap(body: Record<string, unknown>): Record<string, unknown> {
   if (body && typeof body === "object" && "data" in body) {
     return body.data as Record<string, unknown>;
