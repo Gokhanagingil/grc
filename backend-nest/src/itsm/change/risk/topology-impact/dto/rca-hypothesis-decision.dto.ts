@@ -96,7 +96,8 @@ export interface HypothesisDecisionResponse {
 
 export interface RcaDecisionsSummaryResponse {
   majorIncidentId: string;
-  decisions: HypothesisDecisionResponse[];
+  /** Decisions keyed by hypothesisId for O(1) frontend lookup */
+  decisions: Record<string, HypothesisDecisionResponse>;
   selectedHypothesisId: string | null;
   selectedReason: string | null;
   selectedBy: string | null;

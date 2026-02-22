@@ -91,14 +91,17 @@ export class RcaHypothesisDecisionService {
     majorIncidentId: string,
   ): RcaDecisionsSummaryResponse {
     const state = this.getOrCreateState(tenantId, majorIncidentId);
-    const decisions = this.buildDecisionResponses(state);
+    const decisionsArray = this.buildDecisionResponses(state);
 
+    // Build Record<hypothesisId, HypothesisDecisionResponse> for O(1) frontend lookup
+    const decisions: Record<string, HypothesisDecisionResponse> = {};
     let acceptedCount = 0;
     let rejectedCount = 0;
     let investigatingCount = 0;
     let pendingCount = 0;
 
-    for (const d of decisions) {
+    for (const d of decisionsArray) {
+      decisions[d.hypothesisId] = d;
       switch (d.status) {
         case HypothesisDecisionStatus.ACCEPTED:
           acceptedCount++;
@@ -122,7 +125,7 @@ export class RcaHypothesisDecisionService {
       selectedReason: state.selectedReason,
       selectedBy: state.selectedBy,
       selectedAt: state.selectedAt?.toISOString() ?? null,
-      totalDecisions: decisions.length,
+      totalDecisions: decisionsArray.length,
       acceptedCount,
       rejectedCount,
       investigatingCount,

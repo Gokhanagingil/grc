@@ -3033,12 +3033,52 @@ export interface HypothesisDecisionData {
 export interface RcaDecisionsSummaryData {
   majorIncidentId: string;
   decisions: Record<string, HypothesisDecisionData>;
-  selectedHypothesisId?: string;
-  selectedReason?: string;
+  selectedHypothesisId?: string | null;
+  selectedReason?: string | null;
+  selectedBy?: string | null;
+  selectedAt?: string | null;
   totalDecisions: number;
   acceptedCount: number;
   rejectedCount: number;
   investigatingCount: number;
+  pendingCount: number;
+}
+
+/**
+ * Normalizes RCA decisions summary from backend response.
+ * Defense-in-depth: handles both array (legacy) and Record (current) decisions shapes.
+ */
+export function normalizeRcaDecisionsSummary(
+  raw: Record<string, unknown> | null | undefined,
+): RcaDecisionsSummaryData | null {
+  if (!raw) return null;
+  const src = raw as Record<string, unknown>;
+  let decisions: Record<string, HypothesisDecisionData> = {};
+  const rawDecisions = src.decisions;
+  if (Array.isArray(rawDecisions)) {
+    // Legacy: backend returned array — transform to Record keyed by hypothesisId
+    for (const d of rawDecisions) {
+      const dec = d as HypothesisDecisionData;
+      if (dec && dec.hypothesisId) {
+        decisions[dec.hypothesisId] = dec;
+      }
+    }
+  } else if (rawDecisions && typeof rawDecisions === 'object') {
+    decisions = rawDecisions as Record<string, HypothesisDecisionData>;
+  }
+  return {
+    majorIncidentId: (src.majorIncidentId as string) ?? '',
+    decisions,
+    selectedHypothesisId: (src.selectedHypothesisId as string | null) ?? null,
+    selectedReason: (src.selectedReason as string | null) ?? null,
+    selectedBy: (src.selectedBy as string | null) ?? null,
+    selectedAt: (src.selectedAt as string | null) ?? null,
+    totalDecisions: (src.totalDecisions as number) ?? 0,
+    acceptedCount: (src.acceptedCount as number) ?? 0,
+    rejectedCount: (src.rejectedCount as number) ?? 0,
+    investigatingCount: (src.investigatingCount as number) ?? 0,
+    pendingCount: (src.pendingCount as number) ?? 0,
+  };
 }
 
 // ============================================================================

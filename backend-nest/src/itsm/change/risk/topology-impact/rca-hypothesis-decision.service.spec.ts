@@ -63,7 +63,7 @@ describe('RcaHypothesisDecisionService', () => {
       const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
 
       expect(summary.majorIncidentId).toBe(MI_ID);
-      expect(summary.decisions).toEqual([]);
+      expect(summary.decisions).toEqual({});
       expect(summary.selectedHypothesisId).toBeNull();
       expect(summary.totalDecisions).toBe(0);
       expect(summary.acceptedCount).toBe(0);
@@ -318,14 +318,12 @@ describe('RcaHypothesisDecisionService', () => {
       });
 
       const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
-      const decision = summary.decisions.find(
-        (d) => d.hypothesisId === HYPO_ID_1,
-      );
+      const decision = summary.decisions[HYPO_ID_1];
 
       expect(decision).toBeTruthy();
-      expect(decision!.notes).toHaveLength(3);
-      expect(decision!.notes[0].content).toBe('Note 1');
-      expect(decision!.notes[2].content).toBe('Note 3');
+      expect(decision.notes).toHaveLength(3);
+      expect(decision.notes[0].content).toBe('Note 1');
+      expect(decision.notes[2].content).toBe('Note 3');
     });
 
     it('should emit note event', async () => {
@@ -366,14 +364,12 @@ describe('RcaHypothesisDecisionService', () => {
       }
 
       const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
-      const decision = summary.decisions.find(
-        (d) => d.hypothesisId === HYPO_ID_1,
-      );
+      const decision = summary.decisions[HYPO_ID_1];
 
-      expect(decision!.notes).toHaveLength(50);
+      expect(decision.notes).toHaveLength(50);
       // First note should be "Note 1" (Note 0 was evicted)
-      expect(decision!.notes[0].content).toBe('Note 1');
-      expect(decision!.notes[49].content).toBe('Note 50');
+      expect(decision.notes[0].content).toBe('Note 1');
+      expect(decision.notes[49].content).toBe('Note 50');
     });
   });
 
@@ -401,11 +397,9 @@ describe('RcaHypothesisDecisionService', () => {
         hypothesisId: HYPO_ID_1,
       });
 
-      const decision = result.decisions.find(
-        (d) => d.hypothesisId === HYPO_ID_1,
-      );
+      const decision = result.decisions[HYPO_ID_1];
       expect(decision).toBeTruthy();
-      expect(decision!.status).toBe(HypothesisDecisionStatus.ACCEPTED);
+      expect(decision.status).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
     it('should not change status of already-rejected hypothesis when selected', () => {
@@ -419,11 +413,9 @@ describe('RcaHypothesisDecisionService', () => {
         hypothesisId: HYPO_ID_1,
       });
 
-      const decision = result.decisions.find(
-        (d) => d.hypothesisId === HYPO_ID_1,
-      );
+      const decision = result.decisions[HYPO_ID_1];
       // Should stay REJECTED since it was not PENDING
-      expect(decision!.status).toBe(HypothesisDecisionStatus.REJECTED);
+      expect(decision.status).toBe(HypothesisDecisionStatus.REJECTED);
     });
 
     it('should allow changing selected hypothesis', () => {
@@ -497,13 +489,11 @@ describe('RcaHypothesisDecisionService', () => {
 
       // Final state should be one of the two statuses
       const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
-      const decision = summary.decisions.find(
-        (d) => d.hypothesisId === HYPO_ID_1,
-      );
+      const decision = summary.decisions[HYPO_ID_1];
       expect([
         HypothesisDecisionStatus.ACCEPTED,
         HypothesisDecisionStatus.REJECTED,
-      ]).toContain(decision!.status);
+      ]).toContain(decision.status);
     });
 
     it('should handle event bus error gracefully', () => {
@@ -564,10 +554,10 @@ describe('RcaHypothesisDecisionService', () => {
       const summary1 = service.getDecisionsSummary(TENANT_ID, MI_ID);
       const summary2 = service.getDecisionsSummary(TENANT_ID, otherMiId);
 
-      expect(summary1.decisions[0].status).toBe(
+      expect(summary1.decisions[HYPO_ID_1].status).toBe(
         HypothesisDecisionStatus.ACCEPTED,
       );
-      expect(summary2.decisions[0].status).toBe(
+      expect(summary2.decisions[HYPO_ID_1].status).toBe(
         HypothesisDecisionStatus.REJECTED,
       );
     });
