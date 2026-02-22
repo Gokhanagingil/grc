@@ -25,6 +25,9 @@ export type { SuggestedTaskPackCardProps } from './SuggestedTaskPackCard';
 
 export { TraceabilityChainWidget } from './TraceabilityChainWidget';
 export type { TraceabilityChainWidgetProps } from './TraceabilityChainWidget';
+
+export { TopologyGuardrailsPanel } from './TopologyGuardrailsPanel';
+export type { TopologyGuardrailsPanelProps } from './TopologyGuardrailsPanel';
 export {
   getTopologyRiskLevel,
   getRiskLevelColor,

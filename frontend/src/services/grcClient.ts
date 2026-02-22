@@ -924,6 +924,9 @@ export const API_PATHS = {
     MI_RCA_CREATE_PROBLEM: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-problem`,
     MI_RCA_CREATE_KNOWN_ERROR: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-known-error`,
     MI_RCA_CREATE_PIR_ACTION: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-pir-action`,
+    // Phase A: Topology Guardrails
+    CHANGE_GUARDRAILS: (changeId: string) => `/grc/itsm/changes/${changeId}/topology-guardrails`,
+    CHANGE_RECALCULATE_GUARDRAILS: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-topology-guardrails`,
     // Phase 3: Suggested Task Pack + Traceability
     CHANGE_SUGGESTED_TASK_PACK: (changeId: string) => `/grc/itsm/changes/${changeId}/suggested-task-pack`,
     CHANGE_TRACEABILITY: (changeId: string) => `/grc/itsm/changes/${changeId}/traceability-summary`,
@@ -2226,6 +2229,11 @@ export const itsmApi = {
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_RECALCULATE(changeId), {}),
     evaluateTopologyGovernance: (changeId: string) =>
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_EVALUATE_GOVERNANCE(changeId), {}),
+    // Topology Intelligence - Guardrails
+    getTopologyGuardrails: (changeId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_GUARDRAILS(changeId)),
+    recalculateTopologyGuardrails: (changeId: string) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_RECALCULATE_GUARDRAILS(changeId), {}),
     // Topology Intelligence - Suggested Task Pack
     getSuggestedTaskPack: (changeId: string) =>
       api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_SUGGESTED_TASK_PACK(changeId)),
@@ -3016,6 +3024,63 @@ export interface TopologyGovernanceEvaluationData {
   explainability: TopologyGovernanceExplainability;
   topologyDataAvailable: boolean;
   evaluatedAt: string;
+  warnings: string[];
+}
+
+// ============================================================================
+// Topology Guardrail Types (Phase A: Topology-Driven Change Guardrails)
+// ============================================================================
+
+/** Simplified guardrail status for operational decision-making */
+export type GuardrailStatus = 'PASS' | 'WARN' | 'BLOCK';
+
+/** A machine-readable + human-explainable reason contributing to the guardrail status */
+export interface GuardrailReason {
+  code: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+}
+
+/** Structured evidence summary from topology analysis */
+export interface GuardrailEvidenceSummary {
+  blastRadiusMetrics: {
+    totalImpactedNodes: number;
+    criticalCiCount: number;
+    impactedServiceCount: number;
+    maxChainDepth: number;
+    crossServicePropagation: boolean;
+  };
+  fragileDependencies: Array<{
+    type: string;
+    description: string;
+    affectedNodeLabel: string;
+  }>;
+  singlePointsOfFailure: string[];
+  topologyRiskScore: number;
+  topologyDataAvailable: boolean;
+}
+
+/** Summary of a previous guardrail evaluation, used for audit trail */
+export interface GuardrailPreviousEvaluation {
+  guardrailStatus: GuardrailStatus;
+  governanceDecision: TopologyGovernanceDecision;
+  topologyRiskScore: number;
+  evaluatedAt: string;
+}
+
+/** Complete topology guardrail evaluation response */
+export interface TopologyGuardrailEvaluationData {
+  changeId: string;
+  guardrailStatus: GuardrailStatus;
+  governanceDecision: TopologyGovernanceDecision;
+  reasons: GuardrailReason[];
+  recommendedActions: TopologyGovernanceAction[];
+  evidenceSummary: GuardrailEvidenceSummary;
+  policyFlags: TopologyPolicyFlags;
+  explainability: TopologyGovernanceExplainability;
+  evaluatedAt: string;
+  evaluatedBy: string;
+  previousEvaluation: GuardrailPreviousEvaluation | null;
   warnings: string[];
 }
 
