@@ -13,6 +13,16 @@ export interface PolicyConditions {
   customerRiskScoreMin?: number;
   /** Trigger when customer risk aggregate label >= this level */
   customerRiskLabelMin?: string;
+  /** Trigger when topology risk score >= this value (0-100) */
+  topologyRiskScoreMin?: number;
+  /** Trigger when topology blast radius is considered high (totalImpactedNodes >= threshold) */
+  topologyHighBlastRadius?: boolean;
+  /** Trigger when topology fragility signals count >= this value */
+  topologyFragilitySignalsMin?: number;
+  /** Trigger when a critical dependency is touched (critical CI in impact graph) */
+  topologyCriticalDependencyTouched?: boolean;
+  /** Trigger when a single point of failure risk is detected */
+  topologySinglePointOfFailureRisk?: boolean;
 }
 
 export interface PolicyActions {
@@ -28,6 +38,12 @@ export interface PolicyActions {
   requireBackoutPlan?: boolean;
   /** Require justification when triggered */
   requireJustification?: boolean;
+  /** Require test evidence when triggered (topology-driven) */
+  requireTestEvidence?: boolean;
+  /** Require stakeholder communication when triggered (topology-driven) */
+  requireStakeholderComms?: boolean;
+  /** Require maintenance window scheduling when triggered (topology-driven) */
+  requireMaintenanceWindow?: boolean;
 }
 
 @Entity('itsm_change_policy')

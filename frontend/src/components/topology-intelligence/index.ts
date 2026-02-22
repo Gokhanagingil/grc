@@ -17,12 +17,14 @@ export type { TopologyInsightBannerProps } from './TopologyInsightBanner';
 export { TopologyRcaCompareDialog } from './TopologyRcaCompareDialog';
 export type { TopologyRcaCompareDialogProps } from './TopologyRcaCompareDialog';
 
+export { TopologyGovernanceDecisionPanel } from './TopologyGovernanceDecisionPanel';
+export type { TopologyGovernanceDecisionPanelProps } from './TopologyGovernanceDecisionPanel';
+
 export { SuggestedTaskPackCard } from './SuggestedTaskPackCard';
 export type { SuggestedTaskPackCardProps } from './SuggestedTaskPackCard';
 
 export { TraceabilityChainWidget } from './TraceabilityChainWidget';
 export type { TraceabilityChainWidgetProps } from './TraceabilityChainWidget';
-
 export {
   getTopologyRiskLevel,
   getRiskLevelColor,
