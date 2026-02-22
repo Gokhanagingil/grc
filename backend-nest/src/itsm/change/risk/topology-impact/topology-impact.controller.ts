@@ -21,6 +21,7 @@ import { Permission } from '../../../../auth/permissions/permission.enum';
 import { Perf } from '../../../../common/decorators';
 import { TopologyImpactAnalysisService } from './topology-impact-analysis.service';
 import { TopologyGovernanceService } from './topology-governance.service';
+import { TopologyGuardrailService } from './topology-guardrail.service';
 import { RcaOrchestrationService } from './rca-orchestration.service';
 import { SuggestedTaskPackService } from './suggested-task-pack.service';
 import { TraceabilitySummaryService } from './traceability-summary.service';
@@ -36,6 +37,7 @@ import {
   CreateKnownErrorFromHypothesisDto,
   CreatePirActionFromHypothesisDto,
 } from './dto/rca-orchestration.dto';
+import { GuardrailPreviousEvaluation } from './dto/topology-guardrail.dto';
 
 /**
  * Topology Impact Controller
@@ -48,6 +50,8 @@ import {
  * - GET  /grc/itsm/changes/:id/topology-impact
  * - POST /grc/itsm/changes/:id/recalculate-topology-impact
  * - POST /grc/itsm/changes/:id/evaluate-topology-governance
+ * - GET  /grc/itsm/changes/:id/topology-guardrails
+ * - POST /grc/itsm/changes/:id/recalculate-topology-guardrails
  * - GET  /grc/itsm/major-incidents/:id/rca-topology-hypotheses
  * - POST /grc/itsm/major-incidents/:id/rca-topology-hypotheses/recalculate
  * - POST /grc/itsm/major-incidents/:id/rca-create-problem
@@ -65,6 +69,7 @@ export class TopologyImpactController {
   constructor(
     private readonly topologyImpactService: TopologyImpactAnalysisService,
     private readonly topologyGovernanceService: TopologyGovernanceService,
+    private readonly topologyGuardrailService: TopologyGuardrailService,
     private readonly rcaOrchestrationService: RcaOrchestrationService,
     private readonly suggestedTaskPackService: SuggestedTaskPackService,
     private readonly traceabilitySummaryService: TraceabilitySummaryService,
@@ -172,22 +177,29 @@ export class TopologyImpactController {
     }
 
     // Fetch risk assessment (fail-open)
-    let assessment: Awaited<ReturnType<RiskScoringService['getAssessment']>> | null = null;
+    let assessment: Awaited<
+      ReturnType<RiskScoringService['getAssessment']>
+    > | null = null;
     try {
       assessment = await this.riskScoringService.getAssessment(tenantId, id);
     } catch (err) {
-      this.logger.warn(`Risk assessment fetch failed for change ${id}: ${String(err)}`);
+      this.logger.warn(
+        `Risk assessment fetch failed for change ${id}: ${String(err)}`,
+      );
     }
 
     // Fetch customer risk impact (fail-open)
     let customerRiskImpact: CustomerRiskImpactResult | null = null;
     try {
-      customerRiskImpact = await this.customerRiskImpactService.evaluateForChange(
-        tenantId,
-        change,
-      );
+      customerRiskImpact =
+        await this.customerRiskImpactService.evaluateForChange(
+          tenantId,
+          change,
+        );
     } catch (err) {
-      this.logger.warn(`Customer risk impact fetch failed for change ${id}: ${String(err)}`);
+      this.logger.warn(
+        `Customer risk impact fetch failed for change ${id}: ${String(err)}`,
+      );
     }
 
     const result = await this.topologyGovernanceService.evaluateGovernance(
@@ -196,6 +208,101 @@ export class TopologyImpactController {
       change,
       assessment,
       customerRiskImpact,
+    );
+
+    return { data: result };
+  }
+
+  // ==========================================================================
+  // Topology Guardrails (Phase A)
+  // ==========================================================================
+
+  /**
+   * Get topology guardrail evaluation for a change.
+   * Returns simplified PASS/WARN/BLOCK status with evidence summary,
+   * reasons, recommended actions, and audit trail.
+   */
+  @Get('changes/:id/topology-guardrails')
+  @Permissions(Permission.ITSM_CHANGE_READ)
+  @Perf()
+  async getTopologyGuardrails(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const change = await this.changeService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${id} not found`);
+    }
+
+    const result = await this.topologyGuardrailService.evaluateGuardrails(
+      tenantId,
+      req.user.id,
+      change,
+    );
+
+    return { data: result };
+  }
+
+  /**
+   * Recalculate topology guardrails for a change.
+   * Forces a fresh evaluation and records the previous evaluation
+   * for audit trail comparison.
+   */
+  @Post('changes/:id/recalculate-topology-guardrails')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async recalculateTopologyGuardrails(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const change = await this.changeService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${id} not found`);
+    }
+
+    // First, get the current evaluation as "previous" for audit trail
+    let previousEvaluation: GuardrailPreviousEvaluation | null = null;
+    try {
+      const current = await this.topologyGuardrailService.evaluateGuardrails(
+        tenantId,
+        req.user.id,
+        change,
+      );
+      previousEvaluation = {
+        guardrailStatus: current.guardrailStatus,
+        governanceDecision: current.governanceDecision,
+        topologyRiskScore: current.policyFlags.topologyRiskScore,
+        evaluatedAt: current.evaluatedAt,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Previous guardrail evaluation fetch failed for change ${id}: ${String(err)}`,
+      );
+    }
+
+    // Now recalculate with previous evaluation context
+    const result = await this.topologyGuardrailService.evaluateGuardrails(
+      tenantId,
+      req.user.id,
+      change,
+      previousEvaluation,
     );
 
     return { data: result };
@@ -432,11 +539,10 @@ export class TopologyImpactController {
       throw new NotFoundException(`Change with ID ${id} not found`);
     }
 
-    const summary =
-      await this.traceabilitySummaryService.getChangeTraceability(
-        tenantId,
-        change.id,
-      );
+    const summary = await this.traceabilitySummaryService.getChangeTraceability(
+      tenantId,
+      change.id,
+    );
 
     return { data: summary };
   }
