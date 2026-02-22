@@ -64,6 +64,8 @@ import {
   CreateKnownErrorFromHypothesisRequest,
   CreatePirActionFromHypothesisRequest,
   TraceabilitySummaryResponseData,
+  RcaDecisionsSummaryData,
+  HypothesisDecisionStatus,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
@@ -209,6 +211,10 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
   const [rcaCompareOpen, setRcaCompareOpen] = useState(false);
   const [rcaCompareHypotheses, setRcaCompareHypotheses] = useState<[RcaHypothesisData, RcaHypothesisData] | null>(null);
   const rcaMountedRef = useRef(true);
+
+  // RCA Hypothesis Decisions state (Phase C)
+  const [rcaDecisionsSummary, setRcaDecisionsSummary] = useState<RcaDecisionsSummaryData | null>(null);
+  const [rcaDecisionLoading, setRcaDecisionLoading] = useState(false);
 
   const fetchMi = useCallback(async () => {
     if (!id) return;
@@ -584,6 +590,76 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     [id, showNotification, pir, fetchPirActions],
   );
 
+  // Phase C: RCA Decision callbacks
+  const fetchRcaDecisions = useCallback(async () => {
+    if (!id) return;
+    try {
+      const response = await itsmApi.majorIncidents.getRcaDecisions(id);
+      if (!rcaMountedRef.current) return;
+      const data = (response?.data as { data?: RcaDecisionsSummaryData })?.data;
+      if (data) {
+        setRcaDecisionsSummary(data);
+      }
+    } catch {
+      // Non-blocking: decisions fetch failure doesn't block RCA view
+      console.warn('[RCA Decisions] Failed to fetch decisions summary');
+    }
+  }, [id]);
+
+  const handleUpdateHypothesisDecision = useCallback(
+    async (hypothesisId: string, status: HypothesisDecisionStatus, reason?: string) => {
+      if (!id) return;
+      setRcaDecisionLoading(true);
+      try {
+        await itsmApi.majorIncidents.updateHypothesisDecision(id, hypothesisId, { status, reason });
+        showNotification(`Hypothesis ${status.toLowerCase().replace(/_/g, ' ')}`, 'success');
+        await fetchRcaDecisions();
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        showNotification(axErr.response?.data?.message || 'Failed to update hypothesis decision', 'error');
+      } finally {
+        setRcaDecisionLoading(false);
+      }
+    },
+    [id, showNotification, fetchRcaDecisions],
+  );
+
+  const handleAddHypothesisNote = useCallback(
+    async (hypothesisId: string, content: string, noteType?: string) => {
+      if (!id) return;
+      setRcaDecisionLoading(true);
+      try {
+        await itsmApi.majorIncidents.addHypothesisNote(id, hypothesisId, { content, noteType });
+        showNotification('Note added', 'success');
+        await fetchRcaDecisions();
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        showNotification(axErr.response?.data?.message || 'Failed to add note', 'error');
+      } finally {
+        setRcaDecisionLoading(false);
+      }
+    },
+    [id, showNotification, fetchRcaDecisions],
+  );
+
+  const handleSetSelectedHypothesis = useCallback(
+    async (hypothesisId: string, reason?: string) => {
+      if (!id) return;
+      setRcaDecisionLoading(true);
+      try {
+        await itsmApi.majorIncidents.setSelectedHypothesis(id, { hypothesisId, reason });
+        showNotification('Root cause hypothesis selected', 'success');
+        await fetchRcaDecisions();
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        showNotification(axErr.response?.data?.message || 'Failed to set selected hypothesis', 'error');
+      } finally {
+        setRcaDecisionLoading(false);
+      }
+    },
+    [id, showNotification, fetchRcaDecisions],
+  );
+
   useEffect(() => {
     rcaMountedRef.current = true;
     return () => { rcaMountedRef.current = false; };
@@ -593,12 +669,13 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     fetchMi();
   }, [fetchMi]);
 
-  // Non-blocking: fetch RCA data after main data loads
+  // Non-blocking: fetch RCA data + decisions after main data loads
   useEffect(() => {
     if (mi?.id) {
       fetchRcaHypotheses();
+      fetchRcaDecisions();
     }
-  }, [mi?.id, fetchRcaHypotheses]);
+  }, [mi?.id, fetchRcaHypotheses, fetchRcaDecisions]);
 
   useEffect(() => {
     if (tabIndex === 1) fetchTimeline();
@@ -607,10 +684,11 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
       fetchPir();
     }
     if (tabIndex === 6) {
-      // Refetch RCA data when tab is selected (lazy refresh)
+      // Refetch RCA data + decisions when tab is selected (lazy refresh)
       fetchRcaHypotheses();
+      fetchRcaDecisions();
     }
-  }, [tabIndex, fetchTimeline, fetchLinks, fetchPir, fetchRcaHypotheses]);
+  }, [tabIndex, fetchTimeline, fetchLinks, fetchPir, fetchRcaHypotheses, fetchRcaDecisions]);
 
   useEffect(() => {
     if (pir) {
@@ -1547,6 +1625,13 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
             onCreateKnownError: handleCreateKnownErrorFromHypothesis,
             onCreatePirAction: handleCreatePirActionFromHypothesis,
           }}
+          decisions={{
+            onUpdateDecision: handleUpdateHypothesisDecision,
+            onAddNote: handleAddHypothesisNote,
+            onSetSelected: handleSetSelectedHypothesis,
+          }}
+          decisionsSummary={rcaDecisionsSummary}
+          decisionLoading={rcaDecisionLoading}
         />
       </TabPanel>
 

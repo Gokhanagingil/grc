@@ -45,12 +45,22 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
+import SendIcon from '@mui/icons-material/Send';
+
 import type {
   RcaTopologyHypothesesResponseData,
   RcaHypothesisData,
   CreateProblemFromHypothesisRequest,
   CreateKnownErrorFromHypothesisRequest,
   CreatePirActionFromHypothesisRequest,
+  HypothesisDecisionStatus,
+  RcaDecisionsSummaryData,
+  HypothesisDecisionData,
 } from '../../services/grcClient';
 import {
   getConfidenceLabel,
@@ -81,6 +91,38 @@ interface OrchestrationCallbacks {
   ) => Promise<{ recordId?: string; error?: string }>;
 }
 
+/** Callbacks for hypothesis decision actions */
+interface DecisionCallbacks {
+  onUpdateDecision?: (
+    hypothesisId: string,
+    status: HypothesisDecisionStatus,
+    reason?: string,
+  ) => Promise<void>;
+  onAddNote?: (
+    hypothesisId: string,
+    content: string,
+    noteType?: string,
+  ) => Promise<void>;
+  onSetSelected?: (
+    hypothesisId: string,
+    reason?: string,
+  ) => Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Decision status helpers
+// ---------------------------------------------------------------------------
+
+const DECISION_STATUS_CONFIG: Record<HypothesisDecisionStatus, {
+  label: string;
+  color: 'default' | 'success' | 'error' | 'warning' | 'info';
+}> = {
+  PENDING: { label: 'Pending', color: 'default' },
+  ACCEPTED: { label: 'Accepted', color: 'success' },
+  REJECTED: { label: 'Rejected', color: 'error' },
+  NEEDS_INVESTIGATION: { label: 'Investigating', color: 'warning' },
+};
+
 export interface TopologyRcaHypothesesTableProps {
   /** RCA hypotheses data */
   data: RcaTopologyHypothesesResponseData | null;
@@ -106,6 +148,12 @@ export interface TopologyRcaHypothesesTableProps {
   onCompare?: (h1: RcaHypothesisData, h2: RcaHypothesisData) => void;
   /** Orchestration callbacks */
   orchestration?: OrchestrationCallbacks;
+  /** Hypothesis decision callbacks (Phase C) */
+  decisions?: DecisionCallbacks;
+  /** Current decisions summary data */
+  decisionsSummary?: RcaDecisionsSummaryData | null;
+  /** Whether a decision action is in progress */
+  decisionLoading?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,8 +185,64 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
   onCopyHypothesis,
   onCompare,
   orchestration,
+  decisions,
+  decisionsSummary,
+  decisionLoading = false,
 }) => {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+
+  // Decision / notes state
+  const [noteTexts, setNoteTexts] = React.useState<Record<string, string>>({});
+  const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
+
+  const getDecision = (hypothesisId: string): HypothesisDecisionData | undefined => {
+    return decisionsSummary?.decisions?.[hypothesisId];
+  };
+
+  const getStatus = (hypothesisId: string): HypothesisDecisionStatus => {
+    return getDecision(hypothesisId)?.status ?? 'PENDING';
+  };
+
+  const isSelected = (hypothesisId: string): boolean => {
+    return decisionsSummary?.selectedHypothesisId === hypothesisId;
+  };
+
+  const handleDecisionAction = async (
+    hypothesisId: string,
+    status: HypothesisDecisionStatus,
+    reason?: string,
+  ) => {
+    if (!decisions?.onUpdateDecision) return;
+    setActionInProgress(hypothesisId);
+    try {
+      await decisions.onUpdateDecision(hypothesisId, status, reason);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleAddNote = async (hypothesisId: string) => {
+    if (!decisions?.onAddNote) return;
+    const content = noteTexts[hypothesisId]?.trim();
+    if (!content) return;
+    setActionInProgress(hypothesisId);
+    try {
+      await decisions.onAddNote(hypothesisId, content);
+      setNoteTexts((prev) => ({ ...prev, [hypothesisId]: '' }));
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleSetSelected = async (hypothesisId: string) => {
+    if (!decisions?.onSetSelected) return;
+    setActionInProgress(hypothesisId);
+    try {
+      await decisions.onSetSelected(hypothesisId);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
 
   // Orchestration dialog state
   const [dialogType, setDialogType] = React.useState<OrchestrationDialogType>(null);
@@ -406,16 +510,51 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
         </Box>
       </Box>
 
+      {/* Decision summary banner */}
+      {decisionsSummary && decisionsSummary.totalDecisions > 0 && (
+        <Box
+          sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap', alignItems: 'center' }}
+          data-testid="rca-decisions-summary"
+        >
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            Decisions:
+          </Typography>
+          {decisionsSummary.acceptedCount > 0 && (
+            <Chip label={`${decisionsSummary.acceptedCount} accepted`} size="small" color="success" variant="outlined" />
+          )}
+          {decisionsSummary.rejectedCount > 0 && (
+            <Chip label={`${decisionsSummary.rejectedCount} rejected`} size="small" color="error" variant="outlined" />
+          )}
+          {decisionsSummary.investigatingCount > 0 && (
+            <Chip label={`${decisionsSummary.investigatingCount} investigating`} size="small" color="warning" variant="outlined" />
+          )}
+          {decisionsSummary.selectedHypothesisId && (
+            <Chip
+              icon={<StarIcon sx={{ fontSize: 16 }} />}
+              label="Root cause selected"
+              size="small"
+              color="success"
+            />
+          )}
+        </Box>
+      )}
+
       {/* Hypotheses list */}
       {sortedHypotheses.map((hypothesis, idx) => {
         const isExpanded = expandedId === hypothesis.id;
         const confidenceColor = getConfidenceColor(hypothesis.score);
         const confidenceLabel = getConfidenceLabel(hypothesis.score);
+        const decisionStatus = getStatus(hypothesis.id);
+        const isSelectedHypothesis = isSelected(hypothesis.id);
 
         return (
           <Card
             key={hypothesis.id}
-            sx={{ mb: 1, border: idx === 0 ? 2 : 1, borderColor: idx === 0 ? 'warning.main' : 'divider' }}
+            sx={{
+              mb: 1,
+              border: isSelectedHypothesis ? 2 : idx === 0 ? 2 : 1,
+              borderColor: isSelectedHypothesis ? 'success.main' : idx === 0 ? 'warning.main' : 'divider',
+            }}
             data-testid={`rca-hypothesis-${idx}`}
           >
             <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -427,12 +566,25 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                 <Typography variant="body2" fontWeight={700} sx={{ minWidth: 24 }}>
                   #{idx + 1}
                 </Typography>
+                {isSelectedHypothesis && (
+                  <Tooltip title="Selected root cause hypothesis">
+                    <StarIcon sx={{ color: 'warning.main', fontSize: 20 }} data-testid={`rca-selected-star-${idx}`} />
+                  </Tooltip>
+                )}
                 <Chip
                   label={`${(hypothesis.score * 100).toFixed(0)}%`}
                   size="small"
                   color={confidenceColor}
                   data-testid={`rca-confidence-${idx}`}
                 />
+                {decisionStatus !== 'PENDING' && (
+                  <Chip
+                    label={DECISION_STATUS_CONFIG[decisionStatus].label}
+                    size="small"
+                    color={DECISION_STATUS_CONFIG[decisionStatus].color}
+                    data-testid={`rca-status-badge-${idx}`}
+                  />
+                )}
                 <Chip
                   label={getNodeTypeShortLabel(hypothesis.suspectNodeType)}
                   size="small"
@@ -525,12 +677,144 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                       </Button>
                     </Tooltip>
                   )}
-                  <Tooltip title="Mark this hypothesis as under investigation">
-                    <Button size="small" startIcon={<SearchIcon />}>
-                      Investigate
-                    </Button>
-                  </Tooltip>
+                  {decisions?.onUpdateDecision && (() => {
+                    const status = getStatus(hypothesis.id);
+                    const isLoading = actionInProgress === hypothesis.id || decisionLoading;
+                    return (
+                      <>
+                        {status !== 'ACCEPTED' && (
+                          <Tooltip title="Accept this hypothesis as root cause">
+                            <span>
+                              <Button
+                                size="small"
+                                color="success"
+                                startIcon={isLoading ? <CircularProgress size={14} /> : <CheckCircleIcon />}
+                                disabled={isLoading}
+                                onClick={() => handleDecisionAction(hypothesis.id, 'ACCEPTED')}
+                                data-testid={`rca-accept-${idx}`}
+                              >
+                                Accept
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        )}
+                        {status !== 'REJECTED' && (
+                          <Tooltip title="Reject this hypothesis">
+                            <span>
+                              <Button
+                                size="small"
+                                color="error"
+                                startIcon={isLoading ? <CircularProgress size={14} /> : <CancelIcon />}
+                                disabled={isLoading}
+                                onClick={() => handleDecisionAction(hypothesis.id, 'REJECTED')}
+                                data-testid={`rca-reject-${idx}`}
+                              >
+                                Reject
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        )}
+                        {status !== 'NEEDS_INVESTIGATION' && (
+                          <Tooltip title="Mark for further investigation">
+                            <span>
+                              <Button
+                                size="small"
+                                color="warning"
+                                startIcon={isLoading ? <CircularProgress size={14} /> : <SearchIcon />}
+                                disabled={isLoading}
+                                onClick={() => handleDecisionAction(hypothesis.id, 'NEEDS_INVESTIGATION')}
+                                data-testid={`rca-investigate-${idx}`}
+                              >
+                                Investigate
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        )}
+                        {!isSelected(hypothesis.id) && decisions?.onSetSelected && (
+                          <Tooltip title="Set as selected root cause hypothesis">
+                            <span>
+                              <Button
+                                size="small"
+                                startIcon={isLoading ? <CircularProgress size={14} /> : <StarBorderIcon />}
+                                disabled={isLoading}
+                                onClick={() => handleSetSelected(hypothesis.id)}
+                                data-testid={`rca-select-${idx}`}
+                              >
+                                Select
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        )}
+                      </>
+                    );
+                  })()}
+                  {!decisions?.onUpdateDecision && (
+                    <Tooltip title="Mark this hypothesis as under investigation">
+                      <Button size="small" startIcon={<SearchIcon />}>
+                        Investigate
+                      </Button>
+                    </Tooltip>
+                  )}
                 </Box>
+
+                {/* Analyst Notes Section */}
+                {decisions?.onAddNote && (
+                  <Box sx={{ mt: 1.5 }} data-testid={`rca-notes-section-${idx}`}>
+                    <Divider sx={{ mb: 1 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <NoteAddIcon fontSize="small" /> Analyst Notes
+                    </Typography>
+                    {/* Existing notes */}
+                    {(() => {
+                      const decision = getDecision(hypothesis.id);
+                      const notes = decision?.notes ?? [];
+                      return notes.length > 0 ? (
+                        <List dense disablePadding sx={{ mb: 1 }}>
+                          {notes.map((note) => (
+                            <ListItem key={note.id} disableGutters sx={{ py: 0.25 }}>
+                              <ListItemText
+                                primary={note.content}
+                                secondary={`${note.noteType || 'general'} • ${new Date(note.createdAt).toLocaleString()}`}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      ) : null;
+                    })()}
+                    {/* Add note input */}
+                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
+                      <TextField
+                        size="small"
+                        multiline
+                        minRows={1}
+                        maxRows={3}
+                        placeholder="Add analyst note or evidence..."
+                        value={noteTexts[hypothesis.id] || ''}
+                        onChange={(e) => setNoteTexts((prev) => ({ ...prev, [hypothesis.id]: e.target.value }))}
+                        fullWidth
+                        inputProps={{ maxLength: 4000, 'data-testid': `rca-note-input-${idx}` }}
+                        disabled={actionInProgress === hypothesis.id || decisionLoading}
+                      />
+                      <Tooltip title="Submit note">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleAddNote(hypothesis.id)}
+                            disabled={
+                              !noteTexts[hypothesis.id]?.trim() ||
+                              actionInProgress === hypothesis.id ||
+                              decisionLoading
+                            }
+                            data-testid={`rca-add-note-${idx}`}
+                          >
+                            <SendIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                )}
 
                 {/* Orchestration actions */}
                 {hasOrchestration && majorIncidentId && (
