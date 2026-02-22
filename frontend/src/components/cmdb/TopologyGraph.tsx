@@ -190,7 +190,7 @@ function buildReactFlowEdges(
       id: e.id,
       source: e.source,
       target: e.target,
-      label: e.relationType,
+      label: e.relationLabel ?? e.relationType,
       type: 'smoothstep',
       animated: isHighlighted,
       markerEnd: {
@@ -230,18 +230,24 @@ function extractRelationTypes(edges: TopologyEdge[]): string[] {
 const TopologyControls: React.FC<{
   depth: number;
   direction: string;
+  includeSemantics: boolean;
   relationTypes: string[];
+  relTypeLabels: Record<string, string>;
   activeRelTypes: string[];
   onDepthChange: (depth: number) => void;
   onDirectionChange: (direction: string) => void;
+  onIncludeSemanticsChange: (enabled: boolean) => void;
   onRelTypeToggle: (type: string) => void;
 }> = ({
   depth,
   direction,
+  includeSemantics,
   relationTypes,
+  relTypeLabels,
   activeRelTypes,
   onDepthChange,
   onDirectionChange,
+  onIncludeSemanticsChange,
   onRelTypeToggle,
 }) => (
   <Box
@@ -285,6 +291,16 @@ const TopologyControls: React.FC<{
       </Select>
     </FormControl>
 
+    <Chip
+      label={includeSemantics ? 'Semantics on' : 'Semantics off'}
+      size="small"
+      variant={includeSemantics ? 'filled' : 'outlined'}
+      color={includeSemantics ? 'secondary' : 'default'}
+      onClick={() => onIncludeSemanticsChange(!includeSemantics)}
+      sx={{ fontSize: '0.7rem', height: 24 }}
+      data-testid="topology-semantics-toggle"
+    />
+
     {relationTypes.length > 0 && (
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
@@ -293,7 +309,7 @@ const TopologyControls: React.FC<{
         {relationTypes.map((type) => (
           <Chip
             key={type}
-            label={type}
+            label={relTypeLabels[type] || type}
             size="small"
             variant={activeRelTypes.includes(type) ? 'filled' : 'outlined'}
             color={activeRelTypes.includes(type) ? 'primary' : 'default'}
@@ -319,7 +335,10 @@ const TopologyControls: React.FC<{
   </Box>
 );
 
-const TopologyLegend: React.FC = () => (
+const TopologyLegend: React.FC<{
+  relationTypes: string[];
+  relTypeLabels: Record<string, string>;
+}> = ({ relationTypes, relTypeLabels }) => (
   <Paper
     elevation={1}
     sx={{
@@ -354,10 +373,10 @@ const TopologyLegend: React.FC = () => (
         </Box>
       ))}
       <Divider sx={{ my: 0.5 }} />
-      {Object.entries(RELATION_COLORS)
-        .filter(([k]) => k !== 'default')
-        .slice(0, 5)
-        .map(([type, color]) => (
+      {relationTypes.slice(0, 6).map((type) => {
+        const color = RELATION_COLORS[type] || RELATION_COLORS.default;
+        const label = relTypeLabels[type] || type;
+        return (
           <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box
               sx={{
@@ -368,10 +387,16 @@ const TopologyLegend: React.FC = () => (
               }}
             />
             <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-              {type}
+              {label}
             </Typography>
           </Box>
-        ))}
+        );
+      })}
+      {relationTypes.length > 6 && (
+        <Typography variant="caption" sx={{ fontSize: '0.65rem' }} color="text.secondary">
+          +{relationTypes.length - 6} more
+        </Typography>
+      )}
     </Stack>
   </Paper>
 );
@@ -416,6 +441,11 @@ const NodeDetailDrawer: React.FC<{
           <Box>
             <Typography variant="caption" color="text.secondary">Class</Typography>
             <Typography variant="body2">{node.className}</Typography>
+            {node.classLineage && node.classLineage.length > 1 && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                Lineage: {node.classLineage.join(' > ')}
+              </Typography>
+            )}
           </Box>
         )}
 
@@ -477,8 +507,9 @@ const NodeDetailDrawer: React.FC<{
                   }}
                 />
                 <Typography variant="caption">
-                  {edge.relationType}
+                  {edge.relationLabel || edge.relationType}
                   {edge.direction ? ` (${edge.direction})` : ''}
+                  {edge.riskPropagation ? ` • risk: ${edge.riskPropagation}` : ''}
                 </Typography>
               </Box>
             ))}
@@ -570,6 +601,19 @@ export const TopologyGraph: React.FC<TopologyGraphProps> = ({
     return extractRelationTypes(data.edges);
   }, [data]);
 
+  const relTypeLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    if (!data?.edges) return labels;
+
+    for (const e of data.edges) {
+      if (!labels[e.relationType]) {
+        labels[e.relationType] = e.relationLabel ?? e.relationType;
+      }
+    }
+
+    return labels;
+  }, [data]);
+
   // Parse active relation type filters
   const activeRelTypes = useMemo(() => {
     if (!queryParams.relationTypes) return allRelTypes;
@@ -608,6 +652,16 @@ export const TopologyGraph: React.FC<TopologyGraphProps> = ({
       }
     },
     [activeRelTypes, allRelTypes, queryParams, onQueryChange],
+  );
+
+  const handleIncludeSemanticsChange = useCallback(
+    (enabled: boolean) => {
+      onQueryChange({
+        ...queryParams,
+        includeSemantics: enabled ? true : undefined,
+      });
+    },
+    [queryParams, onQueryChange],
   );
 
   const handleNodeClick: NodeMouseHandler = useCallback(
@@ -707,10 +761,13 @@ export const TopologyGraph: React.FC<TopologyGraphProps> = ({
       <TopologyControls
         depth={queryParams.depth || 1}
         direction={queryParams.direction || 'both'}
+        includeSemantics={Boolean(queryParams.includeSemantics)}
         relationTypes={allRelTypes}
+        relTypeLabels={relTypeLabels}
         activeRelTypes={activeRelTypes}
         onDepthChange={handleDepthChange}
         onDirectionChange={handleDirectionChange}
+        onIncludeSemanticsChange={handleIncludeSemanticsChange}
         onRelTypeToggle={handleRelTypeToggle}
       />
 
@@ -765,7 +822,7 @@ export const TopologyGraph: React.FC<TopologyGraphProps> = ({
             style={{ height: 80, width: 120 }}
           />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e0e0e0" />
-          <TopologyLegend />
+          <TopologyLegend relationTypes={allRelTypes} relTypeLabels={relTypeLabels} />
         </ReactFlow>
       </Box>
 

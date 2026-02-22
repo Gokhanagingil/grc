@@ -36,6 +36,11 @@ import { ChoiceService } from '../choice/choice.service';
 import { TopologyService } from './topology/topology.service';
 import { TopologyController } from './topology/topology.controller';
 
+import { CmdbRelationshipType } from './relationship-type/relationship-type.entity';
+import { RelationshipTypeService } from './relationship-type/relationship-type.service';
+import { RelationshipTypeController } from './relationship-type/relationship-type.controller';
+import { RelationshipSemanticsValidationService } from './relationship-type/relationship-semantics-validation.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -46,6 +51,7 @@ import { TopologyController } from './topology/topology.controller';
       CmdbServiceOffering,
       CmdbServiceCi,
       SysChoice,
+      CmdbRelationshipType,
     ]),
     AuditModule,
     AuthModule,
@@ -62,6 +68,8 @@ import { TopologyController } from './topology/topology.controller';
     CmdbServiceCiService,
     ChoiceService,
     TopologyService,
+    RelationshipTypeService,
+    RelationshipSemanticsValidationService,
   ],
   controllers: [
     CiClassController,
@@ -71,6 +79,7 @@ import { TopologyController } from './topology/topology.controller';
     CmdbServiceOfferingController,
     CmdbServiceCiController,
     TopologyController,
+    RelationshipTypeController,
   ],
   exports: [
     CiClassService,
@@ -81,6 +90,7 @@ import { TopologyController } from './topology/topology.controller';
     CmdbServiceOfferingService,
     CmdbServiceCiService,
     TopologyService,
+    RelationshipTypeService,
   ],
 })
 export class CmdbModule {}

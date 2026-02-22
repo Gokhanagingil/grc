@@ -13,6 +13,7 @@ import {
 } from '../../../grc/dto/pagination.dto';
 import { AuditService } from '../../../audit/audit.service';
 import { ChoiceService } from '../../choice/choice.service';
+import { RelationshipSemanticsValidationService } from '../relationship-type/relationship-semantics-validation.service';
 
 @Injectable()
 export class CiRelService extends MultiTenantServiceBase<CmdbCiRel> {
@@ -21,6 +22,8 @@ export class CiRelService extends MultiTenantServiceBase<CmdbCiRel> {
     repository: Repository<CmdbCiRel>,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly choiceService?: ChoiceService,
+    @Optional()
+    private readonly semanticsValidation?: RelationshipSemanticsValidationService,
   ) {
     super(repository);
   }
@@ -45,7 +48,28 @@ export class CiRelService extends MultiTenantServiceBase<CmdbCiRel> {
       >
     >,
   ): Promise<CmdbCiRel> {
-    if (data.sourceCiId === data.targetCiId) {
+    // Semantics-aware validation (Phase C)
+    if (
+      this.semanticsValidation &&
+      data.sourceCiId &&
+      data.targetCiId &&
+      data.type
+    ) {
+      const semanticsResult = await this.semanticsValidation.validate(
+        tenantId,
+        data.sourceCiId,
+        data.targetCiId,
+        data.type,
+      );
+      if (!semanticsResult.valid) {
+        throw new BadRequestException({
+          message: 'Relationship validation failed',
+          validationErrors: semanticsResult.errors,
+          warnings: semanticsResult.warnings,
+        });
+      }
+    } else if (data.sourceCiId === data.targetCiId) {
+      // Fallback self-loop check when semantics service is not available
       throw new BadRequestException('A CI cannot relate to itself');
     }
 
@@ -115,9 +139,7 @@ export class CiRelService extends MultiTenantServiceBase<CmdbCiRel> {
       );
     }
 
-    return updated
-      ? this.findOneActiveForTenant(tenantId, id)
-      : null;
+    return updated ? this.findOneActiveForTenant(tenantId, id) : null;
   }
 
   async softDeleteCiRel(
@@ -176,10 +198,9 @@ export class CiRelService extends MultiTenantServiceBase<CmdbCiRel> {
     }
 
     if (ciId) {
-      qb.andWhere(
-        '(rel.sourceCiId = :ciId OR rel.targetCiId = :ciId)',
-        { ciId },
-      );
+      qb.andWhere('(rel.sourceCiId = :ciId OR rel.targetCiId = :ciId)', {
+        ciId,
+      });
     }
 
     if (type) {

@@ -4138,6 +4138,8 @@ export interface TopologyNode {
   type: 'ci' | 'service' | 'service_offering';
   label: string;
   className?: string;
+  classId?: string;
+  classLineage?: string[];
   status?: string;
   criticality?: string;
   owner?: string;
@@ -4151,7 +4153,10 @@ export interface TopologyEdge {
   source: string;
   target: string;
   relationType: string;
+  relationLabel?: string;
   direction?: 'upstream' | 'downstream' | 'bidirectional';
+  directionality?: 'unidirectional' | 'bidirectional';
+  riskPropagation?: 'forward' | 'reverse' | 'both' | 'none';
   strength?: number;
   inferred: boolean;
 }
@@ -4183,6 +4188,7 @@ export interface TopologyQueryParams {
   relationTypes?: string;
   includeOrphans?: boolean;
   direction?: 'both' | 'upstream' | 'downstream';
+  includeSemantics?: boolean;
 }
 
 // CMDB API object
@@ -4365,6 +4371,7 @@ export const cmdbApi = {
       if (params?.relationTypes) searchParams.set('relationTypes', params.relationTypes);
       if (params?.includeOrphans) searchParams.set('includeOrphans', String(params.includeOrphans));
       if (params?.direction) searchParams.set('direction', params.direction);
+      if (params?.includeSemantics) searchParams.set('includeSemantics', String(params.includeSemantics));
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.CMDB.TOPOLOGY.CI(ciId)}${queryString ? `?${queryString}` : ''}`);
     },
@@ -4374,6 +4381,7 @@ export const cmdbApi = {
       if (params?.relationTypes) searchParams.set('relationTypes', params.relationTypes);
       if (params?.includeOrphans) searchParams.set('includeOrphans', String(params.includeOrphans));
       if (params?.direction) searchParams.set('direction', params.direction);
+      if (params?.includeSemantics) searchParams.set('includeSemantics', String(params.includeSemantics));
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.CMDB.TOPOLOGY.SERVICE(serviceId)}${queryString ? `?${queryString}` : ''}`);
     },

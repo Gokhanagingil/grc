@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CmdbCi } from '../ci/ci.entity';
@@ -6,6 +6,8 @@ import { CmdbCiRel } from '../ci-rel/ci-rel.entity';
 import { CmdbService } from '../service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../service-offering/cmdb-service-offering.entity';
 import { CmdbServiceCi } from '../service-ci/cmdb-service-ci.entity';
+import { CmdbRelationshipType } from '../relationship-type/relationship-type.entity';
+import { CiClassInheritanceService } from '../ci-class/ci-class-inheritance.service';
 import { TopologyQueryDto, TopologyDirection } from './dto/topology-query.dto';
 import {
   TopologyResponse,
@@ -33,6 +35,11 @@ export class TopologyService {
     private readonly offeringRepo: Repository<CmdbServiceOffering>,
     @InjectRepository(CmdbServiceCi)
     private readonly serviceCiRepo: Repository<CmdbServiceCi>,
+    @Optional()
+    @InjectRepository(CmdbRelationshipType)
+    private readonly relTypeRepo?: Repository<CmdbRelationshipType>,
+    @Optional()
+    private readonly inheritanceService?: CiClassInheritanceService,
   ) {}
 
   /**
@@ -199,6 +206,14 @@ export class TopologyService {
       truncated,
       warnings,
     };
+
+    // Phase C: enrich with class lineage and semantics if requested
+    if (query.includeSemantics) {
+      await Promise.all([
+        this.enrichNodesWithClassLineage(tenantId, nodeMap),
+        this.enrichEdgesWithSemantics(tenantId, finalEdges),
+      ]);
+    }
 
     const annotations: TopologyAnnotations = {};
 
@@ -395,6 +410,14 @@ export class TopologyService {
       warnings,
     };
 
+    // Phase C: enrich with class lineage and semantics if requested
+    if (query.includeSemantics) {
+      await Promise.all([
+        this.enrichNodesWithClassLineage(tenantId, nodeMap),
+        this.enrichEdgesWithSemantics(tenantId, finalEdges),
+      ]);
+    }
+
     const annotations: TopologyAnnotations = {};
 
     return {
@@ -510,11 +533,109 @@ export class TopologyService {
       type: 'ci',
       label: ci.name,
       className: ci.ciClass?.name ?? undefined,
+      classId: ci.classId ?? undefined,
       status: ci.lifecycle,
       environment: ci.environment,
       ipAddress: ci.ipAddress ?? undefined,
       owner: ci.ownedBy ?? ci.managedBy ?? undefined,
     };
+  }
+
+  /**
+   * Enrich topology nodes with class lineage info.
+   * Called after graph is built to add ancestor chain data.
+   */
+  private async enrichNodesWithClassLineage(
+    tenantId: string,
+    nodeMap: Map<string, TopologyNode>,
+  ): Promise<void> {
+    if (!this.inheritanceService) return;
+
+    // Build a cache of classId -> lineage to avoid repeated lookups
+    const lineageCache = new Map<string, string[]>();
+
+    for (const node of nodeMap.values()) {
+      if (node.type !== 'ci' || !node.classId) continue;
+
+      if (!lineageCache.has(node.classId)) {
+        try {
+          const ancestors = await this.inheritanceService.getAncestorChain(
+            tenantId,
+            node.classId,
+          );
+          // ancestors is [parent, grandparent, ...root], reverse to get root->current
+          const lineage = ancestors
+            .slice()
+            .reverse()
+            .map((a) => a.name);
+          if (node.className) {
+            lineage.push(node.className);
+          }
+          lineageCache.set(node.classId, lineage);
+        } catch {
+          // Skip lineage on error
+          lineageCache.set(node.classId, []);
+        }
+      }
+
+      const lineage = lineageCache.get(node.classId);
+      if (lineage && lineage.length > 1) {
+        node.classLineage = lineage;
+      }
+    }
+  }
+
+  /**
+   * Enrich edges with relationship type semantics.
+   * Adds labels, directionality, and risk propagation hints from the catalog.
+   */
+  private async enrichEdgesWithSemantics(
+    tenantId: string,
+    edges: TopologyEdge[],
+  ): Promise<void> {
+    if (!this.relTypeRepo) return;
+
+    // Collect unique relation types
+    const typeNames = new Set<string>();
+    for (const edge of edges) {
+      typeNames.add(edge.relationType);
+    }
+
+    // Bulk-load relationship type semantics
+    const semanticsMap = new Map<string, CmdbRelationshipType>();
+    if (typeNames.size > 0) {
+      try {
+        const types = await this.relTypeRepo.find({
+          where: {
+            tenantId,
+            isDeleted: false,
+            name: In(Array.from(typeNames)),
+          },
+        });
+        for (const t of types) {
+          semanticsMap.set(t.name, t);
+        }
+      } catch {
+        // If the catalog table/migration isn't available, skip semantics enrichment
+        return;
+      }
+    }
+
+    // Enrich each edge
+    for (const edge of edges) {
+      const sem = semanticsMap.get(edge.relationType);
+      if (sem) {
+        edge.relationLabel = sem.label;
+        edge.directionality = sem.directionality as
+          | 'unidirectional'
+          | 'bidirectional';
+        edge.riskPropagation = sem.riskPropagation as
+          | 'forward'
+          | 'reverse'
+          | 'both'
+          | 'none';
+      }
+    }
   }
 
   private serviceToNode(svc: CmdbService): TopologyNode {

@@ -52,6 +52,7 @@ export const TopologyPanel: React.FC<TopologyPanelProps> = ({
   const [queryParams, setQueryParams] = useState<TopologyQueryParams>({
     depth: 1,
     direction: 'both',
+    includeSemantics: true,
   });
   const [hasLoaded, setHasLoaded] = useState(false);
 

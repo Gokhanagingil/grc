@@ -11,6 +11,10 @@ export interface TopologyNode {
   label: string;
   /** CI class name (e.g. 'server', 'database', 'application') */
   className?: string;
+  /** CI class ID */
+  classId?: string;
+  /** Class lineage: ancestor names from root to current (e.g. ['Hardware', 'Computer', 'Server']) */
+  classLineage?: string[];
   /** Lifecycle/status of the node */
   status?: string;
   /** Criticality level */
@@ -30,8 +34,14 @@ export interface TopologyEdge {
   source: string;
   target: string;
   relationType: string;
+  /** Human-readable label for the relationship type (from semantics catalog) */
+  relationLabel?: string;
   /** Direction label for display */
   direction?: 'upstream' | 'downstream' | 'bidirectional';
+  /** Directionality from semantics catalog */
+  directionality?: 'unidirectional' | 'bidirectional';
+  /** Risk propagation hint from semantics catalog */
+  riskPropagation?: 'forward' | 'reverse' | 'both' | 'none';
   /** Relationship strength (future use) */
   strength?: number;
   /** Whether this edge was inferred rather than explicit */
