@@ -151,9 +151,12 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
   }
 
   // --- Data state ---
-  const riskLevel = getTopologyRiskLevel(impact.topologyRiskScore);
+  const riskLevel = getTopologyRiskLevel(impact.topologyRiskScore ?? 0);
   const riskColor = getRiskLevelColor(riskLevel);
-  const { metrics, fragilitySignals, warnings } = impact;
+  // Null-safe destructuring with defaults to prevent crash on partial data
+  const metrics = impact.metrics ?? { totalImpactedNodes: 0, impactedServiceCount: 0, impactedOfferingCount: 0, impactedCiCount: 0, criticalCiCount: 0, maxChainDepth: 0, crossServicePropagation: false, crossServiceCount: 0, impactedByDepth: {} };
+  const fragilitySignals = impact.fragilitySignals ?? [];
+  const warnings = impact.warnings ?? [];
 
   return (
     <Card data-testid="topology-impact-summary-card">
@@ -204,18 +207,18 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
         <Typography variant="subtitle2" gutterBottom>Blast Radius</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
           <Tooltip title="Total impacted nodes">
-            <Chip label={`${metrics.totalImpactedNodes} nodes`} size="small" variant="outlined" />
+            <Chip label={`${metrics.totalImpactedNodes ?? 0} nodes`} size="small" variant="outlined" />
           </Tooltip>
           <Tooltip title="Impacted services">
-            <Chip label={`${metrics.impactedServiceCount} services`} size="small" variant="outlined" />
+            <Chip label={`${metrics.impactedServiceCount ?? 0} services`} size="small" variant="outlined" />
           </Tooltip>
           <Tooltip title="Impacted offerings">
-            <Chip label={`${metrics.impactedOfferingCount} offerings`} size="small" variant="outlined" />
+            <Chip label={`${metrics.impactedOfferingCount ?? 0} offerings`} size="small" variant="outlined" />
           </Tooltip>
           <Tooltip title="Impacted CIs">
-            <Chip label={`${metrics.impactedCiCount} CIs`} size="small" variant="outlined" />
+            <Chip label={`${metrics.impactedCiCount ?? 0} CIs`} size="small" variant="outlined" />
           </Tooltip>
-          {metrics.criticalCiCount > 0 && (
+          {(metrics.criticalCiCount ?? 0) > 0 && (
             <Tooltip title="Critical CIs impacted">
               <Chip
                 icon={<WarningAmberIcon />}

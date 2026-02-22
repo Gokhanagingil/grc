@@ -38,6 +38,7 @@ export {
   getImpactSummaryText,
   getRcaSummaryText,
   unwrapTopologyResponse,
+  normalizeTopologyImpactResponse,
   FRAGILITY_SIGNAL_LABELS,
   RCA_HYPOTHESIS_TYPE_LABELS,
 } from './topology-utils';

@@ -57,6 +57,7 @@ import {
   TraceabilityChainWidget,
   classifyTopologyApiError,
   unwrapTopologyResponse,
+  normalizeTopologyImpactResponse,
   getTopologyRiskLevel,
   type ClassifiedTopologyError,
 } from '../../components/topology-intelligence';
@@ -626,9 +627,11 @@ export const ItsmChangeDetail: React.FC = () => {
     setTopologyError(null);
     try {
       const resp = await itsmApi.changes.getTopologyImpact(id);
-      const data = unwrapTopologyResponse<TopologyImpactResponseData>(resp);
+      const rawData = unwrapTopologyResponse<Record<string, unknown>>(resp);
+      // Normalize response to safe shape with defaults for missing fields
+      const normalizedData = normalizeTopologyImpactResponse(rawData);
       if (mountedRef.current) {
-        setTopologyImpact(data);
+        setTopologyImpact(normalizedData);
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -650,9 +653,11 @@ export const ItsmChangeDetail: React.FC = () => {
     setTopologyError(null);
     try {
       const resp = await itsmApi.changes.recalculateTopologyImpact(id);
-      const data = unwrapTopologyResponse<TopologyImpactResponseData>(resp);
+      const rawData = unwrapTopologyResponse<Record<string, unknown>>(resp);
+      // Normalize response to safe shape with defaults for missing fields
+      const normalizedData = normalizeTopologyImpactResponse(rawData);
       if (mountedRef.current) {
-        setTopologyImpact(data);
+        setTopologyImpact(normalizedData);
         showNotification('Topology impact recalculated', 'success');
       }
     } catch (err) {
