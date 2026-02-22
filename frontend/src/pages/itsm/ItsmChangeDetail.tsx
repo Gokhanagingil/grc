@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -53,6 +53,7 @@ import {
   TopologyExplainabilityPanel,
   TopologyInsightBanner,
   TopologyGovernanceDecisionPanel,
+  TopologyGuardrailsPanel,
   SuggestedTaskPackCard,
   TraceabilityChainWidget,
   classifyTopologyApiError,
@@ -1404,6 +1405,27 @@ export const ItsmChangeDetail: React.FC = () => {
                 reEvaluating={governanceReEvaluating}
               />
             </Box>
+          )}
+
+          {/* Topology Guardrails Panel (Phase B: Actionable UX) */}
+          {!isNew && change.id && (
+            <TopologyGuardrailsPanel
+              changeId={change.id}
+              onFetch={async (cId: string) => {
+                const resp = await itsmApi.changes.getTopologyGuardrails(cId);
+                const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
+                if (d && 'data' in d && d.data) return d.data;
+                if (d && 'guardrailStatus' in d) return d as TopologyGuardrailEvaluationData;
+                throw new Error('Unexpected response shape');
+              }}
+              onRecalculate={async (cId: string) => {
+                const resp = await itsmApi.changes.recalculateTopologyGuardrails(cId);
+                const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
+                if (d && 'data' in d && d.data) return d.data;
+                if (d && 'guardrailStatus' in d) return d as TopologyGuardrailEvaluationData;
+                throw new Error('Unexpected response shape');
+              }}
+            />
           )}
 
           {/* Topology Governance Warning */}
