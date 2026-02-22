@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -18,6 +18,9 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material';
+import {
+  InboxOutlined as EmptyIcon,
+} from '@mui/icons-material';
 import {
   BugReport as ProblemIcon,
   Warning as MajorIncidentIcon,
@@ -148,6 +151,20 @@ const ItsmAnalyticsDashboard: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [severity, setSeverity] = useState('');
   const [priority, setPriority] = useState('');
+  const [service, setService] = useState('');
+  const [team, setTeam] = useState('');
+  const [category, setCategory] = useState('');
+
+  // Last updated timestamp
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [, forceRender] = useState(0);
+
+  // Tick every 30s to keep "Last updated" label fresh
+  useEffect(() => {
+    refreshTimerRef.current = setInterval(() => forceRender((n) => n + 1), 30_000);
+    return () => { if (refreshTimerRef.current) clearInterval(refreshTimerRef.current); };
+  }, []);
 
   // Data state
   const [execSummary, setExecSummary] = useState<ExecutiveSummaryData | null>(null);
@@ -163,7 +180,10 @@ const ItsmAnalyticsDashboard: React.FC = () => {
     dateTo: dateTo || undefined,
     severity: severity || undefined,
     priority: priority || undefined,
-  }), [dateFrom, dateTo, severity, priority]);
+    serviceId: service || undefined,
+    team: team || undefined,
+    category: category || undefined,
+  }), [dateFrom, dateTo, severity, priority, service, team, category]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -188,6 +208,7 @@ const ItsmAnalyticsDashboard: React.FC = () => {
       setKeLifecycle(ke);
       setClosureData(closure);
       setBacklog(bl);
+      setLastUpdated(new Date());
     } catch (err) {
       setError('Failed to load analytics dashboard data');
       console.error('Analytics fetch error:', err);
@@ -205,6 +226,9 @@ const ItsmAnalyticsDashboard: React.FC = () => {
     setDateTo('');
     setSeverity('');
     setPriority('');
+    setService('');
+    setTeam('');
+    setCategory('');
   };
 
   const severityOptions = [
@@ -219,6 +243,32 @@ const ItsmAnalyticsDashboard: React.FC = () => {
     { value: 'P3', label: 'P3 - Medium' },
     { value: 'P4', label: 'P4 - Low' },
   ];
+
+  const categoryOptions = [
+    { value: 'Network', label: 'Network' },
+    { value: 'Security', label: 'Security' },
+    { value: 'Application', label: 'Application' },
+    { value: 'Infrastructure', label: 'Infrastructure' },
+    { value: 'Database', label: 'Database' },
+  ];
+
+  const teamOptions = [
+    { value: 'Platform', label: 'Platform' },
+    { value: 'Security', label: 'Security' },
+    { value: 'Network', label: 'Network' },
+    { value: 'DevOps', label: 'DevOps' },
+    { value: 'DBA', label: 'DBA' },
+  ];
+
+  const formatRelativeTime = (date: Date): string => {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 10) return 'just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
 
   if (loading && !execSummary) {
     return (
@@ -240,11 +290,18 @@ const ItsmAnalyticsDashboard: React.FC = () => {
             Closed-loop operational intelligence across Problem, Major Incident, PIR, Known Error, and Knowledge lifecycle.
           </Typography>
         </Box>
-        <Tooltip title="Refresh data">
-          <IconButton onClick={fetchData} color="primary" size="large">
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {lastUpdated && (
+            <Typography variant="caption" color="textSecondary">
+              Updated {formatRelativeTime(lastUpdated)}
+            </Typography>
+          )}
+          <Tooltip title="Refresh all tabs">
+            <IconButton onClick={fetchData} color="primary" size="large" disabled={loading}>
+              <RefreshIcon sx={{ animation: loading ? 'spin 1s linear infinite' : 'none', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {error && (
@@ -273,6 +330,20 @@ const ItsmAnalyticsDashboard: React.FC = () => {
             value: priority,
             options: priorityOptions,
             onChange: setPriority,
+          },
+          {
+            name: 'category',
+            label: 'Category',
+            value: category,
+            options: categoryOptions,
+            onChange: setCategory,
+          },
+          {
+            name: 'team',
+            label: 'Team',
+            value: team,
+            options: teamOptions,
+            onChange: setTeam,
           },
         ]}
         onRefresh={fetchData}
@@ -1038,9 +1109,22 @@ const BacklogTab: React.FC<{ data: BacklogSummaryData | null }> = ({ data }) => 
 // Empty State Helper
 // ============================================================================
 
-const EmptyState: React.FC<{ message: string }> = ({ message }) => (
-  <Box display="flex" justifyContent="center" alignItems="center" height={200}>
-    <Typography color="textSecondary">{message}</Typography>
+const EmptyState: React.FC<{ message: string; suggestion?: string }> = ({ message, suggestion }) => (
+  <Box
+    display="flex"
+    flexDirection="column"
+    justifyContent="center"
+    alignItems="center"
+    height={200}
+    sx={{ opacity: 0.7 }}
+  >
+    <EmptyIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+    <Typography variant="body1" color="textSecondary" fontWeight={500}>
+      {message}
+    </Typography>
+    <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+      {suggestion || 'Try adjusting your filters or run the seed script to populate data.'}
+    </Typography>
   </Box>
 );
 
