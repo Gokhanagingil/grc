@@ -1,11 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  CmdbCiClass,
-  CiClassFieldDefinition,
-  EffectiveFieldDefinition,
-} from './ci-class.entity';
+import { CmdbCiClass, EffectiveFieldDefinition } from './ci-class.entity';
 
 /** Maximum allowed inheritance depth to prevent runaway chains */
 const MAX_INHERITANCE_DEPTH = 10;
@@ -47,7 +43,11 @@ export interface InheritanceValidationResult {
   /** Effective depth if the change were applied */
   effectiveDepth?: number;
   /** Duplicate field keys that would be overridden */
-  fieldOverrides?: Array<{ key: string; overriddenFrom: string; overriddenBy: string }>;
+  fieldOverrides?: Array<{
+    key: string;
+    overriddenFrom: string;
+    overriddenBy: string;
+  }>;
 }
 
 @Injectable()
@@ -169,10 +169,7 @@ export class CiClassInheritanceService {
   /**
    * Get all descendant class IDs for a given class (recursive).
    */
-  async getDescendantIds(
-    tenantId: string,
-    classId: string,
-  ): Promise<string[]> {
+  async getDescendantIds(tenantId: string, classId: string): Promise<string[]> {
     const result: string[] = [];
     const queue = [classId];
 
@@ -345,7 +342,7 @@ export class CiClassInheritanceService {
         valid: false,
         errors: [
           `Setting ${newParentClassId} as parent would create a cycle: ` +
-          `it is currently a descendant of ${classId}`,
+            `it is currently a descendant of ${classId}`,
         ],
         warnings: [],
       };
@@ -431,7 +428,7 @@ export class CiClassInheritanceService {
         if (fieldOverrides.length > 0) {
           warnings.push(
             `${fieldOverrides.length} field(s) would override inherited definitions: ` +
-            fieldOverrides.map((o) => o.key).join(', '),
+              fieldOverrides.map((o) => o.key).join(', '),
           );
         }
       } catch {

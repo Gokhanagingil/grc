@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { CiClassInheritanceService } from './ci-class-inheritance.service';
-import { CmdbCiClass, CiClassFieldDefinition } from './ci-class.entity';
+import { CmdbCiClass } from './ci-class.entity';
 
 // ---------------------------------------------------------------------------
 // Test constants
@@ -66,8 +66,19 @@ function seedHierarchy() {
       name: 'cmdb_ci',
       label: 'Configuration Item',
       fieldsSchema: [
-        { key: 'name', label: 'Name', dataType: 'string', required: true, order: 1 },
-        { key: 'description', label: 'Description', dataType: 'text', order: 2 },
+        {
+          key: 'name',
+          label: 'Name',
+          dataType: 'string',
+          required: true,
+          order: 1,
+        },
+        {
+          key: 'description',
+          label: 'Description',
+          dataType: 'text',
+          order: 2,
+        },
       ],
     }),
     makeClass({
@@ -76,8 +87,18 @@ function seedHierarchy() {
       label: 'Hardware',
       parentClassId: ROOT_ID,
       fieldsSchema: [
-        { key: 'serial_number', label: 'Serial Number', dataType: 'string', order: 10 },
-        { key: 'manufacturer', label: 'Manufacturer', dataType: 'string', order: 11 },
+        {
+          key: 'serial_number',
+          label: 'Serial Number',
+          dataType: 'string',
+          order: 10,
+        },
+        {
+          key: 'manufacturer',
+          label: 'Manufacturer',
+          dataType: 'string',
+          order: 11,
+        },
       ],
     }),
     makeClass({
@@ -89,7 +110,13 @@ function seedHierarchy() {
         { key: 'cpu_count', label: 'CPU Count', dataType: 'number', order: 20 },
         { key: 'ram_gb', label: 'RAM (GB)', dataType: 'number', order: 21 },
         // Override parent's serial_number with different label
-        { key: 'serial_number', label: 'Computer S/N', dataType: 'string', required: true, order: 10 },
+        {
+          key: 'serial_number',
+          label: 'Computer S/N',
+          dataType: 'string',
+          required: true,
+          order: 10,
+        },
       ],
     }),
     makeClass({
@@ -98,7 +125,13 @@ function seedHierarchy() {
       label: 'Server',
       parentClassId: CHILD_ID,
       fieldsSchema: [
-        { key: 'os_type', label: 'OS Type', dataType: 'enum', choices: ['WINDOWS', 'LINUX', 'OTHER'], order: 30 },
+        {
+          key: 'os_type',
+          label: 'OS Type',
+          dataType: 'enum',
+          choices: ['WINDOWS', 'LINUX', 'OTHER'],
+          order: 30,
+        },
       ],
     }),
     makeClass({
@@ -107,7 +140,12 @@ function seedHierarchy() {
       label: 'Network Device',
       parentClassId: ROOT_ID,
       fieldsSchema: [
-        { key: 'port_count', label: 'Port Count', dataType: 'number', order: 10 },
+        {
+          key: 'port_count',
+          label: 'Port Count',
+          dataType: 'number',
+          order: 10,
+        },
       ],
     }),
   ];
@@ -125,9 +163,15 @@ const mockRepository = {
 
     let result = classStore.filter((c) => {
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
-      if (where.parentClassId !== undefined && c.parentClassId !== where.parentClassId) return false;
-      if (where.isActive !== undefined && c.isActive !== where.isActive) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
+      if (
+        where.parentClassId !== undefined &&
+        c.parentClassId !== where.parentClassId
+      )
+        return false;
+      if (where.isActive !== undefined && c.isActive !== where.isActive)
+        return false;
       return true;
     });
 
@@ -162,7 +206,8 @@ const mockRepository = {
     const match = classStore.find((c) => {
       if (where.id && c.id !== where.id) return false;
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
       return true;
     });
     return Promise.resolve(match ?? null);
@@ -221,7 +266,9 @@ describe('CiClassInheritanceService', () => {
       expect(childNames).toEqual(['cmdb_ci_hardware', 'cmdb_ci_network']);
 
       // Hardware should have 1 child: Computer
-      const hardware = root.children.find((c) => c.name === 'cmdb_ci_hardware')!;
+      const hardware = root.children.find(
+        (c) => c.name === 'cmdb_ci_hardware',
+      )!;
       expect(hardware.children).toHaveLength(1);
       expect(hardware.children[0].name).toBe('cmdb_ci_computer');
 
@@ -287,9 +334,16 @@ describe('CiClassInheritanceService', () => {
 
     it('should return full chain for depth-3 class (grandchild→child→parent→root)', async () => {
       seedHierarchy();
-      const ancestors = await service.getAncestorChain(TENANT_ID, GRANDCHILD_ID);
+      const ancestors = await service.getAncestorChain(
+        TENANT_ID,
+        GRANDCHILD_ID,
+      );
       expect(ancestors).toHaveLength(3);
-      expect(ancestors.map((a) => a.id)).toEqual([CHILD_ID, PARENT_ID, ROOT_ID]);
+      expect(ancestors.map((a) => a.id)).toEqual([
+        CHILD_ID,
+        PARENT_ID,
+        ROOT_ID,
+      ]);
     });
 
     it('should detect cycle and throw', async () => {
@@ -305,7 +359,10 @@ describe('CiClassInheritanceService', () => {
     });
 
     it('should return empty for non-existent class', async () => {
-      const ancestors = await service.getAncestorChain(TENANT_ID, 'nonexistent');
+      const ancestors = await service.getAncestorChain(
+        TENANT_ID,
+        'nonexistent',
+      );
       expect(ancestors).toEqual([]);
     });
   });
@@ -379,8 +436,14 @@ describe('CiClassInheritanceService', () => {
       const inherited = schema.effectiveFields.filter((f) => f.inherited);
       const local = schema.effectiveFields.filter((f) => !f.inherited);
 
-      expect(inherited.map((f) => f.key).sort()).toEqual(['description', 'name']);
-      expect(local.map((f) => f.key).sort()).toEqual(['manufacturer', 'serial_number']);
+      expect(inherited.map((f) => f.key).sort()).toEqual([
+        'description',
+        'name',
+      ]);
+      expect(local.map((f) => f.key).sort()).toEqual([
+        'manufacturer',
+        'serial_number',
+      ]);
     });
 
     it('should handle child overriding parent field', async () => {
@@ -389,7 +452,9 @@ describe('CiClassInheritanceService', () => {
 
       // Computer: root(name, description) + hardware(serial_number, manufacturer) + computer(cpu_count, ram_gb, serial_number override)
       // serial_number is overridden by Computer → should show Computer's version
-      const serialField = schema.effectiveFields.find((f) => f.key === 'serial_number');
+      const serialField = schema.effectiveFields.find(
+        (f) => f.key === 'serial_number',
+      );
       expect(serialField).toBeDefined();
       expect(serialField!.label).toBe('Computer S/N'); // overridden label
       expect(serialField!.required).toBe(true); // overridden to required
@@ -454,21 +519,33 @@ describe('CiClassInheritanceService', () => {
   describe('validateInheritanceChange', () => {
     it('should allow setting parent to null (become root)', async () => {
       seedHierarchy();
-      const result = await service.validateInheritanceChange(TENANT_ID, CHILD_ID, null);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        CHILD_ID,
+        null,
+      );
       expect(result.valid).toBe(true);
       expect(result.effectiveDepth).toBe(0);
     });
 
     it('should reject self-reference', async () => {
       seedHierarchy();
-      const result = await service.validateInheritanceChange(TENANT_ID, CHILD_ID, CHILD_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        CHILD_ID,
+        CHILD_ID,
+      );
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('A class cannot be its own parent');
     });
 
     it('should reject non-existent parent', async () => {
       seedHierarchy();
-      const result = await service.validateInheritanceChange(TENANT_ID, CHILD_ID, UNRELATED_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        CHILD_ID,
+        UNRELATED_ID,
+      );
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('not found');
     });
@@ -476,7 +553,11 @@ describe('CiClassInheritanceService', () => {
     it('should detect cycle: setting parent as own descendant', async () => {
       seedHierarchy();
       // Try to make Root's parent = Grandchild (which is a descendant of Root)
-      const result = await service.validateInheritanceChange(TENANT_ID, ROOT_ID, GRANDCHILD_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        ROOT_ID,
+        GRANDCHILD_ID,
+      );
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('cycle');
     });
@@ -484,7 +565,11 @@ describe('CiClassInheritanceService', () => {
     it('should detect cycle: setting parent as direct child', async () => {
       seedHierarchy();
       // Try to make Parent's parent = Child (which is a child of Parent)
-      const result = await service.validateInheritanceChange(TENANT_ID, PARENT_ID, CHILD_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        PARENT_ID,
+        CHILD_ID,
+      );
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('cycle');
     });
@@ -492,7 +577,11 @@ describe('CiClassInheritanceService', () => {
     it('should allow valid parent change', async () => {
       seedHierarchy();
       // Move Network Device under Hardware (sibling → child)
-      const result = await service.validateInheritanceChange(TENANT_ID, SIBLING_ID, PARENT_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        SIBLING_ID,
+        PARENT_ID,
+      );
       expect(result.valid).toBe(true);
       expect(result.effectiveDepth).toBe(2); // Root → Hardware → Network = depth 2
     });
@@ -501,7 +590,11 @@ describe('CiClassInheritanceService', () => {
       seedHierarchy();
       // Computer has serial_number which overrides Hardware's serial_number
       // Validate Computer → Hardware (already existing, should report override)
-      const result = await service.validateInheritanceChange(TENANT_ID, CHILD_ID, PARENT_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        CHILD_ID,
+        PARENT_ID,
+      );
       expect(result.valid).toBe(true);
       expect(result.fieldOverrides).toBeDefined();
       expect(result.fieldOverrides!.length).toBeGreaterThan(0);
@@ -511,7 +604,11 @@ describe('CiClassInheritanceService', () => {
     it('should allow changing parent to a different valid class', async () => {
       seedHierarchy();
       // Move Server directly under Root (skip Hardware and Computer)
-      const result = await service.validateInheritanceChange(TENANT_ID, GRANDCHILD_ID, ROOT_ID);
+      const result = await service.validateInheritanceChange(
+        TENANT_ID,
+        GRANDCHILD_ID,
+        ROOT_ID,
+      );
       expect(result.valid).toBe(true);
       expect(result.effectiveDepth).toBe(1);
     });
@@ -552,7 +649,11 @@ describe('CiClassInheritanceService', () => {
     it('should not find classes from other tenants', async () => {
       classStore = [
         makeClass({ id: ROOT_ID, name: 'tenant1_class', tenantId: TENANT_ID }),
-        makeClass({ id: PARENT_ID, name: 'tenant2_class', tenantId: TENANT_ID_2 }),
+        makeClass({
+          id: PARENT_ID,
+          name: 'tenant2_class',
+          tenantId: TENANT_ID_2,
+        }),
       ];
 
       const tree = await service.getClassTree(TENANT_ID);
@@ -567,7 +668,12 @@ describe('CiClassInheritanceService', () => {
     it('should not traverse ancestors across tenants', async () => {
       classStore = [
         makeClass({ id: ROOT_ID, name: 'root', tenantId: TENANT_ID_2 }),
-        makeClass({ id: PARENT_ID, name: 'child', tenantId: TENANT_ID, parentClassId: ROOT_ID }),
+        makeClass({
+          id: PARENT_ID,
+          name: 'child',
+          tenantId: TENANT_ID,
+          parentClassId: ROOT_ID,
+        }),
       ];
 
       // Child's parent is in a different tenant → should stop traversal
