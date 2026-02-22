@@ -22,6 +22,8 @@ import { Perf } from '../../../../common/decorators';
 import { TopologyImpactAnalysisService } from './topology-impact-analysis.service';
 import { TopologyGovernanceService } from './topology-governance.service';
 import { RcaOrchestrationService } from './rca-orchestration.service';
+import { SuggestedTaskPackService } from './suggested-task-pack.service';
+import { TraceabilitySummaryService } from './traceability-summary.service';
 import { ChangeService } from '../../change.service';
 import { MajorIncidentService } from '../../../major-incident/major-incident.service';
 import { RiskScoringService } from '../risk-scoring.service';
@@ -51,6 +53,9 @@ import {
  * - POST /grc/itsm/major-incidents/:id/rca-create-problem
  * - POST /grc/itsm/major-incidents/:id/rca-create-known-error
  * - POST /grc/itsm/major-incidents/:id/rca-create-pir-action
+ * - GET  /grc/itsm/changes/:id/suggested-task-pack
+ * - GET  /grc/itsm/changes/:id/traceability-summary
+ * - GET  /grc/itsm/major-incidents/:id/traceability-summary
  */
 @Controller('grc/itsm')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -61,6 +66,8 @@ export class TopologyImpactController {
     private readonly topologyImpactService: TopologyImpactAnalysisService,
     private readonly topologyGovernanceService: TopologyGovernanceService,
     private readonly rcaOrchestrationService: RcaOrchestrationService,
+    private readonly suggestedTaskPackService: SuggestedTaskPackService,
+    private readonly traceabilitySummaryService: TraceabilitySummaryService,
     private readonly changeService: ChangeService,
     private readonly majorIncidentService: MajorIncidentService,
     private readonly riskScoringService: RiskScoringService,
@@ -361,5 +368,105 @@ export class TopologyImpactController {
       );
 
     return { data: result };
+  }
+
+  // ==========================================================================
+  // Suggested Task Pack (Phase 3)
+  // ==========================================================================
+
+  /**
+   * Get a suggested task pack for a change based on topology impact + risk level.
+   * Returns categorized, topology-driven operational task suggestions.
+   */
+  @Get('changes/:id/suggested-task-pack')
+  @Permissions(Permission.ITSM_CHANGE_READ)
+  @Perf()
+  async getSuggestedTaskPack(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const change = await this.changeService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${id} not found`);
+    }
+
+    const pack = await this.suggestedTaskPackService.generateTaskPack(
+      tenantId,
+      change.id,
+    );
+
+    return { data: pack };
+  }
+
+  // ==========================================================================
+  // Closed-Loop Traceability Summary (Phase 3)
+  // ==========================================================================
+
+  /**
+   * Get closed-loop traceability summary for a change.
+   * Returns topology analysis → governance → approvals → tasks → outcomes chain.
+   */
+  @Get('changes/:id/traceability-summary')
+  @Permissions(Permission.ITSM_CHANGE_READ)
+  @Perf()
+  async getChangeTraceability(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const change = await this.changeService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${id} not found`);
+    }
+
+    const summary =
+      await this.traceabilitySummaryService.getChangeTraceability(
+        tenantId,
+        change.id,
+      );
+
+    return { data: summary };
+  }
+
+  /**
+   * Get closed-loop traceability summary for a major incident.
+   * Returns RCA analysis → hypotheses → orchestrated records chain.
+   */
+  @Get('major-incidents/:id/traceability-summary')
+  @Permissions(Permission.ITSM_MAJOR_INCIDENT_READ)
+  @Perf()
+  async getMajorIncidentTraceability(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const mi = await this.majorIncidentService.findOne(tenantId, id);
+    if (!mi) {
+      throw new NotFoundException(`Major Incident with ID ${id} not found`);
+    }
+
+    const summary =
+      await this.traceabilitySummaryService.getMajorIncidentTraceability(
+        tenantId,
+        id,
+      );
+
+    return { data: summary };
   }
 }

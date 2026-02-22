@@ -924,6 +924,10 @@ export const API_PATHS = {
     MI_RCA_CREATE_PROBLEM: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-problem`,
     MI_RCA_CREATE_KNOWN_ERROR: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-known-error`,
     MI_RCA_CREATE_PIR_ACTION: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-pir-action`,
+    // Phase 3: Suggested Task Pack + Traceability
+    CHANGE_SUGGESTED_TASK_PACK: (changeId: string) => `/grc/itsm/changes/${changeId}/suggested-task-pack`,
+    CHANGE_TRACEABILITY: (changeId: string) => `/grc/itsm/changes/${changeId}/traceability-summary`,
+    MI_TRACEABILITY: (miId: string) => `/grc/itsm/major-incidents/${miId}/traceability-summary`,
   },
 
   // Change Risk Assessment endpoints
@@ -2222,6 +2226,12 @@ export const itsmApi = {
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_RECALCULATE(changeId), {}),
     evaluateTopologyGovernance: (changeId: string) =>
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_EVALUATE_GOVERNANCE(changeId), {}),
+    // Topology Intelligence - Suggested Task Pack
+    getSuggestedTaskPack: (changeId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_SUGGESTED_TASK_PACK(changeId)),
+    // Topology Intelligence - Traceability
+    getTraceabilitySummary: (changeId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_TRACEABILITY(changeId)),
     requestApproval:(changeId: string, comment?: string) =>
       api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
     listApprovals: (changeId: string) =>
@@ -2526,6 +2536,9 @@ export const itsmApi = {
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_CREATE_KNOWN_ERROR(miId), data),
     createPirActionFromHypothesis: (miId: string, data: CreatePirActionFromHypothesisRequest) =>
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_CREATE_PIR_ACTION(miId), data),
+    // Traceability
+    getTraceabilitySummary: (miId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_TRACEABILITY(miId)),
   },
 };
 
@@ -3062,6 +3075,74 @@ export interface RcaOrchestrationResultData<T = Record<string, unknown>> {
   record: T;
   traceability: RcaTraceabilityMeta;
   summary: string;
+}
+
+// ============================================================================
+// Suggested Task Pack Types (Phase-C, Phase 3)
+// ============================================================================
+
+/** A single suggested task from topology analysis */
+export interface SuggestedTaskData {
+  templateKey: string;
+  category: 'VALIDATION' | 'ROLLBACK_READINESS' | 'DEPENDENCY_COMMUNICATION' | 'MONITORING' | 'DOCUMENTATION';
+  title: string;
+  description: string;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;
+  triggerSignals: string[];
+  recommended: boolean;
+}
+
+/** Suggested task pack response */
+export interface SuggestedTaskPackResponseData {
+  changeId: string;
+  riskLevel: string;
+  topologyRiskScore: number;
+  tasks: SuggestedTaskData[];
+  totalTasks: number;
+  recommendedCount: number;
+  generatedAt: string;
+  warnings: string[];
+}
+
+// ============================================================================
+// Closed-Loop Traceability Types (Phase-C, Phase 3)
+// ============================================================================
+
+/** A node in the traceability chain */
+export interface TraceabilityNodeData {
+  type: 'CHANGE' | 'MAJOR_INCIDENT' | 'PROBLEM' | 'KNOWN_ERROR' | 'PIR' | 'PIR_ACTION' | 'TOPOLOGY_ANALYSIS' | 'GOVERNANCE_DECISION' | 'RCA_HYPOTHESIS';
+  id: string;
+  label: string;
+  status: string;
+  createdAt: string;
+  meta?: Record<string, unknown>;
+}
+
+/** An edge in the traceability chain */
+export interface TraceabilityEdgeData {
+  fromId: string;
+  toId: string;
+  relation: 'TRIGGERED' | 'CREATED_FROM' | 'ANALYZED_BY' | 'DECIDED_BY' | 'RESULTED_IN' | 'LINKED_TO';
+  label: string;
+}
+
+/** Traceability summary response */
+export interface TraceabilitySummaryResponseData {
+  rootId: string;
+  rootType: 'CHANGE' | 'MAJOR_INCIDENT';
+  nodes: TraceabilityNodeData[];
+  edges: TraceabilityEdgeData[];
+  summary: string;
+  metrics: {
+    totalNodes: number;
+    totalEdges: number;
+    hasTopologyAnalysis: boolean;
+    hasGovernanceDecision: boolean;
+    hasOrchestrationActions: boolean;
+    completenessScore: number;
+  };
+  generatedAt: string;
 }
 
 // ============================================================================
