@@ -31,6 +31,9 @@ import { CmdbServiceCiController } from './service-ci/cmdb-service-ci.controller
 import { SysChoice } from '../choice/sys-choice.entity';
 import { ChoiceService } from '../choice/choice.service';
 
+import { TopologyService } from './topology/topology.service';
+import { TopologyController } from './topology/topology.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -54,6 +57,7 @@ import { ChoiceService } from '../choice/choice.service';
     CmdbServiceOfferingService,
     CmdbServiceCiService,
     ChoiceService,
+    TopologyService,
   ],
   controllers: [
     CiClassController,
@@ -62,6 +66,7 @@ import { ChoiceService } from '../choice/choice.service';
     CmdbServiceController,
     CmdbServiceOfferingController,
     CmdbServiceCiController,
+    TopologyController,
   ],
   exports: [
     CiClassService,
@@ -70,6 +75,7 @@ import { ChoiceService } from '../choice/choice.service';
     CmdbServiceService,
     CmdbServiceOfferingService,
     CmdbServiceCiService,
+    TopologyService,
   ],
 })
 export class CmdbModule {}
