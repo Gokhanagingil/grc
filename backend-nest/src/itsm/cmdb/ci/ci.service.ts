@@ -10,6 +10,7 @@ import {
 } from '../../../grc/dto/pagination.dto';
 import { AuditService } from '../../../audit/audit.service';
 import { ChoiceService } from '../../choice/choice.service';
+import { CiAttributeValidationService } from './ci-attribute-validation.service';
 
 @Injectable()
 export class CiService extends MultiTenantServiceBase<CmdbCi> {
@@ -18,6 +19,8 @@ export class CiService extends MultiTenantServiceBase<CmdbCi> {
     repository: Repository<CmdbCi>,
     @Optional() private readonly auditService?: AuditService,
     @Optional() private readonly choiceService?: ChoiceService,
+    @Optional()
+    private readonly attributeValidationService?: CiAttributeValidationService,
   ) {
     super(repository);
   }
@@ -46,6 +49,16 @@ export class CiService extends MultiTenantServiceBase<CmdbCi> {
         data as Record<string, unknown>,
       );
       this.choiceService.throwIfInvalidChoices(errors);
+    }
+
+    // Validate attributes against class effective schema
+    if (this.attributeValidationService && data.classId && data.attributes) {
+      await this.attributeValidationService.validateAndThrow(
+        tenantId,
+        data.classId,
+        data.attributes,
+        false, // isUpdate = false
+      );
     }
 
     const entity = await this.createForTenant(tenantId, {
@@ -81,6 +94,17 @@ export class CiService extends MultiTenantServiceBase<CmdbCi> {
       this.choiceService.throwIfInvalidChoices(errors);
     }
 
+    // Validate attributes against class effective schema
+    if (this.attributeValidationService && data.attributes) {
+      const classId = data.classId ?? existing.classId;
+      await this.attributeValidationService.validateAndThrow(
+        tenantId,
+        classId,
+        data.attributes,
+        true, // isUpdate = true (partial update, skip required checks for missing keys)
+      );
+    }
+
     const updated = await this.updateForTenant(tenantId, id, {
       ...data,
       updatedBy: userId,
@@ -97,9 +121,7 @@ export class CiService extends MultiTenantServiceBase<CmdbCi> {
       );
     }
 
-    return updated
-      ? this.findOneActiveForTenant(tenantId, id)
-      : null;
+    return updated ? this.findOneActiveForTenant(tenantId, id) : null;
   }
 
   async softDeleteCi(
@@ -117,12 +139,7 @@ export class CiService extends MultiTenantServiceBase<CmdbCi> {
       updatedBy: userId,
     } as Partial<Omit<CmdbCi, 'id' | 'tenantId'>>);
 
-    await this.auditService?.recordDelete(
-      'CmdbCi',
-      existing,
-      userId,
-      tenantId,
-    );
+    await this.auditService?.recordDelete('CmdbCi', existing, userId, tenantId);
 
     return true;
   }

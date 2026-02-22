@@ -45,9 +45,11 @@ import {
   CmdbServiceCiData,
   CmdbServiceData,
   CreateCmdbCiRelDto,
+  EffectiveSchemaResponse,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
+import { SchemaFieldRenderer } from '../../components/cmdb/SchemaFieldRenderer';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
 const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
@@ -94,6 +96,11 @@ export const CmdbCiDetail: React.FC = () => {
   const [linkServiceDialogOpen, setLinkServiceDialogOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedRelType, setSelectedRelType] = useState('depends_on');
+
+  // Effective schema state
+  const [effectiveSchema, setEffectiveSchema] = useState<EffectiveSchemaResponse | null>(null);
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaFieldErrors, setSchemaFieldErrors] = useState<Record<string, string>>({});
 
   // CI-to-CI Relationship creation state
   const [createRelDialogOpen, setCreateRelDialogOpen] = useState(false);
@@ -195,6 +202,28 @@ export const CmdbCiDetail: React.FC = () => {
     }
   }, []);
 
+  const fetchEffectiveSchema = useCallback(async (classId: string) => {
+    if (!classId) {
+      setEffectiveSchema(null);
+      return;
+    }
+    setSchemaLoading(true);
+    try {
+      const response = await cmdbApi.classes.effectiveSchema(classId);
+      const data = response.data;
+      if (data && 'data' in data) {
+        setEffectiveSchema(data.data as EffectiveSchemaResponse);
+      } else {
+        setEffectiveSchema(data as EffectiveSchemaResponse);
+      }
+    } catch (err) {
+      console.error('Error fetching effective schema:', err);
+      setEffectiveSchema(null);
+    } finally {
+      setSchemaLoading(false);
+    }
+  }, []);
+
   const fetchAllCis = useCallback(async () => {
     try {
       const response = await cmdbApi.cis.list({ pageSize: 200 });
@@ -250,6 +279,15 @@ export const CmdbCiDetail: React.FC = () => {
     }
   };
 
+  // Fetch effective schema when classId changes
+  useEffect(() => {
+    if (ci.classId) {
+      fetchEffectiveSchema(ci.classId);
+    } else {
+      setEffectiveSchema(null);
+    }
+  }, [ci.classId, fetchEffectiveSchema]);
+
   useEffect(() => {
     fetchClasses();
     fetchCi();
@@ -291,6 +329,44 @@ export const CmdbCiDetail: React.FC = () => {
     setCi((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleAttributeChange = (key: string, value: unknown) => {
+    setCi((prev) => ({
+      ...prev,
+      attributes: {
+        ...(prev.attributes || {}),
+        [key]: value,
+      },
+    }));
+    // Clear field-level error on change
+    if (schemaFieldErrors[key]) {
+      setSchemaFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
+  /** Frontend-only UX validation of schema fields before save */
+  const validateSchemaFields = (): boolean => {
+    if (!effectiveSchema?.effectiveFields?.length) return true;
+    const attrs = ci.attributes || {};
+    const errors: Record<string, string> = {};
+    for (const field of effectiveSchema.effectiveFields) {
+      const val = attrs[field.key];
+      // Required check
+      if (field.required && (val === undefined || val === null || val === '')) {
+        errors[field.key] = `${field.label} is required`;
+      }
+      // MaxLength check
+      if (field.maxLength && typeof val === 'string' && val.length > field.maxLength) {
+        errors[field.key] = `${field.label} exceeds max length of ${field.maxLength}`;
+      }
+    }
+    setSchemaFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
     if (!ci.name?.trim()) {
       showNotification('CI name is required', 'error');
@@ -298,6 +374,12 @@ export const CmdbCiDetail: React.FC = () => {
     }
     if (!ci.classId) {
       showNotification('CI class is required', 'error');
+      return;
+    }
+
+    // Frontend UX validation of schema-driven fields
+    if (!validateSchemaFields()) {
+      showNotification('Please fix validation errors in the class fields section', 'error');
       return;
     }
 
@@ -314,6 +396,7 @@ export const CmdbCiDetail: React.FC = () => {
           dnsName: ci.dnsName,
           assetTag: ci.assetTag,
           serialNumber: ci.serialNumber,
+          attributes: ci.attributes,
         });
         const data = response.data;
         if (data && 'data' in data && data.data?.id) {
@@ -331,15 +414,24 @@ export const CmdbCiDetail: React.FC = () => {
           dnsName: ci.dnsName,
           assetTag: ci.assetTag,
           serialNumber: ci.serialNumber,
+          attributes: ci.attributes,
         });
         showNotification('Configuration item updated successfully', 'success');
         fetchCi();
       }
     } catch (error: unknown) {
       console.error('Error saving CI:', error);
-      const axiosErr = error as { response?: { status?: number } };
+      const axiosErr = error as { response?: { status?: number; data?: { validationErrors?: Array<{ field: string; message: string }> } } };
       if (axiosErr?.response?.status === 403) {
         showNotification('You don\'t have permission to manage CIs.', 'error');
+      } else if (axiosErr?.response?.status === 400 && axiosErr?.response?.data?.validationErrors) {
+        // Map backend validation errors to field-level errors
+        const fieldErrors: Record<string, string> = {};
+        for (const ve of axiosErr.response.data.validationErrors) {
+          fieldErrors[ve.field] = ve.message;
+        }
+        setSchemaFieldErrors(fieldErrors);
+        showNotification('Validation failed for class attributes', 'error');
       } else {
         showNotification('Failed to save configuration item', 'error');
       }
@@ -510,6 +602,107 @@ export const CmdbCiDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Dynamic Class Fields Section (Effective Schema) */}
+      {ci.classId && (
+        <Card sx={{ mt: 3 }} data-testid="class-fields-section">
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Class Fields
+                </Typography>
+                {effectiveSchema && (
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    {effectiveSchema.inheritedFieldCount > 0 && (
+                      <Chip
+                        label={`${effectiveSchema.inheritedFieldCount} inherited`}
+                        size="small"
+                        variant="outlined"
+                        color="info"
+                        data-testid="inherited-field-count"
+                      />
+                    )}
+                    {effectiveSchema.localFieldCount > 0 && (
+                      <Chip
+                        label={`${effectiveSchema.localFieldCount} local`}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        data-testid="local-field-count"
+                      />
+                    )}
+                  </Box>
+                )}
+              </Box>
+              {effectiveSchema?.ancestors && effectiveSchema.ancestors.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Hierarchy:
+                  </Typography>
+                  {effectiveSchema.ancestors.map((ancestor, idx) => (
+                    <React.Fragment key={ancestor.id}>
+                      {idx > 0 && (
+                        <Typography variant="caption" color="text.secondary">
+                          {' > '}
+                        </Typography>
+                      )}
+                      <Chip
+                        label={ancestor.label}
+                        size="small"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: '0.7rem' }}
+                      />
+                    </React.Fragment>
+                  ))}
+                  <Typography variant="caption" color="text.secondary">
+                    {' > '}
+                  </Typography>
+                  <Chip
+                    label={effectiveSchema.classLabel}
+                    size="small"
+                    color="primary"
+                    sx={{ height: 20, fontSize: '0.7rem' }}
+                    data-testid="current-class-badge"
+                  />
+                </Box>
+              )}
+            </Box>
+            <Divider sx={{ mb: 3 }} />
+
+            {schemaLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : effectiveSchema?.effectiveFields && effectiveSchema.effectiveFields.length > 0 ? (
+              <Grid container spacing={3}>
+                {effectiveSchema.effectiveFields
+                  .slice()
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((field) => (
+                    <Grid
+                      item
+                      xs={12}
+                      md={field.dataType === 'text' || field.dataType === 'json' ? 12 : 6}
+                      key={field.key}
+                    >
+                      <SchemaFieldRenderer
+                        field={field}
+                        value={(ci.attributes || {})[field.key]}
+                        onChange={handleAttributeChange}
+                        error={schemaFieldErrors[field.key]}
+                      />
+                    </Grid>
+                  ))}
+              </Grid>
+            ) : (
+              <Typography variant="body2" color="text.secondary" data-testid="no-class-fields">
+                No fields defined for this class. Fields can be added in the class definition.
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {!isNew && (
         <Card sx={{ mt: 3 }}>

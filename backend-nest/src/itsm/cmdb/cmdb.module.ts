@@ -11,6 +11,7 @@ import { CiClassController } from './ci-class/ci-class.controller';
 
 import { CmdbCi } from './ci/ci.entity';
 import { CiService } from './ci/ci.service';
+import { CiAttributeValidationService } from './ci/ci-attribute-validation.service';
 import { CiController } from './ci/ci.controller';
 
 import { CmdbCiRel } from './ci-rel/ci-rel.entity';
@@ -54,6 +55,7 @@ import { TopologyController } from './topology/topology.controller';
     CiClassService,
     CiClassInheritanceService,
     CiService,
+    CiAttributeValidationService,
     CiRelService,
     CmdbServiceService,
     CmdbServiceOfferingService,

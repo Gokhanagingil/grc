@@ -112,6 +112,34 @@ export const CmdbCiClassList: React.FC = () => {
       ),
     },
     {
+      key: 'parentClassId',
+      header: 'Parent Class',
+      render: (row) => {
+        if (!row.parentClassId) return <Typography variant="body2" color="text.secondary">-</Typography>;
+        const parent = items.find((c) => c.id === row.parentClassId);
+        return (
+          <Chip
+            label={parent?.label || row.parentClassId.substring(0, 8)}
+            size="small"
+            variant="outlined"
+            color="info"
+          />
+        );
+      },
+    },
+    {
+      key: 'fieldsSchema',
+      header: 'Fields',
+      render: (row) => {
+        const count = Array.isArray(row.fieldsSchema) ? row.fieldsSchema.length : 0;
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {count > 0 ? `${count} field${count > 1 ? 's' : ''}` : '-'}
+          </Typography>
+        );
+      },
+    },
+    {
       key: 'description',
       header: 'Description',
       render: (row) => (
@@ -124,11 +152,22 @@ export const CmdbCiClassList: React.FC = () => {
       key: 'isActive',
       header: 'Status',
       render: (row) => (
-        <Chip
-          label={row.isActive ? 'Active' : 'Inactive'}
-          size="small"
-          color={row.isActive ? 'success' : 'default'}
-        />
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          <Chip
+            label={row.isActive ? 'Active' : 'Inactive'}
+            size="small"
+            color={row.isActive ? 'success' : 'default'}
+          />
+          {row.isAbstract && (
+            <Chip
+              label="Abstract"
+              size="small"
+              variant="outlined"
+              color="warning"
+              data-testid={`abstract-badge-${row.id}`}
+            />
+          )}
+        </Box>
       ),
     },
     {
@@ -140,7 +179,7 @@ export const CmdbCiClassList: React.FC = () => {
         </Typography>
       ),
     },
-  ], []);
+  ], [items]);
 
   return (
     <Box>
