@@ -13,14 +13,16 @@ import { CmdbQualitySnapshot } from '../../cmdb/health/cmdb-quality-snapshot.ent
 import { SlaInstance, SlaInstanceStatus } from '../../sla/sla-instance.entity';
 import { CalendarConflict } from '../calendar/calendar-conflict.entity';
 import { CustomerRiskImpactService } from './customer-risk-impact.service';
+import { TopologyImpactAnalysisService } from './topology-impact/topology-impact-analysis.service';
 
 const FACTOR_WEIGHTS = {
-  BLAST_RADIUS: 22,
-  CMDB_QUALITY: 13,
-  CHANGE_TYPE: 18,
-  LEAD_TIME: 17,
-  SLA_BREACH_FORECAST: 8,
-  CONFLICT_STATUS: 8,
+  BLAST_RADIUS: 18,
+  TOPOLOGY_IMPACT: 12,
+  CMDB_QUALITY: 11,
+  CHANGE_TYPE: 16,
+  LEAD_TIME: 15,
+  SLA_BREACH_FORECAST: 7,
+  CONFLICT_STATUS: 7,
   CUSTOMER_RISK_EXPOSURE: 14,
 };
 
@@ -54,6 +56,8 @@ export class RiskScoringService {
     private readonly conflictRepo?: Repository<CalendarConflict>,
     @Optional()
     private readonly customerRiskImpactService?: CustomerRiskImpactService,
+    @Optional()
+    private readonly topologyImpactService?: TopologyImpactAnalysisService,
   ) {}
 
   async getAssessment(
@@ -107,6 +111,12 @@ export class RiskScoringService {
       change,
     );
     factors.push(customerRiskResult.factor);
+
+    const topologyResult = await this.calculateTopologyImpactFactor(
+      tenantId,
+      change,
+    );
+    factors.push(topologyResult.factor);
 
     const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
     const weightedSum = factors.reduce((sum, f) => sum + f.weightedScore, 0);
@@ -404,6 +414,51 @@ export class RiskScoringService {
       },
       hasFreezeConflict,
     };
+  }
+
+  private async calculateTopologyImpactFactor(
+    tenantId: string,
+    change: ItsmChange,
+  ): Promise<{ factor: RiskFactor }> {
+    if (!this.topologyImpactService) {
+      return {
+        factor: {
+          name: 'Topology Impact',
+          weight: FACTOR_WEIGHTS.TOPOLOGY_IMPACT,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'Topology impact analysis service not available',
+        },
+      };
+    }
+
+    try {
+      const { score, evidence } =
+        await this.topologyImpactService.getTopologyRiskFactor(
+          tenantId,
+          change,
+        );
+
+      return {
+        factor: {
+          name: 'Topology Impact',
+          weight: FACTOR_WEIGHTS.TOPOLOGY_IMPACT,
+          score,
+          weightedScore: score * FACTOR_WEIGHTS.TOPOLOGY_IMPACT,
+          evidence,
+        },
+      };
+    } catch {
+      return {
+        factor: {
+          name: 'Topology Impact',
+          weight: FACTOR_WEIGHTS.TOPOLOGY_IMPACT,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'Topology impact calculation failed (non-blocking)',
+        },
+      };
+    }
   }
 
   private async calculateCustomerRiskExposure(
