@@ -17,6 +17,8 @@ import {
   createPaginatedResponse,
 } from '../../../grc/dto/pagination.dto';
 import { CustomerRiskImpactResult } from './customer-risk-impact.service';
+import { TopologyImpactResponse } from './topology-impact/dto/topology-impact.dto';
+import { TopologyPolicyFlags } from './topology-impact/dto/topology-governance.dto';
 
 export interface PolicyEvaluationResult {
   policyId: string;
@@ -170,6 +172,8 @@ export class PolicyService {
     change: ItsmChange,
     assessment: RiskAssessment | null,
     customerRiskImpact?: CustomerRiskImpactResult | null,
+    topologyImpact?: TopologyImpactResponse | null,
+    topologyPolicyFlags?: TopologyPolicyFlags | null,
   ): Promise<PolicyEvaluationSummary> {
     const summary: PolicyEvaluationSummary = {
       requireCABApproval: false,
@@ -196,6 +200,7 @@ export class PolicyService {
         change,
         assessment,
         customerRiskImpact ?? null,
+        topologyPolicyFlags ?? null,
       );
 
       if (matched) {
@@ -255,6 +260,15 @@ export class PolicyService {
         if (policy.actions.requireJustification) {
           summary.requiredActions.push('Justification required');
         }
+        if (policy.actions.requireTestEvidence) {
+          summary.requiredActions.push('Test evidence required');
+        }
+        if (policy.actions.requireStakeholderComms) {
+          summary.requiredActions.push('Stakeholder communications required');
+        }
+        if (policy.actions.requireMaintenanceWindow) {
+          summary.requiredActions.push('Maintenance window required');
+        }
       }
     }
 
@@ -275,6 +289,7 @@ export class PolicyService {
     change: ItsmChange,
     assessment: RiskAssessment | null,
     customerRiskImpact: CustomerRiskImpactResult | null,
+    topologyPolicyFlags: TopologyPolicyFlags | null,
   ): boolean {
     if (
       conditions.changeType &&
@@ -341,6 +356,56 @@ export class PolicyService {
       if (currentLabel < minLabel) return false;
     }
 
+    // Topology conditions (fail-open: if topologyPolicyFlags is null, skip topology conditions)
+    if (topologyPolicyFlags) {
+      if (
+        conditions.topologyRiskScoreMin !== undefined &&
+        topologyPolicyFlags.topologyRiskScore < conditions.topologyRiskScoreMin
+      ) {
+        return false;
+      }
+
+      if (
+        conditions.topologyHighBlastRadius === true &&
+        !topologyPolicyFlags.topologyHighBlastRadius
+      ) {
+        return false;
+      }
+
+      if (
+        conditions.topologyFragilitySignalsMin !== undefined &&
+        topologyPolicyFlags.topologyFragilitySignalsCount <
+          conditions.topologyFragilitySignalsMin
+      ) {
+        return false;
+      }
+
+      if (
+        conditions.topologyCriticalDependencyTouched === true &&
+        !topologyPolicyFlags.topologyCriticalDependencyTouched
+      ) {
+        return false;
+      }
+
+      if (
+        conditions.topologySinglePointOfFailureRisk === true &&
+        !topologyPolicyFlags.topologySinglePointOfFailureRisk
+      ) {
+        return false;
+      }
+    } else {
+      // If topology data is not available, skip policies that require topology conditions
+      if (
+        conditions.topologyRiskScoreMin !== undefined ||
+        conditions.topologyHighBlastRadius !== undefined ||
+        conditions.topologyFragilitySignalsMin !== undefined ||
+        conditions.topologyCriticalDependencyTouched !== undefined ||
+        conditions.topologySinglePointOfFailureRisk !== undefined
+      ) {
+        return false;
+      }
+    }
+
     return true;
   }
 
@@ -374,6 +439,23 @@ export class PolicyService {
     if (conditions.customerRiskLabelMin) {
       parts.push(`customer risk label >= ${conditions.customerRiskLabelMin}`);
     }
+    if (conditions.topologyRiskScoreMin !== undefined) {
+      parts.push(`topology risk score >= ${conditions.topologyRiskScoreMin}`);
+    }
+    if (conditions.topologyHighBlastRadius) {
+      parts.push('high topology blast radius');
+    }
+    if (conditions.topologyFragilitySignalsMin !== undefined) {
+      parts.push(
+        `topology fragility signals >= ${conditions.topologyFragilitySignalsMin}`,
+      );
+    }
+    if (conditions.topologyCriticalDependencyTouched) {
+      parts.push('critical dependency touched');
+    }
+    if (conditions.topologySinglePointOfFailureRisk) {
+      parts.push('single point of failure risk');
+    }
     return parts.length > 0 ? parts.join(', ') : 'unconditional';
   }
 
@@ -389,6 +471,13 @@ export class PolicyService {
     }
     if (actions.requireBackoutPlan) parts.push('require backout plan');
     if (actions.requireJustification) parts.push('require justification');
+    if (actions.requireTestEvidence) parts.push('require test evidence');
+    if (actions.requireStakeholderComms) {
+      parts.push('require stakeholder communications');
+    }
+    if (actions.requireMaintenanceWindow) {
+      parts.push('require maintenance window');
+    }
     if (actions.notifyRoles?.length) {
       parts.push(`notify [${actions.notifyRoles.join(', ')}]`);
     }
