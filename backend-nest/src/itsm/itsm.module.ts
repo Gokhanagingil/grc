@@ -117,6 +117,9 @@ import { KnowledgeCandidateController } from './pir/knowledge-candidate.controll
 import { AnalyticsService } from './analytics/analytics.service';
 import { AnalyticsController } from './analytics/analytics.controller';
 
+import { TopologyImpactAnalysisService } from './change/risk/topology-impact/topology-impact-analysis.service';
+import { TopologyImpactController } from './change/risk/topology-impact/topology-impact.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -196,6 +199,7 @@ import { AnalyticsController } from './analytics/analytics.controller';
     PirActionService,
     KnowledgeCandidateService,
     AnalyticsService,
+    TopologyImpactAnalysisService,
   ],
   controllers: [
     IncidentController,
@@ -221,6 +225,7 @@ import { AnalyticsController } from './analytics/analytics.controller';
     PirActionController,
     KnowledgeCandidateController,
     AnalyticsController,
+    TopologyImpactController,
   ],
   exports: [
     IncidentService,
@@ -253,6 +258,7 @@ import { AnalyticsController } from './analytics/analytics.controller';
     PirService,
     PirActionService,
     KnowledgeCandidateService,
+    TopologyImpactAnalysisService,
   ],
 })
 export class ItsmModule {}
