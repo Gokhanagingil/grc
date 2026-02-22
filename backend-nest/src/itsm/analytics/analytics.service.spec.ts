@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { AnalyticsService } from './analytics.service';
 import { ItsmProblem } from '../problem/problem.entity';
@@ -17,8 +17,8 @@ import {
   ProblemImpact,
   ProblemUrgency,
 } from '../enums';
-import { MajorIncidentStatus, MajorIncidentSeverity } from '../major-incident/major-incident.enums';
-import { PirStatus, PirActionStatus, PirActionPriority, KnowledgeCandidateStatus, KnowledgeCandidateSourceType } from '../pir/pir.enums';
+import { MajorIncidentStatus } from '../major-incident/major-incident.enums';
+import { PirStatus, KnowledgeCandidateStatus } from '../pir/pir.enums';
 
 // ============================================================================
 // Constants
@@ -33,7 +33,9 @@ const EMPTY_FILTER: AnalyticsFilterDto = {};
 // Mock QueryBuilder Factory
 // ============================================================================
 
-function createMockQueryBuilder(overrides: Partial<Record<string, jest.Mock>> = {}): Record<string, jest.Mock> {
+function createMockQueryBuilder(
+  overrides: Partial<Record<string, jest.Mock>> = {},
+): Record<string, jest.Mock> {
   const qb: Record<string, jest.Mock> = {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
@@ -61,7 +63,6 @@ function createMockQueryBuilder(overrides: Partial<Record<string, jest.Mock>> = 
 
 const now = new Date();
 const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
 function makeProblem(partial: Partial<ItsmProblem> = {}): Partial<ItsmProblem> {
   return {
@@ -78,26 +79,6 @@ function makeProblem(partial: Partial<ItsmProblem> = {}): Partial<ItsmProblem> {
     isDeleted: false,
     reopenCount: 0,
     assignedTo: ADMIN_ID,
-    createdAt: thirtyDaysAgo,
-    updatedAt: now,
-    ...partial,
-  };
-}
-
-function makeMajorIncident(partial: Partial<ItsmMajorIncident> = {}): Partial<ItsmMajorIncident> {
-  return {
-    id: '00000000-0000-0000-0000-000000000201',
-    tenantId: TENANT_A,
-    number: 'MI000001',
-    title: 'Test Major Incident',
-    status: MajorIncidentStatus.DECLARED,
-    severity: MajorIncidentSeverity.SEV1,
-    isDeleted: false,
-    declaredAt: thirtyDaysAgo,
-    resolvedAt: null,
-    closedAt: null,
-    bridgeStartedAt: null,
-    bridgeEndedAt: null,
     createdAt: thirtyDaysAgo,
     updatedAt: now,
     ...partial,
@@ -121,12 +102,14 @@ describe('AnalyticsService', () => {
   let qbCallIndex: Record<string, number>;
   let qbOverrides: Record<string, Array<Partial<Record<string, jest.Mock>>>>;
 
-  function setQbOverrides(repoName: string, overridesPerCall: Array<Partial<Record<string, jest.Mock>>>) {
+  function setQbOverrides(
+    repoName: string,
+    overridesPerCall: Array<Partial<Record<string, jest.Mock>>>,
+  ) {
     qbOverrides[repoName] = overridesPerCall;
     qbCallIndex[repoName] = 0;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function setupCreateQueryBuilder(repo: any, repoName: string) {
     repo.createQueryBuilder = jest.fn().mockImplementation(() => {
       const idx = qbCallIndex[repoName] || 0;
@@ -153,10 +136,16 @@ describe('AnalyticsService', () => {
         AnalyticsService,
         { provide: getRepositoryToken(ItsmProblem), useValue: mockRepo() },
         { provide: getRepositoryToken(ItsmKnownError), useValue: mockRepo() },
-        { provide: getRepositoryToken(ItsmMajorIncident), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(ItsmMajorIncident),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(ItsmPir), useValue: mockRepo() },
         { provide: getRepositoryToken(ItsmPirAction), useValue: mockRepo() },
-        { provide: getRepositoryToken(ItsmKnowledgeCandidate), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(ItsmKnowledgeCandidate),
+          useValue: mockRepo(),
+        },
       ],
     }).compile();
 
@@ -166,7 +155,9 @@ describe('AnalyticsService', () => {
     majorIncidentRepo = module.get(getRepositoryToken(ItsmMajorIncident));
     pirRepo = module.get(getRepositoryToken(ItsmPir));
     pirActionRepo = module.get(getRepositoryToken(ItsmPirAction));
-    knowledgeCandidateRepo = module.get(getRepositoryToken(ItsmKnowledgeCandidate));
+    knowledgeCandidateRepo = module.get(
+      getRepositoryToken(ItsmKnowledgeCandidate),
+    );
 
     // Wire up createQueryBuilder with override support for each repo
     setupCreateQueryBuilder(problemRepo, 'problem');
@@ -192,7 +183,7 @@ describe('AnalyticsService', () => {
   describe('getExecutiveSummary', () => {
     it('should return correct shape with KPI fields and trends', async () => {
       // Problem repo is called multiple times: countProblems (total), countProblems (open states),
-      // countReopenedProblems, getProblemTrendData (3 calls), getClosureStats (2 calls), 
+      // countReopenedProblems, getProblemTrendData (3 calls), getClosureStats (2 calls),
       // plus additional internal calls
       // We set up all problem QBs to return specific counts
       const problemQbs: Array<Partial<Record<string, jest.Mock>>> = [];
@@ -203,22 +194,44 @@ describe('AnalyticsService', () => {
       // countReopenedProblems -> 1
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(1) });
       // getProblemTrendData: 3 QBs (opened, closed, resolved)
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', opened: '2' }]) });
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', closed: '1' }]) });
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', resolved: '1' }]) });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', opened: '2' }]),
+      });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', closed: '1' }]),
+      });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', resolved: '1' }]),
+      });
       // getClosureStats: countProblems (total) -> 5, countProblems (closed) -> 2
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(5) });
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(2) });
       // getAvgDaysToCloseProblem
-      problemQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '7.5' }) });
+      problemQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '7.5' }),
+      });
       setQbOverrides('problem', problemQbs);
 
       // MI repo: countMajorIncidents (open) -> 2, getMajorIncidentSeverityDistribution, getMajorIncidentTrendData (3)
       const miQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       miQbs.push({ getCount: jest.fn().mockResolvedValue(2) });
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ label: 'SEV1', count: '2' }]) });
+      miQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ label: 'SEV1', count: '2' }]),
+      });
       // MI trend: opened, closed, resolved
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', opened: '1' }]) });
+      miQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', opened: '1' }]),
+      });
       miQbs.push({ getRawMany: jest.fn().mockResolvedValue([]) });
       miQbs.push({ getRawMany: jest.fn().mockResolvedValue([]) });
       setQbOverrides('majorIncident', miQbs);
@@ -234,7 +247,9 @@ describe('AnalyticsService', () => {
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(1) }); // overdue
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(6) }); // action total
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(4) }); // action completed
-      actionQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '5.0' }) }); // avg days
+      actionQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '5.0' }),
+      }); // avg days
       setQbOverrides('pirAction', actionQbs);
 
       // KE repo: countKnownErrors (published) -> 3
@@ -270,8 +285,12 @@ describe('AnalyticsService', () => {
       // Assert closure effectiveness shape
       expect(result.closureEffectiveness).toHaveProperty('problemClosureRate');
       expect(result.closureEffectiveness).toHaveProperty('actionClosureRate');
-      expect(result.closureEffectiveness).toHaveProperty('avgDaysToCloseProblem');
-      expect(result.closureEffectiveness).toHaveProperty('avgDaysToCloseAction');
+      expect(result.closureEffectiveness).toHaveProperty(
+        'avgDaysToCloseProblem',
+      );
+      expect(result.closureEffectiveness).toHaveProperty(
+        'avgDaysToCloseAction',
+      );
 
       // Assert arrays
       expect(Array.isArray(result.problemTrend)).toBe(true);
@@ -279,14 +298,23 @@ describe('AnalyticsService', () => {
       expect(Array.isArray(result.severityDistribution)).toBe(true);
 
       // Assert generatedAt is ISO string
-      expect(new Date(result.generatedAt).toISOString()).toBe(result.generatedAt);
+      expect(new Date(result.generatedAt).toISOString()).toBe(
+        result.generatedAt,
+      );
     });
 
     it('should scope all queries to the provided tenantId (tenant isolation)', async () => {
       await service.getExecutiveSummary(TENANT_B, EMPTY_FILTER);
 
       // Every createQueryBuilder call should have .where with tenantId = TENANT_B
-      for (const repo of [problemRepo, knownErrorRepo, majorIncidentRepo, pirRepo, pirActionRepo, knowledgeCandidateRepo]) {
+      for (const repo of [
+        problemRepo,
+        knownErrorRepo,
+        majorIncidentRepo,
+        pirRepo,
+        pirActionRepo,
+        knowledgeCandidateRepo,
+      ]) {
         const calls = (repo.createQueryBuilder as jest.Mock).mock.results;
         for (const call of calls) {
           const qb = call.value;
@@ -295,7 +323,9 @@ describe('AnalyticsService', () => {
             // First where call should contain tenantId
             const [clause, params] = whereCalls[0];
             expect(clause).toContain('tenantId');
-            expect(params).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(params).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }
@@ -315,34 +345,52 @@ describe('AnalyticsService', () => {
       // then after microtask: 8) trendClosed, 9) trendResolved
       const problemQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       // #1 getProblemStateDistribution
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: ProblemState.NEW, count: '3' },
-        { label: ProblemState.UNDER_INVESTIGATION, count: '2' },
-      ]) });
+      problemQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: ProblemState.NEW, count: '3' },
+          { label: ProblemState.UNDER_INVESTIGATION, count: '2' },
+        ]),
+      });
       // #2 getProblemPriorityDistribution
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'P1', count: '1' },
-        { label: 'P2', count: '2' },
-        { label: 'P3', count: '2' },
-      ]) });
+      problemQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'P1', count: '1' },
+          { label: 'P2', count: '2' },
+          { label: 'P3', count: '2' },
+        ]),
+      });
       // #3 getProblemCategoryDistribution
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'SOFTWARE', count: '3' },
-        { label: 'HARDWARE', count: '2' },
-      ]) });
+      problemQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'SOFTWARE', count: '3' },
+          { label: 'HARDWARE', count: '2' },
+        ]),
+      });
       // #4 getProblemTrendData -> openedQb
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', opened: '3' }]) });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', opened: '3' }]),
+      });
       // #5 getProblemAgingBuckets
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { bucket: '0-7 days', count: '2' },
-        { bucket: '8-30 days', count: '3' },
-      ]) });
+      problemQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { bucket: '0-7 days', count: '2' },
+          { bucket: '8-30 days', count: '3' },
+        ]),
+      });
       // #6 countReopenedProblems -> 1
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(1) });
       // #7 getAvgDaysOpenProblems
-      problemQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '15.3' }) });
+      problemQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '15.3' }),
+      });
       // #8 getProblemTrendData -> closedQb (after first await resolves)
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', closed: '1' }]) });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', closed: '1' }]),
+      });
       // #9 getProblemTrendData -> resolvedQb
       problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([]) });
       setQbOverrides('problem', problemQbs);
@@ -392,7 +440,9 @@ describe('AnalyticsService', () => {
         const qb = call.value;
         const whereCalls = qb.where.mock.calls;
         if (whereCalls.length > 0) {
-          expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+          expect(whereCalls[0][1]).toEqual(
+            expect.objectContaining({ tenantId: TENANT_B }),
+          );
         }
       }
     });
@@ -408,16 +458,20 @@ describe('AnalyticsService', () => {
       // countMajorIncidents (total) -> 4
       miQbs.push({ getCount: jest.fn().mockResolvedValue(4) });
       // getMajorIncidentStatusDistribution
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: MajorIncidentStatus.DECLARED, count: '1' },
-        { label: MajorIncidentStatus.RESOLVED, count: '2' },
-        { label: MajorIncidentStatus.CLOSED, count: '1' },
-      ]) });
+      miQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: MajorIncidentStatus.DECLARED, count: '1' },
+          { label: MajorIncidentStatus.RESOLVED, count: '2' },
+          { label: MajorIncidentStatus.CLOSED, count: '1' },
+        ]),
+      });
       // getMajorIncidentSeverityDistribution
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'SEV1', count: '2' },
-        { label: 'SEV2', count: '2' },
-      ]) });
+      miQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'SEV1', count: '2' },
+          { label: 'SEV2', count: '2' },
+        ]),
+      });
       // getMttrHours
       miQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '4.5' }) });
       // getAvgBridgeDuration
@@ -425,9 +479,21 @@ describe('AnalyticsService', () => {
       // getPirCompletionRateForMI: totalMi count, then PIR subquery
       miQbs.push({ getCount: jest.fn().mockResolvedValue(3) });
       // trend: opened, closed, resolved
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', opened: '2' }]) });
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', closed: '1' }]) });
-      miQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', resolved: '1' }]) });
+      miQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', opened: '2' }]),
+      });
+      miQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', closed: '1' }]),
+      });
+      miQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', resolved: '1' }]),
+      });
       setQbOverrides('majorIncident', miQbs);
 
       // PIR repo for getPirCompletionRateForMI
@@ -435,7 +501,10 @@ describe('AnalyticsService', () => {
       pirQbs.push({ getRawOne: jest.fn().mockResolvedValue({ cnt: '2' }) });
       setQbOverrides('pir', pirQbs);
 
-      const result = await service.getMajorIncidentMetrics(TENANT_A, EMPTY_FILTER);
+      const result = await service.getMajorIncidentMetrics(
+        TENANT_A,
+        EMPTY_FILTER,
+      );
 
       expect(result).toHaveProperty('totalCount');
       expect(result).toHaveProperty('byStatus');
@@ -469,7 +538,9 @@ describe('AnalyticsService', () => {
           const qb = call.value;
           const whereCalls = qb.where.mock.calls;
           if (whereCalls.length > 0) {
-            expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(whereCalls[0][1]).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }
@@ -485,28 +556,34 @@ describe('AnalyticsService', () => {
       // PIR repo: countPirs, getPirStatusDistribution
       const pirQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       pirQbs.push({ getCount: jest.fn().mockResolvedValue(5) });
-      pirQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: PirStatus.DRAFT, count: '1' },
-        { label: PirStatus.APPROVED, count: '2' },
-        { label: PirStatus.CLOSED, count: '2' },
-      ]) });
+      pirQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: PirStatus.DRAFT, count: '1' },
+          { label: PirStatus.APPROVED, count: '2' },
+          { label: PirStatus.CLOSED, count: '2' },
+        ]),
+      });
       setQbOverrides('pir', pirQbs);
 
       // PIR Action: getActionCompletionRate (total, completed), countOverdueActions, getAvgDaysToCompleteAction
       const actionQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(10) }); // total
-      actionQbs.push({ getCount: jest.fn().mockResolvedValue(7) });  // completed
-      actionQbs.push({ getCount: jest.fn().mockResolvedValue(2) });  // overdue
-      actionQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '3.5' }) }); // avg days
+      actionQbs.push({ getCount: jest.fn().mockResolvedValue(7) }); // completed
+      actionQbs.push({ getCount: jest.fn().mockResolvedValue(2) }); // overdue
+      actionQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '3.5' }),
+      }); // avg days
       setQbOverrides('pirAction', actionQbs);
 
       // KC: countKnowledgeCandidates, getKnowledgeCandidateStatusDistribution
       const kcQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       kcQbs.push({ getCount: jest.fn().mockResolvedValue(4) });
-      kcQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: KnowledgeCandidateStatus.DRAFT, count: '2' },
-        { label: KnowledgeCandidateStatus.PUBLISHED, count: '2' },
-      ]) });
+      kcQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: KnowledgeCandidateStatus.DRAFT, count: '2' },
+          { label: KnowledgeCandidateStatus.PUBLISHED, count: '2' },
+        ]),
+      });
       setQbOverrides('kc', kcQbs);
 
       const result = await service.getPirEffectiveness(TENANT_A, EMPTY_FILTER);
@@ -536,7 +613,9 @@ describe('AnalyticsService', () => {
           const qb = call.value;
           const whereCalls = qb.where.mock.calls;
           if (whereCalls.length > 0) {
-            expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(whereCalls[0][1]).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }
@@ -553,17 +632,21 @@ describe('AnalyticsService', () => {
       // countKnownErrors (total) -> 6
       keQbs.push({ getCount: jest.fn().mockResolvedValue(6) });
       // getKnownErrorStateDistribution
-      keQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'DRAFT', count: '2' },
-        { label: 'PUBLISHED', count: '3' },
-        { label: 'RETIRED', count: '1' },
-      ]) });
+      keQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'DRAFT', count: '2' },
+          { label: 'PUBLISHED', count: '3' },
+          { label: 'RETIRED', count: '1' },
+        ]),
+      });
       // getKnownErrorFixStatusDistribution
-      keQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'NONE', count: '2' },
-        { label: 'WORKAROUND_AVAILABLE', count: '3' },
-        { label: 'FIX_DEPLOYED', count: '1' },
-      ]) });
+      keQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'NONE', count: '2' },
+          { label: 'WORKAROUND_AVAILABLE', count: '3' },
+          { label: 'FIX_DEPLOYED', count: '1' },
+        ]),
+      });
       // countKnownErrors (published) -> 3
       keQbs.push({ getCount: jest.fn().mockResolvedValue(3) });
       // countKnownErrors (retired) -> 1
@@ -577,7 +660,10 @@ describe('AnalyticsService', () => {
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(8) });
       setQbOverrides('problem', problemQbs);
 
-      const result = await service.getKnownErrorLifecycle(TENANT_A, EMPTY_FILTER);
+      const result = await service.getKnownErrorLifecycle(
+        TENANT_A,
+        EMPTY_FILTER,
+      );
 
       expect(result).toHaveProperty('totalCount');
       expect(result).toHaveProperty('stateDistribution');
@@ -607,7 +693,9 @@ describe('AnalyticsService', () => {
           const qb = call.value;
           const whereCalls = qb.where.mock.calls;
           if (whereCalls.length > 0) {
-            expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(whereCalls[0][1]).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }
@@ -622,22 +710,38 @@ describe('AnalyticsService', () => {
     it('should return correct shape with closure trends, reopen rates, and avg days', async () => {
       const problemQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       // getProblemClosureTrend -> getProblemTrendData (opened, closed, resolved)
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', opened: '3' }]) });
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', closed: '2' }]) });
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([{ period: '2026-01', resolved: '1' }]) });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', opened: '3' }]),
+      });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', closed: '2' }]),
+      });
+      problemQbs.push({
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ period: '2026-01', resolved: '1' }]),
+      });
       // countReopenedProblems -> 2
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(2) });
       // countProblems (total) -> 10
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(10) });
       // getAvgDaysToCloseProblem
-      problemQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '12.0' }) });
+      problemQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '12.0' }),
+      });
       setQbOverrides('problem', problemQbs);
 
       // PIR Action: getActionCompletionRate (total, completed), getAvgDaysToCompleteAction
       const actionQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(8) }); // total
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(6) }); // completed
-      actionQbs.push({ getRawOne: jest.fn().mockResolvedValue({ avg: '4.0' }) }); // avg days
+      actionQbs.push({
+        getRawOne: jest.fn().mockResolvedValue({ avg: '4.0' }),
+      }); // avg days
       setQbOverrides('pirAction', actionQbs);
 
       // PIR: getPirClosureRate (total, closed)
@@ -646,7 +750,10 @@ describe('AnalyticsService', () => {
       pirQbs.push({ getCount: jest.fn().mockResolvedValue(3) }); // closed
       setQbOverrides('pir', pirQbs);
 
-      const result = await service.getClosureEffectiveness(TENANT_A, EMPTY_FILTER);
+      const result = await service.getClosureEffectiveness(
+        TENANT_A,
+        EMPTY_FILTER,
+      );
 
       expect(result).toHaveProperty('problemClosureRateTrend');
       expect(result).toHaveProperty('reopenedProblemRate');
@@ -673,7 +780,9 @@ describe('AnalyticsService', () => {
           const qb = call.value;
           const whereCalls = qb.where.mock.calls;
           if (whereCalls.length > 0) {
-            expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(whereCalls[0][1]).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }
@@ -688,26 +797,38 @@ describe('AnalyticsService', () => {
     it('should return correct shape with priority distributions, overdue, stale, and items', async () => {
       const problemQbs: Array<Partial<Record<string, jest.Mock>>> = [];
       // getOpenProblemsByPriority
-      problemQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'P1', count: '1' },
-        { label: 'P2', count: '2' },
-      ]) });
+      problemQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'P1', count: '1' },
+          { label: 'P2', count: '2' },
+        ]),
+      });
       // countStaleItems: staleProblems
       problemQbs.push({ getCount: jest.fn().mockResolvedValue(1) });
       // getBacklogItems: open problems
       const mockProblems = [
-        makeProblem({ id: 'p1', priority: ProblemPriority.P1, state: ProblemState.NEW }),
-        makeProblem({ id: 'p2', priority: ProblemPriority.P2, state: ProblemState.UNDER_INVESTIGATION }),
+        makeProblem({
+          id: 'p1',
+          priority: ProblemPriority.P1,
+          state: ProblemState.NEW,
+        }),
+        makeProblem({
+          id: 'p2',
+          priority: ProblemPriority.P2,
+          state: ProblemState.UNDER_INVESTIGATION,
+        }),
       ];
       problemQbs.push({ getMany: jest.fn().mockResolvedValue(mockProblems) });
       setQbOverrides('problem', problemQbs);
 
       // PIR Action: getOpenActionsByPriority, countOverdueActions, countStaleItems (staleActions), getBacklogItems (actions)
       const actionQbs: Array<Partial<Record<string, jest.Mock>>> = [];
-      actionQbs.push({ getRawMany: jest.fn().mockResolvedValue([
-        { label: 'HIGH', count: '1' },
-        { label: 'MEDIUM', count: '2' },
-      ]) });
+      actionQbs.push({
+        getRawMany: jest.fn().mockResolvedValue([
+          { label: 'HIGH', count: '1' },
+          { label: 'MEDIUM', count: '2' },
+        ]),
+      });
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(1) }); // overdue
       actionQbs.push({ getCount: jest.fn().mockResolvedValue(0) }); // stale actions
       actionQbs.push({ getMany: jest.fn().mockResolvedValue([]) }); // backlog actions
@@ -752,7 +873,9 @@ describe('AnalyticsService', () => {
           const qb = call.value;
           const whereCalls = qb.where.mock.calls;
           if (whereCalls.length > 0) {
-            expect(whereCalls[0][1]).toEqual(expect.objectContaining({ tenantId: TENANT_B }));
+            expect(whereCalls[0][1]).toEqual(
+              expect.objectContaining({ tenantId: TENANT_B }),
+            );
           }
         }
       }

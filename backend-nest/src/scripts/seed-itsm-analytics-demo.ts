@@ -93,23 +93,33 @@ function daysAgo(n: number): Date {
 // ============================================================================
 
 async function upsert<T extends { id: string }>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   repo: any,
   id: string,
   tenantId: string,
   data: Partial<T>,
   label: string,
 ): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   let entity = await repo.findOne({ where: { id, tenantId } });
   if (!entity) {
-    entity = repo.create({ id, tenantId, ...data, createdBy: DEMO_ADMIN_ID, isDeleted: false });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    entity = repo.create({
+      id,
+      tenantId,
+      ...data,
+      createdBy: DEMO_ADMIN_ID,
+      isDeleted: false,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await repo.save(entity);
     console.log(`   + Created ${label}`);
   } else {
     Object.assign(entity, data, { updatedBy: DEMO_ADMIN_ID });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await repo.save(entity);
     console.log(`   = Updated ${label}`);
   }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return entity;
 }
 
@@ -129,7 +139,9 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
   try {
     // 1. Verify tenant
     console.log('1. Verifying demo tenant...');
-    const tenant = await ds.getRepository(Tenant).findOne({ where: { id: DEMO_TENANT_ID } });
+    const tenant = await ds
+      .getRepository(Tenant)
+      .findOne({ where: { id: DEMO_TENANT_ID } });
     if (!tenant) {
       console.error('   ERROR: Demo tenant not found. Run seed:grc first.');
       process.exit(1);
@@ -141,14 +153,19 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     console.log('2. Seeding problems (5)...');
     const problemRepo = ds.getRepository(ItsmProblem);
 
-    const problems: Array<{ id: string; number: string; data: Partial<ItsmProblem> }> = [
+    const problems: Array<{
+      id: string;
+      number: string;
+      data: Partial<ItsmProblem>;
+    }> = [
       {
         id: PRB_IDS[0],
         number: 'PRB800001',
         data: {
           number: 'PRB800001',
           shortDescription: 'Recurring login failures on SSO gateway',
-          description: 'Multiple users report intermittent 503 errors during SSO authentication.',
+          description:
+            'Multiple users report intermittent 503 errors during SSO authentication.',
           category: ProblemCategory.SOFTWARE,
           state: ProblemState.UNDER_INVESTIGATION,
           priority: ProblemPriority.P1,
@@ -169,7 +186,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           number: 'PRB800002',
           shortDescription: 'Database connection pool exhaustion under load',
-          description: 'Connection pool hits max during peak hours causing service degradation.',
+          description:
+            'Connection pool hits max during peak hours causing service degradation.',
           category: ProblemCategory.DATABASE,
           state: ProblemState.KNOWN_ERROR,
           priority: ProblemPriority.P2,
@@ -208,7 +226,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           number: 'PRB800004',
           shortDescription: 'Network latency spikes in EU region',
-          description: 'Intermittent latency spikes affecting EU-based API calls.',
+          description:
+            'Intermittent latency spikes affecting EU-based API calls.',
           category: ProblemCategory.NETWORK,
           state: ProblemState.CLOSED,
           priority: ProblemPriority.P2,
@@ -245,7 +264,13 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     ];
 
     for (const p of problems) {
-      await upsert<ItsmProblem>(problemRepo, p.id, DEMO_TENANT_ID, p.data, `Problem ${p.number}`);
+      await upsert<ItsmProblem>(
+        problemRepo,
+        p.id,
+        DEMO_TENANT_ID,
+        p.data,
+        `Problem ${p.number}`,
+      );
     }
 
     // 3. Seed Known Errors (2)
@@ -259,8 +284,10 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           title: 'KE: Connection pool exhaustion under load',
           symptoms: 'Database queries time out during peak traffic.',
-          rootCause: 'Default connection pool size (10) insufficient for peak load.',
-          workaround: 'Increase pool size to 50 and enable connection recycling.',
+          rootCause:
+            'Default connection pool size (10) insufficient for peak load.',
+          workaround:
+            'Increase pool size to 50 and enable connection recycling.',
           state: KnownErrorState.PUBLISHED,
           permanentFixStatus: KnownErrorFixStatus.WORKAROUND_AVAILABLE,
           problemId: PRB_IDS[1],
@@ -273,8 +300,10 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           title: 'KE: Email queue throttling during bulk operations',
           symptoms: 'Bulk email sends cause notification delays exceeding SLA.',
-          rootCause: 'SMTP rate limiter caps at 100/min, bulk ops generate 500+ emails.',
-          workaround: 'Use async queue with rate-limiting and priority tagging.',
+          rootCause:
+            'SMTP rate limiter caps at 100/min, bulk ops generate 500+ emails.',
+          workaround:
+            'Use async queue with rate-limiting and priority tagging.',
           state: KnownErrorState.DRAFT,
           permanentFixStatus: KnownErrorFixStatus.FIX_IN_PROGRESS,
           problemId: PRB_IDS[2],
@@ -284,7 +313,13 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     ];
 
     for (const ke of knownErrors) {
-      await upsert<ItsmKnownError>(keRepo, ke.id, DEMO_TENANT_ID, ke.data, `KE: ${ke.data.title}`);
+      await upsert<ItsmKnownError>(
+        keRepo,
+        ke.id,
+        DEMO_TENANT_ID,
+        ke.data,
+        `KE: ${ke.data.title}`,
+      );
     }
 
     // 4. Seed Major Incidents (2)
@@ -292,7 +327,11 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     console.log('4. Seeding major incidents (2)...');
     const miRepo = ds.getRepository(ItsmMajorIncident);
 
-    const majorIncidents: Array<{ id: string; number: string; data: Partial<ItsmMajorIncident> }> = [
+    const majorIncidents: Array<{
+      id: string;
+      number: string;
+      data: Partial<ItsmMajorIncident>;
+    }> = [
       {
         id: MI_IDS[0],
         number: 'MI800001',
@@ -309,7 +348,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
           bridgeStartedAt: daysAgo(40),
           bridgeEndedAt: new Date(daysAgo(40).getTime() + 2 * 60 * 60 * 1000), // 2h bridge
           customerImpactSummary: 'All users unable to log in for ~45 minutes.',
-          resolutionSummary: 'Rolled back SSO config change and verified connectivity.',
+          resolutionSummary:
+            'Rolled back SSO config change and verified connectivity.',
         },
       },
       {
@@ -318,7 +358,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           number: 'MI800002',
           title: 'EU region API degradation',
-          description: 'API response times > 5s for EU customers, 30% error rate.',
+          description:
+            'API response times > 5s for EU customers, 30% error rate.',
           status: MajorIncidentStatus.RESOLVED,
           severity: MajorIncidentSeverity.SEV2,
           commanderId: DEMO_ADMIN_ID,
@@ -326,14 +367,22 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
           resolvedAt: daysAgo(19),
           bridgeStartedAt: daysAgo(20),
           bridgeEndedAt: new Date(daysAgo(20).getTime() + 3 * 60 * 60 * 1000), // 3h bridge
-          customerImpactSummary: 'EU customers experienced slow API responses for ~4 hours.',
-          resolutionSummary: 'Rerouted traffic to secondary CDN and applied DNS fix.',
+          customerImpactSummary:
+            'EU customers experienced slow API responses for ~4 hours.',
+          resolutionSummary:
+            'Rerouted traffic to secondary CDN and applied DNS fix.',
         },
       },
     ];
 
     for (const mi of majorIncidents) {
-      await upsert<ItsmMajorIncident>(miRepo, mi.id, DEMO_TENANT_ID, mi.data, `MI ${mi.number}`);
+      await upsert<ItsmMajorIncident>(
+        miRepo,
+        mi.id,
+        DEMO_TENANT_ID,
+        mi.data,
+        `MI ${mi.number}`,
+      );
     }
 
     // 5. Seed PIR (1)
@@ -341,25 +390,41 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     console.log('5. Seeding PIR (1)...');
     const pirRepo = ds.getRepository(ItsmPir);
 
-    await upsert<ItsmPir>(pirRepo, PIR_IDS[0], DEMO_TENANT_ID, {
-      majorIncidentId: MI_IDS[0],
-      title: 'PIR: SSO Outage Root Cause Analysis',
-      status: PirStatus.APPROVED,
-      summary: 'Complete SSO outage caused by misconfigured OIDC redirect after maintenance window.',
-      whatHappened: 'During a scheduled SSO configuration update, an incorrect OIDC redirect URI was deployed.',
-      timelineHighlights: '10:00 - Config deployed\n10:05 - First alerts\n10:15 - MI declared\n10:45 - Rollback completed\n11:00 - All clear',
-      rootCauses: 'Configuration change lacked peer review. No canary deployment for auth changes.',
-      whatWorkedWell: 'Fast incident detection (<5 min). Bridge assembled within 10 min.',
-      whatDidNotWork: 'No automated rollback for auth config. Change review process bypassed.',
-      customerImpact: 'All users (est. 2,000) unable to log in for 45 minutes during business hours.',
-      detectionEffectiveness: 'Good - monitoring alerts fired within 5 minutes.',
-      responseEffectiveness: 'Adequate - 30 min to resolution once bridge formed.',
-      preventiveActions: 'Implement canary deploys for auth changes. Add peer review gate.',
-      correctiveActions: 'Rollback deployed, OIDC config validated.',
-      approvedBy: DEMO_ADMIN_ID,
-      approvedAt: daysAgo(35),
-      submittedAt: daysAgo(37),
-    }, 'PIR: SSO Outage');
+    await upsert<ItsmPir>(
+      pirRepo,
+      PIR_IDS[0],
+      DEMO_TENANT_ID,
+      {
+        majorIncidentId: MI_IDS[0],
+        title: 'PIR: SSO Outage Root Cause Analysis',
+        status: PirStatus.APPROVED,
+        summary:
+          'Complete SSO outage caused by misconfigured OIDC redirect after maintenance window.',
+        whatHappened:
+          'During a scheduled SSO configuration update, an incorrect OIDC redirect URI was deployed.',
+        timelineHighlights:
+          '10:00 - Config deployed\n10:05 - First alerts\n10:15 - MI declared\n10:45 - Rollback completed\n11:00 - All clear',
+        rootCauses:
+          'Configuration change lacked peer review. No canary deployment for auth changes.',
+        whatWorkedWell:
+          'Fast incident detection (<5 min). Bridge assembled within 10 min.',
+        whatDidNotWork:
+          'No automated rollback for auth config. Change review process bypassed.',
+        customerImpact:
+          'All users (est. 2,000) unable to log in for 45 minutes during business hours.',
+        detectionEffectiveness:
+          'Good - monitoring alerts fired within 5 minutes.',
+        responseEffectiveness:
+          'Adequate - 30 min to resolution once bridge formed.',
+        preventiveActions:
+          'Implement canary deploys for auth changes. Add peer review gate.',
+        correctiveActions: 'Rollback deployed, OIDC config validated.',
+        approvedBy: DEMO_ADMIN_ID,
+        approvedAt: daysAgo(35),
+        submittedAt: daysAgo(37),
+      },
+      'PIR: SSO Outage',
+    );
 
     // 6. Seed PIR Actions (3)
     console.log('');
@@ -372,7 +437,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           pirId: PIR_IDS[0],
           title: 'Implement canary deployment for auth config changes',
-          description: 'Add canary deployment step to CI/CD pipeline for SSO config updates.',
+          description:
+            'Add canary deployment step to CI/CD pipeline for SSO config updates.',
           ownerId: DEMO_ADMIN_ID,
           status: PirActionStatus.COMPLETED,
           priority: PirActionPriority.HIGH,
@@ -386,7 +452,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           pirId: PIR_IDS[0],
           title: 'Add mandatory peer review gate for auth changes',
-          description: 'Require two approvals for any SSO/OIDC configuration modifications.',
+          description:
+            'Require two approvals for any SSO/OIDC configuration modifications.',
           ownerId: DEMO_ADMIN_ID,
           status: PirActionStatus.IN_PROGRESS,
           priority: PirActionPriority.HIGH,
@@ -398,7 +465,8 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
         data: {
           pirId: PIR_IDS[0],
           title: 'Create automated rollback runbook for auth services',
-          description: 'Document and automate rollback procedures for all auth service changes.',
+          description:
+            'Document and automate rollback procedures for all auth service changes.',
           ownerId: DEMO_ADMIN_ID,
           status: PirActionStatus.OVERDUE,
           priority: PirActionPriority.MEDIUM,
@@ -408,7 +476,13 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     ];
 
     for (const a of actions) {
-      await upsert<ItsmPirAction>(actionRepo, a.id, DEMO_TENANT_ID, a.data, `Action: ${a.data.title}`);
+      await upsert<ItsmPirAction>(
+        actionRepo,
+        a.id,
+        DEMO_TENANT_ID,
+        a.data,
+        `Action: ${a.data.title}`,
+      );
     }
 
     // 7. Seed Knowledge Candidates (2)
@@ -416,7 +490,10 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     console.log('7. Seeding knowledge candidates (2)...');
     const kcRepo = ds.getRepository(ItsmKnowledgeCandidate);
 
-    const candidates: Array<{ id: string; data: Partial<ItsmKnowledgeCandidate> }> = [
+    const candidates: Array<{
+      id: string;
+      data: Partial<ItsmKnowledgeCandidate>;
+    }> = [
       {
         id: KC_IDS[0],
         data: {
@@ -424,11 +501,16 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
           sourceType: KnowledgeCandidateSourceType.KNOWN_ERROR,
           sourceId: KE_IDS[0],
           status: KnowledgeCandidateStatus.PUBLISHED,
-          synopsis: 'Guide for tuning database connection pool parameters under high load.',
-          resolution: 'Increase pool size to 50, enable recycling every 300s, add connection health checks.',
-          rootCauseSummary: 'Default pool size insufficient for peak traffic patterns.',
-          workaround: 'Temporarily increase pool size via env var until permanent config deployed.',
-          symptoms: 'Database query timeouts during peak hours, connection refused errors.',
+          synopsis:
+            'Guide for tuning database connection pool parameters under high load.',
+          resolution:
+            'Increase pool size to 50, enable recycling every 300s, add connection health checks.',
+          rootCauseSummary:
+            'Default pool size insufficient for peak traffic patterns.',
+          workaround:
+            'Temporarily increase pool size via env var until permanent config deployed.',
+          symptoms:
+            'Database query timeouts during peak hours, connection refused errors.',
           publishedAt: daysAgo(35),
           reviewedBy: DEMO_ADMIN_ID,
           reviewedAt: daysAgo(36),
@@ -441,9 +523,12 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
           sourceType: KnowledgeCandidateSourceType.PIR,
           sourceId: PIR_IDS[0],
           status: KnowledgeCandidateStatus.DRAFT,
-          synopsis: 'Lessons learned from SSO outage — canary deployment and rollback procedures.',
-          resolution: 'Implement canary deploys for auth changes with automated rollback.',
-          rootCauseSummary: 'Misconfigured OIDC redirect URI deployed without peer review.',
+          synopsis:
+            'Lessons learned from SSO outage — canary deployment and rollback procedures.',
+          resolution:
+            'Implement canary deploys for auth changes with automated rollback.',
+          rootCauseSummary:
+            'Misconfigured OIDC redirect URI deployed without peer review.',
           workaround: 'Manual rollback via admin console if canary fails.',
           symptoms: 'Users unable to log in, 503 errors on SSO gateway.',
         },
@@ -451,7 +536,13 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     ];
 
     for (const kc of candidates) {
-      await upsert<ItsmKnowledgeCandidate>(kcRepo, kc.id, DEMO_TENANT_ID, kc.data, `KC: ${kc.data.title}`);
+      await upsert<ItsmKnowledgeCandidate>(
+        kcRepo,
+        kc.id,
+        DEMO_TENANT_ID,
+        kc.data,
+        `KC: ${kc.data.title}`,
+      );
     }
 
     // Summary
@@ -465,7 +556,9 @@ async function seedItsmAnalyticsDemo(): Promise<void> {
     console.log(`  PIRs:                 1`);
     console.log(`  PIR Actions:          ${actions.length}`);
     console.log(`  Knowledge Candidates: ${candidates.length}`);
-    console.log(`  Total entities:       ${problems.length + knownErrors.length + majorIncidents.length + 1 + actions.length + candidates.length}`);
+    console.log(
+      `  Total entities:       ${problems.length + knownErrors.length + majorIncidents.length + 1 + actions.length + candidates.length}`,
+    );
     console.log('');
     console.log('Dashboard should now show non-zero KPIs for all tabs.');
     console.log('='.repeat(60));
