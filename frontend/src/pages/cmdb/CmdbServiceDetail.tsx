@@ -45,6 +45,7 @@ import {
   CreateCmdbServiceOfferingDto,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
 import { Divider } from '@mui/material';
 import { useItsmChoices } from '../../hooks/useItsmChoices';
 
@@ -624,6 +625,17 @@ export const CmdbServiceDetail: React.FC = () => {
             </TableContainer>
           </CardContent>
         </Card>
+      )}
+
+      {!isNew && id && (
+        <TopologyPanel
+          entityId={id}
+          entityType="service"
+          onNodeNavigate={(nodeId, nodeType) => {
+            if (nodeType === 'ci') navigate(`/cmdb/cis/${nodeId}`);
+            else if (nodeType === 'service') navigate(`/cmdb/services/${nodeId}`);
+          }}
+        />
       )}
 
       <Dialog open={offeringDialogOpen} onClose={() => setOfferingDialogOpen(false)} maxWidth="sm" fullWidth>
