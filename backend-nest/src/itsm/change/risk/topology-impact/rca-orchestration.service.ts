@@ -13,7 +13,6 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { TopologyImpactAnalysisService } from './topology-impact-analysis.service';
 import { ProblemService } from '../../../problem/problem.service';
