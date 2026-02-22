@@ -33,7 +33,10 @@ import {
   Save as SaveIcon,
   Delete as DeleteIcon,
   Link as LinkIcon,
+  Add as AddIcon,
+  HubOutlined as HubOutlinedIcon,
 } from '@mui/icons-material';
+import { Alert } from '@mui/material';
 import {
   cmdbApi,
   CmdbCiData,
@@ -41,6 +44,7 @@ import {
   CmdbCiRelData,
   CmdbServiceCiData,
   CmdbServiceData,
+  CreateCmdbCiRelDto,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
@@ -90,6 +94,14 @@ export const CmdbCiDetail: React.FC = () => {
   const [linkServiceDialogOpen, setLinkServiceDialogOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedRelType, setSelectedRelType] = useState('depends_on');
+
+  // CI-to-CI Relationship creation state
+  const [createRelDialogOpen, setCreateRelDialogOpen] = useState(false);
+  const [allCis, setAllCis] = useState<CmdbCiData[]>([]);
+  const [relTargetCiId, setRelTargetCiId] = useState('');
+  const [relType, setRelType] = useState('depends_on');
+  const [relNotes, setRelNotes] = useState('');
+  const [creatingRel, setCreatingRel] = useState(false);
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -182,6 +194,61 @@ export const CmdbCiDetail: React.FC = () => {
       console.error('Error fetching services:', err);
     }
   }, []);
+
+  const fetchAllCis = useCallback(async () => {
+    try {
+      const response = await cmdbApi.cis.list({ pageSize: 200 });
+      const data = response.data;
+      let items: CmdbCiData[] = [];
+      if (data && 'data' in data) {
+        const inner = data.data;
+        if (inner && 'items' in inner) {
+          items = Array.isArray(inner.items) ? inner.items : [];
+        }
+      }
+      // Filter out current CI from the list
+      setAllCis(id ? items.filter(c => c.id !== id) : items);
+    } catch (err) {
+      console.error('Error fetching CIs:', err);
+    }
+  }, [id]);
+
+  const handleCreateRelationship = async () => {
+    if (!id || !relTargetCiId) return;
+    setCreatingRel(true);
+    try {
+      const dto: CreateCmdbCiRelDto = {
+        sourceCiId: id,
+        targetCiId: relTargetCiId,
+        type: relType,
+        notes: relNotes || undefined,
+        isActive: true,
+      };
+      await cmdbApi.relationships.create(dto);
+      showNotification('Relationship created successfully', 'success');
+      setCreateRelDialogOpen(false);
+      setRelTargetCiId('');
+      setRelType('depends_on');
+      setRelNotes('');
+      fetchRelationships();
+    } catch (err) {
+      console.error('Error creating relationship:', err);
+      showNotification('Failed to create relationship', 'error');
+    } finally {
+      setCreatingRel(false);
+    }
+  };
+
+  const handleDeleteRelationship = async (relId: string) => {
+    try {
+      await cmdbApi.relationships.delete(relId);
+      showNotification('Relationship removed', 'success');
+      fetchRelationships();
+    } catch (err) {
+      console.error('Error deleting relationship:', err);
+      showNotification('Failed to remove relationship', 'error');
+    }
+  };
 
   useEffect(() => {
     fetchClasses();
@@ -518,58 +585,95 @@ export const CmdbCiDetail: React.FC = () => {
         </Card>
       )}
 
-      {!isNew && relationships.length > 0 && (
+      {!isNew && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Relationships
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <HubOutlinedIcon color="action" />
+                <Typography variant="h6" fontWeight={600}>
+                  CI Relationships
+                </Typography>
+                {relationships.length > 0 && (
+                  <Chip label={relationships.length} size="small" color="primary" variant="outlined" />
+                )}
+              </Box>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  fetchAllCis();
+                  setCreateRelDialogOpen(true);
+                }}
+                data-testid="btn-create-relationship"
+              >
+                Create Relationship
+              </Button>
+            </Box>
             <Divider sx={{ mb: 2 }} />
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Direction</TableCell>
-                    <TableCell>Related CI</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {relationships.map((rel) => {
-                    const isSource = rel.sourceCiId === id;
-                    const relatedCi = isSource ? rel.targetCi : rel.sourceCi;
-                    return (
-                      <TableRow key={rel.id} hover>
-                        <TableCell>
-                          <Chip label={rel.type} size="small" />
-                        </TableCell>
-                        <TableCell>{isSource ? 'Outgoing' : 'Incoming'}</TableCell>
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{ cursor: 'pointer', color: 'primary.main' }}
-                            onClick={() => {
-                              const targetId = isSource ? rel.targetCiId : rel.sourceCiId;
-                              navigate(`/cmdb/cis/${targetId}`);
-                            }}
-                          >
-                            {relatedCi?.name || (isSource ? rel.targetCiId : rel.sourceCiId).substring(0, 8)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={rel.isActive ? 'Active' : 'Inactive'}
-                            size="small"
-                            color={rel.isActive ? 'success' : 'default'}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {relationships.length === 0 ? (
+              <Alert severity="info" icon={<HubOutlinedIcon />} data-testid="relationships-empty-state">
+                No CI-to-CI relationships defined yet. Create a relationship to connect this configuration item
+                to other CIs in your topology. Relationships enable topology impact analysis for ITSM changes.
+              </Alert>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small" data-testid="relationships-table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Direction</TableCell>
+                      <TableCell>Related CI</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {relationships.map((rel) => {
+                      const isSource = rel.sourceCiId === id;
+                      const relatedCi = isSource ? rel.targetCi : rel.sourceCi;
+                      return (
+                        <TableRow key={rel.id} hover data-testid={`rel-row-${rel.id}`}>
+                          <TableCell>
+                            <Chip label={rel.type} size="small" />
+                          </TableCell>
+                          <TableCell>{isSource ? 'Outgoing' : 'Incoming'}</TableCell>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{ cursor: 'pointer', color: 'primary.main' }}
+                              onClick={() => {
+                                const targetId = isSource ? rel.targetCiId : rel.sourceCiId;
+                                navigate(`/cmdb/cis/${targetId}`);
+                              }}
+                            >
+                              {relatedCi?.name || (isSource ? rel.targetCiId : rel.sourceCiId).substring(0, 8)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={rel.isActive ? 'Active' : 'Inactive'}
+                              size="small"
+                              color={rel.isActive ? 'success' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteRelationship(rel.id)}
+                              data-testid={`btn-delete-rel-${rel.id}`}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
       )}
@@ -636,6 +740,77 @@ export const CmdbCiDetail: React.FC = () => {
             data-testid="btn-confirm-link-service"
           >
             Link
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create CI-to-CI Relationship Dialog */}
+      <Dialog
+        open={createRelDialogOpen}
+        onClose={() => setCreateRelDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create CI Relationship</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Create a relationship from <strong>{ci.name || 'this CI'}</strong> to another configuration item.
+              Relationships are used by Topology Intelligence to calculate blast radius and impact analysis.
+            </Typography>
+            <FormControl fullWidth required>
+              <InputLabel>Target CI</InputLabel>
+              <Select
+                value={relTargetCiId}
+                onChange={(e) => setRelTargetCiId(e.target.value)}
+                label="Target CI"
+                data-testid="select-rel-target-ci"
+              >
+                {allCis.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.name} {c.ciClass?.name ? `(${c.ciClass.name})` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth required>
+              <InputLabel>Relationship Type</InputLabel>
+              <Select
+                value={relType}
+                onChange={(e) => setRelType(e.target.value)}
+                label="Relationship Type"
+                data-testid="select-rel-type"
+              >
+                <MenuItem value="depends_on">Depends On</MenuItem>
+                <MenuItem value="hosted_on">Hosted On</MenuItem>
+                <MenuItem value="runs_on">Runs On</MenuItem>
+                <MenuItem value="consumed_by">Consumed By</MenuItem>
+                <MenuItem value="supports">Supports</MenuItem>
+                <MenuItem value="managed_by">Managed By</MenuItem>
+                <MenuItem value="monitored_by">Monitored By</MenuItem>
+                <MenuItem value="connected_to">Connected To</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label="Notes (optional)"
+              value={relNotes}
+              onChange={(e) => setRelNotes(e.target.value)}
+              multiline
+              rows={2}
+              fullWidth
+              data-testid="input-rel-notes"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateRelDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateRelationship}
+            disabled={!relTargetCiId || creatingRel}
+            data-testid="btn-confirm-create-relationship"
+          >
+            {creatingRel ? 'Creating...' : 'Create Relationship'}
           </Button>
         </DialogActions>
       </Dialog>
