@@ -914,6 +914,14 @@ export const API_PATHS = {
     },
   },
 
+  // Topology Intelligence endpoints (Change impact + MI RCA)
+  ITSM_TOPOLOGY_INTELLIGENCE: {
+    CHANGE_IMPACT: (changeId: string) => `/grc/itsm/changes/${changeId}/topology-impact`,
+    CHANGE_RECALCULATE: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-topology-impact`,
+    MI_RCA_HYPOTHESES: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses`,
+    MI_RCA_RECALCULATE: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses/recalculate`,
+  },
+
   // Change Risk Assessment endpoints
   ITSM_CHANGE_RISK: {
     GET: (changeId: string) => `/grc/itsm/changes/${changeId}/risk`,
@@ -2203,6 +2211,11 @@ export const itsmApi = {
     recalculateRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE(changeId), {}),
     getCustomerRiskImpact: (changeId: string) => api.get(API_PATHS.ITSM_CHANGE_RISK.CUSTOMER_RISK_IMPACT(changeId)),
     recalculateCustomerRisk: (changeId: string) => api.post(API_PATHS.ITSM_CHANGE_RISK.RECALCULATE_CUSTOMER_RISK(changeId), {}),
+    // Topology Intelligence - Change Impact
+    getTopologyImpact: (changeId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_IMPACT(changeId)),
+    recalculateTopologyImpact: (changeId: string) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_RECALCULATE(changeId), {}),
     requestApproval:(changeId: string, comment?: string) =>
       api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
     listApprovals: (changeId: string) =>
@@ -2495,6 +2508,11 @@ export const itsmApi = {
       api.post(API_PATHS.ITSM.MAJOR_INCIDENTS.LINKS(id), data),
     unlinkRecord: (id: string, linkId: string) =>
       api.delete(API_PATHS.ITSM.MAJOR_INCIDENTS.UNLINK(id, linkId)),
+    // Topology Intelligence - RCA Hypotheses
+    getRcaTopologyHypotheses: (id: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_HYPOTHESES(id)),
+    recalculateRcaTopologyHypotheses: (id: string) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_RECALCULATE(id), {}),
   },
 };
 
@@ -2798,6 +2816,120 @@ export interface ItsmMajorIncidentListParams {
   sortOrder?: string;
   createdFrom?: string;
   createdTo?: string;
+}
+
+// ============================================================================
+// Topology Intelligence Types (Change Impact + MI RCA)
+// ============================================================================
+
+/** A single impacted node discovered via topology traversal */
+export interface TopologyImpactedNode {
+  id: string;
+  type: 'ci' | 'service' | 'service_offering';
+  label: string;
+  className?: string;
+  depth: number;
+  criticality?: string;
+  environment?: string;
+}
+
+/** A dependency path from root to an impacted node */
+export interface TopologyImpactPath {
+  nodeIds: string[];
+  nodeLabels: string[];
+  depth: number;
+  relationTypes: string[];
+}
+
+/** Fragility signal - SPOF, no redundancy, high fan-out, deep chain */
+export type FragilitySignalType =
+  | 'single_point_of_failure'
+  | 'no_redundancy'
+  | 'high_fan_out'
+  | 'deep_chain';
+
+export interface FragilitySignal {
+  type: FragilitySignalType;
+  nodeId: string;
+  nodeLabel: string;
+  reason: string;
+  severity: number;
+}
+
+/** Blast radius metrics breakdown */
+export interface TopologyBlastRadiusMetrics {
+  totalImpactedNodes: number;
+  impactedByDepth: Record<number, number>;
+  impactedServiceCount: number;
+  impactedOfferingCount: number;
+  impactedCiCount: number;
+  criticalCiCount: number;
+  maxChainDepth: number;
+  crossServicePropagation: boolean;
+  crossServiceCount: number;
+}
+
+/** Full topology impact response for a change */
+export interface TopologyImpactResponseData {
+  changeId: string;
+  rootNodeIds: string[];
+  metrics: TopologyBlastRadiusMetrics;
+  impactedNodes: TopologyImpactedNode[];
+  topPaths: TopologyImpactPath[];
+  fragilitySignals: FragilitySignal[];
+  topologyRiskScore: number;
+  riskExplanation: string;
+  computedAt: string;
+  warnings: string[];
+}
+
+/** RCA hypothesis type */
+export type RcaHypothesisType =
+  | 'common_upstream_dependency'
+  | 'recent_change_on_shared_node'
+  | 'single_point_of_failure'
+  | 'high_impact_node'
+  | 'cross_service_dependency';
+
+/** Evidence supporting an RCA hypothesis */
+export interface RcaEvidence {
+  type: 'topology_path' | 'recent_change' | 'health_violation' | 'customer_risk' | 'incident_history';
+  description: string;
+  referenceId?: string;
+  referenceLabel?: string;
+}
+
+/** Recommended follow-up action from RCA */
+export interface RcaRecommendedAction {
+  type: 'create_problem' | 'link_problem' | 'create_known_error' | 'create_change_task';
+  label: string;
+  reason: string;
+  confidence: number;
+}
+
+/** A single RCA hypothesis for a major incident */
+export interface RcaHypothesisData {
+  id: string;
+  type: RcaHypothesisType;
+  score: number;
+  suspectNodeId: string;
+  suspectNodeLabel: string;
+  suspectNodeType: 'ci' | 'service' | 'service_offering';
+  explanation: string;
+  evidence: RcaEvidence[];
+  affectedServiceIds: string[];
+  recommendedActions: RcaRecommendedAction[];
+}
+
+/** Full RCA topology hypotheses response for a major incident */
+export interface RcaTopologyHypothesesResponseData {
+  majorIncidentId: string;
+  rootServiceIds: string[];
+  linkedCiIds: string[];
+  hypotheses: RcaHypothesisData[];
+  nodesAnalyzed: number;
+  computedAt: string;
+  warnings: string[];
 }
 
 // ============================================================================

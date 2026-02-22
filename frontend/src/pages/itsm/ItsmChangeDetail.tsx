@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -48,6 +48,15 @@ import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { AxiosError } from 'axios';
+import {
+  TopologyImpactSummaryCard,
+  TopologyExplainabilityPanel,
+  TopologyInsightBanner,
+  classifyTopologyApiError,
+  unwrapTopologyResponse,
+  getTopologyRiskLevel,
+  type ClassifiedTopologyError,
+} from '../../components/topology-intelligence';
 
 interface ItsmChange {
   id: string;
@@ -221,6 +230,13 @@ export const ItsmChangeDetail: React.FC = () => {
   const [approvalComment, setApprovalComment] = useState('');
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [governanceError, setGovernanceError] = useState<string | null>(null);
+
+  // Topology Intelligence state
+  const [topologyImpact, setTopologyImpact] = useState<TopologyImpactResponseData | null>(null);
+  const [topologyLoading, setTopologyLoading] = useState(false);
+  const [topologyError, setTopologyError] = useState<ClassifiedTopologyError | null>(null);
+  const [topologyRecalculating, setTopologyRecalculating] = useState(false);
+  const [showTopologySection, setShowTopologySection] = useState(true);
 
   const fetchChange = useCallback(async () => {
     if (isNew || !id) return;
@@ -594,6 +610,60 @@ export const ItsmChangeDetail: React.FC = () => {
     }
   };
 
+  // --- Topology Intelligence: Non-blocking fetch ---
+  const fetchTopologyImpact = useCallback(async () => {
+    if (isNew || !id) return;
+    setTopologyLoading(true);
+    setTopologyError(null);
+    try {
+      const resp = await itsmApi.changes.getTopologyImpact(id);
+      const data = unwrapTopologyResponse<TopologyImpactResponseData>(resp);
+      if (mountedRef.current) {
+        setTopologyImpact(data);
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const classified = classifyTopologyApiError(err);
+        setTopologyError(classified);
+        // Do NOT trigger logout on 403
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] topology:fetch:error', classified);
+        }
+      }
+    } finally {
+      if (mountedRef.current) setTopologyLoading(false);
+    }
+  }, [id, isNew]);
+
+  const handleRecalculateTopology = useCallback(async () => {
+    if (isNew || !id) return;
+    setTopologyRecalculating(true);
+    setTopologyError(null);
+    try {
+      const resp = await itsmApi.changes.recalculateTopologyImpact(id);
+      const data = unwrapTopologyResponse<TopologyImpactResponseData>(resp);
+      if (mountedRef.current) {
+        setTopologyImpact(data);
+        showNotification('Topology impact recalculated', 'success');
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const classified = classifyTopologyApiError(err);
+        setTopologyError(classified);
+        showNotification(classified.message, 'error');
+      }
+    } finally {
+      if (mountedRef.current) setTopologyRecalculating(false);
+    }
+  }, [id, isNew, showNotification]);
+
+  // Non-blocking topology fetch after main data loads
+  useEffect(() => {
+    if (!isNew && id && !loading) {
+      fetchTopologyImpact();
+    }
+  }, [isNew, id, loading, fetchTopologyImpact]);
+
   if (loading) {
     return (
       <Box
@@ -643,6 +713,17 @@ export const ItsmChangeDetail: React.FC = () => {
         >
           {saveError}
         </Alert>
+      )}
+
+      {/* Topology Insight Banner (high risk / fragility warning) */}
+      {!isNew && (
+        <TopologyInsightBanner
+          context="change"
+          changeImpact={topologyImpact}
+          onViewDetails={() => setShowTopologySection(true)}
+          onRecalculate={handleRecalculateTopology}
+          recalculating={topologyRecalculating}
+        />
       )}
 
       {/* Governance Error Banner */}
@@ -1225,6 +1306,69 @@ export const ItsmChangeDetail: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Topology Impact Intelligence Panel */}
+          {!isNew && (
+            <Card sx={{ mb: 2 }} data-testid="topology-impact-section">
+              <CardContent>
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setShowTopologySection(!showTopologySection)}
+                >
+                  <Typography variant="h6">Topology Impact Intelligence</Typography>
+                  <IconButton size="small">
+                    {showTopologySection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                <Collapse in={showTopologySection}>
+                  <Box sx={{ mt: 1 }}>
+                    <TopologyImpactSummaryCard
+                      impact={topologyImpact}
+                      loading={topologyLoading}
+                      error={topologyError}
+                      onRecalculate={handleRecalculateTopology}
+                      recalculating={topologyRecalculating}
+                      onRetry={fetchTopologyImpact}
+                    />
+                    {topologyImpact && (
+                      <Box sx={{ mt: 2 }}>
+                        <TopologyExplainabilityPanel
+                          impact={topologyImpact}
+                          loading={topologyLoading}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                </Collapse>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Topology Governance Warning */}
+          {!isNew && topologyImpact && (() => {
+            const topoLevel = getTopologyRiskLevel(topologyImpact.topologyRiskScore);
+            if (topoLevel !== 'CRITICAL' && topoLevel !== 'HIGH') return null;
+            const missingImpl = !change.implementationPlan?.trim();
+            const missingBackout = !change.backoutPlan?.trim();
+            return (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                data-testid="topology-governance-warning"
+              >
+                <Typography variant="body2" fontWeight={500}>
+                  Topology analysis indicates {topoLevel} risk. CAB review is strongly recommended.
+                </Typography>
+                {(missingImpl || missingBackout) && (
+                  <Typography variant="caption" color="text.secondary">
+                    {missingImpl && 'Implementation plan is missing. '}
+                    {missingBackout && 'Backout plan is missing. '}
+                    Complete these before requesting approval.
+                  </Typography>
+                )}
+              </Alert>
+            );
+          })()}
 
           {/* Change Governance Banner */}
           {!isNew && change.id && (

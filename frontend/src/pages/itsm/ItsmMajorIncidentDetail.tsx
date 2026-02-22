@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -58,8 +58,18 @@ import {
   UpdateItsmPirDto,
   CreateItsmPirActionDto,
   UpdateItsmPirActionDto,
+  RcaTopologyHypothesesResponseData,
+  RcaHypothesisData,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import {
+  TopologyRcaHypothesesTable,
+  TopologyRcaCompareDialog,
+  TopologyInsightBanner,
+  classifyTopologyApiError,
+  unwrapTopologyResponse,
+  type ClassifiedTopologyError,
+} from '../../components/topology-intelligence';
 
 const statusColors: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
   DECLARED: 'error',
@@ -185,6 +195,15 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
   const [kcLoading, setKcLoading] = useState(false);
   const [generatingKc, setGeneratingKc] = useState(false);
   const [selectedKc, setSelectedKc] = useState<ItsmKnowledgeCandidateData | null>(null);
+
+  // RCA Topology Intelligence state
+  const [rcaData, setRcaData] = useState<RcaTopologyHypothesesResponseData | null>(null);
+  const [rcaLoading, setRcaLoading] = useState(false);
+  const [rcaError, setRcaError] = useState<ClassifiedTopologyError | null>(null);
+  const [rcaRecalculating, setRcaRecalculating] = useState(false);
+  const [rcaCompareOpen, setRcaCompareOpen] = useState(false);
+  const [rcaCompareHypotheses, setRcaCompareHypotheses] = useState<[RcaHypothesisData, RcaHypothesisData] | null>(null);
+  const rcaMountedRef = useRef(true);
 
   const fetchMi = useCallback(async () => {
     if (!id) return;
@@ -407,9 +426,109 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     }
   };
 
+  // RCA Topology Intelligence callbacks
+  const fetchRcaHypotheses = useCallback(async () => {
+    if (!id) return;
+    setRcaLoading(true);
+    setRcaError(null);
+    try {
+      const response = await itsmApi.majorIncidents.getRcaTopologyHypotheses(id);
+      if (!rcaMountedRef.current) return;
+      const data = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
+      if (data) {
+        setRcaData(data);
+      } else {
+        // Try direct response shape
+        const directData = (response?.data as { data?: RcaTopologyHypothesesResponseData })?.data;
+        if (directData) {
+          setRcaData(directData);
+        }
+      }
+    } catch (err) {
+      if (!rcaMountedRef.current) return;
+      const classified = classifyTopologyApiError(err);
+      setRcaError(classified);
+      // Don't trigger logout on 403
+      if (classified.type !== 'unauthorized') {
+        console.warn('[RCA Topology] Error:', classified.message);
+      }
+    } finally {
+      if (rcaMountedRef.current) {
+        setRcaLoading(false);
+      }
+    }
+  }, [id]);
+
+  const handleRecalculateRca = useCallback(async () => {
+    if (!id) return;
+    setRcaRecalculating(true);
+    try {
+      const response = await itsmApi.majorIncidents.recalculateRcaTopologyHypotheses(id);
+      if (!rcaMountedRef.current) return;
+      const data = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
+      if (data) {
+        setRcaData(data);
+        showNotification('RCA topology hypotheses recalculated', 'success');
+      } else {
+        const directData = (response?.data as { data?: RcaTopologyHypothesesResponseData })?.data;
+        if (directData) {
+          setRcaData(directData);
+          showNotification('RCA topology hypotheses recalculated', 'success');
+        }
+      }
+    } catch (err) {
+      if (!rcaMountedRef.current) return;
+      const classified = classifyTopologyApiError(err);
+      setRcaError(classified);
+      showNotification(classified.message, 'error');
+    } finally {
+      if (rcaMountedRef.current) {
+        setRcaRecalculating(false);
+      }
+    }
+  }, [id, showNotification]);
+
+  const handleCopyHypothesis = useCallback((hypothesis: RcaHypothesisData) => {
+    const text = [
+      `RCA Hypothesis: ${hypothesis.suspectNodeLabel}`,
+      `Type: ${hypothesis.type}`,
+      `Confidence: ${(hypothesis.score * 100).toFixed(0)}%`,
+      `Explanation: ${hypothesis.explanation}`,
+      hypothesis.evidence?.length
+        ? `Evidence:\n${hypothesis.evidence.map(e => `  - ${e.description}`).join('\n')}`
+        : '',
+      hypothesis.recommendedActions?.length
+        ? `Actions: ${hypothesis.recommendedActions.map(a => a.label).join('; ')}`
+        : '',
+    ].filter(Boolean).join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      showNotification('Hypothesis copied to clipboard', 'success');
+    }).catch(() => {
+      showNotification('Failed to copy to clipboard', 'error');
+    });
+  }, [showNotification]);
+
+  const handleCompareHypotheses = useCallback((h1: RcaHypothesisData, h2: RcaHypothesisData) => {
+    setRcaCompareHypotheses([h1, h2]);
+    setRcaCompareOpen(true);
+  }, []);
+
+  useEffect(() => {
+    rcaMountedRef.current = true;
+    return () => { rcaMountedRef.current = false; };
+  }, []);
+
   useEffect(() => {
     fetchMi();
   }, [fetchMi]);
+
+  // Non-blocking: fetch RCA data after main data loads
+  useEffect(() => {
+    if (mi?.id) {
+      fetchRcaHypotheses();
+    }
+  }, [mi?.id, fetchRcaHypotheses]);
 
   useEffect(() => {
     if (tabIndex === 1) fetchTimeline();
@@ -417,7 +536,11 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     if (tabIndex === 5) {
       fetchPir();
     }
-  }, [tabIndex, fetchTimeline, fetchLinks, fetchPir]);
+    if (tabIndex === 6) {
+      // Refetch RCA data when tab is selected (lazy refresh)
+      fetchRcaHypotheses();
+    }
+  }, [tabIndex, fetchTimeline, fetchLinks, fetchPir, fetchRcaHypotheses]);
 
   useEffect(() => {
     if (pir) {
@@ -632,6 +755,15 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         </Box>
       </Box>
 
+      {/* RCA Topology Insight Banner */}
+      <TopologyInsightBanner
+        context="major_incident"
+        rcaData={rcaData}
+        onViewDetails={() => setTabIndex(6)}
+        onRecalculate={handleRecalculateRca}
+        recalculating={rcaRecalculating}
+      />
+
       {/* Tabs */}
       <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tab label="Overview" data-testid="mi-tab-overview" />
@@ -640,6 +772,7 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         <Tab label="Impact" data-testid="mi-tab-impact" />
         <Tab label="Communications" data-testid="mi-tab-comms" />
         <Tab label="PIR" data-testid="mi-tab-pir" />
+        <Tab label="RCA Topology" data-testid="mi-tab-rca-topology" />
       </Tabs>
 
       {/* Overview Tab */}
@@ -1310,6 +1443,28 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
           </Box>
         )}
       </TabPanel>
+
+      {/* RCA Topology Tab */}
+      <TabPanel value={tabIndex} index={6}>
+        <TopologyRcaHypothesesTable
+          data={rcaData}
+          loading={rcaLoading}
+          error={rcaError}
+          onRecalculate={handleRecalculateRca}
+          recalculating={rcaRecalculating}
+          onRetry={fetchRcaHypotheses}
+          onCopyHypothesis={handleCopyHypothesis}
+          onCompare={handleCompareHypotheses}
+        />
+      </TabPanel>
+
+      {/* RCA Compare Dialog */}
+      <TopologyRcaCompareDialog
+        open={rcaCompareOpen}
+        onClose={() => setRcaCompareOpen(false)}
+        hypothesis1={rcaCompareHypotheses?.[0] ?? null}
+        hypothesis2={rcaCompareHypotheses?.[1] ?? null}
+      />
 
       {/* Add Action Dialog */}
       <Dialog
