@@ -6,6 +6,7 @@ import { TenantsModule } from '../../tenants/tenants.module';
 
 import { CmdbCiClass } from './ci-class/ci-class.entity';
 import { CiClassService } from './ci-class/ci-class.service';
+import { CiClassInheritanceService } from './ci-class/ci-class-inheritance.service';
 import { CiClassController } from './ci-class/ci-class.controller';
 
 import { CmdbCi } from './ci/ci.entity';
@@ -51,6 +52,7 @@ import { TopologyController } from './topology/topology.controller';
   ],
   providers: [
     CiClassService,
+    CiClassInheritanceService,
     CiService,
     CiRelService,
     CmdbServiceService,
@@ -70,6 +72,7 @@ import { TopologyController } from './topology/topology.controller';
   ],
   exports: [
     CiClassService,
+    CiClassInheritanceService,
     CiService,
     CiRelService,
     CmdbServiceService,

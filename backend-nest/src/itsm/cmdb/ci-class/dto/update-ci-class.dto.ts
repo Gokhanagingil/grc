@@ -5,8 +5,10 @@ import {
   IsBoolean,
   IsInt,
   IsObject,
+  IsArray,
   MaxLength,
 } from 'class-validator';
+import type { CiClassFieldDefinition } from '../ci-class.entity';
 
 export class UpdateCiClassDto {
   @IsString()
@@ -30,7 +32,11 @@ export class UpdateCiClassDto {
 
   @IsUUID('4')
   @IsOptional()
-  parentClassId?: string;
+  parentClassId?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  isAbstract?: boolean;
 
   @IsBoolean()
   @IsOptional()
@@ -39,6 +45,10 @@ export class UpdateCiClassDto {
   @IsInt()
   @IsOptional()
   sortOrder?: number;
+
+  @IsArray()
+  @IsOptional()
+  fieldsSchema?: CiClassFieldDefinition[];
 
   @IsObject()
   @IsOptional()
