@@ -12,7 +12,7 @@
  *
  * Phase B: Actionable UX on Change (Frontend)
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -125,43 +125,47 @@ function getReasonSeverityColor(severity: GuardrailReason['severity']): 'error' 
  */
 function buildSummaryText(data: TopologyGuardrailEvaluationData): string {
   const lines: string[] = [];
-  lines.push(`Topology Guardrail: ${data.guardrailStatus}`);
-  lines.push(`Governance Decision: ${data.governanceDecision}`);
-  lines.push(`Risk Score: ${data.policyFlags.topologyRiskScore}/100`);
+  lines.push(`Topology Guardrail: ${data.guardrailStatus ?? 'N/A'}`);
+  lines.push(`Governance Decision: ${data.governanceDecision ?? 'N/A'}`);
+  lines.push(`Risk Score: ${data.policyFlags?.topologyRiskScore ?? 0}/100`);
   lines.push('');
 
-  if (data.reasons.length > 0) {
+  const reasons = data.reasons ?? [];
+  if (reasons.length > 0) {
     lines.push('Reasons:');
-    data.reasons.forEach((r) => {
-      lines.push(`  [${r.severity.toUpperCase()}] ${r.message}`);
+    reasons.forEach((r) => {
+      lines.push(`  [${(r.severity ?? 'info').toUpperCase()}] ${r.message ?? ''}`);
     });
     lines.push('');
   }
 
   const ev = data.evidenceSummary;
+  const br = ev?.blastRadiusMetrics;
   lines.push('Evidence:');
-  lines.push(`  Impacted Nodes: ${ev.blastRadiusMetrics.totalImpactedNodes}`);
-  lines.push(`  Critical CIs: ${ev.blastRadiusMetrics.criticalCiCount}`);
-  lines.push(`  Impacted Services: ${ev.blastRadiusMetrics.impactedServiceCount}`);
-  lines.push(`  Max Chain Depth: ${ev.blastRadiusMetrics.maxChainDepth}`);
-  lines.push(`  Cross-Service: ${ev.blastRadiusMetrics.crossServicePropagation ? 'Yes' : 'No'}`);
-  if (ev.singlePointsOfFailure.length > 0) {
-    lines.push(`  SPOFs: ${ev.singlePointsOfFailure.join(', ')}`);
+  lines.push(`  Impacted Nodes: ${br?.totalImpactedNodes ?? 0}`);
+  lines.push(`  Critical CIs: ${br?.criticalCiCount ?? 0}`);
+  lines.push(`  Impacted Services: ${br?.impactedServiceCount ?? 0}`);
+  lines.push(`  Max Chain Depth: ${br?.maxChainDepth ?? 0}`);
+  lines.push(`  Cross-Service: ${br?.crossServicePropagation ? 'Yes' : 'No'}`);
+  const spofs = ev?.singlePointsOfFailure ?? [];
+  if (spofs.length > 0) {
+    lines.push(`  SPOFs: ${spofs.join(', ')}`);
   }
   lines.push('');
 
-  if (data.recommendedActions.length > 0) {
-    const unsatisfied = data.recommendedActions.filter((a) => !a.satisfied);
+  const actions = data.recommendedActions ?? [];
+  if (actions.length > 0) {
+    const unsatisfied = actions.filter((a) => !a.satisfied);
     if (unsatisfied.length > 0) {
       lines.push('Outstanding Actions:');
       unsatisfied.forEach((a) => {
-        lines.push(`  ${a.required ? '[REQUIRED]' : '[OPTIONAL]'} ${a.label}`);
+        lines.push(`  ${a.required ? '[REQUIRED]' : '[OPTIONAL]'} ${a.label ?? ''}`);
       });
     }
   }
 
   lines.push('');
-  lines.push(`Evaluated: ${new Date(data.evaluatedAt).toLocaleString()}`);
+  lines.push(`Evaluated: ${data.evaluatedAt ? new Date(data.evaluatedAt).toLocaleString() : 'N/A'}`);
   return lines.join('\n');
 }
 
@@ -184,11 +188,18 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
   const [showExplainability, setShowExplainability] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  // Stabilize callback refs to prevent infinite re-render loops
+  // when parent passes inline arrow functions (new ref every render).
+  const onFetchRef = useRef(onFetch);
+  onFetchRef.current = onFetch;
+  const onRecalculateRef = useRef(onRecalculate);
+  onRecalculateRef.current = onRecalculate;
+
   const fetchGuardrails = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await onFetch(changeId);
+      const result = await onFetchRef.current(changeId);
       setData(result);
     } catch (err) {
       const classified = classifyTopologyApiError(err);
@@ -196,7 +207,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
     } finally {
       setLoading(false);
     }
-  }, [changeId, onFetch]);
+  }, [changeId]);
 
   useEffect(() => {
     fetchGuardrails();
@@ -206,7 +217,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
     setRecalculating(true);
     setError(null);
     try {
-      const result = await onRecalculate(changeId);
+      const result = await onRecalculateRef.current(changeId);
       setData(result);
     } catch (err) {
       const classified = classifyTopologyApiError(err);
@@ -214,7 +225,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
     } finally {
       setRecalculating(false);
     }
-  }, [changeId, onRecalculate]);
+  }, [changeId]);
 
   const handleCopySummary = useCallback(() => {
     if (!data) return;
@@ -323,12 +334,24 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
     );
   }
 
-  // --- Data state ---
-  const statusCfg = STATUS_CONFIG[data.guardrailStatus] || STATUS_CONFIG.PASS;
-  const requiredUnsatisfied = data.recommendedActions.filter(
+  // --- Data state (with null-safe defaults for partial backend responses) ---
+  const statusCfg = STATUS_CONFIG[data.guardrailStatus] ?? STATUS_CONFIG.PASS;
+  const actions = data.recommendedActions ?? [];
+  const requiredUnsatisfied = actions.filter(
     (a: TopologyGovernanceAction) => a.required && !a.satisfied,
   );
-  const ev = data.evidenceSummary;
+  const ev = data.evidenceSummary ?? {
+    blastRadiusMetrics: { totalImpactedNodes: 0, criticalCiCount: 0, impactedServiceCount: 0, maxChainDepth: 0, crossServicePropagation: false },
+    fragileDependencies: [],
+    singlePointsOfFailure: [],
+    topologyRiskScore: 0,
+    topologyDataAvailable: false,
+  };
+  const blastRadius = ev.blastRadiusMetrics ?? { totalImpactedNodes: 0, criticalCiCount: 0, impactedServiceCount: 0, maxChainDepth: 0, crossServicePropagation: false };
+  const reasons = data.reasons ?? [];
+  const warnings = data.warnings ?? [];
+  const explainability = data.explainability ?? { summary: '', factors: [], matchedPolicyNames: [], topDependencyPaths: [] };
+  const policyFlags = data.policyFlags ?? { topologyRiskScore: 0 };
 
   return (
     <Card data-testid="topology-guardrails-panel" variant="outlined" sx={{ mb: 2 }}>
@@ -396,20 +419,20 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ textAlign: 'center', minWidth: 60 }}>
                   <Typography variant="h4" fontWeight={700} lineHeight={1}>
-                    {data.policyFlags.topologyRiskScore}
+                    {policyFlags.topologyRiskScore ?? 0}
                   </Typography>
                   <Typography variant="caption">Risk Score</Typography>
                 </Box>
                 <Divider orientation="vertical" flexItem />
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Typography variant="body2">
-                    {ev.blastRadiusMetrics.totalImpactedNodes} nodes impacted
+                    {blastRadius.totalImpactedNodes} nodes impacted
                   </Typography>
                   <Typography variant="body2">
-                    {ev.blastRadiusMetrics.criticalCiCount} critical CIs
+                    {blastRadius.criticalCiCount} critical CIs
                   </Typography>
                   <Typography variant="body2">
-                    {ev.blastRadiusMetrics.impactedServiceCount} services
+                    {blastRadius.impactedServiceCount} services
                   </Typography>
                 </Box>
               </Box>
@@ -426,9 +449,9 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
           </Box>
 
           {/* Warnings */}
-          {data.warnings.length > 0 && (
+          {warnings.length > 0 && (
             <Box sx={{ mt: 1.5 }}>
-              {data.warnings.map((warning: string, idx: number) => (
+              {warnings.map((warning: string, idx: number) => (
                 <Alert
                   key={idx}
                   severity="warning"
@@ -442,13 +465,13 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
           )}
 
           {/* Reasons */}
-          {data.reasons.length > 0 && (
+          {reasons.length > 0 && (
             <Box sx={{ mt: 1.5 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Reasons
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {data.reasons.map((reason: GuardrailReason, idx: number) => (
+                {reasons.map((reason: GuardrailReason, idx: number) => (
                   <Tooltip key={idx} title={reason.message}>
                     <Chip
                       label={reason.code.replace(/_/g, ' ')}
@@ -472,7 +495,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
               : 'Recommended Actions'}
           </Typography>
           <List dense disablePadding data-testid="topology-guardrails-actions-list">
-            {data.recommendedActions.map((action: TopologyGovernanceAction) => (
+            {actions.map((action: TopologyGovernanceAction) => (
               <ListItem key={action.key} disablePadding sx={{ py: 0.25 }}>
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   {action.satisfied ? (
@@ -527,27 +550,27 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
               <Typography variant="subtitle2" gutterBottom>Blast Radius</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
                 <Chip
-                  label={`${ev.blastRadiusMetrics.totalImpactedNodes} impacted nodes`}
+                  label={`${blastRadius.totalImpactedNodes} impacted nodes`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`${ev.blastRadiusMetrics.criticalCiCount} critical CIs`}
+                  label={`${blastRadius.criticalCiCount} critical CIs`}
                   size="small"
                   variant="outlined"
-                  color={ev.blastRadiusMetrics.criticalCiCount > 0 ? 'error' : 'default'}
+                  color={blastRadius.criticalCiCount > 0 ? 'error' : 'default'}
                 />
                 <Chip
-                  label={`${ev.blastRadiusMetrics.impactedServiceCount} services`}
+                  label={`${blastRadius.impactedServiceCount} services`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`depth: ${ev.blastRadiusMetrics.maxChainDepth}`}
+                  label={`depth: ${blastRadius.maxChainDepth}`}
                   size="small"
                   variant="outlined"
                 />
-                {ev.blastRadiusMetrics.crossServicePropagation && (
+                {blastRadius.crossServicePropagation && (
                   <Chip
                     label="Cross-service propagation"
                     size="small"
@@ -557,13 +580,13 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
                 )}
               </Box>
 
-              {ev.singlePointsOfFailure.length > 0 && (
+              {(ev.singlePointsOfFailure ?? []).length > 0 && (
                 <>
                   <Typography variant="subtitle2" gutterBottom>
                     Single Points of Failure
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-                    {ev.singlePointsOfFailure.map((spof: string, idx: number) => (
+                    {(ev.singlePointsOfFailure ?? []).map((spof: string, idx: number) => (
                       <Chip
                         key={idx}
                         label={spof}
@@ -577,12 +600,12 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
                 </>
               )}
 
-              {ev.fragileDependencies.length > 0 && (
+              {(ev.fragileDependencies ?? []).length > 0 && (
                 <>
                   <Typography variant="subtitle2" gutterBottom>
                     Fragile Dependencies
                   </Typography>
-                  {ev.fragileDependencies.map((dep, idx) => (
+                  {(ev.fragileDependencies ?? []).map((dep, idx) => (
                     <Typography
                       key={idx}
                       variant="caption"
@@ -615,7 +638,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
             >
               {/* Summary */}
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {data.explainability.summary}
+                {explainability.summary || 'No summary available.'}
               </Typography>
 
               {/* Factors */}
@@ -623,7 +646,7 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
                 Contributing Factors
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-                {data.explainability.factors.map((factor: TopologyGovernanceFactor, idx: number) => (
+                {(explainability.factors ?? []).map((factor: TopologyGovernanceFactor, idx: number) => (
                   <Tooltip key={idx} title={factor.explanation}>
                     <Chip
                       label={`${factor.label}: ${factor.value}`}
@@ -637,13 +660,13 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
               </Box>
 
               {/* Matched policies */}
-              {data.explainability.matchedPolicyNames.length > 0 && (
+              {(explainability.matchedPolicyNames ?? []).length > 0 && (
                 <>
                   <Typography variant="subtitle2" gutterBottom>
                     Matched Policies
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-                    {data.explainability.matchedPolicyNames.map((name: string, idx: number) => (
+                    {(explainability.matchedPolicyNames ?? []).map((name: string, idx: number) => (
                       <Chip
                         key={idx}
                         label={name}
@@ -657,12 +680,12 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
               )}
 
               {/* Top dependency paths */}
-              {data.explainability.topDependencyPaths.length > 0 && (
+              {(explainability.topDependencyPaths ?? []).length > 0 && (
                 <>
                   <Typography variant="subtitle2" gutterBottom>
                     Top Dependency Paths
                   </Typography>
-                  {data.explainability.topDependencyPaths.map(
+                  {(explainability.topDependencyPaths ?? []).map(
                     (path: { nodeLabels: string[]; depth: number }, idx: number) => (
                       <Typography
                         key={idx}
