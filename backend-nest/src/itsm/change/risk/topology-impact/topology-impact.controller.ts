@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -23,6 +24,7 @@ import { TopologyImpactAnalysisService } from './topology-impact-analysis.servic
 import { TopologyGovernanceService } from './topology-governance.service';
 import { TopologyGuardrailService } from './topology-guardrail.service';
 import { RcaOrchestrationService } from './rca-orchestration.service';
+import { RcaHypothesisDecisionService } from './rca-hypothesis-decision.service';
 import { SuggestedTaskPackService } from './suggested-task-pack.service';
 import { TraceabilitySummaryService } from './traceability-summary.service';
 import { ChangeService } from '../../change.service';
@@ -38,6 +40,11 @@ import {
   CreatePirActionFromHypothesisDto,
 } from './dto/rca-orchestration.dto';
 import { GuardrailPreviousEvaluation } from './dto/topology-guardrail.dto';
+import {
+  UpdateHypothesisDecisionDto,
+  AddHypothesisNoteDto,
+  SetSelectedHypothesisDto,
+} from './dto/rca-hypothesis-decision.dto';
 
 /**
  * Topology Impact Controller
@@ -57,6 +64,10 @@ import { GuardrailPreviousEvaluation } from './dto/topology-guardrail.dto';
  * - POST /grc/itsm/major-incidents/:id/rca-create-problem
  * - POST /grc/itsm/major-incidents/:id/rca-create-known-error
  * - POST /grc/itsm/major-incidents/:id/rca-create-pir-action
+ * - GET  /grc/itsm/major-incidents/:id/rca-decisions
+ * - PATCH /grc/itsm/major-incidents/:id/rca-decisions/:hypothesisId
+ * - POST /grc/itsm/major-incidents/:id/rca-decisions/:hypothesisId/notes
+ * - POST /grc/itsm/major-incidents/:id/rca-decisions/select
  * - GET  /grc/itsm/changes/:id/suggested-task-pack
  * - GET  /grc/itsm/changes/:id/traceability-summary
  * - GET  /grc/itsm/major-incidents/:id/traceability-summary
@@ -71,6 +82,7 @@ export class TopologyImpactController {
     private readonly topologyGovernanceService: TopologyGovernanceService,
     private readonly topologyGuardrailService: TopologyGuardrailService,
     private readonly rcaOrchestrationService: RcaOrchestrationService,
+    private readonly rcaHypothesisDecisionService: RcaHypothesisDecisionService,
     private readonly suggestedTaskPackService: SuggestedTaskPackService,
     private readonly traceabilitySummaryService: TraceabilitySummaryService,
     private readonly changeService: ChangeService,
@@ -475,6 +487,155 @@ export class TopologyImpactController {
       );
 
     return { data: result };
+  }
+
+  // ==========================================================================
+  // RCA Hypothesis Decisions (Phase C)
+  // ==========================================================================
+
+  /**
+   * Get all hypothesis decisions (status + notes) for a major incident.
+   * Returns decisions summary with counts and selected hypothesis info.
+   */
+  @Get('major-incidents/:id/rca-decisions')
+  @Permissions(Permission.ITSM_MAJOR_INCIDENT_READ)
+  @Perf()
+  async getRcaDecisions(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const mi = await this.majorIncidentService.findOne(tenantId, id);
+    if (!mi) {
+      throw new NotFoundException(`Major Incident with ID ${id} not found`);
+    }
+
+    const summary = this.rcaHypothesisDecisionService.getDecisionsSummary(
+      tenantId,
+      id,
+    );
+
+    return { data: summary };
+  }
+
+  /**
+   * Update hypothesis decision status (accept / reject / needs-investigation).
+   * Emits event bus events and writes audit trail journal entry.
+   */
+  @Patch('major-incidents/:id/rca-decisions/:hypothesisId')
+  @Permissions(Permission.ITSM_MAJOR_INCIDENT_UPDATE)
+  @Perf()
+  async updateHypothesisDecision(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') majorIncidentId: string,
+    @Param('hypothesisId') hypothesisId: string,
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdateHypothesisDecisionDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const mi = await this.majorIncidentService.findOne(
+      tenantId,
+      majorIncidentId,
+    );
+    if (!mi) {
+      throw new NotFoundException(
+        `Major Incident with ID ${majorIncidentId} not found`,
+      );
+    }
+
+    const decision = this.rcaHypothesisDecisionService.updateDecision(
+      tenantId,
+      majorIncidentId,
+      hypothesisId,
+      req.user.id,
+      dto,
+    );
+
+    return { data: decision };
+  }
+
+  /**
+   * Add an analyst note / evidence to a hypothesis.
+   * Notes are persisted as part of the RCA decision trail.
+   */
+  @Post('major-incidents/:id/rca-decisions/:hypothesisId/notes')
+  @Permissions(Permission.ITSM_MAJOR_INCIDENT_UPDATE)
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async addHypothesisNote(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') majorIncidentId: string,
+    @Param('hypothesisId') hypothesisId: string,
+    @Request() req: { user: { id: string } },
+    @Body() dto: AddHypothesisNoteDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const mi = await this.majorIncidentService.findOne(
+      tenantId,
+      majorIncidentId,
+    );
+    if (!mi) {
+      throw new NotFoundException(
+        `Major Incident with ID ${majorIncidentId} not found`,
+      );
+    }
+
+    const note = this.rcaHypothesisDecisionService.addNote(
+      tenantId,
+      majorIncidentId,
+      hypothesisId,
+      req.user.id,
+      dto,
+    );
+
+    return { data: note };
+  }
+
+  /**
+   * Set (or change) the selected hypothesis for this MI's RCA.
+   * Also auto-accepts the hypothesis if it was pending.
+   */
+  @Post('major-incidents/:id/rca-decisions/select')
+  @Permissions(Permission.ITSM_MAJOR_INCIDENT_UPDATE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async setSelectedHypothesis(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') majorIncidentId: string,
+    @Request() req: { user: { id: string } },
+    @Body() dto: SetSelectedHypothesisDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const mi = await this.majorIncidentService.findOne(
+      tenantId,
+      majorIncidentId,
+    );
+    if (!mi) {
+      throw new NotFoundException(
+        `Major Incident with ID ${majorIncidentId} not found`,
+      );
+    }
+
+    const summary = this.rcaHypothesisDecisionService.setSelectedHypothesis(
+      tenantId,
+      majorIncidentId,
+      req.user.id,
+      dto,
+    );
+
+    return { data: summary };
   }
 
   // ==========================================================================

@@ -927,6 +927,11 @@ export const API_PATHS = {
     // Phase A: Topology Guardrails
     CHANGE_GUARDRAILS: (changeId: string) => `/grc/itsm/changes/${changeId}/topology-guardrails`,
     CHANGE_RECALCULATE_GUARDRAILS: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-topology-guardrails`,
+    // Phase C: RCA Hypothesis Decisions
+    MI_RCA_DECISIONS: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-decisions`,
+    MI_RCA_DECISION_UPDATE: (miId: string, hypothesisId: string) => `/grc/itsm/major-incidents/${miId}/rca-decisions/${hypothesisId}`,
+    MI_RCA_DECISION_NOTES: (miId: string, hypothesisId: string) => `/grc/itsm/major-incidents/${miId}/rca-decisions/${hypothesisId}/notes`,
+    MI_RCA_DECISION_SELECT: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-decisions/select`,
     // Phase 3: Suggested Task Pack + Traceability
     CHANGE_SUGGESTED_TASK_PACK: (changeId: string) => `/grc/itsm/changes/${changeId}/suggested-task-pack`,
     CHANGE_TRACEABILITY: (changeId: string) => `/grc/itsm/changes/${changeId}/traceability-summary`,
@@ -2547,6 +2552,15 @@ export const itsmApi = {
     // Traceability
     getTraceabilitySummary: (miId: string) =>
       api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_TRACEABILITY(miId)),
+    // Phase C: RCA Hypothesis Decisions
+    getRcaDecisions: (miId: string) =>
+      api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_DECISIONS(miId)),
+    updateHypothesisDecision: (miId: string, hypothesisId: string, data: UpdateHypothesisDecisionRequest) =>
+      api.patch(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_DECISION_UPDATE(miId, hypothesisId), data),
+    addHypothesisNote: (miId: string, hypothesisId: string, data: AddHypothesisNoteRequest) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_DECISION_NOTES(miId, hypothesisId), data),
+    setSelectedHypothesis: (miId: string, data: SetSelectedHypothesisRequest) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_DECISION_SELECT(miId), data),
   },
 };
 
@@ -2964,6 +2978,67 @@ export interface RcaTopologyHypothesesResponseData {
   nodesAnalyzed: number;
   computedAt: string;
   warnings: string[];
+}
+
+// ============================================================================
+// RCA Hypothesis Decision Types (Phase C — MI RCA Actions & Evidence)
+// ============================================================================
+
+/** Hypothesis decision status */
+export type HypothesisDecisionStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'NEEDS_INVESTIGATION';
+
+/** Request to update a hypothesis decision */
+export interface UpdateHypothesisDecisionRequest {
+  status: HypothesisDecisionStatus;
+  reason?: string;
+}
+
+/** Request to add an analyst note */
+export interface AddHypothesisNoteRequest {
+  content: string;
+  noteType?: string;
+}
+
+/** Request to set selected hypothesis */
+export interface SetSelectedHypothesisRequest {
+  hypothesisId: string;
+  reason?: string;
+}
+
+/** A single analyst note */
+export interface HypothesisNoteData {
+  id: string;
+  hypothesisId: string;
+  content: string;
+  noteType: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+/** A hypothesis decision record */
+export interface HypothesisDecisionData {
+  hypothesisId: string;
+  status: HypothesisDecisionStatus;
+  reason?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  notes: HypothesisNoteData[];
+}
+
+/** Summary of all RCA decisions for a major incident */
+export interface RcaDecisionsSummaryData {
+  majorIncidentId: string;
+  decisions: Record<string, HypothesisDecisionData>;
+  selectedHypothesisId?: string;
+  selectedReason?: string;
+  totalDecisions: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  investigatingCount: number;
 }
 
 // ============================================================================

@@ -121,6 +121,7 @@ import { TopologyImpactAnalysisService } from './change/risk/topology-impact/top
 import { TopologyGovernanceService } from './change/risk/topology-impact/topology-governance.service';
 import { TopologyGuardrailService } from './change/risk/topology-impact/topology-guardrail.service';
 import { RcaOrchestrationService } from './change/risk/topology-impact/rca-orchestration.service';
+import { RcaHypothesisDecisionService } from './change/risk/topology-impact/rca-hypothesis-decision.service';
 import { SuggestedTaskPackService } from './change/risk/topology-impact/suggested-task-pack.service';
 import { TraceabilitySummaryService } from './change/risk/topology-impact/traceability-summary.service';
 import { TopologyImpactController } from './change/risk/topology-impact/topology-impact.controller';
@@ -208,10 +209,11 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     TopologyGovernanceService,
     TopologyGuardrailService,
     RcaOrchestrationService,
+    RcaHypothesisDecisionService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
   ],
-  controllers: [
+  controllers:[
     IncidentController,
     ServiceController,
     ChangeController,
@@ -272,6 +274,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     TopologyGovernanceService,
     TopologyGuardrailService,
     RcaOrchestrationService,
+    RcaHypothesisDecisionService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
   ],
