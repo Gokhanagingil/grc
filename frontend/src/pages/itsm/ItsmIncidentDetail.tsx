@@ -36,15 +36,7 @@ import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { IncidentImpactTab } from '../../components/itsm/IncidentImpactTab';
-import { AxiosError } from 'axios';
-
-interface ApiValidationErrorData {
-  error?: {
-    message?: string;
-    fieldErrors?: { field: string; message: string }[];
-  };
-  message?: string | string[];
-}
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 interface ItsmIncident {
   id: string;
@@ -252,56 +244,62 @@ export const ItsmIncidentDetail: React.FC = () => {
     setSaving(true);
     try {
       if (isNew) {
-        const response = await itsmApi.incidents.create({
+        // CREATE: Only send fields accepted by backend CreateIncidentDto
+        // Do NOT send state, priority (server-managed / computed from impact+urgency)
+        const createPayload = {
           shortDescription: incident.shortDescription,
-          description: incident.description,
-          impact: incident.impact,
-          urgency: incident.urgency,
-          category: incident.category,
-          serviceId: incident.serviceId,
-          offeringId: incident.offeringId,
-        });
+          description: incident.description || undefined,
+          impact: incident.impact || undefined,
+          urgency: incident.urgency || undefined,
+          category: incident.category || undefined, // empty string → undefined to avoid enum validation failure
+          serviceId: incident.serviceId || undefined,
+          offeringId: incident.offeringId || undefined,
+        };
+        const response = await itsmApi.incidents.create(createPayload);
         const data = response.data;
-        if (data && 'data' in data && data.data?.id) {
+        // Robust ID extraction: { data: { id } } or { id } or { data: { data: { id } } }
+        const inner = (data && typeof data === 'object' && 'data' in data) ? (data as Record<string, unknown>).data : data;
+        const recordId = inner && typeof inner === 'object' && 'id' in (inner as Record<string, unknown>)
+          ? (inner as { id: string }).id
+          : undefined;
+        if (recordId) {
           showNotification('Incident created successfully', 'success');
-          navigate(`/itsm/incidents/${data.data.id}`);
+          navigate(`/itsm/incidents/${recordId}`);
+        } else {
+          console.warn('[ItsmIncidentDetail] Create succeeded but response shape unexpected:', data);
+          showNotification('Incident created. Redirecting to list.', 'success');
+          navigate('/itsm/incidents');
         }
       } else if (id) {
-        await itsmApi.incidents.update(id, {
+        // UPDATE: Backend expects 'status' not 'state'; 'priority' is computed, do not send
+        const updatePayload = {
           shortDescription: incident.shortDescription,
-          description: incident.description,
-          state: incident.state,
-          priority: incident.priority,
-          impact: incident.impact,
-          urgency: incident.urgency,
-          category: incident.category,
-          resolutionNotes: incident.resolutionNotes,
-          serviceId: incident.serviceId,
-          offeringId: incident.offeringId,
-        });
+          description: incident.description || undefined,
+          status: incident.state || undefined, // frontend uses 'state', backend DTO expects 'status'
+          impact: incident.impact || undefined,
+          urgency: incident.urgency || undefined,
+          category: incident.category || undefined,
+          resolutionNotes: incident.resolutionNotes || undefined,
+          serviceId: incident.serviceId || undefined,
+          offeringId: incident.offeringId || undefined,
+        };
+        await itsmApi.incidents.update(id, updatePayload);
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
       }
     } catch (error: unknown) {
       console.error('Error saving incident:', error);
-      const axiosErr = error as AxiosError<ApiValidationErrorData>;
-      if (axiosErr?.response?.status === 403) {
-        showNotification('You don\'t have permission to create incidents.', 'error');
+      const classified = classifyApiError(error);
+      if (classified.kind === 'forbidden') {
+        showNotification('You don\'t have permission to save incidents.', 'error');
+      } else if (classified.kind === 'validation') {
+        showNotification(`Validation failed: ${classified.message}`, 'error');
+      } else if (classified.kind === 'conflict') {
+        showNotification(classified.message, 'error');
       } else {
-        const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
-        const errMsg = axiosErr?.response?.data?.error?.message;
-        const msgArr = axiosErr?.response?.data?.message;
-        if (fieldErrors && fieldErrors.length > 0) {
-          showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
-        } else if (errMsg) {
-          showNotification(errMsg, 'error');
-        } else if (Array.isArray(msgArr)) {
-          showNotification(msgArr.join(', '), 'error');
-        } else {
-          showNotification('Failed to save incident', 'error');
-        }
+        showNotification(classified.message || 'Failed to save incident', 'error');
       }
-    } finally {
+    }finally {
       setSaving(false);
     }
   };
