@@ -513,8 +513,10 @@ export class TopologyImpactController {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
 
-    const summary =
-      this.rcaHypothesisDecisionService.getDecisionsSummary(tenantId, id);
+    const summary = this.rcaHypothesisDecisionService.getDecisionsSummary(
+      tenantId,
+      id,
+    );
 
     return { data: summary };
   }
@@ -547,14 +549,13 @@ export class TopologyImpactController {
       );
     }
 
-    const decision =
-      await this.rcaHypothesisDecisionService.updateDecision(
-        tenantId,
-        majorIncidentId,
-        hypothesisId,
-        req.user.id,
-        dto,
-      );
+    const decision = this.rcaHypothesisDecisionService.updateDecision(
+      tenantId,
+      majorIncidentId,
+      hypothesisId,
+      req.user.id,
+      dto,
+    );
 
     return { data: decision };
   }
@@ -588,7 +589,7 @@ export class TopologyImpactController {
       );
     }
 
-    const note = await this.rcaHypothesisDecisionService.addNote(
+    const note = this.rcaHypothesisDecisionService.addNote(
       tenantId,
       majorIncidentId,
       hypothesisId,
@@ -627,13 +628,12 @@ export class TopologyImpactController {
       );
     }
 
-    const summary =
-      await this.rcaHypothesisDecisionService.setSelectedHypothesis(
-        tenantId,
-        majorIncidentId,
-        req.user.id,
-        dto,
-      );
+    const summary = this.rcaHypothesisDecisionService.setSelectedHypothesis(
+      tenantId,
+      majorIncidentId,
+      req.user.id,
+      dto,
+    );
 
     return { data: summary };
   }

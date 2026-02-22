@@ -72,13 +72,13 @@ describe('RcaHypothesisDecisionService', () => {
       expect(summary.pendingCount).toBe(0);
     });
 
-    it('should return decisions after updates', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+    it('should return decisions after updates', () => {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.ACCEPTED,
         reason: 'Strong evidence',
       });
 
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_2, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_2, USER_ID, {
         status: HypothesisDecisionStatus.REJECTED,
         reason: 'No correlation',
       });
@@ -92,10 +92,10 @@ describe('RcaHypothesisDecisionService', () => {
       expect(summary.pendingCount).toBe(0);
     });
 
-    it('should isolate decisions by tenant', async () => {
+    it('should isolate decisions by tenant', () => {
       const otherTenant = '99999999-9999-9999-9999-999999999999';
 
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.ACCEPTED,
       });
 
@@ -112,8 +112,8 @@ describe('RcaHypothesisDecisionService', () => {
   // ========================================================================
 
   describe('updateDecision', () => {
-    it('should accept a hypothesis and return decision response', async () => {
-      const result = await service.updateDecision(
+    it('should accept a hypothesis and return decision response', () => {
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -127,15 +127,13 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.hypothesisId).toBe(HYPO_ID_1);
       expect(result.majorIncidentId).toBe(MI_ID);
       expect(result.status).toBe(HypothesisDecisionStatus.ACCEPTED);
-      expect(result.reason).toBe(
-        'Topology path confirms upstream dependency',
-      );
+      expect(result.reason).toBe('Topology path confirms upstream dependency');
       expect(result.decidedBy).toBe(USER_ID);
       expect(result.decidedAt).toBeTruthy();
     });
 
-    it('should reject a hypothesis', async () => {
-      const result = await service.updateDecision(
+    it('should reject a hypothesis', () => {
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -150,8 +148,8 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.reason).toBe('No impact path found');
     });
 
-    it('should mark hypothesis as needs-investigation', async () => {
-      const result = await service.updateDecision(
+    it('should mark hypothesis as needs-investigation', () => {
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -161,18 +159,16 @@ describe('RcaHypothesisDecisionService', () => {
         },
       );
 
-      expect(result.status).toBe(
-        HypothesisDecisionStatus.NEEDS_INVESTIGATION,
-      );
+      expect(result.status).toBe(HypothesisDecisionStatus.NEEDS_INVESTIGATION);
       expect(result.reason).toBeNull();
     });
 
-    it('should allow changing decision status', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+    it('should allow changing decision status', () => {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.NEEDS_INVESTIGATION,
       });
 
-      const result = await service.updateDecision(
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -188,7 +184,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should emit event bus event on accept', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.ACCEPTED,
         reason: 'Confirmed',
       });
@@ -202,13 +198,11 @@ describe('RcaHypothesisDecisionService', () => {
       expect(call.tenantId).toBe(TENANT_ID);
       expect(call.recordId).toBe(MI_ID);
       expect(call.payload.hypothesisId).toBe(HYPO_ID_1);
-      expect(call.payload.newStatus).toBe(
-        HypothesisDecisionStatus.ACCEPTED,
-      );
+      expect(call.payload.newStatus).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
     it('should emit event bus event on reject', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.REJECTED,
       });
 
@@ -220,7 +214,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should emit event bus event on investigation started', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.NEEDS_INVESTIGATION,
       });
 
@@ -232,7 +226,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should write journal entry on decision', async () => {
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.ACCEPTED,
         reason: 'Root cause confirmed',
       });
@@ -249,13 +243,13 @@ describe('RcaHypothesisDecisionService', () => {
       expect(args[4].message).toContain(HYPO_ID_1);
     });
 
-    it('should not fail if event bus is unavailable', async () => {
+    it('should not fail if event bus is unavailable', () => {
       const serviceNoEventBus = new RcaHypothesisDecisionService(
         undefined,
         mockJournal as never,
       );
 
-      const result = await serviceNoEventBus.updateDecision(
+      const result = serviceNoEventBus.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -266,13 +260,13 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.status).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
-    it('should not fail if journal service is unavailable', async () => {
+    it('should not fail if journal service is unavailable', () => {
       const serviceNoJournal = new RcaHypothesisDecisionService(
         mockEventBus as never,
         undefined,
       );
 
-      const result = await serviceNoJournal.updateDecision(
+      const result = serviceNoJournal.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -289,17 +283,11 @@ describe('RcaHypothesisDecisionService', () => {
   // ========================================================================
 
   describe('addNote', () => {
-    it('should add an analyst note to a hypothesis', async () => {
-      const result = await service.addNote(
-        TENANT_ID,
-        MI_ID,
-        HYPO_ID_1,
-        USER_ID,
-        {
-          content: 'Checked logs - confirmed DB timeout at 14:32 UTC',
-          noteType: 'evidence',
-        },
-      );
+    it('should add an analyst note to a hypothesis', () => {
+      const result = service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        content: 'Checked logs - confirmed DB timeout at 14:32 UTC',
+        noteType: 'evidence',
+      });
 
       expect(result.id).toBeTruthy();
       expect(result.content).toBe(
@@ -310,26 +298,22 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.createdAt).toBeTruthy();
     });
 
-    it('should default noteType to general', async () => {
-      const result = await service.addNote(
-        TENANT_ID,
-        MI_ID,
-        HYPO_ID_1,
-        USER_ID,
-        { content: 'Some general observation' },
-      );
+    it('should default noteType to general', () => {
+      const result = service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        content: 'Some general observation',
+      });
 
       expect(result.noteType).toBe('general');
     });
 
-    it('should accumulate multiple notes', async () => {
-      await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+    it('should accumulate multiple notes', () => {
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         content: 'Note 1',
       });
-      await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         content: 'Note 2',
       });
-      await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         content: 'Note 3',
       });
 
@@ -345,7 +329,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should emit note event', async () => {
-      await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         content: 'Evidence found',
         noteType: 'evidence',
       });
@@ -360,7 +344,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should write journal entry for note', async () => {
-      await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         content: 'Important observation',
         noteType: 'observation',
       });
@@ -373,10 +357,10 @@ describe('RcaHypothesisDecisionService', () => {
       expect(args[4].message).toContain('Important observation');
     });
 
-    it('should enforce max notes limit by removing oldest', async () => {
+    it('should enforce max notes limit by removing oldest', () => {
       // Add MAX_NOTES_PER_HYPOTHESIS + 1 notes (limit is 50)
       for (let i = 0; i < 51; i++) {
-        await service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
           content: `Note ${i}`,
         });
       }
@@ -398,16 +382,11 @@ describe('RcaHypothesisDecisionService', () => {
   // ========================================================================
 
   describe('setSelectedHypothesis', () => {
-    it('should set selected hypothesis', async () => {
-      const result = await service.setSelectedHypothesis(
-        TENANT_ID,
-        MI_ID,
-        USER_ID,
-        {
-          hypothesisId: HYPO_ID_1,
-          reason: 'Strongest evidence from topology analysis',
-        },
-      );
+    it('should set selected hypothesis', () => {
+      const result = service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+        hypothesisId: HYPO_ID_1,
+        reason: 'Strongest evidence from topology analysis',
+      });
 
       expect(result.selectedHypothesisId).toBe(HYPO_ID_1);
       expect(result.selectedReason).toBe(
@@ -417,13 +396,10 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.selectedAt).toBeTruthy();
     });
 
-    it('should auto-accept pending hypothesis when selected', async () => {
-      const result = await service.setSelectedHypothesis(
-        TENANT_ID,
-        MI_ID,
-        USER_ID,
-        { hypothesisId: HYPO_ID_1 },
-      );
+    it('should auto-accept pending hypothesis when selected', () => {
+      const result = service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+        hypothesisId: HYPO_ID_1,
+      });
 
       const decision = result.decisions.find(
         (d) => d.hypothesisId === HYPO_ID_1,
@@ -432,19 +408,16 @@ describe('RcaHypothesisDecisionService', () => {
       expect(decision!.status).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
-    it('should not change status of already-rejected hypothesis when selected', async () => {
+    it('should not change status of already-rejected hypothesis when selected', () => {
       // First reject
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.REJECTED,
       });
 
       // Then select
-      const result = await service.setSelectedHypothesis(
-        TENANT_ID,
-        MI_ID,
-        USER_ID,
-        { hypothesisId: HYPO_ID_1 },
-      );
+      const result = service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+        hypothesisId: HYPO_ID_1,
+      });
 
       const decision = result.decisions.find(
         (d) => d.hypothesisId === HYPO_ID_1,
@@ -453,20 +426,15 @@ describe('RcaHypothesisDecisionService', () => {
       expect(decision!.status).toBe(HypothesisDecisionStatus.REJECTED);
     });
 
-    it('should allow changing selected hypothesis', async () => {
-      await service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+    it('should allow changing selected hypothesis', () => {
+      service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
         hypothesisId: HYPO_ID_1,
       });
 
-      const result = await service.setSelectedHypothesis(
-        TENANT_ID,
-        MI_ID,
-        USER_ID,
-        {
-          hypothesisId: HYPO_ID_2,
-          reason: 'New evidence points to a different root cause',
-        },
-      );
+      const result = service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+        hypothesisId: HYPO_ID_2,
+        reason: 'New evidence points to a different root cause',
+      });
 
       expect(result.selectedHypothesisId).toBe(HYPO_ID_2);
       expect(result.selectedReason).toBe(
@@ -475,7 +443,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should emit selected event', async () => {
-      await service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+      service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
         hypothesisId: HYPO_ID_1,
         reason: 'Primary root cause',
       });
@@ -492,7 +460,7 @@ describe('RcaHypothesisDecisionService', () => {
     });
 
     it('should write journal entry for selected hypothesis', async () => {
-      await service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
+      service.setSelectedHypothesis(TENANT_ID, MI_ID, USER_ID, {
         hypothesisId: HYPO_ID_1,
         reason: 'Confirmed root cause',
       });
@@ -514,15 +482,15 @@ describe('RcaHypothesisDecisionService', () => {
   // ========================================================================
 
   describe('edge cases', () => {
-    it('should handle concurrent updates to same hypothesis', async () => {
-      const results = await Promise.all([
+    it('should handle concurrent updates to same hypothesis', () => {
+      const results = [
         service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
           status: HypothesisDecisionStatus.ACCEPTED,
         }),
         service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
           status: HypothesisDecisionStatus.REJECTED,
         }),
-      ]);
+      ];
 
       // Both should complete without error
       expect(results).toHaveLength(2);
@@ -538,10 +506,10 @@ describe('RcaHypothesisDecisionService', () => {
       ]).toContain(decision!.status);
     });
 
-    it('should handle event bus error gracefully', async () => {
+    it('should handle event bus error gracefully', () => {
       mockEventBus.emit.mockRejectedValueOnce(new Error('Event bus down'));
 
-      const result = await service.updateDecision(
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -553,12 +521,12 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.status).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
-    it('should handle journal error gracefully', async () => {
+    it('should handle journal error gracefully', () => {
       mockJournal.createJournalEntry.mockRejectedValueOnce(
         new Error('Journal write failed'),
       );
 
-      const result = await service.updateDecision(
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -570,8 +538,8 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.status).toBe(HypothesisDecisionStatus.ACCEPTED);
     });
 
-    it('should handle empty reason', async () => {
-      const result = await service.updateDecision(
+    it('should handle empty reason', () => {
+      const result = service.updateDecision(
         TENANT_ID,
         MI_ID,
         HYPO_ID_1,
@@ -582,22 +550,16 @@ describe('RcaHypothesisDecisionService', () => {
       expect(result.reason).toBeNull();
     });
 
-    it('should track decisions per major incident independently', async () => {
+    it('should track decisions per major incident independently', () => {
       const otherMiId = '33333333-3333-3333-3333-333333333333';
 
-      await service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
         status: HypothesisDecisionStatus.ACCEPTED,
       });
 
-      await service.updateDecision(
-        TENANT_ID,
-        otherMiId,
-        HYPO_ID_1,
-        USER_ID,
-        {
-          status: HypothesisDecisionStatus.REJECTED,
-        },
-      );
+      service.updateDecision(TENANT_ID, otherMiId, HYPO_ID_1, USER_ID, {
+        status: HypothesisDecisionStatus.REJECTED,
+      });
 
       const summary1 = service.getDecisionsSummary(TENANT_ID, MI_ID);
       const summary2 = service.getDecisionsSummary(TENANT_ID, otherMiId);

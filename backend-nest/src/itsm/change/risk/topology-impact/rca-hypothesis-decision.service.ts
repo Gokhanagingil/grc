@@ -133,13 +133,13 @@ export class RcaHypothesisDecisionService {
   /**
    * Update the status of a hypothesis (accept/reject/investigate).
    */
-  async updateDecision(
+  updateDecision(
     tenantId: string,
     majorIncidentId: string,
     hypothesisId: string,
     userId: string,
     dto: UpdateHypothesisDecisionDto,
-  ): Promise<HypothesisDecisionResponse> {
+  ): HypothesisDecisionResponse {
     const state = this.getOrCreateState(tenantId, majorIncidentId);
     const decision = this.getOrCreateDecision(state, hypothesisId);
 
@@ -180,13 +180,13 @@ export class RcaHypothesisDecisionService {
   /**
    * Add an analyst note to a hypothesis.
    */
-  async addNote(
+  addNote(
     tenantId: string,
     majorIncidentId: string,
     hypothesisId: string,
     userId: string,
     dto: AddHypothesisNoteDto,
-  ): Promise<HypothesisNoteResponse> {
+  ): HypothesisNoteResponse {
     const state = this.getOrCreateState(tenantId, majorIncidentId);
     const decision = this.getOrCreateDecision(state, hypothesisId);
 
@@ -233,12 +233,12 @@ export class RcaHypothesisDecisionService {
   /**
    * Set the selected (primary) hypothesis for an MI's RCA.
    */
-  async setSelectedHypothesis(
+  setSelectedHypothesis(
     tenantId: string,
     majorIncidentId: string,
     userId: string,
     dto: SetSelectedHypothesisDto,
-  ): Promise<RcaDecisionsSummaryResponse> {
+  ): RcaDecisionsSummaryResponse {
     const state = this.getOrCreateState(tenantId, majorIncidentId);
 
     const previousSelectedId = state.selectedHypothesisId;
@@ -335,9 +335,7 @@ export class RcaHypothesisDecisionService {
   ): HypothesisDecisionResponse[] {
     const responses: HypothesisDecisionResponse[] = [];
     for (const [, decision] of state.decisions) {
-      responses.push(
-        this.toDecisionResponse(decision, state.majorIncidentId),
-      );
+      responses.push(this.toDecisionResponse(decision, state.majorIncidentId));
     }
     return responses;
   }
@@ -527,9 +525,7 @@ export class RcaHypothesisDecisionService {
         },
       );
     } catch (err) {
-      this.logger.warn(
-        `Failed to write note journal entry: ${String(err)}`,
-      );
+      this.logger.warn(`Failed to write note journal entry: ${String(err)}`);
     }
   }
 
