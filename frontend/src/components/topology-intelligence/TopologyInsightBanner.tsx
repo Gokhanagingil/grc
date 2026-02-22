@@ -51,7 +51,7 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
     const isHighRisk = riskLevel === 'CRITICAL' || riskLevel === 'HIGH';
     const summaryText = getImpactSummaryText(changeImpact);
 
-    if (!isHighRisk && changeImpact.fragilitySignals.length === 0) return null;
+    if (!isHighRisk && (changeImpact.fragilitySignals?.length ?? 0) === 0) return null;
 
     return (
       <Alert
@@ -77,11 +77,11 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
         <AlertTitle>Topology Impact: {riskLevel}</AlertTitle>
         <Typography variant="body2">
           This change affects {summaryText}.
-          {changeImpact.fragilitySignals.length > 0 && (
-            <> {changeImpact.fragilitySignals.length} fragility signal{changeImpact.fragilitySignals.length !== 1 ? 's' : ''} detected.</>
+          {(changeImpact.fragilitySignals?.length ?? 0) > 0 && (
+            <> {changeImpact.fragilitySignals!.length} fragility signal{changeImpact.fragilitySignals!.length !== 1 ? 's' : ''} detected.</>
           )}
-          {changeImpact.metrics.crossServicePropagation && (
-            <> Impact propagates across {changeImpact.metrics.crossServiceCount} service boundaries.</>
+          {changeImpact.metrics?.crossServicePropagation && (
+            <> Impact propagates across {changeImpact.metrics?.crossServiceCount ?? 0} service boundaries.</>
           )}
         </Typography>
       </Alert>

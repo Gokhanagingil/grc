@@ -5,6 +5,7 @@
 
 import type {
   TopologyImpactResponseData,
+  TopologyBlastRadiusMetrics,
   RcaHypothesisData,
   FragilitySignalType,
   RcaHypothesisType,
@@ -165,23 +166,85 @@ export function classifyTopologyApiError(error: unknown): ClassifiedTopologyErro
 }
 
 // ============================================================================
+// Impact Data Normalization
+// ============================================================================
+
+/**
+ * Default blast radius metrics - safe zero-value fallback.
+ * Used when topology response has missing/partial metrics.
+ */
+const DEFAULT_METRICS: TopologyBlastRadiusMetrics = {
+  totalImpactedNodes: 0,
+  impactedByDepth: {},
+  impactedServiceCount: 0,
+  impactedOfferingCount: 0,
+  impactedCiCount: 0,
+  criticalCiCount: 0,
+  maxChainDepth: 0,
+  crossServicePropagation: false,
+  crossServiceCount: 0,
+};
+
+/**
+ * Normalize a raw topology impact response into a safe, fully-typed shape.
+ * Handles:
+ * - Missing or partial `metrics` (fills defaults)
+ * - Missing `fragilitySignals` / `warnings` / `topPaths` / `impactedNodes` (→ [])
+ * - `topologyRiskScore` missing (→ 0)
+ * - Various response envelope shapes (data.summary.X, data.metrics.X, data.X)
+ */
+export function normalizeTopologyImpactResponse(
+  raw: Record<string, unknown> | null | undefined,
+): TopologyImpactResponseData | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  // Try to find metrics from various nesting shapes
+  const rawMetrics = (raw.metrics ?? raw.summary ?? {}) as Partial<TopologyBlastRadiusMetrics>;
+  const metrics: TopologyBlastRadiusMetrics = {
+    totalImpactedNodes: rawMetrics.totalImpactedNodes ?? DEFAULT_METRICS.totalImpactedNodes,
+    impactedByDepth: rawMetrics.impactedByDepth ?? DEFAULT_METRICS.impactedByDepth,
+    impactedServiceCount: rawMetrics.impactedServiceCount ?? DEFAULT_METRICS.impactedServiceCount,
+    impactedOfferingCount: rawMetrics.impactedOfferingCount ?? DEFAULT_METRICS.impactedOfferingCount,
+    impactedCiCount: rawMetrics.impactedCiCount ?? DEFAULT_METRICS.impactedCiCount,
+    criticalCiCount: rawMetrics.criticalCiCount ?? DEFAULT_METRICS.criticalCiCount,
+    maxChainDepth: rawMetrics.maxChainDepth ?? DEFAULT_METRICS.maxChainDepth,
+    crossServicePropagation: rawMetrics.crossServicePropagation ?? DEFAULT_METRICS.crossServicePropagation,
+    crossServiceCount: rawMetrics.crossServiceCount ?? DEFAULT_METRICS.crossServiceCount,
+  };
+
+  return {
+    changeId: (raw.changeId as string) ?? '',
+    rootNodeIds: Array.isArray(raw.rootNodeIds) ? raw.rootNodeIds : [],
+    metrics,
+    impactedNodes: Array.isArray(raw.impactedNodes) ? raw.impactedNodes : [],
+    topPaths: Array.isArray(raw.topPaths) ? raw.topPaths : [],
+    fragilitySignals: Array.isArray(raw.fragilitySignals) ? raw.fragilitySignals : [],
+    topologyRiskScore: typeof raw.topologyRiskScore === 'number' ? raw.topologyRiskScore : 0,
+    riskExplanation: (raw.riskExplanation as string) ?? '',
+    computedAt: (raw.computedAt as string) ?? new Date().toISOString(),
+    warnings: Array.isArray(raw.warnings) ? raw.warnings : [],
+  };
+}
+
+// ============================================================================
 // Impact Summary Helpers
 // ============================================================================
 
-export function getImpactSummaryText(impact: TopologyImpactResponseData): string {
-  const { metrics } = impact;
+export function getImpactSummaryText(impact: TopologyImpactResponseData | null | undefined): string {
+  if (!impact) return 'No topology impact data available';
+  const metrics = impact.metrics ?? DEFAULT_METRICS;
   const parts: string[] = [];
 
-  if (metrics.totalImpactedNodes > 0) {
+  if ((metrics.totalImpactedNodes ?? 0) > 0) {
     parts.push(`${metrics.totalImpactedNodes} impacted node${metrics.totalImpactedNodes !== 1 ? 's' : ''}`);
   }
-  if (metrics.impactedServiceCount > 0) {
+  if ((metrics.impactedServiceCount ?? 0) > 0) {
     parts.push(`${metrics.impactedServiceCount} service${metrics.impactedServiceCount !== 1 ? 's' : ''}`);
   }
-  if (metrics.impactedOfferingCount > 0) {
+  if ((metrics.impactedOfferingCount ?? 0) > 0) {
     parts.push(`${metrics.impactedOfferingCount} offering${metrics.impactedOfferingCount !== 1 ? 's' : ''}`);
   }
-  if (metrics.criticalCiCount > 0) {
+  if ((metrics.criticalCiCount ?? 0) > 0) {
     parts.push(`${metrics.criticalCiCount} critical CI${metrics.criticalCiCount !== 1 ? 's' : ''}`);
   }
 
@@ -200,6 +263,12 @@ export function getRcaSummaryText(hypotheses: RcaHypothesisData[]): string {
 
 export function unwrapTopologyResponse<T>(response: unknown): T | null {
   if (!response || typeof response !== 'object') return null;
-  const resp = response as { data?: { data?: T } };
-  return resp?.data?.data ?? null;
+  const resp = response as { data?: { data?: T; success?: boolean } & Record<string, unknown> };
+  // Handle { data: { success: true, data: T } } (NestJS ResponseTransformInterceptor)
+  if (resp?.data?.data !== undefined) return resp.data.data;
+  // Handle { data: T } (flat envelope)
+  if (resp?.data && typeof resp.data === 'object' && !('success' in resp.data)) {
+    return resp.data as unknown as T;
+  }
+  return null;
 }

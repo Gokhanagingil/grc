@@ -50,6 +50,7 @@ import {
   ProblemRcaData,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -303,29 +304,38 @@ export const ItsmProblemDetail: React.FC = () => {
     setSaving(true);
     try {
       if (isNew) {
+        // CREATE: Only send fields accepted by backend CreateProblemDto
+        // Do NOT send priority (computed server-side from impact+urgency)
         const dto: CreateItsmProblemDto = {
           shortDescription: title,
           description: description || undefined,
-          state,
-          impact,
-          urgency,
-          category: category || undefined,
+          state: state || undefined,
+          impact: impact || undefined,
+          urgency: urgency || undefined,
+          category: category || undefined, // empty string → undefined to avoid enum validation failure
           rootCauseSummary: rootCauseSummary || undefined,
           workaroundSummary: workaroundSummary || undefined,
         };
         const response = await itsmApi.problems.create(dto);
         const data = response.data;
         const created = (data as { data?: ItsmProblemData })?.data || data as ItsmProblemData;
-        showNotification('Problem created successfully', 'success');
-        navigate(`/itsm/problems/${created.id}`, { replace: true });
+        if (created?.id) {
+          showNotification('Problem created successfully', 'success');
+          navigate(`/itsm/problems/${created.id}`, { replace: true });
+        } else {
+          console.warn('[ItsmProblemDetail] Create succeeded but response shape unexpected:', data);
+          showNotification('Problem created. Redirecting to list.', 'success');
+          navigate('/itsm/problems');
+        }
       } else if (id) {
+        // UPDATE: Do NOT send priority (computed server-side)
         const dto: UpdateItsmProblemDto = {
           shortDescription: title,
           description: description || undefined,
-          state,
-          priority,
-          impact,
-          urgency,
+          state: state || undefined,
+          // priority intentionally omitted — computed by backend from impact+urgency
+          impact: impact || undefined,
+          urgency: urgency || undefined,
           category: category || undefined,
           rootCauseSummary: rootCauseSummary || undefined,
           workaroundSummary: workaroundSummary || undefined,
@@ -336,16 +346,15 @@ export const ItsmProblemDetail: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error('Error saving problem:', err);
-      const axErr = err as { response?: { status?: number; data?: { message?: string | string[] } } };
-      const status = axErr?.response?.status;
-      const msg = axErr?.response?.data?.message;
-      if (status === 400) {
-        const detail = Array.isArray(msg) ? msg.join(', ') : msg || 'Validation error';
-        showNotification(`Validation failed: ${detail}`, 'error');
-      } else if (status === 403) {
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        showNotification(`Validation failed: ${classified.message}`, 'error');
+      } else if (classified.kind === 'forbidden') {
         showNotification('Permission denied: you do not have access to save problems', 'error');
+      } else if (classified.kind === 'conflict') {
+        showNotification(classified.message, 'error');
       } else {
-        showNotification('Failed to save problem', 'error');
+        showNotification(classified.message || 'Failed to save problem', 'error');
       }
     } finally {
       setSaving(false);
@@ -424,8 +433,15 @@ export const ItsmProblemDetail: React.FC = () => {
       fetchRcaData();
       fetchProblem();
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Failed to complete RCA';
-      showNotification(errMsg, 'error');
+      console.error('Error completing RCA:', err);
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        showNotification(`RCA validation failed: ${classified.message}`, 'error');
+      } else if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: you do not have access to complete RCA', 'error');
+      } else {
+        showNotification(classified.message || 'Failed to complete RCA', 'error');
+      }
     } finally { setRcaSaving(false); }
   };
 
@@ -434,6 +450,7 @@ export const ItsmProblemDetail: React.FC = () => {
     if (!id) return;
     setRcaSaving(true);
     try {
+      // Only send RCA-related fields, do NOT send priority or other computed fields
       const dto: UpdateItsmProblemDto = {
         rootCauseSummary: rootCauseSummary || undefined,
         fiveWhySummary: fiveWhySummary || undefined,
@@ -447,7 +464,14 @@ export const ItsmProblemDetail: React.FC = () => {
       fetchRcaData();
     } catch (err) {
       console.error('Error saving RCA data:', err);
-      showNotification('Failed to save RCA data', 'error');
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        showNotification(`RCA validation failed: ${classified.message}`, 'error');
+      } else if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: you do not have access to save RCA data', 'error');
+      } else {
+        showNotification(classified.message || 'Failed to save RCA data', 'error');
+      }
     } finally { setRcaSaving(false); }
   };
 
