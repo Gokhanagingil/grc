@@ -43,6 +43,7 @@ import {
   CmdbServiceData,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
 const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
@@ -571,6 +572,17 @@ export const CmdbCiDetail: React.FC = () => {
             </TableContainer>
           </CardContent>
         </Card>
+      )}
+
+      {!isNew && id && (
+        <TopologyPanel
+          entityId={id}
+          entityType="ci"
+          onNodeNavigate={(nodeId, nodeType) => {
+            if (nodeType === 'ci') navigate(`/cmdb/cis/${nodeId}`);
+            else if (nodeType === 'service') navigate(`/cmdb/services/${nodeId}`);
+          }}
+        />
       )}
 
       <Dialog

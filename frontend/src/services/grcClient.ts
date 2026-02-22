@@ -519,6 +519,10 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/cmdb/reconcile-rules/${id}`,
       DELETE: (id: string) => `/grc/cmdb/reconcile-rules/${id}`,
     },
+    TOPOLOGY: {
+      CI: (ciId: string) => `/grc/cmdb/topology/ci/${ciId}`,
+      SERVICE: (serviceId: string) => `/grc/cmdb/topology/service/${serviceId}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -3542,6 +3546,59 @@ export interface CmdbListParams {
   isActive?: boolean;
 }
 
+// CMDB Topology Types
+export interface TopologyNode {
+  id: string;
+  type: 'ci' | 'service' | 'service_offering';
+  label: string;
+  className?: string;
+  status?: string;
+  criticality?: string;
+  owner?: string;
+  environment?: string;
+  ipAddress?: string;
+  tier?: string;
+}
+
+export interface TopologyEdge {
+  id: string;
+  source: string;
+  target: string;
+  relationType: string;
+  direction?: 'upstream' | 'downstream' | 'bidirectional';
+  strength?: number;
+  inferred: boolean;
+}
+
+export interface TopologyMeta {
+  rootNodeId: string;
+  depth: number;
+  nodeCount: number;
+  edgeCount: number;
+  truncated: boolean;
+  warnings: string[];
+}
+
+export interface TopologyAnnotations {
+  highlightedNodeIds?: string[];
+  highlightedEdgeIds?: string[];
+  badgesByNodeId?: Record<string, { type: string; label: string; color?: string }>;
+}
+
+export interface TopologyResponse {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  meta: TopologyMeta;
+  annotations: TopologyAnnotations;
+}
+
+export interface TopologyQueryParams {
+  depth?: number;
+  relationTypes?: string;
+  includeOrphans?: boolean;
+  direction?: 'both' | 'upstream' | 'downstream';
+}
+
 // CMDB API object
 // CMDB Import & Reconciliation API
 export const cmdbImportApi = {
@@ -3713,9 +3770,29 @@ export const cmdbApi = {
     update: (id: string, data: UpdateCmdbServiceOfferingDto) => api.patch(API_PATHS.CMDB.SERVICE_OFFERINGS.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.CMDB.SERVICE_OFFERINGS.DELETE(id)),
   },
+  topology: {
+    forCi: (ciId: string, params?: TopologyQueryParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.depth) searchParams.set('depth', String(params.depth));
+      if (params?.relationTypes) searchParams.set('relationTypes', params.relationTypes);
+      if (params?.includeOrphans) searchParams.set('includeOrphans', String(params.includeOrphans));
+      if (params?.direction) searchParams.set('direction', params.direction);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.TOPOLOGY.CI(ciId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    forService: (serviceId: string, params?: TopologyQueryParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.depth) searchParams.set('depth', String(params.depth));
+      if (params?.relationTypes) searchParams.set('relationTypes', params.relationTypes);
+      if (params?.includeOrphans) searchParams.set('includeOrphans', String(params.includeOrphans));
+      if (params?.direction) searchParams.set('direction', params.direction);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.TOPOLOGY.SERVICE(serviceId)}${queryString ? `?${queryString}` : ''}`);
+    },
+  },
 };
 
-// Legacy incidentApi for backward compatibility (deprecated, use itsmApi.incidents instead)
+// Legacy incidentApi for backward compatibility(deprecated, use itsmApi.incidents instead)
 export const incidentApi = {
   list: (tenantId: string, params?: URLSearchParams) => 
     api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${params ? `?${params}` : ''}`, withTenantId(tenantId)),
