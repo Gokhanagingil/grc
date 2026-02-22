@@ -918,6 +918,7 @@ export const API_PATHS = {
   ITSM_TOPOLOGY_INTELLIGENCE: {
     CHANGE_IMPACT: (changeId: string) => `/grc/itsm/changes/${changeId}/topology-impact`,
     CHANGE_RECALCULATE: (changeId: string) => `/grc/itsm/changes/${changeId}/recalculate-topology-impact`,
+    CHANGE_EVALUATE_GOVERNANCE: (changeId: string) => `/grc/itsm/changes/${changeId}/evaluate-topology-governance`,
     MI_RCA_HYPOTHESES: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses`,
     MI_RCA_RECALCULATE: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses/recalculate`,
     MI_RCA_CREATE_PROBLEM: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-problem`,
@@ -2219,6 +2220,8 @@ export const itsmApi = {
       api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_IMPACT(changeId)),
     recalculateTopologyImpact: (changeId: string) =>
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_RECALCULATE(changeId), {}),
+    evaluateTopologyGovernance: (changeId: string) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.CHANGE_EVALUATE_GOVERNANCE(changeId), {}),
     requestApproval:(changeId: string, comment?: string) =>
       api.post(API_PATHS.ITSM.CHANGES.REQUEST_APPROVAL(changeId), { comment }),
     listApprovals: (changeId: string) =>
@@ -2939,6 +2942,67 @@ export interface RcaTopologyHypothesesResponseData {
   hypotheses: RcaHypothesisData[];
   nodesAnalyzed: number;
   computedAt: string;
+  warnings: string[];
+}
+
+// ============================================================================
+// Topology Governance Types (Change Governance Auto-Enforcement)
+// ============================================================================
+
+/** Governance decision recommendation level */
+export type TopologyGovernanceDecision =
+  | 'ALLOWED'
+  | 'CAB_REQUIRED'
+  | 'BLOCKED'
+  | 'ADDITIONAL_EVIDENCE_REQUIRED';
+
+/** A single topology factor that contributed to the governance decision */
+export interface TopologyGovernanceFactor {
+  key: string;
+  label: string;
+  value: string | number | boolean;
+  severity: 'info' | 'warning' | 'critical';
+  explanation: string;
+}
+
+/** A single recommended action from the governance evaluation */
+export interface TopologyGovernanceAction {
+  key: string;
+  label: string;
+  required: boolean;
+  satisfied: boolean;
+  reason: string;
+}
+
+/** Policy-ready computed flags from topology analysis */
+export interface TopologyPolicyFlags {
+  topologyRiskScore: number;
+  topologyHighBlastRadius: boolean;
+  topologyFragilitySignalsCount: number;
+  topologyCriticalDependencyTouched: boolean;
+  topologySinglePointOfFailureRisk: boolean;
+}
+
+/** Explainability payload for governance decisions */
+export interface TopologyGovernanceExplainability {
+  summary: string;
+  factors: TopologyGovernanceFactor[];
+  topDependencyPaths: Array<{
+    nodeLabels: string[];
+    depth: number;
+  }>;
+  matchedPolicyNames: string[];
+}
+
+/** Full topology governance evaluation response */
+export interface TopologyGovernanceEvaluationData {
+  changeId: string;
+  decision: TopologyGovernanceDecision;
+  policyFlags: TopologyPolicyFlags;
+  recommendedActions: TopologyGovernanceAction[];
+  explainability: TopologyGovernanceExplainability;
+  topologyDataAvailable: boolean;
+  evaluatedAt: string;
   warnings: string[];
 }
 

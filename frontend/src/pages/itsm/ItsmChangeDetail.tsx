@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -52,6 +52,7 @@ import {
   TopologyImpactSummaryCard,
   TopologyExplainabilityPanel,
   TopologyInsightBanner,
+  TopologyGovernanceDecisionPanel,
   classifyTopologyApiError,
   unwrapTopologyResponse,
   getTopologyRiskLevel,
@@ -237,6 +238,12 @@ export const ItsmChangeDetail: React.FC = () => {
   const [topologyError, setTopologyError] = useState<ClassifiedTopologyError | null>(null);
   const [topologyRecalculating, setTopologyRecalculating] = useState(false);
   const [showTopologySection, setShowTopologySection] = useState(true);
+
+  // Topology Governance Decision Support state
+  const [governanceData, setGovernanceData] = useState<TopologyGovernanceEvaluationData | null>(null);
+  const [governanceLoading, setGovernanceLoading] = useState(false);
+  const [governanceEvalError, setGovernanceEvalError] = useState<ClassifiedTopologyError | null>(null);
+  const [governanceReEvaluating, setGovernanceReEvaluating] = useState(false);
 
   const fetchChange = useCallback(async () => {
     if (isNew || !id) return;
@@ -656,6 +663,41 @@ export const ItsmChangeDetail: React.FC = () => {
       if (mountedRef.current) setTopologyRecalculating(false);
     }
   }, [id, isNew, showNotification]);
+
+  // --- Topology Governance: Evaluate governance ---
+  const handleEvaluateGovernance = useCallback(async () => {
+    if (isNew || !id) return;
+    const isReEval = !!governanceData;
+    if (isReEval) {
+      setGovernanceReEvaluating(true);
+    } else {
+      setGovernanceLoading(true);
+    }
+    setGovernanceEvalError(null);
+    try {
+      const resp = await itsmApi.changes.evaluateTopologyGovernance(id);
+      const data = unwrapTopologyResponse<TopologyGovernanceEvaluationData>(resp);
+      if (mountedRef.current) {
+        setGovernanceData(data);
+        if (isReEval) {
+          showNotification('Governance re-evaluated successfully', 'success');
+        }
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const classified = classifyTopologyApiError(err);
+        setGovernanceEvalError(classified);
+        if (isReEval) {
+          showNotification(classified.message, 'error');
+        }
+      }
+    } finally {
+      if (mountedRef.current) {
+        setGovernanceLoading(false);
+        setGovernanceReEvaluating(false);
+      }
+    }
+  }, [id, isNew, governanceData, showNotification]);
 
   // Non-blocking topology fetch after main data loads
   useEffect(() => {
@@ -1342,6 +1384,19 @@ export const ItsmChangeDetail: React.FC = () => {
                 </Collapse>
               </CardContent>
             </Card>
+          )}
+
+          {/* Topology Governance Decision Support Panel */}
+          {!isNew && (
+            <Box sx={{ mb: 2 }} data-testid="topology-governance-section">
+              <TopologyGovernanceDecisionPanel
+                governance={governanceData}
+                loading={governanceLoading}
+                error={governanceEvalError}
+                onReEvaluate={handleEvaluateGovernance}
+                reEvaluating={governanceReEvaluating}
+              />
+            </Box>
           )}
 
           {/* Topology Governance Warning */}

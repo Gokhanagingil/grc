@@ -118,6 +118,7 @@ import { AnalyticsService } from './analytics/analytics.service';
 import { AnalyticsController } from './analytics/analytics.controller';
 
 import { TopologyImpactAnalysisService } from './change/risk/topology-impact/topology-impact-analysis.service';
+import { TopologyGovernanceService } from './change/risk/topology-impact/topology-governance.service';
 import { RcaOrchestrationService } from './change/risk/topology-impact/rca-orchestration.service';
 import { TopologyImpactController } from './change/risk/topology-impact/topology-impact.controller';
 
@@ -201,9 +202,10 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     KnowledgeCandidateService,
     AnalyticsService,
     TopologyImpactAnalysisService,
+    TopologyGovernanceService,
     RcaOrchestrationService,
   ],
-  controllers: [
+  controllers:[
     IncidentController,
     ServiceController,
     ChangeController,
@@ -261,6 +263,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     PirActionService,
     KnowledgeCandidateService,
     TopologyImpactAnalysisService,
+    TopologyGovernanceService,
     RcaOrchestrationService,
   ],
 })
