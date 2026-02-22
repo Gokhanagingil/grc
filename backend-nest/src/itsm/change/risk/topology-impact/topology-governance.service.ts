@@ -17,7 +17,7 @@ import { TopologyImpactAnalysisService } from './topology-impact-analysis.servic
 import { PolicyService, PolicyEvaluationSummary } from '../policy.service';
 import { JournalService } from '../../../journal/journal.service';
 import { JournalType } from '../../../journal/journal.entity';
-import { ItsmChange } from '../../change.entity';
+import { ItsmChange, ChangeApprovalStatus } from '../../change.entity';
 import { RiskAssessment } from '../risk-assessment.entity';
 import { CustomerRiskImpactResult } from '../customer-risk-impact.service';
 import {
@@ -77,16 +77,19 @@ export class TopologyGovernanceService {
 
     if (this.topologyImpactService) {
       try {
-        topologyImpact = await this.topologyImpactService.calculateTopologyImpact(
-          tenantId,
-          change,
-        );
+        topologyImpact =
+          await this.topologyImpactService.calculateTopologyImpact(
+            tenantId,
+            change,
+          );
         topologyDataAvailable = true;
       } catch (err) {
         this.logger.warn(
           `Topology impact fetch failed for change ${change.id} (fail-open): ${String(err)}`,
         );
-        warnings.push('Topology impact data unavailable. Governance evaluated without topology context.');
+        warnings.push(
+          'Topology impact data unavailable. Governance evaluated without topology context.',
+        );
       }
     } else {
       warnings.push('Topology impact analysis service not configured.');
@@ -111,12 +114,18 @@ export class TopologyGovernanceService {
         this.logger.warn(
           `Policy evaluation failed for change ${change.id}: ${String(err)}`,
         );
-        warnings.push('Policy evaluation encountered an error. Default governance applied.');
+        warnings.push(
+          'Policy evaluation encountered an error. Default governance applied.',
+        );
       }
     }
 
     // Step 4: Build governance decision
-    const decision = this.computeDecision(policyFlags, policySummary, assessment);
+    const decision = this.computeDecision(
+      policyFlags,
+      policySummary,
+      assessment,
+    );
     const factors = this.buildFactors(policyFlags, topologyImpact, assessment);
     const recommendedActions = this.buildRecommendedActions(
       policyFlags,
@@ -256,11 +265,12 @@ export class TopologyGovernanceService {
       key: 'topologyRiskScore',
       label: 'Topology Risk Score',
       value: policyFlags.topologyRiskScore,
-      severity: policyFlags.topologyRiskScore >= 60
-        ? 'critical'
-        : policyFlags.topologyRiskScore >= 40
-          ? 'warning'
-          : 'info',
+      severity:
+        policyFlags.topologyRiskScore >= 60
+          ? 'critical'
+          : policyFlags.topologyRiskScore >= 40
+            ? 'warning'
+            : 'info',
       explanation: `Topology analysis computed a risk score of ${policyFlags.topologyRiskScore}/100`,
     });
 
@@ -293,7 +303,8 @@ export class TopologyGovernanceService {
         label: 'Single Point of Failure Risk',
         value: true,
         severity: 'critical',
-        explanation: 'A single point of failure was detected in the dependency graph',
+        explanation:
+          'A single point of failure was detected in the dependency graph',
       });
     }
 
@@ -303,7 +314,10 @@ export class TopologyGovernanceService {
         key: 'fragilitySignals',
         label: 'Fragility Signals',
         value: policyFlags.topologyFragilitySignalsCount,
-        severity: policyFlags.topologyFragilitySignalsCount >= 3 ? 'critical' : 'warning',
+        severity:
+          policyFlags.topologyFragilitySignalsCount >= 3
+            ? 'critical'
+            : 'warning',
         explanation: `${policyFlags.topologyFragilitySignalsCount} fragility signal(s) detected (SPOF, no redundancy, high fan-out, deep chains)`,
       });
     }
@@ -346,8 +360,9 @@ export class TopologyGovernanceService {
 
     // Implementation plan
     const requireImpl =
-      policySummary?.requiredActions?.includes('Implementation plan required') ||
-      policyFlags.topologyRiskScore >= 40;
+      policySummary?.requiredActions?.includes(
+        'Implementation plan required',
+      ) || policyFlags.topologyRiskScore >= 40;
     actions.push({
       key: 'implementationPlan',
       label: 'Implementation Plan',
@@ -416,12 +431,15 @@ export class TopologyGovernanceService {
     });
 
     // CAB approval
-    if (policySummary?.requireCABApproval || policyFlags.topologyRiskScore >= 60) {
+    if (
+      policySummary?.requireCABApproval ||
+      policyFlags.topologyRiskScore >= 60
+    ) {
       actions.push({
         key: 'cabApproval',
         label: 'CAB Approval',
         required: true,
-        satisfied: change.approvalStatus === 'APPROVED',
+        satisfied: change.approvalStatus === ChangeApprovalStatus.APPROVED,
         reason: 'Required by policy or topology risk assessment',
       });
     }
@@ -500,10 +518,21 @@ export class TopologyGovernanceService {
     const message = [
       `[Topology Governance] Decision: ${result.decision}`,
       `Risk Score: ${result.policyFlags.topologyRiskScore}`,
-      result.policyFlags.topologyHighBlastRadius ? 'High blast radius detected.' : '',
-      result.policyFlags.topologySinglePointOfFailureRisk ? 'SPOF risk detected.' : '',
-      result.policyFlags.topologyCriticalDependencyTouched ? 'Critical dependency touched.' : '',
-      `Actions: ${result.recommendedActions.filter((a) => a.required && !a.satisfied).map((a) => a.label).join(', ') || 'None outstanding'}`,
+      result.policyFlags.topologyHighBlastRadius
+        ? 'High blast radius detected.'
+        : '',
+      result.policyFlags.topologySinglePointOfFailureRisk
+        ? 'SPOF risk detected.'
+        : '',
+      result.policyFlags.topologyCriticalDependencyTouched
+        ? 'Critical dependency touched.'
+        : '',
+      `Actions: ${
+        result.recommendedActions
+          .filter((a) => a.required && !a.satisfied)
+          .map((a) => a.label)
+          .join(', ') || 'None outstanding'
+      }`,
       result.explainability.summary,
     ]
       .filter(Boolean)
