@@ -118,6 +118,7 @@ import { AnalyticsService } from './analytics/analytics.service';
 import { AnalyticsController } from './analytics/analytics.controller';
 
 import { TopologyImpactAnalysisService } from './change/risk/topology-impact/topology-impact-analysis.service';
+import { RcaOrchestrationService } from './change/risk/topology-impact/rca-orchestration.service';
 import { TopologyImpactController } from './change/risk/topology-impact/topology-impact.controller';
 
 @Module({
@@ -200,6 +201,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     KnowledgeCandidateService,
     AnalyticsService,
     TopologyImpactAnalysisService,
+    RcaOrchestrationService,
   ],
   controllers: [
     IncidentController,
@@ -259,6 +261,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     PirActionService,
     KnowledgeCandidateService,
     TopologyImpactAnalysisService,
+    RcaOrchestrationService,
   ],
 })
 export class ItsmModule {}
