@@ -1,7 +1,8 @@
 /**
  * TopologyRcaHypothesesTable
  * Ranked list of RCA hypotheses with expandable details,
- * confidence scores, and analyst workflow actions.
+ * confidence scores, analyst workflow actions, and
+ * orchestration buttons (Create Problem / Known Error / PIR Action).
  */
 import React from 'react';
 import {
@@ -22,6 +23,12 @@ import {
   Divider,
   Tooltip,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -34,10 +41,16 @@ import LockIcon from '@mui/icons-material/Lock';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 
 import type {
   RcaTopologyHypothesesResponseData,
   RcaHypothesisData,
+  CreateProblemFromHypothesisRequest,
+  CreateKnownErrorFromHypothesisRequest,
+  CreatePirActionFromHypothesisRequest,
 } from '../../services/grcClient';
 import {
   getConfidenceLabel,
@@ -47,6 +60,27 @@ import {
   type ClassifiedTopologyError,
 } from './topology-utils';
 
+// ---------------------------------------------------------------------------
+// Types for orchestration dialog state
+// ---------------------------------------------------------------------------
+
+type OrchestrationDialogType = 'problem' | 'known_error' | 'pir_action' | null;
+
+interface OrchestrationCallbacks {
+  onCreateProblem?: (
+    hypothesis: RcaHypothesisData,
+    data: CreateProblemFromHypothesisRequest,
+  ) => Promise<{ recordId?: string; error?: string }>;
+  onCreateKnownError?: (
+    hypothesis: RcaHypothesisData,
+    data: CreateKnownErrorFromHypothesisRequest,
+  ) => Promise<{ recordId?: string; error?: string }>;
+  onCreatePirAction?: (
+    hypothesis: RcaHypothesisData,
+    data: CreatePirActionFromHypothesisRequest,
+  ) => Promise<{ recordId?: string; error?: string }>;
+}
+
 export interface TopologyRcaHypothesesTableProps {
   /** RCA hypotheses data */
   data: RcaTopologyHypothesesResponseData | null;
@@ -54,6 +88,10 @@ export interface TopologyRcaHypothesesTableProps {
   loading: boolean;
   /** Error state */
   error: ClassifiedTopologyError | null;
+  /** Major incident ID (required for orchestration) */
+  majorIncidentId?: string;
+  /** Available PIR IDs for this MI (needed for PIR action creation) */
+  pirIds?: Array<{ id: string; title: string }>;
   /** Called when user clicks Recalculate */
   onRecalculate?: () => void;
   /** Whether recalculation is in progress */
@@ -66,20 +104,164 @@ export interface TopologyRcaHypothesesTableProps {
   onCopyHypothesis?: (hypothesis: RcaHypothesisData) => void;
   /** Called when user wants to compare top 2 hypotheses */
   onCompare?: (h1: RcaHypothesisData, h2: RcaHypothesisData) => void;
+  /** Orchestration callbacks */
+  orchestration?: OrchestrationCallbacks;
 }
+
+// ---------------------------------------------------------------------------
+// Confirmation dialog constants
+// ---------------------------------------------------------------------------
+
+const PROBLEM_CATEGORIES = [
+  'HARDWARE', 'SOFTWARE', 'NETWORK', 'SECURITY',
+  'DATABASE', 'APPLICATION', 'INFRASTRUCTURE', 'OTHER',
+];
+const IMPACT_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'];
+const URGENCY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'];
+const PIR_ACTION_PRIORITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProps> = ({
   data,
   loading,
   error,
+  majorIncidentId,
+  pirIds = [],
   onRecalculate,
   recalculating = false,
   onRetry,
   onOpenGraph,
   onCopyHypothesis,
   onCompare,
+  orchestration,
 }) => {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+
+  // Orchestration dialog state
+  const [dialogType, setDialogType] = React.useState<OrchestrationDialogType>(null);
+  const [dialogHypothesis, setDialogHypothesis] = React.useState<RcaHypothesisData | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [orchestrationMessage, setOrchestrationMessage] = React.useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Dialog form fields
+  const [shortDescription, setShortDescription] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [category, setCategory] = React.useState('SOFTWARE');
+  const [impact, setImpact] = React.useState('HIGH');
+  const [urgency, setUrgency] = React.useState('HIGH');
+  const [keTitle, setKeTitle] = React.useState('');
+  const [rootCause, setRootCause] = React.useState('');
+  const [workaround, setWorkaround] = React.useState('');
+  const [pirActionTitle, setPirActionTitle] = React.useState('');
+  const [pirActionDescription, setPirActionDescription] = React.useState('');
+  const [pirActionPriority, setPirActionPriority] = React.useState('HIGH');
+  const [selectedPirId, setSelectedPirId] = React.useState('');
+
+  const openDialog = (type: OrchestrationDialogType, hypothesis: RcaHypothesisData) => {
+    setDialogType(type);
+    setDialogHypothesis(hypothesis);
+    setOrchestrationMessage(null);
+
+    // Pre-fill fields from hypothesis
+    const suspectLabel = hypothesis.suspectNodeLabel;
+    const typeLabel = getRcaHypothesisTypeLabel(hypothesis.type);
+    const prefix = `[RCA] ${suspectLabel}`;
+
+    setShortDescription(`${prefix}: ${typeLabel}`);
+    setDescription(hypothesis.explanation);
+    setCategory('SOFTWARE');
+    setImpact('HIGH');
+    setUrgency('HIGH');
+    setKeTitle(`${prefix}: Known Error`);
+    setRootCause(hypothesis.explanation);
+    setWorkaround('');
+    setPirActionTitle(`${prefix}: Follow-up Action`);
+    setPirActionDescription(hypothesis.explanation);
+    setPirActionPriority('HIGH');
+    setSelectedPirId(pirIds.length > 0 ? pirIds[0].id : '');
+  };
+
+  const closeDialog = () => {
+    setDialogType(null);
+    setDialogHypothesis(null);
+  };
+
+  const handleOrchestrationSubmit = async () => {
+    if (!orchestration || !dialogHypothesis || !majorIncidentId) return;
+    setSubmitting(true);
+    setOrchestrationMessage(null);
+
+    try {
+      let result: { recordId?: string; error?: string } = {};
+
+      if (dialogType === 'problem' && orchestration.onCreateProblem) {
+        result = await orchestration.onCreateProblem(dialogHypothesis, {
+          majorIncidentId,
+          hypothesisId: dialogHypothesis.id,
+          shortDescription,
+          description,
+          category,
+          impact,
+          urgency,
+        });
+      } else if (dialogType === 'known_error' && orchestration.onCreateKnownError) {
+        result = await orchestration.onCreateKnownError(dialogHypothesis, {
+          majorIncidentId,
+          hypothesisId: dialogHypothesis.id,
+          title: keTitle,
+          rootCause,
+          workaround: workaround || undefined,
+        });
+      } else if (dialogType === 'pir_action' && orchestration.onCreatePirAction) {
+        result = await orchestration.onCreatePirAction(dialogHypothesis, {
+          majorIncidentId,
+          hypothesisId: dialogHypothesis.id,
+          pirId: selectedPirId,
+          title: pirActionTitle,
+          description: pirActionDescription,
+          priority: pirActionPriority,
+        });
+      }
+
+      if (result.error) {
+        setOrchestrationMessage({ type: 'error', text: result.error });
+      } else {
+        const label = dialogType === 'problem' ? 'Problem' : dialogType === 'known_error' ? 'Known Error' : 'PIR Action';
+        setOrchestrationMessage({ type: 'success', text: `${label} created successfully.` });
+        closeDialog();
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setOrchestrationMessage({ type: 'error', text: message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canSubmitDialog = () => {
+    if (dialogType === 'problem') return shortDescription.trim().length > 0;
+    if (dialogType === 'known_error') return keTitle.trim().length > 0;
+    if (dialogType === 'pir_action') return pirActionTitle.trim().length > 0 && selectedPirId.length > 0;
+    return false;
+  };
+
+  const hasOrchestration = !!(
+    orchestration?.onCreateProblem ||
+    orchestration?.onCreateKnownError ||
+    orchestration?.onCreatePirAction
+  );
+
+  const dialogTitle = dialogType === 'problem'
+    ? 'Create Problem from Hypothesis'
+    : dialogType === 'known_error'
+      ? 'Create Known Error from Hypothesis'
+      : 'Create PIR Action from Hypothesis';
 
   // --- Permission denied ---
   if (error?.type === 'forbidden') {
@@ -178,6 +360,18 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
 
   return (
     <Box data-testid="rca-hypotheses-table">
+      {/* Orchestration success/error banner */}
+      {orchestrationMessage && (
+        <Alert
+          severity={orchestrationMessage.type}
+          sx={{ mb: 1 }}
+          onClose={() => setOrchestrationMessage(null)}
+          data-testid="rca-orchestration-message"
+        >
+          {orchestrationMessage.text}
+        </Alert>
+      )}
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -313,7 +507,7 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                 )}
 
                 {/* Analyst actions */}
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 1, flexWrap: 'wrap' }}>
                   <Tooltip title="Copy hypothesis details to clipboard">
                     <Button size="small" startIcon={<ContentCopyIcon />} onClick={() => handleCopy(hypothesis)}>
                       Copy
@@ -337,6 +531,60 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                     </Button>
                   </Tooltip>
                 </Box>
+
+                {/* Orchestration actions */}
+                {hasOrchestration && majorIncidentId && (
+                  <Box sx={{ mt: 1 }}>
+                    <Divider sx={{ mb: 1 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      Create Record from Hypothesis
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {orchestration?.onCreateProblem && (
+                        <Tooltip title="Create a Problem record linked to this hypothesis">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<ReportProblemIcon />}
+                            onClick={() => openDialog('problem', hypothesis)}
+                            data-testid={`rca-create-problem-${idx}`}
+                          >
+                            Create Problem
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {orchestration?.onCreateKnownError && (
+                        <Tooltip title="Create a Known Error candidate from this hypothesis">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<LibraryBooksIcon />}
+                            onClick={() => openDialog('known_error', hypothesis)}
+                            data-testid={`rca-create-ke-${idx}`}
+                          >
+                            Create Known Error
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {orchestration?.onCreatePirAction && (
+                        <Tooltip title="Create a PIR Action item from this hypothesis">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                            startIcon={<PlaylistAddCheckIcon />}
+                            onClick={() => openDialog('pir_action', hypothesis)}
+                            data-testid={`rca-create-pir-action-${idx}`}
+                          >
+                            Create PIR Action
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                )}
               </Collapse>
             </CardContent>
           </Card>
@@ -361,6 +609,198 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
           ))}
         </Box>
       )}
+
+      {/* Orchestration confirmation dialog */}
+      <Dialog
+        open={dialogType !== null}
+        onClose={closeDialog}
+        maxWidth="sm"
+        fullWidth
+        data-testid="rca-orchestration-dialog"
+      >
+        <DialogTitle>{dialogTitle}</DialogTitle>
+        <DialogContent>
+          {/* Hypothesis summary chip */}
+          {dialogHypothesis && (
+            <Box sx={{ mb: 2, mt: 1 }}>
+              <Chip
+                label={`Hypothesis: ${dialogHypothesis.suspectNodeLabel} (${(dialogHypothesis.score * 100).toFixed(0)}% confidence)`}
+                size="small"
+                color="warning"
+                variant="outlined"
+              />
+            </Box>
+          )}
+
+          {dialogType === 'problem' && (
+            <>
+              <TextField
+                label="Short Description"
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                fullWidth
+                required
+                margin="dense"
+                inputProps={{ maxLength: 255, 'data-testid': 'rca-problem-short-desc' }}
+              />
+              <TextField
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+                margin="dense"
+                inputProps={{ 'data-testid': 'rca-problem-description' }}
+              />
+              <TextField
+                label="Category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                select
+                fullWidth
+                margin="dense"
+                data-testid="rca-problem-category"
+              >
+                {PROBLEM_CATEGORIES.map((c) => (
+                  <MenuItem key={c} value={c}>{c}</MenuItem>
+                ))}
+              </TextField>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  label="Impact"
+                  value={impact}
+                  onChange={(e) => setImpact(e.target.value)}
+                  select
+                  fullWidth
+                  margin="dense"
+                  data-testid="rca-problem-impact"
+                >
+                  {IMPACT_OPTIONS.map((v) => (
+                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Urgency"
+                  value={urgency}
+                  onChange={(e) => setUrgency(e.target.value)}
+                  select
+                  fullWidth
+                  margin="dense"
+                  data-testid="rca-problem-urgency"
+                >
+                  {URGENCY_OPTIONS.map((v) => (
+                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+            </>
+          )}
+
+          {dialogType === 'known_error' && (
+            <>
+              <TextField
+                label="Title"
+                value={keTitle}
+                onChange={(e) => setKeTitle(e.target.value)}
+                fullWidth
+                required
+                margin="dense"
+                inputProps={{ maxLength: 255, 'data-testid': 'rca-ke-title' }}
+              />
+              <TextField
+                label="Root Cause"
+                value={rootCause}
+                onChange={(e) => setRootCause(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+                margin="dense"
+                inputProps={{ 'data-testid': 'rca-ke-root-cause' }}
+              />
+              <TextField
+                label="Workaround (optional)"
+                value={workaround}
+                onChange={(e) => setWorkaround(e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+                margin="dense"
+                inputProps={{ 'data-testid': 'rca-ke-workaround' }}
+              />
+            </>
+          )}
+
+          {dialogType === 'pir_action' && (
+            <>
+              {pirIds.length === 0 ? (
+                <Alert severity="warning" sx={{ mb: 1 }} data-testid="rca-no-pir-warning">
+                  No PIR found for this major incident. Create a PIR first before adding actions.
+                </Alert>
+              ) : (
+                <TextField
+                  label="PIR"
+                  value={selectedPirId}
+                  onChange={(e) => setSelectedPirId(e.target.value)}
+                  select
+                  fullWidth
+                  required
+                  margin="dense"
+                  data-testid="rca-pir-select"
+                >
+                  {pirIds.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.title}</MenuItem>
+                  ))}
+                </TextField>
+              )}
+              <TextField
+                label="Action Title"
+                value={pirActionTitle}
+                onChange={(e) => setPirActionTitle(e.target.value)}
+                fullWidth
+                required
+                margin="dense"
+                inputProps={{ maxLength: 255, 'data-testid': 'rca-pir-action-title' }}
+              />
+              <TextField
+                label="Description"
+                value={pirActionDescription}
+                onChange={(e) => setPirActionDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+                margin="dense"
+                inputProps={{ 'data-testid': 'rca-pir-action-description' }}
+              />
+              <TextField
+                label="Priority"
+                value={pirActionPriority}
+                onChange={(e) => setPirActionPriority(e.target.value)}
+                select
+                fullWidth
+                margin="dense"
+                data-testid="rca-pir-action-priority"
+              >
+                {PIR_ACTION_PRIORITIES.map((p) => (
+                  <MenuItem key={p} value={p}>{p}</MenuItem>
+                ))}
+              </TextField>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog} disabled={submitting}>Cancel</Button>
+          <Button
+            onClick={handleOrchestrationSubmit}
+            variant="contained"
+            disabled={submitting || !canSubmitDialog()}
+            startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+            data-testid="rca-orchestration-submit"
+          >
+            {submitting ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

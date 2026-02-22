@@ -921,6 +921,9 @@ export const API_PATHS = {
     CHANGE_EVALUATE_GOVERNANCE: (changeId: string) => `/grc/itsm/changes/${changeId}/evaluate-topology-governance`,
     MI_RCA_HYPOTHESES: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses`,
     MI_RCA_RECALCULATE: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-topology-hypotheses/recalculate`,
+    MI_RCA_CREATE_PROBLEM: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-problem`,
+    MI_RCA_CREATE_KNOWN_ERROR: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-known-error`,
+    MI_RCA_CREATE_PIR_ACTION: (miId: string) => `/grc/itsm/major-incidents/${miId}/rca-create-pir-action`,
   },
 
   // Change Risk Assessment endpoints
@@ -2516,6 +2519,13 @@ export const itsmApi = {
       api.get(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_HYPOTHESES(id)),
     recalculateRcaTopologyHypotheses: (id: string) =>
       api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_RECALCULATE(id), {}),
+    // RCA Orchestration — create records from hypotheses
+    createProblemFromHypothesis: (miId: string, data: CreateProblemFromHypothesisRequest) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_CREATE_PROBLEM(miId), data),
+    createKnownErrorFromHypothesis: (miId: string, data: CreateKnownErrorFromHypothesisRequest) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_CREATE_KNOWN_ERROR(miId), data),
+    createPirActionFromHypothesis: (miId: string, data: CreatePirActionFromHypothesisRequest) =>
+      api.post(API_PATHS.ITSM_TOPOLOGY_INTELLIGENCE.MI_RCA_CREATE_PIR_ACTION(miId), data),
   },
 };
 
@@ -2994,6 +3004,64 @@ export interface TopologyGovernanceEvaluationData {
   topologyDataAvailable: boolean;
   evaluatedAt: string;
   warnings: string[];
+}
+
+// ============================================================================
+// RCA Orchestration Types (Phase-C, Phase 2)
+// ============================================================================
+
+/** Traceability metadata attached to records created from RCA hypotheses */
+export interface RcaTraceabilityMeta {
+  sourceType: 'TOPOLOGY_RCA_HYPOTHESIS';
+  sourceHypothesisId: string;
+  sourceMajorIncidentId: string;
+  suspectNodeLabel: string;
+  suspectNodeType: string;
+  hypothesisType: string;
+  hypothesisScore: number;
+}
+
+/** Request to create a Problem from an RCA hypothesis */
+export interface CreateProblemFromHypothesisRequest {
+  majorIncidentId: string;
+  hypothesisId: string;
+  shortDescription: string;
+  description?: string;
+  category?: string;
+  impact?: string;
+  urgency?: string;
+  serviceId?: string;
+  assignmentGroup?: string;
+}
+
+/** Request to create a Known Error from an RCA hypothesis */
+export interface CreateKnownErrorFromHypothesisRequest {
+  majorIncidentId: string;
+  hypothesisId: string;
+  title: string;
+  symptoms?: string;
+  rootCause?: string;
+  workaround?: string;
+  problemId?: string;
+}
+
+/** Request to create a PIR Action from an RCA hypothesis */
+export interface CreatePirActionFromHypothesisRequest {
+  majorIncidentId: string;
+  hypothesisId: string;
+  pirId: string;
+  title: string;
+  description?: string;
+  priority?: string;
+  ownerId?: string;
+  dueDate?: string;
+}
+
+/** Response from RCA orchestration endpoints */
+export interface RcaOrchestrationResultData<T = Record<string, unknown>> {
+  record: T;
+  traceability: RcaTraceabilityMeta;
+  summary: string;
 }
 
 // ============================================================================

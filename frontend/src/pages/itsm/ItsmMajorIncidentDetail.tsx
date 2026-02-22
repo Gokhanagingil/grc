@@ -60,6 +60,9 @@ import {
   UpdateItsmPirActionDto,
   RcaTopologyHypothesesResponseData,
   RcaHypothesisData,
+  CreateProblemFromHypothesisRequest,
+  CreateKnownErrorFromHypothesisRequest,
+  CreatePirActionFromHypothesisRequest,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
@@ -513,6 +516,71 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setRcaCompareHypotheses([h1, h2]);
     setRcaCompareOpen(true);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // RCA Orchestration handlers (Phase-C, Phase 2)
+  // ---------------------------------------------------------------------------
+  const handleCreateProblemFromHypothesis = useCallback(
+    async (_hypothesis: RcaHypothesisData, data: CreateProblemFromHypothesisRequest) => {
+      if (!id) return { error: 'Missing major incident ID' };
+      try {
+        const response = await itsmApi.majorIncidents.createProblemFromHypothesis(id, data);
+        const result = (response.data as { data?: { record?: { id?: string }; summary?: string } })?.data;
+        if (result?.record?.id) {
+          showNotification(result.summary || 'Problem created from hypothesis', 'success');
+          return { recordId: result.record.id };
+        }
+        return { error: 'Unexpected response from server' };
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        const message = axErr.response?.data?.message || 'Failed to create problem';
+        return { error: message };
+      }
+    },
+    [id, showNotification],
+  );
+
+  const handleCreateKnownErrorFromHypothesis = useCallback(
+    async (_hypothesis: RcaHypothesisData, data: CreateKnownErrorFromHypothesisRequest) => {
+      if (!id) return { error: 'Missing major incident ID' };
+      try {
+        const response = await itsmApi.majorIncidents.createKnownErrorFromHypothesis(id, data);
+        const result = (response.data as { data?: { record?: { id?: string }; summary?: string } })?.data;
+        if (result?.record?.id) {
+          showNotification(result.summary || 'Known Error created from hypothesis', 'success');
+          return { recordId: result.record.id };
+        }
+        return { error: 'Unexpected response from server' };
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        const message = axErr.response?.data?.message || 'Failed to create known error';
+        return { error: message };
+      }
+    },
+    [id, showNotification],
+  );
+
+  const handleCreatePirActionFromHypothesis = useCallback(
+    async (_hypothesis: RcaHypothesisData, data: CreatePirActionFromHypothesisRequest) => {
+      if (!id) return { error: 'Missing major incident ID' };
+      try {
+        const response = await itsmApi.majorIncidents.createPirActionFromHypothesis(id, data);
+        const result = (response.data as { data?: { record?: { id?: string }; summary?: string } })?.data;
+        if (result?.record?.id) {
+          showNotification(result.summary || 'PIR Action created from hypothesis', 'success');
+          // Refresh PIR actions if PIR is loaded
+          if (pir) fetchPirActions(pir.id);
+          return { recordId: result.record.id };
+        }
+        return { error: 'Unexpected response from server' };
+      } catch (err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        const message = axErr.response?.data?.message || 'Failed to create PIR action';
+        return { error: message };
+      }
+    },
+    [id, showNotification, pir, fetchPirActions],
+  );
 
   useEffect(() => {
     rcaMountedRef.current = true;
@@ -1450,11 +1518,18 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
           data={rcaData}
           loading={rcaLoading}
           error={rcaError}
+          majorIncidentId={id}
+          pirIds={pir ? [{ id: pir.id, title: pir.title }] : []}
           onRecalculate={handleRecalculateRca}
           recalculating={rcaRecalculating}
           onRetry={fetchRcaHypotheses}
           onCopyHypothesis={handleCopyHypothesis}
           onCompare={handleCompareHypotheses}
+          orchestration={{
+            onCreateProblem: handleCreateProblemFromHypothesis,
+            onCreateKnownError: handleCreateKnownErrorFromHypothesis,
+            onCreatePirAction: handleCreatePirActionFromHypothesis,
+          }}
         />
       </TabPanel>
 
