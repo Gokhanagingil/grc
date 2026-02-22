@@ -66,6 +66,7 @@ import {
   TraceabilitySummaryResponseData,
   RcaDecisionsSummaryData,
   HypothesisDecisionStatus,
+  normalizeRcaDecisionsSummary,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
@@ -596,9 +597,10 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     try {
       const response = await itsmApi.majorIncidents.getRcaDecisions(id);
       if (!rcaMountedRef.current) return;
-      const data = (response?.data as { data?: RcaDecisionsSummaryData })?.data;
-      if (data) {
-        setRcaDecisionsSummary(data);
+      const raw = (response?.data as { data?: Record<string, unknown> })?.data;
+      const normalized = normalizeRcaDecisionsSummary(raw);
+      if (normalized) {
+        setRcaDecisionsSummary(normalized);
       }
     } catch {
       // Non-blocking: decisions fetch failure doesn't block RCA view

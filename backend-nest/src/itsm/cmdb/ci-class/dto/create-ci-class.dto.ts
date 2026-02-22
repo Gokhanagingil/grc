@@ -6,8 +6,10 @@ import {
   IsBoolean,
   IsInt,
   IsObject,
+  IsArray,
   MaxLength,
 } from 'class-validator';
+import type { CiClassFieldDefinition } from '../ci-class.entity';
 
 export class CreateCiClassDto {
   @IsString()
@@ -35,11 +37,19 @@ export class CreateCiClassDto {
 
   @IsBoolean()
   @IsOptional()
+  isAbstract?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
   isActive?: boolean;
 
   @IsInt()
   @IsOptional()
   sortOrder?: number;
+
+  @IsArray()
+  @IsOptional()
+  fieldsSchema?: CiClassFieldDefinition[];
 
   @IsObject()
   @IsOptional()
