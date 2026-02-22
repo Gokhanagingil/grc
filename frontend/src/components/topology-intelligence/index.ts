@@ -17,6 +17,9 @@ export type { TopologyInsightBannerProps } from './TopologyInsightBanner';
 export { TopologyRcaCompareDialog } from './TopologyRcaCompareDialog';
 export type { TopologyRcaCompareDialogProps } from './TopologyRcaCompareDialog';
 
+export { TopologyGovernanceDecisionPanel } from './TopologyGovernanceDecisionPanel';
+export type { TopologyGovernanceDecisionPanelProps } from './TopologyGovernanceDecisionPanel';
+
 export {
   getTopologyRiskLevel,
   getRiskLevelColor,

@@ -19,8 +19,14 @@ import { Permissions } from '../../../../auth/permissions/permissions.decorator'
 import { Permission } from '../../../../auth/permissions/permission.enum';
 import { Perf } from '../../../../common/decorators';
 import { TopologyImpactAnalysisService } from './topology-impact-analysis.service';
+import { TopologyGovernanceService } from './topology-governance.service';
 import { ChangeService } from '../../change.service';
 import { MajorIncidentService } from '../../../major-incident/major-incident.service';
+import { RiskScoringService } from '../risk-scoring.service';
+import {
+  CustomerRiskImpactService,
+  CustomerRiskImpactResult,
+} from '../customer-risk-impact.service';
 
 /**
  * Topology Impact Controller
@@ -31,6 +37,7 @@ import { MajorIncidentService } from '../../../major-incident/major-incident.ser
  * Routes:
  * - GET  /grc/itsm/changes/:id/topology-impact
  * - POST /grc/itsm/changes/:id/recalculate-topology-impact
+ * - POST /grc/itsm/changes/:id/evaluate-topology-governance
  * - GET  /grc/itsm/major-incidents/:id/rca-topology-hypotheses
  * - POST /grc/itsm/major-incidents/:id/rca-topology-hypotheses/recalculate
  */
@@ -41,8 +48,11 @@ export class TopologyImpactController {
 
   constructor(
     private readonly topologyImpactService: TopologyImpactAnalysisService,
+    private readonly topologyGovernanceService: TopologyGovernanceService,
     private readonly changeService: ChangeService,
     private readonly majorIncidentService: MajorIncidentService,
+    private readonly riskScoringService: RiskScoringService,
+    private readonly customerRiskImpactService: CustomerRiskImpactService,
   ) {}
 
   // ==========================================================================
@@ -111,6 +121,65 @@ export class TopologyImpactController {
     );
 
     return { data: impact };
+  }
+
+  // ==========================================================================
+  // Topology Governance Evaluation
+  // ==========================================================================
+
+  /**
+   * Evaluate topology-aware governance for a change.
+   * Returns governance decision, explainability, and recommended actions.
+   */
+  @Post('changes/:id/evaluate-topology-governance')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @HttpCode(HttpStatus.OK)
+  @Perf()
+  async evaluateTopologyGovernance(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+
+    const change = await this.changeService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${id} not found`);
+    }
+
+    // Fetch risk assessment (fail-open)
+    let assessment: Awaited<ReturnType<RiskScoringService['getAssessment']>> | null = null;
+    try {
+      assessment = await this.riskScoringService.getAssessment(tenantId, id);
+    } catch (err) {
+      this.logger.warn(`Risk assessment fetch failed for change ${id}: ${String(err)}`);
+    }
+
+    // Fetch customer risk impact (fail-open)
+    let customerRiskImpact: CustomerRiskImpactResult | null = null;
+    try {
+      customerRiskImpact = await this.customerRiskImpactService.evaluateForChange(
+        tenantId,
+        change,
+      );
+    } catch (err) {
+      this.logger.warn(`Customer risk impact fetch failed for change ${id}: ${String(err)}`);
+    }
+
+    const result = await this.topologyGovernanceService.evaluateGovernance(
+      tenantId,
+      req.user.id,
+      change,
+      assessment,
+      customerRiskImpact,
+    );
+
+    return { data: result };
   }
 
   // ==========================================================================
