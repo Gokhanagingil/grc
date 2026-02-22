@@ -119,6 +119,7 @@ import { AnalyticsController } from './analytics/analytics.controller';
 
 import { TopologyImpactAnalysisService } from './change/risk/topology-impact/topology-impact-analysis.service';
 import { TopologyGovernanceService } from './change/risk/topology-impact/topology-governance.service';
+import { TopologyGuardrailService } from './change/risk/topology-impact/topology-guardrail.service';
 import { RcaOrchestrationService } from './change/risk/topology-impact/rca-orchestration.service';
 import { SuggestedTaskPackService } from './change/risk/topology-impact/suggested-task-pack.service';
 import { TraceabilitySummaryService } from './change/risk/topology-impact/traceability-summary.service';
@@ -205,6 +206,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     AnalyticsService,
     TopologyImpactAnalysisService,
     TopologyGovernanceService,
+    TopologyGuardrailService,
     RcaOrchestrationService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
@@ -268,6 +270,7 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     KnowledgeCandidateService,
     TopologyImpactAnalysisService,
     TopologyGovernanceService,
+    TopologyGuardrailService,
     RcaOrchestrationService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
