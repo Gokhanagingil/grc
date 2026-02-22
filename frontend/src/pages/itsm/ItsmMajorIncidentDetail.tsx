@@ -63,12 +63,14 @@ import {
   CreateProblemFromHypothesisRequest,
   CreateKnownErrorFromHypothesisRequest,
   CreatePirActionFromHypothesisRequest,
+  TraceabilitySummaryResponseData,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
   TopologyRcaHypothesesTable,
   TopologyRcaCompareDialog,
   TopologyInsightBanner,
+  TraceabilityChainWidget,
   classifyTopologyApiError,
   unwrapTopologyResponse,
   type ClassifiedTopologyError,
@@ -831,6 +833,21 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         onRecalculate={handleRecalculateRca}
         recalculating={rcaRecalculating}
       />
+
+      {/* Traceability Chain (Phase 3) */}
+      {id && (
+        <TraceabilityChainWidget
+          recordId={id}
+          recordType="MAJOR_INCIDENT"
+          onFetch={async (miId: string) => {
+            const resp = await itsmApi.majorIncidents.getTraceabilitySummary(miId);
+            const d = resp?.data as { data?: TraceabilitySummaryResponseData } | TraceabilitySummaryResponseData;
+            if (d && 'data' in d && d.data) return d.data;
+            if (d && 'rootId' in d) return d as TraceabilitySummaryResponseData;
+            throw new Error('Unexpected response shape');
+          }}
+        />
+      )}
 
       {/* Tabs */}
       <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>

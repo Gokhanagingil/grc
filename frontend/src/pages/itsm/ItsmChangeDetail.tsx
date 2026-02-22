@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -52,6 +52,8 @@ import {
   TopologyImpactSummaryCard,
   TopologyExplainabilityPanel,
   TopologyInsightBanner,
+  SuggestedTaskPackCard,
+  TraceabilityChainWidget,
   classifyTopologyApiError,
   unwrapTopologyResponse,
   getTopologyRiskLevel,
@@ -1378,6 +1380,35 @@ export const ItsmChangeDetail: React.FC = () => {
           {/* Customer Risk Intelligence Panel */}
           {!isNew && change.id && (
             <CustomerRiskIntelligence changeId={change.id} />
+          )}
+
+          {/* Suggested Task Pack (Phase 3) */}
+          {!isNew && change.id && (
+            <SuggestedTaskPackCard
+              changeId={change.id}
+              onFetch={async (cId: string) => {
+                const resp = await itsmApi.changes.getSuggestedTaskPack(cId);
+                const d = resp?.data as { data?: SuggestedTaskPackResponseData } | SuggestedTaskPackResponseData;
+                if (d && 'data' in d && d.data) return d.data;
+                if (d && 'changeId' in d) return d as SuggestedTaskPackResponseData;
+                throw new Error('Unexpected response shape');
+              }}
+            />
+          )}
+
+          {/* Traceability Chain (Phase 3) */}
+          {!isNew && change.id && (
+            <TraceabilityChainWidget
+              recordId={change.id}
+              recordType="CHANGE"
+              onFetch={async (cId: string) => {
+                const resp = await itsmApi.changes.getTraceabilitySummary(cId);
+                const d = resp?.data as { data?: TraceabilitySummaryResponseData } | TraceabilitySummaryResponseData;
+                if (d && 'data' in d && d.data) return d.data;
+                if (d && 'rootId' in d) return d as TraceabilitySummaryResponseData;
+                throw new Error('Unexpected response shape');
+              }}
+            />
           )}
 
           {/* Timestamps */}
