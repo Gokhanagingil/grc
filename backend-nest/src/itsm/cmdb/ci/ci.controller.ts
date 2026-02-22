@@ -25,6 +25,7 @@ import { CreateCiDto } from './dto/create-ci.dto';
 import { UpdateCiDto } from './dto/update-ci.dto';
 import { CiFilterDto } from './dto/ci-filter.dto';
 import { CiRelService } from '../ci-rel/ci-rel.service';
+import { CiClassInheritanceService } from '../ci-class/ci-class-inheritance.service';
 import { Perf } from '../../../common/decorators';
 
 @Controller('grc/cmdb/cis')
@@ -33,6 +34,7 @@ export class CiController {
   constructor(
     private readonly ciService: CiService,
     private readonly ciRelService: CiRelService,
+    private readonly inheritanceService: CiClassInheritanceService,
   ) {}
 
   @Get()
@@ -69,6 +71,7 @@ export class CiController {
   async findOne(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
+    @Query('includeSchema') includeSchema?: string,
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
@@ -77,6 +80,21 @@ export class CiController {
     if (!entity) {
       throw new NotFoundException(`CI with ID ${id} not found`);
     }
+
+    // Optionally include the effective schema for the CI's class
+    if (includeSchema === 'true' && entity.classId) {
+      try {
+        const schema = await this.inheritanceService.getEffectiveSchema(
+          tenantId,
+          entity.classId,
+        );
+        return { ...entity, effectiveSchema: schema };
+      } catch {
+        // If schema can't be computed, return CI without schema
+        return entity;
+      }
+    }
+
     return entity;
   }
 

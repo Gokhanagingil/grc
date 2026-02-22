@@ -461,6 +461,8 @@ export const API_PATHS = {
       CREATE: '/grc/cmdb/classes',
       UPDATE: (id: string) => `/grc/cmdb/classes/${id}`,
       DELETE: (id: string) => `/grc/cmdb/classes/${id}`,
+      TREE: '/grc/cmdb/classes/tree',
+      EFFECTIVE_SCHEMA: (id: string) => `/grc/cmdb/classes/${id}/effective-schema`,
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
@@ -3718,11 +3720,70 @@ export interface CmdbCiClassData {
   description?: string;
   icon?: string;
   parentClassId?: string;
+  isAbstract?: boolean;
   isActive: boolean;
   sortOrder: number;
+  fieldsSchema?: CmdbCiClassFieldDefinition[] | null;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Field definition within a CI class schema */
+export interface CmdbCiClassFieldDefinition {
+  key: string;
+  label: string;
+  dataType: 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'reference' | 'text' | 'json';
+  required?: boolean;
+  readOnly?: boolean;
+  maxLength?: number;
+  defaultValue?: unknown;
+  choices?: string[];
+  referenceClassName?: string;
+  order?: number;
+  group?: string;
+  helpText?: string;
+}
+
+/** Effective field = field definition + provenance info */
+export interface EffectiveFieldDefinition extends CmdbCiClassFieldDefinition {
+  sourceClassId: string;
+  sourceClassName: string;
+  inherited: boolean;
+  inheritanceDepth: number;
+}
+
+/** Ancestor entry in the class hierarchy */
+export interface ClassAncestorEntry {
+  id: string;
+  name: string;
+  label: string;
+  depth: number;
+}
+
+/** Response from the effective schema endpoint */
+export interface EffectiveSchemaResponse {
+  classId: string;
+  className: string;
+  classLabel: string;
+  ancestors: ClassAncestorEntry[];
+  effectiveFields: EffectiveFieldDefinition[];
+  totalFieldCount: number;
+  inheritedFieldCount: number;
+  localFieldCount: number;
+}
+
+/** Class tree node */
+export interface ClassTreeNode {
+  id: string;
+  name: string;
+  label: string;
+  parentClassId: string | null;
+  isAbstract: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  localFieldCount: number;
+  children: ClassTreeNode[];
 }
 
 export interface CreateCmdbCiClassDto {
@@ -4202,6 +4263,8 @@ export const cmdbApi = {
     create: (data: CreateCmdbCiClassDto) => api.post(API_PATHS.CMDB.CLASSES.CREATE, data),
     update: (id: string, data: UpdateCmdbCiClassDto) => api.patch(API_PATHS.CMDB.CLASSES.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.CMDB.CLASSES.DELETE(id)),
+    tree: () => api.get(API_PATHS.CMDB.CLASSES.TREE),
+    effectiveSchema: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.EFFECTIVE_SCHEMA(classId)),
   },
   cis: {
     list: (params?: CmdbListParams) => {
