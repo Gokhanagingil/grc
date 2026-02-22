@@ -37,6 +37,7 @@ import {
   CreateKnownErrorFromHypothesisDto,
   CreatePirActionFromHypothesisDto,
 } from './dto/rca-orchestration.dto';
+import { GuardrailPreviousEvaluation } from './dto/topology-guardrail.dto';
 
 /**
  * Topology Impact Controller
@@ -277,7 +278,7 @@ export class TopologyImpactController {
     }
 
     // First, get the current evaluation as "previous" for audit trail
-    let previousEvaluation = null;
+    let previousEvaluation: GuardrailPreviousEvaluation | null = null;
     try {
       const current = await this.topologyGuardrailService.evaluateGuardrails(
         tenantId,
