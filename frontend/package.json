@@ -34,6 +34,15 @@
       "eject": "react-scripts eject",
       "generate:favicons": "node ops/generate-favicons.js"
     },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router$": "<rootDir>/node_modules/react-router/dist/development/index.js"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(react-router|react-router-dom)/).+\\.(js|jsx|mjs|cjs|ts|tsx)$"
+    ]
+  },
   "eslintConfig": {
     "extends": [
       "react-app",
