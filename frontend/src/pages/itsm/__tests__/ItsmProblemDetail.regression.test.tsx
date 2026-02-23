@@ -10,6 +10,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ItsmProblemDetail } from '../ItsmProblemDetail';
 
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
@@ -77,8 +78,6 @@ jest.mock('../../../services/grcClient', () => {
 jest.mock('../../../services/api', () => ({
   api: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn(), defaults: { baseURL: '' } },
 }));
-
-import { ItsmProblemDetail } from '../ItsmProblemDetail';
 
 describe('ItsmProblemDetail — Regression #3: Problem create fails', () => {
   beforeEach(() => { jest.clearAllMocks(); });

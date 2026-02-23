@@ -9,6 +9,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ItsmIncidentDetail } from '../ItsmIncidentDetail';
 
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
@@ -82,9 +83,7 @@ jest.mock('../../../components/copilot/CopilotPanel', () => ({
   CopilotPanel: () => null,
 }));
 
-import { ItsmIncidentDetail } from '../ItsmIncidentDetail';
-
-const MOCK_INCIDENT = {
+const MOCK_INCIDENT= {
   id: 'inc-1', number: 'INC-001', shortDescription: 'Test Incident',
   state: 'open', priority: 'p3', impact: 'medium', urgency: 'medium',
   category: 'software', riskReviewRequired: false,

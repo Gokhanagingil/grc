@@ -9,6 +9,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { CmdbCiClassList } from '../CmdbCiClassList';
 
 const mockNavigate = jest.fn();
 const mockShowNotification = jest.fn();
@@ -65,8 +66,6 @@ jest.mock('../../../components/common/GenericListPage', () => ({
     );
   },
 }));
-
-import { CmdbCiClassList } from '../CmdbCiClassList';
 
 describe('CmdbCiClassList — Regression #4: Row click routes to wrong page', () => {
   beforeEach(() => { jest.clearAllMocks(); });

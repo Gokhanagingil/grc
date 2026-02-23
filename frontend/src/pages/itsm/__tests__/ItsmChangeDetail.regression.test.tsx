@@ -9,6 +9,7 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ItsmChangeDetail } from '../ItsmChangeDetail';
 
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
@@ -37,8 +38,6 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 jest.mock('../../../hooks/useItsmChoices', () => ({
   useItsmChoices: () => ({ choices: {}, loading: false }),
 }));
-
-const envelope = (d: unknown) => ({ data: { data: d } });
 
 jest.mock('../../../services/grcClient', () => ({
   itsmApi: {
@@ -108,8 +107,6 @@ jest.mock('../../../components/itsm/GovernanceBanner', () => ({
 jest.mock('../../../components/copilot/CopilotPanel', () => ({
   CopilotPanel: () => null,
 }));
-
-import { ItsmChangeDetail } from '../ItsmChangeDetail';
 
 describe('ItsmChangeDetail — Regression #2: undefined.length crash', () => {
   beforeEach(() => { jest.clearAllMocks(); });

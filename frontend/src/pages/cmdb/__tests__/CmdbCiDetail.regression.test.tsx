@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { CmdbCiDetail } from '../CmdbCiDetail';
 
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
@@ -89,9 +90,7 @@ jest.mock('../../../components/cmdb/SchemaFieldRenderer', () => ({
   SchemaFieldRenderer: () => null,
 }));
 
-import { CmdbCiDetail } from '../CmdbCiDetail';
-
-const MOCK_CI = {
+const MOCK_CI= {
   id: 'ci-1', name: 'web-server-01', classId: 'cls-server', lifecycle: 'active',
   environment: 'production', attributes: {}, description: '',
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
