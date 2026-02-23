@@ -11,13 +11,19 @@ import { ItsmMajorIncident } from '../../../major-incident/major-incident.entity
 import { ItsmMajorIncidentLink } from '../../../major-incident/major-incident-link.entity';
 import { MajorIncidentLinkType } from '../../../major-incident/major-incident.enums';
 import {
+  ImpactBucket,
+  ImpactBucketsSummary,
+  TopologyCompletenessConfidence,
   TopologyImpactResponse,
   TopologyImpactedNode,
   TopologyImpactPath,
   TopologyBlastRadiusMetrics,
+  TopologyRiskFactor,
   FragilitySignal,
   RcaTopologyHypothesesResponse,
   RcaHypothesis,
+  RcaEvidence,
+  RcaContradiction,
   RcaRecommendedAction,
 } from './dto/topology-impact.dto';
 
@@ -189,6 +195,17 @@ export class TopologyImpactAnalysisService {
       topologyRiskScore,
     );
 
+    const { bucketByNodeId, summary: impactBuckets } =
+      this.classifyImpactBuckets(nodes, edges);
+
+    const completenessConfidence = this.computeTopologyCompletenessConfidence(
+      nodes,
+      edges,
+      truncated,
+    );
+
+    const riskFactors = this.computeRiskFactors(metrics, fragilitySignals);
+
     // Build impacted nodes list (exclude root nodes, sorted by depth then criticality)
     const impactedNodes: TopologyImpactedNode[] = Array.from(nodes.values())
       .filter((n) => n.depth > 0)
@@ -206,6 +223,7 @@ export class TopologyImpactAnalysisService {
         depth: n.depth,
         criticality: n.criticality,
         environment: n.environment,
+        impactBucket: bucketByNodeId.get(n.id),
       }));
 
     return {
@@ -219,6 +237,14 @@ export class TopologyImpactAnalysisService {
       riskExplanation,
       computedAt,
       warnings,
+
+      // Phase 2 additions (backward compatible)
+      impactBuckets,
+      impactedServicesCount: metrics.impactedServiceCount,
+      impactedOfferingsCount: metrics.impactedOfferingCount,
+      impactedCriticalCisCount: metrics.criticalCiCount,
+      completenessConfidence,
+      riskFactors,
     };
   }
 
@@ -266,6 +292,7 @@ export class TopologyImpactAnalysisService {
         nodesAnalyzed: 0,
         computedAt,
         warnings,
+        rankingAlgorithm: 'weighted_evidence_v1',
       };
     }
 
@@ -358,9 +385,12 @@ export class TopologyImpactAnalysisService {
       if (crossSvcHypothesis) hypotheses.push(crossSvcHypothesis);
     }
 
-    // De-duplicate by hypothesis id and sort by score desc
+    // De-duplicate by hypothesis id
     const deduped = this.deduplicateHypotheses(hypotheses);
-    const ranked = deduped
+
+    // Phase 2: apply evidence weighting + contradiction markers, then rank
+    const enriched = this.enrichRcaHypotheses(deduped, nodes, edges, truncated);
+    const ranked = enriched
       .sort((a, b) => b.score - a.score)
       .slice(0, MAX_HYPOTHESES);
 
@@ -372,6 +402,7 @@ export class TopologyImpactAnalysisService {
       nodesAnalyzed: nodes.size,
       computedAt,
       warnings,
+      rankingAlgorithm: 'weighted_evidence_v1',
     };
   }
 
@@ -661,6 +692,265 @@ export class TopologyImpactAnalysisService {
   }
 
   // ==========================================================================
+  // PRIVATE: Phase 2: Impact Buckets & Confidence
+  // ==========================================================================
+
+  private classifyImpactBuckets(
+    nodes: Map<string, GraphNode>,
+    edges: GraphEdge[],
+  ): {
+    bucketByNodeId: Map<string, ImpactBucket>;
+    summary: ImpactBucketsSummary;
+  } {
+    const inDegree = new Map<string, number>();
+    const outDegree = new Map<string, number>();
+    for (const edge of edges) {
+      inDegree.set(edge.targetId, (inDegree.get(edge.targetId) || 0) + 1);
+      outDegree.set(edge.sourceId, (outDegree.get(edge.sourceId) || 0) + 1);
+    }
+
+    const summary: ImpactBucketsSummary = {
+      direct: 0,
+      downstream: 0,
+      criticalPath: 0,
+      unknownConfidence: 0,
+    };
+
+    const bucketByNodeId = new Map<string, ImpactBucket>();
+
+    for (const node of nodes.values()) {
+      if (node.depth <= 0) continue;
+
+      const deg = (inDegree.get(node.id) || 0) + (outDegree.get(node.id) || 0);
+
+      const isCriticalPath =
+        node.type !== 'ci' || this.criticalityWeight(node.criticality) >= 80;
+      const isUnknownConfidence =
+        node.type === 'ci' && (!node.className || deg === 0);
+
+      let bucket: ImpactBucket;
+      if (isCriticalPath) {
+        bucket = 'critical_path';
+      } else if (isUnknownConfidence) {
+        bucket = 'unknown_confidence';
+      } else if (node.depth === 1) {
+        bucket = 'direct';
+      } else {
+        bucket = 'downstream';
+      }
+
+      bucketByNodeId.set(node.id, bucket);
+
+      if (bucket === 'direct') summary.direct++;
+      if (bucket === 'downstream') summary.downstream++;
+      if (bucket === 'critical_path') summary.criticalPath++;
+      if (bucket === 'unknown_confidence') summary.unknownConfidence++;
+    }
+
+    return { bucketByNodeId, summary };
+  }
+
+  private computeTopologyCompletenessConfidence(
+    nodes: Map<string, GraphNode>,
+    edges: GraphEdge[],
+    truncated: boolean,
+  ): TopologyCompletenessConfidence {
+    const inDegree = new Map<string, number>();
+    const outDegree = new Map<string, number>();
+    for (const edge of edges) {
+      inDegree.set(edge.targetId, (inDegree.get(edge.targetId) || 0) + 1);
+      outDegree.set(edge.sourceId, (outDegree.get(edge.sourceId) || 0) + 1);
+    }
+
+    const impactedCiNodes = Array.from(nodes.values()).filter(
+      (n) => n.type === 'ci' && n.depth > 0,
+    );
+
+    const missingClassCount = impactedCiNodes.filter(
+      (n) => !n.className,
+    ).length;
+    const isolatedNodeCount = impactedCiNodes.filter((n) => {
+      const deg = (inDegree.get(n.id) || 0) + (outDegree.get(n.id) || 0);
+      return deg === 0;
+    }).length;
+
+    // Phase 2: health rules are not yet wired into this service.
+    // We surface this explicitly as a confidence degrading factor.
+    const healthRulesAvailable = false;
+
+    const degradingFactors: TopologyCompletenessConfidence['degradingFactors'] =
+      [];
+
+    if (missingClassCount > 0) {
+      degradingFactors.push({
+        code: 'MISSING_CLASS_SEMANTICS',
+        description: `${missingClassCount} impacted CI(s) missing class semantics (ciClass)`,
+        impact: Math.min(40, 8 + missingClassCount * 4),
+      });
+    }
+
+    if (isolatedNodeCount > 0) {
+      degradingFactors.push({
+        code: 'ISOLATED_NODES',
+        description: `${isolatedNodeCount} impacted CI(s) have no relationships in the analyzed subgraph`,
+        impact: Math.min(35, 5 + isolatedNodeCount * 5),
+      });
+    }
+
+    if (!healthRulesAvailable) {
+      degradingFactors.push({
+        code: 'NO_HEALTH_RULES',
+        description:
+          'No health rules available to validate topology assumptions',
+        impact: 10,
+      });
+    }
+
+    if (truncated) {
+      degradingFactors.push({
+        code: 'GRAPH_TRUNCATED',
+        description: `Traversal truncated at ${MAX_ANALYSIS_NODES} nodes (caps applied)`,
+        impact: 15,
+      });
+    }
+
+    const score = Math.max(
+      0,
+      100 - degradingFactors.reduce((sum, f) => sum + f.impact, 0),
+    );
+
+    const label: TopologyCompletenessConfidence['label'] =
+      score >= 80
+        ? 'HIGH'
+        : score >= 60
+          ? 'MEDIUM'
+          : score >= 30
+            ? 'LOW'
+            : 'VERY_LOW';
+
+    return {
+      score,
+      label,
+      degradingFactors,
+      missingClassCount,
+      isolatedNodeCount,
+      healthRulesAvailable,
+    };
+  }
+
+  private computeRiskFactors(
+    metrics: TopologyBlastRadiusMetrics,
+    fragilitySignals: FragilitySignal[],
+  ): TopologyRiskFactor[] {
+    // Mirror sub-score computation in calculateTopologyRiskScore for explainability.
+
+    let nodeCountScore: number;
+    if (metrics.totalImpactedNodes <= 1) nodeCountScore = 5;
+    else if (metrics.totalImpactedNodes <= 5) nodeCountScore = 20;
+    else if (metrics.totalImpactedNodes <= 15) nodeCountScore = 45;
+    else if (metrics.totalImpactedNodes <= 30) nodeCountScore = 65;
+    else if (metrics.totalImpactedNodes <= 50) nodeCountScore = 80;
+    else nodeCountScore = 95;
+
+    let criticalCiScore: number;
+    if (metrics.impactedCiCount === 0) {
+      criticalCiScore = 0;
+    } else {
+      const ratio = metrics.criticalCiCount / metrics.impactedCiCount;
+      criticalCiScore = Math.min(100, Math.round(ratio * 120));
+    }
+
+    let depthScore: number;
+    if (metrics.maxChainDepth <= 1) depthScore = 10;
+    else if (metrics.maxChainDepth === 2) depthScore = 40;
+    else depthScore = Math.min(95, 40 + metrics.maxChainDepth * 20);
+
+    let crossServiceScore: number;
+    if (!metrics.crossServicePropagation) crossServiceScore = 5;
+    else if (metrics.crossServiceCount <= 2) crossServiceScore = 50;
+    else crossServiceScore = Math.min(95, 50 + metrics.crossServiceCount * 15);
+
+    let fragilityScore = 0;
+    if (fragilitySignals.length > 0) {
+      const topSignals = [...fragilitySignals]
+        .sort((a, b) => b.severity - a.severity)
+        .slice(0, 3);
+      fragilityScore = Math.round(
+        topSignals.reduce((sum, s) => sum + s.severity, 0) / topSignals.length,
+      );
+    }
+
+    const severityFromSubScore = (
+      s: number,
+    ): TopologyRiskFactor['severity'] => {
+      if (s >= 80) return 'critical';
+      if (s >= 50) return 'warning';
+      return 'info';
+    };
+
+    const mk = (
+      key: string,
+      label: string,
+      subScore: number,
+      maxContribution: number,
+      reason: string,
+    ): TopologyRiskFactor => ({
+      key,
+      label,
+      contribution: Math.round((subScore / 100) * maxContribution),
+      maxContribution,
+      reason,
+      severity: severityFromSubScore(subScore),
+    });
+
+    const factors: TopologyRiskFactor[] = [
+      mk(
+        'impactedNodeCount',
+        'Blast radius size',
+        nodeCountScore,
+        TOPOLOGY_RISK_WEIGHTS.impactedNodeCount,
+        `${metrics.totalImpactedNodes} node(s) impacted`,
+      ),
+      mk(
+        'criticalCiRatio',
+        'Critical CI concentration',
+        criticalCiScore,
+        TOPOLOGY_RISK_WEIGHTS.criticalCiRatio,
+        metrics.impactedCiCount === 0
+          ? 'No CIs impacted'
+          : `${metrics.criticalCiCount}/${metrics.impactedCiCount} impacted CIs are critical`,
+      ),
+      mk(
+        'maxChainDepth',
+        'Dependency chain depth',
+        depthScore,
+        TOPOLOGY_RISK_WEIGHTS.maxChainDepth,
+        `Max depth is ${metrics.maxChainDepth}`,
+      ),
+      mk(
+        'crossServicePropagation',
+        'Cross-service propagation',
+        crossServiceScore,
+        TOPOLOGY_RISK_WEIGHTS.crossServicePropagation,
+        metrics.crossServicePropagation
+          ? `Touches ${metrics.crossServiceCount} service(s)`
+          : 'Contained within a single service boundary',
+      ),
+      mk(
+        'fragilityScore',
+        'Fragility signals',
+        fragilityScore,
+        TOPOLOGY_RISK_WEIGHTS.fragilityScore,
+        fragilitySignals.length === 0
+          ? 'No fragility signals detected'
+          : `${fragilitySignals.length} fragility signal(s) detected`,
+      ),
+    ];
+
+    return factors.sort((a, b) => b.contribution - a.contribution);
+  }
+
+  // ==========================================================================
   // PRIVATE: Top Paths
   // ==========================================================================
 
@@ -862,6 +1152,119 @@ export class TopologyImpactAnalysisService {
     parts.push(`Topology risk level: ${level} (${score}/100).`);
 
     return parts.join(' ');
+  }
+
+  // ==========================================================================
+  // PRIVATE: Phase 2: RCA evidence weighting & contradiction markers
+  // ==========================================================================
+
+  private enrichRcaHypotheses(
+    hypotheses: RcaHypothesis[],
+    nodes: Map<string, GraphNode>,
+    edges: GraphEdge[],
+    truncated: boolean,
+  ): RcaHypothesis[] {
+    const inDegree = new Map<string, number>();
+    const outDegree = new Map<string, number>();
+    for (const edge of edges) {
+      inDegree.set(edge.targetId, (inDegree.get(edge.targetId) || 0) + 1);
+      outDegree.set(edge.sourceId, (outDegree.get(edge.sourceId) || 0) + 1);
+    }
+
+    const weightEvidence = (
+      type: RcaEvidence['type'],
+    ): { weight: number; isTopologyBased: boolean } => {
+      switch (type) {
+        case 'topology_path':
+          return { weight: 40, isTopologyBased: true };
+        case 'health_violation':
+          return { weight: 35, isTopologyBased: false };
+        case 'recent_change':
+          return { weight: 30, isTopologyBased: false };
+        case 'incident_history':
+          return { weight: 20, isTopologyBased: false };
+        case 'customer_risk':
+          return { weight: 15, isTopologyBased: false };
+        default:
+          return { weight: 10, isTopologyBased: false };
+      }
+    };
+
+    const clamp = (n: number, min: number, max: number): number =>
+      Math.max(min, Math.min(max, n));
+
+    return hypotheses.map((h) => {
+      const suspect = nodes.get(h.suspectNodeId);
+      const deg =
+        (inDegree.get(h.suspectNodeId) || 0) +
+        (outDegree.get(h.suspectNodeId) || 0);
+
+      const weightedEvidence: RcaEvidence[] = h.evidence.map((e) => {
+        const base = weightEvidence(e.type);
+        return {
+          ...e,
+          weight: e.weight ?? base.weight,
+          isTopologyBased: e.isTopologyBased ?? base.isTopologyBased,
+        };
+      });
+
+      const evidenceWeight = clamp(
+        weightedEvidence.reduce((sum, e) => sum + (e.weight ?? 0), 0),
+        0,
+        100,
+      );
+
+      const contradictions: RcaContradiction[] = [];
+
+      if (truncated) {
+        contradictions.push({
+          code: 'GRAPH_TRUNCATED',
+          description: `Topology traversal hit caps (${MAX_ANALYSIS_NODES} nodes); ranking confidence reduced`,
+          confidenceReduction: 10,
+        });
+      }
+
+      if (suspect?.type === 'ci' && !suspect.className) {
+        contradictions.push({
+          code: 'MISSING_CLASS_SEMANTICS',
+          description:
+            'CI class semantics missing for suspect node; relationship meaning may be incomplete',
+          confidenceReduction: 10,
+        });
+      }
+
+      if (suspect?.type === 'ci' && deg === 0) {
+        contradictions.push({
+          code: 'ISOLATED_NODE',
+          description:
+            'Suspect CI has no relationships in the analyzed subgraph; may indicate sparse topology data',
+          confidenceReduction: 15,
+        });
+      }
+
+      const contradictionPenalty = contradictions.reduce(
+        (sum, c) => sum + c.confidenceReduction,
+        0,
+      );
+
+      // Weighted ranking: keep existing rule-based score, then re-weight by evidence.
+      // Deterministic (no timestamps/randomness).
+      const score = clamp(
+        Math.round(h.score * 0.7 + evidenceWeight * 0.3 - contradictionPenalty),
+        0,
+        100,
+      );
+
+      return {
+        ...h,
+        score,
+        evidence: weightedEvidence,
+        evidenceWeight,
+        contradictions,
+        corroboratingEvidenceCount: weightedEvidence.length,
+        contradictionCount: contradictions.length,
+      };
+    });
   }
 
   // ==========================================================================
@@ -1401,6 +1804,32 @@ export class TopologyImpactAnalysisService {
       riskExplanation: 'No topology data available for this change.',
       computedAt,
       warnings,
+
+      // Phase 2 defaults
+      impactBuckets: {
+        direct: 0,
+        downstream: 0,
+        criticalPath: 0,
+        unknownConfidence: 0,
+      },
+      impactedServicesCount: 0,
+      impactedOfferingsCount: 0,
+      impactedCriticalCisCount: 0,
+      completenessConfidence: {
+        score: 0,
+        label: 'VERY_LOW',
+        degradingFactors: [
+          {
+            code: 'NO_TOPOLOGY_DATA',
+            description: 'No CIs or relationships found for this change',
+            impact: 100,
+          },
+        ],
+        missingClassCount: 0,
+        isolatedNodeCount: 0,
+        healthRulesAvailable: false,
+      },
+      riskFactors: [],
     };
   }
 }

@@ -3,11 +3,36 @@
  *
  * Response contracts for topology-driven change risk and
  * major incident RCA intelligence endpoints.
+ *
+ * Phase 2 additions (backward-compatible optional fields):
+ * - Impact buckets (direct/downstream/critical-path/unknown-confidence)
+ * - Service/offering-centric summary metrics
+ * - Topology completeness confidence score
+ * - Risk factor explainability fields
+ * - RCA evidence weighting + contradiction markers
+ * - Deterministic ranking algorithm documentation
  */
 
 // ============================================================================
 // Change Topology Impact
 // ============================================================================
+
+/**
+ * Impact bucket classification for an impacted node.
+ *
+ * Classification rules (deterministic, highest-priority wins):
+ *   critical_path > unknown_confidence > direct > downstream
+ *
+ * - direct: depth === 1 from a root CI
+ * - downstream: depth > 1 via dependency chain
+ * - critical_path: high/critical criticality OR service-type node
+ * - unknown_confidence: missing className (no class semantics) or isolated CI
+ */
+export type ImpactBucket =
+  | 'direct'
+  | 'downstream'
+  | 'critical_path'
+  | 'unknown_confidence';
 
 /**
  * A single impacted node discovered via topology traversal.
@@ -27,6 +52,8 @@ export interface TopologyImpactedNode {
   criticality?: string;
   /** Environment (production, staging, etc.) */
   environment?: string;
+  /** Impact bucket classification (Phase 2) */
+  impactBucket?: ImpactBucket;
 }
 
 /**
@@ -61,6 +88,89 @@ export interface FragilitySignal {
   reason: string;
   /** Severity: how impactful this fragility is (0-100) */
   severity: number;
+}
+
+// ============================================================================
+// Phase 2: Impact Buckets Summary
+// ============================================================================
+
+/**
+ * Summary of impacted nodes by bucket category.
+ */
+export interface ImpactBucketsSummary {
+  /** Nodes directly connected to root CIs (depth=1) */
+  direct: number;
+  /** Nodes reachable via downstream dependency chain (depth>1) */
+  downstream: number;
+  /** Nodes on critical paths (high-criticality or service-connected) */
+  criticalPath: number;
+  /** Nodes with incomplete data (missing rels, missing class) */
+  unknownConfidence: number;
+}
+
+// ============================================================================
+// Phase 2: Topology Completeness Confidence
+// ============================================================================
+
+/**
+ * Confidence assessment for topology data completeness.
+ * Helps analysts understand how reliable the blast radius analysis is.
+ *
+ * Scoring algorithm (deterministic):
+ *   Start at 100, subtract each degrading factor's impact.
+ *   Floor at 0. Label thresholds: >=80 HIGH, >=60 MEDIUM, >=30 LOW, <30 VERY_LOW.
+ */
+export interface TopologyCompletenessConfidence {
+  /** Overall confidence score (0-100). Higher = more complete topology data */
+  score: number;
+  /** Human-readable confidence label */
+  label: 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
+  /** Factors that reduce confidence */
+  degradingFactors: TopologyConfidenceFactor[];
+  /** Total CIs with missing class information */
+  missingClassCount: number;
+  /** Total CIs with no outgoing relationships (potential data gaps) */
+  isolatedNodeCount: number;
+  /** Whether any health rules were available for validation */
+  healthRulesAvailable: boolean;
+}
+
+/**
+ * A single factor that degrades topology confidence.
+ */
+export interface TopologyConfidenceFactor {
+  /** Machine-readable factor code */
+  code: string;
+  /** Human-readable description */
+  description: string;
+  /** How much this factor degrades confidence (0-100) */
+  impact: number;
+}
+
+// ============================================================================
+// Phase 2: Risk Factor Explainability
+// ============================================================================
+
+/**
+ * A single explainable risk factor contributing to the overall risk score.
+ *
+ * Each factor maps 1:1 to a weight in TOPOLOGY_RISK_WEIGHTS.
+ * contribution = (sub-score / 100) * maxContribution
+ * The sum of all contributions equals topologyRiskScore.
+ */
+export interface TopologyRiskFactor {
+  /** Machine-readable factor key (matches TOPOLOGY_RISK_WEIGHTS key) */
+  key: string;
+  /** Human-readable label */
+  label: string;
+  /** Actual contribution to overall score (0 to maxContribution) */
+  contribution: number;
+  /** Maximum possible contribution (the weight for this factor) */
+  maxContribution: number;
+  /** Human-readable reason explaining why this factor scored as it did */
+  reason: string;
+  /** Severity level */
+  severity: 'critical' | 'warning' | 'info';
 }
 
 /**
@@ -111,6 +221,21 @@ export interface TopologyImpactResponse {
   computedAt: string;
   /** Warnings or limitations */
   warnings: string[];
+
+  // Phase 2 additions (backward-compatible — optional fields)
+
+  /** Impact buckets summary: direct / downstream / critical-path / unknown */
+  impactBuckets?: ImpactBucketsSummary;
+  /** Count of impacted services (service-centric metric) */
+  impactedServicesCount?: number;
+  /** Count of impacted service offerings */
+  impactedOfferingsCount?: number;
+  /** Count of impacted critical CIs */
+  impactedCriticalCisCount?: number;
+  /** Topology completeness confidence assessment */
+  completenessConfidence?: TopologyCompletenessConfidence;
+  /** Explainable risk factors contributing to the topologyRiskScore */
+  riskFactors?: TopologyRiskFactor[];
 }
 
 // ============================================================================
@@ -146,6 +271,17 @@ export interface RcaHypothesis {
   affectedServiceIds: string[];
   /** Recommended follow-up actions */
   recommendedActions: RcaRecommendedAction[];
+
+  // Phase 2 additions (backward-compatible)
+
+  /** Weighted evidence score (sum of evidence weights, normalized 0-100) */
+  evidenceWeight?: number;
+  /** Contradiction markers — signals that reduce confidence */
+  contradictions?: RcaContradiction[];
+  /** Number of corroborating evidence items */
+  corroboratingEvidenceCount?: number;
+  /** Number of contradicting signals */
+  contradictionCount?: number;
 }
 
 /**
@@ -165,6 +301,23 @@ export interface RcaEvidence {
   referenceId?: string;
   /** Optional reference label */
   referenceLabel?: string;
+  /** Evidence weight (0-100): how strongly this evidence supports the hypothesis (Phase 2) */
+  weight?: number;
+  /** Whether this evidence is topology-path based (higher confidence) vs heuristic */
+  isTopologyBased?: boolean;
+}
+
+/**
+ * A contradiction marker for an RCA hypothesis (Phase 2).
+ * Signals that reduce confidence in the hypothesis.
+ */
+export interface RcaContradiction {
+  /** Machine-readable contradiction code */
+  code: string;
+  /** Human-readable description of what contradicts the hypothesis */
+  description: string;
+  /** How much this contradiction reduces confidence (0-50) */
+  confidenceReduction: number;
 }
 
 /**
@@ -203,4 +356,18 @@ export interface RcaTopologyHypothesesResponse {
   computedAt: string;
   /** Warnings or limitations */
   warnings: string[];
+
+  // Phase 2 additions
+
+  /**
+   * Ranking algorithm description (Phase 2).
+   * Documents how hypotheses were ranked for transparency/audit.
+   *
+   * Algorithm: "weighted_evidence_v1"
+   *   1) Base score from RCA_BASE_SCORES[type]
+   *   2) + bonus for corroborating evidence + affected scope
+   *   3) - sum of contradiction.confidenceReduction
+   *   4) Clamp to [0, 100], sort desc, cap at MAX_HYPOTHESES
+   */
+  rankingAlgorithm?: string;
 }
