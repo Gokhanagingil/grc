@@ -494,10 +494,8 @@ describe('ItsmChangeDetail — Stabilization Pack Regression', () => {
       mockGetLinkedControls.mockRejectedValue({ response: { status: 502, data: { message: 'Bad Gateway' } } });
 
       expect(() => render(<ItsmChangeDetail />)).not.toThrow();
-      await waitFor(() => {
-        expect(mockGetLinkedRisks).toHaveBeenCalled();
-        expect(mockGetLinkedControls).toHaveBeenCalled();
-      });
+      await waitFor(() => expect(mockGetLinkedRisks).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedControls).toHaveBeenCalled());
     });
 
     it('renders without crash when linked risks returns network error', async () => {
@@ -526,13 +524,11 @@ describe('ItsmChangeDetail — Stabilization Pack Regression', () => {
       mockGetLinkedControls.mockResolvedValue({ data: { data: [{ id: 'c1', title: 'Control 1' }] } });
 
       expect(() => render(<ItsmChangeDetail />)).not.toThrow();
-      await waitFor(() => {
-        expect(mockGetLinkedRisks).toHaveBeenCalled();
-        expect(mockGetLinkedControls).toHaveBeenCalled();
-      });
+      await waitFor(() => expect(mockGetLinkedRisks).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedControls).toHaveBeenCalled());
     });
 
-    it('handles malformed payload gracefully (data is string)', async () => {
+    it('handles malformed payload gracefully(data is string)', async () => {
       mockUseParams.mockReturnValue({ id: 'sym2-malformed' });
       mockApiGet.mockImplementation((url: string) =>
         url.includes('/risk-assessment')
@@ -657,15 +653,13 @@ describe('ItsmChangeDetail — Stabilization Pack Regression', () => {
       mockGetLinkedControls.mockResolvedValue({ data: [{ id: 'c1', title: 'Ctrl' }] });
       mockGetTopologyGuardrails.mockResolvedValue({ data: { data: null } });
 
-      const { container } = render(<ItsmChangeDetail />);
-      await waitFor(() => {
-        expect(mockApiGet).toHaveBeenCalled();
-        expect(mockGetLinkedRisks).toHaveBeenCalled();
-        expect(mockGetLinkedControls).toHaveBeenCalled();
-      });
+      render(<ItsmChangeDetail />);
+      await waitFor(() => expect(mockApiGet).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedRisks).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedControls).toHaveBeenCalled());
 
-      // Page should not have crashed — should have rendered content
-      expect(container.querySelector('[data-testid="change-detail-page"]') || container.innerHTML.length > 0).toBeTruthy();
+      // Page should not have crashed — rendered content is accessible via screen
+      expect(screen.getByTestId('risk-detail-link')).toBeInTheDocument();
     });
 
     it('renders page when ALL optional data fails', async () => {
@@ -679,11 +673,9 @@ describe('ItsmChangeDetail — Stabilization Pack Regression', () => {
       mockGetTopologyGuardrails.mockRejectedValue({ response: { status: 500 } });
 
       expect(() => render(<ItsmChangeDetail />)).not.toThrow();
-      await waitFor(() => {
-        expect(mockApiGet).toHaveBeenCalled();
-        expect(mockGetLinkedRisks).toHaveBeenCalled();
-        expect(mockGetLinkedControls).toHaveBeenCalled();
-      });
+      await waitFor(() => expect(mockApiGet).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedRisks).toHaveBeenCalled());
+      await waitFor(() => expect(mockGetLinkedControls).toHaveBeenCalled());
     });
 
     it('does not crash when main change GET fails entirely', async () => {
