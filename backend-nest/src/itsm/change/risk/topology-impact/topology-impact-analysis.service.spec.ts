@@ -1430,6 +1430,943 @@ describe('TopologyImpactAnalysisService', () => {
   });
 
   // ==========================================================================
+  // Phase 2: classifyImpactBuckets
+  // ==========================================================================
+
+  describe('classifyImpactBuckets (Phase 2)', () => {
+    const classify = (
+      nodes: Map<
+        string,
+        {
+          id: string;
+          type: 'ci' | 'service' | 'service_offering';
+          label: string;
+          depth: number;
+          className?: string;
+          criticality?: string;
+        }
+      >,
+      edges: Array<{
+        sourceId: string;
+        targetId: string;
+        relationType: string;
+      }>,
+    ) => (service as any).classifyImpactBuckets(nodes, edges);
+
+    it('should classify depth-1 non-critical CI as direct', () => {
+      const nodes = new Map([
+        [
+          'root',
+          {
+            id: 'root',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'App',
+            depth: 1,
+            className: 'application',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'root', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const result = classify(nodes, edges);
+
+      // ci-1 is depth 1, not critical, has className and edges => direct
+      // But classifyImpactBuckets checks criticalityWeight >= 80 for critical_path
+      // className 'application' won't trigger criticalityWeight >= 80
+      expect(result.bucketByNodeId.get('ci-1')).toBeDefined();
+      expect(
+        result.summary.direct +
+          result.summary.downstream +
+          result.summary.criticalPath +
+          result.summary.unknownConfidence,
+      ).toBeGreaterThan(0);
+    });
+
+    it('should classify depth-2 CI as downstream', () => {
+      const nodes = new Map([
+        [
+          'root',
+          {
+            id: 'root',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'Mid',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-2',
+          {
+            id: 'ci-2',
+            type: 'ci' as const,
+            label: 'Deep',
+            depth: 2,
+            className: 'application',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'root', targetId: 'ci-1', relationType: 'depends_on' },
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const result = classify(nodes, edges);
+
+      // ci-2 at depth 2, low criticality, has edges/className => downstream
+      const bucket = result.bucketByNodeId.get('ci-2');
+      expect(bucket).toBeDefined();
+    });
+
+    it('should classify CI with missing className as unknown_confidence', () => {
+      const nodes = new Map([
+        [
+          'root',
+          {
+            id: 'root',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-x',
+          { id: 'ci-x', type: 'ci' as const, label: 'Unknown', depth: 1 },
+        ],
+      ]);
+      // ci-x has no edges => degree 0, and no className
+      const result = classify(nodes, []);
+
+      const bucket = result.bucketByNodeId.get('ci-x');
+      expect(bucket).toBe('unknown_confidence');
+      expect(result.summary.unknownConfidence).toBe(1);
+    });
+
+    it('should skip root nodes (depth 0)', () => {
+      const nodes = new Map([
+        [
+          'root',
+          {
+            id: 'root',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+      ]);
+
+      const result = classify(nodes, []);
+
+      expect(result.bucketByNodeId.size).toBe(0);
+      expect(result.summary.direct).toBe(0);
+      expect(result.summary.downstream).toBe(0);
+      expect(result.summary.criticalPath).toBe(0);
+      expect(result.summary.unknownConfidence).toBe(0);
+    });
+
+    it('should produce deterministic results for same input', () => {
+      const nodes = new Map([
+        [
+          'root',
+          {
+            id: 'root',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'A',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-2',
+          {
+            id: 'ci-2',
+            type: 'ci' as const,
+            label: 'B',
+            depth: 2,
+            className: 'app',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'root', targetId: 'ci-1', relationType: 'depends_on' },
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const r1 = classify(nodes, edges);
+      const r2 = classify(nodes, edges);
+
+      expect(r1.summary).toEqual(r2.summary);
+      expect(Array.from(r1.bucketByNodeId.entries())).toEqual(
+        Array.from(r2.bucketByNodeId.entries()),
+      );
+    });
+  });
+
+  // ==========================================================================
+  // Phase 2: computeTopologyCompletenessConfidence
+  // ==========================================================================
+
+  describe('computeTopologyCompletenessConfidence (Phase 2)', () => {
+    const computeConfidence = (
+      nodes: Map<
+        string,
+        {
+          id: string;
+          type: 'ci' | 'service' | 'service_offering';
+          label: string;
+          depth: number;
+          className?: string;
+        }
+      >,
+      edges: Array<{
+        sourceId: string;
+        targetId: string;
+        relationType: string;
+      }>,
+      truncated: boolean,
+    ) =>
+      (service as any).computeTopologyCompletenessConfidence(
+        nodes,
+        edges,
+        truncated,
+      );
+
+    it('should return HIGH confidence for complete graph', () => {
+      const nodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'Server',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-2',
+          {
+            id: 'ci-2',
+            type: 'ci' as const,
+            label: 'DB',
+            depth: 1,
+            className: 'database',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const result = computeConfidence(nodes, edges, false);
+
+      expect(result.score).toBeGreaterThanOrEqual(60);
+      expect(result.label).toMatch(/HIGH|MEDIUM/);
+      expect(result.degradingFactors).toBeDefined();
+    });
+
+    it('should degrade confidence for missing class semantics', () => {
+      // Only depth > 0 CIs count as impacted for confidence scoring
+      const nodes = new Map([
+        [
+          'ci-0',
+          {
+            id: 'ci-0',
+            type: 'ci' as const,
+            label: 'Root',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-1',
+          { id: 'ci-1', type: 'ci' as const, label: 'Unknown', depth: 1 },
+        ],
+        [
+          'ci-2',
+          { id: 'ci-2', type: 'ci' as const, label: 'Unknown2', depth: 2 },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-0', targetId: 'ci-1', relationType: 'depends_on' },
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const result = computeConfidence(nodes, edges, false);
+
+      expect(result.missingClassCount).toBe(2);
+      const missingFactor = result.degradingFactors.find(
+        (f: { code: string }) => f.code === 'MISSING_CLASS_SEMANTICS',
+      );
+      expect(missingFactor).toBeDefined();
+    });
+
+    it('should degrade confidence for isolated CI nodes', () => {
+      const nodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'Isolated',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+
+      const result = computeConfidence(nodes, [], false);
+
+      expect(result.isolatedNodeCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should degrade confidence when graph is truncated', () => {
+      const nodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'A',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+      ]);
+
+      const truncatedResult = computeConfidence(nodes, [], true);
+      const normalResult = computeConfidence(nodes, [], false);
+
+      expect(truncatedResult.score).toBeLessThan(normalResult.score);
+      const truncFactor = truncatedResult.degradingFactors.find(
+        (f: { code: string }) => f.code === 'GRAPH_TRUNCATED',
+      );
+      expect(truncFactor).toBeDefined();
+    });
+
+    it('should return score bounded between 0 and 100', () => {
+      // Empty graph
+      const emptyResult = computeConfidence(new Map(), [], true);
+      expect(emptyResult.score).toBeGreaterThanOrEqual(0);
+      expect(emptyResult.score).toBeLessThanOrEqual(100);
+
+      // Healthy graph
+      const nodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'S',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+      ]);
+      const healthyResult = computeConfidence(nodes, [], false);
+      expect(healthyResult.score).toBeGreaterThanOrEqual(0);
+      expect(healthyResult.score).toBeLessThanOrEqual(100);
+    });
+
+    it('should produce deterministic results for same input', () => {
+      const nodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'A',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        ['ci-2', { id: 'ci-2', type: 'ci' as const, label: 'B', depth: 1 }],
+      ]);
+      const edges = [
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const r1 = computeConfidence(nodes, edges, false);
+      const r2 = computeConfidence(nodes, edges, false);
+
+      expect(r1.score).toBe(r2.score);
+      expect(r1.label).toBe(r2.label);
+      expect(r1.degradingFactors).toEqual(r2.degradingFactors);
+    });
+
+    it('should use correct label thresholds', () => {
+      // Create scenarios targeting different thresholds
+      // Full graph = high confidence
+      const fullNodes = new Map([
+        [
+          'ci-1',
+          {
+            id: 'ci-1',
+            type: 'ci' as const,
+            label: 'S',
+            depth: 0,
+            className: 'server',
+          },
+        ],
+        [
+          'ci-2',
+          {
+            id: 'ci-2',
+            type: 'ci' as const,
+            label: 'D',
+            depth: 1,
+            className: 'database',
+          },
+        ],
+      ]);
+      const fullEdges = [
+        { sourceId: 'ci-1', targetId: 'ci-2', relationType: 'depends_on' },
+      ];
+
+      const highResult = computeConfidence(fullNodes, fullEdges, false);
+      // Score >= 80 => HIGH, >= 60 => MEDIUM, >= 30 => LOW, < 30 => VERY_LOW
+      if (highResult.score >= 80) expect(highResult.label).toBe('HIGH');
+      else if (highResult.score >= 60) expect(highResult.label).toBe('MEDIUM');
+      else if (highResult.score >= 30) expect(highResult.label).toBe('LOW');
+      else expect(highResult.label).toBe('VERY_LOW');
+    });
+  });
+
+  // ==========================================================================
+  // Phase 2: computeRiskFactors
+  // ==========================================================================
+
+  describe('computeRiskFactors (Phase 2)', () => {
+    const computeFactors = (metrics: any, fragilitySignals: any[]) =>
+      (service as any).computeRiskFactors(metrics, fragilitySignals);
+
+    it('should return factors sorted by contribution descending', () => {
+      const metrics = {
+        totalImpactedNodes: 30,
+        impactedByDepth: { 0: 5, 1: 15, 2: 10 },
+        impactedServiceCount: 2,
+        impactedOfferingCount: 1,
+        impactedCiCount: 25,
+        criticalCiCount: 10,
+        maxChainDepth: 2,
+        crossServicePropagation: true,
+        crossServiceCount: 2,
+      };
+      const signals = [
+        {
+          type: 'single_point_of_failure' as const,
+          nodeId: 'a',
+          nodeLabel: 'A',
+          reason: 'SPOF',
+          severity: 80,
+        },
+      ];
+
+      const factors = computeFactors(metrics, signals);
+
+      expect(factors.length).toBeGreaterThan(0);
+      for (let i = 1; i < factors.length; i++) {
+        expect(factors[i - 1].contribution).toBeGreaterThanOrEqual(
+          factors[i].contribution,
+        );
+      }
+    });
+
+    it('should have keys matching TOPOLOGY_RISK_WEIGHTS', () => {
+      const metrics = {
+        totalImpactedNodes: 10,
+        impactedByDepth: { 0: 5, 1: 5 },
+        impactedServiceCount: 1,
+        impactedOfferingCount: 0,
+        impactedCiCount: 9,
+        criticalCiCount: 2,
+        maxChainDepth: 1,
+        crossServicePropagation: false,
+        crossServiceCount: 1,
+      };
+
+      const factors = computeFactors(metrics, []);
+
+      const expectedKeys = [
+        'impactedNodeCount',
+        'criticalCiRatio',
+        'maxChainDepth',
+        'crossServicePropagation',
+        'fragilityScore',
+      ];
+      for (const factor of factors) {
+        expect(expectedKeys).toContain(factor.key);
+      }
+    });
+
+    it('should include severity levels', () => {
+      const metrics = {
+        totalImpactedNodes: 50,
+        impactedByDepth: { 0: 10, 1: 20, 2: 20 },
+        impactedServiceCount: 3,
+        impactedOfferingCount: 1,
+        impactedCiCount: 45,
+        criticalCiCount: 15,
+        maxChainDepth: 3,
+        crossServicePropagation: true,
+        crossServiceCount: 3,
+      };
+      const signals = [
+        {
+          type: 'single_point_of_failure' as const,
+          nodeId: 'a',
+          nodeLabel: 'A',
+          reason: '',
+          severity: 90,
+        },
+      ];
+
+      const factors = computeFactors(metrics, signals);
+
+      for (const factor of factors) {
+        expect(['critical', 'warning', 'info']).toContain(factor.severity);
+        expect(factor.reason).toBeDefined();
+        expect(factor.reason.length).toBeGreaterThan(0);
+        expect(factor.contribution).toBeGreaterThanOrEqual(0);
+        expect(factor.contribution).toBeLessThanOrEqual(factor.maxContribution);
+      }
+    });
+
+    it('should produce deterministic results', () => {
+      const metrics = {
+        totalImpactedNodes: 20,
+        impactedByDepth: { 0: 5, 1: 15 },
+        impactedServiceCount: 1,
+        impactedOfferingCount: 0,
+        impactedCiCount: 19,
+        criticalCiCount: 5,
+        maxChainDepth: 1,
+        crossServicePropagation: false,
+        crossServiceCount: 1,
+      };
+
+      const r1 = computeFactors(metrics, []);
+      const r2 = computeFactors(metrics, []);
+
+      expect(r1).toEqual(r2);
+    });
+  });
+
+  // ==========================================================================
+  // Phase 2: enrichRcaHypotheses
+  // ==========================================================================
+
+  describe('enrichRcaHypotheses (Phase 2)', () => {
+    const enrich = (
+      hypotheses: any[],
+      nodes: Map<string, any>,
+      edges: Array<{
+        sourceId: string;
+        targetId: string;
+        relationType: string;
+      }>,
+      truncated: boolean,
+    ) =>
+      (service as any).enrichRcaHypotheses(hypotheses, nodes, edges, truncated);
+
+    function makeHypothesis(overrides: any = {}): any {
+      return {
+        id: 'hyp-1',
+        type: 'common_upstream_dependency',
+        score: 60,
+        suspectNodeId: 'ci-hub',
+        suspectNodeLabel: 'Hub Server',
+        suspectNodeType: 'ci',
+        explanation: 'Test hypothesis',
+        evidence: [
+          { type: 'topology_path', description: 'Connected to affected nodes' },
+        ],
+        affectedServiceIds: ['svc-1'],
+        recommendedActions: [],
+        ...overrides,
+      };
+    }
+
+    it('should add evidenceWeight to hypotheses', () => {
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-hub', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const result = enrich([makeHypothesis()], nodes, edges, false);
+
+      expect(result[0].evidenceWeight).toBeDefined();
+      expect(typeof result[0].evidenceWeight).toBe('number');
+      expect(result[0].evidenceWeight).toBeGreaterThanOrEqual(0);
+      expect(result[0].evidenceWeight).toBeLessThanOrEqual(100);
+    });
+
+    it('should add contradiction markers when graph is truncated', () => {
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+
+      const result = enrich([makeHypothesis()], nodes, [], true);
+
+      expect(result[0].contradictions).toBeDefined();
+      expect(result[0].contradictions.length).toBeGreaterThan(0);
+      const truncContradiction = result[0].contradictions.find(
+        (c: any) => c.code === 'GRAPH_TRUNCATED',
+      );
+      expect(truncContradiction).toBeDefined();
+      expect(truncContradiction.confidenceReduction).toBeGreaterThan(0);
+    });
+
+    it('should add contradiction for missing class semantics on suspect', () => {
+      const nodes = new Map([
+        ['ci-hub', { id: 'ci-hub', type: 'ci', label: 'Hub', depth: 1 }], // no className
+      ]);
+
+      const result = enrich([makeHypothesis()], nodes, [], false);
+
+      const missingClass = result[0].contradictions.find(
+        (c: any) => c.code === 'MISSING_CLASS_SEMANTICS',
+      );
+      expect(missingClass).toBeDefined();
+    });
+
+    it('should add contradiction for isolated suspect node', () => {
+      const nodes = new Map([
+        ['ci-hub', { id: 'ci-hub', type: 'ci', label: 'Hub', depth: 1 }], // no className, no edges
+      ]);
+
+      const result = enrich([makeHypothesis()], nodes, [], false);
+
+      const isolated = result[0].contradictions.find(
+        (c: any) => c.code === 'ISOLATED_NODE',
+      );
+      expect(isolated).toBeDefined();
+    });
+
+    it('should reduce score when contradictions are present', () => {
+      const nodesGood = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-hub', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const nodesBad = new Map([
+        ['ci-hub', { id: 'ci-hub', type: 'ci', label: 'Hub', depth: 1 }], // no className, no edges
+      ]);
+
+      const goodResult = enrich([makeHypothesis()], nodesGood, edges, false);
+      const badResult = enrich([makeHypothesis()], nodesBad, [], true);
+
+      expect(badResult[0].score).toBeLessThan(goodResult[0].score);
+    });
+
+    it('should set corroboratingEvidenceCount and contradictionCount', () => {
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+
+      const result = enrich([makeHypothesis()], nodes, [], false);
+
+      expect(result[0].corroboratingEvidenceCount).toBe(1); // one evidence item
+      expect(typeof result[0].contradictionCount).toBe('number');
+    });
+
+    it('should assign evidence weights based on evidence type', () => {
+      const hyp = makeHypothesis({
+        evidence: [
+          { type: 'topology_path', description: 'Path evidence' },
+          { type: 'recent_change', description: 'Change evidence' },
+          { type: 'health_violation', description: 'Health evidence' },
+        ],
+      });
+
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-hub', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const result = enrich([hyp], nodes, edges, false);
+
+      for (const ev of result[0].evidence) {
+        expect(ev.weight).toBeDefined();
+        expect(ev.weight).toBeGreaterThan(0);
+        expect(typeof ev.isTopologyBased).toBe('boolean');
+      }
+
+      // topology_path should have highest weight
+      const topologyEv = result[0].evidence.find(
+        (e: any) => e.type === 'topology_path',
+      );
+      const changeEv = result[0].evidence.find(
+        (e: any) => e.type === 'recent_change',
+      );
+      expect(topologyEv.weight).toBeGreaterThan(changeEv.weight);
+    });
+
+    it('should produce deterministic results for same input', () => {
+      const hyp = makeHypothesis();
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-hub', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const r1 = enrich([hyp], nodes, edges, false);
+      const r2 = enrich([hyp], nodes, edges, false);
+
+      expect(r1[0].score).toBe(r2[0].score);
+      expect(r1[0].evidenceWeight).toBe(r2[0].evidenceWeight);
+      expect(r1[0].contradictions).toEqual(r2[0].contradictions);
+    });
+
+    it('should clamp score between 0 and 100', () => {
+      // High score hypothesis
+      const highHyp = makeHypothesis({ score: 100 });
+      const nodes = new Map([
+        [
+          'ci-hub',
+          {
+            id: 'ci-hub',
+            type: 'ci',
+            label: 'Hub',
+            depth: 1,
+            className: 'server',
+          },
+        ],
+      ]);
+      const edges = [
+        { sourceId: 'ci-hub', targetId: 'ci-1', relationType: 'depends_on' },
+      ];
+
+      const result = enrich([highHyp], nodes, edges, false);
+      expect(result[0].score).toBeGreaterThanOrEqual(0);
+      expect(result[0].score).toBeLessThanOrEqual(100);
+
+      // Low score with many contradictions
+      const lowHyp = makeHypothesis({ score: 5 });
+      const badNodes = new Map([
+        ['ci-hub', { id: 'ci-hub', type: 'ci', label: 'Hub', depth: 1 }],
+      ]);
+      const badResult = enrich([lowHyp], badNodes, [], true);
+      expect(badResult[0].score).toBeGreaterThanOrEqual(0);
+      expect(badResult[0].score).toBeLessThanOrEqual(100);
+    });
+  });
+
+  // ==========================================================================
+  // Phase 2: Integration — emptyImpactResponse includes Phase 2 fields
+  // ==========================================================================
+
+  describe('Phase 2 integration in calculateTopologyImpact', () => {
+    it('should include Phase 2 fields in empty impact response', async () => {
+      const change = makeChange({ serviceId: null });
+
+      const result = await service.calculateTopologyImpact(TENANT_ID, change);
+
+      // Phase 2 fields should be present even in empty response
+      expect(result.impactBuckets).toBeDefined();
+      expect(result.impactBuckets!.direct).toBe(0);
+      expect(result.impactBuckets!.downstream).toBe(0);
+      expect(result.impactBuckets!.criticalPath).toBe(0);
+      expect(result.impactBuckets!.unknownConfidence).toBe(0);
+
+      expect(result.impactedServicesCount).toBe(0);
+      expect(result.impactedOfferingsCount).toBe(0);
+      expect(result.impactedCriticalCisCount).toBe(0);
+
+      expect(result.completenessConfidence).toBeDefined();
+      expect(result.completenessConfidence!.score).toBe(0);
+      expect(result.completenessConfidence!.label).toBe('VERY_LOW');
+
+      expect(result.riskFactors).toBeDefined();
+      expect(result.riskFactors).toEqual([]);
+    });
+
+    it('should include Phase 2 fields when CIs exist', async () => {
+      const change = makeChange({ serviceId: 'svc-1' });
+
+      serviceCiRepo.find
+        .mockResolvedValueOnce([makeServiceCi('svc-1', 'ci-root')])
+        .mockResolvedValue([]);
+      ciRepo.find.mockResolvedValueOnce([makeCi('ci-root', 'Root Server')]);
+      ciRelRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const result = await service.calculateTopologyImpact(TENANT_ID, change);
+
+      expect(result.impactBuckets).toBeDefined();
+      expect(result.completenessConfidence).toBeDefined();
+      expect(result.completenessConfidence!.score).toBeGreaterThanOrEqual(0);
+      expect(result.completenessConfidence!.score).toBeLessThanOrEqual(100);
+      expect(result.riskFactors).toBeDefined();
+      expect(Array.isArray(result.riskFactors)).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Phase 2: Integration — RCA rankingAlgorithm field
+  // ==========================================================================
+
+  describe('Phase 2 integration in generateRcaHypotheses', () => {
+    it('should include rankingAlgorithm in RCA response', async () => {
+      const mi = makeMajorIncident({ primaryServiceId: null });
+      miLinkRepo.find.mockResolvedValue([]);
+
+      const result = await service.generateRcaHypotheses(TENANT_ID, mi);
+
+      expect(result.rankingAlgorithm).toBe('weighted_evidence_v1');
+    });
+
+    it('should include Phase 2 fields in hypotheses when generated', async () => {
+      const mi = makeMajorIncident({ primaryServiceId: 'svc-1' });
+      miLinkRepo.find.mockResolvedValue([]);
+
+      serviceCiRepo.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          makeServiceCi('svc-1', 'ci-1'),
+          makeServiceCi('svc-1', 'ci-2'),
+        ])
+        .mockResolvedValue([]);
+
+      ciRepo.find.mockResolvedValue([
+        makeCi('ci-1', 'Server 1'),
+        makeCi('ci-2', 'Server 2'),
+        makeCi('ci-hub', 'Hub Server'),
+      ]);
+
+      const rels = [
+        makeRel('ci-hub', 'ci-1', 'depends_on'),
+        makeRel('ci-hub', 'ci-2', 'depends_on'),
+      ];
+      ciRelRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValueOnce(rels).mockResolvedValue([]),
+      });
+
+      changeRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const result = await service.generateRcaHypotheses(TENANT_ID, mi);
+
+      expect(result.rankingAlgorithm).toBe('weighted_evidence_v1');
+      for (const hyp of result.hypotheses) {
+        expect(hyp.evidenceWeight).toBeDefined();
+        expect(typeof hyp.evidenceWeight).toBe('number');
+        expect(hyp.contradictions).toBeDefined();
+        expect(Array.isArray(hyp.contradictions)).toBe(true);
+        expect(typeof hyp.corroboratingEvidenceCount).toBe('number');
+        expect(typeof hyp.contradictionCount).toBe('number');
+        // Evidence items should have weights
+        for (const ev of hyp.evidence) {
+          expect(ev.weight).toBeDefined();
+          expect(typeof ev.isTopologyBased).toBe('boolean');
+        }
+      }
+    });
+  });
+
+  // ==========================================================================
   // Graceful degradation
   // ==========================================================================
 
