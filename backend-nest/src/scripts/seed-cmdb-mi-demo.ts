@@ -939,7 +939,7 @@ async function seedCmdbMiDemo() {
           await classRepo.update(existing.id, {
             parentClassId: seed.parentClassId,
             isAbstract: seed.isAbstract,
-            fieldsSchema: seed.fieldsSchema,
+            fieldsSchema: seed.fieldsSchema as any,
             label: seed.label,
             description: seed.description,
             icon: seed.icon,
@@ -965,7 +965,7 @@ async function seedCmdbMiDemo() {
         await classRepo.update(existingByName.id, {
           parentClassId: seed.parentClassId,
           isAbstract: seed.isAbstract,
-          fieldsSchema: seed.fieldsSchema,
+          fieldsSchema: seed.fieldsSchema as any,
           label: seed.label,
           description: seed.description,
           icon: seed.icon,
@@ -979,27 +979,22 @@ async function seedCmdbMiDemo() {
       }
 
       // Create new class with deterministic ID
-      await classRepo
-        .createQueryBuilder()
-        .insert()
-        .into(CmdbCiClass)
-        .values({
-          id: seed.id,
-          tenantId: DEMO_TENANT_ID,
-          name: seed.name,
-          label: seed.label,
-          description: seed.description,
-          icon: seed.icon,
-          parentClassId: seed.parentClassId,
-          isAbstract: seed.isAbstract,
-          isActive: true,
-          sortOrder: seed.sortOrder,
-          fieldsSchema: seed.fieldsSchema,
-          createdBy: DEMO_ADMIN_ID,
-          isDeleted: false,
-        } as Partial<CmdbCiClass>)
-        .orIgnore()
-        .execute();
+      const entity = classRepo.create({
+        tenantId: DEMO_TENANT_ID,
+        name: seed.name,
+        label: seed.label,
+        description: seed.description,
+        icon: seed.icon,
+        parentClassId: seed.parentClassId,
+        isAbstract: seed.isAbstract,
+        isActive: true,
+        sortOrder: seed.sortOrder,
+        fieldsSchema: seed.fieldsSchema,
+        createdBy: DEMO_ADMIN_ID,
+        isDeleted: false,
+      });
+      entity.id = seed.id;
+      await classRepo.save(entity);
       classCreated++;
     }
     console.log(
@@ -1073,31 +1068,26 @@ async function seedCmdbMiDemo() {
       }
 
       // Create new with deterministic ID
-      await relTypeRepo
-        .createQueryBuilder()
-        .insert()
-        .into(CmdbRelationshipType)
-        .values({
-          id: seed.id,
-          tenantId: DEMO_TENANT_ID,
-          name: seed.name,
-          label: seed.label,
-          description: seed.description,
-          directionality: seed.directionality,
-          inverseLabel: seed.inverseLabel,
-          riskPropagation: seed.riskPropagation,
-          allowedSourceClasses: seed.allowedSourceClasses,
-          allowedTargetClasses: seed.allowedTargetClasses,
-          allowSelfLoop: seed.allowSelfLoop,
-          allowCycles: seed.allowCycles,
-          isActive: true,
-          isSystem: true,
-          sortOrder: seed.sortOrder,
-          createdBy: DEMO_ADMIN_ID,
-          isDeleted: false,
-        } as Partial<CmdbRelationshipType>)
-        .orIgnore()
-        .execute();
+      const entity = relTypeRepo.create({
+        tenantId: DEMO_TENANT_ID,
+        name: seed.name,
+        label: seed.label,
+        description: seed.description,
+        directionality: seed.directionality,
+        inverseLabel: seed.inverseLabel,
+        riskPropagation: seed.riskPropagation,
+        allowedSourceClasses: seed.allowedSourceClasses,
+        allowedTargetClasses: seed.allowedTargetClasses,
+        allowSelfLoop: seed.allowSelfLoop,
+        allowCycles: seed.allowCycles,
+        isActive: true,
+        isSystem: true,
+        sortOrder: seed.sortOrder,
+        createdBy: DEMO_ADMIN_ID,
+        isDeleted: false,
+      });
+      entity.id = seed.id;
+      await relTypeRepo.save(entity);
       relTypeCreated++;
     }
     console.log(
@@ -1130,26 +1120,21 @@ async function seedCmdbMiDemo() {
         continue;
       }
 
-      await ciRepo
-        .createQueryBuilder()
-        .insert()
-        .into(CmdbCi)
-        .values({
-          id: seed.id,
-          tenantId: DEMO_TENANT_ID,
-          name: seed.name,
-          description: seed.description,
-          classId: seed.classId,
-          lifecycle: seed.lifecycle,
-          environment: seed.environment,
-          ipAddress: seed.ipAddress || null,
-          dnsName: seed.dnsName || null,
-          attributes: seed.attributes || null,
-          createdBy: DEMO_ADMIN_ID,
-          isDeleted: false,
-        } as Partial<CmdbCi>)
-        .orIgnore()
-        .execute();
+      const entity = ciRepo.create({
+        tenantId: DEMO_TENANT_ID,
+        name: seed.name,
+        description: seed.description,
+        classId: seed.classId,
+        lifecycle: seed.lifecycle,
+        environment: seed.environment,
+        ipAddress: seed.ipAddress || null,
+        dnsName: seed.dnsName || null,
+        attributes: seed.attributes || null,
+        createdBy: DEMO_ADMIN_ID,
+        isDeleted: false,
+      });
+      entity.id = seed.id;
+      await ciRepo.save(entity);
       ciCreated++;
     }
     console.log(`   CIs: ${ciCreated} created, ${ciSkipped} skipped\n`);
