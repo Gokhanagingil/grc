@@ -22,6 +22,18 @@ permissions:
   contents: read
   actions: write
 
+# -----------------------------------------------------------------------
+# Job-level env: CI-safe defaults for all steps.
+# These are throwaway values used only in this ephemeral CI job.
+# -----------------------------------------------------------------------
+env:
+  CI_DB_HOST: localhost
+  CI_DB_PORT: "5432"
+  CI_DB_USER: postgres
+  CI_DB_PASSWORD: postgres
+  CI_DB_NAME: grc_platform
+  CI_DEMO_EMAIL: "admin@grc-platform.local"
+
 jobs:
   scenario-pack-smoke:
     name: "Scenario Pack Smoke @real @smoke"
@@ -70,29 +82,36 @@ jobs:
       - name: Run database migrations
         env:
           NODE_ENV: development
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: grc_platform
+          DB_HOST: ${{ env.CI_DB_HOST }}
+          DB_PORT: ${{ env.CI_DB_PORT }}
+          DB_USER: ${{ env.CI_DB_USER }}
+          DB_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+          DB_NAME: ${{ env.CI_DB_NAME }}
         run: npx typeorm migration:run -d dist/data-source.js
         working-directory: backend-nest
+
+      - name: Generate CI secrets
+        id: ci_secrets
+        run: |
+          echo "jwt_secret=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          echo "refresh_secret=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          echo "demo_password=CiTest-$(openssl rand -hex 8)" >> $GITHUB_OUTPUT
 
       - name: Start backend-nest
         env:
           NODE_ENV: test
           PORT: "3002"
-          JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'ci-test-jwt-secret-placeholder' }}
+          JWT_SECRET: ${{ steps.ci_secrets.outputs.jwt_secret }}
           JWT_EXPIRES_IN: 24h
-          REFRESH_TOKEN_SECRET: ${{ secrets.CI_REFRESH_TOKEN_SECRET || 'ci-test-refresh-placeholder' }}
+          REFRESH_TOKEN_SECRET: ${{ steps.ci_secrets.outputs.refresh_secret }}
           REFRESH_TOKEN_EXPIRES_IN: 7d
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: grc_platform
-          DEMO_ADMIN_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          DB_HOST: ${{ env.CI_DB_HOST }}
+          DB_PORT: ${{ env.CI_DB_PORT }}
+          DB_USER: ${{ env.CI_DB_USER }}
+          DB_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+          DB_NAME: ${{ env.CI_DB_NAME }}
+          DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
         run: |
           cd backend-nest && npm run start:dev &
@@ -114,13 +133,16 @@ jobs:
       - name: Seed scenario pack (deterministic data)
         env:
           NODE_ENV: development
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: grc_platform
-          DEMO_ADMIN_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          DB_HOST: ${{ env.CI_DB_HOST }}
+          DB_PORT: ${{ env.CI_DB_PORT }}
+          DB_USER: ${{ env.CI_DB_USER }}
+          DB_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+          DB_NAME: ${{ env.CI_DB_NAME }}
+          JWT_SECRET: ${{ steps.ci_secrets.outputs.jwt_secret }}
+          REFRESH_TOKEN_SECRET: ${{ steps.ci_secrets.outputs.refresh_secret }}
+          REFRESH_TOKEN_EXPIRES_IN: 7d
+          DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
         run: node dist/scripts/seed-scenario-pack.js
         working-directory: backend-nest
@@ -130,8 +152,8 @@ jobs:
         env:
           E2E_MODE: "REAL_STACK"
           BASE_URL: "http://localhost:3002"
-          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          SMOKE_TEST_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
 
       - name: "Run Topology smoke tests @real @topology"
         if: always() && (github.event.inputs.run_topology != 'false')
@@ -139,8 +161,8 @@ jobs:
         env:
           E2E_MODE: "REAL_STACK"
           BASE_URL: "http://localhost:3002"
-          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          SMOKE_TEST_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
 
       - name: "Run Analytics smoke tests @real"
         if: always() && github.event.inputs.run_analytics == 'true'
@@ -148,8 +170,8 @@ jobs:
         env:
           E2E_MODE: "REAL_STACK"
           BASE_URL: "http://localhost:3002"
-          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
-          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          SMOKE_TEST_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
 
       - name: Upload test report
         if: always()
