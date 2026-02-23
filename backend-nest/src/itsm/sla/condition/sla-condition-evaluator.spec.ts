@@ -68,12 +68,10 @@ describe('SlaConditionEvaluator', () => {
         operator: 'contains',
         value: 'network',
       };
-      expect(
-        evaluateConditionTree(tree, { category: 'NETWORK_ISSUE' }),
-      ).toBe(true);
-      expect(
-        evaluateConditionTree(tree, { category: 'SOFTWARE' }),
-      ).toBe(false);
+      expect(evaluateConditionTree(tree, { category: 'NETWORK_ISSUE' })).toBe(
+        true,
+      );
+      expect(evaluateConditionTree(tree, { category: 'SOFTWARE' })).toBe(false);
     });
 
     it('is_empty — should match null/undefined/empty', () => {
@@ -82,14 +80,12 @@ describe('SlaConditionEvaluator', () => {
         operator: 'is_empty',
         value: null,
       };
-      expect(evaluateConditionTree(tree, { assignmentGroup: null })).toBe(
-        true,
-      );
+      expect(evaluateConditionTree(tree, { assignmentGroup: null })).toBe(true);
       expect(evaluateConditionTree(tree, { assignmentGroup: '' })).toBe(true);
       expect(evaluateConditionTree(tree, {})).toBe(true);
-      expect(
-        evaluateConditionTree(tree, { assignmentGroup: 'TeamA' }),
-      ).toBe(false);
+      expect(evaluateConditionTree(tree, { assignmentGroup: 'TeamA' })).toBe(
+        false,
+      );
     });
 
     it('is_not_empty — should match non-empty values', () => {
@@ -98,9 +94,9 @@ describe('SlaConditionEvaluator', () => {
         operator: 'is_not_empty',
         value: null,
       };
-      expect(
-        evaluateConditionTree(tree, { assignmentGroup: 'TeamA' }),
-      ).toBe(true);
+      expect(evaluateConditionTree(tree, { assignmentGroup: 'TeamA' })).toBe(
+        true,
+      );
       expect(evaluateConditionTree(tree, { assignmentGroup: null })).toBe(
         false,
       );

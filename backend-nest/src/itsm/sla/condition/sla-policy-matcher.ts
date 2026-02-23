@@ -11,8 +11,16 @@
  *  4. Select winning policy (or "no match")
  *  5. Produce explainable evaluation output
  */
-import { SlaDefinition, isConditionGroup, SlaConditionNode, SlaConditionLeaf } from '../sla-definition.entity';
-import { evaluateConditionTree, RecordContext } from './sla-condition-evaluator';
+import {
+  SlaDefinition,
+  isConditionGroup,
+  SlaConditionNode,
+} from '../sla-definition.entity';
+
+import {
+  evaluateConditionTree,
+  RecordContext,
+} from './sla-condition-evaluator';
 
 // ── Result types ───────────────────────────────────────────────────
 
@@ -66,7 +74,7 @@ function scoreNode(node: SlaConditionNode, depth: number): number {
   }
 
   // Leaf
-  const leaf = node as SlaConditionLeaf;
+  const leaf = node;
   let score = 10; // base per-leaf
   if (leaf.operator === 'is') score += 3;
   else if (leaf.operator === 'in' || leaf.operator === 'not_in') score += 1;
@@ -173,10 +181,14 @@ export function matchPolicies(
   // Resolve target times: prefer v2 fields, fall back to legacy
   const responseTimeSeconds =
     winner.def.responseTimeSeconds ??
-    (winner.def.metric === 'RESPONSE_TIME' ? winner.def.targetSeconds : null);
+    (String(winner.def.metric) === 'RESPONSE_TIME'
+      ? winner.def.targetSeconds
+      : null);
   const resolutionTimeSeconds =
     winner.def.resolutionTimeSeconds ??
-    (winner.def.metric === 'RESOLUTION_TIME' ? winner.def.targetSeconds : null);
+    (String(winner.def.metric) === 'RESOLUTION_TIME'
+      ? winner.def.targetSeconds
+      : null);
 
   return {
     matched: true,
@@ -193,10 +205,7 @@ export function matchPolicies(
 
 // ── Reason Builder ─────────────────────────────────────────────────
 
-function buildMatchReason(
-  def: SlaDefinition,
-  context: RecordContext,
-): string {
+function buildMatchReason(def: SlaDefinition, context: RecordContext): string {
   const parts: string[] = [`Matched policy "${def.name}"`];
 
   if (def.conditionTree && isConditionGroup(def.conditionTree)) {
@@ -206,7 +215,7 @@ function buildMatchReason(
     }
   } else if (def.conditionTree) {
     // Single leaf at root
-    const leaf = def.conditionTree as SlaConditionLeaf;
+    const leaf = def.conditionTree;
     parts.push(`${leaf.field} ${leaf.operator} ${formatValue(leaf.value)}`);
   } else {
     parts.push('(no conditions - matches all)');
@@ -228,7 +237,7 @@ function collectLeafSummaries(
     return summaries;
   }
 
-  const leaf = node as SlaConditionLeaf;
+  const leaf = node;
   const recordVal = context[leaf.field];
   return [
     `${leaf.field}=${formatValue(recordVal)} ${leaf.operator} ${formatValue(leaf.value)}`,
@@ -237,6 +246,7 @@ function collectLeafSummaries(
 
 function formatValue(val: unknown): string {
   if (val === null || val === undefined) return 'null';
-  if (Array.isArray(val)) return `[${val.join(',')}]`;
-  return String(val);
+  if (Array.isArray(val)) return `[${(val as string[]).join(',')}]`;
+  if (typeof val === 'string') return val;
+  return JSON.stringify(val);
 }

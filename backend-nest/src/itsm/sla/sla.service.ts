@@ -18,7 +18,10 @@ import {
   createPaginatedResponse,
 } from '../../grc/dto/pagination.dto';
 import { matchPolicies, SlaMatchResult } from './condition/sla-policy-matcher';
-import { validateConditionTree, ValidationResult } from './condition/sla-condition-validator';
+import {
+  validateConditionTree,
+  ValidationResult,
+} from './condition/sla-condition-validator';
 import { RecordContext } from './condition/sla-condition-evaluator';
 
 @Injectable()
@@ -680,7 +683,10 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
     };
 
     // Response SLA instance
-    if (matchResult.responseTimeSeconds && matchResult.responseTimeSeconds > 0) {
+    if (
+      matchResult.responseTimeSeconds &&
+      matchResult.responseTimeSeconds > 0
+    ) {
       const inst = await this.createV2Instance(
         tenantId,
         recordType,

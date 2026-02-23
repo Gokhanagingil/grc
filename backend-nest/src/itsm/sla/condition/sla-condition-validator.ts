@@ -42,7 +42,10 @@ export function validateConditionTree(
   }
 
   if (typeof tree !== 'object') {
-    errors.push({ path: '$', message: 'Condition tree must be an object or null' });
+    errors.push({
+      path: '$',
+      message: 'Condition tree must be an object or null',
+    });
     return { valid: false, errors };
   }
 
@@ -69,7 +72,7 @@ function validateNode(
   if (isConditionGroup(node)) {
     validateGroup(node, path, recordType, errors);
   } else {
-    validateLeaf(node as SlaConditionLeaf, path, recordType, errors);
+    validateLeaf(node, path, recordType, errors);
   }
 }
 

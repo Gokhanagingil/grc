@@ -31,14 +31,11 @@ export function evaluateConditionTree(
   return evaluateNode(tree, context);
 }
 
-function evaluateNode(
-  node: SlaConditionNode,
-  context: RecordContext,
-): boolean {
+function evaluateNode(node: SlaConditionNode, context: RecordContext): boolean {
   if (isConditionGroup(node)) {
     return evaluateGroup(node, context);
   }
-  return evaluateLeaf(node as SlaConditionLeaf, context);
+  return evaluateLeaf(node, context);
 }
 
 function evaluateGroup(
@@ -59,10 +56,7 @@ function evaluateGroup(
   return children.some((child) => evaluateNode(child, context));
 }
 
-function evaluateLeaf(
-  leaf: SlaConditionLeaf,
-  context: RecordContext,
-): boolean {
+function evaluateLeaf(leaf: SlaConditionLeaf, context: RecordContext): boolean {
   const recordValue = context[leaf.field];
   const conditionValue = leaf.value;
 
@@ -119,7 +113,9 @@ function isEqual(a: unknown, b: unknown): boolean {
   }
   // Coerce string <-> number comparison
   if (a !== null && a !== undefined && b !== null && b !== undefined) {
-    return String(a).toLowerCase() === String(b).toLowerCase();
+    const strA = typeof a === 'string' ? a : JSON.stringify(a);
+    const strB = typeof b === 'string' ? b : JSON.stringify(b);
+    return strA.toLowerCase() === strB.toLowerCase();
   }
   return false;
 }

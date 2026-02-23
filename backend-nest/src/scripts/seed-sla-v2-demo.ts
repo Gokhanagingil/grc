@@ -3,7 +3,11 @@ process.env.JOBS_ENABLED = 'false';
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
-import { SlaDefinition, SlaMetric, SlaSchedule } from '../itsm/sla/sla-definition.entity';
+import {
+  SlaDefinition,
+  SlaMetric,
+  SlaSchedule,
+} from '../itsm/sla/sla-definition.entity';
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_ADMIN_ID = '00000000-0000-0000-0000-000000000002';

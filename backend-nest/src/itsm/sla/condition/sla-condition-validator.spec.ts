@@ -25,9 +25,7 @@ describe('SlaConditionValidator', () => {
     it('should accept valid AND group', () => {
       const result = validateConditionTree({
         operator: 'AND',
-        children: [
-          { field: 'priority', operator: 'is', value: 'P1' },
-        ],
+        children: [{ field: 'priority', operator: 'is', value: 'P1' }],
       });
       expect(result.valid).toBe(true);
     });
@@ -190,9 +188,7 @@ describe('SlaConditionValidator', () => {
           { field: 'unknownField1', operator: 'is', value: 'x' },
           {
             operator: 'OR',
-            children: [
-              { field: 'unknownField2', operator: 'is', value: 'y' },
-            ],
+            children: [{ field: 'unknownField2', operator: 'is', value: 'y' }],
           },
         ],
       });

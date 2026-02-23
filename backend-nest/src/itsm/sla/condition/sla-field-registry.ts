@@ -12,12 +12,7 @@
  *  - recordTypes: which record types this field applies to
  */
 
-export type FieldValueType =
-  | 'string'
-  | 'number'
-  | 'array'
-  | 'boolean'
-  | 'date';
+export type FieldValueType = 'string' | 'number' | 'array' | 'boolean' | 'date';
 
 export interface SlaFieldMeta {
   key: string;
@@ -55,7 +50,7 @@ const STRING_OPERATORS: ConditionOperator[] = [
   'is_not_empty',
 ];
 
-const NUMBER_OPERATORS: ConditionOperator[] = [
+export const NUMBER_OPERATORS: ConditionOperator[] = [
   'is',
   'is_not',
   'gt',

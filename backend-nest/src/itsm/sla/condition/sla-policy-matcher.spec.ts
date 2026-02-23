@@ -3,11 +3,13 @@ import {
   computeSpecificityScore,
   SlaMatchResult,
 } from './sla-policy-matcher';
-import { SlaDefinition, SlaMetric, SlaSchedule } from '../sla-definition.entity';
+import {
+  SlaDefinition,
+  SlaMetric,
+  SlaSchedule,
+} from '../sla-definition.entity';
 
-const makePolicy = (
-  overrides: Partial<SlaDefinition> = {},
-): SlaDefinition => {
+const makePolicy = (overrides: Partial<SlaDefinition> = {}): SlaDefinition => {
   return {
     id: 'def-1',
     tenantId: 'tenant-1',
@@ -88,9 +90,7 @@ describe('SlaConditionPolicyMatcher', () => {
     it('should add nesting bonus for nested groups', () => {
       const flat = computeSpecificityScore({
         operator: 'AND',
-        children: [
-          { field: 'priority', operator: 'is', value: 'P1' },
-        ],
+        children: [{ field: 'priority', operator: 'is', value: 'P1' }],
       });
 
       const nested = computeSpecificityScore({
@@ -98,9 +98,7 @@ describe('SlaConditionPolicyMatcher', () => {
         children: [
           {
             operator: 'OR',
-            children: [
-              { field: 'priority', operator: 'is', value: 'P1' },
-            ],
+            children: [{ field: 'priority', operator: 'is', value: 'P1' }],
           },
         ],
       });
@@ -135,9 +133,7 @@ describe('SlaConditionPolicyMatcher', () => {
         makePolicy({
           conditionTree: {
             operator: 'AND',
-            children: [
-              { field: 'priority', operator: 'is', value: 'P1' },
-            ],
+            children: [{ field: 'priority', operator: 'is', value: 'P1' }],
           },
           responseTimeSeconds: 3600,
           resolutionTimeSeconds: 14400,
@@ -152,9 +148,7 @@ describe('SlaConditionPolicyMatcher', () => {
         makePolicy({
           conditionTree: {
             operator: 'AND',
-            children: [
-              { field: 'priority', operator: 'is', value: 'P1' },
-            ],
+            children: [{ field: 'priority', operator: 'is', value: 'P1' }],
           },
         }),
       ];
@@ -203,9 +197,7 @@ describe('SlaConditionPolicyMatcher', () => {
             priorityWeight: 50,
             conditionTree: {
               operator: 'AND',
-              children: [
-                { field: 'priority', operator: 'is', value: 'P1' },
-              ],
+              children: [{ field: 'priority', operator: 'is', value: 'P1' }],
             },
           }),
           makePolicy({
@@ -328,9 +320,7 @@ describe('SlaConditionPolicyMatcher', () => {
             name: 'Policy 1',
             conditionTree: {
               operator: 'AND',
-              children: [
-                { field: 'priority', operator: 'is', value: 'P1' },
-              ],
+              children: [{ field: 'priority', operator: 'is', value: 'P1' }],
             },
           }),
           makePolicy({
@@ -338,9 +328,7 @@ describe('SlaConditionPolicyMatcher', () => {
             name: 'Policy 2',
             conditionTree: {
               operator: 'AND',
-              children: [
-                { field: 'priority', operator: 'is', value: 'P2' },
-              ],
+              children: [{ field: 'priority', operator: 'is', value: 'P2' }],
             },
           }),
         ];
@@ -355,9 +343,7 @@ describe('SlaConditionPolicyMatcher', () => {
           makePolicy({
             conditionTree: {
               operator: 'AND',
-              children: [
-                { field: 'priority', operator: 'is', value: 'P1' },
-              ],
+              children: [{ field: 'priority', operator: 'is', value: 'P1' }],
             },
           }),
         ];
@@ -373,9 +359,7 @@ describe('SlaConditionPolicyMatcher', () => {
           makePolicy({
             conditionTree: {
               operator: 'AND',
-              children: [
-                { field: 'priority', operator: 'is', value: 'P1' },
-              ],
+              children: [{ field: 'priority', operator: 'is', value: 'P1' }],
             },
           }),
         ];

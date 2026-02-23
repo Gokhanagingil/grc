@@ -28,7 +28,10 @@ import {
   SlaDefinitionFilterDto,
   SlaInstanceFilterDto,
 } from './dto/sla-filter.dto';
-import { EvaluateSlaDto, ValidateConditionTreeDto } from './dto/evaluate-sla.dto';
+import {
+  EvaluateSlaDto,
+  ValidateConditionTreeDto,
+} from './dto/evaluate-sla.dto';
 import { slaFieldRegistry } from './condition/sla-field-registry';
 
 @Controller('grc/itsm/sla')
@@ -193,9 +196,7 @@ export class SlaController {
   @Get('field-registry')
   @Permissions(Permission.ITSM_SLA_READ)
   @Perf()
-  async getFieldRegistry(
-    @Query('recordType') recordType?: string,
-  ) {
+  getFieldRegistry(@Query('recordType') recordType?: string) {
     const rt = recordType || 'INCIDENT';
     const fields = slaFieldRegistry.getFieldsForRecordType(rt);
     return { recordType: rt, fields };
@@ -204,9 +205,7 @@ export class SlaController {
   @Post('validate-condition')
   @Permissions(Permission.ITSM_SLA_WRITE)
   @Perf()
-  async validateConditionTree(
-    @Body() dto: ValidateConditionTreeDto,
-  ) {
+  validateConditionTree(@Body() dto: ValidateConditionTreeDto) {
     const recordType = dto.recordType || 'INCIDENT';
     return this.slaService.validateConditionTree(dto.conditionTree, recordType);
   }

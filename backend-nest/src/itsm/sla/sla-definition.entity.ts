@@ -57,7 +57,7 @@ export function isConditionGroup(
     typeof node === 'object' &&
     'operator' in node &&
     'children' in node &&
-    Array.isArray((node as SlaConditionGroup).children)
+    Array.isArray(node.children)
   );
 }
 
