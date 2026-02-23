@@ -135,6 +135,68 @@ const APPROVAL_OPTIONS = [
 const INIT_TIMEOUT_MS = 15_000;
 
 /**
+ * Robustly extract an array from various API response envelope shapes.
+ * Handles:
+ * - { data: [...] }           (standard envelope)
+ * - { success: true, data: [...] } (NestJS ResponseTransformInterceptor)
+ * - [...]                     (flat array, no envelope)
+ * - { data: { items: [...] } } (paginated envelope)
+ * - null / undefined / non-object
+ */
+function extractLinkedArray<T = unknown>(raw: unknown): T[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'object') return [];
+
+  const obj = raw as Record<string, unknown>;
+
+  // { data: [...] } or { success: true, data: [...] }
+  if ('data' in obj) {
+    if (Array.isArray(obj.data)) return obj.data;
+    // { data: { items: [...] } }
+    if (obj.data && typeof obj.data === 'object' && 'items' in (obj.data as Record<string, unknown>)) {
+      const items = (obj.data as Record<string, unknown>).items;
+      if (Array.isArray(items)) return items;
+    }
+  }
+
+  // { items: [...] }
+  if ('items' in obj && Array.isArray(obj.items)) return obj.items;
+
+  return [];
+}
+
+/**
+ * Classify a linked-data load error into an actionable user-facing message.
+ * Distinguishes permission (401/403), not found (404), server error (5xx),
+ * and contract/network issues.
+ */
+function classifyLinkedLoadError(reason: unknown, entityLabel: string): string {
+  if (reason && typeof reason === 'object') {
+    const err = reason as { response?: { status?: number; data?: { message?: string } }; message?: string };
+    const status = err.response?.status;
+    const serverMsg = err.response?.data?.message;
+
+    if (status === 401) {
+      return `Linked ${entityLabel} could not be loaded: session expired. Please log in again.`;
+    }
+    if (status === 403) {
+      return `Linked ${entityLabel} could not be loaded: insufficient permissions.`;
+    }
+    if (status === 404) {
+      return `Linked ${entityLabel} endpoint not found. The integration may not be configured.`;
+    }
+    if (status && status >= 500) {
+      return `Linked ${entityLabel} could not be loaded: server error (${status}).${serverMsg ? ` ${serverMsg}` : ''}`;
+    }
+    if (err.message === 'Network Error' || err.message?.includes('timeout')) {
+      return `Linked ${entityLabel} could not be loaded: network error. Check your connection.`;
+    }
+  }
+  return `Linked ${entityLabel} could not be loaded.`;
+}
+
+/**
  * Centralized helper to extract the created record ID from various response envelope shapes.
  * Supports:
  * - { success: true, data: { id } } (NestJS ResponseTransformInterceptor)
@@ -227,6 +289,8 @@ export const ItsmChangeDetail: React.FC = () => {
   // GRC Bridge state
   const [linkedRisks, setLinkedRisks] = useState<LinkedRisk[]>([]);
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
+  const [linkedRisksError, setLinkedRisksError] = useState<string | null>(null);
+  const [linkedControlsError, setLinkedControlsError] = useState<string | null>(null);
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
 
@@ -294,30 +358,36 @@ export const ItsmChangeDetail: React.FC = () => {
 
       const optionalWarnings: string[] = [];
 
-      // [0] Linked risks
+      // [0] Linked risks — robust envelope parsing + classified error messages
       if (optionalResults[0].status === 'fulfilled') {
-        const risksData = optionalResults[0].value.data;
-        if (risksData && 'data' in risksData) {
-          setLinkedRisks(Array.isArray(risksData.data) ? risksData.data : []);
-        }
+        const risksRaw = optionalResults[0].value.data;
+        const parsed = extractLinkedArray<LinkedRisk>(risksRaw);
+        setLinkedRisks(parsed);
+        setLinkedRisksError(null);
       } else {
+        const reason = optionalResults[0].reason;
+        const errMsg = classifyLinkedLoadError(reason, 'risks');
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[ItsmChangeDetail] init:linkedRisks:error', optionalResults[0].reason);
+          console.warn('[ItsmChangeDetail] init:linkedRisks:error', reason);
         }
-        optionalWarnings.push('Linked risks could not be loaded.');
+        setLinkedRisksError(errMsg);
+        optionalWarnings.push(errMsg);
       }
 
-      // [1] Linked controls
+      // [1] Linked controls — robust envelope parsing + classified error messages
       if (optionalResults[1].status === 'fulfilled') {
-        const controlsData = optionalResults[1].value.data;
-        if (controlsData && 'data' in controlsData) {
-          setLinkedControls(Array.isArray(controlsData.data) ? controlsData.data : []);
-        }
+        const controlsRaw = optionalResults[1].value.data;
+        const parsed = extractLinkedArray<LinkedControl>(controlsRaw);
+        setLinkedControls(parsed);
+        setLinkedControlsError(null);
       } else {
+        const reason = optionalResults[1].reason;
+        const errMsg = classifyLinkedLoadError(reason, 'controls');
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[ItsmChangeDetail] init:linkedControls:error', optionalResults[1].reason);
+          console.warn('[ItsmChangeDetail] init:linkedControls:error', reason);
         }
-        optionalWarnings.push('Linked controls could not be loaded.');
+        setLinkedControlsError(errMsg);
+        optionalWarnings.push(errMsg);
       }
 
       // [2] Conflicts
@@ -1424,18 +1494,18 @@ export const ItsmChangeDetail: React.FC = () => {
                 const resp = await itsmApi.changes.getTopologyGuardrails(cId);
                 const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
                 const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
-                // Normalize at boundary to guarantee safe arrays/objects
+                // Normalize at boundary — null means "not yet evaluated" (panel handles this state)
                 const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
-                if (!normalized) throw new Error('Unexpected response shape');
+                if (!normalized) throw new Error('Guardrails have not been evaluated for this change yet.');
                 return normalized;
               }}
               onRecalculate={async (cId: string) => {
                 const resp = await itsmApi.changes.recalculateTopologyGuardrails(cId);
                 const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
                 const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
-                // Normalize at boundary to guarantee safe arrays/objects
+                // Normalize at boundary — null means "not yet evaluated" (panel handles this state)
                 const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
-                if (!normalized) throw new Error('Unexpected response shape');
+                if (!normalized) throw new Error('Guardrail recalculation returned no data. Please try again.');
                 return normalized;
               }}
             />
@@ -1502,7 +1572,7 @@ export const ItsmChangeDetail: React.FC = () => {
                 const raw = (d && 'data' in d && d.data) ? d.data : (d && 'rootId' in d) ? d : null;
                 // Normalize at boundary to guarantee safe metrics/nodes/edges
                 const normalized = normalizeTraceabilitySummaryResponse(raw as Record<string, unknown> | null);
-                if (!normalized) throw new Error('Unexpected response shape');
+                if (!normalized) throw new Error('Traceability data is not available for this change.');
                 return normalized;
               }}
             />
@@ -1616,7 +1686,7 @@ export const ItsmChangeDetail: React.FC = () => {
 
           {/* GRC Bridge - Linked Risks */}
           {!isNew && (
-            <Card sx={{ mb: 2 }}>
+            <Card sx={{ mb: 2 }} data-testid="linked-risks-section">
               <CardContent>
                 <Box
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -1630,7 +1700,11 @@ export const ItsmChangeDetail: React.FC = () => {
                   </IconButton>
                 </Box>
                 <Collapse in={showRisksSection}>
-                  {linkedRisks.length === 0 ? (
+                  {linkedRisksError ? (
+                    <Alert severity="warning" sx={{ mt: 1 }} data-testid="linked-risks-error">
+                      {linkedRisksError}
+                    </Alert>
+                  ) : linkedRisks.length === 0 ? (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       No linked risks
                     </Typography>
@@ -1660,7 +1734,7 @@ export const ItsmChangeDetail: React.FC = () => {
 
           {/* GRC Bridge - Linked Controls */}
           {!isNew && (
-            <Card>
+            <Card data-testid="linked-controls-section">
               <CardContent>
                 <Box
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -1674,7 +1748,11 @@ export const ItsmChangeDetail: React.FC = () => {
                   </IconButton>
                 </Box>
                 <Collapse in={showControlsSection}>
-                  {linkedControls.length === 0 ? (
+                  {linkedControlsError ? (
+                    <Alert severity="warning" sx={{ mt: 1 }} data-testid="linked-controls-error">
+                      {linkedControlsError}
+                    </Alert>
+                  ) : linkedControls.length === 0 ? (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       No linked controls
                     </Typography>

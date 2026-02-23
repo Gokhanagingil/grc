@@ -556,7 +556,7 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
                   size="small"
                   variant="outlined"
                   startIcon={<OpenInNewIcon />}
-                  href="/customer-risks"
+                  href="/risk"
                   target="_blank"
                   data-testid="open-customer-risk-details-btn"
                 >
