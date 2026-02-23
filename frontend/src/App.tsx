@@ -58,7 +58,7 @@ import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
 import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail, ItsmMajorIncidentList, ItsmMajorIncidentDetail, ItsmAnalyticsDashboard } from './pages/itsm';
-import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbCiClassDetail, CmdbCiClassTree, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules } from './pages/cmdb';
+import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbCiClassDetail, CmdbCiClassTree, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules, CmdbRelationshipTypeList, CmdbRelationshipTypeDetail } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -349,6 +349,23 @@ function App() {
                   <Route path="cmdb/services" element={<CmdbServiceList />} />
                   <Route path="cmdb/services/new" element={<CmdbServiceDetail />} />
                   <Route path="cmdb/services/:id" element={<CmdbServiceDetail />} />
+                  
+                  {/* CMDB Relationship Type Admin Routes */}
+                  <Route path="cmdb/relationship-types" element={
+                    <ErrorBoundary>
+                      <CmdbRelationshipTypeList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/relationship-types/new" element={
+                    <ErrorBoundary>
+                      <CmdbRelationshipTypeDetail />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="cmdb/relationship-types/:id" element={
+                    <ErrorBoundary>
+                      <CmdbRelationshipTypeDetail />
+                    </ErrorBoundary>
+                  } />
                   
                   {/* Copilot (AI Decision & Action Layer) */}
                   <Route path="copilot" element={

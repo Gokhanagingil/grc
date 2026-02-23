@@ -8,3 +8,5 @@ export { CmdbServiceDetail } from './CmdbServiceDetail';
 export { CmdbImportJobList } from './CmdbImportJobList';
 export { CmdbImportJobDetail } from './CmdbImportJobDetail';
 export { CmdbReconcileRules } from './CmdbReconcileRules';
+export { CmdbRelationshipTypeList } from './CmdbRelationshipTypeList';
+export { CmdbRelationshipTypeDetail } from './CmdbRelationshipTypeDetail';

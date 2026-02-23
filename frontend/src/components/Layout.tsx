@@ -312,6 +312,12 @@ const itsmMenuGroups: NavMenuGroup[] = [
         path: '/cmdb/reconcile-rules',
         testId: 'nav-cmdb-reconcile-rules',
       },
+      {
+        text: 'Relationship Types',
+        icon: <LibraryIcon />,
+        path: '/cmdb/relationship-types',
+        testId: 'nav-cmdb-relationship-types',
+      },
     ],
   },
   {
