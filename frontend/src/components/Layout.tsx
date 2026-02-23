@@ -295,6 +295,12 @@ const itsmMenuGroups: NavMenuGroup[] = [
         testId: 'nav-cmdb-classes',
       },
       {
+        text: 'Class Hierarchy',
+        icon: <LibraryIcon />,
+        path: '/cmdb/classes/tree',
+        testId: 'nav-cmdb-class-tree',
+      },
+      {
         text: 'Import Jobs',
         icon: <SystemIcon />,
         path: '/cmdb/import-jobs',
