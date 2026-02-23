@@ -776,7 +776,7 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
       definitionName: policy.name,
       recordType,
       recordId,
-      event: `started-v2-${objectiveType.toLowerCase()}`,
+      event: 'started',
     });
 
     return saved;

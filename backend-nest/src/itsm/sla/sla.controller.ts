@@ -64,7 +64,8 @@ export class SlaController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    return this.slaService.createDefinition(tenantId, req.user.id, dto);
+
+    return this.slaService.createDefinition(tenantId, req.user.id, dto as any);
   }
 
   @Get('definitions/:id')
@@ -100,7 +101,8 @@ export class SlaController {
       tenantId,
       req.user.id,
       id,
-      dto,
+
+      dto as any,
     );
     if (!def) {
       throw new NotFoundException(`SLA definition ${id} not found`);

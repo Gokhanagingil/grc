@@ -5,19 +5,23 @@ describe('SlaEventListener', () => {
   let listener: SlaEventListener;
   let mockSlaService: {
     startSlaForRecord: jest.Mock;
+    startSlaV2ForRecord: jest.Mock;
     evaluateOnStateChange: jest.Mock;
+    reEvaluateV2: jest.Mock;
   };
 
   beforeEach(() => {
     mockSlaService = {
       startSlaForRecord: jest.fn().mockResolvedValue([]),
+      startSlaV2ForRecord: jest.fn().mockResolvedValue([]),
       evaluateOnStateChange: jest.fn().mockResolvedValue([]),
+      reEvaluateV2: jest.fn().mockResolvedValue([]),
     };
     listener = new SlaEventListener(mockSlaService as unknown as SlaService);
   });
 
   describe('onIncidentCreated', () => {
-    it('should start SLA for new incident', async () => {
+    it('should start SLA v2 for new incident', async () => {
       await listener.onIncidentCreated({
         incidentId: 'inc-1',
         tenantId: 'tenant-1',
@@ -25,12 +29,11 @@ describe('SlaEventListener', () => {
         serviceId: 'svc-1',
       });
 
-      expect(mockSlaService.startSlaForRecord).toHaveBeenCalledWith(
+      expect(mockSlaService.startSlaV2ForRecord).toHaveBeenCalledWith(
         'tenant-1',
         'ItsmIncident',
         'inc-1',
-        'p1',
-        'svc-1',
+        expect.objectContaining({ priority: 'p1', serviceId: 'svc-1' }),
       );
     });
   });
@@ -51,7 +54,7 @@ describe('SlaEventListener', () => {
       );
     });
 
-    it('should skip when no status change', async () => {
+    it('should skip when no status change and no SLA-relevant fields', async () => {
       await listener.onIncidentUpdated({
         incidentId: 'inc-1',
         tenantId: 'tenant-1',
@@ -59,6 +62,23 @@ describe('SlaEventListener', () => {
       });
 
       expect(mockSlaService.evaluateOnStateChange).not.toHaveBeenCalled();
+      expect(mockSlaService.reEvaluateV2).not.toHaveBeenCalled();
+    });
+
+    it('should re-evaluate v2 when SLA-relevant fields change', async () => {
+      await listener.onIncidentUpdated({
+        incidentId: 'inc-1',
+        tenantId: 'tenant-1',
+        changes: { priority: 'p2' },
+        snapshot: { priority: 'p2', serviceId: 'svc-1' },
+      });
+
+      expect(mockSlaService.reEvaluateV2).toHaveBeenCalledWith(
+        'tenant-1',
+        'ItsmIncident',
+        'inc-1',
+        expect.objectContaining({ priority: 'p2', serviceId: 'svc-1' }),
+      );
     });
   });
 

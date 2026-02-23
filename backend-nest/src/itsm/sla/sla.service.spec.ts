@@ -34,6 +34,16 @@ const mockDefinition: SlaDefinition = {
   updatedBy: null,
   isDeleted: false,
   tenant: {} as never,
+  // SLA 2.0 fields
+  appliesToRecordType: 'INCIDENT',
+  conditionTree: null,
+  responseTimeSeconds: null,
+  resolutionTimeSeconds: null,
+  priorityWeight: 0,
+  stopProcessing: false,
+  effectiveFrom: null,
+  effectiveTo: null,
+  version: 1,
 };
 
 describe('SlaService', () => {
