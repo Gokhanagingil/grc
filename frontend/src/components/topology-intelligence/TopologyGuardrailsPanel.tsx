@@ -202,8 +202,15 @@ export const TopologyGuardrailsPanel: React.FC<TopologyGuardrailsPanelProps> = (
       const result = await onFetchRef.current(changeId);
       setData(result);
     } catch (err) {
-      const classified = classifyTopologyApiError(err);
-      setError(classified);
+      // If the error message indicates "not yet evaluated" (empty response, not a real error),
+      // clear data and let the panel show the "not evaluated" empty state instead of error.
+      const errMsg = err instanceof Error ? err.message : '';
+      if (errMsg.includes('not been evaluated') || errMsg.includes('not available')) {
+        setData(null);
+      } else {
+        const classified = classifyTopologyApiError(err);
+        setError(classified);
+      }
     } finally {
       setLoading(false);
     }
