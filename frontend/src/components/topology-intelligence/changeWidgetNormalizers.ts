@@ -99,14 +99,6 @@ export function normalizeSuggestedTaskPackResponse(
 // TopologyGovernanceEvaluationData normalizer
 // ============================================================================
 
-/** Default explainability shape */
-const DEFAULT_EXPLAINABILITY: TopologyGovernanceEvaluationData['explainability'] = {
-  summary: '',
-  factors: [],
-  matchedPolicyNames: [],
-  topDependencyPaths: [],
-};
-
 /**
  * Normalize a raw TopologyGovernanceEvaluationData payload.
  * Ensures `recommendedActions`, `warnings`, and `explainability` sub-fields
@@ -161,21 +153,6 @@ function normalizePolicyFlags(raw: Record<string, unknown>): TopologyPolicyFlags
     topologySinglePointOfFailureRisk: safeBool(raw.topologySinglePointOfFailureRisk),
   };
 }
-
-/** Default evidence summary shape */
-const DEFAULT_EVIDENCE_SUMMARY = {
-  blastRadiusMetrics: {
-    totalImpactedNodes: 0,
-    criticalCiCount: 0,
-    impactedServiceCount: 0,
-    maxChainDepth: 0,
-    crossServicePropagation: false,
-  },
-  fragileDependencies: [] as Array<{ affectedNodeLabel: string; description: string; type: string }>,
-  singlePointsOfFailure: [] as string[],
-  topologyRiskScore: 0,
-  topologyDataAvailable: false,
-};
 
 /**
  * Normalize a raw TopologyGuardrailEvaluationData payload.
