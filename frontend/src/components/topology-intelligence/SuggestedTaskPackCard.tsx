@@ -96,9 +96,10 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
     try {
       const data = await onFetch(changeId);
       setPack(data);
-      // Auto-select recommended tasks
+      // Auto-select recommended tasks (safe: tasks may be undefined from partial payloads)
+      const safeTasks = Array.isArray(data?.tasks) ? data.tasks : [];
       const recommended = new Set(
-        data.tasks.filter((t) => t.recommended).map((t) => t.templateKey),
+        safeTasks.filter((t) => t.recommended).map((t) => t.templateKey),
       );
       setSelectedKeys(recommended);
     } catch (err) {
@@ -127,7 +128,8 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
 
   const selectAll = () => {
     if (pack) {
-      setSelectedKeys(new Set(pack.tasks.map((t) => t.templateKey)));
+      const safeTasks = Array.isArray(pack.tasks) ? pack.tasks : [];
+      setSelectedKeys(new Set(safeTasks.map((t) => t.templateKey)));
     }
   };
 
@@ -137,7 +139,8 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
 
   const handleCreate = async () => {
     if (!pack || !onCreateTasks) return;
-    const selected = pack.tasks.filter((t) => selectedKeys.has(t.templateKey));
+    const safeTasks = Array.isArray(pack.tasks) ? pack.tasks : [];
+    const selected = safeTasks.filter((t) => selectedKeys.has(t.templateKey));
     if (selected.length === 0) return;
     setCreating(true);
     try {
@@ -147,17 +150,17 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
     }
   };
 
-  // Group tasks by category
-  const groupedTasks = pack
-    ? pack.tasks.reduce(
-        (acc, task) => {
-          if (!acc[task.category]) acc[task.category] = [];
-          acc[task.category].push(task);
-          return acc;
-        },
-        {} as Record<string, SuggestedTaskData[]>,
-      )
-    : {};
+  // Group tasks by category (safe: tasks may be undefined/null from partial API payloads)
+  const safeTasks = pack ? (Array.isArray(pack.tasks) ? pack.tasks : []) : [];
+  const safeWarnings = pack ? (Array.isArray(pack.warnings) ? pack.warnings : []) : [];
+  const groupedTasks = safeTasks.reduce(
+    (acc, task) => {
+      if (!acc[task.category]) acc[task.category] = [];
+      acc[task.category].push(task);
+      return acc;
+    },
+    {} as Record<string, SuggestedTaskData[]>,
+  );
 
   // ---------------------------------------------------------------------------
   // Render
@@ -256,7 +259,7 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
           )}
 
           {/* Empty state */}
-          {!loading && !error && pack && pack.tasks.length === 0 && (
+          {!loading && !error && pack && safeTasks.length === 0 && (
             <Alert
               severity="info"
               icon={<CheckCircleOutlineIcon />}
@@ -268,19 +271,19 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
           )}
 
           {/* Warnings */}
-          {!loading && pack && pack.warnings.length > 0 && (
+          {!loading && pack && safeWarnings.length > 0 && (
             <Alert
               severity="info"
               icon={<WarningAmberIcon />}
               sx={{ mb: 1.5 }}
               data-testid="task-pack-warnings"
             >
-              {pack.warnings.join(' ')}
+              {safeWarnings.join(' ')}
             </Alert>
           )}
 
           {/* Task list grouped by category */}
-          {!loading && !error && pack && pack.tasks.length > 0 && (
+          {!loading && !error && pack && safeTasks.length > 0 && (
             <>
               {/* Selection controls */}
               <Box
@@ -300,7 +303,7 @@ export const SuggestedTaskPackCard: React.FC<SuggestedTaskPackCardProps> = ({
                   </Button>
                 </Box>
                 <Typography variant="caption" color="text.secondary">
-                  {selectedKeys.size} of {pack.tasks.length} selected
+                  {selectedKeys.size} of {safeTasks.length} selected
                 </Typography>
               </Box>
 

@@ -60,6 +60,9 @@ import {
   unwrapTopologyResponse,
   normalizeTopologyImpactResponse,
   normalizeTraceabilitySummaryResponse,
+  normalizeSuggestedTaskPackResponse,
+  normalizeGovernanceEvaluationResponse,
+  normalizeGuardrailEvaluationResponse,
   getTopologyRiskLevel,
   type ClassifiedTopologyError,
 } from '../../components/topology-intelligence';
@@ -688,7 +691,9 @@ export const ItsmChangeDetail: React.FC = () => {
     setGovernanceEvalError(null);
     try {
       const resp = await itsmApi.changes.evaluateTopologyGovernance(id);
-      const data = unwrapTopologyResponse<TopologyGovernanceEvaluationData>(resp);
+      const rawData = unwrapTopologyResponse<TopologyGovernanceEvaluationData>(resp);
+      // Normalize at boundary to guarantee safe arrays/objects for widget rendering
+      const data = normalizeGovernanceEvaluationResponse(rawData as Record<string, unknown> | null);
       if (mountedRef.current) {
         setGovernanceData(data);
         if (isReEval) {
@@ -1418,16 +1423,20 @@ export const ItsmChangeDetail: React.FC = () => {
               onFetch={async (cId: string) => {
                 const resp = await itsmApi.changes.getTopologyGuardrails(cId);
                 const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
-                if (d && 'data' in d && d.data) return d.data;
-                if (d && 'guardrailStatus' in d) return d as TopologyGuardrailEvaluationData;
-                throw new Error('Unexpected response shape');
+                const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
+                // Normalize at boundary to guarantee safe arrays/objects
+                const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
+                if (!normalized) throw new Error('Unexpected response shape');
+                return normalized;
               }}
               onRecalculate={async (cId: string) => {
                 const resp = await itsmApi.changes.recalculateTopologyGuardrails(cId);
                 const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
-                if (d && 'data' in d && d.data) return d.data;
-                if (d && 'guardrailStatus' in d) return d as TopologyGuardrailEvaluationData;
-                throw new Error('Unexpected response shape');
+                const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
+                // Normalize at boundary to guarantee safe arrays/objects
+                const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
+                if (!normalized) throw new Error('Unexpected response shape');
+                return normalized;
               }}
             />
           )}
@@ -1475,9 +1484,9 @@ export const ItsmChangeDetail: React.FC = () => {
               onFetch={async (cId: string) => {
                 const resp = await itsmApi.changes.getSuggestedTaskPack(cId);
                 const d = resp?.data as { data?: SuggestedTaskPackResponseData } | SuggestedTaskPackResponseData;
-                if (d && 'data' in d && d.data) return d.data;
-                if (d && 'changeId' in d) return d as SuggestedTaskPackResponseData;
-                throw new Error('Unexpected response shape');
+                const raw = (d && 'data' in d && d.data) ? d.data : (d && 'changeId' in d) ? d : null;
+                // Normalize at boundary to guarantee safe tasks[], warnings[], etc.
+                return normalizeSuggestedTaskPackResponse(raw as Record<string, unknown> | null);
               }}
             />
           )}
