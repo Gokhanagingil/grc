@@ -102,6 +102,16 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
   recordType,
   onFetch,
 }) => {
+  // Metrics with safe defaults to prevent crashes on partial/missing data
+  const DEFAULT_METRICS = {
+    totalNodes: 0,
+    totalEdges: 0,
+    hasTopologyAnalysis: false,
+    hasGovernanceDecision: false,
+    hasOrchestrationActions: false,
+    completenessScore: 0,
+  };
+
   const [data, setData] = useState<TraceabilitySummaryResponseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +174,7 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
             {data && (
               <Chip
                 size="small"
-                label={`${data.metrics.totalNodes} nodes`}
+                label={`${(data.metrics ?? DEFAULT_METRICS).totalNodes} nodes`}
                 variant="outlined"
               />
             )}
@@ -233,7 +243,7 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
           )}
 
           {/* Empty state */}
-          {!loading && !error && data && data.nodes.length <= 1 && (
+          {!loading && !error && data && (data.nodes ?? []).length <= 1 && (
             <Alert
               severity="info"
               data-testid="traceability-empty"
@@ -244,7 +254,7 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
           )}
 
           {/* Chain visualization */}
-          {!loading && !error && data && data.nodes.length > 1 && (
+          {!loading && !error && data && (data.nodes ?? []).length > 1 && (
             <>
               {/* Completeness bar */}
               <Box sx={{ mb: 2 }}>
@@ -260,16 +270,16 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
                     Chain Completeness
                   </Typography>
                   <Typography variant="caption" fontWeight={600}>
-                    {data.metrics.completenessScore}%
+                    {(data.metrics ?? DEFAULT_METRICS).completenessScore}%
                   </Typography>
                 </Box>
                 <LinearProgress
                   variant="determinate"
-                  value={data.metrics.completenessScore}
+                  value={(data.metrics ?? DEFAULT_METRICS).completenessScore}
                   color={
-                    data.metrics.completenessScore >= 80
+                    (data.metrics ?? DEFAULT_METRICS).completenessScore >= 80
                       ? 'success'
-                      : data.metrics.completenessScore >= 50
+                      : (data.metrics ?? DEFAULT_METRICS).completenessScore >= 50
                         ? 'warning'
                         : 'error'
                   }
@@ -290,20 +300,20 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
                 <Chip
                   size="small"
                   label="Topology"
-                  color={data.metrics.hasTopologyAnalysis ? 'success' : 'default'}
-                  variant={data.metrics.hasTopologyAnalysis ? 'filled' : 'outlined'}
+                  color={(data.metrics ?? DEFAULT_METRICS).hasTopologyAnalysis ? 'success' : 'default'}
+                  variant={(data.metrics ?? DEFAULT_METRICS).hasTopologyAnalysis ? 'filled' : 'outlined'}
                 />
                 <Chip
                   size="small"
                   label="Governance"
-                  color={data.metrics.hasGovernanceDecision ? 'success' : 'default'}
-                  variant={data.metrics.hasGovernanceDecision ? 'filled' : 'outlined'}
+                  color={(data.metrics ?? DEFAULT_METRICS).hasGovernanceDecision ? 'success' : 'default'}
+                  variant={(data.metrics ?? DEFAULT_METRICS).hasGovernanceDecision ? 'filled' : 'outlined'}
                 />
                 <Chip
                   size="small"
                   label="Actions"
-                  color={data.metrics.hasOrchestrationActions ? 'success' : 'default'}
-                  variant={data.metrics.hasOrchestrationActions ? 'filled' : 'outlined'}
+                  color={(data.metrics ?? DEFAULT_METRICS).hasOrchestrationActions ? 'success' : 'default'}
+                  variant={(data.metrics ?? DEFAULT_METRICS).hasOrchestrationActions ? 'filled' : 'outlined'}
                 />
               </Box>
 
@@ -317,7 +327,7 @@ export const TraceabilityChainWidget: React.FC<TraceabilityChainWidgetProps> = (
                 }}
                 data-testid="traceability-chain-nodes"
               >
-                {buildChainOrder(data.nodes).map((node, idx, arr) => (
+                {buildChainOrder(data.nodes ?? []).map((node, idx, arr) => (
                   <React.Fragment key={node.id}>
                     <Tooltip
                       title={

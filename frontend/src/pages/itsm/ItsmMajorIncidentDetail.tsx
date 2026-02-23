@@ -77,6 +77,7 @@ import {
   classifyTopologyApiError,
   unwrapTopologyResponse,
   normalizeRcaResponse,
+  normalizeTraceabilitySummaryResponse,
   type ClassifiedTopologyError,
 } from '../../components/topology-intelligence';
 
@@ -927,9 +928,11 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
           onFetch={async (miId: string) => {
             const resp = await itsmApi.majorIncidents.getTraceabilitySummary(miId);
             const d = resp?.data as { data?: TraceabilitySummaryResponseData } | TraceabilitySummaryResponseData;
-            if (d && 'data' in d && d.data) return d.data;
-            if (d && 'rootId' in d) return d as TraceabilitySummaryResponseData;
-            throw new Error('Unexpected response shape');
+            const raw = (d && 'data' in d && d.data) ? d.data : (d && 'rootId' in d) ? d : null;
+            // Normalize at boundary to guarantee safe metrics/nodes/edges
+            const normalized = normalizeTraceabilitySummaryResponse(raw as Record<string, unknown> | null);
+            if (!normalized) throw new Error('Unexpected response shape');
+            return normalized;
           }}
         />
       )}

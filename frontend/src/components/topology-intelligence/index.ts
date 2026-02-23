@@ -52,6 +52,7 @@ export {
   unwrapTopologyResponse,
   normalizeTopologyImpactResponse,
   normalizeRcaResponse,
+  normalizeTraceabilitySummaryResponse,
   detectTopologyDataMode,
   detectRcaDataMode,
   getCompletenessConfidenceLabel,
