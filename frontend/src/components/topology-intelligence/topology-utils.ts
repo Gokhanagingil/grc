@@ -14,6 +14,9 @@ import type {
   TopologyCompletenessConfidence,
   TopologyRiskFactor,
   RcaContradiction,
+  TraceabilitySummaryResponseData,
+  TraceabilityNodeData,
+  TraceabilityEdgeData,
 } from '../../services/grcClient';
 
 // ============================================================================
@@ -447,4 +450,81 @@ export function getRiskFactorSeverityColor(severity: string): 'error' | 'warning
     case 'warning': return 'warning';
     default: return 'info';
   }
+}
+
+// ============================================================================
+// Traceability Summary Normalization
+// ============================================================================
+
+/**
+ * Default traceability metrics — safe zero-value fallback.
+ * Used when traceability summary response has missing/partial/null metrics.
+ */
+const DEFAULT_TRACEABILITY_METRICS: TraceabilitySummaryResponseData['metrics'] = {
+  totalNodes: 0,
+  totalEdges: 0,
+  hasTopologyAnalysis: false,
+  hasGovernanceDecision: false,
+  hasOrchestrationActions: false,
+  completenessScore: 0,
+};
+
+/**
+ * Normalize a raw traceability summary response into a safe, fully-typed shape.
+ * Handles:
+ * - Missing or partial `metrics` (fills defaults)
+ * - Missing `nodes` / `edges` (→ [])
+ * - Missing `summary` (→ '')
+ * - null/undefined input (→ null)
+ *
+ * This is the boundary normalizer for TraceabilitySummaryResponseData,
+ * preventing crashes like `undefined is not an object (evaluating 'i.metrics.totalNodes')`.
+ */
+export function normalizeTraceabilitySummaryResponse(
+  raw: Record<string, unknown> | null | undefined,
+): TraceabilitySummaryResponseData | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const rawMetrics = (raw.metrics ?? {}) as Partial<TraceabilitySummaryResponseData['metrics']>;
+  const metrics: TraceabilitySummaryResponseData['metrics'] = {
+    totalNodes: typeof rawMetrics.totalNodes === 'number' ? rawMetrics.totalNodes : DEFAULT_TRACEABILITY_METRICS.totalNodes,
+    totalEdges: typeof rawMetrics.totalEdges === 'number' ? rawMetrics.totalEdges : DEFAULT_TRACEABILITY_METRICS.totalEdges,
+    hasTopologyAnalysis: typeof rawMetrics.hasTopologyAnalysis === 'boolean' ? rawMetrics.hasTopologyAnalysis : DEFAULT_TRACEABILITY_METRICS.hasTopologyAnalysis,
+    hasGovernanceDecision: typeof rawMetrics.hasGovernanceDecision === 'boolean' ? rawMetrics.hasGovernanceDecision : DEFAULT_TRACEABILITY_METRICS.hasGovernanceDecision,
+    hasOrchestrationActions: typeof rawMetrics.hasOrchestrationActions === 'boolean' ? rawMetrics.hasOrchestrationActions : DEFAULT_TRACEABILITY_METRICS.hasOrchestrationActions,
+    completenessScore: typeof rawMetrics.completenessScore === 'number' ? rawMetrics.completenessScore : DEFAULT_TRACEABILITY_METRICS.completenessScore,
+  };
+
+  const rawNodes = raw.nodes;
+  const nodes: TraceabilityNodeData[] = Array.isArray(rawNodes)
+    ? rawNodes.map((n: Record<string, unknown>) => ({
+        id: (n.id as string) ?? '',
+        type: ((n.type as string) ?? 'UNKNOWN') as TraceabilityNodeData['type'],
+        label: (n.label as string) ?? '',
+        status: ((n.status as string) ?? 'UNKNOWN') as TraceabilityNodeData['status'],
+        recordId: (n.recordId as string) ?? '',
+        createdAt: (n.createdAt as string) ?? new Date().toISOString(),
+        meta: (n.meta as Record<string, unknown>) ?? undefined,
+      }))
+    : [];
+
+  const rawEdges = raw.edges;
+  const edges: TraceabilityEdgeData[] = Array.isArray(rawEdges)
+    ? rawEdges.map((e: Record<string, unknown>) => ({
+        fromId: (e.fromId as string) ?? '',
+        toId: (e.toId as string) ?? '',
+        relation: (e.relation as TraceabilityEdgeData['relation']) ?? 'LINKED_TO',
+        label: (e.label as string) ?? '',
+      }))
+    : [];
+
+  return {
+    rootId: (raw.rootId as string) ?? '',
+    rootType: (raw.rootType as 'CHANGE' | 'MAJOR_INCIDENT') ?? 'CHANGE',
+    nodes,
+    edges,
+    summary: (raw.summary as string) ?? '',
+    metrics,
+    generatedAt: (raw.generatedAt as string) ?? new Date().toISOString(),
+  };
 }

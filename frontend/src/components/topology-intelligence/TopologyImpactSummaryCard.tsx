@@ -362,9 +362,10 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
 
 /** Generate executive-readable summary based on available data */
 function getExecutiveSummary(impact: TopologyImpactResponseData, mode: TopologyDataMode): string {
-  const score = impact.topologyRiskScore;
+  const score = impact.topologyRiskScore ?? 0;
   const riskLevel = getTopologyRiskLevel(score);
-  const metrics = impact.metrics;
+  // Defensive: metrics may be undefined/null on legacy or partial payloads
+  const metrics = impact.metrics ?? { totalImpactedNodes: 0, impactedServiceCount: 0, impactedOfferingCount: 0, impactedCiCount: 0, criticalCiCount: 0, maxChainDepth: 0, crossServicePropagation: false, crossServiceCount: 0, impactedByDepth: {} };
   const parts: string[] = [];
 
   if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {
@@ -373,8 +374,8 @@ function getExecutiveSummary(impact: TopologyImpactResponseData, mode: TopologyD
     parts.push(`Topology risk is ${riskLevel.toLowerCase()} (score: ${score}/100).`);
   }
 
-  if (metrics.totalImpactedNodes > 0) {
-    parts.push(`${metrics.totalImpactedNodes} node${metrics.totalImpactedNodes !== 1 ? 's' : ''} impacted across ${metrics.impactedServiceCount} service${metrics.impactedServiceCount !== 1 ? 's' : ''}.`);
+  if ((metrics.totalImpactedNodes ?? 0) > 0) {
+    parts.push(`${metrics.totalImpactedNodes} node${metrics.totalImpactedNodes !== 1 ? 's' : ''} impacted across ${metrics.impactedServiceCount ?? 0} service${(metrics.impactedServiceCount ?? 0) !== 1 ? 's' : ''}.`);
   }
 
   if (mode === 'enhanced' && impact.impactBuckets) {
