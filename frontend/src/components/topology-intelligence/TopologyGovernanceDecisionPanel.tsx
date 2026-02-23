@@ -229,9 +229,15 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
     );
   }
 
-  // --- Data state ---
-  const decisionCfg = DECISION_CONFIG[governance.decision];
-  const requiredUnsatisfied = governance.recommendedActions.filter(
+  // --- Data state (defense-in-depth: safe defaults for partial payloads) ---
+  const decisionCfg = DECISION_CONFIG[governance.decision] ?? DECISION_CONFIG.ALLOWED;
+  const safeActions = Array.isArray(governance.recommendedActions) ? governance.recommendedActions : [];
+  const safeWarnings = Array.isArray(governance.warnings) ? governance.warnings : [];
+  const safeExplainability = governance.explainability ?? { summary: '', factors: [], matchedPolicyNames: [], topDependencyPaths: [] };
+  const safeFactors = Array.isArray(safeExplainability.factors) ? safeExplainability.factors : [];
+  const safeMatchedPolicies = Array.isArray(safeExplainability.matchedPolicyNames) ? safeExplainability.matchedPolicyNames : [];
+  const safeDepPaths = Array.isArray(safeExplainability.topDependencyPaths) ? safeExplainability.topDependencyPaths : [];
+  const requiredUnsatisfied = safeActions.filter(
     (a: TopologyGovernanceAction) => a.required && !a.satisfied,
   );
 
@@ -282,13 +288,13 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
 
         {/* Summary */}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {governance.explainability.summary}
+          {safeExplainability.summary}
         </Typography>
 
         {/* Warnings */}
-        {governance.warnings.length > 0 && (
+        {safeWarnings.length > 0 && (
           <Box sx={{ mb: 1.5 }}>
-            {governance.warnings.map((warning: string, idx: number) => (
+            {safeWarnings.map((warning: string, idx: number) => (
               <Alert
                 key={idx}
                 severity="warning"
@@ -323,7 +329,7 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
               Contributing Factors
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-              {governance.explainability.factors.map((factor: TopologyGovernanceFactor, idx: number) => (
+              {safeFactors.map((factor: TopologyGovernanceFactor, idx: number) => (
                 <Tooltip key={idx} title={factor.explanation}>
                   <Chip
                     label={`${factor.label}: ${factor.value}`}
@@ -337,13 +343,13 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
             </Box>
 
             {/* Matched policies */}
-            {governance.explainability.matchedPolicyNames.length > 0 && (
+            {safeMatchedPolicies.length > 0 && (
               <>
                 <Typography variant="subtitle2" gutterBottom>
                   Matched Policies
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-                  {governance.explainability.matchedPolicyNames.map((name: string, idx: number) => (
+                  {safeMatchedPolicies.map((name: string, idx: number) => (
                     <Chip
                       key={idx}
                       label={name}
@@ -357,12 +363,12 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
             )}
 
             {/* Top dependency paths */}
-            {governance.explainability.topDependencyPaths.length > 0 && (
+            {safeDepPaths.length > 0 && (
               <>
                 <Typography variant="subtitle2" gutterBottom>
                   Top Dependency Paths
                 </Typography>
-                {governance.explainability.topDependencyPaths.map(
+                {safeDepPaths.map(
                   (path: { nodeLabels: string[]; depth: number }, idx: number) => (
                     <Typography
                       key={idx}
@@ -388,7 +394,7 @@ export const TopologyGovernanceDecisionPanel: React.FC<TopologyGovernanceDecisio
             : 'Recommended Actions'}
         </Typography>
         <List dense disablePadding data-testid="topology-governance-actions-list">
-          {governance.recommendedActions.map((action: TopologyGovernanceAction) => (
+          {safeActions.map((action: TopologyGovernanceAction) => (
             <ListItem key={action.key} disablePadding sx={{ py: 0.25 }}>
               <ListItemIcon sx={{ minWidth: 32 }}>
                 {action.satisfied ? (

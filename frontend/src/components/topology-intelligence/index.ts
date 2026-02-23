@@ -67,3 +67,10 @@ export type {
   ClassifiedTopologyError,
   TopologyDataMode,
 } from './topology-utils';
+
+export {
+  safeArray,
+  normalizeSuggestedTaskPackResponse,
+  normalizeGovernanceEvaluationResponse,
+  normalizeGuardrailEvaluationResponse,
+} from './changeWidgetNormalizers';
