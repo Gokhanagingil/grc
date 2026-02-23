@@ -76,6 +76,7 @@ import {
   TraceabilityChainWidget,
   classifyTopologyApiError,
   unwrapTopologyResponse,
+  normalizeRcaResponse,
   type ClassifiedTopologyError,
 } from '../../components/topology-intelligence';
 
@@ -446,14 +447,16 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     try {
       const response = await itsmApi.majorIncidents.getRcaTopologyHypotheses(id);
       if (!rcaMountedRef.current) return;
-      const data = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
-      if (data) {
-        setRcaData(data);
+      const rawData = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
+      const normalized = normalizeRcaResponse(rawData);
+      if (normalized) {
+        setRcaData(normalized);
       } else {
         // Try direct response shape
         const directData = (response?.data as { data?: RcaTopologyHypothesesResponseData })?.data;
-        if (directData) {
-          setRcaData(directData);
+        const normalizedDirect = normalizeRcaResponse(directData);
+        if (normalizedDirect) {
+          setRcaData(normalizedDirect);
         }
       }
     } catch (err) {
@@ -477,14 +480,16 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     try {
       const response = await itsmApi.majorIncidents.recalculateRcaTopologyHypotheses(id);
       if (!rcaMountedRef.current) return;
-      const data = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
-      if (data) {
-        setRcaData(data);
+      const rawData = unwrapTopologyResponse<RcaTopologyHypothesesResponseData>(response);
+      const normalized = normalizeRcaResponse(rawData);
+      if (normalized) {
+        setRcaData(normalized);
         showNotification('RCA topology hypotheses recalculated', 'success');
       } else {
         const directData = (response?.data as { data?: RcaTopologyHypothesesResponseData })?.data;
-        if (directData) {
-          setRcaData(directData);
+        const normalizedDirect = normalizeRcaResponse(directData);
+        if (normalizedDirect) {
+          setRcaData(normalizedDirect);
           showNotification('RCA topology hypotheses recalculated', 'success');
         }
       }

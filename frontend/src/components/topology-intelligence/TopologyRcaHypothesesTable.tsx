@@ -476,6 +476,15 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
         </Alert>
       )}
 
+      {/* Phase 2: Ranking algorithm badge */}
+      {data.rankingAlgorithm && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Ranking: {data.rankingAlgorithm}
+          </Typography>
+        </Box>
+      )}
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -598,6 +607,30 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                   size="small"
                   variant="outlined"
                 />
+                {/* Phase 2: Contradiction badge */}
+                {(hypothesis.contradictionCount ?? 0) > 0 && (
+                  <Tooltip title={`${hypothesis.contradictionCount} contradicting signal${hypothesis.contradictionCount !== 1 ? 's' : ''} detected`}>
+                    <Chip
+                      label={`${hypothesis.contradictionCount} contradiction${hypothesis.contradictionCount !== 1 ? 's' : ''}`}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      data-testid={`rca-contradiction-badge-${idx}`}
+                    />
+                  </Tooltip>
+                )}
+                {/* Phase 2: Evidence weight chip */}
+                {hypothesis.evidenceWeight !== undefined && (
+                  <Tooltip title={`Weighted evidence score: ${hypothesis.evidenceWeight.toFixed(1)}`}>
+                    <Chip
+                      label={`W: ${hypothesis.evidenceWeight.toFixed(1)}`}
+                      size="small"
+                      variant="outlined"
+                      color="info"
+                      data-testid={`rca-evidence-weight-${idx}`}
+                    />
+                  </Tooltip>
+                )}
                 <IconButton size="small">
                   {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </IconButton>
@@ -606,6 +639,9 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
               {/* Confidence + type label */}
               <Typography variant="caption" color="text.secondary" sx={{ ml: 4 }}>
                 {confidenceLabel} confidence &middot; {hypothesis.explanation.slice(0, 100)}{hypothesis.explanation.length > 100 ? '...' : ''}
+                {hypothesis.corroboratingEvidenceCount !== undefined && (
+                  <> &middot; {hypothesis.corroboratingEvidenceCount} corroborating</>  
+                )}
               </Typography>
 
               {/* Expanded detail */}
@@ -617,10 +653,51 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                   {hypothesis.explanation}
                 </Typography>
 
+                {/* Phase 2: Contradictions detail */}
+                {Array.isArray(hypothesis.contradictions) && hypothesis.contradictions.length > 0 && (
+                  <Box sx={{ mb: 1 }} data-testid={`rca-contradictions-detail-${idx}`}>
+                    <Typography variant="subtitle2" gutterBottom color="error.main">
+                      Contradictions ({hypothesis.contradictions.length})
+                    </Typography>
+                    <List dense disablePadding>
+                      {hypothesis.contradictions.map((c, cIdx) => (
+                        <ListItem key={cIdx} disableGutters sx={{ py: 0.25 }}>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Chip
+                                  label={c.code.replace(/_/g, ' ')}
+                                  size="small"
+                                  color="error"
+                                  variant="outlined"
+                                  data-testid="rca-contradiction-badge"
+                                />
+                                <Typography variant="body2">{c.description}</Typography>
+                              </Box>
+                            }
+                            secondary={`Confidence reduction: -${c.confidenceReduction}%`}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+
                 {/* Evidence */}
                 {Array.isArray(hypothesis.evidence) && hypothesis.evidence.length > 0 && (
                   <Box sx={{ mb: 1 }}>
-                    <Typography variant="subtitle2" gutterBottom>Evidence</Typography>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Evidence
+                      {hypothesis.corroboratingEvidenceCount !== undefined && (
+                        <Chip
+                          label={`${hypothesis.corroboratingEvidenceCount} corroborating`}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          sx={{ ml: 1, height: 18, fontSize: 10 }}
+                        />
+                      )}
+                    </Typography>
                     <List dense disablePadding>
                       {hypothesis.evidence.map((ev, eIdx) => (
                         <ListItem key={eIdx} disableGutters sx={{ py: 0.25 }}>
@@ -629,6 +706,24 @@ export const TopologyRcaHypothesesTable: React.FC<TopologyRcaHypothesesTableProp
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Chip label={ev.type.replace(/_/g, ' ')} size="small" variant="outlined" />
                                 <Typography variant="body2">{ev.description}</Typography>
+                                {ev.weight !== undefined && (
+                                  <Chip
+                                    label={`w: ${ev.weight.toFixed(1)}`}
+                                    size="small"
+                                    variant="outlined"
+                                    color="info"
+                                    sx={{ height: 18, fontSize: 10 }}
+                                  />
+                                )}
+                                {ev.isTopologyBased && (
+                                  <Chip
+                                    label="topology"
+                                    size="small"
+                                    variant="outlined"
+                                    color="secondary"
+                                    sx={{ height: 18, fontSize: 10 }}
+                                  />
+                                )}
                               </Box>
                             }
                             secondary={ev.referenceLabel ? `Ref: ${ev.referenceLabel}` : undefined}
