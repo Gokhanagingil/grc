@@ -45,6 +45,19 @@ export class TopologyQueryDto {
   direction?: TopologyDirection = TopologyDirection.BOTH;
 
   /**
+   * Include class lineage on nodes and relationship semantics on edges.
+   * Default: false (opt-in for backward compatibility).
+   */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return false;
+  })
+  @IsBoolean()
+  includeSemantics?: boolean = false;
+
+  /**
    * Parse relationTypes from comma-separated string to array.
    */
   get relationTypesList(): string[] | undefined {
