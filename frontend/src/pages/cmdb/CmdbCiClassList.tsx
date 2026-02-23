@@ -211,7 +211,7 @@ export const CmdbCiClassList: React.FC = () => {
         onPageSizeChange={setPageSize}
         onSearchChange={setSearch}
         onRefresh={fetchItems}
-        onRowClick={(row) => navigate(`/cmdb/cis?classId=${row.id}`)}
+        onRowClick={(row) => navigate(`/cmdb/classes/${row.id}`)}
         emptyMessage="No CI classes found"
         searchPlaceholder="Search classes..."
         getRowKey={(row) => row.id}

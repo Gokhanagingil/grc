@@ -78,6 +78,20 @@ interface LinkedControl {
   status: string;
 }
 
+interface SlaInstanceRecord {
+  id: string;
+  definitionId?: string;
+  definition?: { id: string; name: string; targetType?: string };
+  name?: string;
+  state?: string;
+  startTime?: string;
+  breachTime?: string;
+  elapsedMs?: number;
+  remainingMs?: number;
+  breached?: boolean;
+  paused?: boolean;
+}
+
 const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
   status: [
     { value: 'open', label: 'Open' },
@@ -162,6 +176,10 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [showControlsSection, setShowControlsSection] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  // SLA linkage state
+  const [slaInstances, setSlaInstances] = useState<SlaInstanceRecord[]>([]);
+  const [showSlaSection, setShowSlaSection] = useState(true);
+
   const fetchIncident = useCallback(async () => {
     if (isNew || !id) return;
     
@@ -190,6 +208,20 @@ export const ItsmIncidentDetail: React.FC = () => {
         }
       } catch {
         // Ignore errors for linked controls
+      }
+
+      // Fetch SLA instances for this incident
+      try {
+        const slaResponse = await itsmApi.sla.recordSlas('Incident', id);
+        const slaData = slaResponse.data;
+        if (slaData && 'data' in slaData) {
+          setSlaInstances(Array.isArray(slaData.data) ? slaData.data : []);
+        } else if (Array.isArray(slaData)) {
+          setSlaInstances(slaData);
+        }
+      } catch {
+        // SLA fetch is non-critical — show empty state
+        setSlaInstances([]);
       }
     } catch (error) {
       console.error('Error fetching ITSM incident:', error);
@@ -587,6 +619,56 @@ export const ItsmIncidentDetail: React.FC = () => {
                 <Typography variant="body2" color="text.secondary">
                   Updated: {new Date(incident.updatedAt || '').toLocaleString()}
                 </Typography>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* SLA Linkage */}
+          {!isNew && (
+            <Card sx={{ mb: 2 }} data-testid="incident-sla-section">
+              <CardContent>
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setShowSlaSection(!showSlaSection)}
+                >
+                  <Typography variant="h6">
+                    SLA Linkage ({slaInstances.length})
+                  </Typography>
+                  <IconButton size="small">
+                    {showSlaSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                <Collapse in={showSlaSection}>
+                  {slaInstances.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} data-testid="sla-empty-state">
+                      No SLA records linked to this incident
+                    </Typography>
+                  ) : (
+                    <List dense>
+                      {slaInstances.map((sla) => (
+                        <ListItem key={sla.id} disableGutters>
+                          <ListItemText
+                            primary={sla.definition?.name || sla.name || sla.id}
+                            secondary={
+                              <>
+                                {sla.state && `State: ${sla.state}`}
+                                {sla.breached != null && (
+                                  <Chip
+                                    label={sla.breached ? 'Breached' : 'Within SLA'}
+                                    size="small"
+                                    color={sla.breached ? 'error' : 'success'}
+                                    variant="outlined"
+                                    sx={{ ml: 1 }}
+                                  />
+                                )}
+                              </>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Collapse>
               </CardContent>
             </Card>
           )}

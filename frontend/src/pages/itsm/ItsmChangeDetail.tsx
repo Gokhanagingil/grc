@@ -261,8 +261,11 @@ export const ItsmChangeDetail: React.FC = () => {
       // CRITICAL: Fetch the change record itself — must succeed
       const response = await itsmApi.changes.get(id);
       const data = response.data;
-      if (data && 'data' in data) {
+      if (data && 'data' in data && data.data && typeof data.data === 'object') {
         setChange(data.data);
+      } else if (data && typeof data === 'object' && 'id' in data) {
+        // Flat response shape (no envelope)
+        setChange(data as Partial<ItsmChange>);
       }
       if (process.env.NODE_ENV === 'development') {
         console.debug('[ItsmChangeDetail] init:change:success', { elapsed: Date.now() - initStart });
@@ -1263,7 +1266,7 @@ export const ItsmChangeDetail: React.FC = () => {
                       <Divider sx={{ mb: 1.5 }} />
                       <Typography variant="subtitle2" gutterBottom>Factor Breakdown</Typography>
                       <List dense disablePadding>
-                        {riskAssessment.breakdown.map((factor: RiskFactorData) => (
+                        {(riskAssessment.breakdown || []).map((factor: RiskFactorData) => (
                           <ListItem key={factor.name} disableGutters sx={{ py: 0.25 }}>
                             <ListItemText
                               primary={
