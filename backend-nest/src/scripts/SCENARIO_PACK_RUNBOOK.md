@@ -48,8 +48,8 @@ Run these seeds first (in order):
 # 1. Base tenant + admin user
 npm run seed:grc:dev
 
-# 2. CMDB CI classes + choices
-npm run seed:cmdb:baseline:dev
+# 2. ITSM baseline (CI classes, choices, relationship types)
+npm run seed:itsm-baseline:dev
 ```
 
 ## Invocation
