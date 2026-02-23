@@ -562,4 +562,128 @@ describe('RcaHypothesisDecisionService', () => {
       );
     });
   });
+
+  // ========================================================================
+  // Response Shape Contract (Phase 0 regression — PR #448 mismatch)
+  // ========================================================================
+
+  describe('response shape contract', () => {
+    it('should return decisions as Record<string, HypothesisDecisionResponse>, not an array', () => {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        status: HypothesisDecisionStatus.ACCEPTED,
+        reason: 'Confirmed root cause',
+      });
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_2, USER_ID, {
+        status: HypothesisDecisionStatus.REJECTED,
+      });
+
+      const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
+
+      // CRITICAL: decisions MUST be a plain object (Record), NOT an array.
+      // This is the contract the frontend relies on for O(1) lookup by hypothesisId.
+      expect(Array.isArray(summary.decisions)).toBe(false);
+      expect(typeof summary.decisions).toBe('object');
+      expect(summary.decisions).not.toBeNull();
+
+      // Verify keyed lookup works
+      expect(summary.decisions[HYPO_ID_1]).toBeDefined();
+      expect(summary.decisions[HYPO_ID_1].hypothesisId).toBe(HYPO_ID_1);
+      expect(summary.decisions[HYPO_ID_1].status).toBe(
+        HypothesisDecisionStatus.ACCEPTED,
+      );
+
+      expect(summary.decisions[HYPO_ID_2]).toBeDefined();
+      expect(summary.decisions[HYPO_ID_2].status).toBe(
+        HypothesisDecisionStatus.REJECTED,
+      );
+    });
+
+    it('should return empty Record (not empty array) when no decisions exist', () => {
+      const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
+
+      expect(Array.isArray(summary.decisions)).toBe(false);
+      expect(typeof summary.decisions).toBe('object');
+      expect(Object.keys(summary.decisions)).toHaveLength(0);
+    });
+
+    it('should return all required summary fields with correct types', () => {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        status: HypothesisDecisionStatus.ACCEPTED,
+      });
+
+      const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
+
+      // Required string fields
+      expect(typeof summary.majorIncidentId).toBe('string');
+
+      // Required nullable string fields
+      expect(
+        summary.selectedHypothesisId === null ||
+          typeof summary.selectedHypothesisId === 'string',
+      ).toBe(true);
+      expect(
+        summary.selectedAt === null || typeof summary.selectedAt === 'string',
+      ).toBe(true);
+
+      // Required number fields
+      expect(typeof summary.totalDecisions).toBe('number');
+      expect(typeof summary.acceptedCount).toBe('number');
+      expect(typeof summary.rejectedCount).toBe('number');
+      expect(typeof summary.investigatingCount).toBe('number');
+      expect(typeof summary.pendingCount).toBe('number');
+
+      // Counts should be consistent
+      expect(
+        summary.acceptedCount +
+          summary.rejectedCount +
+          summary.investigatingCount +
+          summary.pendingCount,
+      ).toBe(summary.totalDecisions);
+    });
+
+    it('each decision should have required fields with correct types', () => {
+      service.updateDecision(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        status: HypothesisDecisionStatus.ACCEPTED,
+        reason: 'Test reason',
+      });
+      service.addNote(TENANT_ID, MI_ID, HYPO_ID_1, USER_ID, {
+        content: 'Test note',
+        noteType: 'evidence',
+      });
+
+      const summary = service.getDecisionsSummary(TENANT_ID, MI_ID);
+      const decision = summary.decisions[HYPO_ID_1];
+
+      expect(typeof decision.hypothesisId).toBe('string');
+      expect(typeof decision.majorIncidentId).toBe('string');
+      expect(typeof decision.status).toBe('string');
+      expect(
+        [
+          HypothesisDecisionStatus.PENDING,
+          HypothesisDecisionStatus.ACCEPTED,
+          HypothesisDecisionStatus.REJECTED,
+          HypothesisDecisionStatus.NEEDS_INVESTIGATION,
+        ].includes(decision.status),
+      ).toBe(true);
+
+      // reason and decidedBy are nullable strings
+      expect(
+        decision.reason === null || typeof decision.reason === 'string',
+      ).toBe(true);
+      expect(
+        decision.decidedAt === null || typeof decision.decidedAt === 'string',
+      ).toBe(true);
+
+      // notes must be an array
+      expect(Array.isArray(decision.notes)).toBe(true);
+      expect(decision.notes.length).toBeGreaterThan(0);
+
+      const note = decision.notes[0];
+      expect(typeof note.id).toBe('string');
+      expect(typeof note.content).toBe('string');
+      expect(typeof note.noteType).toBe('string');
+      expect(typeof note.createdBy).toBe('string');
+      expect(typeof note.createdAt).toBe('string');
+    });
+  });
 });
