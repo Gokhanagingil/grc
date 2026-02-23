@@ -4321,11 +4321,21 @@ export interface TopologyEdge {
   target: string;
   relationType: string;
   relationLabel?: string;
+  inverseLabel?: string;
   direction?: 'upstream' | 'downstream' | 'bidirectional';
   directionality?: 'unidirectional' | 'bidirectional';
   riskPropagation?: 'forward' | 'reverse' | 'both' | 'none';
   strength?: number;
   inferred: boolean;
+}
+
+export interface TopologySemanticsSummary {
+  totalEdges: number;
+  semanticsEnrichedEdges: number;
+  unknownRelationTypesCount: number;
+  unknownRelationTypes: string[];
+  byRiskPropagation: Record<string, number>;
+  byDirectionality: Record<string, number>;
 }
 
 export interface TopologyMeta {
@@ -4335,6 +4345,7 @@ export interface TopologyMeta {
   edgeCount: number;
   truncated: boolean;
   warnings: string[];
+  semanticsSummary?: TopologySemanticsSummary;
 }
 
 export interface TopologyAnnotations {

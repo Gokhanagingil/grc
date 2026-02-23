@@ -14,6 +14,7 @@ import {
   ClassDescendantEntry,
   ValidateInheritanceResponse,
 } from '../../services/grcClient';
+import { extractPaginatedItems } from '../../utils/safeHelpers';
 
 interface ParentClassSelectorProps {
   /** Current class ID (null for create mode) */
@@ -54,31 +55,16 @@ export const ParentClassSelector: React.FC<ParentClassSelectorProps> = ({
     setLoading(true);
     setError(null);
     try {
-      // Fetch all classes
+      // Fetch all classes — use extractPaginatedItems for resilient envelope parsing
       const response = await cmdbApi.classes.list({ page: 1, pageSize: 500 });
-      const data = response.data;
-      let classes: CmdbCiClassData[] = [];
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner && Array.isArray(inner.items)) {
-          classes = inner.items;
-        } else if (Array.isArray(inner)) {
-          classes = inner;
-        }
-      }
+      const classes = extractPaginatedItems<CmdbCiClassData>(response.data);
 
       // Fetch descendants of current class (to exclude them)
       let descendantIds = new Set<string>();
       if (classId) {
         try {
           const descResponse = await cmdbApi.classes.descendants(classId);
-          const descData = descResponse.data;
-          let descList: ClassDescendantEntry[] = [];
-          if (descData && 'data' in descData && Array.isArray(descData.data)) {
-            descList = descData.data;
-          } else if (Array.isArray(descData)) {
-            descList = descData;
-          }
+          const descList = extractPaginatedItems<ClassDescendantEntry>(descResponse.data);
           descendantIds = new Set(descList.map((d) => d.id));
         } catch {
           // Non-critical: descendants fetch failed, we'll just not exclude them

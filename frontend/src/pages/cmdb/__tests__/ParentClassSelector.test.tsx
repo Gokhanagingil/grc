@@ -170,4 +170,74 @@ describe('ParentClassSelector', () => {
     // Descendants should not be fetched for create mode
     expect(mockDescendants).not.toHaveBeenCalled();
   });
+
+  // ======================================================================
+  // Envelope variant tests (PR4 — CMDB UI follow-up stabilization)
+  // ======================================================================
+
+  describe('envelope variant handling', () => {
+    it('handles { success: true, data: { items: [...] } } envelope (LIST-CONTRACT)', async () => {
+      mockList.mockResolvedValue({
+        data: { success: true, data: { items: sampleClasses, total: 4, page: 1, pageSize: 500, totalPages: 1 } },
+      });
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-class-selector')).toBeInTheDocument();
+      });
+      // Should not show error
+      expect(screen.queryByTestId('parent-selector-error')).not.toBeInTheDocument();
+    });
+
+    it('handles { data: { items: [...] } } envelope (no success field)', async () => {
+      mockList.mockResolvedValue({
+        data: { data: { items: sampleClasses, total: 4 } },
+      });
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-class-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('parent-selector-error')).not.toBeInTheDocument();
+    });
+
+    it('handles { items: [...] } flat paginated envelope', async () => {
+      mockList.mockResolvedValue({
+        data: { items: sampleClasses, total: 4, page: 1, pageSize: 500 },
+      });
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-class-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('parent-selector-error')).not.toBeInTheDocument();
+    });
+
+    it('handles flat array response', async () => {
+      mockList.mockResolvedValue({
+        data: sampleClasses,
+      });
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-class-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('parent-selector-error')).not.toBeInTheDocument();
+    });
+
+    it('handles { success: true, data: [...] } array envelope', async () => {
+      mockList.mockResolvedValue({
+        data: { success: true, data: sampleClasses },
+      });
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-class-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('parent-selector-error')).not.toBeInTheDocument();
+    });
+
+    it('shows error state when API call fails', async () => {
+      mockList.mockRejectedValue(new Error('Network error'));
+      render(<ParentClassSelector {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-selector-error')).toBeInTheDocument();
+      });
+    });
+  });
 });

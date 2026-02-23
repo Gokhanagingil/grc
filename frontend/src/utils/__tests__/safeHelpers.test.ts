@@ -1,4 +1,4 @@
-import { safeArray, ensureArray, safeMap, safeFilter, safeSome, normalizeArrayFields, toStringArray, unwrapApiEnvelope, extractPoliciesArray, extractActionsObject } from '../safeHelpers';
+import { safeArray, ensureArray, safeMap, safeFilter, safeSome, normalizeArrayFields, toStringArray, unwrapApiEnvelope, extractPoliciesArray, extractActionsObject, extractPaginatedItems } from '../safeHelpers';
 
 describe('safeHelpers', () => {
   describe('safeArray', () => {
@@ -771,6 +771,70 @@ describe('safeHelpers', () => {
         expect(() => extractActionsObject(input)).not.toThrow();
         expect(extractActionsObject(input)).toBeUndefined();
       });
+    });
+  });
+
+  // ====================================================================
+  // extractPaginatedItems tests (PR4 — CMDB envelope normalization)
+  // ====================================================================
+  describe('extractPaginatedItems', () => {
+    const items = [{ id: '1', name: 'A' }, { id: '2', name: 'B' }];
+
+    it('extracts items from LIST-CONTRACT envelope: { success: true, data: { items: [...] } }', () => {
+      const input = { success: true, data: { items, total: 2, page: 1, pageSize: 20, totalPages: 1 } };
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('extracts items from { data: { items: [...] } } envelope (no success field)', () => {
+      const input = { data: { items, total: 2 } };
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('extracts items from flat paginated: { items: [...] }', () => {
+      const input = { items, total: 2, page: 1, pageSize: 20 };
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('extracts items from { success: true, data: [...] } array envelope', () => {
+      const input = { success: true, data: items };
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('extracts items from { data: [...] } partial envelope', () => {
+      const input = { data: items };
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('returns flat array as-is', () => {
+      expect(extractPaginatedItems(items)).toEqual(items);
+    });
+
+    it('returns empty array for null', () => {
+      expect(extractPaginatedItems(null)).toEqual([]);
+    });
+
+    it('returns empty array for undefined', () => {
+      expect(extractPaginatedItems(undefined)).toEqual([]);
+    });
+
+    it('returns empty array for non-object', () => {
+      expect(extractPaginatedItems('string')).toEqual([]);
+      expect(extractPaginatedItems(42)).toEqual([]);
+    });
+
+    it('returns empty array for empty object', () => {
+      expect(extractPaginatedItems({})).toEqual([]);
+    });
+
+    it('returns empty array for { success: false, data: ... }', () => {
+      const input = { success: false, data: { items } };
+      // success=false but 'success' and 'data' keys present — should still try to extract
+      expect(extractPaginatedItems(input)).toEqual(items);
+    });
+
+    it('handles double-wrapped { success: true, data: { data: [...] } }', () => {
+      const input = { success: true, data: { data: items } };
+      expect(extractPaginatedItems(input)).toEqual(items);
     });
   });
 });
