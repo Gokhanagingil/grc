@@ -39,6 +39,25 @@ import {
   ItsmIncidentImpactSummary,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { safeArray } from '../../utils/safeHelpers';
+
+/**
+ * Normalizes an ItsmIncidentImpactSummary payload at the boundary.
+ * Ensures all array fields (including nested ones) are always arrays,
+ * preventing `.length` / `.map` crashes when backend omits fields.
+ */
+function normalizeImpactSummary(raw: ItsmIncidentImpactSummary): ItsmIncidentImpactSummary {
+  return {
+    ...raw,
+    impactedServices: safeArray(raw.impactedServices),
+    impactedOfferings: safeArray(raw.impactedOfferings),
+    affectedCis: {
+      count: raw.affectedCis?.count ?? 0,
+      criticalCount: raw.affectedCis?.criticalCount ?? 0,
+      topClasses: safeArray(raw.affectedCis?.topClasses),
+    },
+  };
+}
 
 interface IncidentImpactTabProps {
   incidentId: string;
@@ -111,9 +130,9 @@ export const IncidentImpactTab: React.FC<IncidentImpactTabProps> = ({ incidentId
       const response = await itsmApi.incidents.getImpactSummary(incidentId);
       const d = response.data as { data?: ItsmIncidentImpactSummary } | ItsmIncidentImpactSummary;
       if (d && 'data' in d && d.data) {
-        setImpactSummary(d.data);
+        setImpactSummary(normalizeImpactSummary(d.data));
       } else if (d && 'affectedCis' in d) {
-        setImpactSummary(d as ItsmIncidentImpactSummary);
+        setImpactSummary(normalizeImpactSummary(d as ItsmIncidentImpactSummary));
       }
     } catch {
       setImpactSummary(null);

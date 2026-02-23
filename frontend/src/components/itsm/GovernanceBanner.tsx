@@ -28,6 +28,22 @@ import {
   PolicyEvaluationSummary,
   DecisionRecommendation,
 } from '../../services/grcClient';
+import { safeArray } from '../../utils/safeHelpers';
+
+/**
+ * Normalizes a PolicyEvaluationSummary payload at the boundary.
+ * Ensures all array fields are always arrays, preventing `.length` / `.map` crashes
+ * when the backend omits or returns null for optional array fields.
+ */
+function normalizePolicyEvaluation(raw: PolicyEvaluationSummary): PolicyEvaluationSummary {
+  return {
+    ...raw,
+    matchedPolicies: safeArray(raw.matchedPolicies),
+    rulesTriggered: safeArray(raw.rulesTriggered),
+    reasons: safeArray(raw.reasons),
+    requiredActions: safeArray(raw.requiredActions),
+  };
+}
 
 // ---------- helpers ----------
 
@@ -85,7 +101,7 @@ export const GovernanceBanner: React.FC<GovernanceBannerProps> = ({ changeId }) 
         };
       };
       if (d?.data?.policyEvaluation) {
-        setPolicyEval(d.data.policyEvaluation);
+        setPolicyEval(normalizePolicyEvaluation(d.data.policyEvaluation));
       } else {
         setPolicyEval(null);
       }
