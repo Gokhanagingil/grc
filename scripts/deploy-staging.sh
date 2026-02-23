@@ -21,6 +21,7 @@
 #   4 - Health check failed
 #   5 - Platform validation failed
 #   6 - Smoke test failed
+#   7 - Disk preflight failed (insufficient space/inodes after cleanup)
 #
 # This script does NOT contain secrets. Environment variables are read from
 # docker-compose.staging.yml or .env file on the staging server.
@@ -37,6 +38,11 @@ HEALTH_CHECK_URL="http://localhost:3002/health/ready"
 HEALTH_CHECK_TIMEOUT=120
 HEALTH_CHECK_INTERVAL=5
 CONTAINER_STABILIZE_WAIT=15
+
+# Disk preflight thresholds
+MIN_FREE_DISK_GB=5          # Minimum free disk space in GB
+MIN_FREE_INODES=100000      # Minimum free inodes
+INODE_WARN_THRESHOLD=200000 # Warn if free inodes below this
 
 # =============================================================================
 # Colors and Formatting
@@ -138,7 +144,7 @@ wait_for_health() {
 # =============================================================================
 
 step_verify_repo() {
-    log_step "Step 1/7: Verify Repository State"
+    log_step "Step 1/8: Verify Repository State"
     
     # Check if we're in a git repository
     if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
@@ -174,7 +180,7 @@ step_verify_repo() {
 }
 
 step_pull_latest() {
-    log_step "Step 2/7: Pull Latest Changes"
+    log_step "Step 2/8: Pull Latest Changes"
     
     log_info "Fetching from origin..."
     git fetch origin main
@@ -200,8 +206,97 @@ step_pull_latest() {
     return 0
 }
 
+step_disk_preflight() {
+    log_step "Step 3/8: Disk Preflight + Safe Cleanup"
+
+    # ---- Collect before-state ----
+    local disk_line inode_line
+    disk_line=$(df --output=avail -BG / | tail -1 | tr -d ' G')
+    inode_line=$(df --output=iavail / | tail -1 | tr -d ' ')
+
+    log_info "Disk free: ${disk_line}G (minimum: ${MIN_FREE_DISK_GB}G)"
+    log_info "Inodes free: ${inode_line} (minimum: ${MIN_FREE_INODES})"
+    log_info "Docker disk usage:"
+    docker system df 2>/dev/null || true
+    echo ""
+
+    # ---- Check if cleanup is needed ----
+    local needs_cleanup=false
+    if [ "$disk_line" -lt "$MIN_FREE_DISK_GB" ] 2>/dev/null; then
+        log_warn "Disk space below threshold (${disk_line}G < ${MIN_FREE_DISK_GB}G) - cleanup needed"
+        needs_cleanup=true
+    fi
+    if [ "$inode_line" -lt "$MIN_FREE_INODES" ] 2>/dev/null; then
+        log_warn "Inodes below threshold (${inode_line} < ${MIN_FREE_INODES}) - cleanup needed"
+        needs_cleanup=true
+    fi
+
+    # ---- Safe cleanup (always run builder prune, it's the #1 inode consumer) ----
+    log_info "Pruning Docker builder cache (safe - does not touch volumes or running containers)..."
+    docker builder prune -af 2>&1 | tail -3 || true
+
+    if [ "$needs_cleanup" = true ]; then
+        log_info "Running extended safe cleanup..."
+
+        log_info "Pruning dangling images..."
+        docker image prune -f 2>&1 | tail -1 || true
+
+        log_info "Pruning unused images (running container images are preserved)..."
+        docker image prune -af 2>&1 | tail -1 || true
+
+        log_info "Pruning stopped containers..."
+        docker container prune -f 2>&1 | tail -1 || true
+
+        log_info "Pruning unused networks..."
+        docker network prune -f 2>&1 | tail -1 || true
+
+        log_info "Checking journal log size..."
+        local journal_size
+        journal_size=$(journalctl --disk-usage 2>/dev/null | grep -oP '\d+\.\d+[GM]' | head -1 || echo "0")
+        log_info "Journal size: $journal_size"
+        # Vacuum journals to 200M if over 500M
+        if journalctl --disk-usage 2>/dev/null | grep -qP '[5-9]\.\d+G|\d{2,}\.\d+G|[1-9]\d{2,}M'; then
+            log_info "Vacuuming journals to 200M..."
+            journalctl --vacuum-size=200M 2>&1 | tail -3 || true
+        fi
+    else
+        log_ok "Disk and inodes above thresholds - extended cleanup skipped"
+    fi
+
+    # ---- Re-check after cleanup ----
+    disk_line=$(df --output=avail -BG / | tail -1 | tr -d ' G')
+    inode_line=$(df --output=iavail / | tail -1 | tr -d ' ')
+
+    log_info "After cleanup - Disk free: ${disk_line}G | Inodes free: ${inode_line}"
+
+    # ---- Hard fail if still insufficient ----
+    if [ "$disk_line" -lt "$MIN_FREE_DISK_GB" ] 2>/dev/null; then
+        log_fail "Insufficient disk space after cleanup: ${disk_line}G < ${MIN_FREE_DISK_GB}G"
+        log_info "Manual intervention required. Consider:"
+        log_info "  - docker system prune -af (does NOT prune volumes)"
+        log_info "  - journalctl --vacuum-size=100M"
+        log_info "  - apt-get clean"
+        return 1
+    fi
+    if [ "$inode_line" -lt "$MIN_FREE_INODES" ] 2>/dev/null; then
+        log_fail "Insufficient inodes after cleanup: ${inode_line} < ${MIN_FREE_INODES}"
+        log_info "Manual intervention required. The #1 inode consumer is usually:"
+        log_info "  /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/"
+        log_info "Run: docker builder prune -af && docker image prune -af"
+        return 1
+    fi
+
+    # ---- Warn if marginal ----
+    if [ "$inode_line" -lt "$INODE_WARN_THRESHOLD" ] 2>/dev/null; then
+        log_warn "Inodes are marginal (${inode_line} < ${INODE_WARN_THRESHOLD}). Monitor after deploy."
+    fi
+
+    log_ok "Disk preflight passed: ${disk_line}G free, ${inode_line} inodes free"
+    return 0
+}
+
 step_docker_build() {
-    log_step "Step 3/7: Docker Build & Restart"
+    log_step "Step 4/8: Docker Build & Restart"
     
     # Check if docker compose file exists
     if [ ! -f "$COMPOSE_FILE" ]; then
@@ -243,7 +338,7 @@ step_docker_build() {
 }
 
 step_health_check() {
-    log_step "Step 4/7: Health Check"
+    log_step "Step 5/8: Health Check"
     
     if wait_for_health "$HEALTH_CHECK_URL" "$HEALTH_CHECK_TIMEOUT" "$HEALTH_CHECK_INTERVAL"; then
         log_ok "Backend health check passed"
@@ -274,7 +369,7 @@ step_health_check() {
 }
 
 step_run_migrations() {
-    log_step "Step 5/7: Database Migrations"
+    log_step "Step 6/8: Database Migrations"
     
     # Show migration status first
     log_info "Checking migration status..."
@@ -297,7 +392,7 @@ step_run_migrations() {
 }
 
 step_platform_validate() {
-    log_step "Step 6/7: Platform Self-Control Validation"
+    log_step "Step 7/8: Platform Self-Control Validation"
     
     log_info "Running platform:validate inside backend container..."
     log_info "(This validates: env, db, migrations, auth & onboarding)"
@@ -316,7 +411,7 @@ step_platform_validate() {
 }
 
 step_smoke_tests() {
-    log_step "Step 7/7: Smoke Tests"
+    log_step "Step 8/8: Smoke Tests"
     
     # Auth readiness check via curl
     log_info "Testing auth endpoint readiness..."
@@ -407,7 +502,13 @@ main() {
         exit 1
     fi
     
-    # Step 3: Docker build & restart
+    # Step 3: Disk preflight + safe cleanup
+    if ! step_disk_preflight; then
+        print_footer_failure 7 "Disk preflight failed - insufficient space/inodes"
+        exit 7
+    fi
+    
+    # Step 4: Docker build & restart
     if ! step_docker_build; then
         print_footer_failure 2 "Docker build failed"
         exit 2
