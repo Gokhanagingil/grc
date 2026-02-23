@@ -1,0 +1,185 @@
+name: "Scenario Pack Smoke (Reliability Gate)"
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_topology:
+        description: "Also run topology smoke suite"
+        required: false
+        default: "true"
+      run_analytics:
+        description: "Also run analytics smoke suite"
+        required: false
+        default: "false"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  scenario-pack-smoke:
+    name: "Scenario Pack Smoke @real @smoke"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grc_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grc_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            backend-nest/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend-nest dependencies
+        run: npm ci
+        working-directory: backend-nest
+
+      - name: Build backend-nest
+        run: npm run build
+        working-directory: backend-nest
+
+      - name: Run database migrations
+        env:
+          NODE_ENV: development
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform
+        run: npx typeorm migration:run -d dist/data-source.js
+        working-directory: backend-nest
+
+      - name: Start backend-nest
+        env:
+          NODE_ENV: test
+          PORT: "3002"
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'ci-test-jwt-secret-placeholder' }}
+          JWT_EXPIRES_IN: 24h
+          REFRESH_TOKEN_SECRET: ${{ secrets.CI_REFRESH_TOKEN_SECRET || 'ci-test-refresh-placeholder' }}
+          REFRESH_TOKEN_EXPIRES_IN: 7d
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform
+          DEMO_ADMIN_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          JOBS_ENABLED: "false"
+        run: |
+          cd backend-nest && npm run start:dev &
+          sleep 15
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3002/health/live > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Seed scenario pack (deterministic data)
+        env:
+          NODE_ENV: development
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: grc_platform
+          DEMO_ADMIN_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+          JOBS_ENABLED: "false"
+        run: node dist/scripts/seed-scenario-pack.js
+        working-directory: backend-nest
+
+      - name: "Run Scenario Pack smoke tests @smoke @real"
+        run: npx playwright test --project=scenario-pack
+        env:
+          E2E_MODE: "REAL_STACK"
+          BASE_URL: "http://localhost:3002"
+          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+
+      - name: "Run Topology smoke tests @real @topology"
+        if: always() && (github.event.inputs.run_topology != 'false')
+        run: npx playwright test --project=topology
+        env:
+          E2E_MODE: "REAL_STACK"
+          BASE_URL: "http://localhost:3002"
+          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+
+      - name: "Run Analytics smoke tests @real"
+        if: always() && github.event.inputs.run_analytics == 'true'
+        run: npx playwright test --project=analytics
+        env:
+          E2E_MODE: "REAL_STACK"
+          BASE_URL: "http://localhost:3002"
+          SMOKE_TEST_EMAIL: ${{ secrets.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local' }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD || 'changeme' }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: scenario-pack-smoke-report
+          path: |
+            test-results/platform-health-report.json
+            test-results/
+          retention-days: 30
+
+      - name: Report summary
+        if: always()
+        run: |
+          if [ -f test-results/platform-health-report.json ]; then
+            echo "## Scenario Pack Smoke Report" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat test-results/platform-health-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          summary = data.get('summary', {})
+          print(json.dumps(summary, indent=2))
+          print()
+          for t in data.get('tables', []):
+              status = 'PASS' if t['pass'] else 'FAIL'
+              print(f\"{status}  {t['table']}  ({t['durationMs']}ms)\")
+              for s in t.get('steps', []):
+                  step_status = 'ok' if s['pass'] else 'FAIL'
+                  reason = f' - {s[\"reason\"]}' if s.get('reason') else ''
+                  print(f\"  {step_status}  {s['step']}{reason}\")
+          " >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
