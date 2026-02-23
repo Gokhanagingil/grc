@@ -32,8 +32,13 @@ import {
   getRiskLevelColor,
   getImpactSummaryText,
   getFragilitySignalLabel,
+  detectTopologyDataMode,
   type ClassifiedTopologyError,
+  type TopologyDataMode,
 } from './topology-utils';
+import { TopologyImpactBucketsCard } from './TopologyImpactBucketsCard';
+import { TopologyConfidenceCard } from './TopologyConfidenceCard';
+import { TopologyRiskFactorsCard } from './TopologyRiskFactorsCard';
 
 export interface TopologyImpactSummaryCardProps {
   /** Topology impact data (null while loading or on error) */
@@ -153,6 +158,7 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
   // --- Data state ---
   const riskLevel = getTopologyRiskLevel(impact.topologyRiskScore ?? 0);
   const riskColor = getRiskLevelColor(riskLevel);
+  const dataMode = detectTopologyDataMode(impact);
   // Null-safe destructuring with defaults to prevent crash on partial data
   const metrics = impact.metrics ?? { totalImpactedNodes: 0, impactedServiceCount: 0, impactedOfferingCount: 0, impactedCiCount: 0, criticalCiCount: 0, maxChainDepth: 0, crossServicePropagation: false, crossServiceCount: 0, impactedByDepth: {} };
   const fragilitySignals = impact.fragilitySignals ?? [];
@@ -280,6 +286,57 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
           </Box>
         )}
 
+        {/* Phase 2: Executive Summary */}
+        <Box data-testid="topology-executive-summary" sx={{ mb: 1.5 }}>
+          <Typography variant="body2" fontWeight={500} color="text.primary">
+            {getExecutiveSummary(impact, dataMode)}
+          </Typography>
+        </Box>
+
+        {/* Phase 2: Data Mode Badge */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+          <Chip
+            label={dataMode === 'enhanced' ? 'Enhanced Analysis' : 'Standard Analysis'}
+            size="small"
+            variant="outlined"
+            color={dataMode === 'enhanced' ? 'success' : 'default'}
+            data-testid="topology-data-mode-badge"
+          />
+          {dataMode === 'legacy' && (
+            <Tooltip title="This analysis uses standard topology data. Enhanced fields (impact buckets, confidence, risk factors) will appear when available from the backend.">
+              <Typography variant="caption" color="text.secondary" sx={{ cursor: 'help' }}>
+                Limited data
+              </Typography>
+            </Tooltip>
+          )}
+        </Box>
+
+        {/* Phase 2: Impact Buckets */}
+        {impact.impactBuckets && (
+          <Box sx={{ mb: 1.5 }}>
+            <TopologyImpactBucketsCard buckets={impact.impactBuckets} />
+          </Box>
+        )}
+
+        {/* Phase 2: Completeness Confidence */}
+        {impact.completenessConfidence && (
+          <Box sx={{ mb: 1.5 }}>
+            <TopologyConfidenceCard confidence={impact.completenessConfidence} />
+          </Box>
+        )}
+
+        {/* Phase 2: Risk Factors */}
+        {impact.riskFactors && impact.riskFactors.length > 0 && (
+          <Box sx={{ mb: 1.5 }}>
+            <TopologyRiskFactorsCard
+              factors={impact.riskFactors}
+              totalScore={impact.topologyRiskScore}
+            />
+          </Box>
+        )}
+
+        <Divider sx={{ mb: 1.5 }} />
+
         {/* Computed at + Recalculate */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -302,5 +359,39 @@ export const TopologyImpactSummaryCard: React.FC<TopologyImpactSummaryCardProps>
     </Card>
   );
 };
+
+/** Generate executive-readable summary based on available data */
+function getExecutiveSummary(impact: TopologyImpactResponseData, mode: TopologyDataMode): string {
+  const score = impact.topologyRiskScore;
+  const riskLevel = getTopologyRiskLevel(score);
+  const metrics = impact.metrics;
+  const parts: string[] = [];
+
+  if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {
+    parts.push(`This change has a ${riskLevel.toLowerCase()} topology risk (score: ${score}/100).`);
+  } else {
+    parts.push(`Topology risk is ${riskLevel.toLowerCase()} (score: ${score}/100).`);
+  }
+
+  if (metrics.totalImpactedNodes > 0) {
+    parts.push(`${metrics.totalImpactedNodes} node${metrics.totalImpactedNodes !== 1 ? 's' : ''} impacted across ${metrics.impactedServiceCount} service${metrics.impactedServiceCount !== 1 ? 's' : ''}.`);
+  }
+
+  if (mode === 'enhanced' && impact.impactBuckets) {
+    const { criticalPath, direct } = impact.impactBuckets;
+    if (criticalPath > 0) {
+      parts.push(`${criticalPath} node${criticalPath !== 1 ? 's' : ''} on critical paths.`);
+    }
+    if (direct > 0) {
+      parts.push(`${direct} directly impacted.`);
+    }
+  }
+
+  if (impact.completenessConfidence && impact.completenessConfidence.score < 60) {
+    parts.push('Data completeness is limited; interpret with caution.');
+  }
+
+  return parts.join(' ');
+}
 
 export default TopologyImpactSummaryCard;

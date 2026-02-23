@@ -7,8 +7,13 @@ import type {
   TopologyImpactResponseData,
   TopologyBlastRadiusMetrics,
   RcaHypothesisData,
+  RcaTopologyHypothesesResponseData,
   FragilitySignalType,
   RcaHypothesisType,
+  ImpactBucketsSummary,
+  TopologyCompletenessConfidence,
+  TopologyRiskFactor,
+  RcaContradiction,
 } from '../../services/grcClient';
 
 // ============================================================================
@@ -212,6 +217,46 @@ export function normalizeTopologyImpactResponse(
     crossServiceCount: rawMetrics.crossServiceCount ?? DEFAULT_METRICS.crossServiceCount,
   };
 
+  // Phase 2: Normalize optional impact buckets
+  const rawBuckets = raw.impactBuckets as Partial<ImpactBucketsSummary> | undefined;
+  const impactBuckets: ImpactBucketsSummary | undefined = rawBuckets
+    ? {
+        direct: typeof rawBuckets.direct === 'number' ? rawBuckets.direct : 0,
+        downstream: typeof rawBuckets.downstream === 'number' ? rawBuckets.downstream : 0,
+        criticalPath: typeof rawBuckets.criticalPath === 'number' ? rawBuckets.criticalPath : 0,
+        unknownConfidence: typeof rawBuckets.unknownConfidence === 'number' ? rawBuckets.unknownConfidence : 0,
+      }
+    : undefined;
+
+  // Phase 2: Normalize optional completeness confidence
+  const rawConfidence = raw.completenessConfidence as Partial<TopologyCompletenessConfidence> | undefined;
+  const completenessConfidence: TopologyCompletenessConfidence | undefined =
+    rawConfidence && typeof rawConfidence.score === 'number'
+      ? {
+          score: rawConfidence.score,
+          label: rawConfidence.label ?? 'VERY_LOW',
+          degradingFactors: Array.isArray(rawConfidence.degradingFactors) ? rawConfidence.degradingFactors : [],
+          missingClassCount: typeof rawConfidence.missingClassCount === 'number' ? rawConfidence.missingClassCount : 0,
+          isolatedNodeCount: typeof rawConfidence.isolatedNodeCount === 'number' ? rawConfidence.isolatedNodeCount : 0,
+          healthRulesAvailable: typeof rawConfidence.healthRulesAvailable === 'boolean' ? rawConfidence.healthRulesAvailable : false,
+        }
+      : undefined;
+
+  // Phase 2: Normalize optional risk factors
+  const rawRiskFactors = raw.riskFactors;
+  const riskFactors: TopologyRiskFactor[] | undefined = Array.isArray(rawRiskFactors)
+    ? rawRiskFactors.map((f: Record<string, unknown>) => ({
+        key: (f.key as string) ?? '',
+        label: (f.label as string) ?? '',
+        contribution: typeof f.contribution === 'number' ? f.contribution : 0,
+        maxContribution: typeof f.maxContribution === 'number' ? f.maxContribution : 0,
+        reason: (f.reason as string) ?? '',
+        severity: (['critical', 'warning', 'info'].includes(f.severity as string)
+          ? f.severity as 'critical' | 'warning' | 'info'
+          : 'info'),
+      }))
+    : undefined;
+
   return {
     changeId: (raw.changeId as string) ?? '',
     rootNodeIds: Array.isArray(raw.rootNodeIds) ? raw.rootNodeIds : [],
@@ -223,6 +268,13 @@ export function normalizeTopologyImpactResponse(
     riskExplanation: (raw.riskExplanation as string) ?? '',
     computedAt: (raw.computedAt as string) ?? new Date().toISOString(),
     warnings: Array.isArray(raw.warnings) ? raw.warnings : [],
+    // Phase 2 optional fields (undefined if not present — feature-by-data)
+    impactBuckets,
+    impactedServicesCount: typeof raw.impactedServicesCount === 'number' ? raw.impactedServicesCount : undefined,
+    impactedOfferingsCount: typeof raw.impactedOfferingsCount === 'number' ? raw.impactedOfferingsCount : undefined,
+    impactedCriticalCisCount: typeof raw.impactedCriticalCisCount === 'number' ? raw.impactedCriticalCisCount : undefined,
+    completenessConfidence,
+    riskFactors,
   };
 }
 
@@ -271,4 +323,128 @@ export function unwrapTopologyResponse<T>(response: unknown): T | null {
     return resp.data as unknown as T;
   }
   return null;
+}
+
+// ============================================================================
+// Phase 2: RCA Response Normalization
+// ============================================================================
+
+/**
+ * Normalize RCA topology hypotheses response with Phase-2 field defaults.
+ * Ensures evidence weights, contradictions, and ranking algorithm are safely handled.
+ */
+export function normalizeRcaResponse(
+  raw: RcaTopologyHypothesesResponseData | null | undefined,
+): RcaTopologyHypothesesResponseData | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const hypotheses = Array.isArray(raw.hypotheses)
+    ? raw.hypotheses.map((h) => ({
+        ...h,
+        evidence: Array.isArray(h.evidence)
+          ? h.evidence.map((e) => ({
+              ...e,
+              weight: typeof e.weight === 'number' ? e.weight : undefined,
+              isTopologyBased: typeof e.isTopologyBased === 'boolean' ? e.isTopologyBased : undefined,
+            }))
+          : [],
+        affectedServiceIds: Array.isArray(h.affectedServiceIds) ? h.affectedServiceIds : [],
+        recommendedActions: Array.isArray(h.recommendedActions) ? h.recommendedActions : [],
+        // Phase 2 optional fields
+        evidenceWeight: typeof h.evidenceWeight === 'number' ? h.evidenceWeight : undefined,
+        contradictions: Array.isArray(h.contradictions)
+          ? h.contradictions.map((c: RcaContradiction) => ({
+              code: c.code ?? '',
+              description: c.description ?? '',
+              confidenceReduction: typeof c.confidenceReduction === 'number' ? c.confidenceReduction : 0,
+            }))
+          : undefined,
+        corroboratingEvidenceCount: typeof h.corroboratingEvidenceCount === 'number'
+          ? h.corroboratingEvidenceCount
+          : undefined,
+        contradictionCount: typeof h.contradictionCount === 'number'
+          ? h.contradictionCount
+          : undefined,
+      }))
+    : [];
+
+  return {
+    majorIncidentId: raw.majorIncidentId ?? '',
+    rootServiceIds: Array.isArray(raw.rootServiceIds) ? raw.rootServiceIds : [],
+    linkedCiIds: Array.isArray(raw.linkedCiIds) ? raw.linkedCiIds : [],
+    hypotheses,
+    nodesAnalyzed: typeof raw.nodesAnalyzed === 'number' ? raw.nodesAnalyzed : 0,
+    computedAt: raw.computedAt ?? new Date().toISOString(),
+    warnings: Array.isArray(raw.warnings) ? raw.warnings : [],
+    rankingAlgorithm: typeof raw.rankingAlgorithm === 'string' ? raw.rankingAlgorithm : undefined,
+  };
+}
+
+// ============================================================================
+// Phase 2: Data Mode Detection
+// ============================================================================
+
+/** Topology data mode — determines UI presentation level */
+export type TopologyDataMode = 'enhanced' | 'legacy' | 'empty';
+
+/**
+ * Detect whether topology impact data includes Phase-2 enhanced fields.
+ * Returns 'enhanced' if any Phase-2 field is present, 'legacy' if core fields exist,
+ * or 'empty' if no meaningful data.
+ */
+export function detectTopologyDataMode(impact: TopologyImpactResponseData | null | undefined): TopologyDataMode {
+  if (!impact) return 'empty';
+  if (
+    impact.impactBuckets !== undefined ||
+    impact.completenessConfidence !== undefined ||
+    impact.riskFactors !== undefined
+  ) {
+    return 'enhanced';
+  }
+  return 'legacy';
+}
+
+/**
+ * Detect whether RCA data includes Phase-2 enhanced fields.
+ */
+export function detectRcaDataMode(
+  data: RcaTopologyHypothesesResponseData | null | undefined,
+): TopologyDataMode {
+  if (!data || !Array.isArray(data.hypotheses) || data.hypotheses.length === 0) return 'empty';
+  if (
+    data.rankingAlgorithm !== undefined ||
+    data.hypotheses.some((h) => h.evidenceWeight !== undefined || h.contradictions !== undefined)
+  ) {
+    return 'enhanced';
+  }
+  return 'legacy';
+}
+
+// ============================================================================
+// Phase 2: Confidence Label Helpers (0-100 scale)
+// ============================================================================
+
+/** Get human label for topology completeness confidence (0-100 scale) */
+export function getCompletenessConfidenceLabel(score: number): string {
+  if (score >= 80) return 'High';
+  if (score >= 60) return 'Medium';
+  if (score >= 30) return 'Low';
+  return 'Very Low';
+}
+
+/** Get color for topology completeness confidence (0-100 scale) */
+export function getCompletenessConfidenceColor(score: number): 'success' | 'info' | 'warning' | 'error' {
+  if (score >= 80) return 'success';
+  if (score >= 60) return 'info';
+  if (score >= 30) return 'warning';
+  return 'error';
+}
+
+/** Get severity color for risk factor */
+export function getRiskFactorSeverityColor(severity: string): 'error' | 'warning' | 'info' {
+  switch (severity) {
+    case 'critical': return 'error';
+    case 'warning': return 'warning';
+    default: return 'info';
+  }
 }

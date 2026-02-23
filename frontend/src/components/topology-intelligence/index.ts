@@ -28,6 +28,15 @@ export type { TraceabilityChainWidgetProps } from './TraceabilityChainWidget';
 
 export { TopologyGuardrailsPanel } from './TopologyGuardrailsPanel';
 export type { TopologyGuardrailsPanelProps } from './TopologyGuardrailsPanel';
+export { TopologyImpactBucketsCard } from './TopologyImpactBucketsCard';
+export type { TopologyImpactBucketsCardProps } from './TopologyImpactBucketsCard';
+
+export { TopologyConfidenceCard } from './TopologyConfidenceCard';
+export type { TopologyConfidenceCardProps } from './TopologyConfidenceCard';
+
+export { TopologyRiskFactorsCard } from './TopologyRiskFactorsCard';
+export type { TopologyRiskFactorsCardProps } from './TopologyRiskFactorsCard';
+
 export {
   getTopologyRiskLevel,
   getRiskLevelColor,
@@ -42,6 +51,12 @@ export {
   getRcaSummaryText,
   unwrapTopologyResponse,
   normalizeTopologyImpactResponse,
+  normalizeRcaResponse,
+  detectTopologyDataMode,
+  detectRcaDataMode,
+  getCompletenessConfidenceLabel,
+  getCompletenessConfidenceColor,
+  getRiskFactorSeverityColor,
   FRAGILITY_SIGNAL_LABELS,
   RCA_HYPOTHESIS_TYPE_LABELS,
 } from './topology-utils';
@@ -49,4 +64,5 @@ export type {
   TopologyRiskLevel,
   TopologyApiErrorType,
   ClassifiedTopologyError,
+  TopologyDataMode,
 } from './topology-utils';

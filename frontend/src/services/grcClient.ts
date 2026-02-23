@@ -2872,6 +2872,13 @@ export interface ItsmMajorIncidentListParams {
 // Topology Intelligence Types (Change Impact + MI RCA)
 // ============================================================================
 
+/** Impact bucket classification for an impacted node (Phase 2) */
+export type ImpactBucket =
+  | 'direct'
+  | 'downstream'
+  | 'critical_path'
+  | 'unknown_confidence';
+
 /** A single impacted node discovered via topology traversal */
 export interface TopologyImpactedNode {
   id: string;
@@ -2881,6 +2888,50 @@ export interface TopologyImpactedNode {
   depth: number;
   criticality?: string;
   environment?: string;
+  /** Impact bucket classification (Phase 2) */
+  impactBucket?: ImpactBucket;
+}
+
+/** Summary of impacted nodes by bucket category (Phase 2) */
+export interface ImpactBucketsSummary {
+  direct: number;
+  downstream: number;
+  criticalPath: number;
+  unknownConfidence: number;
+}
+
+/** Confidence assessment for topology data completeness (Phase 2) */
+export interface TopologyCompletenessConfidence {
+  score: number;
+  label: 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
+  degradingFactors: TopologyConfidenceFactor[];
+  missingClassCount: number;
+  isolatedNodeCount: number;
+  healthRulesAvailable: boolean;
+}
+
+/** A single factor that degrades topology confidence (Phase 2) */
+export interface TopologyConfidenceFactor {
+  code: string;
+  description: string;
+  impact: number;
+}
+
+/** Explainable risk factor contributing to topology risk score (Phase 2) */
+export interface TopologyRiskFactor {
+  key: string;
+  label: string;
+  contribution: number;
+  maxContribution: number;
+  reason: string;
+  severity: 'critical' | 'warning' | 'info';
+}
+
+/** Contradiction marker for an RCA hypothesis (Phase 2) */
+export interface RcaContradiction {
+  code: string;
+  description: string;
+  confidenceReduction: number;
 }
 
 /** A dependency path from root to an impacted node */
@@ -2931,6 +2982,19 @@ export interface TopologyImpactResponseData {
   riskExplanation: string;
   computedAt: string;
   warnings: string[];
+  // Phase 2 additions (backward-compatible optional fields)
+  /** Impact buckets summary (Phase 2) */
+  impactBuckets?: ImpactBucketsSummary;
+  /** Count of impacted services (Phase 2) */
+  impactedServicesCount?: number;
+  /** Count of impacted service offerings (Phase 2) */
+  impactedOfferingsCount?: number;
+  /** Count of impacted critical CIs (Phase 2) */
+  impactedCriticalCisCount?: number;
+  /** Topology completeness confidence (Phase 2) */
+  completenessConfidence?: TopologyCompletenessConfidence;
+  /** Explainable risk factors (Phase 2) */
+  riskFactors?: TopologyRiskFactor[];
 }
 
 /** RCA hypothesis type */
@@ -2947,6 +3011,10 @@ export interface RcaEvidence {
   description: string;
   referenceId?: string;
   referenceLabel?: string;
+  /** Evidence weight (Phase 2) */
+  weight?: number;
+  /** Whether this evidence is topology-path based (Phase 2) */
+  isTopologyBased?: boolean;
 }
 
 /** Recommended follow-up action from RCA */
@@ -2969,6 +3037,15 @@ export interface RcaHypothesisData {
   evidence: RcaEvidence[];
   affectedServiceIds: string[];
   recommendedActions: RcaRecommendedAction[];
+  // Phase 2 additions (backward-compatible)
+  /** Weighted evidence score (Phase 2) */
+  evidenceWeight?: number;
+  /** Contradiction markers (Phase 2) */
+  contradictions?: RcaContradiction[];
+  /** Corroborating evidence count (Phase 2) */
+  corroboratingEvidenceCount?: number;
+  /** Contradicting signal count (Phase 2) */
+  contradictionCount?: number;
 }
 
 /** Full RCA topology hypotheses response for a major incident */
@@ -2980,6 +3057,9 @@ export interface RcaTopologyHypothesesResponseData {
   nodesAnalyzed: number;
   computedAt: string;
   warnings: string[];
+  // Phase 2 additions
+  /** Ranking algorithm description (Phase 2) */
+  rankingAlgorithm?: string;
 }
 
 // ============================================================================

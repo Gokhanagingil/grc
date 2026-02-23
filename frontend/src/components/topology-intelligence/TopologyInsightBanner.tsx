@@ -16,7 +16,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import type { TopologyImpactResponseData, RcaTopologyHypothesesResponseData } from '../../services/grcClient';
-import { getTopologyRiskLevel, getImpactSummaryText, getRcaSummaryText } from './topology-utils';
+import { getTopologyRiskLevel, getImpactSummaryText, getRcaSummaryText, detectTopologyDataMode, detectRcaDataMode } from './topology-utils';
 
 export type TopologyInsightContext = 'change' | 'major_incident';
 
@@ -53,6 +53,10 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
 
     if (!isHighRisk && (changeImpact.fragilitySignals?.length ?? 0) === 0) return null;
 
+    // Phase 2: confidence caveat
+    const dataMode = detectTopologyDataMode(changeImpact);
+    const lowConfidence = changeImpact.completenessConfidence && changeImpact.completenessConfidence.score < 60;
+
     return (
       <Alert
         severity={isHighRisk ? 'warning' : 'info'}
@@ -83,6 +87,12 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
           {changeImpact.metrics?.crossServicePropagation && (
             <> Impact propagates across {changeImpact.metrics?.crossServiceCount ?? 0} service boundaries.</>
           )}
+          {lowConfidence && (
+            <> Data completeness is limited ({changeImpact.completenessConfidence!.score}/100) — interpret with caution.</>
+          )}
+          {dataMode === 'legacy' && (
+            <> (Standard analysis mode)</>
+          )}
         </Typography>
       </Alert>
     );
@@ -95,6 +105,13 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
     const topHypothesis = rcaData.hypotheses[0];
     const summaryText = getRcaSummaryText(rcaData.hypotheses);
     const hasHighConfidence = topHypothesis && topHypothesis.score >= 0.6;
+
+    // Phase 2: contradiction summary
+    const rcaMode = detectRcaDataMode(rcaData);
+    const totalContradictions = rcaData.hypotheses.reduce(
+      (sum, h) => sum + (h.contradictionCount ?? 0),
+      0,
+    );
 
     return (
       <Alert
@@ -117,10 +134,16 @@ export const TopologyInsightBanner: React.FC<TopologyInsightBannerProps> = ({
           </Box>
         }
       >
-        <AlertTitle>RCA Topology Analysis</AlertTitle>
+        <AlertTitle>RCA Topology Analysis{rcaMode === 'enhanced' ? ' (Enhanced)' : ''}</AlertTitle>
         <Typography variant="body2">
           Topology suggests {rcaData.hypotheses.length} likely root cause candidate{rcaData.hypotheses.length !== 1 ? 's' : ''}.{' '}
           {summaryText}.
+          {totalContradictions > 0 && (
+            <> {totalContradictions} contradiction{totalContradictions !== 1 ? 's' : ''} detected across hypotheses.</>
+          )}
+          {rcaData.rankingAlgorithm && (
+            <> Ranked by: {rcaData.rankingAlgorithm}.</>
+          )}
         </Typography>
       </Alert>
     );
