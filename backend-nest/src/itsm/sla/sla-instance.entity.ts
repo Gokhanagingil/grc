@@ -64,4 +64,23 @@ export class SlaInstance extends BaseEntity {
     default: SlaInstanceStatus.IN_PROGRESS,
   })
   status: SlaInstanceStatus;
+
+  // ── SLA 2.0 fields ──────────────────────────────────────────────
+
+  /** Objective type: RESPONSE or RESOLUTION */
+  @Column({
+    name: 'objective_type',
+    type: 'varchar',
+    length: 50,
+    default: 'RESOLUTION',
+  })
+  objectiveType: string;
+
+  /** Snapshot of the matched policy + targets at apply time (audit) */
+  @Column({ name: 'matched_policy_snapshot', type: 'jsonb', nullable: true })
+  matchedPolicySnapshot: Record<string, unknown> | null;
+
+  /** Human-readable reason why this policy matched */
+  @Column({ name: 'match_reason', type: 'text', nullable: true })
+  matchReason: string | null;
 }

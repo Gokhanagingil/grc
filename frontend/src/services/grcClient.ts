@@ -349,6 +349,11 @@ export const API_PATHS = {
       INSTANCES_LIST: '/grc/itsm/sla/instances',
       RECORD_SLAS: (recordType: string, recordId: string) => `/grc/itsm/sla/records/${recordType}/${recordId}`,
       RECOMPUTE: (id: string) => `/grc/itsm/sla/instances/${id}/recompute`,
+      // SLA Engine 2.0 endpoints
+      FIELD_REGISTRY: '/grc/itsm/sla/field-registry',
+      VALIDATE_CONDITION: '/grc/itsm/sla/validate-condition',
+      EVALUATE: '/grc/itsm/sla/evaluate',
+      REAPPLY: (recordType: string, recordId: string) => `/grc/itsm/sla/records/${recordType}/${recordId}/reapply`,
     },
     // ITSM Diagnostics endpoints
     DIAGNOSTICS: {
@@ -2432,6 +2437,11 @@ export const itsmApi = {
     listInstances: () => api.get(API_PATHS.ITSM.SLA.INSTANCES_LIST),
     recordSlas: (recordType: string, recordId: string) => api.get(API_PATHS.ITSM.SLA.RECORD_SLAS(recordType, recordId)),
     recompute: (id: string) => api.post(API_PATHS.ITSM.SLA.RECOMPUTE(id), {}),
+    // SLA Engine 2.0
+    fieldRegistry: () => api.get(API_PATHS.ITSM.SLA.FIELD_REGISTRY),
+    validateCondition: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.SLA.VALIDATE_CONDITION, data),
+    evaluate: (data: Record<string, unknown>) => api.post(API_PATHS.ITSM.SLA.EVALUATE, data),
+    reapply: (recordType: string, recordId: string) => api.post(API_PATHS.ITSM.SLA.REAPPLY(recordType, recordId), {}),
   },
 
   // ITSM Diagnostics

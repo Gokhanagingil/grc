@@ -27,6 +27,10 @@ export class SlaDefinitionFilterDto extends PaginationQueryDto {
   @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  appliesToRecordType?: string;
 }
 
 export const SLA_DEFINITION_SORTABLE_FIELDS = [
@@ -35,6 +39,8 @@ export const SLA_DEFINITION_SORTABLE_FIELDS = [
   'metric',
   'targetSeconds',
   'order',
+  'priorityWeight',
+  'appliesToRecordType',
 ];
 
 export class SlaInstanceFilterDto extends PaginationQueryDto {

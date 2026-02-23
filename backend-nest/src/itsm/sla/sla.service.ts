@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
@@ -17,9 +17,17 @@ import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../../grc/dto/pagination.dto';
+import { matchPolicies, SlaMatchResult } from './condition/sla-policy-matcher';
+import {
+  validateConditionTree,
+  ValidationResult,
+} from './condition/sla-condition-validator';
+import { RecordContext } from './condition/sla-condition-evaluator';
 
 @Injectable()
 export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
+  private readonly logger = new Logger(SlaService.name);
+
   constructor(
     @InjectRepository(SlaDefinition)
     repository: Repository<SlaDefinition>,
@@ -131,6 +139,7 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
       metric,
       schedule,
       isActive,
+      appliesToRecordType,
     } = filterDto;
 
     const qb = this.repository.createQueryBuilder('def');
@@ -153,6 +162,12 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
 
     if (isActive !== undefined) {
       qb.andWhere('def.isActive = :isActive', { isActive });
+    }
+
+    if (appliesToRecordType) {
+      qb.andWhere('def.appliesToRecordType = :appliesToRecordType', {
+        appliesToRecordType,
+      });
     }
 
     const total = await qb.getCount();
@@ -556,5 +571,270 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
 
     const items = await qb.getMany();
     return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  // ── SLA Engine 2.0 Methods ──────────────────────────────────────
+
+  /**
+   * Validate a condition tree structure (server-side).
+   */
+  validateConditionTree(
+    conditionTree: unknown,
+    recordType: string = 'INCIDENT',
+  ): ValidationResult {
+    return validateConditionTree(conditionTree, recordType);
+  }
+
+  /**
+   * Evaluate SLA v2 policies against a record context.
+   * Returns the match result with explainable output.
+   */
+  async evaluateV2(
+    tenantId: string,
+    recordType: string,
+    context: RecordContext,
+  ): Promise<SlaMatchResult> {
+    const definitions = await this.repository.find({
+      where: {
+        tenantId,
+        isActive: true,
+        isDeleted: false,
+        appliesToRecordType: recordType,
+      },
+      order: { priorityWeight: 'DESC', order: 'ASC' },
+    });
+
+    return matchPolicies(definitions, context);
+  }
+
+  /**
+   * Start SLA v2 for a record using the condition-based matching engine.
+   * Creates SLA instances for the winning policy's objective types.
+   * Falls back to v1 logic if no v2 policies match.
+   */
+  async startSlaV2ForRecord(
+    tenantId: string,
+    recordType: string,
+    recordId: string,
+    context: RecordContext,
+    now?: Date,
+  ): Promise<SlaInstance[]> {
+    const startAt = now || new Date();
+
+    try {
+      // Attempt v2 matching
+      const matchResult = await this.evaluateV2(tenantId, 'INCIDENT', context);
+
+      if (matchResult.matched && matchResult.selectedPolicy) {
+        return this.applyV2Match(
+          tenantId,
+          recordType,
+          recordId,
+          matchResult,
+          startAt,
+        );
+      }
+
+      // Fall back to v1 matching if no v2 policies matched
+      this.logger.debug(
+        `No v2 SLA policy matched for ${recordType}/${recordId}, falling back to v1`,
+      );
+      return this.startSlaForRecord(
+        tenantId,
+        recordType,
+        recordId,
+        context.priority as string | undefined,
+        context.serviceId as string | undefined,
+        startAt,
+      );
+    } catch (err) {
+      // Failure safety: SLA evaluation must not crash incident save path
+      this.logger.error(
+        `SLA v2 evaluation failed for ${recordType}/${recordId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Apply a v2 match result: create SLA instances for response + resolution.
+   */
+  private async applyV2Match(
+    tenantId: string,
+    recordType: string,
+    recordId: string,
+    matchResult: SlaMatchResult,
+    startAt: Date,
+  ): Promise<SlaInstance[]> {
+    const policy = matchResult.selectedPolicy!;
+    const instances: SlaInstance[] = [];
+
+    // Snapshot for auditability
+    const snapshot = {
+      policyId: policy.id,
+      policyName: policy.name,
+      priorityWeight: policy.priorityWeight,
+      conditionTree: policy.conditionTree,
+      responseTimeSeconds: matchResult.responseTimeSeconds,
+      resolutionTimeSeconds: matchResult.resolutionTimeSeconds,
+      matchedAt: startAt.toISOString(),
+    };
+
+    // Response SLA instance
+    if (
+      matchResult.responseTimeSeconds &&
+      matchResult.responseTimeSeconds > 0
+    ) {
+      const inst = await this.createV2Instance(
+        tenantId,
+        recordType,
+        recordId,
+        policy,
+        'RESPONSE',
+        matchResult.responseTimeSeconds,
+        startAt,
+        snapshot,
+        matchResult.matchReason,
+      );
+      if (inst) instances.push(inst);
+    }
+
+    // Resolution SLA instance
+    if (
+      matchResult.resolutionTimeSeconds &&
+      matchResult.resolutionTimeSeconds > 0
+    ) {
+      const inst = await this.createV2Instance(
+        tenantId,
+        recordType,
+        recordId,
+        policy,
+        'RESOLUTION',
+        matchResult.resolutionTimeSeconds,
+        startAt,
+        snapshot,
+        matchResult.matchReason,
+      );
+      if (inst) instances.push(inst);
+    }
+
+    return instances;
+  }
+
+  /**
+   * Create a single v2 SLA instance, preventing duplicates.
+   */
+  private async createV2Instance(
+    tenantId: string,
+    recordType: string,
+    recordId: string,
+    policy: SlaDefinition,
+    objectiveType: string,
+    targetSeconds: number,
+    startAt: Date,
+    snapshot: Record<string, unknown>,
+    matchReason: string,
+  ): Promise<SlaInstance | null> {
+    // Check for existing active instance of same objective type
+    const existing = await this.instanceRepository.findOne({
+      where: {
+        tenantId,
+        recordType,
+        recordId,
+        objectiveType,
+        status: SlaInstanceStatus.IN_PROGRESS,
+      },
+    });
+    if (existing) return null;
+
+    const dueAt = new Date(startAt.getTime() + targetSeconds * 1000);
+
+    const instance = this.instanceRepository.create({
+      tenantId,
+      recordType,
+      recordId,
+      definitionId: policy.id,
+      objectiveType,
+      startAt,
+      dueAt,
+      breached: false,
+      elapsedSeconds: 0,
+      remainingSeconds: targetSeconds,
+      pausedDurationSeconds: 0,
+      status: SlaInstanceStatus.IN_PROGRESS,
+      matchedPolicySnapshot: snapshot,
+      matchReason,
+      isDeleted: false,
+    });
+
+    const saved = await this.instanceRepository.save(instance);
+
+    this.runtimeLogger.logSlaEvent({
+      tenantId,
+      definitionName: policy.name,
+      recordType,
+      recordId,
+      event: 'started',
+    });
+
+    return saved;
+  }
+
+  /**
+   * Re-evaluate SLA v2 for a record when matching fields change.
+   * Cancels current active instances and re-applies.
+   */
+  async reEvaluateV2(
+    tenantId: string,
+    recordType: string,
+    recordId: string,
+    context: RecordContext,
+    now?: Date,
+  ): Promise<SlaInstance[]> {
+    const currentTime = now || new Date();
+
+    try {
+      // Cancel existing active v2 instances for this record
+      const activeInstances = await this.instanceRepository.find({
+        where: [
+          {
+            tenantId,
+            recordType,
+            recordId,
+            status: SlaInstanceStatus.IN_PROGRESS,
+          },
+          {
+            tenantId,
+            recordType,
+            recordId,
+            status: SlaInstanceStatus.PAUSED,
+          },
+        ],
+      });
+
+      for (const inst of activeInstances) {
+        inst.status = SlaInstanceStatus.CANCELLED;
+        inst.stopAt = currentTime;
+        await this.instanceRepository.save(inst);
+      }
+
+      // Re-apply using v2
+      return this.startSlaV2ForRecord(
+        tenantId,
+        recordType,
+        recordId,
+        context,
+        currentTime,
+      );
+    } catch (err) {
+      this.logger.error(
+        `SLA v2 re-evaluation failed for ${recordType}/${recordId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return [];
+    }
   }
 }

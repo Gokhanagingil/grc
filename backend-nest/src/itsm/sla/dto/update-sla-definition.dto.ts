@@ -6,9 +6,11 @@ import {
   IsBoolean,
   IsArray,
   IsUUID,
+  IsObject,
   Min,
   Max,
   MaxLength,
+  IsDateString,
 } from 'class-validator';
 import { SlaMetric, SlaSchedule } from '../sla-definition.entity';
 
@@ -21,6 +23,8 @@ export class UpdateSlaDefinitionDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  // ── Legacy v1 fields ──────────────────────────────────────────────
 
   @IsOptional()
   @IsEnum(SlaMetric)
@@ -77,4 +81,40 @@ export class UpdateSlaDefinitionDto {
   @IsOptional()
   @IsInt()
   order?: number;
+
+  // ── SLA 2.0 fields ────────────────────────────────────────────────
+
+  @IsOptional()
+  @IsString()
+  appliesToRecordType?: string;
+
+  @IsOptional()
+  @IsObject()
+  conditionTree?: Record<string, unknown> | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  responseTimeSeconds?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  resolutionTimeSeconds?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  priorityWeight?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  stopProcessing?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveFrom?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveTo?: string | null;
 }

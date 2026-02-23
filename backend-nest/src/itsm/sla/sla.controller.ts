@@ -28,6 +28,11 @@ import {
   SlaDefinitionFilterDto,
   SlaInstanceFilterDto,
 } from './dto/sla-filter.dto';
+import {
+  EvaluateSlaDto,
+  ValidateConditionTreeDto,
+} from './dto/evaluate-sla.dto';
+import { slaFieldRegistry } from './condition/sla-field-registry';
 
 @Controller('grc/itsm/sla')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -59,7 +64,8 @@ export class SlaController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    return this.slaService.createDefinition(tenantId, req.user.id, dto);
+
+    return this.slaService.createDefinition(tenantId, req.user.id, dto as any);
   }
 
   @Get('definitions/:id')
@@ -95,7 +101,8 @@ export class SlaController {
       tenantId,
       req.user.id,
       id,
-      dto,
+
+      dto as any,
     );
     if (!def) {
       throw new NotFoundException(`SLA definition ${id} not found`);
@@ -184,5 +191,64 @@ export class SlaController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     return this.slaService.getBreachSummary(tenantId, recordType);
+  }
+
+  // ── SLA Engine 2.0 endpoints ──────────────────────────────────────
+
+  @Get('field-registry')
+  @Permissions(Permission.ITSM_SLA_READ)
+  @Perf()
+  getFieldRegistry(@Query('recordType') recordType?: string) {
+    const rt = recordType || 'INCIDENT';
+    const fields = slaFieldRegistry.getFieldsForRecordType(rt);
+    return { recordType: rt, fields };
+  }
+
+  @Post('validate-condition')
+  @Permissions(Permission.ITSM_SLA_WRITE)
+  @Perf()
+  validateConditionTree(@Body() dto: ValidateConditionTreeDto) {
+    const recordType = dto.recordType || 'INCIDENT';
+    return this.slaService.validateConditionTree(dto.conditionTree, recordType);
+  }
+
+  @Post('evaluate')
+  @Permissions(Permission.ITSM_SLA_READ)
+  @Perf()
+  async evaluateSla(
+    @Headers('x-tenant-id') tenantId: string,
+    @Body() dto: EvaluateSlaDto,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    if (!dto.context) {
+      throw new BadRequestException('context is required for evaluation');
+    }
+    const recordType = dto.recordType || 'INCIDENT';
+    return this.slaService.evaluateV2(tenantId, recordType, dto.context);
+  }
+
+  @Post('records/:recordType/:recordId/reapply')
+  @Permissions(Permission.ITSM_SLA_WRITE)
+  @Perf()
+  async reapplySla(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('recordType') recordType: string,
+    @Param('recordId') recordId: string,
+    @Body() body: { context?: Record<string, unknown> },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    if (!body.context) {
+      throw new BadRequestException('context is required for reapply');
+    }
+    return this.slaService.reEvaluateV2(
+      tenantId,
+      recordType,
+      recordId,
+      body.context,
+    );
   }
 }
