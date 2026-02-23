@@ -36,5 +36,29 @@ export default defineConfig({
         baseURL: BASE_URL,
       },
     },
+    {
+      name: "scenario-pack",
+      testDir: "./tests/platform-health",
+      testMatch: "scenario-pack-smoke.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
+    },
+    {
+      name: "topology",
+      testDir: "./tests/platform-health",
+      testMatch: "topology-smoke.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
+    },
+    {
+      name: "analytics",
+      testDir: "./tests/platform-health",
+      testMatch: "analytics-smoke.spec.ts",
+      use: {
+        baseURL: BASE_URL,
+      },
+    },
   ],
 });
