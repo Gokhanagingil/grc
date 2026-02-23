@@ -130,6 +130,23 @@ jobs:
           echo "Backend failed to start"
           exit 1
 
+      - name: Seed base GRC data (tenant + admin + demo data)
+        env:
+          NODE_ENV: development
+          DB_HOST: ${{ env.CI_DB_HOST }}
+          DB_PORT: ${{ env.CI_DB_PORT }}
+          DB_USER: ${{ env.CI_DB_USER }}
+          DB_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+          DB_NAME: ${{ env.CI_DB_NAME }}
+          JWT_SECRET: ${{ steps.ci_secrets.outputs.jwt_secret }}
+          REFRESH_TOKEN_SECRET: ${{ steps.ci_secrets.outputs.refresh_secret }}
+          REFRESH_TOKEN_EXPIRES_IN: 7d
+          DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
+          DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
+          JOBS_ENABLED: "false"
+        run: node dist/scripts/seed-grc.js
+        working-directory: backend-nest
+
       - name: Seed scenario pack (deterministic data)
         env:
           NODE_ENV: development
