@@ -463,6 +463,9 @@ export const API_PATHS = {
       DELETE: (id: string) => `/grc/cmdb/classes/${id}`,
       TREE: '/grc/cmdb/classes/tree',
       EFFECTIVE_SCHEMA: (id: string) => `/grc/cmdb/classes/${id}/effective-schema`,
+      ANCESTORS: (id: string) => `/grc/cmdb/classes/${id}/ancestors`,
+      DESCENDANTS: (id: string) => `/grc/cmdb/classes/${id}/descendants`,
+      VALIDATE_INHERITANCE: (id: string) => `/grc/cmdb/classes/${id}/validate-inheritance`,
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
@@ -3866,6 +3869,27 @@ export interface ClassTreeNode {
   children: ClassTreeNode[];
 }
 
+/** Validate inheritance request DTO */
+export interface ValidateInheritanceDto {
+  parentClassId: string | null;
+}
+
+/** Validate inheritance response */
+export interface ValidateInheritanceResponse {
+  valid: boolean;
+  errors?: string[];
+  warnings?: string[];
+}
+
+/** Descendant/ancestor list entry */
+export interface ClassDescendantEntry {
+  id: string;
+  name: string;
+  label: string;
+  depth: number;
+  parentClassId: string | null;
+}
+
 export interface CreateCmdbCiClassDto {
   name: string;
   label: string;
@@ -4351,6 +4375,10 @@ export const cmdbApi = {
     delete: (id: string) => api.delete(API_PATHS.CMDB.CLASSES.DELETE(id)),
     tree: () => api.get(API_PATHS.CMDB.CLASSES.TREE),
     effectiveSchema: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.EFFECTIVE_SCHEMA(classId)),
+    ancestors: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.ANCESTORS(classId)),
+    descendants: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.DESCENDANTS(classId)),
+    validateInheritance: (classId: string, data: ValidateInheritanceDto) =>
+      api.post(API_PATHS.CMDB.CLASSES.VALIDATE_INHERITANCE(classId), data),
   },
   cis: {
     list: (params?: CmdbListParams) => {

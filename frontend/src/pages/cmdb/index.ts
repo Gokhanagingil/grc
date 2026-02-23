@@ -2,6 +2,7 @@ export { CmdbCiList } from './CmdbCiList';
 export { CmdbCiDetail } from './CmdbCiDetail';
 export { CmdbCiClassList } from './CmdbCiClassList';
 export { CmdbCiClassDetail } from './CmdbCiClassDetail';
+export { CmdbCiClassTree } from './CmdbCiClassTree';
 export { CmdbServiceList } from './CmdbServiceList';
 export { CmdbServiceDetail } from './CmdbServiceDetail';
 export { CmdbImportJobList } from './CmdbImportJobList';

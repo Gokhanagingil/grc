@@ -12,6 +12,8 @@ import {
   IconButton,
   Switch,
   FormControlLabel,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -26,10 +28,13 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
+  AccountTree as TreeIcon,
 } from '@mui/icons-material';
-import { cmdbApi, CmdbCiClassData, CmdbCiClassFieldDefinition } from '../../services/grcClient';
+import { cmdbApi, CmdbCiClassData, CmdbCiClassFieldDefinition, ValidateInheritanceResponse } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
+import { EffectiveSchemaPanel } from './EffectiveSchemaPanel';
+import { ParentClassSelector } from './ParentClassSelector';
 
 export const CmdbCiClassDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +46,9 @@ export const CmdbCiClassDetail: React.FC = () => {
   const [ciClass, setCiClass] = useState<Partial<CmdbCiClassData>>({});
   const [fieldsSchema, setFieldsSchema] = useState<CmdbCiClassFieldDefinition[]>([]);
   const [parentClass, setParentClass] = useState<CmdbCiClassData | null>(null);
+  const [schemaTab, setSchemaTab] = useState(0);
+  const [pendingParentId, setPendingParentId] = useState<string | null | undefined>(undefined);
+  const [parentValidation, setParentValidation] = useState<ValidateInheritanceResponse | null>(null);
 
   const fetchClass = useCallback(async () => {
     if (!id) return;
@@ -57,6 +65,8 @@ export const CmdbCiClassDetail: React.FC = () => {
       if (classData) {
         setCiClass(classData);
         setFieldsSchema(Array.isArray(classData.fieldsSchema) ? classData.fieldsSchema : []);
+        setPendingParentId(undefined);
+        setParentValidation(null);
         // Fetch parent class if exists
         if (classData.parentClassId) {
           try {
@@ -89,19 +99,37 @@ export const CmdbCiClassDetail: React.FC = () => {
     fetchClass();
   }, [fetchClass]);
 
+  const handleParentChange = useCallback(
+    (newParentId: string | null, validation: ValidateInheritanceResponse | null) => {
+      setPendingParentId(newParentId);
+      setParentValidation(validation);
+    },
+    []
+  );
+
   const handleSave = async () => {
     if (!id || !ciClass.name?.trim() || !ciClass.label?.trim()) {
       showNotification('Name and label are required', 'error');
       return;
     }
+    // Block save if parent validation explicitly failed
+    if (parentValidation && !parentValidation.valid && parentValidation.errors && parentValidation.errors.length > 0) {
+      showNotification('Cannot save: parent class assignment has validation errors.', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      await cmdbApi.classes.update(id, {
+      const updatePayload: Record<string, unknown> = {
         name: ciClass.name,
         label: ciClass.label,
         description: ciClass.description || undefined,
         isActive: ciClass.isActive,
-      });
+      };
+      // Include parent class change if user modified it
+      if (pendingParentId !== undefined) {
+        updatePayload.parentClassId = pendingParentId;
+      }
+      await cmdbApi.classes.update(id, updatePayload);
       showNotification('CI class updated successfully', 'success');
       fetchClass();
     } catch (err) {
@@ -139,6 +167,14 @@ export const CmdbCiClassDetail: React.FC = () => {
           color={ciClass.isActive ? 'success' : 'default'}
         />
         <Box sx={{ flexGrow: 1 }} />
+        <Button
+          variant="outlined"
+          startIcon={<TreeIcon />}
+          onClick={() => navigate('/cmdb/classes/tree')}
+          data-testid="btn-view-tree"
+        >
+          Class Tree
+        </Button>
         <Button
           variant="contained"
           startIcon={<SaveIcon />}
@@ -201,49 +237,86 @@ export const CmdbCiClassDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Fields Schema */}
+          {/* Parent Class Selector */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Parent Class</Typography>
+              <ParentClassSelector
+                classId={id || null}
+                parentClassId={ciClass.parentClassId}
+                onParentChange={handleParentChange}
+                disabled={saving}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Schema Tabs: Local Fields & Effective Schema */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Fields Schema ({fieldsSchema.length} field{fieldsSchema.length !== 1 ? 's' : ''})
-              </Typography>
-              {fieldsSchema.length === 0 ? (
-                <Alert severity="info" data-testid="fields-empty-state">
-                  No custom fields defined for this class. Fields can be inherited from parent classes.
-                </Alert>
-              ) : (
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small" data-testid="fields-schema-table">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Key</TableCell>
-                        <TableCell>Label</TableCell>
-                        <TableCell>Data Type</TableCell>
-                        <TableCell>Required</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {fieldsSchema.map((field) => (
-                        <TableRow key={field.key}>
-                          <TableCell>
-                            <Typography variant="body2" fontFamily="monospace">{field.key}</Typography>
-                          </TableCell>
-                          <TableCell>{field.label}</TableCell>
-                          <TableCell>
-                            <Chip label={field.dataType} size="small" variant="outlined" />
-                          </TableCell>
-                          <TableCell>
-                            {field.required ? (
-                              <Chip label="Required" size="small" color="error" variant="outlined" />
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">Optional</Typography>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+              <Tabs
+                value={schemaTab}
+                onChange={(_, val) => setSchemaTab(val)}
+                sx={{ mb: 2 }}
+                data-testid="schema-tabs"
+              >
+                <Tab
+                  label={`Local Fields (${fieldsSchema.length})`}
+                  data-testid="tab-local-fields"
+                />
+                <Tab
+                  label="Effective Schema"
+                  data-testid="tab-effective-schema"
+                />
+              </Tabs>
+
+              {schemaTab === 0 && (
+                <>
+                  <Typography variant="h6" gutterBottom>
+                    Fields Schema ({fieldsSchema.length} field{fieldsSchema.length !== 1 ? 's' : ''})
+                  </Typography>
+                  {fieldsSchema.length === 0 ? (
+                    <Alert severity="info" data-testid="fields-empty-state">
+                      No custom fields defined for this class. Fields can be inherited from parent classes.
+                    </Alert>
+                  ) : (
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small" data-testid="fields-schema-table">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Key</TableCell>
+                            <TableCell>Label</TableCell>
+                            <TableCell>Data Type</TableCell>
+                            <TableCell>Required</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {fieldsSchema.map((field) => (
+                            <TableRow key={field.key}>
+                              <TableCell>
+                                <Typography variant="body2" fontFamily="monospace">{field.key}</Typography>
+                              </TableCell>
+                              <TableCell>{field.label}</TableCell>
+                              <TableCell>
+                                <Chip label={field.dataType} size="small" variant="outlined" />
+                              </TableCell>
+                              <TableCell>
+                                {field.required ? (
+                                  <Chip label="Required" size="small" color="error" variant="outlined" />
+                                ) : (
+                                  <Typography variant="body2" color="text.secondary">Optional</Typography>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </>
+              )}
+
+              {schemaTab === 1 && id && (
+                <EffectiveSchemaPanel classId={id} />
               )}
             </CardContent>
           </Card>
@@ -288,8 +361,18 @@ export const CmdbCiClassDetail: React.FC = () => {
                 variant="outlined"
                 onClick={() => navigate(`/cmdb/cis?classId=${id}`)}
                 data-testid="btn-view-class-cis"
+                sx={{ mb: 1 }}
               >
                 View CIs of this Class
+              </Button>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<TreeIcon />}
+                onClick={() => navigate('/cmdb/classes/tree')}
+                data-testid="btn-view-hierarchy"
+              >
+                View Class Hierarchy
               </Button>
             </CardContent>
           </Card>
