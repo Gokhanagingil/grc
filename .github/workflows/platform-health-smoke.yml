@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: platform-health-report-tier1
           path: test-results/platform-health-report.json
@@ -230,7 +230,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: platform-health-report-staging
           path: test-results/platform-health-report.json

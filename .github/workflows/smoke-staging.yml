@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload Golden Flow Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: golden-flow-results
           path: golden-flow-output.txt
@@ -256,7 +256,7 @@ jobs:
 
       - name: Upload Playwright Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-smoke-report-staging
           path: frontend/playwright-report/
@@ -264,7 +264,7 @@ jobs:
 
       - name: Upload Test Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-smoke-artifacts-staging
           path: frontend/test-results/

@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: platform-health-report-real-stack
           path: test-results/platform-health-report.json
