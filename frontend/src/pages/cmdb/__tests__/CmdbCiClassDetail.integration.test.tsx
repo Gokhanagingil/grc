@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { CmdbCiClassDetail } from '../CmdbCiClassDetail';
 
 const mockNavigate = jest.fn();
 const mockShowNotification = jest.fn();
@@ -55,9 +56,6 @@ jest.mock('../../../services/grcClient', () => ({
     },
   },
 }));
-
-// Dynamically import after mocks
-import { CmdbCiClassDetail } from '../CmdbCiClassDetail';
 
 const sampleClass = {
   id: 'cls-server',
