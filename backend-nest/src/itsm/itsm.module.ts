@@ -126,6 +126,17 @@ import { SuggestedTaskPackService } from './change/risk/topology-impact/suggeste
 import { TraceabilitySummaryService } from './change/risk/topology-impact/traceability-summary.service';
 import { TopologyImpactController } from './change/risk/topology-impact/topology-impact.controller';
 
+import { ItsmChangeTask } from './change/task/change-task.entity';
+import { ItsmChangeTaskDependency } from './change/task/change-task-dependency.entity';
+import { ChangeTaskService } from './change/task/change-task.service';
+import { ChangeTaskController } from './change/task/change-task.controller';
+
+import { ItsmChangeTemplate } from './change/template/change-template.entity';
+import { ItsmChangeTemplateTask } from './change/template/change-template-task.entity';
+import { ItsmChangeTemplateDependency } from './change/template/change-template-dependency.entity';
+import { ChangeTemplateService } from './change/template/change-template.service';
+import { ChangeTemplateController } from './change/template/change-template.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -166,6 +177,11 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
       ItsmPir,
       ItsmPirAction,
       ItsmKnowledgeCandidate,
+      ItsmChangeTask,
+      ItsmChangeTaskDependency,
+      ItsmChangeTemplate,
+      ItsmChangeTemplateTask,
+      ItsmChangeTemplateDependency,
     ]),
     AuditModule,
     AuthModule,
@@ -212,6 +228,8 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     RcaHypothesisDecisionService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
+    ChangeTaskService,
+    ChangeTemplateService,
   ],
   controllers:[
     IncidentController,
@@ -238,6 +256,8 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     KnowledgeCandidateController,
     AnalyticsController,
     TopologyImpactController,
+    ChangeTaskController,
+    ChangeTemplateController,
   ],
   exports: [
     IncidentService,
@@ -277,6 +297,8 @@ import { TopologyImpactController } from './change/risk/topology-impact/topology
     RcaHypothesisDecisionService,
     SuggestedTaskPackService,
     TraceabilitySummaryService,
+    ChangeTaskService,
+    ChangeTemplateService,
   ],
 })
 export class ItsmModule {}
