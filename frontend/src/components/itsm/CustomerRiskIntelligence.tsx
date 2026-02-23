@@ -39,7 +39,24 @@ import {
   RelevancePath,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { safeArray } from '../../utils/safeHelpers';
 import { AxiosError } from 'axios';
+
+/**
+ * Normalizes a CustomerRiskImpactData payload at the boundary.
+ * Ensures all array fields are always arrays, preventing `.length` / `.map` crashes
+ * when the backend omits or returns null for optional array fields.
+ */
+function normalizeCustomerRiskImpact(raw: CustomerRiskImpactData): CustomerRiskImpactData {
+  return {
+    ...raw,
+    resolvedRisks: safeArray(raw.resolvedRisks).map((risk) => ({
+      ...risk,
+      relevancePaths: safeArray(risk.relevancePaths) as RelevancePath[],
+    })),
+    topReasons: safeArray(raw.topReasons),
+  };
+}
 
 // ---------- helpers ----------
 
@@ -369,7 +386,7 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
       const response = await itsmApi.changes.getCustomerRiskImpact(changeId);
       const responseData = response.data as { data?: CustomerRiskImpactData };
       if (responseData?.data) {
-        setImpact(responseData.data);
+        setImpact(normalizeCustomerRiskImpact(responseData.data));
       } else {
         setImpact(null);
       }
@@ -398,7 +415,7 @@ export const CustomerRiskIntelligence: React.FC<CustomerRiskIntelligenceProps> =
       const response = await itsmApi.changes.recalculateCustomerRisk(changeId);
       const responseData = response.data as { data?: { customerRiskImpact?: CustomerRiskImpactData } };
       if (responseData?.data?.customerRiskImpact) {
-        setImpact(responseData.data.customerRiskImpact);
+        setImpact(normalizeCustomerRiskImpact(responseData.data.customerRiskImpact));
       } else {
         // Refetch after recalculate
         await fetchImpact();
