@@ -86,6 +86,10 @@ export class CmdbCiClass extends BaseEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Whether this is a system-defined class (baseline content pack managed) */
+  @Column({ name: 'is_system', type: 'boolean', default: false })
+  isSystem: boolean;
+
   @Column({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number;
 
