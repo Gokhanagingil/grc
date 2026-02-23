@@ -6,3 +6,4 @@ export {
   SlaInstanceFilterDto,
   SLA_INSTANCE_SORTABLE_FIELDS,
 } from './sla-filter.dto';
+export { EvaluateSlaDto, ValidateConditionTreeDto } from './evaluate-sla.dto';
