@@ -357,6 +357,77 @@ export function extractPoliciesArray<T = unknown>(response: unknown): T[] {
  * @param response - The API response to extract actions from
  * @returns The actions object, or undefined if not found
  */
+/**
+ * Extracts an array of items from a CMDB paginated API response.
+ * Handles all known envelope variants:
+ * 
+ * 1. { success: true, data: { items: [...], total, ... } }  — NestJS LIST-CONTRACT
+ * 2. { data: { items: [...], total, ... } }                  — partial envelope
+ * 3. { items: [...], total, ... }                             — flat paginated
+ * 4. { success: true, data: [...] }                           — NestJS array envelope
+ * 5. { data: [...] }                                          — partial array envelope
+ * 6. [...]                                                    — flat array
+ * 7. null / undefined                                         — empty
+ * 
+ * @param responseData - The `response.data` from an axios call (i.e. the HTTP body)
+ * @returns An array of items, or empty array if extraction fails
+ */
+export function extractPaginatedItems<T = unknown>(responseData: unknown): T[] {
+  if (responseData === null || responseData === undefined) {
+    return [];
+  }
+
+  // Already an array
+  if (Array.isArray(responseData)) {
+    return responseData as T[];
+  }
+
+  if (typeof responseData !== 'object') {
+    return [];
+  }
+
+  const obj = responseData as Record<string, unknown>;
+
+  // Handle { success: true, data: ... } envelope
+  if ('success' in obj && 'data' in obj) {
+    const inner = obj.data;
+    if (Array.isArray(inner)) {
+      return inner as T[];
+    }
+    if (inner && typeof inner === 'object') {
+      const innerObj = inner as Record<string, unknown>;
+      if ('items' in innerObj && Array.isArray(innerObj.items)) {
+        return innerObj.items as T[];
+      }
+      if ('data' in innerObj && Array.isArray(innerObj.data)) {
+        return innerObj.data as T[];
+      }
+    }
+    return [];
+  }
+
+  // Handle { data: ... } envelope (no success field)
+  if ('data' in obj) {
+    const inner = obj.data;
+    if (Array.isArray(inner)) {
+      return inner as T[];
+    }
+    if (inner && typeof inner === 'object') {
+      const innerObj = inner as Record<string, unknown>;
+      if ('items' in innerObj && Array.isArray(innerObj.items)) {
+        return innerObj.items as T[];
+      }
+    }
+  }
+
+  // Handle flat paginated { items: [...] }
+  if ('items' in obj && Array.isArray(obj.items)) {
+    return obj.items as T[];
+  }
+
+  return [];
+}
+
 export function extractActionsObject<T = unknown>(response: unknown): T | undefined {
   // Handle null/undefined
   if (response === null || response === undefined) {

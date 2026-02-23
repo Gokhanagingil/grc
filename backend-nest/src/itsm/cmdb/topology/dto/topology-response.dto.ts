@@ -36,6 +36,8 @@ export interface TopologyEdge {
   relationType: string;
   /** Human-readable label for the relationship type (from semantics catalog) */
   relationLabel?: string;
+  /** Inverse label (e.g. "Depended On By" for "Depends On") from semantics catalog */
+  inverseLabel?: string;
   /** Direction label for display */
   direction?: 'upstream' | 'downstream' | 'bidirectional';
   /** Directionality from semantics catalog */
@@ -57,6 +59,27 @@ export interface TopologyMeta {
   truncated: boolean;
   /** Warning messages (e.g. 'Graph truncated at 200 nodes') */
   warnings: string[];
+  /** Semantics summary — only present when includeSemantics=true */
+  semanticsSummary?: TopologySemanticsSummary;
+}
+
+/**
+ * Summary of relationship semantics enrichment across the topology graph.
+ * Provides at-a-glance insight into how well the catalog covers the graph's edges.
+ */
+export interface TopologySemanticsSummary {
+  /** Total number of edges in the graph */
+  totalEdges: number;
+  /** Number of edges enriched with semantics from the catalog */
+  semanticsEnrichedEdges: number;
+  /** Number of edges whose relationType was not found in the catalog */
+  unknownRelationTypesCount: number;
+  /** List of relation type names not found in the catalog */
+  unknownRelationTypes: string[];
+  /** Edge counts grouped by riskPropagation value */
+  byRiskPropagation: Record<string, number>;
+  /** Edge counts grouped by directionality value */
+  byDirectionality: Record<string, number>;
 }
 
 /**

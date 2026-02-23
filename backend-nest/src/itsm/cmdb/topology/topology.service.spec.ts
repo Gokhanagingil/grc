@@ -7,6 +7,7 @@ import { CmdbCiRel } from '../ci-rel/ci-rel.entity';
 import { CmdbService } from '../service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../service-offering/cmdb-service-offering.entity';
 import { CmdbServiceCi } from '../service-ci/cmdb-service-ci.entity';
+import { CmdbRelationshipType } from '../relationship-type/relationship-type.entity';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -487,6 +488,147 @@ describe('TopologyService', () => {
 
       // Should have service + ci-1 + ci-2 at minimum
       expect(result.nodes.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('semantics enrichment (includeSemantics=true)', () => {
+    let relTypeRepo: ReturnType<typeof createMockRepo>;
+    let semanticsService: TopologyService;
+
+    beforeEach(async () => {
+      const localCiRepo = createMockRepo();
+      const localCiRelRepo = createMockRepo();
+      const localServiceRepo = createMockRepo();
+      const localOfferingRepo = createMockRepo();
+      const localServiceCiRepo = createMockRepo();
+      relTypeRepo = createMockRepo();
+
+      const mod = await Test.createTestingModule({
+        providers: [
+          TopologyService,
+          { provide: getRepositoryToken(CmdbCi), useValue: localCiRepo },
+          { provide: getRepositoryToken(CmdbCiRel), useValue: localCiRelRepo },
+          { provide: getRepositoryToken(CmdbService), useValue: localServiceRepo },
+          { provide: getRepositoryToken(CmdbServiceOffering), useValue: localOfferingRepo },
+          { provide: getRepositoryToken(CmdbServiceCi), useValue: localServiceCiRepo },
+          { provide: getRepositoryToken(CmdbRelationshipType), useValue: relTypeRepo },
+        ],
+      }).compile();
+
+      semanticsService = mod.get<TopologyService>(TopologyService);
+
+      // Default: root CI exists, has one relationship
+      const rootCi = makeCi('ci-1', 'Web Server');
+      const neighborCi = makeCi('ci-2', 'Database');
+      localCiRepo.findOne.mockResolvedValue(rootCi);
+      localCiRepo.find.mockResolvedValue([neighborCi]);
+
+      const rel = makeRel('rel-1', 'ci-1', 'ci-2', 'depends_on');
+      const qbMock = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([rel]),
+      };
+      localCiRelRepo.createQueryBuilder.mockReturnValue(qbMock);
+      localServiceCiRepo.find.mockResolvedValue([]);
+    });
+
+    it('should enrich edges with relationLabel, directionality, riskPropagation when semantics found', async () => {
+      relTypeRepo.find.mockResolvedValue([
+        {
+          name: 'depends_on',
+          label: 'Depends On',
+          inverseLabel: 'Depended On By',
+          directionality: 'unidirectional',
+          riskPropagation: 'forward',
+          tenantId: TENANT_ID,
+          isDeleted: false,
+        },
+      ]);
+
+      const query = new TopologyQueryDto();
+      query.includeSemantics = true;
+      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+
+      expect(result.edges).toHaveLength(1);
+      expect(result.edges[0].relationLabel).toBe('Depends On');
+      expect(result.edges[0].inverseLabel).toBe('Depended On By');
+      expect(result.edges[0].directionality).toBe('unidirectional');
+      expect(result.edges[0].riskPropagation).toBe('forward');
+    });
+
+    it('should include semanticsSummary in meta when includeSemantics=true', async () => {
+      relTypeRepo.find.mockResolvedValue([
+        {
+          name: 'depends_on',
+          label: 'Depends On',
+          inverseLabel: null,
+          directionality: 'unidirectional',
+          riskPropagation: 'forward',
+          tenantId: TENANT_ID,
+          isDeleted: false,
+        },
+      ]);
+
+      const query = new TopologyQueryDto();
+      query.includeSemantics = true;
+      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+
+      expect(result.meta.semanticsSummary).toBeDefined();
+      const summary = result.meta.semanticsSummary!;
+      expect(summary.totalEdges).toBe(1);
+      expect(summary.semanticsEnrichedEdges).toBe(1);
+      expect(summary.unknownRelationTypesCount).toBe(0);
+      expect(summary.unknownRelationTypes).toEqual([]);
+      expect(summary.byRiskPropagation).toEqual({ forward: 1 });
+      expect(summary.byDirectionality).toEqual({ unidirectional: 1 });
+    });
+
+    it('should report unknown relation types in semanticsSummary', async () => {
+      // No matching type in catalog
+      relTypeRepo.find.mockResolvedValue([]);
+
+      const query = new TopologyQueryDto();
+      query.includeSemantics = true;
+      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+
+      const summary = result.meta.semanticsSummary!;
+      expect(summary.totalEdges).toBe(1);
+      expect(summary.semanticsEnrichedEdges).toBe(0);
+      expect(summary.unknownRelationTypesCount).toBe(1);
+      expect(summary.unknownRelationTypes).toContain('depends_on');
+      expect(summary.byRiskPropagation).toEqual({ unknown: 1 });
+      expect(summary.byDirectionality).toEqual({ unknown: 1 });
+    });
+
+    it('should NOT include semanticsSummary when includeSemantics is false/absent', async () => {
+      const query = new TopologyQueryDto();
+      // includeSemantics defaults to false
+      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+
+      expect(result.meta.semanticsSummary).toBeUndefined();
+      // Edges should NOT have enrichment fields
+      for (const edge of result.edges) {
+        expect(edge.relationLabel).toBeUndefined();
+        expect(edge.directionality).toBeUndefined();
+        expect(edge.riskPropagation).toBeUndefined();
+      }
+    });
+
+    it('should handle gracefully when relTypeRepo.find throws', async () => {
+      relTypeRepo.find.mockRejectedValue(new Error('Table not found'));
+
+      const query = new TopologyQueryDto();
+      query.includeSemantics = true;
+      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+
+      // Should still return valid response, just without enrichment
+      expect(result.edges).toHaveLength(1);
+      expect(result.edges[0].relationLabel).toBeUndefined();
+      // semanticsSummary should still be present but show unknown
+      expect(result.meta.semanticsSummary).toBeDefined();
+      expect(result.meta.semanticsSummary!.unknownRelationTypesCount).toBe(1);
     });
   });
 

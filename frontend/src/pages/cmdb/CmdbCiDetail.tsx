@@ -48,6 +48,7 @@ import {
   EffectiveSchemaResponse,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { extractPaginatedItems } from '../../utils/safeHelpers';
 import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
 import { SchemaFieldRenderer } from '../../components/cmdb/SchemaFieldRenderer';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
@@ -113,15 +114,7 @@ export const CmdbCiDetail: React.FC = () => {
   const fetchClasses = useCallback(async () => {
     try {
       const response = await cmdbApi.classes.list({ pageSize: 100 });
-      const data = response.data;
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner) {
-          setClasses(Array.isArray(inner.items) ? inner.items : []);
-        } else {
-          setClasses(Array.isArray(inner) ? inner : []);
-        }
-      }
+      setClasses(extractPaginatedItems<CmdbCiClassData>(response.data));
     } catch (err) {
       console.error('Error fetching CI classes:', err);
     }
@@ -149,15 +142,7 @@ export const CmdbCiDetail: React.FC = () => {
     if (isNew || !id) return;
     try {
       const response = await cmdbApi.relationships.list({ pageSize: 50, ciId: id });
-      const data = response.data;
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner) {
-          setRelationships(Array.isArray(inner.items) ? inner.items : []);
-        } else {
-          setRelationships(Array.isArray(inner) ? inner : []);
-        }
-      }
+      setRelationships(extractPaginatedItems<CmdbCiRelData>(response.data));
     } catch (err) {
       console.error('Error fetching relationships:', err);
     }
@@ -167,17 +152,7 @@ export const CmdbCiDetail: React.FC = () => {
     if (isNew || !id) return;
     try {
       const response = await cmdbApi.serviceCi.servicesForCi(id, { pageSize: 50 });
-      const data = response.data;
-      let items: CmdbServiceCiData[] = [];
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner) {
-          items = Array.isArray(inner.items) ? inner.items : [];
-        }
-      } else if (data && 'items' in data) {
-        items = Array.isArray(data.items) ? data.items : [];
-      }
-      setRelatedServices(items);
+      setRelatedServices(extractPaginatedItems<CmdbServiceCiData>(response.data));
     } catch (err) {
       console.error('Error fetching related services:', err);
     }
@@ -186,17 +161,7 @@ export const CmdbCiDetail: React.FC = () => {
   const fetchAllServices = useCallback(async () => {
     try {
       const response = await cmdbApi.services.list({ pageSize: 100 });
-      const data = response.data;
-      let items: CmdbServiceData[] = [];
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner) {
-          items = Array.isArray(inner.items) ? inner.items : [];
-        }
-      } else if (data && 'items' in data) {
-        items = Array.isArray(data.items) ? data.items : [];
-      }
-      setAllServices(items);
+      setAllServices(extractPaginatedItems<CmdbServiceData>(response.data));
     } catch (err) {
       console.error('Error fetching services:', err);
     }
@@ -227,18 +192,7 @@ export const CmdbCiDetail: React.FC = () => {
   const fetchAllCis = useCallback(async () => {
     try {
       const response = await cmdbApi.cis.list({ pageSize: 200 });
-      const data = response.data;
-      let items: CmdbCiData[] = [];
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && typeof inner === 'object' && 'items' in inner) {
-          items = Array.isArray(inner.items) ? inner.items : [];
-        } else if (Array.isArray(inner)) {
-          items = inner;
-        }
-      } else if (data && 'items' in data) {
-        items = Array.isArray((data as { items: unknown }).items) ? (data as { items: CmdbCiData[] }).items : [];
-      }
+      const items = extractPaginatedItems<CmdbCiData>(response.data);
       // Filter out current CI from the list
       setAllCis(id ? items.filter(c => c.id !== id) : items);
     } catch (err) {

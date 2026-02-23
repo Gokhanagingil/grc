@@ -15,6 +15,7 @@ import {
   TopologyEdge,
   TopologyMeta,
   TopologyAnnotations,
+  TopologySemanticsSummary,
 } from './dto/topology-response.dto';
 
 /** Maximum number of nodes before truncation */
@@ -213,6 +214,7 @@ export class TopologyService {
         this.enrichNodesWithClassLineage(tenantId, nodeMap),
         this.enrichEdgesWithSemantics(tenantId, finalEdges),
       ]);
+      meta.semanticsSummary = this.buildSemanticsSummary(finalEdges);
     }
 
     const annotations: TopologyAnnotations = {};
@@ -416,6 +418,7 @@ export class TopologyService {
         this.enrichNodesWithClassLineage(tenantId, nodeMap),
         this.enrichEdgesWithSemantics(tenantId, finalEdges),
       ]);
+      meta.semanticsSummary = this.buildSemanticsSummary(finalEdges);
     }
 
     const annotations: TopologyAnnotations = {};
@@ -626,6 +629,9 @@ export class TopologyService {
       const sem = semanticsMap.get(edge.relationType);
       if (sem) {
         edge.relationLabel = sem.label;
+        if (sem.inverseLabel) {
+          edge.inverseLabel = sem.inverseLabel;
+        }
         edge.directionality = sem.directionality as
           | 'unidirectional'
           | 'bidirectional';
@@ -636,6 +642,43 @@ export class TopologyService {
           | 'none';
       }
     }
+  }
+
+  /**
+   * Build a semantics summary from enriched edges.
+   * Provides counts and breakdowns useful for topology intelligence consumers.
+   */
+  private buildSemanticsSummary(
+    edges: TopologyEdge[],
+  ): TopologySemanticsSummary {
+    const totalEdges = edges.length;
+    let semanticsEnrichedEdges = 0;
+    const unknownTypes = new Set<string>();
+    const byRiskPropagation: Record<string, number> = {};
+    const byDirectionality: Record<string, number> = {};
+
+    for (const edge of edges) {
+      if (edge.relationLabel) {
+        semanticsEnrichedEdges++;
+      } else {
+        unknownTypes.add(edge.relationType);
+      }
+
+      const rp = edge.riskPropagation ?? 'unknown';
+      byRiskPropagation[rp] = (byRiskPropagation[rp] ?? 0) + 1;
+
+      const dir = edge.directionality ?? 'unknown';
+      byDirectionality[dir] = (byDirectionality[dir] ?? 0) + 1;
+    }
+
+    return {
+      totalEdges,
+      semanticsEnrichedEdges,
+      unknownRelationTypesCount: unknownTypes.size,
+      unknownRelationTypes: Array.from(unknownTypes),
+      byRiskPropagation,
+      byDirectionality,
+    };
   }
 
   private serviceToNode(svc: CmdbService): TopologyNode {
