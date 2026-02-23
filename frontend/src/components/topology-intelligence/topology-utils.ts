@@ -499,9 +499,9 @@ export function normalizeTraceabilitySummaryResponse(
   const nodes: TraceabilityNodeData[] = Array.isArray(rawNodes)
     ? rawNodes.map((n: Record<string, unknown>) => ({
         id: (n.id as string) ?? '',
-        type: (n.type as string) ?? 'UNKNOWN',
+        type: ((n.type as string) ?? 'UNKNOWN') as TraceabilityNodeData['type'],
         label: (n.label as string) ?? '',
-        status: (n.status as string) ?? 'UNKNOWN',
+        status: ((n.status as string) ?? 'UNKNOWN') as TraceabilityNodeData['status'],
         recordId: (n.recordId as string) ?? '',
         createdAt: (n.createdAt as string) ?? new Date().toISOString(),
         meta: (n.meta as Record<string, unknown>) ?? undefined,
