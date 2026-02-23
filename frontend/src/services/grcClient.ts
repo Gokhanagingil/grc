@@ -528,6 +528,13 @@ export const API_PATHS = {
       CI: (ciId: string) => `/grc/cmdb/topology/ci/${ciId}`,
       SERVICE: (serviceId: string) => `/grc/cmdb/topology/service/${serviceId}`,
     },
+    RELATIONSHIP_TYPES: {
+      LIST: '/grc/cmdb/relationship-types',
+      GET: (id: string) => `/grc/cmdb/relationship-types/${id}`,
+      CREATE: '/grc/cmdb/relationship-types',
+      UPDATE: (id: string) => `/grc/cmdb/relationship-types/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/relationship-types/${id}`,
+    },
   },
 
   // User endpoints (limited in NestJS)
@@ -4236,6 +4243,62 @@ export interface CmdbListParams {
   isActive?: boolean;
 }
 
+// CMDB Relationship Type Types
+export type RelationshipDirectionality = 'unidirectional' | 'bidirectional';
+export type RiskPropagationHint = 'forward' | 'reverse' | 'both' | 'none';
+
+export interface CmdbRelationshipTypeData {
+  id: string;
+  tenantId: string;
+  name: string;
+  label: string;
+  description?: string | null;
+  directionality: RelationshipDirectionality;
+  inverseLabel?: string | null;
+  riskPropagation: RiskPropagationHint;
+  allowedSourceClasses?: string[] | null;
+  allowedTargetClasses?: string[] | null;
+  allowSelfLoop: boolean;
+  allowCycles: boolean;
+  sortOrder: number;
+  isSystem: boolean;
+  isActive: boolean;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCmdbRelationshipTypeDto {
+  name: string;
+  label: string;
+  description?: string;
+  directionality?: RelationshipDirectionality;
+  inverseLabel?: string;
+  riskPropagation?: RiskPropagationHint;
+  allowedSourceClasses?: string[];
+  allowedTargetClasses?: string[];
+  allowSelfLoop?: boolean;
+  allowCycles?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateCmdbRelationshipTypeDto {
+  label?: string;
+  description?: string;
+  directionality?: RelationshipDirectionality;
+  inverseLabel?: string;
+  riskPropagation?: RiskPropagationHint;
+  allowedSourceClasses?: string[];
+  allowedTargetClasses?: string[];
+  allowSelfLoop?: boolean;
+  allowCycles?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
 // CMDB Topology Types
 export interface TopologyNode {
   id: string;
@@ -4493,6 +4556,20 @@ export const cmdbApi = {
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.CMDB.TOPOLOGY.SERVICE(serviceId)}${queryString ? `?${queryString}` : ''}`);
     },
+  },
+  relationshipTypes: {
+    list: (params?: { page?: number; pageSize?: number; q?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.q) searchParams.set('q', params.q);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.RELATIONSHIP_TYPES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.RELATIONSHIP_TYPES.GET(id)),
+    create: (data: CreateCmdbRelationshipTypeDto) => api.post(API_PATHS.CMDB.RELATIONSHIP_TYPES.CREATE, data),
+    update: (id: string, data: UpdateCmdbRelationshipTypeDto) => api.patch(API_PATHS.CMDB.RELATIONSHIP_TYPES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.RELATIONSHIP_TYPES.DELETE(id)),
   },
 };
 
