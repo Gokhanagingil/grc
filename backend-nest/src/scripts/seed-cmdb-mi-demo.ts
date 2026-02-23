@@ -939,6 +939,7 @@ async function seedCmdbMiDemo() {
           await classRepo.update(existing.id, {
             parentClassId: seed.parentClassId,
             isAbstract: seed.isAbstract,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             fieldsSchema: seed.fieldsSchema as any,
             label: seed.label,
             description: seed.description,
@@ -965,6 +966,7 @@ async function seedCmdbMiDemo() {
         await classRepo.update(existingByName.id, {
           parentClassId: seed.parentClassId,
           isAbstract: seed.isAbstract,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           fieldsSchema: seed.fieldsSchema as any,
           label: seed.label,
           description: seed.description,
