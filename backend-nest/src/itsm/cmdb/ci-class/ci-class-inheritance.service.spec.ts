@@ -37,6 +37,7 @@ function makeClass(
     children: [],
     isAbstract: overrides.isAbstract ?? false,
     isActive: overrides.isActive ?? true,
+    isSystem: overrides.isSystem ?? false,
     sortOrder: overrides.sortOrder ?? 0,
     fieldsSchema: overrides.fieldsSchema ?? null,
     metadata: overrides.metadata ?? null,
