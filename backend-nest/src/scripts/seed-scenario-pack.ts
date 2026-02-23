@@ -1477,4 +1477,7 @@ async function seedScenarioPack(): Promise<void> {
 export const SCENARIO_PACK_IDS = ID;
 export const SCENARIO_TENANT_ID = DEMO_TENANT_ID;
 
-void seedScenarioPack();
+// Only run when executed directly (not when imported by tests)
+if (require.main === module) {
+  void seedScenarioPack();
+}

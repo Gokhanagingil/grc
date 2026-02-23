@@ -68,7 +68,7 @@ async function rowExists(
 describe('Scenario Pack — Record Existence', () => {
   test('CIs: 7 scenario CIs exist', async () => {
     const count = await countRows(
-      'cmdb_cis',
+      'cmdb_ci',
       `tenant_id = $1 AND id LIKE 'dddd0200%' AND is_deleted = false`,
       [TENANT],
     );
@@ -78,7 +78,7 @@ describe('Scenario Pack — Record Existence', () => {
   test('CI Relationships: 8 scenario relationships exist', async () => {
     // Count rels where BOTH source and target are scenario CIs
     const count = await countRows(
-      'cmdb_ci_rels',
+      'cmdb_ci_rel',
       `tenant_id = $1 AND source_ci_id LIKE 'dddd0200%' AND target_ci_id LIKE 'dddd0200%' AND is_deleted = false`,
       [TENANT],
     );
@@ -221,7 +221,7 @@ describe('Scenario Pack — Idempotency', () => {
 
   test('CI count is exactly 7 (no duplicates)', async () => {
     const count = await countRows(
-      'cmdb_cis',
+      'cmdb_ci',
       `tenant_id = $1 AND id LIKE 'dddd0200%' AND is_deleted = false`,
       [TENANT],
     );
@@ -230,7 +230,7 @@ describe('Scenario Pack — Idempotency', () => {
 
   test('Relationship count is exactly 8 (no duplicates)', async () => {
     const count = await countRows(
-      'cmdb_ci_rels',
+      'cmdb_ci_rel',
       `tenant_id = $1 AND source_ci_id LIKE 'dddd0200%' AND target_ci_id LIKE 'dddd0200%' AND is_deleted = false`,
       [TENANT],
     );
@@ -257,7 +257,7 @@ describe('Scenario Pack — Idempotency', () => {
 
   test('Deterministic IDs are stable (CI lookup by name)', async () => {
     const rows: Array<{ id: string }> = await ds.query(
-      `SELECT id FROM cmdb_cis WHERE tenant_id = $1 AND name = $2 AND is_deleted = false`,
+      `SELECT id FROM cmdb_ci WHERE tenant_id = $1 AND name = $2 AND is_deleted = false`,
       [TENANT, 'SCEN-BANKING-DB'],
     );
     expect(rows.length).toBe(1);
@@ -350,7 +350,7 @@ describe('Scenario Pack — Relationship Integrity', () => {
   test('Partial data: Backup DB CI has null IP/DNS (confidence degradation)', async () => {
     const rows: Array<{ ip_address: string | null; dns_name: string | null }> =
       await ds.query(
-        `SELECT ip_address, dns_name FROM cmdb_cis WHERE id = $1 AND tenant_id = $2`,
+        `SELECT ip_address, dns_name FROM cmdb_ci WHERE id = $1 AND tenant_id = $2`,
         [ID.CI_BACKUP_DB, TENANT],
       );
     expect(rows[0].ip_address).toBeNull();
