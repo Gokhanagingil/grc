@@ -5,13 +5,12 @@ import {
   MaxLength,
   ValidateNested,
   IsArray,
-  IsEnum,
-  IsUUID,
-  IsInt,
-  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TemplateTaskDefinitionDto, TemplateDependencyDefinitionDto } from './create-change-template.dto';
+import {
+  TemplateTaskDefinitionDto,
+  TemplateDependencyDefinitionDto,
+} from './create-change-template.dto';
 
 export class UpdateChangeTemplateDto {
   @IsString()

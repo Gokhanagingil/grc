@@ -62,7 +62,12 @@ export class ChangeTemplateService {
       tasks?: TemplateTaskDefinitionDto[];
       dependencies?: TemplateDependencyDefinitionDto[];
     },
-  ): Promise<ItsmChangeTemplate & { tasks: ItsmChangeTemplateTask[]; dependencies: ItsmChangeTemplateDependency[] }> {
+  ): Promise<
+    ItsmChangeTemplate & {
+      tasks: ItsmChangeTemplateTask[];
+      dependencies: ItsmChangeTemplateDependency[];
+    }
+  > {
     // Check code uniqueness
     const existing = await this.templateRepo.findOne({
       where: { tenantId, code: data.code, isDeleted: false },
@@ -125,9 +130,7 @@ export class ChangeTemplateService {
     // Save template dependencies
     let savedDeps: ItsmChangeTemplateDependency[] = [];
     if (data.dependencies && data.dependencies.length > 0) {
-      const taskKeySet = new Set(
-        (data.tasks || []).map((t) => t.taskKey),
-      );
+      const taskKeySet = new Set((data.tasks || []).map((t) => t.taskKey));
 
       for (const dep of data.dependencies) {
         if (!taskKeySet.has(dep.predecessorTaskKey)) {
@@ -187,7 +190,9 @@ export class ChangeTemplateService {
     }
 
     // Topological sort / cycle detection using DFS
-    const WHITE = 0, GRAY = 1, BLACK = 2;
+    const WHITE = 0,
+      GRAY = 1,
+      BLACK = 2;
     const color = new Map<string, number>();
     for (const key of taskKeys) {
       color.set(key, WHITE);
@@ -205,9 +210,7 @@ export class ChangeTemplateService {
 
     for (const key of taskKeys) {
       if (color.get(key) === WHITE && hasCycle(key)) {
-        throw new BadRequestException(
-          'Template dependencies contain a cycle',
-        );
+        throw new BadRequestException('Template dependencies contain a cycle');
       }
     }
   }
@@ -228,10 +231,9 @@ export class ChangeTemplateService {
     }
 
     if (search) {
-      qb.andWhere(
-        '(tmpl.name ILIKE :search OR tmpl.code ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      qb.andWhere('(tmpl.name ILIKE :search OR tmpl.code ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     const total = await qb.getCount();
@@ -352,10 +354,6 @@ export class ChangeTemplateService {
         .execute();
 
       if (data.dependencies.length > 0) {
-        const taskKeySet = new Set(
-          (data.tasks || []).map((t) => t.taskKey),
-        );
-
         for (const dep of data.dependencies) {
           if (dep.predecessorTaskKey === dep.successorTaskKey) {
             throw new BadRequestException(
