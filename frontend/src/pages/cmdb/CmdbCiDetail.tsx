@@ -231,14 +231,19 @@ export const CmdbCiDetail: React.FC = () => {
       let items: CmdbCiData[] = [];
       if (data && 'data' in data) {
         const inner = data.data;
-        if (inner && 'items' in inner) {
+        if (inner && typeof inner === 'object' && 'items' in inner) {
           items = Array.isArray(inner.items) ? inner.items : [];
+        } else if (Array.isArray(inner)) {
+          items = inner;
         }
+      } else if (data && 'items' in data) {
+        items = Array.isArray((data as { items: unknown }).items) ? (data as { items: CmdbCiData[] }).items : [];
       }
       // Filter out current CI from the list
       setAllCis(id ? items.filter(c => c.id !== id) : items);
     } catch (err) {
-      console.error('Error fetching CIs:', err);
+      console.error('Error fetching CIs for relationship selector:', err);
+      setAllCis([]);
     }
   }, [id]);
 

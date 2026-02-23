@@ -674,13 +674,20 @@ export const ItsmProblemDetail: React.FC = () => {
                         ))}
                       </Select>
                     </FormControl>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Category"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Category</InputLabel>
+                      <Select value={category} label="Category" onChange={(e) => setCategory(e.target.value)}>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        <MenuItem value="HARDWARE">Hardware</MenuItem>
+                        <MenuItem value="SOFTWARE">Software</MenuItem>
+                        <MenuItem value="NETWORK">Network</MenuItem>
+                        <MenuItem value="SECURITY">Security</MenuItem>
+                        <MenuItem value="DATABASE">Database</MenuItem>
+                        <MenuItem value="APPLICATION">Application</MenuItem>
+                        <MenuItem value="INFRASTRUCTURE">Infrastructure</MenuItem>
+                        <MenuItem value="OTHER">Other</MenuItem>
+                      </Select>
+                    </FormControl>
                   </Box>
                 </CardContent>
               </Card>
