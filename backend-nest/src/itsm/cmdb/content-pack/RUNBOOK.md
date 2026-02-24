@@ -87,15 +87,31 @@ The content pack is **safe to run multiple times**:
 ```bash
 # List CI classes (should show 20 system classes)
 curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
-  http://localhost:3000/grc/cmdb/ci-classes
+  http://localhost:3000/grc/cmdb/classes
 
-# Get class tree (should show hierarchy)
+# Get class tree (should show hierarchy with isSystem field)
 curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
-  http://localhost:3000/grc/cmdb/ci-classes/tree
+  http://localhost:3000/grc/cmdb/classes/tree
+
+# Get class summary counts (total/system/custom/abstract)
+curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3000/grc/cmdb/classes/summary
+
+# Check content pack status
+curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3000/grc/cmdb/classes/content-pack-status
+
+# Filter system-only classes
+curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  "http://localhost:3000/grc/cmdb/classes?isSystem=true"
+
+# Filter custom-only classes
+curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  "http://localhost:3000/grc/cmdb/classes?isSystem=false"
 
 # Get effective schema for linux_server
 curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
-  http://localhost:3000/grc/cmdb/ci-classes/c1a00000-0000-0000-0000-000000000013/effective-schema
+  http://localhost:3000/grc/cmdb/classes/c1a00000-0000-0000-0000-000000000013/effective-schema
 
 # List relationship types (should show 9 system types)
 curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
@@ -104,10 +120,27 @@ curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
 
 ### UI Verification
 
-1. **Class Tree** (`/cmdb/classes/tree`): Should display the full hierarchy with 4 top-level branches
-2. **Effective Schema**: Click any leaf class (e.g., Linux Server) → should show inherited + local fields
-3. **Parent Selector**: Create new class → parent dropdown should list all 20 system classes
-4. **Relationship Types** (`/cmdb/relationship-types`): Should show 9 system types with semantics
+1. **Class List** (`/cmdb/classes`): Should display classes with **System** / **Custom** badges
+2. **Summary Banner**: Class list page should show total/system/custom/abstract counts at top
+3. **Class Tree Link**: Class list should have a "Class Tree" button in the header
+4. **Class Tree** (`/cmdb/classes/tree`): Should display the full hierarchy with **System** badges on system nodes
+5. **Tree Summary**: Tree page should show system/custom counts in summary chips
+6. **Class Detail**: Detail header should show **System** or **Custom** badge
+7. **Empty Local Fields**: Classes with no local fields should show guidance to view Effective Schema tab
+8. **Effective Schema**: Click any leaf class (e.g., Linux Server) → should show inherited + local fields
+9. **Parent Selector**: Create new class → parent dropdown should list all 20 system classes
+10. **Relationship Types** (`/cmdb/relationship-types`): Should show 9 system types with semantics
+
+### Content Pack Status Verification
+
+```bash
+# Check if content pack was applied (returns applied=true/false, version, counts)
+curl -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  http://localhost:3000/grc/cmdb/classes/content-pack-status
+
+# Expected response when applied:
+# { "applied": true, "version": "v1.0.0", "systemClasses": 19, "customClasses": 0, "totalClasses": 19, "abstractClasses": 5 }
+```
 
 ---
 

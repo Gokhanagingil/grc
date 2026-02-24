@@ -115,6 +115,33 @@ export class CiClassService extends MultiTenantServiceBase<CmdbCiClass> {
     return true;
   }
 
+  /**
+   * Get summary counts for classes (total, system, custom, abstract).
+   */
+  async getClassSummary(
+    tenantId: string,
+  ): Promise<{
+    total: number;
+    system: number;
+    custom: number;
+    abstract: number;
+  }> {
+    const qb = this.repository.createQueryBuilder('cls');
+    qb.where('cls.tenantId = :tenantId', { tenantId });
+    qb.andWhere('cls.isDeleted = :isDeleted', { isDeleted: false });
+
+    const allClasses = await qb.getMany();
+    const total = allClasses.length;
+    const system = allClasses.filter((c) => c.isSystem).length;
+    const abstract_ = allClasses.filter((c) => c.isAbstract).length;
+    return {
+      total,
+      system,
+      custom: total - system,
+      abstract: abstract_,
+    };
+  }
+
   async findWithFilters(
     tenantId: string,
     filterDto: CiClassFilterDto,
@@ -127,6 +154,7 @@ export class CiClassService extends MultiTenantServiceBase<CmdbCiClass> {
       search,
       q,
       isActive,
+      isSystem,
     } = filterDto;
 
     const qb = this.repository.createQueryBuilder('cls');
@@ -136,6 +164,10 @@ export class CiClassService extends MultiTenantServiceBase<CmdbCiClass> {
 
     if (isActive !== undefined) {
       qb.andWhere('cls.isActive = :isActive', { isActive });
+    }
+
+    if (isSystem !== undefined) {
+      qb.andWhere('cls.isSystem = :isSystem', { isSystem });
     }
 
     const searchTerm = search || q;

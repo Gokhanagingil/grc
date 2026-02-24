@@ -158,6 +158,12 @@ export const CmdbCiClassDetail: React.FC = () => {
         <Typography variant="h4" fontWeight={600}>
           {ciClass.label || ciClass.name || 'CI Class Detail'}
         </Typography>
+        {ciClass.isSystem && (
+          <Chip label="System" size="small" color="primary" data-testid="detail-system-badge" />
+        )}
+        {!ciClass.isSystem && (
+          <Chip label="Custom" size="small" variant="outlined" color="secondary" data-testid="detail-custom-badge" />
+        )}
         {ciClass.isAbstract && (
           <Chip label="Abstract" size="small" variant="outlined" color="warning" />
         )}
@@ -276,7 +282,10 @@ export const CmdbCiClassDetail: React.FC = () => {
                   </Typography>
                   {fieldsSchema.length === 0 ? (
                     <Alert severity="info" data-testid="fields-empty-state">
-                      No custom fields defined for this class. Fields can be inherited from parent classes.
+                      No local fields defined for this class.{' '}
+                      {ciClass.parentClassId
+                        ? 'This class may inherit fields from parent classes. Switch to the Effective Schema tab to see all inherited and local fields.'
+                        : 'Add fields above or assign a parent class to inherit fields.'}
                     </Alert>
                   ) : (
                     <TableContainer component={Paper} variant="outlined">

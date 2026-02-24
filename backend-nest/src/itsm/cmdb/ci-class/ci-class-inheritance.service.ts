@@ -17,6 +17,7 @@ export interface ClassTreeNode {
   parentClassId: string | null;
   isAbstract: boolean;
   isActive: boolean;
+  isSystem: boolean;
   sortOrder: number;
   /** Number of local fields defined on this class */
   localFieldCount: number;
@@ -95,6 +96,7 @@ export class CiClassInheritanceService {
         parentClassId: cls.parentClassId,
         isAbstract: cls.isAbstract,
         isActive: cls.isActive,
+        isSystem: cls.isSystem ?? false,
         sortOrder: cls.sortOrder,
         localFieldCount: cls.fieldsSchema?.length ?? 0,
         children: kids.map(buildNode),

@@ -56,6 +56,47 @@ export class CiClassController {
     return this.inheritanceService.getClassTree(tenantId);
   }
 
+  /**
+   * GET /grc/cmdb/classes/summary
+   * Returns summary counts: total, system, custom, abstract.
+   */
+  @Get('summary')
+  @Permissions(Permission.CMDB_CLASS_READ)
+  @Perf()
+  async getClassSummary(
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return this.ciClassService.getClassSummary(tenantId);
+  }
+
+  /**
+   * GET /grc/cmdb/classes/content-pack-status
+   * Returns the status of the CMDB baseline content pack for this tenant.
+   */
+  @Get('content-pack-status')
+  @Permissions(Permission.CMDB_CLASS_READ)
+  @Perf()
+  async getContentPackStatus(
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const summary = await this.ciClassService.getClassSummary(tenantId);
+    const applied = summary.system > 0;
+    return {
+      applied,
+      version: applied ? 'v1.0.0' : null,
+      systemClasses: summary.system,
+      customClasses: summary.custom,
+      totalClasses: summary.total,
+      abstractClasses: summary.abstract,
+    };
+  }
+
   // ========================================================================
   // Standard CRUD
   // ========================================================================
