@@ -37,6 +37,11 @@ import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { IncidentImpactTab } from '../../components/itsm/IncidentImpactTab';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
+import {
+  normalizeUpdatePayload,
+  INCIDENT_UPDATE_FIELDS,
+  INCIDENT_EMPTY_STRING_FIELDS,
+} from '../../utils/payloadNormalizer';
 
 interface ItsmIncident {
   id: string;
@@ -303,8 +308,9 @@ export const ItsmIncidentDetail: React.FC = () => {
           navigate('/itsm/incidents');
         }
       } else if (id) {
-        // UPDATE: Backend expects 'status' not 'state'; 'priority' is computed, do not send
-        const updatePayload = {
+        // UPDATE: Backend expects 'status' not 'state'; 'priority' is computed (forbidden), do not send.
+        // Use normalizeUpdatePayload to strip forbidden fields and empty strings.
+        const rawPayload: Record<string, unknown> = {
           shortDescription: incident.shortDescription,
           description: incident.description || undefined,
           status: incident.state || undefined, // frontend uses 'state', backend DTO expects 'status'
@@ -315,7 +321,12 @@ export const ItsmIncidentDetail: React.FC = () => {
           serviceId: incident.serviceId || undefined,
           offeringId: incident.offeringId || undefined,
         };
-        await itsmApi.incidents.update(id, updatePayload);
+        const cleanPayload = normalizeUpdatePayload(
+          rawPayload,
+          INCIDENT_UPDATE_FIELDS,
+          INCIDENT_EMPTY_STRING_FIELDS,
+        );
+        await itsmApi.incidents.update(id, cleanPayload);
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
       }

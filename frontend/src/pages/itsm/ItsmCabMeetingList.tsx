@@ -37,6 +37,8 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { itsmApi, CabMeetingData } from '../../services/grcClient';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
+import { stripUndefined, CAB_MEETING_CREATE_FIELDS, stripForbiddenFields } from '../../utils/payloadNormalizer';
 
 const CAB_STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'> = {
   DRAFT: 'default',
@@ -100,19 +102,21 @@ export default function ItsmCabMeetingList() {
     if (!newTitle || !newMeetingAt) return;
     setCreating(true);
     try {
-      await itsmApi.cabMeetings.create({
+      const rawPayload: Record<string, unknown> = {
         title: newTitle,
         meetingAt: new Date(newMeetingAt).toISOString(),
         endAt: newEndAt ? new Date(newEndAt).toISOString() : undefined,
-      });
+      };
+      const cleanPayload = stripUndefined(stripForbiddenFields(rawPayload, CAB_MEETING_CREATE_FIELDS));
+      await itsmApi.cabMeetings.create(cleanPayload);
       setCreateOpen(false);
       setNewTitle('');
       setNewMeetingAt('');
       setNewEndAt('');
       fetchMeetings();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create meeting';
-      setError(msg);
+      const classified = classifyApiError(err);
+      setError(classified.message || 'Failed to create meeting');
     } finally {
       setCreating(false);
     }

@@ -36,15 +36,14 @@ import {
 } from '@mui/icons-material';
 import { itsmApi, ChangeTemplateData, ChangeTemplateTaskData, ChangeTemplateDependencyData } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
-import { AxiosError } from 'axios';
-
-interface ApiValidationErrorData {
-  error?: {
-    message?: string;
-    fieldErrors?: { field: string; message: string }[];
-  };
-  message?: string | string[];
-}
+import { classifyApiError } from '../../utils/apiErrorClassifier';
+import {
+  stripForbiddenFields,
+  stripUndefined,
+  CHANGE_TEMPLATE_UPDATE_FIELDS,
+} from '../../utils/payloadNormalizer';
+// AxiosError and ApiValidationErrorData retained for backward compat but error handling
+// now uses classifyApiError() which handles all envelope variants internally.
 
 export const ItsmChangeTemplateDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -139,16 +138,16 @@ export const ItsmChangeTemplateDetail: React.FC = () => {
           navigate('/itsm/change-templates');
         }
       } else if (id) {
-        const updatePayload: Record<string, unknown> = {
+        // Build update payload WITHOUT 'code' (readonly after create, not in UpdateChangeTemplateDto)
+        const rawPayload: Record<string, unknown> = {
           name: template.name,
-          code: template.code,
           description: template.description || null,
           isActive: template.isActive ?? true,
           isGlobal: template.isGlobal ?? false,
         };
         // Include tasks and dependencies if they were edited
         if (tasksDirty) {
-          updatePayload.tasks = tasks.map((t, idx) => ({
+          rawPayload.tasks = tasks.map((t, idx) => ({
             taskKey: t.taskKey,
             title: t.title,
             description: t.description || null,
@@ -161,35 +160,28 @@ export const ItsmChangeTemplateDetail: React.FC = () => {
             sortOrder: t.sortOrder ?? idx,
             stageLabel: t.stageLabel || null,
           }));
-          updatePayload.dependencies = dependencies.map((d) => ({
+          rawPayload.dependencies = dependencies.map((d) => ({
             predecessorTaskKey: d.predecessorTaskKey,
             successorTaskKey: d.successorTaskKey,
           }));
         }
-        await itsmApi.changeTemplates.update(id, updatePayload);
+        // Strip any fields not in the DTO allowlist (e.g. 'code' leaking from form state)
+        const cleanPayload = stripUndefined(stripForbiddenFields(rawPayload, CHANGE_TEMPLATE_UPDATE_FIELDS));
+        await itsmApi.changeTemplates.update(id, cleanPayload);
         showNotification('Change template updated successfully', 'success');
         fetchTemplate();
       }
     } catch (error: unknown) {
       console.error('Error saving change template:', error);
-      const axiosErr = error as AxiosError<ApiValidationErrorData>;
-      if (axiosErr?.response?.status === 403) {
+      const classified = classifyApiError(error);
+      if (classified.kind === 'forbidden') {
         showNotification('You don\'t have permission to manage change templates.', 'error');
-      } else if (axiosErr?.response?.status === 409) {
+      } else if (classified.kind === 'conflict') {
         showNotification('A template with this code already exists.', 'error');
+      } else if (classified.kind === 'validation') {
+        showNotification(`Validation error: ${classified.message}`, 'error');
       } else {
-        const fieldErrors = axiosErr?.response?.data?.error?.fieldErrors;
-        const errMsg = axiosErr?.response?.data?.error?.message;
-        const msgArr = axiosErr?.response?.data?.message;
-        if (fieldErrors && fieldErrors.length > 0) {
-          showNotification(fieldErrors.map(e => `${e.field}: ${e.message}`).join(', '), 'error');
-        } else if (errMsg) {
-          showNotification(errMsg, 'error');
-        } else if (Array.isArray(msgArr)) {
-          showNotification(msgArr.join(', '), 'error');
-        } else {
-          showNotification('Failed to save change template', 'error');
-        }
+        showNotification(classified.message || 'Failed to save change template', 'error');
       }
     } finally {
       setSaving(false);

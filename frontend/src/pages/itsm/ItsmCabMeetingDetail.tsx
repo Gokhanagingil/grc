@@ -40,6 +40,12 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { itsmApi, CabMeetingData, CabAgendaItemData } from '../../services/grcClient';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
+import {
+  normalizeUpdatePayload,
+  CAB_MEETING_UPDATE_FIELDS,
+  CAB_MEETING_EMPTY_STRING_FIELDS,
+} from '../../utils/payloadNormalizer';
 
 const CAB_STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'> = {
   DRAFT: 'default',
@@ -148,18 +154,31 @@ export default function ItsmCabMeetingDetail() {
     setSaving(true);
     setError(null);
     try {
-      await itsmApi.cabMeetings.update(id, {
+      const rawPayload: Record<string, unknown> = {
         title: editTitle,
         status: editStatus,
         notes: editNotes || undefined,
         summary: editSummary || undefined,
         meetingAt: editMeetingAt ? new Date(editMeetingAt).toISOString() : undefined,
         endAt: editEndAt ? new Date(editEndAt).toISOString() : undefined,
-      });
+      };
+      const cleanPayload = normalizeUpdatePayload(
+        rawPayload,
+        CAB_MEETING_UPDATE_FIELDS,
+        CAB_MEETING_EMPTY_STRING_FIELDS,
+      );
+      await itsmApi.cabMeetings.update(id, cleanPayload);
       fetchMeeting();
+      setError(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save meeting';
-      setError(msg);
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        setError(`Validation failed: ${classified.message}`);
+      } else if (classified.kind === 'forbidden') {
+        setError('You do not have permission to update this meeting.');
+      } else {
+        setError(classified.message || 'Failed to save meeting');
+      }
     } finally {
       setSaving(false);
     }
