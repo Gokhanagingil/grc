@@ -604,7 +604,7 @@ export default function ItsmCabMeetingDetail() {
                     {c.number || c.id?.slice(0, 8)} — {c.title || 'Untitled'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {c.type || ''} {c.risk ? `| Risk: ${c.risk}` : ''} {c.status ? `| ${c.status}` : ''}
+                    {c.type || ''} {c.risk ? `| Risk: ${c.risk}` : ''} {c.state ? `| ${c.state}` : ''}
                   </Typography>
                 </Box>
               ))}
