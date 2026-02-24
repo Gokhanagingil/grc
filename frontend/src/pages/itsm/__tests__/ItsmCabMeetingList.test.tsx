@@ -114,9 +114,9 @@ describe('ItsmCabMeetingList — Rendering Tests', () => {
     render(<ItsmCabMeetingList />);
     await waitFor(() => {
       expect(screen.getByText('CAB-00001')).toBeInTheDocument();
-      expect(screen.getByText('Weekly CAB Review')).toBeInTheDocument();
-      expect(screen.getByText('SCHEDULED')).toBeInTheDocument();
     });
+    expect(screen.getByText('Weekly CAB Review')).toBeInTheDocument();
+    expect(screen.getByText('SCHEDULED')).toBeInTheDocument();
   });
 
   it('handles null response data without crash', async () => {
