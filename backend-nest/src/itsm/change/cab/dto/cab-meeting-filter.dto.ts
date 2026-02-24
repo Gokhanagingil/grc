@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsNumberString } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const CAB_MEETING_SORTABLE_FIELDS = [
   'meetingAt',
@@ -11,11 +12,16 @@ export const CAB_MEETING_SORTABLE_FIELDS = [
 
 export class CabMeetingFilterDto {
   @IsOptional()
-  @IsNumberString()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
-  @IsNumberString()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   pageSize?: number;
 
   @IsOptional()

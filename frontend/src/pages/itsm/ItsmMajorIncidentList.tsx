@@ -21,20 +21,10 @@ import {
   itsmApi,
   ItsmMajorIncidentData,
   CreateItsmMajorIncidentDto,
+  unwrapPaginatedResponse,
 } from '../../services/grcClient';
-import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
-    return 'Session expired. Please log in again.';
-  }
-  const axErr = error as { response?: { status?: number } };
-  if (axErr.response?.status === 401) {
-    return 'Session expired. Please log in again.';
-  }
-  return 'Failed to load major incidents. Please try again.';
-}
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 const statusColors: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
   DECLARED: 'error',
@@ -119,24 +109,15 @@ export const ItsmMajorIncidentList: React.FC = () => {
         status: statusFilter || undefined,
         severity: severityFilter || undefined,
       });
-      const data = response.data;
-      if (data && typeof data === 'object') {
-        const envelope = data as Record<string, unknown>;
-        // LIST-CONTRACT: direct { items, total, page, pageSize, totalPages }
-        if ('items' in envelope && Array.isArray(envelope.items)) {
-          setItems(envelope.items as ItsmMajorIncidentData[]);
-          setTotal((envelope.total as number) || 0);
-        } else {
-          setItems([]);
-          setTotal(0);
-        }
-      } else {
-        setItems([]);
-        setTotal(0);
-      }
+      const { items, total: totalCount } = unwrapPaginatedResponse<ItsmMajorIncidentData>(response);
+      setItems(items);
+      setTotal(totalCount);
     } catch (err) {
       console.error('Error fetching major incidents:', err);
-      const msg = getErrorMessage(err);
+      const classified = classifyApiError(err);
+      const msg = classified.kind === 'auth'
+        ? 'Session expired. Please log in again.'
+        : classified.message || 'Failed to load major incidents. Please try again.';
       setError(msg);
       showNotification(msg, 'error');
       setItems([]);

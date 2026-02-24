@@ -50,6 +50,34 @@ jest.mock('../../../services/grcClient', () => ({
       delete: (...args: unknown[]) => mockCabDelete(...args),
     },
   },
+  unwrapPaginatedResponse: (res: { data: unknown }) => {
+    const data = res.data as Record<string, unknown>;
+    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+      const inner = data.data as { items?: unknown[]; total?: number };
+      return { items: inner?.items || [], total: inner?.total || 0, page: 1, pageSize: 20 };
+    }
+    if (data && typeof data === 'object' && 'items' in data) {
+      const d = data as { items: unknown[]; total?: number };
+      return { items: d.items, total: d.total || 0, page: 1, pageSize: 20 };
+    }
+    if (Array.isArray(data)) {
+      return { items: data, total: data.length, page: 1, pageSize: data.length };
+    }
+    return { items: [], total: 0, page: 1, pageSize: 0 };
+  },
+}));
+
+jest.mock('../../../utils/apiErrorClassifier', () => ({
+  classifyApiError: (err: unknown) => ({
+    kind: 'unknown',
+    message: err instanceof Error ? err.message : 'Unknown error',
+  }),
+}));
+
+jest.mock('../../../utils/payloadNormalizer', () => ({
+  stripUndefined: (obj: Record<string, unknown>) => obj,
+  stripForbiddenFields: (obj: Record<string, unknown>) => obj,
+  CAB_MEETING_CREATE_FIELDS: new Set(['title', 'meetingAt', 'endAt']),
 }));
 
 jest.mock('../../../services/api', () => ({
@@ -96,18 +124,21 @@ describe('ItsmCabMeetingList — Rendering Tests', () => {
   it('renders meetings when data is returned', async () => {
     mockCabList.mockResolvedValue({
       data: {
-        items: [
-          {
-            id: 'cab-1',
-            code: 'CAB-00001',
-            title: 'Weekly CAB Review',
-            status: 'SCHEDULED',
-            meetingAt: '2026-03-01T10:00:00Z',
-            endAt: '2026-03-01T11:00:00Z',
-            chairperson: null,
-          },
-        ],
-        total: 1,
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'cab-1',
+              code: 'CAB-00001',
+              title: 'Weekly CAB Review',
+              status: 'SCHEDULED',
+              meetingAt: '2026-03-01T10:00:00Z',
+              endAt: '2026-03-01T11:00:00Z',
+              chairperson: null,
+            },
+          ],
+          total: 1,
+        },
       },
     });
 
@@ -139,19 +170,27 @@ describe('ItsmCabMeetingList — Rendering Tests', () => {
     });
   });
 
-  it('handles response with direct array format', async () => {
+  it('handles LIST-CONTRACT envelope format (success/data/items)', async () => {
     mockCabList.mockResolvedValue({
-      data: [
-        {
-          id: 'cab-2',
-          code: 'CAB-00002',
-          title: 'Emergency CAB',
-          status: 'DRAFT',
-          meetingAt: '2026-03-05T14:00:00Z',
-          endAt: null,
-          chairperson: null,
+      data: {
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'cab-2',
+              code: 'CAB-00002',
+              title: 'Emergency CAB',
+              status: 'DRAFT',
+              meetingAt: '2026-03-05T14:00:00Z',
+              endAt: null,
+              chairperson: null,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
         },
-      ],
+      },
     });
 
     render(<ItsmCabMeetingList />);
