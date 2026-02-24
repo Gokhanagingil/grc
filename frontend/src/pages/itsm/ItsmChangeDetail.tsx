@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { ChangeTasksSection } from '../../components/itsm/ChangeTasksSection';
 import { ChangeAffectedCisSection } from '../../components/itsm/ChangeAffectedCisSection';
@@ -49,6 +49,9 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
+import { useAuth } from '../../contexts/AuthContext';
+import { LinkRecordDialog, LinkableRecord } from '../../components/itsm/LinkRecordDialog';
+import { Add as AddIcon } from '@mui/icons-material';
 import { AxiosError } from 'axios';
 import {
   TopologyImpactSummaryCard,
@@ -233,6 +236,8 @@ export const ItsmChangeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
+  const { user } = useAuth();
+  const tenantId = user?.tenantId || '';
   // The /itsm/changes/new route has no :id param, so id is undefined.
   // The /itsm/changes/:id route with id='new' also means create mode.
   const isNew = !id || id === 'new';
@@ -295,6 +300,8 @@ export const ItsmChangeDetail: React.FC = () => {
   const [linkedControlsError, setLinkedControlsError] = useState<string | null>(null);
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
+  const [linkRiskDialogOpen, setLinkRiskDialogOpen] = useState(false);
+  const [linkControlDialogOpen, setLinkControlDialogOpen] = useState(false);
 
   // Approval state
   const [approvals, setApprovals] = useState<ItsmApprovalData[]>([]);
@@ -720,6 +727,58 @@ export const ItsmChangeDetail: React.FC = () => {
       showNotification('Failed to unlink control', 'error');
     }
   };
+
+  const handleLinkRisk = async (riskId: string) => {
+    if (!id) return;
+    await itsmApi.changes.linkRisk(id, riskId);
+    showNotification('Risk linked successfully', 'success');
+    // Refresh linked risks from backend
+    try {
+      const resp = await itsmApi.changes.getLinkedRisks(id);
+      const items = extractLinkedArray(resp);
+      if (mountedRef.current) setLinkedRisks(items as LinkedRisk[]);
+    } catch { /* linked list will refresh on next page load */ }
+  };
+
+  const handleLinkControl = async (controlId: string) => {
+    if (!id) return;
+    await itsmApi.changes.linkControl(id, controlId);
+    showNotification('Control linked successfully', 'success');
+    // Refresh linked controls from backend
+    try {
+      const resp = await itsmApi.changes.getLinkedControls(id);
+      const items = extractLinkedArray(resp);
+      if (mountedRef.current) setLinkedControls(items as LinkedControl[]);
+    } catch { /* linked list will refresh on next page load */ }
+  };
+
+  const fetchAvailableRisks = useCallback(async (): Promise<LinkableRecord[]> => {
+    if (!tenantId) return [];
+    const params = new URLSearchParams();
+    params.set('pageSize', '100');
+    const resp = await riskApi.list(tenantId, params);
+    const data = resp?.data as Record<string, unknown>;
+    // Normalize envelope: { data: { items } } or { items } or array
+    const inner = data?.data ?? data;
+    if (Array.isArray(inner)) return inner as LinkableRecord[];
+    if (inner && typeof inner === 'object' && 'items' in (inner as Record<string, unknown>)) {
+      return ((inner as Record<string, unknown>).items as LinkableRecord[]) || [];
+    }
+    return [];
+  }, [tenantId]);
+
+  const fetchAvailableControls = useCallback(async (): Promise<LinkableRecord[]> => {
+    if (!tenantId) return [];
+    const resp = await controlApi.list(tenantId, { pageSize: 100 });
+    const data = resp?.data as Record<string, unknown>;
+    // Normalize envelope: { data: { items } } or { items } or array
+    const inner = data?.data ?? data;
+    if (Array.isArray(inner)) return inner as LinkableRecord[];
+    if (inner && typeof inner === 'object' && 'items' in (inner as Record<string, unknown>)) {
+      return ((inner as Record<string, unknown>).items as LinkableRecord[]) || [];
+    }
+    return [];
+  }, [tenantId]);
 
   // --- Topology Intelligence: Non-blocking fetch ---
   const fetchTopologyImpact = useCallback(async () => {
@@ -1718,9 +1777,19 @@ export const ItsmChangeDetail: React.FC = () => {
                   <Typography variant="h6">
                     Linked Risks ({linkedRisks.length})
                   </Typography>
-                  <IconButton size="small">
-                    {showRisksSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={(e) => { e.stopPropagation(); setLinkRiskDialogOpen(true); setShowRisksSection(true); }}
+                      data-testid="link-risk-btn"
+                    >
+                      Link Risk
+                    </Button>
+                    <IconButton size="small">
+                      {showRisksSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Box>
                 </Box>
                 <Collapse in={showRisksSection}>
                   {linkedRisksError ? (
@@ -1728,7 +1797,7 @@ export const ItsmChangeDetail: React.FC = () => {
                       {linkedRisksError}
                     </Alert>
                   ) : linkedRisks.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} data-testid="linked-risks-empty">
                       No linked risks
                     </Typography>
                   ) : (
@@ -1737,7 +1806,7 @@ export const ItsmChangeDetail: React.FC = () => {
                         <ListItem
                           key={risk.id}
                           secondaryAction={
-                            <IconButton edge="end" size="small" onClick={() => handleUnlinkRisk(risk.id)}>
+                            <IconButton edge="end" size="small" onClick={() => handleUnlinkRisk(risk.id)} data-testid={`unlink-risk-${risk.id}`}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           }
@@ -1766,9 +1835,19 @@ export const ItsmChangeDetail: React.FC = () => {
                   <Typography variant="h6">
                     Linked Controls ({linkedControls.length})
                   </Typography>
-                  <IconButton size="small">
-                    {showControlsSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={(e) => { e.stopPropagation(); setLinkControlDialogOpen(true); setShowControlsSection(true); }}
+                      data-testid="link-control-btn"
+                    >
+                      Link Control
+                    </Button>
+                    <IconButton size="small">
+                      {showControlsSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Box>
                 </Box>
                 <Collapse in={showControlsSection}>
                   {linkedControlsError ? (
@@ -1776,7 +1855,7 @@ export const ItsmChangeDetail: React.FC = () => {
                       {linkedControlsError}
                     </Alert>
                   ) : linkedControls.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} data-testid="linked-controls-empty">
                       No linked controls
                     </Typography>
                   ) : (
@@ -1785,7 +1864,7 @@ export const ItsmChangeDetail: React.FC = () => {
                         <ListItem
                           key={control.id}
                           secondaryAction={
-                            <IconButton edge="end" size="small" onClick={() => handleUnlinkControl(control.id)}>
+                            <IconButton edge="end" size="small" onClick={() => handleUnlinkControl(control.id)} data-testid={`unlink-control-${control.id}`}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           }
@@ -1918,6 +1997,26 @@ export const ItsmChangeDetail: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Link Risk Dialog */}
+      <LinkRecordDialog
+        open={linkRiskDialogOpen}
+        onClose={() => setLinkRiskDialogOpen(false)}
+        onLink={handleLinkRisk}
+        fetchRecords={fetchAvailableRisks}
+        title="Link Risk to Change"
+        alreadyLinkedIds={new Set(linkedRisks.map((r) => r.id))}
+      />
+
+      {/* Link Control Dialog */}
+      <LinkRecordDialog
+        open={linkControlDialogOpen}
+        onClose={() => setLinkControlDialogOpen(false)}
+        onLink={handleLinkControl}
+        fetchRecords={fetchAvailableControls}
+        title="Link Control to Change"
+        alreadyLinkedIds={new Set(linkedControls.map((c) => c.id))}
+      />
     </Box>
   );
 };
