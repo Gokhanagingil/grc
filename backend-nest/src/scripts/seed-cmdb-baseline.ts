@@ -1,3 +1,13 @@
+/**
+ * CMDB Baseline Seed Script
+ *
+ * Seeds CI classes, choices, sample CIs, and relationships.
+ * CI-safe: includes timing instrumentation, explicit exit, and safety timeout.
+ *
+ * Environment flags:
+ *   JOBS_ENABLED=false  - disable background job scheduling (set automatically)
+ *   SEED_TIMEOUT_MS     - safety timeout in ms (default: 120000 = 2 min)
+ */
 process.env.JOBS_ENABLED = 'false';
 
 import { NestFactory } from '@nestjs/core';
@@ -7,6 +17,18 @@ import { SysChoice } from '../itsm/choice/sys-choice.entity';
 import { CmdbCiClass } from '../itsm/cmdb/ci-class/ci-class.entity';
 import { CmdbCi } from '../itsm/cmdb/ci/ci.entity';
 import { CmdbCiRel } from '../itsm/cmdb/ci-rel/ci-rel.entity';
+
+// ---------------------------------------------------------------------------
+// CI Safety: timeout guard to prevent indefinite hangs in CI
+// ---------------------------------------------------------------------------
+const SEED_TIMEOUT_MS = parseInt(process.env.SEED_TIMEOUT_MS || '120000', 10);
+const safetyTimer = setTimeout(() => {
+  console.error(
+    `[SEED-CMDB-BASELINE] FATAL: Safety timeout reached (${SEED_TIMEOUT_MS}ms). Forcing exit.`,
+  );
+  process.exit(2);
+}, SEED_TIMEOUT_MS);
+safetyTimer.unref(); // don't keep event loop alive just for this
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_ADMIN_ID = '00000000-0000-0000-0000-000000000002';
@@ -21,26 +43,122 @@ interface ChoiceSeed {
 
 const CMDB_CHOICES: ChoiceSeed[] = [
   // ---- cmdb_ci.lifecycle ----
-  { tableName: 'cmdb_ci', fieldName: 'lifecycle', value: 'installed', label: 'Installed', sortOrder: 10 },
-  { tableName: 'cmdb_ci', fieldName: 'lifecycle', value: 'active', label: 'Active', sortOrder: 20 },
-  { tableName: 'cmdb_ci', fieldName: 'lifecycle', value: 'maintenance', label: 'Maintenance', sortOrder: 30 },
-  { tableName: 'cmdb_ci', fieldName: 'lifecycle', value: 'retired', label: 'Retired', sortOrder: 40 },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'lifecycle',
+    value: 'installed',
+    label: 'Installed',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'lifecycle',
+    value: 'active',
+    label: 'Active',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'lifecycle',
+    value: 'maintenance',
+    label: 'Maintenance',
+    sortOrder: 30,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'lifecycle',
+    value: 'retired',
+    label: 'Retired',
+    sortOrder: 40,
+  },
 
   // ---- cmdb_ci.environment ----
-  { tableName: 'cmdb_ci', fieldName: 'environment', value: 'production', label: 'Production', sortOrder: 10 },
-  { tableName: 'cmdb_ci', fieldName: 'environment', value: 'staging', label: 'Staging', sortOrder: 20 },
-  { tableName: 'cmdb_ci', fieldName: 'environment', value: 'development', label: 'Development', sortOrder: 30 },
-  { tableName: 'cmdb_ci', fieldName: 'environment', value: 'test', label: 'Test', sortOrder: 40 },
-  { tableName: 'cmdb_ci', fieldName: 'environment', value: 'dr', label: 'Disaster Recovery', sortOrder: 50 },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'environment',
+    value: 'production',
+    label: 'Production',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'environment',
+    value: 'staging',
+    label: 'Staging',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'environment',
+    value: 'development',
+    label: 'Development',
+    sortOrder: 30,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'environment',
+    value: 'test',
+    label: 'Test',
+    sortOrder: 40,
+  },
+  {
+    tableName: 'cmdb_ci',
+    fieldName: 'environment',
+    value: 'dr',
+    label: 'Disaster Recovery',
+    sortOrder: 50,
+  },
 
   // ---- cmdb_ci_rel.type ----
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'depends_on', label: 'Depends On', sortOrder: 10 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'runs_on', label: 'Runs On', sortOrder: 20 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'hosted_on', label: 'Hosted On', sortOrder: 30 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'connects_to', label: 'Connects To', sortOrder: 40 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'used_by', label: 'Used By', sortOrder: 50 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'contains', label: 'Contains', sortOrder: 60 },
-  { tableName: 'cmdb_ci_rel', fieldName: 'type', value: 'member_of', label: 'Member Of', sortOrder: 70 },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'depends_on',
+    label: 'Depends On',
+    sortOrder: 10,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'runs_on',
+    label: 'Runs On',
+    sortOrder: 20,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'hosted_on',
+    label: 'Hosted On',
+    sortOrder: 30,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'connects_to',
+    label: 'Connects To',
+    sortOrder: 40,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'used_by',
+    label: 'Used By',
+    sortOrder: 50,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'contains',
+    label: 'Contains',
+    sortOrder: 60,
+  },
+  {
+    tableName: 'cmdb_ci_rel',
+    fieldName: 'type',
+    value: 'member_of',
+    label: 'Member Of',
+    sortOrder: 70,
+  },
 ];
 
 interface CiClassSeed {
@@ -52,16 +170,76 @@ interface CiClassSeed {
 }
 
 const CI_CLASSES: CiClassSeed[] = [
-  { name: 'server', label: 'Server', description: 'Physical or virtual server', icon: 'dns', sortOrder: 10 },
-  { name: 'virtual_machine', label: 'Virtual Machine', description: 'Virtual machine instance', icon: 'computer', sortOrder: 20 },
-  { name: 'database', label: 'Database', description: 'Database instance', icon: 'storage', sortOrder: 30 },
-  { name: 'application', label: 'Application', description: 'Software application or service', icon: 'apps', sortOrder: 40 },
-  { name: 'network_device', label: 'Network Device', description: 'Router, switch, firewall, or load balancer', icon: 'router', sortOrder: 50 },
-  { name: 'storage', label: 'Storage', description: 'SAN, NAS, or storage array', icon: 'sd_storage', sortOrder: 60 },
-  { name: 'container', label: 'Container', description: 'Docker container or Kubernetes pod', icon: 'view_in_ar', sortOrder: 70 },
-  { name: 'cloud_service', label: 'Cloud Service', description: 'Cloud-hosted service (AWS, Azure, GCP)', icon: 'cloud', sortOrder: 80 },
-  { name: 'endpoint', label: 'Endpoint', description: 'Workstation, laptop, or mobile device', icon: 'laptop', sortOrder: 90 },
-  { name: 'cluster', label: 'Cluster', description: 'Server or database cluster', icon: 'hub', sortOrder: 100 },
+  {
+    name: 'server',
+    label: 'Server',
+    description: 'Physical or virtual server',
+    icon: 'dns',
+    sortOrder: 10,
+  },
+  {
+    name: 'virtual_machine',
+    label: 'Virtual Machine',
+    description: 'Virtual machine instance',
+    icon: 'computer',
+    sortOrder: 20,
+  },
+  {
+    name: 'database',
+    label: 'Database',
+    description: 'Database instance',
+    icon: 'storage',
+    sortOrder: 30,
+  },
+  {
+    name: 'application',
+    label: 'Application',
+    description: 'Software application or service',
+    icon: 'apps',
+    sortOrder: 40,
+  },
+  {
+    name: 'network_device',
+    label: 'Network Device',
+    description: 'Router, switch, firewall, or load balancer',
+    icon: 'router',
+    sortOrder: 50,
+  },
+  {
+    name: 'storage',
+    label: 'Storage',
+    description: 'SAN, NAS, or storage array',
+    icon: 'sd_storage',
+    sortOrder: 60,
+  },
+  {
+    name: 'container',
+    label: 'Container',
+    description: 'Docker container or Kubernetes pod',
+    icon: 'view_in_ar',
+    sortOrder: 70,
+  },
+  {
+    name: 'cloud_service',
+    label: 'Cloud Service',
+    description: 'Cloud-hosted service (AWS, Azure, GCP)',
+    icon: 'cloud',
+    sortOrder: 80,
+  },
+  {
+    name: 'endpoint',
+    label: 'Endpoint',
+    description: 'Workstation, laptop, or mobile device',
+    icon: 'laptop',
+    sortOrder: 90,
+  },
+  {
+    name: 'cluster',
+    label: 'Cluster',
+    description: 'Server or database cluster',
+    icon: 'hub',
+    sortOrder: 100,
+  },
 ];
 
 interface CiSeed {
@@ -75,16 +253,88 @@ interface CiSeed {
 }
 
 const SAMPLE_CIS: CiSeed[] = [
-  { name: 'PROD-WEB-01', description: 'Primary web application server', className: 'server', lifecycle: 'active', environment: 'production', ipAddress: '10.0.1.10', dnsName: 'prod-web-01.internal' },
-  { name: 'PROD-WEB-02', description: 'Secondary web application server', className: 'server', lifecycle: 'active', environment: 'production', ipAddress: '10.0.1.11', dnsName: 'prod-web-02.internal' },
-  { name: 'PROD-DB-PRIMARY', description: 'Primary PostgreSQL database', className: 'database', lifecycle: 'active', environment: 'production', ipAddress: '10.0.2.10', dnsName: 'prod-db-primary.internal' },
-  { name: 'PROD-DB-REPLICA', description: 'PostgreSQL read replica', className: 'database', lifecycle: 'active', environment: 'production', ipAddress: '10.0.2.11', dnsName: 'prod-db-replica.internal' },
-  { name: 'GRC-Platform', description: 'GRC Platform application', className: 'application', lifecycle: 'active', environment: 'production' },
-  { name: 'PROD-LB-01', description: 'Production load balancer (nginx)', className: 'network_device', lifecycle: 'active', environment: 'production', ipAddress: '10.0.0.10' },
-  { name: 'STG-WEB-01', description: 'Staging web server', className: 'server', lifecycle: 'active', environment: 'staging', ipAddress: '10.1.1.10' },
-  { name: 'STG-DB-01', description: 'Staging database', className: 'database', lifecycle: 'active', environment: 'staging', ipAddress: '10.1.2.10' },
-  { name: 'DEV-K8S-CLUSTER', description: 'Development Kubernetes cluster', className: 'cluster', lifecycle: 'active', environment: 'development' },
-  { name: 'PROD-REDIS-01', description: 'Production Redis cache', className: 'cloud_service', lifecycle: 'active', environment: 'production', ipAddress: '10.0.3.10' },
+  {
+    name: 'PROD-WEB-01',
+    description: 'Primary web application server',
+    className: 'server',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.1.10',
+    dnsName: 'prod-web-01.internal',
+  },
+  {
+    name: 'PROD-WEB-02',
+    description: 'Secondary web application server',
+    className: 'server',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.1.11',
+    dnsName: 'prod-web-02.internal',
+  },
+  {
+    name: 'PROD-DB-PRIMARY',
+    description: 'Primary PostgreSQL database',
+    className: 'database',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.2.10',
+    dnsName: 'prod-db-primary.internal',
+  },
+  {
+    name: 'PROD-DB-REPLICA',
+    description: 'PostgreSQL read replica',
+    className: 'database',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.2.11',
+    dnsName: 'prod-db-replica.internal',
+  },
+  {
+    name: 'GRC-Platform',
+    description: 'GRC Platform application',
+    className: 'application',
+    lifecycle: 'active',
+    environment: 'production',
+  },
+  {
+    name: 'PROD-LB-01',
+    description: 'Production load balancer (nginx)',
+    className: 'network_device',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.0.10',
+  },
+  {
+    name: 'STG-WEB-01',
+    description: 'Staging web server',
+    className: 'server',
+    lifecycle: 'active',
+    environment: 'staging',
+    ipAddress: '10.1.1.10',
+  },
+  {
+    name: 'STG-DB-01',
+    description: 'Staging database',
+    className: 'database',
+    lifecycle: 'active',
+    environment: 'staging',
+    ipAddress: '10.1.2.10',
+  },
+  {
+    name: 'DEV-K8S-CLUSTER',
+    description: 'Development Kubernetes cluster',
+    className: 'cluster',
+    lifecycle: 'active',
+    environment: 'development',
+  },
+  {
+    name: 'PROD-REDIS-01',
+    description: 'Production Redis cache',
+    className: 'cloud_service',
+    lifecycle: 'active',
+    environment: 'production',
+    ipAddress: '10.0.3.10',
+  },
 ];
 
 interface RelSeed {
@@ -96,19 +346,43 @@ interface RelSeed {
 const SAMPLE_RELS: RelSeed[] = [
   { sourceName: 'GRC-Platform', targetName: 'PROD-WEB-01', type: 'runs_on' },
   { sourceName: 'GRC-Platform', targetName: 'PROD-WEB-02', type: 'runs_on' },
-  { sourceName: 'GRC-Platform', targetName: 'PROD-DB-PRIMARY', type: 'depends_on' },
+  {
+    sourceName: 'GRC-Platform',
+    targetName: 'PROD-DB-PRIMARY',
+    type: 'depends_on',
+  },
   { sourceName: 'PROD-WEB-01', targetName: 'PROD-LB-01', type: 'connects_to' },
   { sourceName: 'PROD-WEB-02', targetName: 'PROD-LB-01', type: 'connects_to' },
-  { sourceName: 'PROD-DB-REPLICA', targetName: 'PROD-DB-PRIMARY', type: 'depends_on' },
-  { sourceName: 'GRC-Platform', targetName: 'PROD-REDIS-01', type: 'depends_on' },
+  {
+    sourceName: 'PROD-DB-REPLICA',
+    targetName: 'PROD-DB-PRIMARY',
+    type: 'depends_on',
+  },
+  {
+    sourceName: 'GRC-Platform',
+    targetName: 'PROD-REDIS-01',
+    type: 'depends_on',
+  },
   { sourceName: 'STG-WEB-01', targetName: 'STG-DB-01', type: 'depends_on' },
 ];
 
 async function seedCmdbBaseline() {
-  console.log('=== CMDB Baseline Seed ===\n');
+  const scriptStart = Date.now();
+  console.log('[SEED-CMDB-BASELINE] === CMDB Baseline Seed ===');
+  console.log(`[SEED-CMDB-BASELINE] Start: ${new Date().toISOString()}`);
+  console.log('');
 
-  const app = await NestFactory.createApplicationContext(AppModule);
+  console.log(
+    '[SEED-CMDB-BASELINE] Bootstrapping NestJS application context...',
+  );
+  const bootstrapStart = Date.now();
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn'], // suppress verbose Nest startup logs in CI
+  });
   const ds = app.get(DataSource);
+  console.log(
+    `[SEED-CMDB-BASELINE] Bootstrap complete (${Date.now() - bootstrapStart}ms)`,
+  );
 
   try {
     // ── 1. Seed CMDB choices ──
@@ -144,7 +418,9 @@ async function seedCmdbBaseline() {
       await choiceRepo.save(entity);
       choiceCreated++;
     }
-    console.log(`   Choices: ${choiceCreated} created, ${choiceSkipped} skipped`);
+    console.log(
+      `   Choices: ${choiceCreated} created, ${choiceSkipped} skipped`,
+    );
 
     // ── 2. Seed CI Classes ──
     console.log('2) Seeding CI classes...');
@@ -177,7 +453,9 @@ async function seedCmdbBaseline() {
       classMap[cls.name] = saved.id;
       classCreated++;
     }
-    console.log(`   CI Classes: ${classCreated} created, ${classSkipped} skipped`);
+    console.log(
+      `   CI Classes: ${classCreated} created, ${classSkipped} skipped`,
+    );
 
     // ── 3. Seed sample CIs ──
     console.log('3) Seeding sample CIs...');
@@ -189,7 +467,9 @@ async function seedCmdbBaseline() {
     for (const ci of SAMPLE_CIS) {
       const classId = classMap[ci.className];
       if (!classId) {
-        console.warn(`   WARN: class '${ci.className}' not found, skipping CI '${ci.name}'`);
+        console.warn(
+          `   WARN: class '${ci.className}' not found, skipping CI '${ci.name}'`,
+        );
         continue;
       }
       let existing = await ciRepo.findOne({
@@ -228,7 +508,9 @@ async function seedCmdbBaseline() {
       const sourceId = ciMap[rel.sourceName];
       const targetId = ciMap[rel.targetName];
       if (!sourceId || !targetId) {
-        console.warn(`   WARN: CI not found for rel ${rel.sourceName} -> ${rel.targetName}, skipping`);
+        console.warn(
+          `   WARN: CI not found for rel ${rel.sourceName} -> ${rel.targetName}, skipping`,
+        );
         continue;
       }
       const existing = await relRepo.findOne({
@@ -256,15 +538,29 @@ async function seedCmdbBaseline() {
       await relRepo.save(entity);
       relCreated++;
     }
-    console.log(`   Relationships: ${relCreated} created, ${relSkipped} skipped`);
+    console.log(
+      `   Relationships: ${relCreated} created, ${relSkipped} skipped`,
+    );
 
-    console.log('\n=== CMDB Baseline Seed Complete ===');
+    const durationMs = Date.now() - scriptStart;
+    console.log('');
+    console.log('[SEED-CMDB-BASELINE] === CMDB Baseline Seed Complete ===');
+    console.log(
+      `[SEED-CMDB-BASELINE] Duration: ${durationMs}ms (${(durationMs / 1000).toFixed(1)}s)`,
+    );
+    console.log(`[SEED-CMDB-BASELINE] End: ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Seed failed:', error);
+    console.error('[SEED-CMDB-BASELINE] Seed failed:', error);
     process.exitCode = 1;
   } finally {
     await app.close();
+    clearTimeout(safetyTimer);
   }
 }
 
-void seedCmdbBaseline();
+seedCmdbBaseline()
+  .then(() => process.exit(process.exitCode ?? 0))
+  .catch((error) => {
+    console.error('[SEED-CMDB-BASELINE] Unhandled error:', error);
+    process.exit(1);
+  });

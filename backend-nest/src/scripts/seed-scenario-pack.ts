@@ -25,11 +25,35 @@
  *   PROD: node dist/scripts/seed-scenario-pack.js
  */
 
+/**
+ * Scenario Data Pack — Deterministic, Idempotent Seed
+ *
+ * CI-safe: includes timing instrumentation, explicit exit, and safety timeout.
+ *
+ * Environment flags:
+ *   JOBS_ENABLED=false  - disable background job scheduling (set automatically)
+ *   SEED_TIMEOUT_MS     - safety timeout in ms (default: 120000 = 2 min)
+ */
 process.env.JOBS_ENABLED = 'false';
 
 import { NestFactory } from '@nestjs/core';
 import { DataSource, Repository } from 'typeorm';
 import { AppModule } from '../app.module';
+
+// ---------------------------------------------------------------------------
+// CI Safety: timeout guard to prevent indefinite hangs in CI
+// ---------------------------------------------------------------------------
+const SEED_TIMEOUT_MS = parseInt(process.env.SEED_TIMEOUT_MS || '120000', 10);
+let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+if (require.main === module) {
+  safetyTimer = setTimeout(() => {
+    console.error(
+      `[SEED-SCENARIO-PACK] FATAL: Safety timeout reached (${SEED_TIMEOUT_MS}ms). Forcing exit.`,
+    );
+    process.exit(2);
+  }, SEED_TIMEOUT_MS);
+  safetyTimer.unref();
+}
 import { Tenant } from '../tenants/tenant.entity';
 
 // CMDB
@@ -205,15 +229,26 @@ async function upsertById<T extends { id: string }>(
 // ============================================================================
 
 async function seedScenarioPack(): Promise<void> {
+  const scriptStart = Date.now();
   console.log('');
   console.log('='.repeat(70));
   console.log('  SCENARIO DATA PACK — Deterministic Seed');
   console.log('  Story: Online Banking Platform — DB Upgrade Incident');
   console.log('='.repeat(70));
+  console.log(`[SEED-SCENARIO-PACK] Start: ${new Date().toISOString()}`);
   console.log('');
 
-  const app = await NestFactory.createApplicationContext(AppModule);
+  console.log(
+    '[SEED-SCENARIO-PACK] Bootstrapping NestJS application context...',
+  );
+  const bootstrapStart = Date.now();
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn'],
+  });
   const ds = app.get(DataSource);
+  console.log(
+    `[SEED-SCENARIO-PACK] Bootstrap complete (${Date.now() - bootstrapStart}ms)`,
+  );
 
   const stats = { created: 0, reused: 0, updated: 0 };
 
@@ -1465,11 +1500,17 @@ async function seedScenarioPack(): Promise<void> {
     console.log(`    GET /grc/itsm/known-errors/${ID.KE_SCHEMA_WORKAROUND}`);
     console.log(`    GET /grc/itsm/changes/${ID.CHANGE_DB_UPGRADE}`);
     console.log('');
+    const durationMs = Date.now() - scriptStart;
+    console.log(
+      `[SEED-SCENARIO-PACK] Duration: ${durationMs}ms (${(durationMs / 1000).toFixed(1)}s)`,
+    );
+    console.log(`[SEED-SCENARIO-PACK] End: ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Seed failed:', error);
+    console.error('[SEED-SCENARIO-PACK] Seed failed:', error);
     process.exitCode = 1;
   } finally {
     await app.close();
+    if (safetyTimer) clearTimeout(safetyTimer);
   }
 }
 
@@ -1479,5 +1520,10 @@ export const SCENARIO_TENANT_ID = DEMO_TENANT_ID;
 
 // Only run when executed directly (not when imported by tests)
 if (require.main === module) {
-  void seedScenarioPack();
+  seedScenarioPack()
+    .then(() => process.exit(process.exitCode ?? 0))
+    .catch((error) => {
+      console.error('[SEED-SCENARIO-PACK] Unhandled error:', error);
+      process.exit(1);
+    });
 }
