@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { ChangeTasksSection } from '../../components/itsm/ChangeTasksSection';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
@@ -318,6 +318,10 @@ export const ItsmChangeDetail: React.FC = () => {
   const [governanceEvalError, setGovernanceEvalError] = useState<ClassifiedTopologyError | null>(null);
   const [governanceReEvaluating, setGovernanceReEvaluating] = useState(false);
 
+  // CAB Summary state
+  const [cabSummary, setCabSummary] = useState<CabChangeSummaryData | null>(null);
+  const [showCabSection, setShowCabSection] = useState(true);
+
   const fetchChange = useCallback(async () => {
     if (isNew || !id) return;
     
@@ -353,6 +357,8 @@ export const ItsmChangeDetail: React.FC = () => {
         itsmApi.changes.getRiskAssessment(id),
         // [4] Approvals
         itsmApi.changes.listApprovals(id),
+        // [5] CAB Summary
+        itsmApi.changes.getCabSummary(id),
       ]);
 
       if (!mountedRef.current) return;
@@ -434,7 +440,22 @@ export const ItsmChangeDetail: React.FC = () => {
         }
       }
 
-      // Show aggregated warnings for optional dependency failures
+      // [5] CAB Summary
+      if (optionalResults[5]?.status === 'fulfilled') {
+        const cabRaw = optionalResults[5].value.data;
+        if (cabRaw && typeof cabRaw === 'object') {
+          const payload = 'data' in cabRaw ? (cabRaw as Record<string, unknown>).data : cabRaw;
+          if (payload && typeof payload === 'object') {
+            setCabSummary(payload as CabChangeSummaryData);
+          }
+        }
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[ItsmChangeDetail] init:cabSummary:error', optionalResults[5]?.reason);
+        }
+      }
+
+      // Show aggregated warningsfor optional dependency failures
       if (optionalWarnings.length > 0 && mountedRef.current) {
         setInitWarnings(prev => {
           const newWarnings = optionalWarnings.filter(w => !prev.includes(w));
@@ -1782,6 +1803,69 @@ export const ItsmChangeDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* CAB Summary Section */}
+      {!isNew && change.id && (
+        <Card sx={{ mt: 2 }} data-testid="cab-summary-section">
+          <CardContent>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              onClick={() => setShowCabSection(!showCabSection)}
+            >
+              <Typography variant="h6">
+                CAB Decisions
+              </Typography>
+              <IconButton size="small">
+                {showCabSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Box>
+            <Collapse in={showCabSection}>
+              {cabSummary && cabSummary.latestDecision ? (
+                <Box sx={{ mt: 1 }}>
+                  <Chip
+                    label={cabSummary.latestDecision.decisionStatus}
+                    size="small"
+                    color={
+                      cabSummary.latestDecision.decisionStatus === 'APPROVED' ? 'success' :
+                      cabSummary.latestDecision.decisionStatus === 'REJECTED' ? 'error' :
+                      cabSummary.latestDecision.decisionStatus === 'DEFERRED' ? 'warning' :
+                      cabSummary.latestDecision.decisionStatus === 'CONDITIONAL' ? 'info' : 'default'
+                    }
+                    sx={{ mr: 1 }}
+                  />
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Meeting: {cabSummary.latestDecision.meetingCode} — {cabSummary.latestDecision.meetingTitle}
+                  </Typography>
+                  {cabSummary.latestDecision.decisionNote && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Note: {cabSummary.latestDecision.decisionNote}
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  No CAB decisions recorded for this change
+                </Typography>
+              )}
+              {cabSummary && cabSummary.meetings && cabSummary.meetings.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mt: 1 }}>Linked Meetings ({cabSummary.meetings.length})</Typography>
+                  <List dense>
+                    {cabSummary.meetings.map((m) => (
+                      <ListItem key={m.id} sx={{ py: 0 }}>
+                        <ListItemText
+                          primary={`${m.code} — ${m.title}`}
+                          secondary={`${m.status} · ${m.meetingAt ? new Date(m.meetingAt).toLocaleString() : '-'}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+            </Collapse>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Change Tasks Section */}
       {!isNew && change.id && (

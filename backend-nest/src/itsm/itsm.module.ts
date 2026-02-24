@@ -70,6 +70,12 @@ import { CalendarEventController } from './change/calendar/calendar-event.contro
 import { FreezeWindowController } from './change/calendar/freeze-window.controller';
 import { ConflictController } from './change/calendar/conflict.controller';
 
+import { CabMeeting } from './change/cab/cab-meeting.entity';
+import { CabAgendaItem } from './change/cab/cab-agenda-item.entity';
+import { CabMeetingService } from './change/cab/cab-meeting.service';
+import { CabMeetingController } from './change/cab/cab-meeting.controller';
+import { CabChangeSummaryController } from './change/cab/cab-change-summary.controller';
+
 import { RiskAssessment } from './change/risk/risk-assessment.entity';
 import { ChangePolicy } from './change/risk/change-policy.entity';
 import { RiskScoringService } from './change/risk/risk-scoring.service';
@@ -188,6 +194,9 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
       ItsmChangeTemplate,
       ItsmChangeTemplateTask,
       ItsmChangeTemplateDependency,
+      // CAB entities
+      CabMeeting,
+      CabAgendaItem,
       // GRC Bridge entities (Change ↔ Risk/Control linkage)
       ItsmChangeRisk,
       ItsmChangeControl,
@@ -241,6 +250,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     TraceabilitySummaryService,
     ChangeTaskService,
     ChangeTemplateService,
+    CabMeetingService,
   ],
   controllers:[
     IncidentController,
@@ -269,6 +279,8 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     TopologyImpactController,
     ChangeTaskController,
     ChangeTemplateController,
+    CabMeetingController,
+    CabChangeSummaryController,
   ],
   exports: [
     IncidentService,
@@ -310,6 +322,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     TraceabilitySummaryService,
     ChangeTaskService,
     ChangeTemplateService,
+    CabMeetingService,
   ],
 })
 export class ItsmModule {}

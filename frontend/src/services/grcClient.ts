@@ -268,6 +268,7 @@ export const API_PATHS = {
       TASK: (changeId: string, taskId: string) => `/grc/itsm/changes/${changeId}/tasks/${taskId}`,
       TASK_SUMMARY: (changeId: string) => `/grc/itsm/changes/${changeId}/tasks/summary`,
       TASK_DEPENDENCIES: (changeId: string) => `/grc/itsm/changes/${changeId}/tasks/dependencies`,
+      CAB_SUMMARY: (changeId: string) => `/grc/itsm/changes/${changeId}/cab-summary`,
     },
     APPROVALS: {
       APPROVE: (approvalId: string) => `/grc/itsm/approvals/${approvalId}/approve`,
@@ -282,6 +283,19 @@ export const API_PATHS = {
       UPDATE: (id: string) => `/grc/itsm/change-templates/${id}`,
       DELETE: (id: string) => `/grc/itsm/change-templates/${id}`,
       APPLY: '/grc/itsm/change-templates/apply',
+    },
+
+    // ITSM CAB Meeting endpoints
+    CAB_MEETINGS: {
+      LIST: '/grc/itsm/cab-meetings',
+      CREATE: '/grc/itsm/cab-meetings',
+      GET: (id: string) => `/grc/itsm/cab-meetings/${id}`,
+      UPDATE: (id: string) => `/grc/itsm/cab-meetings/${id}`,
+      DELETE: (id: string) => `/grc/itsm/cab-meetings/${id}`,
+      AGENDA: (id: string) => `/grc/itsm/cab-meetings/${id}/agenda`,
+      AGENDA_ITEM: (id: string, itemId: string) => `/grc/itsm/cab-meetings/${id}/agenda/${itemId}`,
+      AGENDA_REORDER: (id: string) => `/grc/itsm/cab-meetings/${id}/agenda/reorder`,
+      AGENDA_DECISION: (id: string, itemId: string) => `/grc/itsm/cab-meetings/${id}/agenda/${itemId}/decision`,
     },
 
     // ITSM Change Calendar endpoints
@@ -2095,6 +2109,88 @@ export interface ItsmConflictResult {
   details: Record<string, unknown>;
 }
 
+// CAB Meeting types
+export interface CabMeetingData {
+  id: string;
+  tenantId: string;
+  code: string;
+  title: string;
+  meetingAt: string;
+  endAt?: string | null;
+  status: 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  chairpersonId?: string | null;
+  chairperson?: { id: string; firstName?: string; lastName?: string; email?: string } | null;
+  notes?: string | null;
+  summary?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCabMeetingDto {
+  title: string;
+  meetingAt: string;
+  endAt?: string;
+  status?: string;
+  chairpersonId?: string;
+  notes?: string;
+  summary?: string;
+}
+
+export interface UpdateCabMeetingDto {
+  title?: string;
+  meetingAt?: string;
+  endAt?: string;
+  status?: string;
+  chairpersonId?: string;
+  notes?: string;
+  summary?: string;
+}
+
+export interface CabAgendaItemData {
+  id: string;
+  tenantId: string;
+  cabMeetingId: string;
+  changeId: string;
+  change?: ItsmChangeData | null;
+  orderIndex: number;
+  decisionStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DEFERRED' | 'CONDITIONAL';
+  decisionAt?: string | null;
+  decisionNote?: string | null;
+  conditions?: string | null;
+  decisionById?: string | null;
+  decisionBy?: { id: string; firstName?: string; lastName?: string; email?: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CabChangeSummaryData {
+  meetings: Array<{
+    id: string;
+    code: string;
+    title: string;
+    status: string;
+    meetingAt: string;
+  }>;
+  latestDecision: {
+    decisionStatus: string;
+    decisionNote: string | null;
+    decisionAt: string | null;
+    meetingCode: string;
+    meetingTitle: string;
+  } | null;
+}
+
+export interface CabMeetingListParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
 export interface ItsmApprovalData {
   id: string;
   tenantId: string;
@@ -2448,6 +2544,9 @@ export const itsmApi = {
       api.post(API_PATHS.ITSM.CHANGES.TASK_DEPENDENCIES(changeId), data),
     removeTaskDependency: (changeId: string, data: { predecessorTaskId: string; successorTaskId: string }) =>
       api.delete(API_PATHS.ITSM.CHANGES.TASK_DEPENDENCIES(changeId), { data }),
+    // CAB Summary for change detail
+    getCabSummary: (changeId: string) =>
+      api.get(API_PATHS.ITSM.CHANGES.CAB_SUMMARY(changeId)),
   },
 
   // Change Templates
@@ -2545,6 +2644,38 @@ export const itsmApi = {
         api.patch(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.UPDATE(id), data),
       delete: (id: string) => api.delete(API_PATHS.ITSM.CALENDAR.FREEZE_WINDOWS.DELETE(id)),
     },
+  },
+
+  // CAB Meetings
+  cabMeetings: {
+    list: (params?: CabMeetingListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.status) searchParams.set('status', params.status);
+      if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom);
+      if (params?.dateTo) searchParams.set('dateTo', params.dateTo);
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.sortBy) searchParams.set('sortBy', params.sortBy);
+      if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.CAB_MEETINGS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.ITSM.CAB_MEETINGS.GET(id)),
+    create: (data: CreateCabMeetingDto) => api.post(API_PATHS.ITSM.CAB_MEETINGS.CREATE, data),
+    update: (id: string, data: UpdateCabMeetingDto) => api.patch(API_PATHS.ITSM.CAB_MEETINGS.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.ITSM.CAB_MEETINGS.DELETE(id)),
+    // Agenda
+    listAgenda: (meetingId: string) => api.get(API_PATHS.ITSM.CAB_MEETINGS.AGENDA(meetingId)),
+    addAgendaItem: (meetingId: string, data: { changeId: string; orderIndex?: number }) =>
+      api.post(API_PATHS.ITSM.CAB_MEETINGS.AGENDA(meetingId), data),
+    removeAgendaItem: (meetingId: string, itemId: string) =>
+      api.delete(API_PATHS.ITSM.CAB_MEETINGS.AGENDA_ITEM(meetingId, itemId)),
+    reorderAgenda: (meetingId: string, itemIds: string[]) =>
+      api.post(API_PATHS.ITSM.CAB_MEETINGS.AGENDA_REORDER(meetingId), { itemIds }),
+    // Decisions
+    recordDecision: (meetingId: string, itemId: string, data: { decisionStatus: string; decisionNote?: string; conditions?: string }) =>
+      api.post(API_PATHS.ITSM.CAB_MEETINGS.AGENDA_DECISION(meetingId, itemId), data),
   },
 
   // ITSM Journal

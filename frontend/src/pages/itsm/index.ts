@@ -6,6 +6,8 @@ export { ItsmIncidentDetail } from './ItsmIncidentDetail';
 export { ItsmChangeList } from './ItsmChangeList';
 export { ItsmChangeDetail } from './ItsmChangeDetail';
 export { ItsmChangeCalendar } from './ItsmChangeCalendar';
+export { default as ItsmCabMeetingList } from './ItsmCabMeetingList';
+export { default as ItsmCabMeetingDetail } from './ItsmCabMeetingDetail';
 export { ItsmChangeTemplateList } from './ItsmChangeTemplateList';
 export { ItsmChangeTemplateDetail } from './ItsmChangeTemplateDetail';
 export { ItsmChoiceAdmin } from './ItsmChoiceAdmin';

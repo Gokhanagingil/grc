@@ -165,6 +165,10 @@ export enum Permission {
   ITSM_APPROVAL_READ = 'itsm:approval:read',
   ITSM_APPROVAL_WRITE = 'itsm:approval:write',
 
+  // ITSM CAB permissions
+  ITSM_CAB_READ = 'itsm:cab:read',
+  ITSM_CAB_WRITE = 'itsm:cab:write',
+
   // ITSM Problem permissions
   ITSM_PROBLEM_READ = 'itsm:problem:read',
   ITSM_PROBLEM_CREATE = 'itsm:problem:create',
@@ -331,6 +335,9 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_APPROVAL_READ]: 'View change approval requests',
   [Permission.ITSM_APPROVAL_WRITE]:
     'Approve or reject change approval requests',
+  [Permission.ITSM_CAB_READ]: 'View CAB meetings, agenda items, and decisions',
+  [Permission.ITSM_CAB_WRITE]:
+    'Create, update, and manage CAB meetings, agenda items, and decisions',
   [Permission.GRC_CUSTOMER_RISK_READ]: 'View customer risk catalog entries',
   [Permission.GRC_CUSTOMER_RISK_WRITE]:
     'Create, update, and delete customer risk catalog entries',

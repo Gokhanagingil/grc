@@ -369,6 +369,12 @@ const itsmMenuGroups: NavMenuGroup[] = [
         path: '/itsm/change-templates',
         testId: 'nav-itsm-change-templates',
       },
+      {
+        text: 'CAB Meetings',
+        icon: <ComplianceIcon />,
+        path: '/itsm/change-management/cab',
+        testId: 'nav-itsm-cab-meetings',
+      },
     ],
   },
   {
