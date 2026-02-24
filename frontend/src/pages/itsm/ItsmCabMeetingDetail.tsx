@@ -425,7 +425,7 @@ export default function ItsmCabMeetingDetail() {
                         onClick={() => navigate(`/itsm/changes/${item.changeId}`)}
                       >
                         <Typography variant="body2" fontWeight={600}>
-                          {item.change?.code || item.changeId?.slice(0, 8) || '-'}
+                          {item.change?.number || item.changeId?.slice(0, 8) || '-'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {item.change?.title || ''}

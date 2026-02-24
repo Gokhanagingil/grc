@@ -57,10 +57,9 @@ export class CabMeetingService {
 
     const searchTerm = search || q;
     if (searchTerm) {
-      qb.andWhere(
-        '(m.title ILIKE :search OR m.code ILIKE :search)',
-        { search: `%${searchTerm}%` },
-      );
+      qb.andWhere('(m.title ILIKE :search OR m.code ILIKE :search)', {
+        search: `%${searchTerm}%`,
+      });
     }
 
     qb.leftJoinAndSelect('m.chairperson', 'chairperson');
@@ -70,21 +69,22 @@ export class CabMeetingService {
     const validSortBy = CAB_MEETING_SORTABLE_FIELDS.includes(sortBy)
       ? sortBy
       : 'meetingAt';
-    const validSortOrder =
-      sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     qb.orderBy(`m.${validSortBy}`, validSortOrder);
 
     qb.skip((Number(page) - 1) * Number(pageSize));
     qb.take(Number(pageSize));
 
     const items = await qb.getMany();
-    return createPaginatedResponse(items, total, Number(page), Number(pageSize));
+    return createPaginatedResponse(
+      items,
+      total,
+      Number(page),
+      Number(pageSize),
+    );
   }
 
-  async findById(
-    tenantId: string,
-    id: string,
-  ): Promise<CabMeeting | null> {
+  async findById(tenantId: string, id: string): Promise<CabMeeting | null> {
     return this.meetingRepo.findOne({
       where: { id, tenantId, isDeleted: false },
       relations: ['chairperson'],
@@ -179,13 +179,14 @@ export class CabMeetingService {
     // Determine order index
     let idx = orderIndex;
     if (idx === undefined) {
-      const maxResult = await this.agendaRepo
-        .createQueryBuilder('a')
-        .select('MAX(a.orderIndex)', 'maxIdx')
-        .where('a.tenantId = :tenantId', { tenantId })
-        .andWhere('a.cabMeetingId = :meetingId', { meetingId })
-        .andWhere('a.isDeleted = false')
-        .getRawOne();
+      const maxResult: { maxIdx: number | null } | undefined =
+        await this.agendaRepo
+          .createQueryBuilder('a')
+          .select('MAX(a.orderIndex)', 'maxIdx')
+          .where('a.tenantId = :tenantId', { tenantId })
+          .andWhere('a.cabMeetingId = :meetingId', { meetingId })
+          .andWhere('a.isDeleted = false')
+          .getRawOne();
       idx = (maxResult?.maxIdx ?? -1) + 1;
     }
 
@@ -324,11 +325,16 @@ export class CabMeetingService {
       (a) => a.decisionStatus !== 'PENDING' && a.decisionAt,
     );
     decidedItems.sort(
-      (a, b) =>
-        (b.decisionAt?.getTime() ?? 0) - (a.decisionAt?.getTime() ?? 0),
+      (a, b) => (b.decisionAt?.getTime() ?? 0) - (a.decisionAt?.getTime() ?? 0),
     );
 
-    let latestDecision = null;
+    let latestDecision: {
+      decisionStatus: string;
+      decisionNote: string | null;
+      decisionAt: string | null;
+      meetingCode: string;
+      meetingTitle: string;
+    } | null = null;
     if (decidedItems.length > 0) {
       const d = decidedItems[0];
       latestDecision = {

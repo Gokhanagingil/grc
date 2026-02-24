@@ -22,8 +22,14 @@ import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
 import { Tenant } from '../tenants/tenant.entity';
-import { CabMeeting, CabMeetingStatus } from '../itsm/change/cab/cab-meeting.entity';
-import { CabAgendaItem, CabDecisionStatus } from '../itsm/change/cab/cab-agenda-item.entity';
+import {
+  CabMeeting,
+  CabMeetingStatus,
+} from '../itsm/change/cab/cab-meeting.entity';
+import {
+  CabAgendaItem,
+  CabDecisionStatus,
+} from '../itsm/change/cab/cab-agenda-item.entity';
 import { ItsmChange } from '../itsm/change/change.entity';
 
 // ============================================================================
@@ -120,9 +126,13 @@ async function seedCabDemo(): Promise<void> {
         title: 'Weekly Change Review Board',
         status: CabMeetingStatus.COMPLETED,
         meetingAt: new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        endAt: new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
-        notes: 'Regular weekly CAB meeting. All standard and normal changes reviewed.',
-        summary: 'Reviewed 3 changes: 2 approved, 1 deferred for additional risk analysis.',
+        endAt: new Date(
+          NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+        ),
+        notes:
+          'Regular weekly CAB meeting. All standard and normal changes reviewed.',
+        summary:
+          'Reviewed 3 changes: 2 approved, 1 deferred for additional risk analysis.',
       },
       {
         id: ID.MEETING_2,
@@ -131,7 +141,8 @@ async function seedCabDemo(): Promise<void> {
         status: CabMeetingStatus.SCHEDULED,
         meetingAt: hoursFromNow(4),
         endAt: hoursFromNow(5),
-        notes: 'Emergency CAB session for critical infrastructure changes requiring immediate review.',
+        notes:
+          'Emergency CAB session for critical infrastructure changes requiring immediate review.',
         summary: null,
       },
       {
@@ -194,9 +205,12 @@ async function seedCabDemo(): Promise<void> {
         changeId: existingChanges[0].id,
         orderIndex: 0,
         decisionStatus: CabDecisionStatus.APPROVED,
-        decisionNote: 'Approved after risk review. Standard deployment procedure.',
+        decisionNote:
+          'Approved after risk review. Standard deployment procedure.',
         conditions: null,
-        decisionAt: new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000),
+        decisionAt: new Date(
+          NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000,
+        ),
       });
     }
     if (existingChanges.length >= 2) {
@@ -206,9 +220,12 @@ async function seedCabDemo(): Promise<void> {
         changeId: existingChanges[1].id,
         orderIndex: 1,
         decisionStatus: CabDecisionStatus.DEFERRED,
-        decisionNote: 'Deferred pending additional risk analysis. Reschedule for next CAB.',
+        decisionNote:
+          'Deferred pending additional risk analysis. Reschedule for next CAB.',
         conditions: null,
-        decisionAt: new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
+        decisionAt: new Date(
+          NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000,
+        ),
       });
     }
     if (existingChanges.length >= 3) {
@@ -218,9 +235,13 @@ async function seedCabDemo(): Promise<void> {
         changeId: existingChanges[2].id,
         orderIndex: 2,
         decisionStatus: CabDecisionStatus.CONDITIONAL,
-        decisionNote: 'Conditionally approved with mandatory backout plan verification.',
-        conditions: 'Must verify backout plan tested in staging before production deployment.',
-        decisionAt: new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 90 * 60 * 1000),
+        decisionNote:
+          'Conditionally approved with mandatory backout plan verification.',
+        conditions:
+          'Must verify backout plan tested in staging before production deployment.',
+        decisionAt: new Date(
+          NOW.getTime() - 2 * 24 * 60 * 60 * 1000 + 90 * 60 * 1000,
+        ),
       });
     }
 
@@ -280,10 +301,18 @@ async function seedCabDemo(): Promise<void> {
           decisionById: ai.decisionAt ? DEMO_ADMIN_ID : undefined,
         });
         await agendaRepo.save(existing);
-        logAction('CREATED', 'AgendaItem', `Meeting=${ai.cabMeetingId.slice(-4)} Change=${ai.changeId.slice(0, 8)} Decision=${ai.decisionStatus}`);
+        logAction(
+          'CREATED',
+          'AgendaItem',
+          `Meeting=${ai.cabMeetingId.slice(-4)} Change=${ai.changeId.slice(0, 8)} Decision=${ai.decisionStatus}`,
+        );
         track('CREATED');
       } else {
-        logAction('REUSED', 'AgendaItem', `Meeting=${ai.cabMeetingId.slice(-4)} Change=${ai.changeId.slice(0, 8)}`);
+        logAction(
+          'REUSED',
+          'AgendaItem',
+          `Meeting=${ai.cabMeetingId.slice(-4)} Change=${ai.changeId.slice(0, 8)}`,
+        );
         track('REUSED');
       }
     }
@@ -304,4 +333,4 @@ async function seedCabDemo(): Promise<void> {
   }
 }
 
-seedCabDemo();
+void seedCabDemo();
