@@ -17,6 +17,7 @@ import {
   IncidentUrgency,
   calculatePriority,
 } from '../enums';
+import { PriorityMatrixService } from '../priority-matrix/priority-matrix.service';
 import {
   IncidentFilterDto,
   INCIDENT_SORTABLE_FIELDS,
@@ -50,8 +51,29 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     @Optional()
     @InjectRepository(CmdbServiceOffering)
     private readonly cmdbOfferingRepo?: Repository<CmdbServiceOffering>,
+    @Optional()
+    private readonly priorityMatrixService?: PriorityMatrixService,
   ) {
     super(repository);
+  }
+
+  /**
+   * Compute priority using tenant-configurable matrix.
+   * Falls back to hardcoded calculatePriority if PriorityMatrixService is unavailable.
+   */
+  private async computePriority(
+    tenantId: string,
+    impact: IncidentImpact,
+    urgency: IncidentUrgency,
+  ): Promise<string> {
+    if (this.priorityMatrixService) {
+      return this.priorityMatrixService.computePriority(
+        tenantId,
+        impact,
+        urgency,
+      );
+    }
+    return calculatePriority(impact, urgency);
   }
 
   private async validateServiceOffering(
@@ -149,7 +171,7 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     const number = await this.generateIncidentNumber(tenantId);
     const impact = data.impact || IncidentImpact.MEDIUM;
     const urgency = data.urgency || IncidentUrgency.MEDIUM;
-    const priority = calculatePriority(impact, urgency);
+    const priority = await this.computePriority(tenantId, impact, urgency);
 
     const incident = await this.createForTenant(tenantId, {
       ...data,
@@ -220,7 +242,11 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     if (data.impact !== undefined || data.urgency !== undefined) {
       const impact = data.impact || existing.impact;
       const urgency = data.urgency || existing.urgency;
-      updateData.priority = calculatePriority(impact, urgency);
+      updateData.priority = await this.computePriority(
+        tenantId,
+        impact,
+        urgency,
+      );
     }
 
     const incident = await this.updateForTenant(tenantId, id, updateData);

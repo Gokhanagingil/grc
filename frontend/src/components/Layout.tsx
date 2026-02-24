@@ -477,6 +477,13 @@ const itsmMenuGroups: NavMenuGroup[] = [
         testId: 'nav-itsm-studio-sla',
         roles: ['admin'],
       },
+      {
+        text: 'Priority Matrix',
+        icon: <GrcHealthIcon />,
+        path: '/itsm/studio/priority-matrix',
+        testId: 'nav-itsm-studio-priority-matrix',
+        roles: ['admin'],
+      },
     ],
   },
 ];

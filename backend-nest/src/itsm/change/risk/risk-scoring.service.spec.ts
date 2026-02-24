@@ -116,7 +116,7 @@ describe('RiskScoringService', () => {
       expect(result).toBeDefined();
       expect(result!.riskScore).toBeGreaterThanOrEqual(0);
       expect(result!.riskScore).toBeLessThanOrEqual(100);
-      expect(result!.breakdown).toHaveLength(8);
+      expect(result!.breakdown).toHaveLength(9);
       expect(result!.breakdown.map((f) => f.name)).toEqual([
         'Blast Radius',
         'CMDB Quality',
@@ -126,6 +126,7 @@ describe('RiskScoringService', () => {
         'Conflict Status',
         'Customer Risk Exposure',
         'Topology Impact',
+        'Linked Risk Contribution',
       ]);
     });
 

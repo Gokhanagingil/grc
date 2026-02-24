@@ -194,8 +194,16 @@ export default function ItsmCabMeetingDetail() {
       setChangeIdInput('');
       fetchAgenda();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to add change to agenda';
-      setError(msg);
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        setError(`Validation failed: ${classified.message}`);
+      } else if (classified.kind === 'not_found') {
+        setError('Change not found. Please verify the Change ID.');
+      } else if (classified.kind === 'forbidden') {
+        setError('You do not have permission to modify the agenda.');
+      } else {
+        setError(classified.message || 'Failed to add change to agenda');
+      }
     } finally {
       setAddingChange(false);
     }
@@ -208,8 +216,8 @@ export default function ItsmCabMeetingDetail() {
       await itsmApi.cabMeetings.removeAgendaItem(id, itemId);
       fetchAgenda();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to remove agenda item';
-      setError(msg);
+      const classified = classifyApiError(err);
+      setError(classified.message || 'Failed to remove agenda item');
     }
   };
 
@@ -234,8 +242,12 @@ export default function ItsmCabMeetingDetail() {
       setDecisionOpen(false);
       fetchAgenda();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to record decision';
-      setError(msg);
+      const classified = classifyApiError(err);
+      if (classified.kind === 'validation') {
+        setError(`Decision validation failed: ${classified.message}`);
+      } else {
+        setError(classified.message || 'Failed to record decision');
+      }
     } finally {
       setRecordingDecision(false);
     }

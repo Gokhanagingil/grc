@@ -469,20 +469,17 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Priority</InputLabel>
-                    <Select
-                      value={incident.priority || 'p3'}
-                      label="Priority"
-                      onChange={(e) => handleChange('priority', e.target.value)}
-                    >
-                      {priorityOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Priority"
+                    value={
+                      priorityOptions.find((o) => o.value === (incident.priority || 'p3'))?.label
+                      || (incident.priority || 'P3').toUpperCase()
+                    }
+                    InputProps={{ readOnly: true }}
+                    helperText="Auto-computed from Impact × Urgency"
+                    data-testid="incident-priority-readonly"
+                  />
                 </Grid>
 
                 <Grid item xs={12} md={6}>

@@ -14,7 +14,25 @@ import { SlaInstance, SlaInstanceStatus } from '../../sla/sla-instance.entity';
 import { CalendarConflict } from '../calendar/calendar-conflict.entity';
 import { CustomerRiskImpactService } from './customer-risk-impact.service';
 import { TopologyImpactAnalysisService } from './topology-impact/topology-impact-analysis.service';
-
+import { ItsmChangeRisk } from '../../../grc/entities/itsm-change-risk.entity';
+import { GrcRisk } from '../../../grc/entities/grc-risk.entity';
+/**
+ * Factor weights for the Change Risk Scoring Model.
+ * Total weight sums to 112 (normalized during computation).
+ *
+ * LINKED_RISK_CONTRIBUTION (weight=12) was added to account for
+ * GRC risks explicitly linked to a change via itsm_change_risks.
+ *
+ * Formula for linked risk contribution:
+ *   1. Fetch all GrcRisk records linked to the change via ItsmChangeRisk join table
+ *   2. For each linked risk, compute a severity score:
+ *      - CRITICAL=100, HIGH=75, MEDIUM=50, LOW=25 (from GrcRisk.severity enum)
+ *   3. Apply status weighting (open/active risks count more):
+ *      - IDENTIFIED/OPEN/ANALYZING=1.0, MITIGATING/MONITORING=0.6, CLOSED/ACCEPTED=0.2, DRAFT=0.4
+ *   4. linkedRiskScore = min(100, sum(severityScore * statusWeight) / count * scaleFactor)
+ *      where scaleFactor = min(2.0, 1 + (count - 1) * 0.25)  (more risks = higher score, capped)
+ *   5. If no linked risks, score = 0 (backward compatible — no impact on existing scores)
+ */
 const FACTOR_WEIGHTS = {
   BLAST_RADIUS: 18,
   TOPOLOGY_IMPACT: 12,
@@ -24,6 +42,7 @@ const FACTOR_WEIGHTS = {
   SLA_BREACH_FORECAST: 7,
   CONFLICT_STATUS: 7,
   CUSTOMER_RISK_EXPOSURE: 14,
+  LINKED_RISK_CONTRIBUTION: 12,
 };
 
 function scoreToLevel(score: number): RiskLevel {
@@ -58,6 +77,12 @@ export class RiskScoringService {
     private readonly customerRiskImpactService?: CustomerRiskImpactService,
     @Optional()
     private readonly topologyImpactService?: TopologyImpactAnalysisService,
+    @Optional()
+    @InjectRepository(ItsmChangeRisk)
+    private readonly changeRiskRepo?: Repository<ItsmChangeRisk>,
+    @Optional()
+    @InjectRepository(GrcRisk)
+    private readonly grcRiskRepo?: Repository<GrcRisk>,
   ) {}
 
   async getAssessment(
@@ -117,6 +142,12 @@ export class RiskScoringService {
       change,
     );
     factors.push(topologyResult.factor);
+
+    const linkedRiskResult = await this.calculateLinkedRiskContribution(
+      tenantId,
+      change.id,
+    );
+    factors.push(linkedRiskResult.factor);
 
     const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
     const weightedSum = factors.reduce((sum, f) => sum + f.weightedScore, 0);
@@ -459,6 +490,141 @@ export class RiskScoringService {
         },
       };
     }
+  }
+
+  /**
+   * Calculate the Linked Risk Contribution factor.
+   *
+   * This factor accounts for GRC risks that are explicitly linked to
+   * the change via the itsm_change_risks join table.
+   *
+   * Scoring formula:
+   *   severityMap: CRITICAL=100, HIGH=75, MEDIUM=50, LOW=25
+   *   statusWeightMap: IDENTIFIED/OPEN/ANALYZING=1.0, MITIGATING/MONITORING=0.6,
+   *                    CLOSED/ACCEPTED=0.2, DRAFT=0.4
+   *   For each linked risk: weightedScore = severityMap[risk.severity] * statusWeightMap[risk.status]
+   *   avgWeightedScore = sum(weightedScores) / count
+   *   scaleFactor = min(2.0, 1 + (count - 1) * 0.25)
+   *   finalScore = min(100, round(avgWeightedScore * scaleFactor))
+   *
+   * If no linked risks exist, score = 0 (backward compatible).
+   */
+  private async calculateLinkedRiskContribution(
+    tenantId: string,
+    changeId: string,
+  ): Promise<{ factor: RiskFactor }> {
+    if (!this.changeRiskRepo || !this.grcRiskRepo) {
+      return {
+        factor: {
+          name: 'Linked Risk Contribution',
+          weight: FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'Linked risk repositories not available',
+        },
+      };
+    }
+
+    const links = await this.changeRiskRepo.find({
+      where: { tenantId, changeId },
+    });
+
+    if (links.length === 0) {
+      return {
+        factor: {
+          name: 'Linked Risk Contribution',
+          weight: FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION,
+          score: 0,
+          weightedScore: 0,
+          evidence: 'No linked risks — no additional risk contribution',
+        },
+      };
+    }
+
+    // Severity score mapping (from GrcRisk.severity enum)
+    const severityMap: Record<string, number> = {
+      CRITICAL: 100,
+      HIGH: 75,
+      MEDIUM: 50,
+      LOW: 25,
+    };
+
+    // Status weight mapping — open/active risks count more
+    const statusWeightMap: Record<string, number> = {
+      IDENTIFIED: 1.0,
+      OPEN: 1.0,
+      ANALYZING: 1.0,
+      MITIGATING: 0.6,
+      MONITORING: 0.6,
+      CLOSED: 0.2,
+      ACCEPTED: 0.2,
+      DRAFT: 0.4,
+    };
+
+    const riskIds = links.map((l) => l.riskId);
+    const risks = await this.grcRiskRepo
+      .createQueryBuilder('r')
+      .where('r.id IN (:...riskIds)', { riskIds })
+      .andWhere('r.tenantId = :tenantId', { tenantId })
+      .andWhere('r.isDeleted = false')
+      .getMany();
+
+    if (risks.length === 0) {
+      return {
+        factor: {
+          name: 'Linked Risk Contribution',
+          weight: FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION,
+          score: 0,
+          weightedScore: 0,
+          evidence: `${links.length} linked risk(s) but none found in risk register`,
+        },
+      };
+    }
+
+    let totalWeightedScore = 0;
+    const details: string[] = [];
+    let criticalCount = 0;
+    let highCount = 0;
+    let openCount = 0;
+
+    for (const risk of risks) {
+      const sevScore = severityMap[risk.severity] ?? 25;
+      const statusWeight = statusWeightMap[risk.status] ?? 0.5;
+      const weighted = sevScore * statusWeight;
+      totalWeightedScore += weighted;
+
+      if (String(risk.severity).toLowerCase() === 'critical') criticalCount++;
+      if (String(risk.severity).toLowerCase() === 'high') highCount++;
+      if (['IDENTIFIED', 'OPEN', 'ANALYZING'].includes(risk.status))
+        openCount++;
+
+      details.push(
+        `${risk.title || risk.code || risk.id.slice(0, 8)}: severity=${risk.severity}, status=${risk.status}, score=${weighted.toFixed(0)}`,
+      );
+    }
+
+    const avgWeightedScore = totalWeightedScore / risks.length;
+    // Scale factor: more linked risks = higher overall contribution (capped at 2x)
+    const scaleFactor = Math.min(2.0, 1 + (risks.length - 1) * 0.25);
+    const rawScore = Math.min(100, Math.round(avgWeightedScore * scaleFactor));
+
+    const summaryParts = [`${risks.length} linked risk(s)`];
+    if (criticalCount > 0) summaryParts.push(`${criticalCount} CRITICAL`);
+    if (highCount > 0) summaryParts.push(`${highCount} HIGH`);
+    if (openCount > 0) summaryParts.push(`${openCount} open/active`);
+    summaryParts.push(
+      `avg=${avgWeightedScore.toFixed(0)}, scale=${scaleFactor.toFixed(2)}, final=${rawScore}`,
+    );
+
+    return {
+      factor: {
+        name: 'Linked Risk Contribution',
+        weight: FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION,
+        score: rawScore,
+        weightedScore: rawScore * FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION,
+        evidence: summaryParts.join(', '),
+      },
+    };
   }
 
   private async calculateCustomerRiskExposure(
