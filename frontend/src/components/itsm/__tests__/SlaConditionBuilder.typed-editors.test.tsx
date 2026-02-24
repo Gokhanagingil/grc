@@ -56,7 +56,7 @@ describe('SlaConditionBuilder — Typed Value Editors', () => {
     expect(screen.getByText('AND')).toBeInTheDocument();
   });
 
-  it('renders enum field with category=is and shows select (not text)', () => {
+  it('renders enum field with category=is using a Select component', () => {
     const condition: ConditionGroup = {
       operator: 'AND',
       children: [
@@ -66,10 +66,12 @@ describe('SlaConditionBuilder — Typed Value Editors', () => {
     render(
       <SlaConditionBuilder value={condition} onChange={mockOnChange} fields={FIELDS} />
     );
-    // Category should render a Select, not a TextField
-    // The value 'HARDWARE' should be visible
-    expect(screen.queryByDisplayValue('HARDWARE')).toBeFalsy();
-    // Instead it should be in a select component
+    // Category (enum) should render a MUI Select which uses a hidden native input
+    // The hidden native input carries the current value
+    const nativeInput = screen.getByDisplayValue('HARDWARE');
+    expect(nativeInput).toBeInTheDocument();
+    // Verify it is inside a Select (MUI renders aria-hidden native input)
+    expect(nativeInput).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('renders string field with text input', () => {

@@ -61,6 +61,7 @@ describe('ChangeCiService', () => {
       save: jest.fn(),
       create: jest.fn(),
       remove: jest.fn(),
+      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -154,7 +155,7 @@ describe('ChangeCiService', () => {
   describe('removeAffectedCi', () => {
     it('returns true for an existing link', async () => {
       changeCiRepo.findOne.mockResolvedValue(mockLink as ItsmChangeCi);
-      changeCiRepo.save.mockResolvedValue(mockLink as ItsmChangeCi);
+      changeCiRepo.save.mockResolvedValue({ ...mockLink, isDeleted: true } as ItsmChangeCi);
 
       const result = await service.removeAffectedCi(TENANT_ID, USER_ID, CHANGE_ID, LINK_ID);
       expect(result).toBe(true);
