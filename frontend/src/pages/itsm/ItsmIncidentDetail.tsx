@@ -193,7 +193,13 @@ export const ItsmIncidentDetail: React.FC = () => {
       const response = await itsmApi.incidents.get(id);
       const data = response.data;
       if (data && 'data' in data) {
-        setIncident(data.data);
+        const record = data.data as Record<string, unknown>;
+        // Backend returns 'status', frontend interface uses 'state'
+        // Map status → state so UI rendering and save both work correctly
+        setIncident({
+          ...record,
+          state: (record.status as string) || (record.state as string) || 'open',
+        } as Partial<ItsmIncident>);
       }
 
       // Fetch linked risks and controls

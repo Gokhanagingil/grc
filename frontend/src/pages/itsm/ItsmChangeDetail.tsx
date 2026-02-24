@@ -730,26 +730,38 @@ export const ItsmChangeDetail: React.FC = () => {
 
   const handleLinkRisk = async (riskId: string) => {
     if (!id) return;
-    await itsmApi.changes.linkRisk(id, riskId);
-    showNotification('Risk linked successfully', 'success');
-    // Refresh linked risks from backend
     try {
-      const resp = await itsmApi.changes.getLinkedRisks(id);
-      const items = extractLinkedArray(resp);
-      if (mountedRef.current) setLinkedRisks(items as LinkedRisk[]);
-    } catch { /* linked list will refresh on next page load */ }
+      await itsmApi.changes.linkRisk(id, riskId);
+      showNotification('Risk linked successfully', 'success');
+      // Refresh linked risks from backend
+      try {
+        const resp = await itsmApi.changes.getLinkedRisks(id);
+        const items = extractLinkedArray(resp.data);
+        if (mountedRef.current) setLinkedRisks(items as LinkedRisk[]);
+      } catch { /* linked list will refresh on next page load */ }
+    } catch (error) {
+      console.error('Error linking risk:', error);
+      const errMsg = classifyLinkedLoadError(error, 'risk');
+      showNotification(errMsg, 'error');
+    }
   };
 
   const handleLinkControl = async (controlId: string) => {
     if (!id) return;
-    await itsmApi.changes.linkControl(id, controlId);
-    showNotification('Control linked successfully', 'success');
-    // Refresh linked controls from backend
     try {
-      const resp = await itsmApi.changes.getLinkedControls(id);
-      const items = extractLinkedArray(resp);
-      if (mountedRef.current) setLinkedControls(items as LinkedControl[]);
-    } catch { /* linked list will refresh on next page load */ }
+      await itsmApi.changes.linkControl(id, controlId);
+      showNotification('Control linked successfully', 'success');
+      // Refresh linked controls from backend
+      try {
+        const resp = await itsmApi.changes.getLinkedControls(id);
+        const items = extractLinkedArray(resp.data);
+        if (mountedRef.current) setLinkedControls(items as LinkedControl[]);
+      } catch { /* linked list will refresh on next page load */ }
+    } catch (error) {
+      console.error('Error linking control:', error);
+      const errMsg = classifyLinkedLoadError(error, 'control');
+      showNotification(errMsg, 'error');
+    }
   };
 
   const fetchAvailableRisks = useCallback(async (): Promise<LinkableRecord[]> => {

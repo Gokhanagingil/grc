@@ -36,7 +36,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData, CreateCabMeetingDto } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CreateCabMeetingDto, unwrapPaginatedResponse } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { stripUndefined, CAB_MEETING_CREATE_FIELDS, stripForbiddenFields } from '../../utils/payloadNormalizer';
 
@@ -76,18 +76,12 @@ export default function ItsmCabMeetingList() {
         status: statusFilter || undefined,
         search: search || undefined,
       });
-      const data = res?.data;
-      if (data) {
-        const items = Array.isArray(data) ? data : (data.items || data.data || []);
-        setMeetings(items);
-        setTotal(data.total ?? data.totalItems ?? items.length ?? 0);
-      } else {
-        setMeetings([]);
-        setTotal(0);
-      }
+      const { items, total: totalCount } = unwrapPaginatedResponse<CabMeetingData>(res);
+      setMeetings(items);
+      setTotal(totalCount);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load CAB meetings';
-      setError(msg);
+      const classified = classifyApiError(err);
+      setError(classified.message || 'Failed to load CAB meetings');
       setMeetings([]);
     } finally {
       setLoading(false);

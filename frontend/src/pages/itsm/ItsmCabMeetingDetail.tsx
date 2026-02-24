@@ -39,7 +39,7 @@ import {
   Gavel as GavelIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto, unwrapResponse } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import {
   normalizeUpdatePayload,
@@ -104,7 +104,7 @@ export default function ItsmCabMeetingDetail() {
     setError(null);
     try {
       const res = await itsmApi.cabMeetings.get(id);
-      const data = res?.data;
+      const data = unwrapResponse<CabMeetingData>(res);
       if (data) {
         setMeeting(data);
         setEditTitle(data.title || '');
@@ -115,8 +115,8 @@ export default function ItsmCabMeetingDetail() {
         setEditEndAt(data.endAt ? toLocalDatetimeInput(data.endAt) : '');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load meeting';
-      setError(msg);
+      const classified = classifyApiError(err);
+      setError(classified.message || 'Failed to load meeting');
     } finally {
       setLoading(false);
     }
