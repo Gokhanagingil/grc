@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
+import { ChangeTasksSection } from '../../components/itsm/ChangeTasksSection';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
@@ -1781,6 +1782,13 @@ export const ItsmChangeDetail: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Change Tasks Section */}
+      {!isNew && change.id && (
+        <Box sx={{ mt: 2 }}>
+          <ChangeTasksSection changeId={change.id} showNotification={showNotification} />
+        </Box>
+      )}
 
       {!isNew && change.id && (
         <Box sx={{ mt: 3 }}>
