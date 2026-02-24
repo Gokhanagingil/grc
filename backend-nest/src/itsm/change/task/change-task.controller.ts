@@ -25,7 +25,10 @@ import { ChangeTaskService } from './change-task.service';
 import { CreateChangeTaskDto } from './dto/create-change-task.dto';
 import { UpdateChangeTaskDto } from './dto/update-change-task.dto';
 import { ChangeTaskFilterDto } from './dto/change-task-filter.dto';
-import { AddDependencyDto, RemoveDependencyDto } from './dto/manage-dependency.dto';
+import {
+  AddDependencyDto,
+  RemoveDependencyDto,
+} from './dto/manage-dependency.dto';
 
 @Controller('grc/itsm/changes/:changeId/tasks')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)

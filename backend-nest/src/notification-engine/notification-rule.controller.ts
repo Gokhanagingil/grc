@@ -28,9 +28,7 @@ import {
 @Controller('grc/notification-rules')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class NotificationRuleController {
-  constructor(
-    private readonly engineService: NotificationEngineService,
-  ) {}
+  constructor(private readonly engineService: NotificationEngineService) {}
 
   @Get()
   @Permissions(Permission.ADMIN_SETTINGS_READ)
@@ -58,10 +56,7 @@ export class NotificationRuleController {
 
   @Get(':id')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async getRule(
-    @NestRequest() req: RequestWithUser,
-    @Param('id') id: string,
-  ) {
+  async getRule(@NestRequest() req: RequestWithUser, @Param('id') id: string) {
     const tenantId = req.tenantId;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 

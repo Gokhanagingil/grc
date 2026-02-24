@@ -1,7 +1,11 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../common/entities';
 import { ItsmChangeTemplate } from './change-template.entity';
-import { ChangeTaskType, ChangeTaskStatus, ChangeTaskPriority } from '../task/change-task.entity';
+import {
+  ChangeTaskType,
+  ChangeTaskStatus,
+  ChangeTaskPriority,
+} from '../task/change-task.entity';
 
 @Entity('itsm_change_template_tasks')
 @Index(['tenantId', 'templateId'])

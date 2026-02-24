@@ -10,7 +10,10 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { CiClassInheritanceService, ClassTreeNode } from '../ci-class-inheritance.service';
+import {
+  CiClassInheritanceService,
+  ClassTreeNode,
+} from '../ci-class-inheritance.service';
 import { CiClassService } from '../ci-class.service';
 import { CmdbCiClass } from '../ci-class.entity';
 
@@ -68,7 +71,14 @@ function seedTestData() {
       isSystem: true,
       sortOrder: 0,
       fieldsSchema: [
-        { key: 'ci_name', label: 'CI Name', dataType: 'string', required: true, order: 1, group: 'General' },
+        {
+          key: 'ci_name',
+          label: 'CI Name',
+          dataType: 'string',
+          required: true,
+          order: 1,
+          group: 'General',
+        },
       ],
     }),
     makeClass({
@@ -80,7 +90,13 @@ function seedTestData() {
       isSystem: true,
       sortOrder: 10,
       fieldsSchema: [
-        { key: 'serial_number', label: 'Serial Number', dataType: 'string', order: 10, group: 'Hardware' },
+        {
+          key: 'serial_number',
+          label: 'Serial Number',
+          dataType: 'string',
+          order: 10,
+          group: 'Hardware',
+        },
       ],
     }),
     makeClass({
@@ -111,9 +127,10 @@ function seedTestData() {
 const mockRepository = {
   find: jest.fn().mockImplementation((opts: Record<string, unknown>) => {
     const where = opts.where as Record<string, unknown>;
-    let result = classStore.filter((c) => {
+    const result = classStore.filter((c) => {
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
       return true;
     });
     return Promise.resolve(result);
@@ -124,7 +141,8 @@ const mockRepository = {
     const match = classStore.find((c) => {
       if (where.id && c.id !== where.id) return false;
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
       return true;
     });
     return Promise.resolve(match ?? null);
@@ -168,12 +186,18 @@ describe('CMDB Visibility Hardening — Contract Tests', () => {
         },
         {
           provide: 'AuditService',
-          useValue: { recordCreate: jest.fn(), recordUpdate: jest.fn(), recordDelete: jest.fn() },
+          useValue: {
+            recordCreate: jest.fn(),
+            recordUpdate: jest.fn(),
+            recordDelete: jest.fn(),
+          },
         },
       ],
     }).compile();
 
-    inheritanceService = module.get<CiClassInheritanceService>(CiClassInheritanceService);
+    inheritanceService = module.get<CiClassInheritanceService>(
+      CiClassInheritanceService,
+    );
     ciClassService = module.get<CiClassService>(CiClassService);
   });
 
@@ -204,7 +228,9 @@ describe('CMDB Visibility Hardening — Contract Tests', () => {
       const tree = await inheritanceService.getClassTree(TENANT_ID);
       const root = tree[0];
       // Find the custom class in children
-      const customNode = root.children.find((c: ClassTreeNode) => c.name === 'my_custom_class');
+      const customNode = root.children.find(
+        (c: ClassTreeNode) => c.name === 'my_custom_class',
+      );
       expect(customNode).toBeDefined();
       expect(customNode!.isSystem).toBe(false);
     });
@@ -212,17 +238,19 @@ describe('CMDB Visibility Hardening — Contract Tests', () => {
     it('tree node shape includes all expected fields', async () => {
       const tree = await inheritanceService.getClassTree(TENANT_ID);
       const root = tree[0];
-      expect(root).toEqual(expect.objectContaining({
-        id: expect.any(String),
-        name: expect.any(String),
-        label: expect.any(String),
-        isAbstract: expect.any(Boolean),
-        isActive: expect.any(Boolean),
-        isSystem: expect.any(Boolean),
-        sortOrder: expect.any(Number),
-        localFieldCount: expect.any(Number),
-        children: expect.any(Array),
-      }));
+      expect(root).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          name: expect.any(String),
+          label: expect.any(String),
+          isAbstract: expect.any(Boolean),
+          isActive: expect.any(Boolean),
+          isSystem: expect.any(Boolean),
+          sortOrder: expect.any(Number),
+          localFieldCount: expect.any(Number),
+          children: expect.any(Array),
+        }),
+      );
     });
   });
 

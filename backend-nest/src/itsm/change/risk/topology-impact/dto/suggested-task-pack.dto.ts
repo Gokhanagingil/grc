@@ -6,7 +6,13 @@
  *
  * Phase-C, Phase 3: Topology-aware Operational Tasking.
  */
-import { IsNotEmpty, IsString, IsUUID, IsOptional, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsArray,
+} from 'class-validator';
 
 // ============================================================================
 // Suggested Task Pack

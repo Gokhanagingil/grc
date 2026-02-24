@@ -121,7 +121,13 @@ describe('ITSM Service Binding (e2e)', () => {
     let incidentId: string;
 
     it('should create incident with valid serviceId + offeringId', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !serviceId || !offeringId) {
+      if (
+        !dbConnected ||
+        !tenantId ||
+        !adminToken ||
+        !serviceId ||
+        !offeringId
+      ) {
         console.log('Skipping test: prerequisites not met');
         return;
       }
@@ -185,7 +191,13 @@ describe('ITSM Service Binding (e2e)', () => {
     });
 
     it('should reject incident with mismatched offering/service (400)', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !serviceId || !offeringId) {
+      if (
+        !dbConnected ||
+        !tenantId ||
+        !adminToken ||
+        !serviceId ||
+        !offeringId
+      ) {
         console.log('Skipping test: prerequisites not met');
         return;
       }
@@ -240,7 +252,13 @@ describe('ITSM Service Binding (e2e)', () => {
     });
 
     it('should update incident serviceId/offeringId', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !incidentId || !serviceId) {
+      if (
+        !dbConnected ||
+        !tenantId ||
+        !adminToken ||
+        !incidentId ||
+        !serviceId
+      ) {
         console.log('Skipping test: prerequisites not met');
         return;
       }
@@ -287,7 +305,13 @@ describe('ITSM Service Binding (e2e)', () => {
   // ==================== CHANGE SERVICE BINDING ====================
   describe('Change — Service Binding', () => {
     it('should create change with valid serviceId + offeringId', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !serviceId || !offeringId) {
+      if (
+        !dbConnected ||
+        !tenantId ||
+        !adminToken ||
+        !serviceId ||
+        !offeringId
+      ) {
         console.log('Skipping test: prerequisites not met');
         return;
       }
@@ -311,7 +335,13 @@ describe('ITSM Service Binding (e2e)', () => {
     });
 
     it('should reject change with mismatched offering/service (400)', async () => {
-      if (!dbConnected || !tenantId || !adminToken || !serviceId || !offeringId) {
+      if (
+        !dbConnected ||
+        !tenantId ||
+        !adminToken ||
+        !serviceId ||
+        !offeringId
+      ) {
         console.log('Skipping test: prerequisites not met');
         return;
       }

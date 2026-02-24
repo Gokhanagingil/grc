@@ -240,9 +240,13 @@ describe('Controls API Filter Validation', () => {
           expect((error as BadRequestException).message).toContain(
             'Invalid type value',
           );
-          expect((error as BadRequestException).message).toContain('preventive');
+          expect((error as BadRequestException).message).toContain(
+            'preventive',
+          );
           expect((error as BadRequestException).message).toContain('detective');
-          expect((error as BadRequestException).message).toContain('corrective');
+          expect((error as BadRequestException).message).toContain(
+            'corrective',
+          );
         }
       });
     });

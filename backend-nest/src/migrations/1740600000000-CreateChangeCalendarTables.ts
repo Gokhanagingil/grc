@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateChangeCalendarTables1740600000000
-  implements MigrationInterface
-{
+export class CreateChangeCalendarTables1740600000000 implements MigrationInterface {
   name = 'CreateChangeCalendarTables1740600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -141,9 +139,7 @@ export class CreateChangeCalendarTables1740600000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_itsm_conflict_type"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_conflict_type"`);
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_itsm_conflict_tenant_change"`,
     );
@@ -155,9 +151,7 @@ export class CreateChangeCalendarTables1740600000000
       `DROP INDEX IF EXISTS "IDX_itsm_freeze_tenant_active"`,
     );
     await queryRunner.query(`DROP TABLE IF EXISTS "itsm_freeze_window"`);
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_itsm_cal_event_change"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_cal_event_change"`);
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_itsm_cal_event_tenant_type"`,
     );

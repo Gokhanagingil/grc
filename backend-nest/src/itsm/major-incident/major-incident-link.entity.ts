@@ -37,7 +37,12 @@ export class ItsmMajorIncidentLink extends BaseEntity {
   @Column({ name: 'linked_record_id', type: 'uuid' })
   linkedRecordId: string;
 
-  @Column({ name: 'linked_record_label', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'linked_record_label',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   linkedRecordLabel: string | null;
 
   @Column({ type: 'text', nullable: true })

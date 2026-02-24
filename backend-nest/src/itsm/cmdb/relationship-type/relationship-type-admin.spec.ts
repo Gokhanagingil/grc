@@ -66,58 +66,81 @@ function makeEntity(
 
 function createMockRepository() {
   return {
-    find: jest.fn().mockImplementation(({ where }: { where: Record<string, unknown> }) => {
-      return Promise.resolve(
-        store.filter(
-          (e) =>
-            e.tenantId === where.tenantId &&
-            e.isActive === (where.isActive ?? e.isActive) &&
-            e.isDeleted === (where.isDeleted ?? e.isDeleted),
-        ),
-      );
-    }),
-    findOne: jest.fn().mockImplementation(({ where }: { where: Record<string, unknown> }) => {
-      const match = store.find((e) => {
-        if (where.id && e.id !== where.id) return false;
-        if (where.name && e.name !== where.name) return false;
-        if (where.tenantId && e.tenantId !== where.tenantId) return false;
-        if (where.isDeleted !== undefined && e.isDeleted !== where.isDeleted) return false;
-        return true;
-      });
-      return Promise.resolve(match || null);
-    }),
-    create: jest.fn().mockImplementation((data: Partial<CmdbRelationshipType>) => {
-      return { ...data } as CmdbRelationshipType;
-    }),
-    save: jest.fn().mockImplementation((entity: Partial<CmdbRelationshipType>) => {
-      const id = entity.id ?? `reltype-${++idCounter}`;
-      const full = makeEntity({
-        ...entity,
-        name: entity.name ?? 'unnamed',
-        id,
-      } as CmdbRelationshipType & { name: string });
-      const idx = store.findIndex((e) => e.id === id);
-      if (idx >= 0) {
-        store[idx] = { ...store[idx], ...full };
-        return Promise.resolve(store[idx]);
-      }
-      store.push(full);
-      return Promise.resolve(full);
-    }),
-    merge: jest.fn().mockImplementation((target: CmdbRelationshipType, ...sources: Partial<CmdbRelationshipType>[]) => {
-      const merged = Object.assign(target, ...sources);
-      return merged;
-    }),
-    update: jest.fn().mockImplementation((criteria: { id: string; tenantId: string }, data: Partial<CmdbRelationshipType>) => {
-      const idx = store.findIndex(
-        (e) => e.id === criteria.id && e.tenantId === criteria.tenantId,
-      );
-      if (idx >= 0) {
-        store[idx] = { ...store[idx], ...data, updatedAt: new Date() };
-        return Promise.resolve({ affected: 1 });
-      }
-      return Promise.resolve({ affected: 0 });
-    }),
+    find: jest
+      .fn()
+      .mockImplementation(({ where }: { where: Record<string, unknown> }) => {
+        return Promise.resolve(
+          store.filter(
+            (e) =>
+              e.tenantId === where.tenantId &&
+              e.isActive === (where.isActive ?? e.isActive) &&
+              e.isDeleted === (where.isDeleted ?? e.isDeleted),
+          ),
+        );
+      }),
+    findOne: jest
+      .fn()
+      .mockImplementation(({ where }: { where: Record<string, unknown> }) => {
+        const match = store.find((e) => {
+          if (where.id && e.id !== where.id) return false;
+          if (where.name && e.name !== where.name) return false;
+          if (where.tenantId && e.tenantId !== where.tenantId) return false;
+          if (where.isDeleted !== undefined && e.isDeleted !== where.isDeleted)
+            return false;
+          return true;
+        });
+        return Promise.resolve(match || null);
+      }),
+    create: jest
+      .fn()
+      .mockImplementation((data: Partial<CmdbRelationshipType>) => {
+        return { ...data } as CmdbRelationshipType;
+      }),
+    save: jest
+      .fn()
+      .mockImplementation((entity: Partial<CmdbRelationshipType>) => {
+        const id = entity.id ?? `reltype-${++idCounter}`;
+        const full = makeEntity({
+          ...entity,
+          name: entity.name ?? 'unnamed',
+          id,
+        } as CmdbRelationshipType & { name: string });
+        const idx = store.findIndex((e) => e.id === id);
+        if (idx >= 0) {
+          store[idx] = { ...store[idx], ...full };
+          return Promise.resolve(store[idx]);
+        }
+        store.push(full);
+        return Promise.resolve(full);
+      }),
+    merge: jest
+      .fn()
+      .mockImplementation(
+        (
+          target: CmdbRelationshipType,
+          ...sources: Partial<CmdbRelationshipType>[]
+        ) => {
+          const merged = Object.assign(target, ...sources);
+          return merged;
+        },
+      ),
+    update: jest
+      .fn()
+      .mockImplementation(
+        (
+          criteria: { id: string; tenantId: string },
+          data: Partial<CmdbRelationshipType>,
+        ) => {
+          const idx = store.findIndex(
+            (e) => e.id === criteria.id && e.tenantId === criteria.tenantId,
+          );
+          if (idx >= 0) {
+            store[idx] = { ...store[idx], ...data, updatedAt: new Date() };
+            return Promise.resolve({ affected: 1 });
+          }
+          return Promise.resolve({ affected: 0 });
+        },
+      ),
     createQueryBuilder: jest.fn().mockReturnValue({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -125,16 +148,21 @@ function createMockRepository() {
       addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getCount: jest.fn().mockImplementation(() =>
-        Promise.resolve(
-          store.filter((e) => e.tenantId === TENANT_ID && !e.isDeleted).length,
+      getCount: jest
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(
+            store.filter((e) => e.tenantId === TENANT_ID && !e.isDeleted)
+              .length,
+          ),
         ),
-      ),
-      getMany: jest.fn().mockImplementation(() =>
-        Promise.resolve(
-          store.filter((e) => e.tenantId === TENANT_ID && !e.isDeleted),
+      getMany: jest
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(
+            store.filter((e) => e.tenantId === TENANT_ID && !e.isDeleted),
+          ),
         ),
-      ),
     }),
   };
 }
@@ -200,7 +228,9 @@ describe('CMDB MI 2.0 — Relationship Type Admin CRUD', () => {
       expect(result).toBeDefined();
       expect(result.name).toBe('monitors');
       expect(result.label).toBe('Monitors');
-      expect(result.directionality).toBe(RelationshipDirectionality.UNIDIRECTIONAL);
+      expect(result.directionality).toBe(
+        RelationshipDirectionality.UNIDIRECTIONAL,
+      );
       expect(result.riskPropagation).toBe(RiskPropagationHint.FORWARD);
       expect(result.inverseLabel).toBe('Monitored By');
       expect(result.allowedSourceClasses).toEqual(['cmdb_ci_monitoring']);
@@ -245,7 +275,11 @@ describe('CMDB MI 2.0 — Relationship Type Admin CRUD', () => {
     it('should return only active non-deleted types for tenant', async () => {
       store.push(
         makeEntity({ name: 'active_type', isActive: true, isDeleted: false }),
-        makeEntity({ name: 'inactive_type', isActive: false, isDeleted: false }),
+        makeEntity({
+          name: 'inactive_type',
+          isActive: false,
+          isDeleted: false,
+        }),
         makeEntity({ name: 'deleted_type', isActive: true, isDeleted: true }),
       );
 
@@ -261,20 +295,31 @@ describe('CMDB MI 2.0 — Relationship Type Admin CRUD', () => {
     it('should return an entity by ID', async () => {
       store.push(makeEntity({ id: 'test-id-1', name: 'test_type' }));
 
-      const result = await service.findOneActiveForTenant(TENANT_ID, 'test-id-1');
+      const result = await service.findOneActiveForTenant(
+        TENANT_ID,
+        'test-id-1',
+      );
       expect(result).toBeDefined();
       expect(result!.name).toBe('test_type');
     });
 
     it('should return null for non-existent ID', async () => {
-      const result = await service.findOneActiveForTenant(TENANT_ID, 'non-existent');
+      const result = await service.findOneActiveForTenant(
+        TENANT_ID,
+        'non-existent',
+      );
       expect(result).toBeNull();
     });
 
     it('should return null for deleted entity', async () => {
-      store.push(makeEntity({ id: 'deleted-1', name: 'deleted', isDeleted: true }));
+      store.push(
+        makeEntity({ id: 'deleted-1', name: 'deleted', isDeleted: true }),
+      );
 
-      const result = await service.findOneActiveForTenant(TENANT_ID, 'deleted-1');
+      const result = await service.findOneActiveForTenant(
+        TENANT_ID,
+        'deleted-1',
+      );
       expect(result).toBeNull();
     });
   });
@@ -390,10 +435,18 @@ describe('CMDB MI 2.0 — Relationship Type Admin CRUD', () => {
 
     it('should trigger audit on delete', async () => {
       store.push(
-        makeEntity({ id: 'audit-del-1', name: 'audit_delete', isSystem: false }),
+        makeEntity({
+          id: 'audit-del-1',
+          name: 'audit_delete',
+          isSystem: false,
+        }),
       );
 
-      await service.softDeleteRelationshipType(TENANT_ID, USER_ID, 'audit-del-1');
+      await service.softDeleteRelationshipType(
+        TENANT_ID,
+        USER_ID,
+        'audit-del-1',
+      );
 
       expect(mockAudit.recordDelete).toHaveBeenCalledWith(
         'CmdbRelationshipType',

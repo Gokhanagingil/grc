@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateRiskAssessmentAndPolicyTables1740700000000
-  implements MigrationInterface
-{
+export class CreateRiskAssessmentAndPolicyTables1740700000000 implements MigrationInterface {
   name = 'CreateRiskAssessmentAndPolicyTables1740700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -83,7 +81,9 @@ export class CreateRiskAssessmentAndPolicyTables1740700000000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS itsm_change_policy;`);
-    await queryRunner.query(`DROP TABLE IF EXISTS itsm_change_risk_assessment;`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS itsm_change_risk_assessment;`,
+    );
     await queryRunner.query(`DROP TYPE IF EXISTS itsm_risk_level_enum;`);
   }
 }

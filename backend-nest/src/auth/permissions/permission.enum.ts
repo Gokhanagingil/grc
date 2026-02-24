@@ -165,6 +165,10 @@ export enum Permission {
   ITSM_APPROVAL_READ = 'itsm:approval:read',
   ITSM_APPROVAL_WRITE = 'itsm:approval:write',
 
+  // ITSM CAB permissions
+  ITSM_CAB_READ = 'itsm:cab:read',
+  ITSM_CAB_WRITE = 'itsm:cab:write',
+
   // ITSM Problem permissions
   ITSM_PROBLEM_READ = 'itsm:problem:read',
   ITSM_PROBLEM_CREATE = 'itsm:problem:create',
@@ -331,6 +335,9 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_APPROVAL_READ]: 'View change approval requests',
   [Permission.ITSM_APPROVAL_WRITE]:
     'Approve or reject change approval requests',
+  [Permission.ITSM_CAB_READ]: 'View CAB meetings, agenda items, and decisions',
+  [Permission.ITSM_CAB_WRITE]:
+    'Create, update, and manage CAB meetings, agenda items, and decisions',
   [Permission.GRC_CUSTOMER_RISK_READ]: 'View customer risk catalog entries',
   [Permission.GRC_CUSTOMER_RISK_WRITE]:
     'Create, update, and delete customer risk catalog entries',
@@ -350,13 +357,17 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_PROBLEM_LINK_CHANGE]: 'Link and unlink changes to problems',
   [Permission.ITSM_PROBLEM_RISK_READ]:
     'View problem preventive risk intelligence',
-  [Permission.ITSM_KNOWN_ERROR_READ]: 'View known errors and known error details',
+  [Permission.ITSM_KNOWN_ERROR_READ]:
+    'View known errors and known error details',
   [Permission.ITSM_KNOWN_ERROR_CREATE]: 'Create new known errors',
   [Permission.ITSM_KNOWN_ERROR_UPDATE]: 'Update and delete known errors',
-  [Permission.ITSM_MAJOR_INCIDENT_READ]: 'View major incidents and major incident details',
+  [Permission.ITSM_MAJOR_INCIDENT_READ]:
+    'View major incidents and major incident details',
   [Permission.ITSM_MAJOR_INCIDENT_CREATE]: 'Declare and delete major incidents',
-  [Permission.ITSM_MAJOR_INCIDENT_UPDATE]: 'Update major incidents and post timeline updates',
-  [Permission.ITSM_MAJOR_INCIDENT_LINK]: 'Link and unlink records to major incidents',
+  [Permission.ITSM_MAJOR_INCIDENT_UPDATE]:
+    'Update major incidents and post timeline updates',
+  [Permission.ITSM_MAJOR_INCIDENT_LINK]:
+    'Link and unlink records to major incidents',
   [Permission.ITSM_PIR_READ]: 'View post-incident reviews',
   [Permission.ITSM_PIR_CREATE]: 'Create post-incident reviews',
   [Permission.ITSM_PIR_UPDATE]: 'Update post-incident reviews',
@@ -365,6 +376,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_PIR_ACTION_CREATE]: 'Create PIR action items',
   [Permission.ITSM_PIR_ACTION_UPDATE]: 'Update PIR action items',
   [Permission.ITSM_KNOWLEDGE_CANDIDATE_READ]: 'View knowledge candidates',
-  [Permission.ITSM_KNOWLEDGE_CANDIDATE_CREATE]: 'Create and generate knowledge candidates',
-  [Permission.ITSM_KNOWLEDGE_CANDIDATE_UPDATE]: 'Update knowledge candidate status',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_CREATE]:
+    'Create and generate knowledge candidates',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_UPDATE]:
+    'Update knowledge candidate status',
 };

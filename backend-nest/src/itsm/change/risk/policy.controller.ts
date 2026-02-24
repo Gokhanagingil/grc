@@ -19,7 +19,11 @@ import { PermissionsGuard } from '../../../auth/permissions/permissions.guard';
 import { Permissions } from '../../../auth/permissions/permissions.decorator';
 import { Permission } from '../../../auth/permissions/permission.enum';
 import { PolicyService } from './policy.service';
-import { CreateChangePolicyDto, UpdateChangePolicyDto, PolicyFilterDto } from './dto';
+import {
+  CreateChangePolicyDto,
+  UpdateChangePolicyDto,
+  PolicyFilterDto,
+} from './dto';
 
 @Controller('grc/itsm/change-policies')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -37,10 +41,7 @@ export class PolicyController {
 
   @Get(':id')
   @Permissions(Permission.ITSM_CHANGE_READ)
-  async findOne(
-    @Param('id') id: string,
-    @Req() req: { tenantId: string },
-  ) {
+  async findOne(@Param('id') id: string, @Req() req: { tenantId: string }) {
     const policy = await this.policyService.findOne(req.tenantId, id);
     if (!policy) {
       throw new NotFoundException(`Policy ${id} not found`);

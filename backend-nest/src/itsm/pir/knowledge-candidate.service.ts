@@ -106,7 +106,9 @@ export class KnowledgeCandidateService {
       where: { id: knownErrorId, tenantId, isDeleted: false },
     });
     if (!ke) {
-      throw new NotFoundException(`Known Error with ID ${knownErrorId} not found`);
+      throw new NotFoundException(
+        `Known Error with ID ${knownErrorId} not found`,
+      );
     }
 
     const kc = this.kcRepo.create({
@@ -198,7 +200,10 @@ export class KnowledgeCandidateService {
   // CRUD
   // ============================================================================
 
-  async findOne(tenantId: string, id: string): Promise<ItsmKnowledgeCandidate | null> {
+  async findOne(
+    tenantId: string,
+    id: string,
+  ): Promise<ItsmKnowledgeCandidate | null> {
     return this.kcRepo.findOne({
       where: { id, tenantId, isDeleted: false },
     });
@@ -251,7 +256,9 @@ export class KnowledgeCandidateService {
   ): Promise<ItsmKnowledgeCandidate> {
     const existing = await this.findOne(tenantId, id);
     if (!existing) {
-      throw new NotFoundException(`Knowledge Candidate with ID ${id} not found`);
+      throw new NotFoundException(
+        `Knowledge Candidate with ID ${id} not found`,
+      );
     }
 
     if (!isValidKcTransition(existing.status, newStatus)) {
@@ -297,7 +304,11 @@ export class KnowledgeCandidateService {
     return saved;
   }
 
-  async softDelete(tenantId: string, userId: string, id: string): Promise<boolean> {
+  async softDelete(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<boolean> {
     const existing = await this.findOne(tenantId, id);
     if (!existing) return false;
 

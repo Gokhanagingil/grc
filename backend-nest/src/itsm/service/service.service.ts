@@ -1,4 +1,9 @@
-import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';

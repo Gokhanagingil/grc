@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateWorkflowBusinessRuleUiPolicy1738800000000
-  implements MigrationInterface
-{
+export class CreateWorkflowBusinessRuleUiPolicy1738800000000 implements MigrationInterface {
   name = 'CreateWorkflowBusinessRuleUiPolicy1738800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -177,12 +175,8 @@ export class CreateWorkflowBusinessRuleUiPolicy1738800000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "itsm_ui_actions" CASCADE`,
-    );
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "itsm_ui_policies" CASCADE`,
-    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_ui_actions" CASCADE`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_ui_policies" CASCADE`);
     await queryRunner.query(
       `DROP TABLE IF EXISTS "itsm_business_rules" CASCADE`,
     );

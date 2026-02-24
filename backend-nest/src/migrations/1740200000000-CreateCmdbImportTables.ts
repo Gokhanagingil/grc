@@ -147,18 +147,42 @@ export class CreateCmdbImportTables1740200000000 implements MigrationInterface {
     `);
 
     // Indexes
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_source_tenant" ON "cmdb_import_source" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_tenant" ON "cmdb_import_job" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_status" ON "cmdb_import_job" ("tenant_id", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_source" ON "cmdb_import_job" ("source_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_tenant" ON "cmdb_import_row" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_job" ON "cmdb_import_row" ("job_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_status" ON "cmdb_import_row" ("job_id", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_rule_tenant" ON "cmdb_reconcile_rule" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_rule_precedence" ON "cmdb_reconcile_rule" ("tenant_id", "precedence")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_tenant" ON "cmdb_reconcile_result" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_job" ON "cmdb_reconcile_result" ("job_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_action" ON "cmdb_reconcile_result" ("job_id", "action")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_source_tenant" ON "cmdb_import_source" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_tenant" ON "cmdb_import_job" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_status" ON "cmdb_import_job" ("tenant_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_job_source" ON "cmdb_import_job" ("source_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_tenant" ON "cmdb_import_row" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_job" ON "cmdb_import_row" ("job_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_import_row_status" ON "cmdb_import_row" ("job_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_rule_tenant" ON "cmdb_reconcile_rule" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_rule_precedence" ON "cmdb_reconcile_rule" ("tenant_id", "precedence")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_tenant" ON "cmdb_reconcile_result" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_job" ON "cmdb_reconcile_result" ("job_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cmdb_reconcile_result_action" ON "cmdb_reconcile_result" ("job_id", "action")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

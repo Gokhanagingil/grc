@@ -87,9 +87,7 @@ export class CreateServicePortfolioTables1739800000000 implements MigrationInter
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS cmdb_service_offering;`,
-    );
+    await queryRunner.query(`DROP TABLE IF EXISTS cmdb_service_offering;`);
     await queryRunner.query(`DROP TABLE IF EXISTS cmdb_service;`);
   }
 }

@@ -354,7 +354,9 @@ describe('WorkflowEngineService', () => {
         {},
       );
       expect(result.allowed).toBe(false);
-      expect(result.reason).toContain("No transition 'close' from state 'open'");
+      expect(result.reason).toContain(
+        "No transition 'close' from state 'open'",
+      );
     });
 
     it('should persist state change via executeTransition', () => {
@@ -370,13 +372,9 @@ describe('WorkflowEngineService', () => {
 
     it('should throw for executeTransition when role denied', () => {
       expect(() =>
-        service.executeTransition(
-          mockWorkflow,
-          'resolved',
-          'close',
-          {},
-          ['USER'],
-        ),
+        service.executeTransition(mockWorkflow, 'resolved', 'close', {}, [
+          'USER',
+        ]),
       ).toThrow('lacks required role');
     });
 

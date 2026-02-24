@@ -389,6 +389,76 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     return true;
   }
 
+  /**
+   * Calendar time-range query: returns lightweight change summaries
+   * with planned windows for the given date range.
+   */
+  async findForCalendarRange(
+    tenantId: string,
+    start: Date,
+    end: Date,
+    filters?: {
+      state?: string;
+      type?: string;
+      risk?: string;
+      serviceId?: string;
+    },
+  ): Promise<
+    Array<{
+      id: string;
+      number: string;
+      title: string;
+      type: string;
+      risk: string;
+      state: string;
+      plannedStartAt: string | null;
+      plannedEndAt: string | null;
+      serviceId: string | null;
+    }>
+  > {
+    const qb = this.repository.createQueryBuilder('c');
+    qb.select([
+      'c.id',
+      'c.number',
+      'c.title',
+      'c.type',
+      'c.risk',
+      'c.state',
+      'c.plannedStartAt',
+      'c.plannedEndAt',
+      'c.serviceId',
+    ]);
+    qb.where('c.tenantId = :tenantId', { tenantId });
+    qb.andWhere('c.isDeleted = false');
+    qb.andWhere('c.plannedStartAt IS NOT NULL');
+    qb.andWhere('c.plannedEndAt IS NOT NULL');
+    qb.andWhere('c.plannedStartAt < :end', { end });
+    qb.andWhere('c.plannedEndAt > :start', { start });
+
+    if (filters?.state)
+      qb.andWhere('c.state = :state', { state: filters.state });
+    if (filters?.type) qb.andWhere('c.type = :type', { type: filters.type });
+    if (filters?.risk) qb.andWhere('c.risk = :risk', { risk: filters.risk });
+    if (filters?.serviceId)
+      qb.andWhere('c.serviceId = :serviceId', { serviceId: filters.serviceId });
+
+    qb.orderBy('c.plannedStartAt', 'ASC');
+    qb.take(500); // Hard limit for calendar view
+
+    const items = await qb.getMany();
+    return items.map((c) => ({
+      id: c.id,
+      number: c.number,
+      title: c.title,
+      type: c.type,
+      risk: c.risk,
+      state: c.state,
+      plannedStartAt: c.plannedStartAt ? c.plannedStartAt.toISOString() : null,
+      plannedEndAt: c.plannedEndAt ? c.plannedEndAt.toISOString() : null,
+      serviceId: c.serviceId || null,
+    }));
+  }
+
   async findWithFilters(
     tenantId: string,
     filterDto: ChangeFilterDto,
@@ -612,9 +682,7 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
       where: { id: controlId, tenantId, isDeleted: false },
     });
     if (!control) {
-      throw new NotFoundException(
-        `GRC Control with ID ${controlId} not found`,
-      );
+      throw new NotFoundException(`GRC Control with ID ${controlId} not found`);
     }
 
     const existing = await this.changeControlRepository.findOne({

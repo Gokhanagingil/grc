@@ -19,27 +19,129 @@ interface ChoiceSeed {
 }
 
 const SERVICE_CHOICES: ChoiceSeed[] = [
-  { tableName: 'cmdb_service', fieldName: 'type', value: 'business_service', label: 'Business Service', sortOrder: 1 },
-  { tableName: 'cmdb_service', fieldName: 'type', value: 'technical_service', label: 'Technical Service', sortOrder: 2 },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'type',
+    value: 'business_service',
+    label: 'Business Service',
+    sortOrder: 1,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'type',
+    value: 'technical_service',
+    label: 'Technical Service',
+    sortOrder: 2,
+  },
 
-  { tableName: 'cmdb_service', fieldName: 'status', value: 'planned', label: 'Planned', sortOrder: 1 },
-  { tableName: 'cmdb_service', fieldName: 'status', value: 'design', label: 'Design', sortOrder: 2 },
-  { tableName: 'cmdb_service', fieldName: 'status', value: 'live', label: 'Live', sortOrder: 3 },
-  { tableName: 'cmdb_service', fieldName: 'status', value: 'retired', label: 'Retired', sortOrder: 4 },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'status',
+    value: 'planned',
+    label: 'Planned',
+    sortOrder: 1,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'status',
+    value: 'design',
+    label: 'Design',
+    sortOrder: 2,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'status',
+    value: 'live',
+    label: 'Live',
+    sortOrder: 3,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'status',
+    value: 'retired',
+    label: 'Retired',
+    sortOrder: 4,
+  },
 
-  { tableName: 'cmdb_service', fieldName: 'tier', value: 'tier_0', label: 'Tier 0 - Mission Critical', sortOrder: 1 },
-  { tableName: 'cmdb_service', fieldName: 'tier', value: 'tier_1', label: 'Tier 1 - Business Critical', sortOrder: 2 },
-  { tableName: 'cmdb_service', fieldName: 'tier', value: 'tier_2', label: 'Tier 2 - Business Operational', sortOrder: 3 },
-  { tableName: 'cmdb_service', fieldName: 'tier', value: 'tier_3', label: 'Tier 3 - Administrative', sortOrder: 4 },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'tier',
+    value: 'tier_0',
+    label: 'Tier 0 - Mission Critical',
+    sortOrder: 1,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'tier',
+    value: 'tier_1',
+    label: 'Tier 1 - Business Critical',
+    sortOrder: 2,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'tier',
+    value: 'tier_2',
+    label: 'Tier 2 - Business Operational',
+    sortOrder: 3,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'tier',
+    value: 'tier_3',
+    label: 'Tier 3 - Administrative',
+    sortOrder: 4,
+  },
 
-  { tableName: 'cmdb_service', fieldName: 'criticality', value: 'critical', label: 'Critical', sortOrder: 1 },
-  { tableName: 'cmdb_service', fieldName: 'criticality', value: 'high', label: 'High', sortOrder: 2 },
-  { tableName: 'cmdb_service', fieldName: 'criticality', value: 'medium', label: 'Medium', sortOrder: 3 },
-  { tableName: 'cmdb_service', fieldName: 'criticality', value: 'low', label: 'Low', sortOrder: 4 },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'criticality',
+    value: 'critical',
+    label: 'Critical',
+    sortOrder: 1,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'criticality',
+    value: 'high',
+    label: 'High',
+    sortOrder: 2,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'criticality',
+    value: 'medium',
+    label: 'Medium',
+    sortOrder: 3,
+  },
+  {
+    tableName: 'cmdb_service',
+    fieldName: 'criticality',
+    value: 'low',
+    label: 'Low',
+    sortOrder: 4,
+  },
 
-  { tableName: 'cmdb_service_offering', fieldName: 'status', value: 'planned', label: 'Planned', sortOrder: 1 },
-  { tableName: 'cmdb_service_offering', fieldName: 'status', value: 'live', label: 'Live', sortOrder: 2 },
-  { tableName: 'cmdb_service_offering', fieldName: 'status', value: 'retired', label: 'Retired', sortOrder: 3 },
+  {
+    tableName: 'cmdb_service_offering',
+    fieldName: 'status',
+    value: 'planned',
+    label: 'Planned',
+    sortOrder: 1,
+  },
+  {
+    tableName: 'cmdb_service_offering',
+    fieldName: 'status',
+    value: 'live',
+    label: 'Live',
+    sortOrder: 2,
+  },
+  {
+    tableName: 'cmdb_service_offering',
+    fieldName: 'status',
+    value: 'retired',
+    label: 'Retired',
+    sortOrder: 3,
+  },
 ];
 
 interface ServiceSeed {
@@ -54,7 +156,8 @@ interface ServiceSeed {
 const SAMPLE_SERVICES: ServiceSeed[] = [
   {
     name: 'Email & Collaboration',
-    description: 'Corporate email, calendar, and collaboration tools (Exchange/M365)',
+    description:
+      'Corporate email, calendar, and collaboration tools (Exchange/M365)',
     type: 'business_service',
     status: 'live',
     tier: 'tier_1',
@@ -78,7 +181,8 @@ const SAMPLE_SERVICES: ServiceSeed[] = [
   },
   {
     name: 'Kubernetes Platform',
-    description: 'Shared Kubernetes hosting platform for containerized workloads',
+    description:
+      'Shared Kubernetes hosting platform for containerized workloads',
     type: 'technical_service',
     status: 'live',
     tier: 'tier_0',
@@ -102,14 +206,54 @@ interface OfferingSeed {
 }
 
 const SAMPLE_OFFERINGS: OfferingSeed[] = [
-  { serviceName: 'Email & Collaboration', name: 'Standard Mailbox (50 GB)', status: 'live', supportHours: '8x5' },
-  { serviceName: 'Email & Collaboration', name: 'Premium Mailbox (100 GB + Archiving)', status: 'live', supportHours: '24x7' },
-  { serviceName: 'ERP Finance', name: 'Finance Module – Full Access', status: 'live', supportHours: '24x7' },
-  { serviceName: 'ERP Finance', name: 'Finance Module – Read Only', status: 'live', supportHours: '8x5' },
-  { serviceName: 'GRC Platform', name: 'GRC Standard License', status: 'live', supportHours: '8x5' },
-  { serviceName: 'Kubernetes Platform', name: 'Shared Namespace', status: 'live', supportHours: '24x7' },
-  { serviceName: 'Kubernetes Platform', name: 'Dedicated Namespace', status: 'planned', supportHours: '24x7' },
-  { serviceName: 'CI/CD Pipeline', name: 'Standard Pipeline Runner', status: 'live', supportHours: '8x5' },
+  {
+    serviceName: 'Email & Collaboration',
+    name: 'Standard Mailbox (50 GB)',
+    status: 'live',
+    supportHours: '8x5',
+  },
+  {
+    serviceName: 'Email & Collaboration',
+    name: 'Premium Mailbox (100 GB + Archiving)',
+    status: 'live',
+    supportHours: '24x7',
+  },
+  {
+    serviceName: 'ERP Finance',
+    name: 'Finance Module – Full Access',
+    status: 'live',
+    supportHours: '24x7',
+  },
+  {
+    serviceName: 'ERP Finance',
+    name: 'Finance Module – Read Only',
+    status: 'live',
+    supportHours: '8x5',
+  },
+  {
+    serviceName: 'GRC Platform',
+    name: 'GRC Standard License',
+    status: 'live',
+    supportHours: '8x5',
+  },
+  {
+    serviceName: 'Kubernetes Platform',
+    name: 'Shared Namespace',
+    status: 'live',
+    supportHours: '24x7',
+  },
+  {
+    serviceName: 'Kubernetes Platform',
+    name: 'Dedicated Namespace',
+    status: 'planned',
+    supportHours: '24x7',
+  },
+  {
+    serviceName: 'CI/CD Pipeline',
+    name: 'Standard Pipeline Runner',
+    status: 'live',
+    supportHours: '8x5',
+  },
 ];
 
 async function seedServicePortfolio() {
@@ -151,7 +295,9 @@ async function seedServicePortfolio() {
       await choiceRepo.save(entity);
       choiceCreated++;
     }
-    console.log(`   Choices: ${choiceCreated} created, ${choiceSkipped} skipped`);
+    console.log(
+      `   Choices: ${choiceCreated} created, ${choiceSkipped} skipped`,
+    );
 
     console.log('2) Seeding sample services...');
     const svcRepo = ds.getRepository(CmdbService);
@@ -193,11 +339,18 @@ async function seedServicePortfolio() {
     for (const off of SAMPLE_OFFERINGS) {
       const serviceId = svcMap[off.serviceName];
       if (!serviceId) {
-        console.warn(`   WARN: service '${off.serviceName}' not found, skipping offering '${off.name}'`);
+        console.warn(
+          `   WARN: service '${off.serviceName}' not found, skipping offering '${off.name}'`,
+        );
         continue;
       }
       const existing = await offRepo.findOne({
-        where: { tenantId: DEMO_TENANT_ID, serviceId, name: off.name, isDeleted: false },
+        where: {
+          tenantId: DEMO_TENANT_ID,
+          serviceId,
+          name: off.name,
+          isDeleted: false,
+        },
       });
       if (existing) {
         offSkipped++;

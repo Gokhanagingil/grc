@@ -150,9 +150,7 @@ export class UiActionService extends MultiTenantServiceBase<UiAction> {
     userRoles?: string[],
   ): UiAction[] {
     const visible = this.getActionsForRecord(actions, record, userRoles);
-    const transitionNames = new Set(
-      availableTransitions.map((t) => t.name),
-    );
+    const transitionNames = new Set(availableTransitions.map((t) => t.name));
     return visible.filter((action) => {
       if (!action.workflowTransition) return true;
       return transitionNames.has(action.workflowTransition);

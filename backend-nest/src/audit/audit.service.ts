@@ -208,10 +208,7 @@ export class AuditService {
     } else if (value instanceof Date) {
       return [key, value.toISOString()];
     } else if (typeof value === 'object' && value !== null) {
-      if (
-        'id' in value &&
-        typeof (value as { id: unknown }).id === 'string'
-      ) {
+      if ('id' in value && typeof (value as { id: unknown }).id === 'string') {
         return [key, { id: (value as { id: string }).id }];
       }
       return null;

@@ -153,7 +153,10 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
       const existing = { ...basePir, status: PirStatus.DRAFT } as ItsmPir;
       pirRepo.findOne.mockResolvedValue(existing);
       pirRepo.save.mockImplementation((entity: unknown) =>
-        Promise.resolve({ ...existing, ...(entity as Record<string, unknown>) } as ItsmPir),
+        Promise.resolve({
+          ...existing,
+          ...(entity as Record<string, unknown>),
+        } as ItsmPir),
       );
 
       const result = await service.update(mockTenantId, mockUserId, mockPirId, {
@@ -168,7 +171,11 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
     });
 
     it('should set submittedAt when transitioning to IN_REVIEW', async () => {
-      const existing = { ...basePir, status: PirStatus.DRAFT, submittedAt: null } as ItsmPir;
+      const existing = {
+        ...basePir,
+        status: PirStatus.DRAFT,
+        submittedAt: null,
+      } as ItsmPir;
       pirRepo.findOne.mockResolvedValue(existing);
       pirRepo.save.mockImplementation((entity: unknown) =>
         Promise.resolve(entity as ItsmPir),
@@ -208,7 +215,10 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
       const existing = { ...basePir, status: PirStatus.IN_REVIEW } as ItsmPir;
       pirRepo.findOne.mockResolvedValue(existing);
       pirRepo.save.mockImplementation((entity: unknown) =>
-        Promise.resolve({ ...existing, ...(entity as Record<string, unknown>) } as ItsmPir),
+        Promise.resolve({
+          ...existing,
+          ...(entity as Record<string, unknown>),
+        } as ItsmPir),
       );
 
       const result = await service.update(mockTenantId, mockUserId, mockPirId, {
@@ -222,7 +232,10 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
       const existing = { ...basePir, status: PirStatus.APPROVED } as ItsmPir;
       pirRepo.findOne.mockResolvedValue(existing);
       pirRepo.save.mockImplementation((entity: unknown) =>
-        Promise.resolve({ ...existing, ...(entity as Record<string, unknown>) } as ItsmPir),
+        Promise.resolve({
+          ...existing,
+          ...(entity as Record<string, unknown>),
+        } as ItsmPir),
       );
 
       const result = await service.update(mockTenantId, mockUserId, mockPirId, {
@@ -315,9 +328,16 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
     it('should soft-delete a PIR', async () => {
       const existing = { ...basePir } as ItsmPir;
       pirRepo.findOne.mockResolvedValue(existing);
-      pirRepo.save.mockResolvedValue({ ...existing, isDeleted: true } as ItsmPir);
+      pirRepo.save.mockResolvedValue({
+        ...existing,
+        isDeleted: true,
+      } as ItsmPir);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, mockPirId);
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        mockPirId,
+      );
 
       expect(result).toBe(true);
     });
@@ -325,7 +345,11 @@ describe('PirService — Phase 3 (CRUD, Status Transitions, Approval)', () => {
     it('should return false when PIR not found', async () => {
       pirRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, 'missing-id');
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        'missing-id',
+      );
 
       expect(result).toBe(false);
     });

@@ -61,7 +61,9 @@ export class PirService {
 
     const saved = await this.pirRepo.save(pir);
 
-    this.logger.log(`PIR created: ${saved.id} for MI ${saved.majorIncidentId} tenant ${tenantId}`);
+    this.logger.log(
+      `PIR created: ${saved.id} for MI ${saved.majorIncidentId} tenant ${tenantId}`,
+    );
 
     try {
       await this.auditService.recordCreate('ItsmPir', saved, userId, tenantId);
@@ -85,7 +87,10 @@ export class PirService {
     });
   }
 
-  async findByMajorIncident(tenantId: string, majorIncidentId: string): Promise<ItsmPir | null> {
+  async findByMajorIncident(
+    tenantId: string,
+    majorIncidentId: string,
+  ): Promise<ItsmPir | null> {
     return this.pirRepo.findOne({
       where: { majorIncidentId, tenantId, isDeleted: false },
     });
@@ -110,23 +115,26 @@ export class PirService {
     qb.andWhere('pir.isDeleted = :isDeleted', { isDeleted: false });
 
     if (majorIncidentId) {
-      qb.andWhere('pir.majorIncidentId = :majorIncidentId', { majorIncidentId });
+      qb.andWhere('pir.majorIncidentId = :majorIncidentId', {
+        majorIncidentId,
+      });
     }
     if (status) {
       qb.andWhere('pir.status = :status', { status });
     }
     if (search) {
-      qb.andWhere(
-        '(pir.title ILIKE :search OR pir.summary ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      qb.andWhere('(pir.title ILIKE :search OR pir.summary ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     const total = await qb.getCount();
 
-    const validSortBy = PIR_SORTABLE_FIELDS.includes(sortBy) ? sortBy : 'createdAt';
+    const validSortBy = PIR_SORTABLE_FIELDS.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
     const validSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    qb.orderBy(`pir.${validSortBy}`, validSortOrder as 'ASC' | 'DESC');
+    qb.orderBy(`pir.${validSortBy}`, validSortOrder);
 
     qb.skip((page - 1) * pageSize);
     qb.take(pageSize);
@@ -168,16 +176,26 @@ export class PirService {
     if (dto.title !== undefined) existing.title = dto.title;
     if (dto.status !== undefined) existing.status = dto.status;
     if (dto.summary !== undefined) existing.summary = dto.summary || null;
-    if (dto.whatHappened !== undefined) existing.whatHappened = dto.whatHappened || null;
-    if (dto.timelineHighlights !== undefined) existing.timelineHighlights = dto.timelineHighlights || null;
-    if (dto.rootCauses !== undefined) existing.rootCauses = dto.rootCauses || null;
-    if (dto.whatWorkedWell !== undefined) existing.whatWorkedWell = dto.whatWorkedWell || null;
-    if (dto.whatDidNotWork !== undefined) existing.whatDidNotWork = dto.whatDidNotWork || null;
-    if (dto.customerImpact !== undefined) existing.customerImpact = dto.customerImpact || null;
-    if (dto.detectionEffectiveness !== undefined) existing.detectionEffectiveness = dto.detectionEffectiveness || null;
-    if (dto.responseEffectiveness !== undefined) existing.responseEffectiveness = dto.responseEffectiveness || null;
-    if (dto.preventiveActions !== undefined) existing.preventiveActions = dto.preventiveActions || null;
-    if (dto.correctiveActions !== undefined) existing.correctiveActions = dto.correctiveActions || null;
+    if (dto.whatHappened !== undefined)
+      existing.whatHappened = dto.whatHappened || null;
+    if (dto.timelineHighlights !== undefined)
+      existing.timelineHighlights = dto.timelineHighlights || null;
+    if (dto.rootCauses !== undefined)
+      existing.rootCauses = dto.rootCauses || null;
+    if (dto.whatWorkedWell !== undefined)
+      existing.whatWorkedWell = dto.whatWorkedWell || null;
+    if (dto.whatDidNotWork !== undefined)
+      existing.whatDidNotWork = dto.whatDidNotWork || null;
+    if (dto.customerImpact !== undefined)
+      existing.customerImpact = dto.customerImpact || null;
+    if (dto.detectionEffectiveness !== undefined)
+      existing.detectionEffectiveness = dto.detectionEffectiveness || null;
+    if (dto.responseEffectiveness !== undefined)
+      existing.responseEffectiveness = dto.responseEffectiveness || null;
+    if (dto.preventiveActions !== undefined)
+      existing.preventiveActions = dto.preventiveActions || null;
+    if (dto.correctiveActions !== undefined)
+      existing.correctiveActions = dto.correctiveActions || null;
     if (dto.metadata !== undefined) existing.metadata = dto.metadata || null;
 
     existing.updatedBy = userId;
@@ -239,7 +257,10 @@ export class PirService {
         'ItsmPir',
         saved.id,
         { status: PirStatus.IN_REVIEW } as unknown as Record<string, unknown>,
-        { status: PirStatus.APPROVED, approvedBy: userId } as unknown as Record<string, unknown>,
+        { status: PirStatus.APPROVED, approvedBy: userId } as unknown as Record<
+          string,
+          unknown
+        >,
         userId,
         tenantId,
       );
@@ -257,7 +278,11 @@ export class PirService {
     return saved;
   }
 
-  async softDelete(tenantId: string, userId: string, id: string): Promise<boolean> {
+  async softDelete(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<boolean> {
     const existing = await this.findOne(tenantId, id);
     if (!existing) return false;
 
@@ -266,7 +291,12 @@ export class PirService {
     await this.pirRepo.save(existing);
 
     try {
-      await this.auditService.recordDelete('ItsmPir', existing, userId, tenantId);
+      await this.auditService.recordDelete(
+        'ItsmPir',
+        existing,
+        userId,
+        tenantId,
+      );
     } catch (err) {
       this.logger.warn(`Failed to record audit for PIR delete: ${err}`);
     }

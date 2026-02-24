@@ -296,9 +296,7 @@ describe('BusinessRuleEngineService', () => {
         makeRule({
           name: 'Rule 2 - Should Not Run',
           order: 200,
-          actions: [
-            { type: 'set_field', field: 'priority', value: 'p1' },
-          ],
+          actions: [{ type: 'set_field', field: 'priority', value: 'p1' }],
         }),
       ];
       const results = service.evaluateRules(rules, {});
@@ -322,9 +320,7 @@ describe('BusinessRuleEngineService', () => {
           name: 'Rule 2',
           order: 200,
           stopProcessing: false,
-          actions: [
-            { type: 'set_field', field: 'priority', value: 'p1' },
-          ],
+          actions: [{ type: 'set_field', field: 'priority', value: 'p1' }],
         }),
       ];
       const results = service.evaluateRules(rules, {});
@@ -340,9 +336,7 @@ describe('BusinessRuleEngineService', () => {
           order: 100,
           stopProcessing: true,
           conditions: [{ field: 'priority', operator: 'eq', value: 'p1' }],
-          actions: [
-            { type: 'set_field', field: 'flag', value: 'stopped' },
-          ],
+          actions: [{ type: 'set_field', field: 'flag', value: 'stopped' }],
         }),
         makeRule({
           name: 'Next Rule',
@@ -421,9 +415,7 @@ describe('BusinessRuleEngineService', () => {
             { field: 'state', operator: 'changed' },
             { field: 'priority', operator: 'eq', value: 'p1' },
           ],
-          actions: [
-            { type: 'set_field', field: 'escalated', value: 'true' },
-          ],
+          actions: [{ type: 'set_field', field: 'escalated', value: 'true' }],
         }),
       ];
       const both = service.evaluateRules(
@@ -454,9 +446,7 @@ describe('BusinessRuleEngineService', () => {
         const rules = [
           makeRule({
             trigger,
-            actions: [
-              { type: 'set_field', field: 'flag', value: trigger },
-            ],
+            actions: [{ type: 'set_field', field: 'flag', value: trigger }],
           }),
         ];
         const results = service.evaluateRules(rules, {});
@@ -472,24 +462,18 @@ describe('BusinessRuleEngineService', () => {
         makeRule({
           name: 'Rule C',
           order: 300,
-          actions: [
-            { type: 'set_field', field: 'c', value: 'yes' },
-          ],
+          actions: [{ type: 'set_field', field: 'c', value: 'yes' }],
         }),
         makeRule({
           name: 'Rule A',
           order: 100,
-          actions: [
-            { type: 'set_field', field: 'a', value: 'yes' },
-          ],
+          actions: [{ type: 'set_field', field: 'a', value: 'yes' }],
         }),
         makeRule({
           name: 'Rule B',
           order: 200,
           stopProcessing: true,
-          actions: [
-            { type: 'set_field', field: 'b', value: 'yes' },
-          ],
+          actions: [{ type: 'set_field', field: 'b', value: 'yes' }],
         }),
       ];
       const results = service.evaluateRules(rules, {});

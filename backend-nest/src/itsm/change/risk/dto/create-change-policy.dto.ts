@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  IsObject,
+} from 'class-validator';
 import { PolicyConditions, PolicyActions } from '../change-policy.entity';
 
 export class CreateChangePolicyDto {

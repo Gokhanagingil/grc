@@ -68,8 +68,7 @@ export class CalendarEventService {
     const validSortBy = CALENDAR_EVENT_SORTABLE_FIELDS.includes(sortBy)
       ? sortBy
       : 'startAt';
-    const validSortOrder =
-      sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const validSortOrder = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     qb.orderBy(`evt.${validSortBy}`, validSortOrder);
 
     qb.skip((page - 1) * pageSize);
@@ -79,10 +78,7 @@ export class CalendarEventService {
     return createPaginatedResponse(items, total, page, pageSize);
   }
 
-  async findById(
-    tenantId: string,
-    id: string,
-  ): Promise<CalendarEvent | null> {
+  async findById(tenantId: string, id: string): Promise<CalendarEvent | null> {
     return this.repository.findOne({
       where: { id, tenantId, isDeleted: false },
       relations: ['change'],

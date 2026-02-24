@@ -39,7 +39,12 @@ export class CmdbCi extends BaseEntity {
   @Column({ name: 'asset_tag', type: 'varchar', length: 100, nullable: true })
   assetTag: string | null;
 
-  @Column({ name: 'serial_number', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'serial_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   serialNumber: string | null;
 
   @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })

@@ -54,7 +54,13 @@ export class CustomerRiskCatalog extends BaseEntity {
   })
   scoreContributionModel: string;
 
-  @Column({ name: 'score_value', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'score_value',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   scoreValue: number;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })

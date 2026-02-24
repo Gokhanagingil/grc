@@ -1,7 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
-import { MajorIncidentStatus, MajorIncidentSeverity } from './major-incident.enums';
+import {
+  MajorIncidentStatus,
+  MajorIncidentSeverity,
+} from './major-incident.enums';
 
 /**
  * ITSM Major Incident Entity
@@ -63,7 +66,12 @@ export class ItsmMajorIncident extends BaseEntity {
   @Column({ name: 'bridge_url', type: 'varchar', length: 500, nullable: true })
   bridgeUrl: string | null;
 
-  @Column({ name: 'bridge_channel', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'bridge_channel',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   bridgeChannel: string | null;
 
   @Column({ name: 'bridge_started_at', type: 'timestamptz', nullable: true })
@@ -100,7 +108,12 @@ export class ItsmMajorIncident extends BaseEntity {
   @Column({ name: 'resolution_summary', type: 'text', nullable: true })
   resolutionSummary: string | null;
 
-  @Column({ name: 'resolution_code', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'resolution_code',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   resolutionCode: string | null;
 
   // === Source Reference ===

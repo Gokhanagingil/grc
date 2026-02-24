@@ -35,7 +35,12 @@ export class PirFilterDto {
   search?: string;
 }
 
-export const PIR_SORTABLE_FIELDS = ['createdAt', 'updatedAt', 'title', 'status'];
+export const PIR_SORTABLE_FIELDS = [
+  'createdAt',
+  'updatedAt',
+  'title',
+  'status',
+];
 
 /**
  * DTO for filtering PIR Actions
@@ -74,4 +79,11 @@ export class PirActionFilterDto {
   overdue?: string;
 }
 
-export const PIR_ACTION_SORTABLE_FIELDS = ['createdAt', 'updatedAt', 'title', 'status', 'dueDate', 'priority'];
+export const PIR_ACTION_SORTABLE_FIELDS = [
+  'createdAt',
+  'updatedAt',
+  'title',
+  'status',
+  'dueDate',
+  'priority',
+];

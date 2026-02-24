@@ -69,10 +69,7 @@ export class CiRelController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const entity = await this.ciRelService.findOneActiveForTenant(
-      tenantId,
-      id,
-    );
+    const entity = await this.ciRelService.findOneActiveForTenant(tenantId, id);
     if (!entity) {
       throw new NotFoundException(`Relationship with ID ${id} not found`);
     }

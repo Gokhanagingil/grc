@@ -9,9 +9,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * This migration runs after CreateGrcRequirementsTable (1735400000000)
  * to ensure all base tables exist for foreign key relationships.
  */
-export class CreateMissingSchemaContractTables1735500000000
-  implements MigrationInterface
-{
+export class CreateMissingSchemaContractTables1735500000000 implements MigrationInterface {
   name = 'CreateMissingSchemaContractTables1735500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -1904,4 +1902,3 @@ export class CreateMissingSchemaContractTables1735500000000
     `);
   }
 }
-

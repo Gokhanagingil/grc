@@ -84,9 +84,15 @@ export class PirActionTrackingKnowledgeCandidate1741600000000 implements Migrati
     `);
 
     // Indexes for itsm_pirs
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_mi ON itsm_pirs (tenant_id, major_incident_id);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_status ON itsm_pirs (tenant_id, status);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_created ON itsm_pirs (tenant_id, created_at);`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_mi ON itsm_pirs (tenant_id, major_incident_id);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_status ON itsm_pirs (tenant_id, status);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pirs_tenant_created ON itsm_pirs (tenant_id, created_at);`,
+    );
 
     // === Create itsm_pir_actions table ===
     await queryRunner.query(`
@@ -117,10 +123,18 @@ export class PirActionTrackingKnowledgeCandidate1741600000000 implements Migrati
     `);
 
     // Indexes for itsm_pir_actions
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_pir ON itsm_pir_actions (tenant_id, pir_id);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_status ON itsm_pir_actions (tenant_id, status);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_owner ON itsm_pir_actions (tenant_id, owner_id);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_due ON itsm_pir_actions (tenant_id, due_date);`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_pir ON itsm_pir_actions (tenant_id, pir_id);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_status ON itsm_pir_actions (tenant_id, status);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_owner ON itsm_pir_actions (tenant_id, owner_id);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_pir_actions_tenant_due ON itsm_pir_actions (tenant_id, due_date);`,
+    );
 
     // === Create itsm_knowledge_candidates table ===
     await queryRunner.query(`
@@ -152,17 +166,29 @@ export class PirActionTrackingKnowledgeCandidate1741600000000 implements Migrati
     `);
 
     // Indexes for itsm_knowledge_candidates
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_source ON itsm_knowledge_candidates (tenant_id, source_type, source_id);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_status ON itsm_knowledge_candidates (tenant_id, status);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_created ON itsm_knowledge_candidates (tenant_id, created_at);`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_source ON itsm_knowledge_candidates (tenant_id, source_type, source_id);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_status ON itsm_knowledge_candidates (tenant_id, status);`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_itsm_kc_tenant_created ON itsm_knowledge_candidates (tenant_id, created_at);`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS itsm_knowledge_candidates CASCADE;`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS itsm_knowledge_candidates CASCADE;`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS itsm_pir_actions CASCADE;`);
     await queryRunner.query(`DROP TABLE IF EXISTS itsm_pirs CASCADE;`);
-    await queryRunner.query(`DROP TYPE IF EXISTS knowledge_candidate_source_enum;`);
-    await queryRunner.query(`DROP TYPE IF EXISTS knowledge_candidate_status_enum;`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS knowledge_candidate_source_enum;`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS knowledge_candidate_status_enum;`,
+    );
     await queryRunner.query(`DROP TYPE IF EXISTS pir_action_priority_enum;`);
     await queryRunner.query(`DROP TYPE IF EXISTS pir_action_status_enum;`);
     await queryRunner.query(`DROP TYPE IF EXISTS pir_status_enum;`);

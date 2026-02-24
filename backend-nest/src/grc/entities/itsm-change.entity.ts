@@ -57,12 +57,12 @@ export class ItsmChange extends BaseEntity {
   })
   state: ItsmChangeState;
 
-    @Column({
-      type: 'enum',
-      enum: ItsmChangeRiskLevel,
-      default: ItsmChangeRiskLevel.MEDIUM,
-    })
-    risk: ItsmChangeRiskLevel;
+  @Column({
+    type: 'enum',
+    enum: ItsmChangeRiskLevel,
+    default: ItsmChangeRiskLevel.MEDIUM,
+  })
+  risk: ItsmChangeRiskLevel;
 
   @Column({
     name: 'approval_status',

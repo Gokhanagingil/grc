@@ -82,7 +82,11 @@ export class CustomerRiskCatalogController {
       validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
       validTo: dto.validTo ? new Date(dto.validTo) : undefined,
     };
-    return this.customerRiskService.createCatalogRisk(tenantId, req.user.id, data);
+    return this.customerRiskService.createCatalogRisk(
+      tenantId,
+      req.user.id,
+      data,
+    );
   }
 
   @Get(':id')
@@ -95,7 +99,10 @@ export class CustomerRiskCatalogController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const risk = await this.customerRiskService.findOneActiveForTenant(tenantId, id);
+    const risk = await this.customerRiskService.findOneActiveForTenant(
+      tenantId,
+      id,
+    );
     if (!risk) {
       throw new NotFoundException(`Customer risk with ID ${id} not found`);
     }
@@ -186,7 +193,11 @@ export class CustomerRiskCatalogController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    return this.customerRiskService.findBindingsForRisk(tenantId, id, filterDto);
+    return this.customerRiskService.findBindingsForRisk(
+      tenantId,
+      id,
+      filterDto,
+    );
   }
 
   @Delete(':id/bindings/:bindingId')
@@ -210,5 +221,4 @@ export class CustomerRiskCatalogController {
       throw new NotFoundException(`Binding ${bindingId} not found`);
     }
   }
-
 }

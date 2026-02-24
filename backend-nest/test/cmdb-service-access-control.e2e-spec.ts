@@ -180,7 +180,9 @@ describe('CMDB Service Portfolio Access Control (e2e)', () => {
 
     it('should return 200 for GET /grc/cmdb/services/:id with admin token', async () => {
       if (!dbConnected || !tenantId || !adminToken || !createdServiceId) {
-        console.log('Skipping test: database not connected or no service created');
+        console.log(
+          'Skipping test: database not connected or no service created',
+        );
         return;
       }
 
@@ -196,7 +198,9 @@ describe('CMDB Service Portfolio Access Control (e2e)', () => {
 
     it('should return 200 for PATCH /grc/cmdb/services/:id with admin token', async () => {
       if (!dbConnected || !tenantId || !adminToken || !createdServiceId) {
-        console.log('Skipping test: database not connected or no service created');
+        console.log(
+          'Skipping test: database not connected or no service created',
+        );
         return;
       }
 
@@ -213,7 +217,9 @@ describe('CMDB Service Portfolio Access Control (e2e)', () => {
 
     it('should return 204 for DELETE /grc/cmdb/services/:id with admin token', async () => {
       if (!dbConnected || !tenantId || !adminToken || !createdServiceId) {
-        console.log('Skipping test: database not connected or no service created');
+        console.log(
+          'Skipping test: database not connected or no service created',
+        );
         return;
       }
 

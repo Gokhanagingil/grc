@@ -77,6 +77,7 @@ jest.mock('../../../services/grcClient', () => ({
       getTraceabilitySummary: () => Promise.resolve({ data: { data: null } }),
       recalculateRisk: jest.fn().mockResolvedValue({ data: { data: null } }),
       refreshConflicts: jest.fn().mockResolvedValue({ data: {} }),
+      getCabSummary: () => Promise.resolve({ data: { data: null } }),
     },
     choices: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
   },

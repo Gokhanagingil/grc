@@ -75,10 +75,7 @@ export class EventLogController {
 
   @Get(':id')
   @Permissions(Permission.ADMIN_SETTINGS_READ)
-  async getEvent(
-    @NestRequest() req: RequestWithUser,
-    @Param('id') id: string,
-  ) {
+  async getEvent(@NestRequest() req: RequestWithUser, @Param('id') id: string) {
     const tenantId = req.tenantId;
     if (!tenantId) {
       throw new BadRequestException('Tenant ID required');

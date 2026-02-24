@@ -61,7 +61,10 @@ export class PirController {
     @Headers('x-tenant-id') tenantId: string,
     @Param('majorIncidentId') majorIncidentId: string,
   ) {
-    const pir = await this.pirService.findByMajorIncident(tenantId, majorIncidentId);
+    const pir = await this.pirService.findByMajorIncident(
+      tenantId,
+      majorIncidentId,
+    );
     return { data: pir };
   }
 

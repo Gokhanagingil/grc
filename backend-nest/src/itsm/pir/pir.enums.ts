@@ -63,9 +63,19 @@ export const PIR_TRANSITIONS: Record<PirStatus, PirStatus[]> = {
 /**
  * Valid Knowledge Candidate status transitions
  */
-export const KC_TRANSITIONS: Record<KnowledgeCandidateStatus, KnowledgeCandidateStatus[]> = {
-  [KnowledgeCandidateStatus.DRAFT]: [KnowledgeCandidateStatus.REVIEWED, KnowledgeCandidateStatus.REJECTED],
-  [KnowledgeCandidateStatus.REVIEWED]: [KnowledgeCandidateStatus.PUBLISHED, KnowledgeCandidateStatus.REJECTED, KnowledgeCandidateStatus.DRAFT],
+export const KC_TRANSITIONS: Record<
+  KnowledgeCandidateStatus,
+  KnowledgeCandidateStatus[]
+> = {
+  [KnowledgeCandidateStatus.DRAFT]: [
+    KnowledgeCandidateStatus.REVIEWED,
+    KnowledgeCandidateStatus.REJECTED,
+  ],
+  [KnowledgeCandidateStatus.REVIEWED]: [
+    KnowledgeCandidateStatus.PUBLISHED,
+    KnowledgeCandidateStatus.REJECTED,
+    KnowledgeCandidateStatus.DRAFT,
+  ],
   [KnowledgeCandidateStatus.PUBLISHED]: [],
   [KnowledgeCandidateStatus.REJECTED]: [KnowledgeCandidateStatus.DRAFT],
 };
@@ -80,6 +90,9 @@ export function isValidPirTransition(from: PirStatus, to: PirStatus): boolean {
 /**
  * Check if a Knowledge Candidate status transition is valid
  */
-export function isValidKcTransition(from: KnowledgeCandidateStatus, to: KnowledgeCandidateStatus): boolean {
+export function isValidKcTransition(
+  from: KnowledgeCandidateStatus,
+  to: KnowledgeCandidateStatus,
+): boolean {
   return KC_TRANSITIONS[from]?.includes(to) ?? false;
 }

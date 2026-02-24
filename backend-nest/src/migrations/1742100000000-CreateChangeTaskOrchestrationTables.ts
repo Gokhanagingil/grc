@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateChangeTaskOrchestrationTables1742100000000
-  implements MigrationInterface
-{
+export class CreateChangeTaskOrchestrationTables1742100000000 implements MigrationInterface {
   name = 'CreateChangeTaskOrchestrationTables1742100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -44,15 +42,33 @@ export class CreateChangeTaskOrchestrationTables1742100000000
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_tenant_change" ON "itsm_change_tasks" ("tenant_id", "change_id")`);
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_itsm_change_tasks_tenant_change_number" ON "itsm_change_tasks" ("tenant_id", "change_id", "number")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_tenant_status" ON "itsm_change_tasks" ("tenant_id", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_tenant_assignee" ON "itsm_change_tasks" ("tenant_id", "assignee_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_tenant_group" ON "itsm_change_tasks" ("tenant_id", "assignment_group_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_tenant_id" ON "itsm_change_tasks" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_created_at" ON "itsm_change_tasks" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_updated_at" ON "itsm_change_tasks" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_tasks_is_deleted" ON "itsm_change_tasks" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_tenant_change" ON "itsm_change_tasks" ("tenant_id", "change_id")`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_itsm_change_tasks_tenant_change_number" ON "itsm_change_tasks" ("tenant_id", "change_id", "number")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_tenant_status" ON "itsm_change_tasks" ("tenant_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_tenant_assignee" ON "itsm_change_tasks" ("tenant_id", "assignee_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_tenant_group" ON "itsm_change_tasks" ("tenant_id", "assignment_group_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_tenant_id" ON "itsm_change_tasks" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_created_at" ON "itsm_change_tasks" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_updated_at" ON "itsm_change_tasks" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_tasks_is_deleted" ON "itsm_change_tasks" ("is_deleted")`,
+    );
 
     // ── Change Task Dependencies ──────────────────────────────────
     await queryRunner.query(`
@@ -70,10 +86,18 @@ export class CreateChangeTaskOrchestrationTables1742100000000
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctd_tenant_change" ON "itsm_change_task_dependencies" ("tenant_id", "change_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctd_tenant_successor" ON "itsm_change_task_dependencies" ("tenant_id", "successor_task_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctd_tenant_predecessor" ON "itsm_change_task_dependencies" ("tenant_id", "predecessor_task_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctd_tenant_id" ON "itsm_change_task_dependencies" ("tenant_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctd_tenant_change" ON "itsm_change_task_dependencies" ("tenant_id", "change_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctd_tenant_successor" ON "itsm_change_task_dependencies" ("tenant_id", "successor_task_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctd_tenant_predecessor" ON "itsm_change_task_dependencies" ("tenant_id", "predecessor_task_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctd_tenant_id" ON "itsm_change_task_dependencies" ("tenant_id")`,
+    );
 
     // ── Change Templates ──────────────────────────────────────────
     await queryRunner.query(`
@@ -96,12 +120,24 @@ export class CreateChangeTaskOrchestrationTables1742100000000
       )
     `);
 
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_itsm_change_templates_tenant_code" ON "itsm_change_templates" ("tenant_id", "code")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_templates_tenant_active" ON "itsm_change_templates" ("tenant_id", "is_active")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_templates_tenant_id" ON "itsm_change_templates" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_templates_created_at" ON "itsm_change_templates" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_templates_updated_at" ON "itsm_change_templates" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_change_templates_is_deleted" ON "itsm_change_templates" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_itsm_change_templates_tenant_code" ON "itsm_change_templates" ("tenant_id", "code")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_templates_tenant_active" ON "itsm_change_templates" ("tenant_id", "is_active")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_templates_tenant_id" ON "itsm_change_templates" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_templates_created_at" ON "itsm_change_templates" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_templates_updated_at" ON "itsm_change_templates" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_change_templates_is_deleted" ON "itsm_change_templates" ("is_deleted")`,
+    );
 
     // ── Change Template Tasks ─────────────────────────────────────
     await queryRunner.query(`
@@ -132,12 +168,24 @@ export class CreateChangeTaskOrchestrationTables1742100000000
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctt_tenant_template" ON "itsm_change_template_tasks" ("tenant_id", "template_id")`);
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_itsm_ctt_tenant_template_key" ON "itsm_change_template_tasks" ("tenant_id", "template_id", "task_key")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctt_tenant_id" ON "itsm_change_template_tasks" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctt_created_at" ON "itsm_change_template_tasks" ("created_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctt_updated_at" ON "itsm_change_template_tasks" ("updated_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctt_is_deleted" ON "itsm_change_template_tasks" ("is_deleted")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctt_tenant_template" ON "itsm_change_template_tasks" ("tenant_id", "template_id")`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_itsm_ctt_tenant_template_key" ON "itsm_change_template_tasks" ("tenant_id", "template_id", "task_key")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctt_tenant_id" ON "itsm_change_template_tasks" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctt_created_at" ON "itsm_change_template_tasks" ("created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctt_updated_at" ON "itsm_change_template_tasks" ("updated_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctt_is_deleted" ON "itsm_change_template_tasks" ("is_deleted")`,
+    );
 
     // ── Change Template Dependencies ──────────────────────────────
     await queryRunner.query(`
@@ -154,15 +202,27 @@ export class CreateChangeTaskOrchestrationTables1742100000000
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctdep_tenant_template" ON "itsm_change_template_dependencies" ("tenant_id", "template_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_itsm_ctdep_tenant_id" ON "itsm_change_template_dependencies" ("tenant_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctdep_tenant_template" ON "itsm_change_template_dependencies" ("tenant_id", "template_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_itsm_ctdep_tenant_id" ON "itsm_change_template_dependencies" ("tenant_id")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_change_template_dependencies" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_change_template_tasks" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_change_templates" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_change_task_dependencies" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_change_template_dependencies" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_change_template_tasks" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_change_templates" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_change_task_dependencies" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "itsm_change_tasks" CASCADE`);
   }
 }

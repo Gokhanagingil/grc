@@ -12,7 +12,10 @@ import {
   CustomerRiskObservationFilterDto,
   CUSTOMER_RISK_CATALOG_SORTABLE_FIELDS,
 } from '../dto/customer-risk-catalog.dto';
-import { PaginatedResponse, createPaginatedResponse } from '../dto/pagination.dto';
+import {
+  PaginatedResponse,
+  createPaginatedResponse,
+} from '../dto/pagination.dto';
 import { AuditService } from '../../audit/audit.service';
 import { CodeGeneratorService, CodePrefix } from './code-generator.service';
 
@@ -190,7 +193,7 @@ export class CustomerRiskCatalogService extends MultiTenantServiceBase<CustomerR
       ? sortBy
       : 'createdAt';
     const validSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    qb.orderBy(`cr.${validSortBy}`, validSortOrder as 'ASC' | 'DESC');
+    qb.orderBy(`cr.${validSortBy}`, validSortOrder);
 
     qb.skip((page - 1) * pageSize);
     qb.take(pageSize);
@@ -211,9 +214,14 @@ export class CustomerRiskCatalogService extends MultiTenantServiceBase<CustomerR
       notes?: string;
     },
   ): Promise<CustomerRiskBinding> {
-    const catalogRisk = await this.findOneActiveForTenant(tenantId, catalogRiskId);
+    const catalogRisk = await this.findOneActiveForTenant(
+      tenantId,
+      catalogRiskId,
+    );
     if (!catalogRisk) {
-      throw new ConflictException(`Catalog risk ${catalogRiskId} not found in tenant`);
+      throw new ConflictException(
+        `Catalog risk ${catalogRiskId} not found in tenant`,
+      );
     }
 
     const existing = await this.bindingRepository.findOne({
@@ -260,7 +268,13 @@ export class CustomerRiskCatalogService extends MultiTenantServiceBase<CustomerR
     catalogRiskId: string,
     filterDto: CustomerRiskBindingFilterDto,
   ): Promise<PaginatedResponse<CustomerRiskBinding>> {
-    const { page = 1, pageSize = 20, targetType, targetId, enabled } = filterDto;
+    const {
+      page = 1,
+      pageSize = 20,
+      targetType,
+      targetId,
+      enabled,
+    } = filterDto;
 
     const qb = this.bindingRepository.createQueryBuilder('b');
     qb.where('b.tenantId = :tenantId', { tenantId });

@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { CustomerRiskCatalog } from './customer-risk-catalog.entity';
@@ -22,7 +16,9 @@ export class CustomerRiskObservation extends BaseEntity {
   @Column({ name: 'catalog_risk_id', type: 'uuid' })
   catalogRiskId: string;
 
-  @ManyToOne(() => CustomerRiskCatalog, (c) => c.observations, { nullable: false })
+  @ManyToOne(() => CustomerRiskCatalog, (c) => c.observations, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'catalog_risk_id' })
   catalogRisk: CustomerRiskCatalog;
 
@@ -38,16 +34,32 @@ export class CustomerRiskObservation extends BaseEntity {
   @Column({ type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 
-  @Column({ name: 'evidence_type', type: 'varchar', length: 30, default: 'MANUAL' })
+  @Column({
+    name: 'evidence_type',
+    type: 'varchar',
+    length: 30,
+    default: 'MANUAL',
+  })
   evidenceType: string;
 
-  @Column({ name: 'evidence_ref', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'evidence_ref',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   evidenceRef: string | null;
 
   @Column({ name: 'raw_signal', type: 'jsonb', nullable: true })
   rawSignal: Record<string, unknown> | null;
 
-  @Column({ name: 'calculated_score', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'calculated_score',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   calculatedScore: number | null;
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })

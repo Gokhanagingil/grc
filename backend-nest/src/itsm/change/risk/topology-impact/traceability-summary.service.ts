@@ -54,15 +54,21 @@ export class TraceabilitySummaryService {
     if (this.changeRepo) {
       try {
         const change = await this.changeRepo.findOne({
-          where: { id: changeId, tenantId, isDeleted: false } as Record<string, unknown>,
+          where: { id: changeId, tenantId, isDeleted: false } as Record<
+            string,
+            unknown
+          >,
         });
         if (change) {
           changeLabel = `${change.number}: ${change.title}`;
           changeStatus = change.state;
-          changeCreatedAt = change.createdAt?.toISOString?.() || changeCreatedAt;
+          changeCreatedAt =
+            change.createdAt?.toISOString?.() || changeCreatedAt;
         }
       } catch (err) {
-        this.logger.warn(`Failed to fetch change for traceability: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to fetch change for traceability: ${(err as Error).message}`,
+        );
         warnings.push('Could not load change details.');
       }
     }
@@ -125,7 +131,8 @@ export class TraceabilitySummaryService {
             id: problem.id,
             label: `Problem: ${problem.shortDescription || problem.id.substring(0, 8)}`,
             status: problem.state,
-            createdAt: problem.createdAt?.toISOString?.() || new Date().toISOString(),
+            createdAt:
+              problem.createdAt?.toISOString?.() || new Date().toISOString(),
           });
           edges.push({
             fromId: changeId,
@@ -135,7 +142,9 @@ export class TraceabilitySummaryService {
           });
         }
       } catch (err) {
-        this.logger.warn(`Failed to fetch linked problems: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to fetch linked problems: ${(err as Error).message}`,
+        );
       }
     }
 
@@ -155,7 +164,8 @@ export class TraceabilitySummaryService {
             id: ke.id,
             label: `Known Error: ${ke.title || ke.id.substring(0, 8)}`,
             status: ke.state,
-            createdAt: ke.createdAt?.toISOString?.() || new Date().toISOString(),
+            createdAt:
+              ke.createdAt?.toISOString?.() || new Date().toISOString(),
           });
           edges.push({
             fromId: changeId,
@@ -165,7 +175,9 @@ export class TraceabilitySummaryService {
           });
         }
       } catch (err) {
-        this.logger.warn(`Failed to fetch linked known errors: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to fetch linked known errors: ${(err as Error).message}`,
+        );
       }
     }
 
@@ -225,15 +237,18 @@ export class TraceabilitySummaryService {
           .createQueryBuilder('p')
           .where('p.tenantId = :tenantId', { tenantId })
           .andWhere('p.isDeleted = false')
-          .andWhere("p.metadata->'rcaTraceability'->>'sourceMajorIncidentId' = :miId", {
-            miId: majorIncidentId,
-          })
+          .andWhere(
+            "p.metadata->'rcaTraceability'->>'sourceMajorIncidentId' = :miId",
+            {
+              miId: majorIncidentId,
+            },
+          )
           .getMany();
 
         for (const problem of problems) {
           const hypId =
-            (problem.metadata as Record<string, Record<string, string>>)?.rcaTraceability
-              ?.sourceHypothesisId || '';
+            (problem.metadata as Record<string, Record<string, string>>)
+              ?.rcaTraceability?.sourceHypothesisId || '';
           const hypNodeId = hypId ? `hypothesis:${hypId}` : null;
 
           // Add hypothesis node if not already added
@@ -245,7 +260,9 @@ export class TraceabilitySummaryService {
               status: 'ACTIVE',
               createdAt: new Date().toISOString(),
               meta: {
-                hypothesisType: (problem.metadata as Record<string, Record<string, string>>)?.rcaTraceability?.hypothesisType,
+                hypothesisType: (
+                  problem.metadata as Record<string, Record<string, string>>
+                )?.rcaTraceability?.hypothesisType,
               },
             });
             edges.push({
@@ -261,7 +278,8 @@ export class TraceabilitySummaryService {
             id: problem.id,
             label: `Problem: ${problem.shortDescription || problem.id.substring(0, 8)}`,
             status: problem.state,
-            createdAt: problem.createdAt?.toISOString?.() || new Date().toISOString(),
+            createdAt:
+              problem.createdAt?.toISOString?.() || new Date().toISOString(),
           });
           edges.push({
             fromId: hypNodeId || rcaNodeId,
@@ -284,9 +302,12 @@ export class TraceabilitySummaryService {
           .createQueryBuilder('ke')
           .where('ke.tenantId = :tenantId', { tenantId })
           .andWhere('ke.isDeleted = false')
-          .andWhere("ke.metadata->'rcaTraceability'->>'sourceMajorIncidentId' = :miId", {
-            miId: majorIncidentId,
-          })
+          .andWhere(
+            "ke.metadata->'rcaTraceability'->>'sourceMajorIncidentId' = :miId",
+            {
+              miId: majorIncidentId,
+            },
+          )
           .getMany();
 
         for (const ke of knownErrors) {
@@ -295,7 +316,8 @@ export class TraceabilitySummaryService {
             id: ke.id,
             label: `Known Error: ${ke.title || ke.id.substring(0, 8)}`,
             status: ke.state,
-            createdAt: ke.createdAt?.toISOString?.() || new Date().toISOString(),
+            createdAt:
+              ke.createdAt?.toISOString?.() || new Date().toISOString(),
           });
           edges.push({
             fromId: rcaNodeId,
@@ -333,8 +355,12 @@ export class TraceabilitySummaryService {
     nodes: TraceabilityNode[],
     edges: TraceabilityEdge[],
   ): TraceabilitySummaryResponse['metrics'] {
-    const hasTopologyAnalysis = nodes.some((n) => n.type === 'TOPOLOGY_ANALYSIS');
-    const hasGovernanceDecision = nodes.some((n) => n.type === 'GOVERNANCE_DECISION');
+    const hasTopologyAnalysis = nodes.some(
+      (n) => n.type === 'TOPOLOGY_ANALYSIS',
+    );
+    const hasGovernanceDecision = nodes.some(
+      (n) => n.type === 'GOVERNANCE_DECISION',
+    );
     const hasOrchestrationActions = nodes.some(
       (n) =>
         n.type === 'PROBLEM' ||

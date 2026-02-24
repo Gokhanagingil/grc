@@ -13,7 +13,11 @@ import {
   MaxLength,
   IsDateString,
 } from 'class-validator';
-import { ProblemCategory, ProblemImpact, ProblemUrgency } from '../../../../enums';
+import {
+  ProblemCategory,
+  ProblemImpact,
+  ProblemUrgency,
+} from '../../../../enums';
 import { PirActionPriority } from '../../../../pir/pir.enums';
 
 // ============================================================================

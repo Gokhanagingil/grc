@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * This migration runs after CreateTenantsTable (1730000000000) to ensure
  * the tenants table exists for the foreign key relationship.
  */
-export class CreateUsersAndAuditLogsTables1730100000000
-  implements MigrationInterface
-{
+export class CreateUsersAndAuditLogsTables1730100000000 implements MigrationInterface {
   name = 'CreateUsersAndAuditLogsTables1730100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -200,4 +198,3 @@ export class CreateUsersAndAuditLogsTables1730100000000
     `);
   }
 }
-

@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ItsmServiceService } from './service.service';
-import { ItsmService, ServiceCriticality, ServiceStatus } from './service.entity';
+import {
+  ItsmService,
+  ServiceCriticality,
+  ServiceStatus,
+} from './service.entity';
 import { AuditService } from '../../audit/audit.service';
 import { ServiceFilterDto } from './dto/service-filter.dto';
 
@@ -37,7 +41,9 @@ describe('ItsmServiceService', () => {
       create: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
     };
 
     const mockAuditService = {
@@ -92,7 +98,11 @@ describe('ItsmServiceService', () => {
         isDeleted: false,
       } as ItsmService);
 
-      const result = await service.createService(mockTenantId, mockUserId, createData);
+      const result = await service.createService(
+        mockTenantId,
+        mockUserId,
+        createData,
+      );
 
       expect(result).toBeDefined();
       expect(result.name).toBe('Email Service');
@@ -104,7 +114,10 @@ describe('ItsmServiceService', () => {
     it('should return service when found and not deleted', async () => {
       repository.findOne.mockResolvedValue(mockService as ItsmService);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, mockService.id!);
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        mockService.id!,
+      );
 
       expect(result).toEqual(mockService);
       expect(repository.findOne).toHaveBeenCalledWith({
@@ -115,7 +128,10 @@ describe('ItsmServiceService', () => {
     it('should return null when service not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, 'non-existent');
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        'non-existent',
+      );
 
       expect(result).toBeNull();
     });
@@ -129,9 +145,14 @@ describe('ItsmServiceService', () => {
         name: 'Updated Email Service',
       } as ItsmService);
 
-      const result = await service.updateService(mockTenantId, mockUserId, mockService.id!, {
-        name: 'Updated Email Service',
-      });
+      const result = await service.updateService(
+        mockTenantId,
+        mockUserId,
+        mockService.id!,
+        {
+          name: 'Updated Email Service',
+        },
+      );
 
       expect(result).toBeDefined();
       expect(auditService.recordUpdate).toHaveBeenCalled();
@@ -140,9 +161,14 @@ describe('ItsmServiceService', () => {
     it('should return null when service not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.updateService(mockTenantId, mockUserId, 'non-existent', {
-        name: 'Updated',
-      });
+      const result = await service.updateService(
+        mockTenantId,
+        mockUserId,
+        'non-existent',
+        {
+          name: 'Updated',
+        },
+      );
 
       expect(result).toBeNull();
     });
@@ -151,9 +177,16 @@ describe('ItsmServiceService', () => {
   describe('softDeleteService', () => {
     it('should soft delete service', async () => {
       repository.findOne.mockResolvedValue(mockService as ItsmService);
-      repository.save.mockResolvedValue({ ...mockService, isDeleted: true } as ItsmService);
+      repository.save.mockResolvedValue({
+        ...mockService,
+        isDeleted: true,
+      } as ItsmService);
 
-      const result = await service.softDeleteService(mockTenantId, mockUserId, mockService.id!);
+      const result = await service.softDeleteService(
+        mockTenantId,
+        mockUserId,
+        mockService.id!,
+      );
 
       expect(result).toBe(true);
       expect(auditService.recordDelete).toHaveBeenCalled();
@@ -162,7 +195,11 @@ describe('ItsmServiceService', () => {
     it('should return false when service not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.softDeleteService(mockTenantId, mockUserId, 'non-existent');
+      const result = await service.softDeleteService(
+        mockTenantId,
+        mockUserId,
+        'non-existent',
+      );
 
       expect(result).toBe(false);
     });
@@ -180,7 +217,11 @@ describe('ItsmServiceService', () => {
         getMany: jest.fn().mockResolvedValue([mockService]),
       };
 
-      repository.createQueryBuilder.mockReturnValue(mockQueryBuilder as unknown as ReturnType<Repository<ItsmService>['createQueryBuilder']>);
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
 
       const result = await service.findWithFilters(mockTenantId, {
         page: 1,
@@ -205,7 +246,11 @@ describe('ItsmServiceService', () => {
         getMany: jest.fn().mockResolvedValue([]),
       };
 
-      repository.createQueryBuilder.mockReturnValue(mockQueryBuilder as unknown as ReturnType<Repository<ItsmService>['createQueryBuilder']>);
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
 
       await service.findWithFilters(mockTenantId, {
         q: 'email',

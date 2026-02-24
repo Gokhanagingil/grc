@@ -186,11 +186,36 @@ describe('ITSM Incident Affected CIs & Impact (e2e)', () => {
       }
 
       const choices = [
-        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'affected_by', label: 'Affected By' },
-        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'caused_by', label: 'Caused By' },
-        { tableName: 'itsm_incident_ci', fieldName: 'relationshipType', value: 'related_to', label: 'Related To' },
-        { tableName: 'itsm_incident_ci', fieldName: 'impactScope', value: 'service_impacting', label: 'Service Impacting' },
-        { tableName: 'itsm_incident_ci', fieldName: 'impactScope', value: 'informational', label: 'Informational' },
+        {
+          tableName: 'itsm_incident_ci',
+          fieldName: 'relationshipType',
+          value: 'affected_by',
+          label: 'Affected By',
+        },
+        {
+          tableName: 'itsm_incident_ci',
+          fieldName: 'relationshipType',
+          value: 'caused_by',
+          label: 'Caused By',
+        },
+        {
+          tableName: 'itsm_incident_ci',
+          fieldName: 'relationshipType',
+          value: 'related_to',
+          label: 'Related To',
+        },
+        {
+          tableName: 'itsm_incident_ci',
+          fieldName: 'impactScope',
+          value: 'service_impacting',
+          label: 'Service Impacting',
+        },
+        {
+          tableName: 'itsm_incident_ci',
+          fieldName: 'impactScope',
+          value: 'informational',
+          label: 'Informational',
+        },
       ];
 
       for (const choice of choices) {
@@ -323,21 +348,13 @@ describe('ITSM Incident Affected CIs & Impact (e2e)', () => {
     });
 
     it('should remove an affected CI link', async () => {
-      if (
-        !dbConnected ||
-        !tenantId ||
-        !adminToken ||
-        !incidentId ||
-        !linkId
-      ) {
+      if (!dbConnected || !tenantId || !adminToken || !incidentId || !linkId) {
         console.log('Skipping test: prerequisites not met');
         return;
       }
 
       await request(app.getHttpServer())
-        .delete(
-          `/grc/itsm/incidents/${incidentId}/affected-cis/${linkId}`,
-        )
+        .delete(`/grc/itsm/incidents/${incidentId}/affected-cis/${linkId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
         .expect(204);

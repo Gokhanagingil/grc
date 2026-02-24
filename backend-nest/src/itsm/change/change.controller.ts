@@ -46,6 +46,37 @@ export class ChangeController {
     return this.changeService.findWithFilters(tenantId, filterDto);
   }
 
+  @Get('calendar-range')
+  @Permissions(Permission.ITSM_CHANGE_READ)
+  @ApiOperation({ summary: 'Get changes for calendar time range' })
+  @ApiResponse({ status: 200, description: 'Calendar changes retrieved' })
+  @Perf()
+  async getCalendarRange(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('state') state?: string,
+    @Query('type') type?: string,
+    @Query('risk') risk?: string,
+    @Query('serviceId') serviceId?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    if (!start || !end) {
+      throw new BadRequestException(
+        'start and end query parameters are required',
+      );
+    }
+    const items = await this.changeService.findForCalendarRange(
+      tenantId,
+      new Date(start),
+      new Date(end),
+      { state, type, risk, serviceId },
+    );
+    return { success: true, data: { items, total: items.length } };
+  }
+
   @Post()
   @Permissions(Permission.ITSM_CHANGE_WRITE)
   @HttpCode(HttpStatus.CREATED)
@@ -60,15 +91,11 @@ export class ChangeController {
     }
 
     const { plannedStartAt, plannedEndAt, ...rest } = createChangeDto;
-    return this.changeService.createChange(
-      tenantId,
-      req.user.id,
-      {
-        ...rest,
-        ...(plannedStartAt ? { plannedStartAt: new Date(plannedStartAt) } : {}),
-        ...(plannedEndAt ? { plannedEndAt: new Date(plannedEndAt) } : {}),
-      },
-    );
+    return this.changeService.createChange(tenantId, req.user.id, {
+      ...rest,
+      ...(plannedStartAt ? { plannedStartAt: new Date(plannedStartAt) } : {}),
+      ...(plannedEndAt ? { plannedEndAt: new Date(plannedEndAt) } : {}),
+    });
   }
 
   @Get(':id')
@@ -106,7 +133,13 @@ export class ChangeController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const { plannedStartAt, plannedEndAt, actualStartAt, actualEndAt, ...rest } = updateChangeDto;
+    const {
+      plannedStartAt,
+      plannedEndAt,
+      actualStartAt,
+      actualEndAt,
+      ...rest
+    } = updateChangeDto;
     const change = await this.changeService.updateChange(
       tenantId,
       req.user.id,

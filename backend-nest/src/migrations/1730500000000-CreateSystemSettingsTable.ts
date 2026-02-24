@@ -153,4 +153,3 @@ export class CreateSystemSettingsTable1730500000000 implements MigrationInterfac
     `);
   }
 }
-

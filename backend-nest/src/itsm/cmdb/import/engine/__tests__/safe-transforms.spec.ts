@@ -56,9 +56,7 @@ describe('safe-transforms', () => {
     });
 
     it('parses float from string', () => {
-      expect(applyTransform('3.14', { name: 'parseFloat' })).toBeCloseTo(
-        3.14,
-      );
+      expect(applyTransform('3.14', { name: 'parseFloat' })).toBeCloseTo(3.14);
     });
 
     it('parses date to ISO string', () => {

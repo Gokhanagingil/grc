@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsUUID, MaxLength, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  MaxLength,
+  IsDateString,
+} from 'class-validator';
 import { MajorIncidentSeverity } from '../major-incident.enums';
 
 /**

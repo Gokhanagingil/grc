@@ -54,4 +54,3 @@ export class CreateTenantsTable1730000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "tenants"`);
   }
 }
-

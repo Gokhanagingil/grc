@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddServiceOfferingToItsmRecords1740000000000
-  implements MigrationInterface
-{
+export class AddServiceOfferingToItsmRecords1740000000000 implements MigrationInterface {
   name = 'AddServiceOfferingToItsmRecords1740000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -172,24 +170,58 @@ export class AddServiceOfferingToItsmRecords1740000000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_services_tenant_offering"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_services_tenant_service"`);
-    await queryRunner.query(`ALTER TABLE "itsm_services" DROP CONSTRAINT IF EXISTS "FK_itsm_services_cmdb_offering_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_services" DROP CONSTRAINT IF EXISTS "FK_itsm_services_cmdb_service_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_services" DROP COLUMN IF EXISTS "offering_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_services" DROP COLUMN IF EXISTS "service_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_services_tenant_offering"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_services_tenant_service"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_services" DROP CONSTRAINT IF EXISTS "FK_itsm_services_cmdb_offering_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_services" DROP CONSTRAINT IF EXISTS "FK_itsm_services_cmdb_service_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_services" DROP COLUMN IF EXISTS "offering_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_services" DROP COLUMN IF EXISTS "service_id"`,
+    );
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_changes_tenant_offering"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_changes_tenant_service"`);
-    await queryRunner.query(`ALTER TABLE "itsm_changes" DROP CONSTRAINT IF EXISTS "FK_itsm_changes_offering_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_changes" DROP CONSTRAINT IF EXISTS "FK_itsm_changes_service_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_changes" DROP COLUMN IF EXISTS "offering_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_changes_tenant_offering"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_changes_tenant_service"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_changes" DROP CONSTRAINT IF EXISTS "FK_itsm_changes_offering_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_changes" DROP CONSTRAINT IF EXISTS "FK_itsm_changes_service_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_changes" DROP COLUMN IF EXISTS "offering_id"`,
+    );
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_incidents_tenant_offering"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_itsm_incidents_tenant_service"`);
-    await queryRunner.query(`ALTER TABLE "itsm_incidents" DROP CONSTRAINT IF EXISTS "FK_itsm_incidents_offering_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_incidents" DROP CONSTRAINT IF EXISTS "FK_itsm_incidents_service_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_incidents" DROP COLUMN IF EXISTS "offering_id"`);
-    await queryRunner.query(`ALTER TABLE "itsm_incidents" DROP COLUMN IF EXISTS "service_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_incidents_tenant_offering"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_itsm_incidents_tenant_service"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_incidents" DROP CONSTRAINT IF EXISTS "FK_itsm_incidents_offering_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_incidents" DROP CONSTRAINT IF EXISTS "FK_itsm_incidents_service_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_incidents" DROP COLUMN IF EXISTS "offering_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "itsm_incidents" DROP COLUMN IF EXISTS "service_id"`,
+    );
   }
 }

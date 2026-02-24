@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  Brackets,
+  ObjectLiteral,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { ItsmProblem } from '../problem/problem.entity';
 import { ItsmKnownError } from '../known-error/known-error.entity';
 import { ItsmMajorIncident } from '../major-incident/major-incident.entity';
@@ -196,9 +201,10 @@ export class AnalyticsService {
       this.getMajorIncidentSeverityDistribution(tenantId, filter),
     ]);
 
-    const reopenRate = totalProblems > 0
-      ? Math.round((reopenedProblems / totalProblems) * 100)
-      : 0;
+    const reopenRate =
+      totalProblems > 0
+        ? Math.round((reopenedProblems / totalProblems) * 100)
+        : 0;
 
     return {
       kpis: {
@@ -227,16 +233,23 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<ProblemTrends> {
-    const [stateDist, priorityDist, categoryDist, trend, aging, reopenedCount, avgDaysOpen] =
-      await Promise.all([
-        this.getProblemStateDistribution(tenantId, filter),
-        this.getProblemPriorityDistribution(tenantId, filter),
-        this.getProblemCategoryDistribution(tenantId, filter),
-        this.getProblemTrendData(tenantId, filter),
-        this.getProblemAgingBuckets(tenantId, filter),
-        this.countReopenedProblems(tenantId, filter),
-        this.getAvgDaysOpenProblems(tenantId, filter),
-      ]);
+    const [
+      stateDist,
+      priorityDist,
+      categoryDist,
+      trend,
+      aging,
+      reopenedCount,
+      avgDaysOpen,
+    ] = await Promise.all([
+      this.getProblemStateDistribution(tenantId, filter),
+      this.getProblemPriorityDistribution(tenantId, filter),
+      this.getProblemCategoryDistribution(tenantId, filter),
+      this.getProblemTrendData(tenantId, filter),
+      this.getProblemAgingBuckets(tenantId, filter),
+      this.countReopenedProblems(tenantId, filter),
+      this.getAvgDaysOpenProblems(tenantId, filter),
+    ]);
 
     return {
       stateDistribution: stateDist,
@@ -289,16 +302,23 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<PirEffectiveness> {
-    const [totalPirs, statusDist, actionRate, overdueCount, avgDays, kcCount, kcByStatus] =
-      await Promise.all([
-        this.countPirs(tenantId, filter),
-        this.getPirStatusDistribution(tenantId, filter),
-        this.getActionCompletionRate(tenantId, filter),
-        this.countOverdueActions(tenantId, filter),
-        this.getAvgDaysToCompleteAction(tenantId, filter),
-        this.countKnowledgeCandidates(tenantId, filter),
-        this.getKnowledgeCandidateStatusDistribution(tenantId, filter),
-      ]);
+    const [
+      totalPirs,
+      statusDist,
+      actionRate,
+      overdueCount,
+      avgDays,
+      kcCount,
+      kcByStatus,
+    ] = await Promise.all([
+      this.countPirs(tenantId, filter),
+      this.getPirStatusDistribution(tenantId, filter),
+      this.getActionCompletionRate(tenantId, filter),
+      this.countOverdueActions(tenantId, filter),
+      this.getAvgDaysToCompleteAction(tenantId, filter),
+      this.countKnowledgeCandidates(tenantId, filter),
+      this.getKnowledgeCandidateStatusDistribution(tenantId, filter),
+    ]);
 
     return {
       totalPirs,
@@ -320,26 +340,36 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<KnownErrorLifecycle> {
-    const [totalCount, stateDist, fixDist, publishedCount, retiredCount, problemCount, keFromProblemCount] =
-      await Promise.all([
-        this.countKnownErrors(tenantId, filter),
-        this.getKnownErrorStateDistribution(tenantId, filter),
-        this.getKnownErrorFixStatusDistribution(tenantId, filter),
-        this.countKnownErrors(tenantId, filter, [KnownErrorState.PUBLISHED]),
-        this.countKnownErrors(tenantId, filter, [KnownErrorState.RETIRED]),
-        this.countProblems(tenantId, filter),
-        this.countKnownErrorsWithProblem(tenantId, filter),
-      ]);
+    const [
+      totalCount,
+      stateDist,
+      fixDist,
+      publishedCount,
+      retiredCount,
+      problemCount,
+      keFromProblemCount,
+    ] = await Promise.all([
+      this.countKnownErrors(tenantId, filter),
+      this.getKnownErrorStateDistribution(tenantId, filter),
+      this.getKnownErrorFixStatusDistribution(tenantId, filter),
+      this.countKnownErrors(tenantId, filter, [KnownErrorState.PUBLISHED]),
+      this.countKnownErrors(tenantId, filter, [KnownErrorState.RETIRED]),
+      this.countProblems(tenantId, filter),
+      this.countKnownErrorsWithProblem(tenantId, filter),
+    ]);
 
     return {
       totalCount,
       stateDistribution: stateDist,
       fixStatusDistribution: fixDist,
-      publicationRate: totalCount > 0 ? Math.round((publishedCount / totalCount) * 100) : 0,
-      retirementRate: totalCount > 0 ? Math.round((retiredCount / totalCount) * 100) : 0,
-      problemToKeConversionRate: problemCount > 0
-        ? Math.round((keFromProblemCount / problemCount) * 100)
-        : 0,
+      publicationRate:
+        totalCount > 0 ? Math.round((publishedCount / totalCount) * 100) : 0,
+      retirementRate:
+        totalCount > 0 ? Math.round((retiredCount / totalCount) * 100) : 0,
+      problemToKeConversionRate:
+        problemCount > 0
+          ? Math.round((keFromProblemCount / problemCount) * 100)
+          : 0,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -352,22 +382,30 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<ClosureEffectiveness> {
-    const [closureTrend, reopenedCount, totalProblems, actionRate, avgProblemDays, avgActionDays, pirRate] =
-      await Promise.all([
-        this.getProblemClosureTrend(tenantId, filter),
-        this.countReopenedProblems(tenantId, filter),
-        this.countProblems(tenantId, filter),
-        this.getActionCompletionRate(tenantId, filter),
-        this.getAvgDaysToCloseProblem(tenantId, filter),
-        this.getAvgDaysToCompleteAction(tenantId, filter),
-        this.getPirClosureRate(tenantId, filter),
-      ]);
+    const [
+      closureTrend,
+      reopenedCount,
+      totalProblems,
+      actionRate,
+      avgProblemDays,
+      avgActionDays,
+      pirRate,
+    ] = await Promise.all([
+      this.getProblemClosureTrend(tenantId, filter),
+      this.countReopenedProblems(tenantId, filter),
+      this.countProblems(tenantId, filter),
+      this.getActionCompletionRate(tenantId, filter),
+      this.getAvgDaysToCloseProblem(tenantId, filter),
+      this.getAvgDaysToCompleteAction(tenantId, filter),
+      this.getPirClosureRate(tenantId, filter),
+    ]);
 
     return {
       problemClosureRateTrend: closureTrend,
-      reopenedProblemRate: totalProblems > 0
-        ? Math.round((reopenedCount / totalProblems) * 100)
-        : 0,
+      reopenedProblemRate:
+        totalProblems > 0
+          ? Math.round((reopenedCount / totalProblems) * 100)
+          : 0,
       reopenedProblems: reopenedCount,
       actionClosureRate: actionRate,
       avgDaysToCloseProblem: avgProblemDays,
@@ -385,14 +423,19 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<BacklogSummary> {
-    const [problemsByPriority, actionsByPriority, overdueCount, staleCount, items] =
-      await Promise.all([
-        this.getOpenProblemsByPriority(tenantId, filter),
-        this.getOpenActionsByPriority(tenantId, filter),
-        this.countOverdueActions(tenantId, filter),
-        this.countStaleItems(tenantId, filter),
-        this.getBacklogItems(tenantId, filter),
-      ]);
+    const [
+      problemsByPriority,
+      actionsByPriority,
+      overdueCount,
+      staleCount,
+      items,
+    ] = await Promise.all([
+      this.getOpenProblemsByPriority(tenantId, filter),
+      this.getOpenActionsByPriority(tenantId, filter),
+      this.countOverdueActions(tenantId, filter),
+      this.countStaleItems(tenantId, filter),
+      this.getBacklogItems(tenantId, filter),
+    ]);
 
     return {
       openProblemsByPriority: problemsByPriority,
@@ -415,10 +458,14 @@ export class AnalyticsService {
     dateField = 'createdAt',
   ): void {
     if (filter.dateFrom) {
-      qb.andWhere(`${alias}.${dateField} >= :dateFrom`, { dateFrom: filter.dateFrom });
+      qb.andWhere(`${alias}.${dateField} >= :dateFrom`, {
+        dateFrom: filter.dateFrom,
+      });
     }
     if (filter.dateTo) {
-      qb.andWhere(`${alias}.${dateField} <= :dateTo`, { dateTo: filter.dateTo });
+      qb.andWhere(`${alias}.${dateField} <= :dateTo`, {
+        dateTo: filter.dateTo,
+      });
     }
   }
 
@@ -429,13 +476,19 @@ export class AnalyticsService {
   ): void {
     this.applyDateFilter(qb, alias, filter);
     if (filter.serviceId) {
-      qb.andWhere(`${alias}.serviceId = :serviceId`, { serviceId: filter.serviceId });
+      qb.andWhere(`${alias}.serviceId = :serviceId`, {
+        serviceId: filter.serviceId,
+      });
     }
     if (filter.priority) {
-      qb.andWhere(`${alias}.priority = :priority`, { priority: filter.priority });
+      qb.andWhere(`${alias}.priority = :priority`, {
+        priority: filter.priority,
+      });
     }
     if (filter.category) {
-      qb.andWhere(`${alias}.category = :category`, { category: filter.category });
+      qb.andWhere(`${alias}.category = :category`, {
+        category: filter.category,
+      });
     }
     if (filter.team) {
       qb.andWhere(`${alias}.assignmentGroup = :team`, { team: filter.team });
@@ -449,10 +502,14 @@ export class AnalyticsService {
   ): void {
     this.applyDateFilter(qb, alias, filter);
     if (filter.serviceId) {
-      qb.andWhere(`${alias}.primaryServiceId = :serviceId`, { serviceId: filter.serviceId });
+      qb.andWhere(`${alias}.primaryServiceId = :serviceId`, {
+        serviceId: filter.serviceId,
+      });
     }
     if (filter.severity) {
-      qb.andWhere(`${alias}.severity = :severity`, { severity: filter.severity });
+      qb.andWhere(`${alias}.severity = :severity`, {
+        severity: filter.severity,
+      });
     }
   }
 
@@ -461,7 +518,8 @@ export class AnalyticsService {
     filter: AnalyticsFilterDto,
     states?: string[],
   ): Promise<number> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false');
     this.applyProblemFilters(qb, 'p', filter);
@@ -475,7 +533,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false')
       .andWhere('p.reopenCount > 0');
@@ -488,7 +547,8 @@ export class AnalyticsService {
     filter: AnalyticsFilterDto,
     statuses?: string[],
   ): Promise<number> {
-    const qb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const qb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .where('mi.tenantId = :tenantId', { tenantId })
       .andWhere('mi.isDeleted = false');
     this.applyMajorIncidentFilters(qb, 'mi', filter);
@@ -503,7 +563,8 @@ export class AnalyticsService {
     filter: AnalyticsFilterDto,
     states?: string[],
   ): Promise<number> {
-    const qb = this.knownErrorRepo.createQueryBuilder('ke')
+    const qb = this.knownErrorRepo
+      .createQueryBuilder('ke')
       .where('ke.tenantId = :tenantId', { tenantId })
       .andWhere('ke.isDeleted = false');
     this.applyDateFilter(qb, 'ke', filter);
@@ -517,7 +578,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.knownErrorRepo.createQueryBuilder('ke')
+    const qb = this.knownErrorRepo
+      .createQueryBuilder('ke')
       .where('ke.tenantId = :tenantId', { tenantId })
       .andWhere('ke.isDeleted = false')
       .andWhere('ke.problemId IS NOT NULL');
@@ -529,7 +591,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.pirRepo.createQueryBuilder('pir')
+    const qb = this.pirRepo
+      .createQueryBuilder('pir')
       .where('pir.tenantId = :tenantId', { tenantId })
       .andWhere('pir.isDeleted = false');
     this.applyDateFilter(qb, 'pir', filter);
@@ -540,7 +603,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.pirActionRepo.createQueryBuilder('a')
+    const qb = this.pirActionRepo
+      .createQueryBuilder('a')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false')
       .andWhere(
@@ -572,7 +636,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.knowledgeCandidateRepo.createQueryBuilder('kc')
+    const qb = this.knowledgeCandidateRepo
+      .createQueryBuilder('kc')
       .where('kc.tenantId = :tenantId', { tenantId })
       .andWhere('kc.isDeleted = false');
     this.applyDateFilter(qb, 'kc', filter);
@@ -589,7 +654,8 @@ export class AnalyticsService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const [staleProblems, staleActions] = await Promise.all([
-      this.problemRepo.createQueryBuilder('p')
+      this.problemRepo
+        .createQueryBuilder('p')
         .where('p.tenantId = :tenantId', { tenantId })
         .andWhere('p.isDeleted = false')
         .andWhere('p.state IN (:...openStates)', {
@@ -601,7 +667,8 @@ export class AnalyticsService {
         })
         .andWhere('p.updatedAt < :staleDate', { staleDate: thirtyDaysAgo })
         .getCount(),
-      this.pirActionRepo.createQueryBuilder('a')
+      this.pirActionRepo
+        .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId })
         .andWhere('a.isDeleted = false')
         .andWhere('a.status IN (:...openStatuses)', {
@@ -626,7 +693,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('p.state', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -634,14 +702,15 @@ export class AnalyticsService {
       .groupBy('p.state');
     this.applyProblemFilters(qb, 'p', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getProblemPriorityDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('p.priority', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -649,14 +718,15 @@ export class AnalyticsService {
       .groupBy('p.priority');
     this.applyProblemFilters(qb, 'p', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getProblemCategoryDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('p.category', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -664,14 +734,15 @@ export class AnalyticsService {
       .groupBy('p.category');
     this.applyProblemFilters(qb, 'p', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getMajorIncidentStatusDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const qb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .select('mi.status', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('mi.tenantId = :tenantId', { tenantId })
@@ -679,14 +750,15 @@ export class AnalyticsService {
       .groupBy('mi.status');
     this.applyMajorIncidentFilters(qb, 'mi', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getMajorIncidentSeverityDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const qb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .select('mi.severity', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('mi.tenantId = :tenantId', { tenantId })
@@ -694,28 +766,30 @@ export class AnalyticsService {
       .groupBy('mi.severity');
     this.applyMajorIncidentFilters(qb, 'mi', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getPirStatusDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.pirRepo.createQueryBuilder('pir')
+    const qb = this.pirRepo
+      .createQueryBuilder('pir')
       .select('pir.status', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('pir.tenantId = :tenantId', { tenantId })
       .groupBy('pir.status');
     this.applyDateFilter(qb, 'pir', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getKnownErrorStateDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.knownErrorRepo.createQueryBuilder('ke')
+    const qb = this.knownErrorRepo
+      .createQueryBuilder('ke')
       .select('ke.state', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('ke.tenantId = :tenantId', { tenantId })
@@ -723,14 +797,15 @@ export class AnalyticsService {
       .groupBy('ke.state');
     this.applyDateFilter(qb, 'ke', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getKnownErrorFixStatusDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.knownErrorRepo.createQueryBuilder('ke')
+    const qb = this.knownErrorRepo
+      .createQueryBuilder('ke')
       .select('ke.permanentFixStatus', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('ke.tenantId = :tenantId', { tenantId })
@@ -738,21 +813,22 @@ export class AnalyticsService {
       .groupBy('ke.permanentFixStatus');
     this.applyDateFilter(qb, 'ke', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getKnowledgeCandidateStatusDistribution(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.knowledgeCandidateRepo.createQueryBuilder('kc')
+    const qb = this.knowledgeCandidateRepo
+      .createQueryBuilder('kc')
       .select('kc.status', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('kc.tenantId = :tenantId', { tenantId })
       .groupBy('kc.status');
     this.applyDateFilter(qb, 'kc', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   // ============================================================================
@@ -764,7 +840,8 @@ export class AnalyticsService {
     filter: AnalyticsFilterDto,
   ): Promise<TrendPoint[]> {
     // Opened per month
-    const openedQb = this.problemRepo.createQueryBuilder('p')
+    const openedQb = this.problemRepo
+      .createQueryBuilder('p')
       .select("TO_CHAR(p.created_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'opened')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -772,10 +849,14 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(p.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyProblemFilters(openedQb, 'p', filter);
-    const openedRaw = await openedQb.getRawMany<{ period: string; opened: string }>();
+    const openedRaw = await openedQb.getRawMany<{
+      period: string;
+      opened: string;
+    }>();
 
     // Closed per month
-    const closedQb = this.problemRepo.createQueryBuilder('p')
+    const closedQb = this.problemRepo
+      .createQueryBuilder('p')
       .select("TO_CHAR(p.closed_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'closed')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -784,10 +865,14 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(p.closed_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyProblemFilters(closedQb, 'p', filter);
-    const closedRaw = await closedQb.getRawMany<{ period: string; closed: string }>();
+    const closedRaw = await closedQb.getRawMany<{
+      period: string;
+      closed: string;
+    }>();
 
     // Resolved per month
-    const resolvedQb = this.problemRepo.createQueryBuilder('p')
+    const resolvedQb = this.problemRepo
+      .createQueryBuilder('p')
       .select("TO_CHAR(p.resolved_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'resolved')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -796,7 +881,10 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(p.resolved_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyProblemFilters(resolvedQb, 'p', filter);
-    const resolvedRaw = await resolvedQb.getRawMany<{ period: string; resolved: string }>();
+    const resolvedRaw = await resolvedQb.getRawMany<{
+      period: string;
+      resolved: string;
+    }>();
 
     return this.mergeTrendData(openedRaw, closedRaw, resolvedRaw);
   }
@@ -805,7 +893,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<TrendPoint[]> {
-    const openedQb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const openedQb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .select("TO_CHAR(mi.created_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'opened')
       .where('mi.tenantId = :tenantId', { tenantId })
@@ -813,9 +902,13 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(mi.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyMajorIncidentFilters(openedQb, 'mi', filter);
-    const openedRaw = await openedQb.getRawMany<{ period: string; opened: string }>();
+    const openedRaw = await openedQb.getRawMany<{
+      period: string;
+      opened: string;
+    }>();
 
-    const closedQb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const closedQb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .select("TO_CHAR(mi.closed_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'closed')
       .where('mi.tenantId = :tenantId', { tenantId })
@@ -824,9 +917,13 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(mi.closed_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyMajorIncidentFilters(closedQb, 'mi', filter);
-    const closedRaw = await closedQb.getRawMany<{ period: string; closed: string }>();
+    const closedRaw = await closedQb.getRawMany<{
+      period: string;
+      closed: string;
+    }>();
 
-    const resolvedQb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const resolvedQb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .select("TO_CHAR(mi.resolved_at, 'YYYY-MM')", 'period')
       .addSelect('COUNT(*)', 'resolved')
       .where('mi.tenantId = :tenantId', { tenantId })
@@ -835,7 +932,10 @@ export class AnalyticsService {
       .groupBy("TO_CHAR(mi.resolved_at, 'YYYY-MM')")
       .orderBy('period', 'ASC');
     this.applyMajorIncidentFilters(resolvedQb, 'mi', filter);
-    const resolvedRaw = await resolvedQb.getRawMany<{ period: string; resolved: string }>();
+    const resolvedRaw = await resolvedQb.getRawMany<{
+      period: string;
+      resolved: string;
+    }>();
 
     return this.mergeTrendData(openedRaw, closedRaw, resolvedRaw);
   }
@@ -853,17 +953,23 @@ export class AnalyticsService {
     resolvedRaw: Array<{ period: string; resolved: string }>,
   ): TrendPoint[] {
     const periods = new Set<string>();
-    openedRaw.forEach(r => periods.add(r.period));
-    closedRaw.forEach(r => periods.add(r.period));
-    resolvedRaw.forEach(r => periods.add(r.period));
+    openedRaw.forEach((r) => periods.add(r.period));
+    closedRaw.forEach((r) => periods.add(r.period));
+    resolvedRaw.forEach((r) => periods.add(r.period));
 
-    const openedMap = new Map(openedRaw.map(r => [r.period, parseInt(r.opened, 10)]));
-    const closedMap = new Map(closedRaw.map(r => [r.period, parseInt(r.closed, 10)]));
-    const resolvedMap = new Map(resolvedRaw.map(r => [r.period, parseInt(r.resolved, 10)]));
+    const openedMap = new Map(
+      openedRaw.map((r) => [r.period, parseInt(r.opened, 10)]),
+    );
+    const closedMap = new Map(
+      closedRaw.map((r) => [r.period, parseInt(r.closed, 10)]),
+    );
+    const resolvedMap = new Map(
+      resolvedRaw.map((r) => [r.period, parseInt(r.resolved, 10)]),
+    );
 
     return Array.from(periods)
       .sort()
-      .map(period => ({
+      .map((period) => ({
         period,
         opened: openedMap.get(period) || 0,
         closed: closedMap.get(period) || 0,
@@ -879,15 +985,19 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<AgingBucket[]> {
-    const qb = this.problemRepo.createQueryBuilder('p')
-      .select(`
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
+      .select(
+        `
         CASE
           WHEN EXTRACT(DAY FROM NOW() - p.created_at) <= 7 THEN '0-7 days'
           WHEN EXTRACT(DAY FROM NOW() - p.created_at) <= 30 THEN '8-30 days'
           WHEN EXTRACT(DAY FROM NOW() - p.created_at) <= 90 THEN '31-90 days'
           ELSE '90+ days'
         END
-      `, 'bucket')
+      `,
+        'bucket',
+      )
       .addSelect('COUNT(*)', 'count')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false')
@@ -902,14 +1012,18 @@ export class AnalyticsService {
       .orderBy('bucket', 'ASC');
     this.applyProblemFilters(qb, 'p', filter);
     const raw = await qb.getRawMany<{ bucket: string; count: string }>();
-    return raw.map(r => ({ bucket: r.bucket.trim(), count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({
+      bucket: r.bucket.trim(),
+      count: parseInt(r.count, 10),
+    }));
   }
 
   private async getAvgDaysOpenProblems(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('AVG(EXTRACT(DAY FROM NOW() - p.created_at))', 'avg')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false')
@@ -933,14 +1047,16 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<{ completionPct: number }> {
-    const totalQb = this.pirRepo.createQueryBuilder('pir')
+    const totalQb = this.pirRepo
+      .createQueryBuilder('pir')
       .where('pir.tenantId = :tenantId', { tenantId });
     this.applyDateFilter(totalQb, 'pir', filter);
     const total = await totalQb.getCount();
 
     if (total === 0) return { completionPct: 0 };
 
-    const closedQb = this.pirRepo.createQueryBuilder('pir')
+    const closedQb = this.pirRepo
+      .createQueryBuilder('pir')
       .where('pir.tenantId = :tenantId', { tenantId })
       .andWhere('pir.isDeleted = false')
       .andWhere('pir.status IN (:...closedStatuses)', {
@@ -956,7 +1072,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const totalQb = this.pirActionRepo.createQueryBuilder('a')
+    const totalQb = this.pirActionRepo
+      .createQueryBuilder('a')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false');
     this.applyDateFilter(totalQb, 'a', filter);
@@ -964,10 +1081,13 @@ export class AnalyticsService {
 
     if (total === 0) return 0;
 
-    const completedQb = this.pirActionRepo.createQueryBuilder('a')
+    const completedQb = this.pirActionRepo
+      .createQueryBuilder('a')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false')
-      .andWhere('a.status = :completed', { completed: PirActionStatus.COMPLETED });
+      .andWhere('a.status = :completed', {
+        completed: PirActionStatus.COMPLETED,
+      });
     this.applyDateFilter(completedQb, 'a', filter);
     const completed = await completedQb.getCount();
 
@@ -978,11 +1098,14 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number | null> {
-    const qb = this.pirActionRepo.createQueryBuilder('a')
+    const qb = this.pirActionRepo
+      .createQueryBuilder('a')
       .select('AVG(EXTRACT(DAY FROM a.completed_at - a.created_at))', 'avg')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false')
-      .andWhere('a.status = :completed', { completed: PirActionStatus.COMPLETED })
+      .andWhere('a.status = :completed', {
+        completed: PirActionStatus.COMPLETED,
+      })
       .andWhere('a.completedAt IS NOT NULL');
     this.applyDateFilter(qb, 'a', filter);
     const result = await qb.getRawOne<{ avg: string | null }>();
@@ -993,7 +1116,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number | null> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('AVG(EXTRACT(DAY FROM p.closed_at - p.created_at))', 'avg')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false')
@@ -1012,19 +1136,25 @@ export class AnalyticsService {
     avgDaysToCloseProblem: number;
     avgDaysToCloseAction: number;
   }> {
-    const [totalProblems, closedProblems, actionRate, avgProblemDays, avgActionDays] =
-      await Promise.all([
-        this.countProblems(tenantId, filter),
-        this.countProblems(tenantId, filter, [ProblemState.CLOSED]),
-        this.getActionCompletionRate(tenantId, filter),
-        this.getAvgDaysToCloseProblem(tenantId, filter),
-        this.getAvgDaysToCompleteAction(tenantId, filter),
-      ]);
+    const [
+      totalProblems,
+      closedProblems,
+      actionRate,
+      avgProblemDays,
+      avgActionDays,
+    ] = await Promise.all([
+      this.countProblems(tenantId, filter),
+      this.countProblems(tenantId, filter, [ProblemState.CLOSED]),
+      this.getActionCompletionRate(tenantId, filter),
+      this.getAvgDaysToCloseProblem(tenantId, filter),
+      this.getAvgDaysToCompleteAction(tenantId, filter),
+    ]);
 
     return {
-      problemClosureRate: totalProblems > 0
-        ? Math.round((closedProblems / totalProblems) * 100)
-        : 0,
+      problemClosureRate:
+        totalProblems > 0
+          ? Math.round((closedProblems / totalProblems) * 100)
+          : 0,
       actionClosureRate: actionRate,
       avgDaysToCloseProblem: avgProblemDays ?? 0,
       avgDaysToCloseAction: avgActionDays ?? 0,
@@ -1035,8 +1165,12 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number | null> {
-    const qb = this.majorIncidentRepo.createQueryBuilder('mi')
-      .select('AVG(EXTRACT(EPOCH FROM mi.resolved_at - mi.declared_at) / 3600)', 'avg')
+    const qb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
+      .select(
+        'AVG(EXTRACT(EPOCH FROM mi.resolved_at - mi.declared_at) / 3600)',
+        'avg',
+      )
       .where('mi.tenantId = :tenantId', { tenantId })
       .andWhere('mi.isDeleted = false')
       .andWhere('mi.resolvedAt IS NOT NULL')
@@ -1050,8 +1184,12 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number | null> {
-    const qb = this.majorIncidentRepo.createQueryBuilder('mi')
-      .select('AVG(EXTRACT(EPOCH FROM mi.bridge_ended_at - mi.bridge_started_at) / 3600)', 'avg')
+    const qb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
+      .select(
+        'AVG(EXTRACT(EPOCH FROM mi.bridge_ended_at - mi.bridge_started_at) / 3600)',
+        'avg',
+      )
       .where('mi.tenantId = :tenantId', { tenantId })
       .andWhere('mi.isDeleted = false')
       .andWhere('mi.bridgeStartedAt IS NOT NULL')
@@ -1066,7 +1204,8 @@ export class AnalyticsService {
     filter: AnalyticsFilterDto,
   ): Promise<number> {
     // Count MI that have at least one PIR in APPROVED/CLOSED
-    const totalMiQb = this.majorIncidentRepo.createQueryBuilder('mi')
+    const totalMiQb = this.majorIncidentRepo
+      .createQueryBuilder('mi')
       .where('mi.tenantId = :tenantId', { tenantId })
       .andWhere('mi.isDeleted = false')
       .andWhere('mi.status IN (:...resolvedStatuses)', {
@@ -1082,7 +1221,8 @@ export class AnalyticsService {
     if (totalMi === 0) return 0;
 
     // MI that have at least one completed PIR
-    const withPirQb = this.pirRepo.createQueryBuilder('pir')
+    const withPirQb = this.pirRepo
+      .createQueryBuilder('pir')
       .select('COUNT(DISTINCT pir.majorIncidentId)', 'cnt')
       .where('pir.tenantId = :tenantId', { tenantId })
       .andWhere('pir.isDeleted = false')
@@ -1100,7 +1240,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<number> {
-    const totalQb = this.pirRepo.createQueryBuilder('pir')
+    const totalQb = this.pirRepo
+      .createQueryBuilder('pir')
       .where('pir.tenantId = :tenantId', { tenantId })
       .andWhere('pir.isDeleted = false');
     this.applyDateFilter(totalQb, 'pir', filter);
@@ -1108,7 +1249,8 @@ export class AnalyticsService {
 
     if (total === 0) return 0;
 
-    const closedQb = this.pirRepo.createQueryBuilder('pir')
+    const closedQb = this.pirRepo
+      .createQueryBuilder('pir')
       .where('pir.tenantId = :tenantId', { tenantId })
       .andWhere('pir.isDeleted = false')
       .andWhere('pir.status = :closed', { closed: PirStatus.CLOSED });
@@ -1126,7 +1268,8 @@ export class AnalyticsService {
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.problemRepo.createQueryBuilder('p')
+    const qb = this.problemRepo
+      .createQueryBuilder('p')
       .select('p.priority', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('p.tenantId = :tenantId', { tenantId })
@@ -1142,29 +1285,27 @@ export class AnalyticsService {
       .orderBy('p.priority', 'ASC');
     this.applyProblemFilters(qb, 'p', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getOpenActionsByPriority(
     tenantId: string,
     filter: AnalyticsFilterDto,
   ): Promise<CountByLabel[]> {
-    const qb = this.pirActionRepo.createQueryBuilder('a')
+    const qb = this.pirActionRepo
+      .createQueryBuilder('a')
       .select('a.priority', 'label')
       .addSelect('COUNT(*)', 'count')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false')
       .andWhere('a.status IN (:...openStatuses)', {
-        openStatuses: [
-          PirActionStatus.OPEN,
-          PirActionStatus.IN_PROGRESS,
-        ],
+        openStatuses: [PirActionStatus.OPEN, PirActionStatus.IN_PROGRESS],
       })
       .groupBy('a.priority')
       .orderBy('a.priority', 'ASC');
     this.applyDateFilter(qb, 'a', filter);
     const raw = await qb.getRawMany<{ label: string; count: string }>();
-    return raw.map(r => ({ label: r.label, count: parseInt(r.count, 10) }));
+    return raw.map((r) => ({ label: r.label, count: parseInt(r.count, 10) }));
   }
 
   private async getBacklogItems(
@@ -1174,7 +1315,8 @@ export class AnalyticsService {
     const items: BacklogItem[] = [];
 
     // Open problems
-    const problemQb = this.problemRepo.createQueryBuilder('p')
+    const problemQb = this.problemRepo
+      .createQueryBuilder('p')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isDeleted = false')
       .andWhere('p.state IN (:...openStates)', {
@@ -1198,14 +1340,18 @@ export class AnalyticsService {
         title: p.shortDescription || '',
         priority: p.priority,
         state: p.state,
-        ageDays: Math.floor((now.getTime() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        ageDays: Math.floor(
+          (now.getTime() - new Date(p.createdAt).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
         lastUpdated: p.updatedAt.toISOString(),
         assignee: p.assignedTo,
       });
     }
 
     // Open actions
-    const actionQb = this.pirActionRepo.createQueryBuilder('a')
+    const actionQb = this.pirActionRepo
+      .createQueryBuilder('a')
       .where('a.tenantId = :tenantId', { tenantId })
       .andWhere('a.isDeleted = false')
       .andWhere('a.status IN (:...openStatuses)', {
@@ -1228,7 +1374,10 @@ export class AnalyticsService {
         title: a.title || '',
         priority: a.priority,
         state: a.status,
-        ageDays: Math.floor((now.getTime() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        ageDays: Math.floor(
+          (now.getTime() - new Date(a.createdAt).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
         lastUpdated: a.updatedAt.toISOString(),
         assignee: a.ownerId,
       });
@@ -1236,7 +1385,16 @@ export class AnalyticsService {
 
     // Sort by priority then age
     items.sort((a, b) => {
-      const priorityOrder: Record<string, number> = { P1: 0, CRITICAL: 0, P2: 1, HIGH: 1, P3: 2, MEDIUM: 2, P4: 3, LOW: 3 };
+      const priorityOrder: Record<string, number> = {
+        P1: 0,
+        CRITICAL: 0,
+        P2: 1,
+        HIGH: 1,
+        P3: 2,
+        MEDIUM: 2,
+        P4: 3,
+        LOW: 3,
+      };
       const aPri = priorityOrder[a.priority] ?? 9;
       const bPri = priorityOrder[b.priority] ?? 9;
       if (aPri !== bPri) return aPri - bPri;

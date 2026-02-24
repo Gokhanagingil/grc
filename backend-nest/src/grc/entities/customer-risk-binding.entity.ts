@@ -1,11 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-  Unique,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
 import { BaseEntity } from '../../common/entities';
 import { Tenant } from '../../tenants/tenant.entity';
 import { CustomerRiskCatalog } from './customer-risk-catalog.entity';
@@ -33,7 +26,12 @@ export class CustomerRiskBinding extends BaseEntity {
   @Column({ name: 'target_id', type: 'varchar', length: 255 })
   targetId: string;
 
-  @Column({ name: 'scope_mode', type: 'varchar', length: 20, default: 'DIRECT' })
+  @Column({
+    name: 'scope_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'DIRECT',
+  })
   scopeMode: string;
 
   @Column({ type: 'boolean', default: true })

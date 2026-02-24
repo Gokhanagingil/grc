@@ -161,21 +161,35 @@ describe('PirActionService — Phase 3 (CRUD, Overdue Detection)', () => {
 
   describe('update', () => {
     it('should update action status to IN_PROGRESS', async () => {
-      const existing = { ...baseAction, status: PirActionStatus.OPEN } as ItsmPirAction;
+      const existing = {
+        ...baseAction,
+        status: PirActionStatus.OPEN,
+      } as ItsmPirAction;
       actionRepo.findOne.mockResolvedValue(existing);
       actionRepo.save.mockImplementation((entity: unknown) =>
-        Promise.resolve({ ...existing, ...(entity as Record<string, unknown>) } as ItsmPirAction),
+        Promise.resolve({
+          ...existing,
+          ...(entity as Record<string, unknown>),
+        } as ItsmPirAction),
       );
 
-      const result = await service.update(mockTenantId, mockUserId, mockActionId, {
-        status: PirActionStatus.IN_PROGRESS,
-      });
+      const result = await service.update(
+        mockTenantId,
+        mockUserId,
+        mockActionId,
+        {
+          status: PirActionStatus.IN_PROGRESS,
+        },
+      );
 
       expect(result.status).toBe(PirActionStatus.IN_PROGRESS);
     });
 
     it('should update action status to COMPLETED and set completedAt', async () => {
-      const existing = { ...baseAction, status: PirActionStatus.IN_PROGRESS } as ItsmPirAction;
+      const existing = {
+        ...baseAction,
+        status: PirActionStatus.IN_PROGRESS,
+      } as ItsmPirAction;
       actionRepo.findOne.mockResolvedValue(existing);
       actionRepo.save.mockImplementation((entity: unknown) =>
         Promise.resolve(entity as ItsmPirAction),
@@ -192,7 +206,9 @@ describe('PirActionService — Phase 3 (CRUD, Overdue Detection)', () => {
       actionRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.update(mockTenantId, mockUserId, 'missing-id', { title: 'test' }),
+        service.update(mockTenantId, mockUserId, 'missing-id', {
+          title: 'test',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -205,9 +221,16 @@ describe('PirActionService — Phase 3 (CRUD, Overdue Detection)', () => {
     it('should soft-delete an action', async () => {
       const existing = { ...baseAction } as ItsmPirAction;
       actionRepo.findOne.mockResolvedValue(existing);
-      actionRepo.save.mockResolvedValue({ ...existing, isDeleted: true } as ItsmPirAction);
+      actionRepo.save.mockResolvedValue({
+        ...existing,
+        isDeleted: true,
+      } as ItsmPirAction);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, mockActionId);
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        mockActionId,
+      );
 
       expect(result).toBe(true);
     });
@@ -215,7 +238,11 @@ describe('PirActionService — Phase 3 (CRUD, Overdue Detection)', () => {
     it('should return false when action not found', async () => {
       actionRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, 'missing-id');
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        'missing-id',
+      );
 
       expect(result).toBe(false);
     });

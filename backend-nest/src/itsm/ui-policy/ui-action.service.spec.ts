@@ -89,9 +89,7 @@ describe('UiActionService (unit)', () => {
 
   describe('getActionsWithTransitionValidation', () => {
     it('should keep actions without workflowTransition', () => {
-      const actions = [
-        makeAction({ id: 'a1', workflowTransition: null }),
-      ];
+      const actions = [makeAction({ id: 'a1', workflowTransition: null })];
       const transitions = [makeTransition({ name: 'start_progress' })];
       const result = service.getActionsWithTransitionValidation(
         actions,

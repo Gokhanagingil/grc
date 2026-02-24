@@ -76,13 +76,13 @@ describe('CustomerRiskCatalogController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CustomerRiskCatalogController],
-      providers: [
-        { provide: CustomerRiskCatalogService, useValue: service },
-      ],
+      providers: [{ provide: CustomerRiskCatalogService, useValue: service }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
-        canActivate: (ctx: { switchToHttp: () => { getRequest: () => Record<string, unknown> } }) => {
+        canActivate: (ctx: {
+          switchToHttp: () => { getRequest: () => Record<string, unknown> };
+        }) => {
           const req = ctx.switchToHttp().getRequest();
           req.user = { id: USER_ID };
           return true;
@@ -95,7 +95,9 @@ describe('CustomerRiskCatalogController', () => {
       .compile();
 
     app = module.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -112,7 +114,10 @@ describe('CustomerRiskCatalogController', () => {
 
       expect(res.body.items).toHaveLength(1);
       expect(res.body.total).toBe(1);
-      expect(service.findWithFilters).toHaveBeenCalledWith(TENANT_A, expect.anything());
+      expect(service.findWithFilters).toHaveBeenCalledWith(
+        TENANT_A,
+        expect.anything(),
+      );
     });
 
     it('should pass filter params to service', async () => {
@@ -253,7 +258,9 @@ describe('CustomerRiskCatalogController', () => {
   describe('DELETE /grc/customer-risks/:id/bindings/:bindingId', () => {
     it('should delete a binding', async () => {
       await request(app.getHttpServer())
-        .delete(`/grc/customer-risks/${mockCatalogRisk.id}/bindings/${mockBinding.id}`)
+        .delete(
+          `/grc/customer-risks/${mockCatalogRisk.id}/bindings/${mockBinding.id}`,
+        )
         .set('x-tenant-id', TENANT_A)
         .expect(204);
     });
@@ -262,7 +269,9 @@ describe('CustomerRiskCatalogController', () => {
       service.deleteBinding.mockResolvedValueOnce(false);
 
       await request(app.getHttpServer())
-        .delete(`/grc/customer-risks/${mockCatalogRisk.id}/bindings/nonexistent`)
+        .delete(
+          `/grc/customer-risks/${mockCatalogRisk.id}/bindings/nonexistent`,
+        )
         .set('x-tenant-id', TENANT_A)
         .expect(404);
     });
@@ -275,7 +284,10 @@ describe('CustomerRiskCatalogController', () => {
         .set('x-tenant-id', TENANT_B)
         .expect(200);
 
-      expect(service.findWithFilters).toHaveBeenCalledWith(TENANT_B, expect.anything());
+      expect(service.findWithFilters).toHaveBeenCalledWith(
+        TENANT_B,
+        expect.anything(),
+      );
     });
 
     it('should enforce tenant isolation on single risk', async () => {

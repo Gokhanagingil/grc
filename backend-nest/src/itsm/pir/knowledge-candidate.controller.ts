@@ -21,7 +21,10 @@ import { Permissions } from '../../auth/permissions/permissions.decorator';
 import { Permission } from '../../auth/permissions/permission.enum';
 import { Perf } from '../../common/decorators';
 import { KnowledgeCandidateService } from './knowledge-candidate.service';
-import { KnowledgeCandidateStatus, KnowledgeCandidateSourceType } from './pir.enums';
+import {
+  KnowledgeCandidateStatus,
+  KnowledgeCandidateSourceType,
+} from './pir.enums';
 
 /**
  * ITSM Knowledge Candidate Controller
@@ -70,7 +73,11 @@ export class KnowledgeCandidateController {
     @Param('pirId') pirId: string,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.kcService.generateFromPir(tenantId, userId, pirId);
+    const result = await this.kcService.generateFromPir(
+      tenantId,
+      userId,
+      pirId,
+    );
     return { data: result };
   }
 
@@ -84,7 +91,11 @@ export class KnowledgeCandidateController {
     @Param('knownErrorId') knownErrorId: string,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.kcService.generateFromKnownError(tenantId, userId, knownErrorId);
+    const result = await this.kcService.generateFromKnownError(
+      tenantId,
+      userId,
+      knownErrorId,
+    );
     return { data: result };
   }
 
@@ -98,7 +109,11 @@ export class KnowledgeCandidateController {
     @Param('problemId') problemId: string,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.kcService.generateFromProblem(tenantId, userId, problemId);
+    const result = await this.kcService.generateFromProblem(
+      tenantId,
+      userId,
+      problemId,
+    );
     return { data: result };
   }
 
@@ -111,7 +126,9 @@ export class KnowledgeCandidateController {
   ) {
     const kc = await this.kcService.findOne(tenantId, id);
     if (!kc) {
-      throw new NotFoundException(`Knowledge Candidate with ID ${id} not found`);
+      throw new NotFoundException(
+        `Knowledge Candidate with ID ${id} not found`,
+      );
     }
     return { data: kc };
   }
@@ -127,7 +144,10 @@ export class KnowledgeCandidateController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.kcService.transitionStatus(
-      tenantId, userId, id, KnowledgeCandidateStatus.REVIEWED,
+      tenantId,
+      userId,
+      id,
+      KnowledgeCandidateStatus.REVIEWED,
     );
     return { data: result };
   }
@@ -143,7 +163,10 @@ export class KnowledgeCandidateController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.kcService.transitionStatus(
-      tenantId, userId, id, KnowledgeCandidateStatus.PUBLISHED,
+      tenantId,
+      userId,
+      id,
+      KnowledgeCandidateStatus.PUBLISHED,
     );
     return { data: result };
   }
@@ -159,7 +182,10 @@ export class KnowledgeCandidateController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.kcService.transitionStatus(
-      tenantId, userId, id, KnowledgeCandidateStatus.REJECTED,
+      tenantId,
+      userId,
+      id,
+      KnowledgeCandidateStatus.REJECTED,
     );
     return { data: result };
   }
@@ -175,7 +201,9 @@ export class KnowledgeCandidateController {
     const userId = req.user?.id || req.user?.sub || 'system';
     const deleted = await this.kcService.softDelete(tenantId, userId, id);
     if (!deleted) {
-      throw new NotFoundException(`Knowledge Candidate with ID ${id} not found`);
+      throw new NotFoundException(
+        `Knowledge Candidate with ID ${id} not found`,
+      );
     }
     return { data: { deleted: true } };
   }

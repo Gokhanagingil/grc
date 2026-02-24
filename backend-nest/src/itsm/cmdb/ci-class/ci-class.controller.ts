@@ -47,9 +47,7 @@ export class CiClassController {
   @Get('tree')
   @Permissions(Permission.CMDB_CLASS_READ)
   @Perf()
-  async getClassTree(
-    @Headers('x-tenant-id') tenantId: string,
-  ) {
+  async getClassTree(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
@@ -63,9 +61,7 @@ export class CiClassController {
   @Get('summary')
   @Permissions(Permission.CMDB_CLASS_READ)
   @Perf()
-  async getClassSummary(
-    @Headers('x-tenant-id') tenantId: string,
-  ) {
+  async getClassSummary(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
@@ -79,9 +75,7 @@ export class CiClassController {
   @Get('content-pack-status')
   @Permissions(Permission.CMDB_CLASS_READ)
   @Perf()
-  async getContentPackStatus(
-    @Headers('x-tenant-id') tenantId: string,
-  ) {
+  async getContentPackStatus(@Headers('x-tenant-id') tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
@@ -129,11 +123,12 @@ export class CiClassController {
 
     // Validate inheritance if parentClassId is provided
     if (dto.parentClassId) {
-      const validation = await this.inheritanceService.validateInheritanceChange(
-        tenantId,
-        '', // new class has no ID yet, skip descendant check
-        dto.parentClassId,
-      );
+      const validation =
+        await this.inheritanceService.validateInheritanceChange(
+          tenantId,
+          '', // new class has no ID yet, skip descendant check
+          dto.parentClassId,
+        );
       if (!validation.valid) {
         throw new BadRequestException(
           `Invalid parent class: ${validation.errors.join('; ')}`,
@@ -179,11 +174,12 @@ export class CiClassController {
 
     // Validate inheritance change if parentClassId is being updated
     if (dto.parentClassId !== undefined) {
-      const validation = await this.inheritanceService.validateInheritanceChange(
-        tenantId,
-        id,
-        dto.parentClassId,
-      );
+      const validation =
+        await this.inheritanceService.validateInheritanceChange(
+          tenantId,
+          id,
+          dto.parentClassId,
+        );
       if (!validation.valid) {
         throw new BadRequestException(
           `Invalid parent class change: ${validation.errors.join('; ')}`,
