@@ -486,6 +486,8 @@ export const API_PATHS = {
       ANCESTORS: (id: string) => `/grc/cmdb/classes/${id}/ancestors`,
       DESCENDANTS: (id: string) => `/grc/cmdb/classes/${id}/descendants`,
       VALIDATE_INHERITANCE: (id: string) => `/grc/cmdb/classes/${id}/validate-inheritance`,
+      SUMMARY: '/grc/cmdb/classes/summary',
+      CONTENT_PACK_STATUS: '/grc/cmdb/classes/content-pack-status',
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
@@ -4017,6 +4019,7 @@ export interface CmdbCiClassData {
   parentClassId?: string;
   isAbstract?: boolean;
   isActive: boolean;
+  isSystem?: boolean;
   sortOrder: number;
   fieldsSchema?: CmdbCiClassFieldDefinition[] | null;
   metadata?: Record<string, unknown>;
@@ -4076,9 +4079,28 @@ export interface ClassTreeNode {
   parentClassId: string | null;
   isAbstract: boolean;
   isActive: boolean;
+  isSystem: boolean;
   sortOrder: number;
   localFieldCount: number;
   children: ClassTreeNode[];
+}
+
+/** Content pack status response */
+export interface ContentPackStatusResponse {
+  applied: boolean;
+  version: string | null;
+  systemClasses: number;
+  customClasses: number;
+  totalClasses: number;
+  abstractClasses: number;
+}
+
+/** Class summary counts */
+export interface ClassSummaryResponse {
+  total: number;
+  system: number;
+  custom: number;
+  abstract: number;
 }
 
 /** Validate inheritance request DTO */
@@ -4658,6 +4680,8 @@ export const cmdbApi = {
     descendants: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.DESCENDANTS(classId)),
     validateInheritance: (classId: string, data: ValidateInheritanceDto) =>
       api.post(API_PATHS.CMDB.CLASSES.VALIDATE_INHERITANCE(classId), data),
+    summary: () => api.get(API_PATHS.CMDB.CLASSES.SUMMARY),
+    contentPackStatus: () => api.get(API_PATHS.CMDB.CLASSES.CONTENT_PACK_STATUS),
   },
   cis: {
     list: (params?: CmdbListParams) => {

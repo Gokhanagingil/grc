@@ -11,9 +11,12 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  AccountTree as TreeIcon,
+} from '@mui/icons-material';
 import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
-import { cmdbApi, CmdbCiClassData } from '../../services/grcClient';
+import { cmdbApi, CmdbCiClassData, ClassSummaryResponse } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
 export const CmdbCiClassList: React.FC = () => {
@@ -29,6 +32,7 @@ export const CmdbCiClassList: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newClass, setNewClass] = useState({ name: '', label: '', description: '' });
   const [saving, setSaving] = useState(false);
+  const [summary, setSummary] = useState<ClassSummaryResponse | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -59,9 +63,27 @@ export const CmdbCiClassList: React.FC = () => {
     }
   }, [page, pageSize, search, showNotification]);
 
+  const fetchSummary = useCallback(async () => {
+    try {
+      const response = await cmdbApi.classes.summary();
+      const data = response.data;
+      if (data && 'data' in data && data.data) {
+        setSummary(data.data as ClassSummaryResponse);
+      } else if (data && typeof data === 'object' && 'total' in data) {
+        setSummary(data as ClassSummaryResponse);
+      }
+    } catch {
+      // Summary fetch is non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
 
   const handleCreate = async () => {
     if (!newClass.name.trim() || !newClass.label.trim()) {
@@ -153,20 +175,37 @@ export const CmdbCiClassList: React.FC = () => {
       header: 'Status',
       render: (row) => (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          <Chip
-            label={row.isActive ? 'Active' : 'Inactive'}
-            size="small"
-            color={row.isActive ? 'success' : 'default'}
-          />
-          {row.isAbstract && (
-            <Chip
-              label="Abstract"
-              size="small"
-              variant="outlined"
-              color="warning"
-              data-testid={`abstract-badge-${row.id}`}
-            />
-          )}
+              {row.isSystem && (
+                <Chip
+                  label="System"
+                  size="small"
+                  color="primary"
+                  data-testid={`system-badge-${row.id}`}
+                />
+              )}
+              {!row.isSystem && (
+                <Chip
+                  label="Custom"
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                  data-testid={`custom-badge-${row.id}`}
+                />
+              )}
+              <Chip
+                label={row.isActive ? 'Active' : 'Inactive'}
+                size="small"
+                color={row.isActive ? 'success' : 'default'}
+              />
+              {row.isAbstract && (
+                <Chip
+                  label="Abstract"
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  data-testid={`abstract-badge-${row.id}`}
+                />
+              )}
         </Box>
       ),
     },
@@ -188,6 +227,15 @@ export const CmdbCiClassList: React.FC = () => {
           CI Classes
         </Typography>
         <Button
+          variant="outlined"
+          startIcon={<TreeIcon />}
+          onClick={() => navigate('/cmdb/classes/tree')}
+          data-testid="btn-view-tree"
+          sx={{ mr: 1 }}
+        >
+          Class Tree
+        </Button>
+        <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setDialogOpen(true)}
@@ -195,6 +243,15 @@ export const CmdbCiClassList: React.FC = () => {
           New Class
         </Button>
       </Box>
+
+      {summary && (
+        <Box sx={{ mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap' }} data-testid="class-summary-banner">
+          <Chip label={`${summary.total} Total`} size="small" variant="outlined" />
+          <Chip label={`${summary.system} System`} size="small" color="primary" variant="outlined" />
+          <Chip label={`${summary.custom} Custom`} size="small" color="secondary" variant="outlined" />
+          <Chip label={`${summary.abstract} Abstract`} size="small" color="warning" variant="outlined" />
+        </Box>
+      )}
 
       <GenericListPage<CmdbCiClassData>
         title="CI Classes"

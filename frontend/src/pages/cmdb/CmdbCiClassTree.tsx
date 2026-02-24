@@ -78,6 +78,14 @@ const TreeNodeItem: React.FC<{
           {node.name}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', alignItems: 'center' }}>
+          {node.isSystem && (
+            <Chip
+              label="System"
+              size="small"
+              color="primary"
+              data-testid={`tree-system-${node.id}`}
+            />
+          )}
           {node.isAbstract && (
             <Chip
               label="Abstract"
@@ -193,9 +201,11 @@ export const CmdbCiClassTree: React.FC = () => {
       </Box>
 
       {!loading && !error && treeData.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', gap: 2 }} data-testid="tree-summary-chips">
           <Chip label={`${totalNodes} total classes`} size="small" variant="outlined" />
           <Chip label={`${rootCount} root class${rootCount !== 1 ? 'es' : ''}`} size="small" variant="outlined" />
+          <Chip label={`${countSystemNodes(treeData)} system`} size="small" color="primary" variant="outlined" />
+          <Chip label={`${totalNodes - countSystemNodes(treeData)} custom`} size="small" color="secondary" variant="outlined" />
         </Box>
       )}
 
@@ -248,6 +258,18 @@ function countNodes(nodes: ClassTreeNode[]): number {
     count += 1;
     if (Array.isArray(node.children)) {
       count += countNodes(node.children);
+    }
+  }
+  return count;
+}
+
+/** Count system nodes in tree recursively */
+function countSystemNodes(nodes: ClassTreeNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.isSystem) count += 1;
+    if (Array.isArray(node.children)) {
+      count += countSystemNodes(node.children);
     }
   }
   return count;

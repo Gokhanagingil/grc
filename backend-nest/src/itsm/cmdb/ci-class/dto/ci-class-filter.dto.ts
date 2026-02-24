@@ -23,4 +23,9 @@ export class CiClassFilterDto extends PaginationQueryDto {
   @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isSystem?: boolean;
 }
