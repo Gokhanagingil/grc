@@ -61,7 +61,9 @@ describe('ChangeCiService', () => {
       save: jest.fn(),
       create: jest.fn(),
       remove: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -85,7 +87,10 @@ describe('ChangeCiService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChangeCiService,
-        { provide: getRepositoryToken(ItsmChangeCi), useValue: mockChangeCiRepo },
+        {
+          provide: getRepositoryToken(ItsmChangeCi),
+          useValue: mockChangeCiRepo,
+        },
         { provide: getRepositoryToken(ItsmChange), useValue: mockChangeRepo },
         { provide: getRepositoryToken(CmdbCi), useValue: mockCiRepo },
       ],
@@ -106,7 +111,7 @@ describe('ChangeCiService', () => {
       changeRepo.findOne.mockResolvedValue(mockChange as ItsmChange);
       ciRepo.findOne.mockResolvedValue(mockCi as CmdbCi);
       changeCiRepo.findOne
-        .mockResolvedValueOnce(null)  // duplicate check
+        .mockResolvedValueOnce(null) // duplicate check
         .mockResolvedValueOnce(mockLink as ItsmChangeCi); // findOneWithRelations
       changeCiRepo.create.mockReturnValue(mockLink as ItsmChangeCi);
       changeCiRepo.save.mockResolvedValue(mockLink as ItsmChangeCi);
@@ -137,7 +142,13 @@ describe('ChangeCiService', () => {
       ciRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.addAffectedCi(TENANT_ID, USER_ID, CHANGE_ID, 'non-existent', 'AFFECTED'),
+        service.addAffectedCi(
+          TENANT_ID,
+          USER_ID,
+          CHANGE_ID,
+          'non-existent',
+          'AFFECTED',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -155,16 +166,29 @@ describe('ChangeCiService', () => {
   describe('removeAffectedCi', () => {
     it('returns true for an existing link', async () => {
       changeCiRepo.findOne.mockResolvedValue(mockLink as ItsmChangeCi);
-      changeCiRepo.save.mockResolvedValue({ ...mockLink, isDeleted: true } as ItsmChangeCi);
+      changeCiRepo.save.mockResolvedValue({
+        ...mockLink,
+        isDeleted: true,
+      } as ItsmChangeCi);
 
-      const result = await service.removeAffectedCi(TENANT_ID, USER_ID, CHANGE_ID, LINK_ID);
+      const result = await service.removeAffectedCi(
+        TENANT_ID,
+        USER_ID,
+        CHANGE_ID,
+        LINK_ID,
+      );
       expect(result).toBe(true);
     });
 
     it('returns false when link does not exist', async () => {
       changeCiRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.removeAffectedCi(TENANT_ID, USER_ID, CHANGE_ID, 'non-existent');
+      const result = await service.removeAffectedCi(
+        TENANT_ID,
+        USER_ID,
+        CHANGE_ID,
+        'non-existent',
+      );
       expect(result).toBe(false);
     });
   });

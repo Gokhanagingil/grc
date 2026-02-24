@@ -61,7 +61,8 @@ export class ChangeCiController {
     @Headers('x-tenant-id') tenantId: string,
     @Request() req: { user: { id: string } },
     @Param('changeId') changeId: string,
-    @Body() body: { ciId: string; relationshipType: string; impactScope?: string },
+    @Body()
+    body: { ciId: string; relationshipType: string; impactScope?: string },
   ) {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
