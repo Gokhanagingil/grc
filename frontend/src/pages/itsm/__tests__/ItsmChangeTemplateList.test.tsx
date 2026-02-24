@@ -59,7 +59,7 @@ beforeAll(async () => {
 
 const makeTemplate = (id: string, overrides?: Partial<Record<string, unknown>>) => ({
   id,
-  tenantId: '00000000-0000-0000-0000-000000000001',
+  tenantId: 'test-tenant-id',
   name: `Template ${id}`,
   code: `TMPL-${id.toUpperCase()}`,
   description: `Description for template ${id}`,

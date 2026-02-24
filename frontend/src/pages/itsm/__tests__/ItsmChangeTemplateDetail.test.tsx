@@ -64,7 +64,7 @@ beforeAll(async () => {
 
 const makeTemplate = (overrides?: Partial<Record<string, unknown>>) => ({
   id: 'tmpl-1',
-  tenantId: '00000000-0000-0000-0000-000000000001',
+  tenantId: 'test-tenant-id',
   name: 'Standard Change',
   code: 'STD-001',
   description: 'A standard change template',
@@ -141,10 +141,8 @@ describe('ItsmChangeTemplateDetail', () => {
       render(<ItsmChangeTemplateDetail />);
 
       // Fill in name but not code
-      const nameInput = screen.getByTestId('template-name-input').querySelector('input');
-      if (nameInput) {
-        fireEvent.change(nameInput, { target: { value: 'Test Template' } });
-      }
+      const nameInput = screen.getByRole('textbox', { name: /template name/i });
+      fireEvent.change(nameInput, { target: { value: 'Test Template' } });
 
       fireEvent.click(screen.getByTestId('save-template-btn'));
 
