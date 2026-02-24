@@ -30,7 +30,7 @@ import {
   Delete as DeleteIcon,
   AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, UpdateItsmIncidentDto } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
@@ -326,7 +326,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           INCIDENT_UPDATE_FIELDS,
           INCIDENT_EMPTY_STRING_FIELDS,
         );
-        await itsmApi.incidents.update(id, cleanPayload);
+        await itsmApi.incidents.update(id, cleanPayload as UpdateItsmIncidentDto);
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
       }

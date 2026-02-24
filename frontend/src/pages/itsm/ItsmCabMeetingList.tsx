@@ -36,7 +36,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CreateCabMeetingDto } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { stripUndefined, CAB_MEETING_CREATE_FIELDS, stripForbiddenFields } from '../../utils/payloadNormalizer';
 
@@ -107,7 +107,7 @@ export default function ItsmCabMeetingList() {
         meetingAt: new Date(newMeetingAt).toISOString(),
         endAt: newEndAt ? new Date(newEndAt).toISOString() : undefined,
       };
-      const cleanPayload = stripUndefined(stripForbiddenFields(rawPayload, CAB_MEETING_CREATE_FIELDS));
+      const cleanPayload = stripUndefined(stripForbiddenFields(rawPayload, CAB_MEETING_CREATE_FIELDS)) as unknown as CreateCabMeetingDto;
       await itsmApi.cabMeetings.create(cleanPayload);
       setCreateOpen(false);
       setNewTitle('');

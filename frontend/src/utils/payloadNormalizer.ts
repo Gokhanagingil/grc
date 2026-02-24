@@ -85,11 +85,11 @@ export function normalizeUpdatePayload<T extends Record<string, unknown>>(
 
   // Step 1: Convert empty strings to undefined for specified fields
   if (emptyStringFields) {
-    for (const field of emptyStringFields) {
+    emptyStringFields.forEach((field) => {
       if (field in processed && typeof processed[field] === 'string') {
         processed[field] = emptyToUndefined(processed[field] as string);
       }
-    }
+    });
   }
 
   // Step 2: Strip forbidden fields

@@ -734,7 +734,7 @@ export const ItsmChangeDetail: React.FC = () => {
     showNotification('Risk linked successfully', 'success');
     // Refresh linked risks from backend
     try {
-      const resp = await itsmApi.changes.linkedRisks(id);
+      const resp = await itsmApi.changes.getLinkedRisks(id);
       const items = extractLinkedArray(resp);
       if (mountedRef.current) setLinkedRisks(items as LinkedRisk[]);
     } catch { /* linked list will refresh on next page load */ }
@@ -746,7 +746,7 @@ export const ItsmChangeDetail: React.FC = () => {
     showNotification('Control linked successfully', 'success');
     // Refresh linked controls from backend
     try {
-      const resp = await itsmApi.changes.linkedControls(id);
+      const resp = await itsmApi.changes.getLinkedControls(id);
       const items = extractLinkedArray(resp);
       if (mountedRef.current) setLinkedControls(items as LinkedControl[]);
     } catch { /* linked list will refresh on next page load */ }

@@ -39,7 +39,7 @@ import {
   Gavel as GavelIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData, CabAgendaItemData } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import {
   normalizeUpdatePayload,
@@ -167,7 +167,7 @@ export default function ItsmCabMeetingDetail() {
         CAB_MEETING_UPDATE_FIELDS,
         CAB_MEETING_EMPTY_STRING_FIELDS,
       );
-      await itsmApi.cabMeetings.update(id, cleanPayload);
+      await itsmApi.cabMeetings.update(id, cleanPayload as UpdateCabMeetingDto);
       fetchMeeting();
       setError(null);
     } catch (err: unknown) {
