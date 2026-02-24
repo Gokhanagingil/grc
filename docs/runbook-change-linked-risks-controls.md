@@ -144,6 +144,56 @@ Both tables have:
 - `created_by` for audit trail
 - CASCADE delete on both change and risk/control deletion
 
+## Change Template Management
+
+### Navigation Path
+
+**Sidebar:** ITSM → Change Management → Change Templates → `/itsm/change-templates`
+
+### Available Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/itsm/change-templates` | Template List | Browse, search, and delete templates |
+| `/itsm/change-templates/new` | Create Template | Create a new change template |
+| `/itsm/change-templates/:id` | Edit Template | View/edit an existing template and its tasks |
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/grc/itsm/change-templates` | List templates (paginated, filterable) |
+| POST | `/grc/itsm/change-templates` | Create a template |
+| GET | `/grc/itsm/change-templates/:id` | Get template detail |
+| PATCH | `/grc/itsm/change-templates/:id` | Update a template |
+| DELETE | `/grc/itsm/change-templates/:id` | Delete a template |
+| POST | `/grc/itsm/change-templates/apply` | Apply template to a change |
+
+### UI Validation Checklist
+
+1. **Navigation entry visible** — Expand "Change Management" in ITSM sidebar; "Change Templates" should appear after "Change Calendar"
+2. **List page renders** — Click "Change Templates"; page shows table or empty state
+3. **Create template** — Click "New Template"; fill name + code; save succeeds
+4. **Edit template** — Click a row; detail page loads with form fields and tasks table
+5. **Delete template** — Click delete icon on list; confirm dialog; template removed
+6. **Template apply** — From Change Detail, "Apply Template" dialog still works as before
+
+### Validation Commands
+
+```bash
+# List templates
+curl -s -X GET http://localhost:3002/grc/itsm/change-templates \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" | jq .
+
+# Create template
+curl -s -X POST http://localhost:3002/grc/itsm/change-templates \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "x-tenant-id: 00000000-0000-0000-0000-000000000001" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Template", "code": "TEST-001", "isActive": true}' | jq .
+```
+
 ## Staging Validation (Docker)
 
 ```bash
