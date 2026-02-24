@@ -47,7 +47,7 @@ export function isConditionGroup(node: ConditionNode): node is ConditionGroup {
 export interface FieldRegistryEntry {
   key: string;
   label: string;
-  type: 'string' | 'enum' | 'uuid' | 'number' | 'boolean' | 'date';
+  type: 'string' | 'enum' | 'uuid' | 'number' | 'boolean' | 'date' | 'datetime';
   operators: string[];
   options?: string[];
 }
@@ -153,6 +153,21 @@ function renderValueEditor(
         value={String(leaf.value ?? '')}
         onChange={(e) => onChange({ ...leaf, value: e.target.value })}
         sx={{ flex: 1, minWidth: 160 }}
+        InputLabelProps={{ shrink: true }}
+      />
+    );
+  }
+
+  // Datetime fields → datetime-local input
+  if (fieldType === 'datetime') {
+    return (
+      <TextField
+        size="small"
+        type="datetime-local"
+        label="Value"
+        value={String(leaf.value ?? '')}
+        onChange={(e) => onChange({ ...leaf, value: e.target.value })}
+        sx={{ flex: 1, minWidth: 200 }}
         InputLabelProps={{ shrink: true }}
       />
     );
