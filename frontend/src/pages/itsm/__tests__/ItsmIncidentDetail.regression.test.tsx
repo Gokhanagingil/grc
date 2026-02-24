@@ -39,7 +39,7 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 
 jest.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 1, tenantId: '00000000-0000-0000-0000-000000000001', role: 'admin', username: 'admin', email: 'admin@test.local', firstName: 'Admin', lastName: 'User', department: 'IT' },
+    user: { id: 1, tenantId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', role: 'admin', username: 'admin', email: 'admin@test.local', firstName: 'Admin', lastName: 'User', department: 'IT' },
     token: 'mock-token',
     loading: false,
     isAdmin: true,
