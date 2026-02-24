@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsUUID, IsDateString, MaxLength, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsDateString,
+  MaxLength,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateFreezeWindowDto {
   @IsString()

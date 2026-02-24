@@ -109,7 +109,10 @@ export class ItsmChange extends BaseEntity {
   @Column({ name: 'offering_id', type: 'uuid', nullable: true })
   offeringId: string | null;
 
-  @ManyToOne(() => CmdbServiceOffering, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => CmdbServiceOffering, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'offering_id' })
   offering: CmdbServiceOffering | null;
 

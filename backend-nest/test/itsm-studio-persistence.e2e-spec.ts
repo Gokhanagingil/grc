@@ -89,7 +89,14 @@ describe('ITSM Studio Persistence (e2e)', () => {
         .send({
           name: uniqueName,
           tableName: 'itsm_incidents',
-          fieldEffects: [{ field: 'status', visible: true, mandatory: false, readOnly: false }],
+          fieldEffects: [
+            {
+              field: 'status',
+              visible: true,
+              mandatory: false,
+              readOnly: false,
+            },
+          ],
           isActive: true,
           order: 100,
         })
@@ -114,8 +121,10 @@ describe('ITSM Studio Persistence (e2e)', () => {
         .expect(200);
 
       const data = response.body.data ?? response.body;
-      const items = Array.isArray(data) ? data : data.items ?? [];
-      expect(items.some((p: { id: string }) => p.id === createdPolicyId)).toBe(true);
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      expect(items.some((p: { id: string }) => p.id === createdPolicyId)).toBe(
+        true,
+      );
     });
   });
 
@@ -171,8 +180,10 @@ describe('ITSM Studio Persistence (e2e)', () => {
         .expect(200);
 
       const data = response.body.data ?? response.body;
-      const items = Array.isArray(data) ? data : data.items ?? [];
-      expect(items.some((a: { id: string }) => a.id === createdActionId)).toBe(true);
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      expect(items.some((a: { id: string }) => a.id === createdActionId)).toBe(
+        true,
+      );
     });
   });
 
@@ -229,8 +240,10 @@ describe('ITSM Studio Persistence (e2e)', () => {
         .expect(200);
 
       const data = response.body.data ?? response.body;
-      const items = Array.isArray(data) ? data : data.items ?? [];
-      expect(items.some((s: { id: string }) => s.id === createdSlaId)).toBe(true);
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      expect(items.some((s: { id: string }) => s.id === createdSlaId)).toBe(
+        true,
+      );
     });
 
     it('should return paginated response for SLA definitions', async () => {

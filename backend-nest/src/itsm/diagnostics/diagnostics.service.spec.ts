@@ -48,10 +48,16 @@ describe('DiagnosticsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiagnosticsService,
-        { provide: getRepositoryToken(BusinessRule), useValue: businessRuleRepo },
+        {
+          provide: getRepositoryToken(BusinessRule),
+          useValue: businessRuleRepo,
+        },
         { provide: getRepositoryToken(UiPolicy), useValue: uiPolicyRepo },
         { provide: getRepositoryToken(UiAction), useValue: uiActionRepo },
-        { provide: getRepositoryToken(WorkflowDefinition), useValue: workflowRepo },
+        {
+          provide: getRepositoryToken(WorkflowDefinition),
+          useValue: workflowRepo,
+        },
         { provide: getRepositoryToken(SlaDefinition), useValue: slaDefRepo },
         { provide: getRepositoryToken(SlaInstance), useValue: slaInstanceRepo },
         { provide: getRepositoryToken(SysChoice), useValue: choiceRepo },
@@ -104,7 +110,9 @@ describe('DiagnosticsService', () => {
 
       const result = await service.validateBaseline(TENANT_ID);
       expect(result.valid).toBe(false);
-      const choiceErrors = result.errors.filter((e) => e.type === 'MISSING_CHOICES');
+      const choiceErrors = result.errors.filter(
+        (e) => e.type === 'MISSING_CHOICES',
+      );
       expect(choiceErrors.length).toBeGreaterThan(0);
     });
 
@@ -114,7 +122,9 @@ describe('DiagnosticsService', () => {
       slaDefRepo.count.mockResolvedValue(1);
 
       const result = await service.validateBaseline(TENANT_ID);
-      const wfErrors = result.errors.filter((e) => e.type === 'MISSING_WORKFLOW');
+      const wfErrors = result.errors.filter(
+        (e) => e.type === 'MISSING_WORKFLOW',
+      );
       expect(wfErrors.length).toBe(3);
     });
 
@@ -130,9 +140,13 @@ describe('DiagnosticsService', () => {
       ]);
 
       const result = await service.validateBaseline(TENANT_ID);
-      const malformed = result.errors.filter((e) => e.type === 'MALFORMED_WORKFLOW');
+      const malformed = result.errors.filter(
+        (e) => e.type === 'MALFORMED_WORKFLOW',
+      );
       expect(malformed.length).toBeGreaterThan(0);
-      expect(malformed.some((e) => e.detail.includes('no initial state'))).toBe(true);
+      expect(malformed.some((e) => e.detail.includes('no initial state'))).toBe(
+        true,
+      );
     });
 
     it('should detect malformed workflows (invalid transition reference)', async () => {
@@ -145,15 +159,17 @@ describe('DiagnosticsService', () => {
             { name: 'open', label: 'Open', isInitial: true },
             { name: 'closed', label: 'Closed', isFinal: true },
           ],
-          transitions: [
-            { name: 't1', from: 'open', to: 'nonexistent' },
-          ],
+          transitions: [{ name: 't1', from: 'open', to: 'nonexistent' }],
         },
       ]);
 
       const result = await service.validateBaseline(TENANT_ID);
-      const malformed = result.errors.filter((e) => e.type === 'MALFORMED_WORKFLOW');
-      expect(malformed.some((e) => e.detail.includes("unknown 'to' state"))).toBe(true);
+      const malformed = result.errors.filter(
+        (e) => e.type === 'MALFORMED_WORKFLOW',
+      );
+      expect(
+        malformed.some((e) => e.detail.includes("unknown 'to' state")),
+      ).toBe(true);
     });
 
     it('should return valid when all baselines exist', async () => {
@@ -166,9 +182,7 @@ describe('DiagnosticsService', () => {
             { name: 'open', label: 'Open', isInitial: true },
             { name: 'closed', label: 'Closed', isFinal: true },
           ],
-          transitions: [
-            { name: 'close', from: 'open', to: 'closed' },
-          ],
+          transitions: [{ name: 'close', from: 'open', to: 'closed' }],
         },
       ]);
 

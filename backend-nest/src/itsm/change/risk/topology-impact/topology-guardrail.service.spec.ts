@@ -24,7 +24,13 @@ import {
   GOVERNANCE_TO_GUARDRAIL_MAP,
   GuardrailPreviousEvaluation,
 } from './dto/topology-guardrail.dto';
-import { ItsmChange, ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../../change.entity';
+import {
+  ItsmChange,
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from '../../change.entity';
 
 // ============================================================================
 // Test Constants
@@ -87,7 +93,8 @@ function createMockGovernanceResult(
       },
     ],
     explainability: {
-      summary: 'Change is allowed. Topology analysis indicates acceptable risk level.',
+      summary:
+        'Change is allowed. Topology analysis indicates acceptable risk level.',
       factors: [
         {
           key: 'topologyRiskScore',
@@ -141,7 +148,8 @@ function createHighRiskGovernanceResult(): TopologyGovernanceEvaluationResponse 
       },
     ],
     explainability: {
-      summary: 'CAB approval required. Key factors: Topology Risk Score, Blast Radius, Critical Dependency Touched.',
+      summary:
+        'CAB approval required. Key factors: Topology Risk Score, Blast Radius, Critical Dependency Touched.',
       factors: [
         {
           key: 'topologyRiskScore',
@@ -169,7 +177,8 @@ function createHighRiskGovernanceResult(): TopologyGovernanceEvaluationResponse 
           label: 'Fragility Signals',
           value: 2,
           severity: 'warning',
-          explanation: '2 fragility signal(s) detected (SPOF, no redundancy, high fan-out, deep chains)',
+          explanation:
+            '2 fragility signal(s) detected (SPOF, no redundancy, high fan-out, deep chains)',
         },
         {
           key: 'crossServicePropagation',
@@ -216,7 +225,8 @@ function createBlockedGovernanceResult(): TopologyGovernanceEvaluationResponse {
           label: 'Single Point of Failure Risk',
           value: true,
           severity: 'critical',
-          explanation: 'A single point of failure was detected in the dependency graph',
+          explanation:
+            'A single point of failure was detected in the dependency graph',
         },
         {
           key: 'freezeConflict',
@@ -243,9 +253,9 @@ function createMockGovernanceService(
   result?: TopologyGovernanceEvaluationResponse,
 ) {
   return {
-    evaluateGovernance: jest.fn().mockResolvedValue(
-      result ?? createMockGovernanceResult(),
-    ),
+    evaluateGovernance: jest
+      .fn()
+      .mockResolvedValue(result ?? createMockGovernanceResult()),
     computePolicyFlags: jest.fn(),
   };
 }
@@ -371,9 +381,9 @@ describe('TopologyGuardrailService', () => {
       const governance = createHighRiskGovernanceResult();
       const reasons = service.buildReasons(governance);
 
-      expect(
-        reasons.some((r) => r.code === 'CAB_APPROVAL_REQUIRED'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'CAB_APPROVAL_REQUIRED')).toBe(
+        true,
+      );
     });
 
     it('should include ADDITIONAL_EVIDENCE_NEEDED for ADDITIONAL_EVIDENCE_REQUIRED decision', () => {
@@ -388,9 +398,9 @@ describe('TopologyGuardrailService', () => {
       });
       const reasons = service.buildReasons(governance);
 
-      expect(
-        reasons.some((r) => r.code === 'ADDITIONAL_EVIDENCE_NEEDED'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'ADDITIONAL_EVIDENCE_NEEDED')).toBe(
+        true,
+      );
     });
 
     it('should include MISSING_ reasons for unsatisfied required actions', () => {
@@ -398,13 +408,9 @@ describe('TopologyGuardrailService', () => {
       const reasons = service.buildReasons(governance);
 
       // backoutPlan is required but not satisfied
-      expect(
-        reasons.some((r) => r.code === 'MISSING_BACKOUTPLAN'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'MISSING_BACKOUTPLAN')).toBe(true);
       // cabApproval is required but not satisfied
-      expect(
-        reasons.some((r) => r.code === 'MISSING_CABAPPROVAL'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'MISSING_CABAPPROVAL')).toBe(true);
     });
 
     it('should NOT include MISSING_ reasons for satisfied required actions', () => {
@@ -412,9 +418,9 @@ describe('TopologyGuardrailService', () => {
       const reasons = service.buildReasons(governance);
 
       // implementationPlan is required AND satisfied
-      expect(
-        reasons.some((r) => r.code === 'MISSING_IMPLEMENTATIONPLAN'),
-      ).toBe(false);
+      expect(reasons.some((r) => r.code === 'MISSING_IMPLEMENTATIONPLAN')).toBe(
+        false,
+      );
     });
 
     it('should map factor keys to proper reason codes', () => {
@@ -425,9 +431,9 @@ describe('TopologyGuardrailService', () => {
       expect(
         reasons.some((r) => r.code === 'CRITICAL_DEPENDENCY_TOUCHED'),
       ).toBe(true);
-      expect(
-        reasons.some((r) => r.code === 'CROSS_SERVICE_PROPAGATION'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'CROSS_SERVICE_PROPAGATION')).toBe(
+        true,
+      );
     });
 
     it('should preserve factor severity in reasons', () => {
@@ -1078,10 +1084,7 @@ describe('TopologyGuardrailService', () => {
       const change = createMockChange();
       await service.evaluateGuardrails(TENANT_ID, USER_ID, change);
 
-      expect(mockRisk.getAssessment).toHaveBeenCalledWith(
-        TENANT_ID,
-        CHANGE_ID,
-      );
+      expect(mockRisk.getAssessment).toHaveBeenCalledWith(TENANT_ID, CHANGE_ID);
     });
 
     it('should pass tenantId to event bus', async () => {
@@ -1126,16 +1129,8 @@ describe('TopologyGuardrailService', () => {
 
       const change = createMockChange();
 
-      const r1 = await service.evaluateGuardrails(
-        TENANT_ID,
-        USER_ID,
-        change,
-      );
-      const r2 = await service.evaluateGuardrails(
-        TENANT_ID,
-        USER_ID,
-        change,
-      );
+      const r1 = await service.evaluateGuardrails(TENANT_ID, USER_ID, change);
+      const r2 = await service.evaluateGuardrails(TENANT_ID, USER_ID, change);
 
       expect(r1.guardrailStatus).toBe(r2.guardrailStatus);
       expect(r1.governanceDecision).toBe(r2.governanceDecision);
@@ -1149,9 +1144,7 @@ describe('TopologyGuardrailService', () => {
       const reasons1 = service.buildReasons(governance);
       const reasons2 = service.buildReasons(governance);
 
-      expect(reasons1.map((r) => r.code)).toEqual(
-        reasons2.map((r) => r.code),
-      );
+      expect(reasons1.map((r) => r.code)).toEqual(reasons2.map((r) => r.code));
     });
   });
 
@@ -1245,9 +1238,7 @@ describe('TopologyGuardrailService', () => {
 
       const reasons = service.buildReasons(governance);
       // Should use uppercased key as fallback
-      expect(
-        reasons.some((r) => r.code === 'SOME_UNKNOWN_FACTOR'),
-      ).toBe(true);
+      expect(reasons.some((r) => r.code === 'SOME_UNKNOWN_FACTOR')).toBe(true);
     });
   });
 });

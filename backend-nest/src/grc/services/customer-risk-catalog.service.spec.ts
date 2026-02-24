@@ -28,10 +28,20 @@ function mockRepository() {
   return {
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
-    create: jest.fn((data: Record<string, unknown>) => ({ id: 'mock-id', ...data })),
-    save: jest.fn((entity: Record<string, unknown>) => Promise.resolve({ id: 'mock-id', ...entity })),
+    create: jest.fn((data: Record<string, unknown>) => ({
+      id: 'mock-id',
+      ...data,
+    })),
+    save: jest.fn((entity: Record<string, unknown>) =>
+      Promise.resolve({ id: 'mock-id', ...entity }),
+    ),
     count: jest.fn().mockResolvedValue(0),
-    merge: jest.fn((existing: Record<string, unknown>, data: Record<string, unknown>) => ({ ...existing, ...data })),
+    merge: jest.fn(
+      (existing: Record<string, unknown>, data: Record<string, unknown>) => ({
+        ...existing,
+        ...data,
+      }),
+    ),
     createQueryBuilder: jest.fn(),
   };
 }
@@ -52,14 +62,25 @@ describe('CustomerRiskCatalogService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomerRiskCatalogService,
-        { provide: getRepositoryToken(CustomerRiskCatalog), useValue: catalogRepo },
-        { provide: getRepositoryToken(CustomerRiskBinding), useValue: bindingRepo },
-        { provide: getRepositoryToken(CustomerRiskObservation), useValue: observationRepo },
+        {
+          provide: getRepositoryToken(CustomerRiskCatalog),
+          useValue: catalogRepo,
+        },
+        {
+          provide: getRepositoryToken(CustomerRiskBinding),
+          useValue: bindingRepo,
+        },
+        {
+          provide: getRepositoryToken(CustomerRiskObservation),
+          useValue: observationRepo,
+        },
         { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
-    service = module.get<CustomerRiskCatalogService>(CustomerRiskCatalogService);
+    service = module.get<CustomerRiskCatalogService>(
+      CustomerRiskCatalogService,
+    );
   });
 
   describe('createCatalogRisk', () => {
@@ -110,7 +131,11 @@ describe('CustomerRiskCatalogService', () => {
         .mockResolvedValueOnce(mockRisk)
         .mockResolvedValueOnce(mockRisk);
 
-      const result = await service.softDeleteCatalogRisk(TENANT_A, USER_ID, 'risk-1');
+      const result = await service.softDeleteCatalogRisk(
+        TENANT_A,
+        USER_ID,
+        'risk-1',
+      );
       expect(result).toBe(true);
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         'customer-risk-catalog.deleted',
@@ -120,7 +145,11 @@ describe('CustomerRiskCatalogService', () => {
 
     it('should return false if risk not found', async () => {
       catalogRepo.findOne.mockResolvedValue(null);
-      const result = await service.softDeleteCatalogRisk(TENANT_A, USER_ID, 'nonexistent');
+      const result = await service.softDeleteCatalogRisk(
+        TENANT_A,
+        USER_ID,
+        'nonexistent',
+      );
       expect(result).toBe(false);
     });
   });
@@ -131,7 +160,9 @@ describe('CustomerRiskCatalogService', () => {
       catalogRepo.createQueryBuilder.mockReturnValue(qb);
 
       await service.findWithFilters(TENANT_A, { status: 'ACTIVE' } as never);
-      expect(qb.andWhere).toHaveBeenCalledWith('cr.status = :status', { status: 'ACTIVE' });
+      expect(qb.andWhere).toHaveBeenCalledWith('cr.status = :status', {
+        status: 'ACTIVE',
+      });
     });
 
     it('should apply search filter with ILIKE', async () => {
@@ -150,7 +181,10 @@ describe('CustomerRiskCatalogService', () => {
       const qb = mockQueryBuilder(items, 5);
       catalogRepo.createQueryBuilder.mockReturnValue(qb);
 
-      const result = await service.findWithFilters(TENANT_A, { page: 1, pageSize: 2 } as never);
+      const result = await service.findWithFilters(TENANT_A, {
+        page: 1,
+        pageSize: 2,
+      } as never);
       expect(result.items).toHaveLength(2);
       expect(result.total).toBe(5);
       expect(result.page).toBe(1);
@@ -172,7 +206,10 @@ describe('CustomerRiskCatalogService', () => {
     });
 
     it('should throw ConflictException on duplicate binding', async () => {
-      catalogRepo.findOne.mockResolvedValue({ id: 'risk-1', tenantId: TENANT_A });
+      catalogRepo.findOne.mockResolvedValue({
+        id: 'risk-1',
+        tenantId: TENANT_A,
+      });
       bindingRepo.findOne.mockResolvedValue({ id: 'existing-binding' });
 
       await expect(
@@ -184,7 +221,10 @@ describe('CustomerRiskCatalogService', () => {
     });
 
     it('should create binding successfully and emit event', async () => {
-      catalogRepo.findOne.mockResolvedValue({ id: 'risk-1', tenantId: TENANT_A });
+      catalogRepo.findOne.mockResolvedValue({
+        id: 'risk-1',
+        tenantId: TENANT_A,
+      });
       bindingRepo.findOne.mockResolvedValue(null);
 
       const result = await service.createBinding(TENANT_A, USER_ID, 'risk-1', {
@@ -212,10 +252,18 @@ describe('CustomerRiskCatalogService', () => {
 
   describe('deleteBinding', () => {
     it('should soft delete binding', async () => {
-      const mockBinding = { id: 'binding-1', tenantId: TENANT_A, isDeleted: false };
+      const mockBinding = {
+        id: 'binding-1',
+        tenantId: TENANT_A,
+        isDeleted: false,
+      };
       bindingRepo.findOne.mockResolvedValue(mockBinding);
 
-      const result = await service.deleteBinding(TENANT_A, 'risk-1', 'binding-1');
+      const result = await service.deleteBinding(
+        TENANT_A,
+        'risk-1',
+        'binding-1',
+      );
       expect(result).toBe(true);
       expect(bindingRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ isDeleted: true }),
@@ -224,7 +272,11 @@ describe('CustomerRiskCatalogService', () => {
 
     it('should return false if binding not found', async () => {
       bindingRepo.findOne.mockResolvedValue(null);
-      const result = await service.deleteBinding(TENANT_A, 'risk-1', 'nonexistent');
+      const result = await service.deleteBinding(
+        TENANT_A,
+        'risk-1',
+        'nonexistent',
+      );
       expect(result).toBe(false);
     });
   });
@@ -239,8 +291,13 @@ describe('CustomerRiskCatalogService', () => {
         evidenceType: 'MANUAL',
       } as never);
 
-      expect(qb.andWhere).toHaveBeenCalledWith('o.status = :status', { status: 'OPEN' });
-      expect(qb.andWhere).toHaveBeenCalledWith('o.evidenceType = :evidenceType', { evidenceType: 'MANUAL' });
+      expect(qb.andWhere).toHaveBeenCalledWith('o.status = :status', {
+        status: 'OPEN',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'o.evidenceType = :evidenceType',
+        { evidenceType: 'MANUAL' },
+      );
     });
   });
 

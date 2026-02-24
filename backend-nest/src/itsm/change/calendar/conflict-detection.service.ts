@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CalendarConflict, ConflictType, ConflictSeverity } from './calendar-conflict.entity';
+import {
+  CalendarConflict,
+  ConflictType,
+  ConflictSeverity,
+} from './calendar-conflict.entity';
 import { CalendarEventService } from './calendar-event.service';
 import { FreezeWindowService } from './freeze-window.service';
 import { CalendarEvent } from './calendar-event.entity';
@@ -80,10 +84,7 @@ export class ConflictDetectionService {
           details: {
             eventTitle: event.title,
             gapMinutes: Math.round(
-              Math.min(
-                Math.abs(gapBefore),
-                Math.abs(gapAfter),
-              ) / 60000,
+              Math.min(Math.abs(gapBefore), Math.abs(gapAfter)) / 60000,
             ),
           },
         });
@@ -93,9 +94,7 @@ export class ConflictDetectionService {
     return results;
   }
 
-  detectFreezeConflicts(
-    freezeWindows: FreezeWindow[],
-  ): ConflictResult[] {
+  detectFreezeConflicts(freezeWindows: FreezeWindow[]): ConflictResult[] {
     return freezeWindows.map((fw) => ({
       conflictType: ConflictType.FREEZE_WINDOW,
       severity: ConflictSeverity.CRITICAL,
@@ -109,6 +108,37 @@ export class ConflictDetectionService {
     }));
   }
 
+  detectBlackoutConflicts(
+    startAt: Date,
+    endAt: Date,
+    events: CalendarEvent[],
+    excludeChangeId?: string,
+  ): ConflictResult[] {
+    const results: ConflictResult[] = [];
+
+    for (const event of events) {
+      if (event.type !== 'BLACKOUT') continue;
+      if (excludeChangeId && event.changeId === excludeChangeId) continue;
+
+      const overlapStart = startAt < event.endAt && endAt > event.startAt;
+      if (overlapStart) {
+        results.push({
+          conflictType: ConflictType.BLACKOUT_WINDOW,
+          severity: ConflictSeverity.CRITICAL,
+          conflictingEventId: event.id,
+          details: {
+            eventTitle: event.title,
+            eventStart: event.startAt.toISOString(),
+            eventEnd: event.endAt.toISOString(),
+            reason: 'Change overlaps with a blackout window',
+          },
+        });
+      }
+    }
+
+    return results;
+  }
+
   async previewConflicts(
     tenantId: string,
     startAt: Date,
@@ -116,9 +146,7 @@ export class ConflictDetectionService {
     changeId?: string,
     serviceId?: string,
   ): Promise<ConflictResult[]> {
-    const expandedStart = new Date(
-      startAt.getTime() - ADJACENCY_THRESHOLD_MS,
-    );
+    const expandedStart = new Date(startAt.getTime() - ADJACENCY_THRESHOLD_MS);
     const expandedEnd = new Date(endAt.getTime() + ADJACENCY_THRESHOLD_MS);
 
     const events = await this.calendarEventService.findOverlapping(
@@ -127,24 +155,29 @@ export class ConflictDetectionService {
       expandedEnd,
     );
 
-    const freezeWindows =
-      await this.freezeWindowService.findActiveOverlapping(
-        tenantId,
-        startAt,
-        endAt,
-        serviceId,
-      );
+    const freezeWindows = await this.freezeWindowService.findActiveOverlapping(
+      tenantId,
+      startAt,
+      endAt,
+      serviceId,
+    );
 
     const overlaps = this.detectOverlaps(startAt, endAt, events, changeId);
-    const adjacency = this.detectAdjacency(
+    const adjacency = this.detectAdjacency(startAt, endAt, events, changeId);
+    const freezeConflicts = this.detectFreezeConflicts(freezeWindows);
+    const blackoutConflicts = this.detectBlackoutConflicts(
       startAt,
       endAt,
       events,
       changeId,
     );
-    const freezeConflicts = this.detectFreezeConflicts(freezeWindows);
 
-    return [...freezeConflicts, ...overlaps, ...adjacency];
+    return [
+      ...freezeConflicts,
+      ...blackoutConflicts,
+      ...overlaps,
+      ...adjacency,
+    ];
   }
 
   async clearConflictsForChange(

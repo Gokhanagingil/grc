@@ -164,18 +164,14 @@ export class RcaOrchestrationService {
     const symptomsText =
       dto.symptoms ||
       hypothesis.evidence
-        .map(
-          (ev) =>
-            `[${ev.type.replace(/_/g, ' ')}] ${ev.description}`,
-        )
+        .map((ev) => `[${ev.type.replace(/_/g, ' ')}] ${ev.description}`)
         .join('\n');
 
     const createDto = new CreateKnownErrorDto();
     createDto.title = dto.title;
     createDto.symptoms = symptomsText || undefined;
     createDto.rootCause =
-      dto.rootCause ||
-      `Topology hypothesis: ${hypothesis.explanation}`;
+      dto.rootCause || `Topology hypothesis: ${hypothesis.explanation}`;
     createDto.workaround = dto.workaround;
     createDto.problemId = dto.problemId;
 
@@ -337,9 +333,7 @@ export class RcaOrchestrationService {
       );
     }
 
-    const hypothesis = rcaResult.hypotheses.find(
-      (h) => h.id === hypothesisId,
-    );
+    const hypothesis = rcaResult.hypotheses.find((h) => h.id === hypothesisId);
     if (!hypothesis) {
       throw new NotFoundException(
         `Hypothesis "${hypothesisId}" not found for Major Incident ${majorIncidentId}. ` +

@@ -357,13 +357,17 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_PROBLEM_LINK_CHANGE]: 'Link and unlink changes to problems',
   [Permission.ITSM_PROBLEM_RISK_READ]:
     'View problem preventive risk intelligence',
-  [Permission.ITSM_KNOWN_ERROR_READ]: 'View known errors and known error details',
+  [Permission.ITSM_KNOWN_ERROR_READ]:
+    'View known errors and known error details',
   [Permission.ITSM_KNOWN_ERROR_CREATE]: 'Create new known errors',
   [Permission.ITSM_KNOWN_ERROR_UPDATE]: 'Update and delete known errors',
-  [Permission.ITSM_MAJOR_INCIDENT_READ]: 'View major incidents and major incident details',
+  [Permission.ITSM_MAJOR_INCIDENT_READ]:
+    'View major incidents and major incident details',
   [Permission.ITSM_MAJOR_INCIDENT_CREATE]: 'Declare and delete major incidents',
-  [Permission.ITSM_MAJOR_INCIDENT_UPDATE]: 'Update major incidents and post timeline updates',
-  [Permission.ITSM_MAJOR_INCIDENT_LINK]: 'Link and unlink records to major incidents',
+  [Permission.ITSM_MAJOR_INCIDENT_UPDATE]:
+    'Update major incidents and post timeline updates',
+  [Permission.ITSM_MAJOR_INCIDENT_LINK]:
+    'Link and unlink records to major incidents',
   [Permission.ITSM_PIR_READ]: 'View post-incident reviews',
   [Permission.ITSM_PIR_CREATE]: 'Create post-incident reviews',
   [Permission.ITSM_PIR_UPDATE]: 'Update post-incident reviews',
@@ -372,6 +376,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_PIR_ACTION_CREATE]: 'Create PIR action items',
   [Permission.ITSM_PIR_ACTION_UPDATE]: 'Update PIR action items',
   [Permission.ITSM_KNOWLEDGE_CANDIDATE_READ]: 'View knowledge candidates',
-  [Permission.ITSM_KNOWLEDGE_CANDIDATE_CREATE]: 'Create and generate knowledge candidates',
-  [Permission.ITSM_KNOWLEDGE_CANDIDATE_UPDATE]: 'Update knowledge candidate status',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_CREATE]:
+    'Create and generate knowledge candidates',
+  [Permission.ITSM_KNOWLEDGE_CANDIDATE_UPDATE]:
+    'Update knowledge candidate status',
 };

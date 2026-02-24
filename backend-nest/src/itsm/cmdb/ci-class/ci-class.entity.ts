@@ -1,4 +1,11 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { BaseEntity } from '../../../common/entities';
 import { Tenant } from '../../../tenants/tenant.entity';
 
@@ -13,7 +20,15 @@ export interface CiClassFieldDefinition {
   /** Human-readable label */
   label: string;
   /** Data type: string, number, boolean, date, enum, reference, text, json */
-  dataType: 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'reference' | 'text' | 'json';
+  dataType:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'date'
+    | 'enum'
+    | 'reference'
+    | 'text'
+    | 'json';
   /** Whether the field is required */
   required?: boolean;
   /** Whether the field is read-only */

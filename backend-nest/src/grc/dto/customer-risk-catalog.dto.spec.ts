@@ -116,7 +116,9 @@ describe('CreateCustomerRiskCatalogDto', () => {
     });
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some((e) => e.property === 'scoreContributionModel')).toBe(true);
+    expect(errors.some((e) => e.property === 'scoreContributionModel')).toBe(
+      true,
+    );
   });
 
   it('should fail when status is invalid', async () => {
@@ -219,7 +221,13 @@ describe('CreateCustomerRiskBindingDto', () => {
   });
 
   it('should accept all valid target types', async () => {
-    const targetTypes = ['CI', 'CI_CLASS', 'CMDB_SERVICE', 'CMDB_OFFERING', 'ITSM_SERVICE'];
+    const targetTypes = [
+      'CI',
+      'CI_CLASS',
+      'CMDB_SERVICE',
+      'CMDB_OFFERING',
+      'ITSM_SERVICE',
+    ];
     for (const targetType of targetTypes) {
       const dto = plainToInstance(CreateCustomerRiskBindingDto, {
         ...validBinding,

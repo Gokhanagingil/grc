@@ -42,10 +42,17 @@ export class JournalController {
     }
 
     if (!this.journalService.isAllowedTable(table)) {
-      throw new BadRequestException(`Table '${table}' is not supported for journal entries`);
+      throw new BadRequestException(
+        `Table '${table}' is not supported for journal entries`,
+      );
     }
 
-    return this.journalService.findByRecord(tenantId, table, recordId, filterDto);
+    return this.journalService.findByRecord(
+      tenantId,
+      table,
+      recordId,
+      filterDto,
+    );
   }
 
   @Post(':table/:recordId/journal')
@@ -64,7 +71,9 @@ export class JournalController {
     }
 
     if (!this.journalService.isAllowedTable(table)) {
-      throw new BadRequestException(`Table '${table}' is not supported for journal entries`);
+      throw new BadRequestException(
+        `Table '${table}' is not supported for journal entries`,
+      );
     }
 
     return this.journalService.createJournalEntry(
@@ -90,7 +99,9 @@ export class JournalController {
     }
 
     if (!this.journalService.isAllowedTable(table)) {
-      throw new BadRequestException(`Table '${table}' is not supported for journal entries`);
+      throw new BadRequestException(
+        `Table '${table}' is not supported for journal entries`,
+      );
     }
 
     if (type && !Object.values(JournalType).includes(type)) {

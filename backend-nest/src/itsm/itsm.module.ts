@@ -252,7 +252,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTemplateService,
     CabMeetingService,
   ],
-  controllers:[
+  controllers: [
     IncidentController,
     ServiceController,
     ChangeController,

@@ -118,9 +118,7 @@ export class CiClassService extends MultiTenantServiceBase<CmdbCiClass> {
   /**
    * Get summary counts for classes (total, system, custom, abstract).
    */
-  async getClassSummary(
-    tenantId: string,
-  ): Promise<{
+  async getClassSummary(tenantId: string): Promise<{
     total: number;
     system: number;
     custom: number;

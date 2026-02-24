@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SlaEngine2ConditionBuilder1742000000000
-  implements MigrationInterface
-{
+export class SlaEngine2ConditionBuilder1742000000000 implements MigrationInterface {
   name = 'SlaEngine2ConditionBuilder1742000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

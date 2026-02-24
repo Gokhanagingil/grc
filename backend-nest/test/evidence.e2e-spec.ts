@@ -448,6 +448,5 @@ describe('Evidence Golden Flow (e2e)', () => {
       expect(response.body).toHaveProperty('data');
       expect(response.body.data).toHaveProperty('id');
     });
-
   });
 });

@@ -77,11 +77,21 @@ export class CreateMajorIncidentTables1741400000000 implements MigrationInterfac
     `);
 
     // Create indexes for itsm_major_incidents
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_mi_tenant_number" ON "itsm_major_incidents" ("tenant_id", "number")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_tenant_status" ON "itsm_major_incidents" ("tenant_id", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_tenant_severity" ON "itsm_major_incidents" ("tenant_id", "severity")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_tenant_created" ON "itsm_major_incidents" ("tenant_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_tenant_commander" ON "itsm_major_incidents" ("tenant_id", "commander_id")`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_mi_tenant_number" ON "itsm_major_incidents" ("tenant_id", "number")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_tenant_status" ON "itsm_major_incidents" ("tenant_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_tenant_severity" ON "itsm_major_incidents" ("tenant_id", "severity")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_tenant_created" ON "itsm_major_incidents" ("tenant_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_tenant_commander" ON "itsm_major_incidents" ("tenant_id", "commander_id")`,
+    );
 
     // Create itsm_major_incident_updates table
     await queryRunner.query(`
@@ -109,8 +119,12 @@ export class CreateMajorIncidentTables1741400000000 implements MigrationInterfac
     `);
 
     // Create indexes for itsm_major_incident_updates
-    await queryRunner.query(`CREATE INDEX "IDX_mi_upd_tenant_mi_created" ON "itsm_major_incident_updates" ("tenant_id", "major_incident_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_upd_tenant_mi_type" ON "itsm_major_incident_updates" ("tenant_id", "major_incident_id", "update_type")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_upd_tenant_mi_created" ON "itsm_major_incident_updates" ("tenant_id", "major_incident_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_upd_tenant_mi_type" ON "itsm_major_incident_updates" ("tenant_id", "major_incident_id", "update_type")`,
+    );
 
     // Create itsm_major_incident_links table
     await queryRunner.query(`
@@ -137,18 +151,30 @@ export class CreateMajorIncidentTables1741400000000 implements MigrationInterfac
     `);
 
     // Create indexes for itsm_major_incident_links
-    await queryRunner.query(`CREATE INDEX "IDX_mi_link_tenant_mi" ON "itsm_major_incident_links" ("tenant_id", "major_incident_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_mi_link_tenant_record" ON "itsm_major_incident_links" ("tenant_id", "linked_record_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_link_tenant_mi" ON "itsm_major_incident_links" ("tenant_id", "major_incident_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_mi_link_tenant_record" ON "itsm_major_incident_links" ("tenant_id", "linked_record_id")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "itsm_major_incident_links"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_major_incident_updates"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_major_incident_updates"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "itsm_major_incidents"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "itsm_mi_link_type_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "itsm_mi_update_visibility_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "itsm_mi_update_visibility_enum"`,
+    );
     await queryRunner.query(`DROP TYPE IF EXISTS "itsm_mi_update_type_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "itsm_major_incident_severity_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "itsm_major_incident_status_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "itsm_major_incident_severity_enum"`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "itsm_major_incident_status_enum"`,
+    );
   }
 }

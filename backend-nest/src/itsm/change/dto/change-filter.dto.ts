@@ -1,5 +1,10 @@
 import { IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
-import { ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../change.entity';
+import {
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from '../change.entity';
 import { PaginationQueryDto } from '../../../grc/dto/pagination.dto';
 
 export class ChangeFilterDto extends PaginationQueryDto {

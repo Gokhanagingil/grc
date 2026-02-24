@@ -46,7 +46,9 @@ describe('ChangeService', () => {
       create: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
     };
 
     const mockAuditService = {
@@ -116,7 +118,11 @@ describe('ChangeService', () => {
         isDeleted: false,
       } as ItsmChange);
 
-      const result = await service.createChange(mockTenantId, mockUserId, createData);
+      const result = await service.createChange(
+        mockTenantId,
+        mockUserId,
+        createData,
+      );
 
       expect(result).toBeDefined();
       expect(result.number).toBe('CHG000001');
@@ -128,7 +134,10 @@ describe('ChangeService', () => {
     it('should return change when found and not deleted', async () => {
       repository.findOne.mockResolvedValue(mockChange as ItsmChange);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, mockChange.id!);
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        mockChange.id!,
+      );
 
       expect(result).toEqual(mockChange);
       expect(repository.findOne).toHaveBeenCalledWith({
@@ -139,7 +148,10 @@ describe('ChangeService', () => {
     it('should return null when change not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.findOneActiveForTenant(mockTenantId, 'non-existent');
+      const result = await service.findOneActiveForTenant(
+        mockTenantId,
+        'non-existent',
+      );
 
       expect(result).toBeNull();
     });
@@ -153,9 +165,14 @@ describe('ChangeService', () => {
         state: ChangeState.ASSESS,
       } as ItsmChange);
 
-      const result = await service.updateChange(mockTenantId, mockUserId, mockChange.id!, {
-        state: ChangeState.ASSESS,
-      });
+      const result = await service.updateChange(
+        mockTenantId,
+        mockUserId,
+        mockChange.id!,
+        {
+          state: ChangeState.ASSESS,
+        },
+      );
 
       expect(result).toBeDefined();
       expect(auditService.recordUpdate).toHaveBeenCalled();
@@ -164,9 +181,14 @@ describe('ChangeService', () => {
     it('should return null when change not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.updateChange(mockTenantId, mockUserId, 'non-existent', {
-        title: 'Updated',
-      });
+      const result = await service.updateChange(
+        mockTenantId,
+        mockUserId,
+        'non-existent',
+        {
+          title: 'Updated',
+        },
+      );
 
       expect(result).toBeNull();
     });
@@ -175,9 +197,16 @@ describe('ChangeService', () => {
   describe('softDeleteChange', () => {
     it('should soft delete change', async () => {
       repository.findOne.mockResolvedValue(mockChange as ItsmChange);
-      repository.save.mockResolvedValue({ ...mockChange, isDeleted: true } as ItsmChange);
+      repository.save.mockResolvedValue({
+        ...mockChange,
+        isDeleted: true,
+      } as ItsmChange);
 
-      const result = await service.softDeleteChange(mockTenantId, mockUserId, mockChange.id!);
+      const result = await service.softDeleteChange(
+        mockTenantId,
+        mockUserId,
+        mockChange.id!,
+      );
 
       expect(result).toBe(true);
       expect(auditService.recordDelete).toHaveBeenCalled();
@@ -186,7 +215,11 @@ describe('ChangeService', () => {
     it('should return false when change not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.softDeleteChange(mockTenantId, mockUserId, 'non-existent');
+      const result = await service.softDeleteChange(
+        mockTenantId,
+        mockUserId,
+        'non-existent',
+      );
 
       expect(result).toBe(false);
     });
@@ -204,7 +237,11 @@ describe('ChangeService', () => {
         getMany: jest.fn().mockResolvedValue([mockChange]),
       };
 
-      repository.createQueryBuilder.mockReturnValue(mockQueryBuilder as unknown as ReturnType<Repository<ItsmChange>['createQueryBuilder']>);
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmChange>['createQueryBuilder']
+        >,
+      );
 
       const result = await service.findWithFilters(mockTenantId, {
         page: 1,
@@ -230,7 +267,11 @@ describe('ChangeService', () => {
         getMany: jest.fn().mockResolvedValue([]),
       };
 
-      repository.createQueryBuilder.mockReturnValue(mockQueryBuilder as unknown as ReturnType<Repository<ItsmChange>['createQueryBuilder']>);
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmChange>['createQueryBuilder']
+        >,
+      );
 
       await service.findWithFilters(mockTenantId, {
         q: 'database',

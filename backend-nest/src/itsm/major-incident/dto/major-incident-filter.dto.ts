@@ -1,6 +1,9 @@
 import { IsOptional, IsString, IsEnum, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { MajorIncidentStatus, MajorIncidentSeverity } from '../major-incident.enums';
+import {
+  MajorIncidentStatus,
+  MajorIncidentSeverity,
+} from '../major-incident.enums';
 
 export const MI_SORTABLE_FIELDS = [
   'createdAt',

@@ -20,7 +20,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ChangeService } from './change.service';
-import { ItsmChange, ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from './change.entity';
+import {
+  ItsmChange,
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from './change.entity';
 import { ApprovalService } from './approval/approval.service';
 import { ItsmChangeRisk } from '../../grc/entities/itsm-change-risk.entity';
 import { ItsmChangeControl } from '../../grc/entities/itsm-change-control.entity';
@@ -96,7 +102,9 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
       create: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
     };
 
     const mockChangeRiskRepo = {
@@ -132,10 +140,19 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
         ChangeService,
         { provide: getRepositoryToken(ItsmChange), useValue: mockChangeRepo },
         { provide: ApprovalService, useValue: mockApprovalService },
-        { provide: getRepositoryToken(ItsmChangeRisk), useValue: mockChangeRiskRepo },
-        { provide: getRepositoryToken(ItsmChangeControl), useValue: mockChangeControlRepo },
+        {
+          provide: getRepositoryToken(ItsmChangeRisk),
+          useValue: mockChangeRiskRepo,
+        },
+        {
+          provide: getRepositoryToken(ItsmChangeControl),
+          useValue: mockChangeControlRepo,
+        },
         { provide: getRepositoryToken(GrcRisk), useValue: mockGrcRiskRepo },
-        { provide: getRepositoryToken(GrcControl), useValue: mockGrcControlRepo },
+        {
+          provide: getRepositoryToken(GrcControl),
+          useValue: mockGrcControlRepo,
+        },
       ],
     }).compile();
 
@@ -158,8 +175,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
     it('returns linked risks for a valid change', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       changeRiskRepository.find.mockResolvedValue([
-        { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_1, risk: mockRisk1 as GrcRisk, createdAt: new Date('2025-01-02') } as ItsmChangeRisk,
-        { id: 'link-2', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_2, risk: mockRisk2 as GrcRisk, createdAt: new Date('2025-01-01') } as ItsmChangeRisk,
+        {
+          id: 'link-1',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_1,
+          risk: mockRisk1 as GrcRisk,
+          createdAt: new Date('2025-01-02'),
+        } as ItsmChangeRisk,
+        {
+          id: 'link-2',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_2,
+          risk: mockRisk2 as GrcRisk,
+          createdAt: new Date('2025-01-01'),
+        } as ItsmChangeRisk,
       ]);
 
       const result = await service.getLinkedRisks(TENANT_ID, CHANGE_ID);
@@ -187,8 +218,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
       const deletedRisk = { ...mockRisk2, isDeleted: true };
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       changeRiskRepository.find.mockResolvedValue([
-        { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_1, risk: mockRisk1 as GrcRisk, createdAt: new Date() } as ItsmChangeRisk,
-        { id: 'link-2', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_2, risk: deletedRisk as GrcRisk, createdAt: new Date() } as ItsmChangeRisk,
+        {
+          id: 'link-1',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_1,
+          risk: mockRisk1 as GrcRisk,
+          createdAt: new Date(),
+        } as ItsmChangeRisk,
+        {
+          id: 'link-2',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_2,
+          risk: deletedRisk as GrcRisk,
+          createdAt: new Date(),
+        } as ItsmChangeRisk,
       ]);
 
       const result = await service.getLinkedRisks(TENANT_ID, CHANGE_ID);
@@ -200,8 +245,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
     it('filters out null risks (orphaned links)', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       changeRiskRepository.find.mockResolvedValue([
-        { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_1, risk: mockRisk1 as GrcRisk, createdAt: new Date() } as ItsmChangeRisk,
-        { id: 'link-2', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_2, risk: null as unknown as GrcRisk, createdAt: new Date() } as ItsmChangeRisk,
+        {
+          id: 'link-1',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_1,
+          risk: mockRisk1 as GrcRisk,
+          createdAt: new Date(),
+        } as ItsmChangeRisk,
+        {
+          id: 'link-2',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          riskId: RISK_ID_2,
+          risk: null as unknown as GrcRisk,
+          createdAt: new Date(),
+        } as ItsmChangeRisk,
       ]);
 
       const result = await service.getLinkedRisks(TENANT_ID, CHANGE_ID);
@@ -234,8 +293,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
     it('returns linked controls for a valid change', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       changeControlRepository.find.mockResolvedValue([
-        { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_1, control: mockControl1 as GrcControl, createdAt: new Date('2025-01-02') } as ItsmChangeControl,
-        { id: 'link-2', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_2, control: mockControl2 as GrcControl, createdAt: new Date('2025-01-01') } as ItsmChangeControl,
+        {
+          id: 'link-1',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          controlId: CONTROL_ID_1,
+          control: mockControl1 as GrcControl,
+          createdAt: new Date('2025-01-02'),
+        } as ItsmChangeControl,
+        {
+          id: 'link-2',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          controlId: CONTROL_ID_2,
+          control: mockControl2 as GrcControl,
+          createdAt: new Date('2025-01-01'),
+        } as ItsmChangeControl,
       ]);
 
       const result = await service.getLinkedControls(TENANT_ID, CHANGE_ID);
@@ -263,8 +336,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
       const deletedControl = { ...mockControl2, isDeleted: true };
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       changeControlRepository.find.mockResolvedValue([
-        { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_1, control: mockControl1 as GrcControl, createdAt: new Date() } as ItsmChangeControl,
-        { id: 'link-2', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_2, control: deletedControl as GrcControl, createdAt: new Date() } as ItsmChangeControl,
+        {
+          id: 'link-1',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          controlId: CONTROL_ID_1,
+          control: mockControl1 as GrcControl,
+          createdAt: new Date(),
+        } as ItsmChangeControl,
+        {
+          id: 'link-2',
+          tenantId: TENANT_ID,
+          changeId: CHANGE_ID,
+          controlId: CONTROL_ID_2,
+          control: deletedControl as GrcControl,
+          createdAt: new Date(),
+        } as ItsmChangeControl,
       ]);
 
       const result = await service.getLinkedControls(TENANT_ID, CHANGE_ID);
@@ -298,11 +385,22 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       grcRiskRepository.findOne.mockResolvedValue(mockRisk1 as GrcRisk);
       changeRiskRepository.findOne.mockResolvedValue(null);
-      const newLink = { id: 'link-new', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_1, createdBy: USER_ID } as ItsmChangeRisk;
+      const newLink = {
+        id: 'link-new',
+        tenantId: TENANT_ID,
+        changeId: CHANGE_ID,
+        riskId: RISK_ID_1,
+        createdBy: USER_ID,
+      } as ItsmChangeRisk;
       changeRiskRepository.create.mockReturnValue(newLink);
       changeRiskRepository.save.mockResolvedValue(newLink);
 
-      const result = await service.linkRisk(TENANT_ID, CHANGE_ID, RISK_ID_1, USER_ID);
+      const result = await service.linkRisk(
+        TENANT_ID,
+        CHANGE_ID,
+        RISK_ID_1,
+        USER_ID,
+      );
 
       expect(result.id).toBe('link-new');
       expect(changeRiskRepository.create).toHaveBeenCalledWith({
@@ -316,7 +414,9 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
     it('throws ConflictException when risk is already linked', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
       grcRiskRepository.findOne.mockResolvedValue(mockRisk1 as GrcRisk);
-      changeRiskRepository.findOne.mockResolvedValue({ id: 'existing' } as ItsmChangeRisk);
+      changeRiskRepository.findOne.mockResolvedValue({
+        id: 'existing',
+      } as ItsmChangeRisk);
 
       await expect(
         service.linkRisk(TENANT_ID, CHANGE_ID, RISK_ID_1, USER_ID),
@@ -346,7 +446,12 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
   // ===========================================================================
   describe('unlinkRisk', () => {
     it('unlinks a risk from a change', async () => {
-      const link = { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, riskId: RISK_ID_1 } as ItsmChangeRisk;
+      const link = {
+        id: 'link-1',
+        tenantId: TENANT_ID,
+        changeId: CHANGE_ID,
+        riskId: RISK_ID_1,
+      } as ItsmChangeRisk;
       changeRiskRepository.findOne.mockResolvedValue(link);
       changeRiskRepository.remove.mockResolvedValue(link);
 
@@ -370,13 +475,26 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
   describe('linkControl', () => {
     it('links a control to a change', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
-      grcControlRepository.findOne.mockResolvedValue(mockControl1 as GrcControl);
+      grcControlRepository.findOne.mockResolvedValue(
+        mockControl1 as GrcControl,
+      );
       changeControlRepository.findOne.mockResolvedValue(null);
-      const newLink = { id: 'link-new', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_1, createdBy: USER_ID } as ItsmChangeControl;
+      const newLink = {
+        id: 'link-new',
+        tenantId: TENANT_ID,
+        changeId: CHANGE_ID,
+        controlId: CONTROL_ID_1,
+        createdBy: USER_ID,
+      } as ItsmChangeControl;
       changeControlRepository.create.mockReturnValue(newLink);
       changeControlRepository.save.mockResolvedValue(newLink);
 
-      const result = await service.linkControl(TENANT_ID, CHANGE_ID, CONTROL_ID_1, USER_ID);
+      const result = await service.linkControl(
+        TENANT_ID,
+        CHANGE_ID,
+        CONTROL_ID_1,
+        USER_ID,
+      );
 
       expect(result.id).toBe('link-new');
       expect(changeControlRepository.create).toHaveBeenCalledWith({
@@ -389,8 +507,12 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
 
     it('throws ConflictException when control is already linked', async () => {
       changeRepository.findOne.mockResolvedValue(mockChange as ItsmChange);
-      grcControlRepository.findOne.mockResolvedValue(mockControl1 as GrcControl);
-      changeControlRepository.findOne.mockResolvedValue({ id: 'existing' } as ItsmChangeControl);
+      grcControlRepository.findOne.mockResolvedValue(
+        mockControl1 as GrcControl,
+      );
+      changeControlRepository.findOne.mockResolvedValue({
+        id: 'existing',
+      } as ItsmChangeControl);
 
       await expect(
         service.linkControl(TENANT_ID, CHANGE_ID, CONTROL_ID_1, USER_ID),
@@ -420,7 +542,12 @@ describe('ChangeService — GRC Bridge Linked Risks/Controls', () => {
   // ===========================================================================
   describe('unlinkControl', () => {
     it('unlinks a control from a change', async () => {
-      const link = { id: 'link-1', tenantId: TENANT_ID, changeId: CHANGE_ID, controlId: CONTROL_ID_1 } as ItsmChangeControl;
+      const link = {
+        id: 'link-1',
+        tenantId: TENANT_ID,
+        changeId: CHANGE_ID,
+        controlId: CONTROL_ID_1,
+      } as ItsmChangeControl;
       changeControlRepository.findOne.mockResolvedValue(link);
       changeControlRepository.remove.mockResolvedValue(link);
 

@@ -21,9 +21,7 @@ import { DeliveryFilterDto } from './dto/delivery-filter.dto';
 @Controller('grc/notification-deliveries')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class NotificationDeliveryController {
-  constructor(
-    private readonly engineService: NotificationEngineService,
-  ) {}
+  constructor(private readonly engineService: NotificationEngineService) {}
 
   @Get()
   @Permissions(Permission.ADMIN_SETTINGS_READ)
@@ -60,7 +58,8 @@ export class NotificationDeliveryController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
 
     const delivery = await this.engineService.retryDelivery(tenantId, id);
-    if (!delivery) throw new NotFoundException('Delivery not found or not in FAILED state');
+    if (!delivery)
+      throw new NotFoundException('Delivery not found or not in FAILED state');
     return delivery;
   }
 }

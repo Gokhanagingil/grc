@@ -110,7 +110,12 @@ export class ItsmChangeTask extends BaseEntity {
   @Column({ name: 'source_template_id', type: 'uuid', nullable: true })
   sourceTemplateId: string | null;
 
-  @Column({ name: 'template_task_key', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'template_task_key',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   templateTaskKey: string | null;
 
   @Column({ name: 'sort_order', type: 'int', default: 0 })

@@ -19,7 +19,11 @@ export interface TableCounts {
 }
 
 export interface BaselineValidationError {
-  type: 'MISSING_CHOICES' | 'MISSING_WORKFLOW' | 'MALFORMED_WORKFLOW' | 'MISSING_SLA';
+  type:
+    | 'MISSING_CHOICES'
+    | 'MISSING_WORKFLOW'
+    | 'MALFORMED_WORKFLOW'
+    | 'MISSING_SLA';
   table: string;
   field?: string;
   detail: string;
@@ -40,7 +44,14 @@ export interface DiagnosticsHealth {
 }
 
 const REQUIRED_CHOICE_SETS: Record<string, string[]> = {
-  itsm_incidents: ['category', 'impact', 'urgency', 'status', 'source', 'priority'],
+  itsm_incidents: [
+    'category',
+    'impact',
+    'urgency',
+    'status',
+    'source',
+    'priority',
+  ],
   itsm_changes: ['type', 'state', 'risk'],
   itsm_services: ['criticality', 'status'],
 };
@@ -225,14 +236,19 @@ export class DiagnosticsService {
       errors.push({
         type: 'MISSING_SLA',
         table: 'itsm_incidents',
-        detail: 'No active SLA definitions found. SLA tracking will not start for new records.',
+        detail:
+          'No active SLA definitions found. SLA tracking will not start for new records.',
       });
     }
   }
 
-  async getActiveSlaInstanceSummary(
-    tenantId: string,
-  ): Promise<{ total: number; inProgress: number; breached: number; met: number; paused: number }> {
+  async getActiveSlaInstanceSummary(tenantId: string): Promise<{
+    total: number;
+    inProgress: number;
+    breached: number;
+    met: number;
+    paused: number;
+  }> {
     const qb = this.slaInstanceRepo.createQueryBuilder('inst');
     qb.select('inst.status', 'status');
     qb.addSelect('COUNT(*)', 'count');

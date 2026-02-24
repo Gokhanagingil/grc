@@ -8,6 +8,7 @@ import { FreezeWindow } from './freeze-window.entity';
 export enum ConflictType {
   OVERLAP = 'OVERLAP',
   FREEZE_WINDOW = 'FREEZE_WINDOW',
+  BLACKOUT_WINDOW = 'BLACKOUT_WINDOW',
   ADJACENCY = 'ADJACENCY',
 }
 

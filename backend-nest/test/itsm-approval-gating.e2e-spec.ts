@@ -414,7 +414,9 @@ describe('ITSM Change Approval Gating (e2e)', () => {
       }
 
       await request(app.getHttpServer())
-        .post('/grc/itsm/changes/00000000-0000-0000-0000-000000000000/request-approval')
+        .post(
+          '/grc/itsm/changes/00000000-0000-0000-0000-000000000000/request-approval',
+        )
         .set('x-tenant-id', tenantId)
         .send({})
         .expect(401);
@@ -427,7 +429,9 @@ describe('ITSM Change Approval Gating (e2e)', () => {
       }
 
       await request(app.getHttpServer())
-        .post('/grc/itsm/approvals/00000000-0000-0000-0000-000000000000/approve')
+        .post(
+          '/grc/itsm/approvals/00000000-0000-0000-0000-000000000000/approve',
+        )
         .set('x-tenant-id', tenantId)
         .send({})
         .expect(401);

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  IsUUID,
+} from 'class-validator';
 import { CabMeetingStatus } from '../cab-meeting.entity';
 
 export class UpdateCabMeetingDto {

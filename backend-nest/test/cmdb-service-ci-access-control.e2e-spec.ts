@@ -104,9 +104,7 @@ describe('CMDB Service-CI Mapping Access Control (e2e)', () => {
       }
 
       await request(app.getHttpServer())
-        .get(
-          '/grc/cmdb/services/00000000-0000-0000-0000-000000000001/cis',
-        )
+        .get('/grc/cmdb/services/00000000-0000-0000-0000-000000000001/cis')
         .set('x-tenant-id', tenantId)
         .expect(401);
     });
@@ -118,9 +116,7 @@ describe('CMDB Service-CI Mapping Access Control (e2e)', () => {
       }
 
       await request(app.getHttpServer())
-        .get(
-          '/grc/cmdb/cis/00000000-0000-0000-0000-000000000001/services',
-        )
+        .get('/grc/cmdb/cis/00000000-0000-0000-0000-000000000001/services')
         .set('x-tenant-id', tenantId)
         .expect(401);
     });
@@ -170,9 +166,7 @@ describe('CMDB Service-CI Mapping Access Control (e2e)', () => {
       const fakeTenantId = '00000000-0000-0000-0000-000000000099';
 
       await request(app.getHttpServer())
-        .get(
-          '/grc/cmdb/services/00000000-0000-0000-0000-000000000001/cis',
-        )
+        .get('/grc/cmdb/services/00000000-0000-0000-0000-000000000001/cis')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', fakeTenantId)
         .expect(403);
@@ -187,9 +181,7 @@ describe('CMDB Service-CI Mapping Access Control (e2e)', () => {
       const fakeTenantId = '00000000-0000-0000-0000-000000000099';
 
       await request(app.getHttpServer())
-        .get(
-          '/grc/cmdb/cis/00000000-0000-0000-0000-000000000001/services',
-        )
+        .get('/grc/cmdb/cis/00000000-0000-0000-0000-000000000001/services')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', fakeTenantId)
         .expect(403);

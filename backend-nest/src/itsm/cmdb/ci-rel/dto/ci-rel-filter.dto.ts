@@ -1,11 +1,7 @@
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationQueryDto } from '../../../../grc/dto/pagination.dto';
 
-export const CI_REL_SORTABLE_FIELDS = [
-  'type',
-  'createdAt',
-  'updatedAt',
-];
+export const CI_REL_SORTABLE_FIELDS = ['type', 'createdAt', 'updatedAt'];
 
 export class CiRelFilterDto extends PaginationQueryDto {
   @IsUUID('4')

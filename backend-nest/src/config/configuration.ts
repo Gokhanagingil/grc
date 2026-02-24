@@ -20,7 +20,8 @@ export default () => {
     jwt: {
       secret: process.env.JWT_SECRET ?? '', // Required by validation, but provide fallback for type safety
       expiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
-      refreshSecret: process.env.REFRESH_TOKEN_SECRET ?? process.env.JWT_SECRET ?? '',
+      refreshSecret:
+        process.env.REFRESH_TOKEN_SECRET ?? process.env.JWT_SECRET ?? '',
       refreshExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN ?? '7d',
     },
     db: {

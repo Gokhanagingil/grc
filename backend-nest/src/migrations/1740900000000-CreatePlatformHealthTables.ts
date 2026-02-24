@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreatePlatformHealthTables1740900000000
-  implements MigrationInterface
-{
+export class CreatePlatformHealthTables1740900000000 implements MigrationInterface {
   name = 'CreatePlatformHealthTables1740900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -61,20 +59,10 @@ export class CreatePlatformHealthTables1740900000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_phc_run_module"`,
-    );
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "platform_health_checks"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_phr_status_started"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_phr_suite_started"`,
-    );
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "platform_health_runs"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_phc_run_module"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "platform_health_checks"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_phr_status_started"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_phr_suite_started"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "platform_health_runs"`);
   }
 }

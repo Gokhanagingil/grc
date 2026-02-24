@@ -335,9 +335,7 @@ describe('CiAttributeValidationService', () => {
 
     it('should fail when json field gets a string', async () => {
       mockInheritanceService.getEffectiveSchema.mockResolvedValue(
-        makeSchemaResponse([
-          makeField({ key: 'config', dataType: 'json' }),
-        ]),
+        makeSchemaResponse([makeField({ key: 'config', dataType: 'json' })]),
       );
 
       const result = await service.validateAttributes(TENANT_ID, CLASS_ID, {
@@ -349,9 +347,7 @@ describe('CiAttributeValidationService', () => {
 
     it('should pass when json field gets an object', async () => {
       mockInheritanceService.getEffectiveSchema.mockResolvedValue(
-        makeSchemaResponse([
-          makeField({ key: 'config', dataType: 'json' }),
-        ]),
+        makeSchemaResponse([makeField({ key: 'config', dataType: 'json' })]),
       );
 
       const result = await service.validateAttributes(TENANT_ID, CLASS_ID, {

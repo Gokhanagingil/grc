@@ -240,9 +240,7 @@ describe('Platform Health API (e2e)', () => {
 
       const runs = listRes.body.data ?? listRes.body;
       expect(Array.isArray(runs)).toBe(true);
-      const found = runs.find(
-        (r: Record<string, unknown>) => r.id === runId,
-      );
+      const found = runs.find((r: Record<string, unknown>) => r.id === runId);
       expect(found).toBeDefined();
 
       const detailRes = await request(app.getHttpServer())

@@ -109,12 +109,8 @@ export class FreezeWindowController {
         ...(dto.startAt ? { startAt: new Date(dto.startAt) } : {}),
         ...(dto.endAt ? { endAt: new Date(dto.endAt) } : {}),
         ...(dto.scope !== undefined ? { scope: dto.scope } : {}),
-        ...(dto.scopeRefId !== undefined
-          ? { scopeRefId: dto.scopeRefId }
-          : {}),
-        ...(dto.recurrence !== undefined
-          ? { recurrence: dto.recurrence }
-          : {}),
+        ...(dto.scopeRefId !== undefined ? { scopeRefId: dto.scopeRefId } : {}),
+        ...(dto.recurrence !== undefined ? { recurrence: dto.recurrence } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     );

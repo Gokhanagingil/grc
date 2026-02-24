@@ -9,7 +9,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { ChangeTaskStatus, ChangeTaskType, ChangeTaskPriority } from '../change-task.entity';
+import {
+  ChangeTaskStatus,
+  ChangeTaskType,
+  ChangeTaskPriority,
+} from '../change-task.entity';
 
 export class UpdateChangeTaskDto {
   @IsString()

@@ -114,9 +114,7 @@ describe('Pagination Contract (e2e)', () => {
 
       const body = response.body;
       const hasMessage =
-        body.message ||
-        body.error?.message ||
-        body.error?.fieldErrors?.length;
+        body.message || body.error?.message || body.error?.fieldErrors?.length;
       expect(hasMessage).toBeTruthy();
     });
 

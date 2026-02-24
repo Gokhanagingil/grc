@@ -48,7 +48,12 @@ export class ItsmMajorIncidentUpdate extends BaseEntity {
   })
   visibility: MajorIncidentUpdateVisibility;
 
-  @Column({ name: 'previous_status', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'previous_status',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   previousStatus: string | null;
 
   @Column({ name: 'new_status', type: 'varchar', length: 50, nullable: true })

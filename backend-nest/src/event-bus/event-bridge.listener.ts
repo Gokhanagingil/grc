@@ -148,9 +148,7 @@ export class EventBridgeListener {
   }
 
   @OnEvent('businessrule.reject')
-  async onBusinessRuleReject(
-    payload: BusinessRuleEventPayload,
-  ): Promise<void> {
+  async onBusinessRuleReject(payload: BusinessRuleEventPayload): Promise<void> {
     await this.safeEmit({
       tenantId: payload.tenantId,
       source: 'itsm.business_rule',

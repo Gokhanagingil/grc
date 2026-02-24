@@ -182,7 +182,12 @@ export class MajorIncidentController {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.miService.createTimelineUpdate(tenantId, userId, id, dto);
+    const result = await this.miService.createTimelineUpdate(
+      tenantId,
+      userId,
+      id,
+      dto,
+    );
     return { data: result };
   }
 

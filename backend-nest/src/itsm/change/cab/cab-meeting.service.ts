@@ -233,15 +233,20 @@ export class CabMeetingService {
     meetingId: string,
     itemIds: string[],
   ): Promise<CabAgendaItem[]> {
-    // Guard against unbounded input
+    // Guard against unbounded input — explicit numeric bound for CodeQL.
+    // MAX_AGENDA_ITEMS caps the iteration count; Math.min ensures
+    // the loop upper-bound is provably <= 500 regardless of input.
     const MAX_AGENDA_ITEMS = 500;
-    const bounded = itemIds.slice(0, MAX_AGENDA_ITEMS);
-    for (let i = 0; i < bounded.length; i++) {
+    const safeInput = Array.isArray(itemIds) ? itemIds : [];
+    const upperBound: number = Math.min(safeInput.length, MAX_AGENDA_ITEMS);
+    for (let i = 0; i < upperBound; i++) {
+      const itemId = safeInput[i];
+      if (typeof itemId !== 'string' || itemId.length === 0) continue;
       await this.agendaRepo
         .createQueryBuilder()
         .update(CabAgendaItem)
         .set({ orderIndex: i, updatedBy: userId })
-        .where('id = :id', { id: bounded[i] })
+        .where('id = :id', { id: itemId })
         .andWhere('tenantId = :tenantId', { tenantId })
         .andWhere('cabMeetingId = :meetingId', { meetingId })
         .andWhere('isDeleted = false')

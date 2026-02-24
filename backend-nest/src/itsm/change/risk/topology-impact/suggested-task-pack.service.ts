@@ -15,9 +15,7 @@ import {
   SuggestedTask,
   SuggestedTaskPackResponse,
 } from './dto/suggested-task-pack.dto';
-import {
-  TopologyImpactResponse,
-} from './dto/topology-impact.dto';
+import { TopologyImpactResponse } from './dto/topology-impact.dto';
 
 /** Threshold for high blast radius (nodes) */
 const HIGH_BLAST_RADIUS = 10;
@@ -46,14 +44,20 @@ export class SuggestedTaskPackService {
     const warnings: string[] = [];
 
     if (!this.topologyAnalysis) {
-      return this.emptyPack(changeId, warnings.concat('Topology analysis service not available.'));
+      return this.emptyPack(
+        changeId,
+        warnings.concat('Topology analysis service not available.'),
+      );
     }
 
     // Fetch the change entity (needed by calculateTopologyImpact)
     let change: ItsmChange | null = null;
     if (this.changeRepo) {
       change = await this.changeRepo.findOne({
-        where: { id: changeId, tenantId, isDeleted: false } as Record<string, unknown>,
+        where: { id: changeId, tenantId, isDeleted: false } as Record<
+          string,
+          unknown
+        >,
       });
     }
     if (!change) {
@@ -72,7 +76,9 @@ export class SuggestedTaskPackService {
       );
       return this.emptyPack(
         changeId,
-        warnings.concat('Topology impact calculation failed. Returning generic tasks.'),
+        warnings.concat(
+          'Topology impact calculation failed. Returning generic tasks.',
+        ),
       );
     }
 
@@ -96,7 +102,9 @@ export class SuggestedTaskPackService {
   // PRIVATE: Task Generation Logic
   // ==========================================================================
 
-  private buildTasksFromImpact(impact: TopologyImpactResponse): SuggestedTask[] {
+  private buildTasksFromImpact(
+    impact: TopologyImpactResponse,
+  ): SuggestedTask[] {
     const tasks: SuggestedTask[] = [];
     const score = impact.topologyRiskScore;
     const metrics = impact.metrics;
@@ -136,7 +144,10 @@ export class SuggestedTaskPackService {
         category: 'VALIDATION',
         title: 'Extended blast radius coverage validation',
         description: `High blast radius detected (${metrics.totalImpactedNodes} nodes). Perform extended validation including: smoke tests on all critical paths, dependency health checks, and performance baseline comparison.`,
-        priority: metrics.totalImpactedNodes >= CRITICAL_BLAST_RADIUS ? 'CRITICAL' : 'HIGH',
+        priority:
+          metrics.totalImpactedNodes >= CRITICAL_BLAST_RADIUS
+            ? 'CRITICAL'
+            : 'HIGH',
         reason: `Blast radius of ${metrics.totalImpactedNodes} nodes exceeds threshold of ${HIGH_BLAST_RADIUS}.`,
         triggerSignals: ['high_blast_radius'],
         recommended: true,
@@ -159,7 +170,9 @@ export class SuggestedTaskPackService {
     }
 
     // If SPOFs detected, add SPOF-specific rollback task
-    const spofSignals = signals.filter((s) => s.type === 'single_point_of_failure');
+    const spofSignals = signals.filter(
+      (s) => s.type === 'single_point_of_failure',
+    );
     if (spofSignals.length > 0) {
       tasks.push({
         templateKey: 'rollback_spof_mitigation',

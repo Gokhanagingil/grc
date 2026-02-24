@@ -18,9 +18,7 @@ import { UserNotificationFilterDto } from './dto/user-notification.dto';
 @Controller('grc/user-notifications')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class UserNotificationController {
-  constructor(
-    private readonly engineService: NotificationEngineService,
-  ) {}
+  constructor(private readonly engineService: NotificationEngineService) {}
 
   @Get()
   async listNotifications(
@@ -52,30 +50,32 @@ export class UserNotificationController {
   }
 
   @Post(':id/read')
-  async markRead(
-    @NestRequest() req: RequestWithUser,
-    @Param('id') id: string,
-  ) {
+  async markRead(@NestRequest() req: RequestWithUser, @Param('id') id: string) {
     const tenantId = req.tenantId;
     const userId = req.user?.sub;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     if (!userId) throw new BadRequestException('User ID required');
 
-    const success = await this.engineService.markNotificationRead(tenantId, userId, id);
+    const success = await this.engineService.markNotificationRead(
+      tenantId,
+      userId,
+      id,
+    );
     if (!success) throw new NotFoundException('Notification not found');
     return { read: true };
   }
 
   @Post('read-all')
-  async markAllRead(
-    @NestRequest() req: RequestWithUser,
-  ) {
+  async markAllRead(@NestRequest() req: RequestWithUser) {
     const tenantId = req.tenantId;
     const userId = req.user?.sub;
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     if (!userId) throw new BadRequestException('User ID required');
 
-    const count = await this.engineService.markAllNotificationsRead(tenantId, userId);
+    const count = await this.engineService.markAllNotificationsRead(
+      tenantId,
+      userId,
+    );
     return { markedRead: count };
   }
 }

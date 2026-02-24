@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateItsmJournalTable1739600000000
-  implements MigrationInterface
-{
+export class CreateItsmJournalTable1739600000000 implements MigrationInterface {
   name = 'CreateItsmJournalTable1739600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

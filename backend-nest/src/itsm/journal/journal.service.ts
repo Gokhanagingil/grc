@@ -107,12 +107,7 @@ export class JournalService {
     recordId: string,
     filterDto: JournalFilterDto,
   ): Promise<PaginatedResponse<ItsmJournal>> {
-    const {
-      page = 1,
-      pageSize = 20,
-      type,
-      sortOrder = 'DESC',
-    } = filterDto;
+    const { page = 1, pageSize = 20, type, sortOrder = 'DESC' } = filterDto;
 
     const resolvedTableName = this.resolveTableName(tableName);
     if (!resolvedTableName) {
@@ -122,7 +117,9 @@ export class JournalService {
     const qb = this.repository.createQueryBuilder('journal');
 
     qb.where('journal.tenantId = :tenantId', { tenantId });
-    qb.andWhere('journal.tableName = :tableName', { tableName: resolvedTableName });
+    qb.andWhere('journal.tableName = :tableName', {
+      tableName: resolvedTableName,
+    });
     qb.andWhere('journal.recordId = :recordId', { recordId });
     qb.andWhere('journal.isDeleted = :isDeleted', { isDeleted: false });
 
@@ -156,7 +153,9 @@ export class JournalService {
 
     const qb = this.repository.createQueryBuilder('journal');
     qb.where('journal.tenantId = :tenantId', { tenantId });
-    qb.andWhere('journal.tableName = :tableName', { tableName: resolvedTableName });
+    qb.andWhere('journal.tableName = :tableName', {
+      tableName: resolvedTableName,
+    });
     qb.andWhere('journal.recordId = :recordId', { recordId });
     qb.andWhere('journal.isDeleted = :isDeleted', { isDeleted: false });
 

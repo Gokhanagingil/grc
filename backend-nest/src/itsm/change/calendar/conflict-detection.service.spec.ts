@@ -1,5 +1,12 @@
-import { ConflictDetectionService, ConflictResult } from './conflict-detection.service';
-import { CalendarEvent, CalendarEventType, CalendarEventStatus } from './calendar-event.entity';
+import {
+  ConflictDetectionService,
+  ConflictResult,
+} from './conflict-detection.service';
+import {
+  CalendarEvent,
+  CalendarEventType,
+  CalendarEventStatus,
+} from './calendar-event.entity';
 import { FreezeWindow, FreezeScope } from './freeze-window.entity';
 import { ConflictType, ConflictSeverity } from './calendar-conflict.entity';
 
@@ -12,7 +19,8 @@ function makeEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   ev.status = overrides.status || CalendarEventStatus.SCHEDULED;
   ev.startAt = overrides.startAt || new Date('2026-03-01T10:00:00Z');
   ev.endAt = overrides.endAt || new Date('2026-03-01T12:00:00Z');
-  ev.changeId = overrides.changeId !== undefined ? overrides.changeId : 'change-1';
+  ev.changeId =
+    overrides.changeId !== undefined ? overrides.changeId : 'change-1';
   ev.isDeleted = false;
   return ev;
 }
@@ -110,8 +118,17 @@ describe('ConflictDetectionService', () => {
       const start = new Date('2026-03-01T09:00:00Z');
       const end = new Date('2026-03-01T15:00:00Z');
       const events = [
-        makeEvent({ id: 'evt-1', startAt: new Date('2026-03-01T10:00:00Z'), endAt: new Date('2026-03-01T12:00:00Z') }),
-        makeEvent({ id: 'evt-2', startAt: new Date('2026-03-01T13:00:00Z'), endAt: new Date('2026-03-01T14:00:00Z'), changeId: 'change-2' }),
+        makeEvent({
+          id: 'evt-1',
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+        makeEvent({
+          id: 'evt-2',
+          startAt: new Date('2026-03-01T13:00:00Z'),
+          endAt: new Date('2026-03-01T14:00:00Z'),
+          changeId: 'change-2',
+        }),
       ];
 
       const results = service.detectOverlaps(start, end, events);
@@ -228,6 +245,158 @@ describe('ConflictDetectionService', () => {
       expect(results).toHaveLength(2);
       expect(results[0].conflictingFreezeId).toBe('f1');
       expect(results[1].conflictingFreezeId).toBe('f2');
+    });
+  });
+
+  describe('detectBlackoutConflicts', () => {
+    it('should detect overlap with BLACKOUT event', () => {
+      const start = new Date('2026-03-01T09:00:00Z');
+      const end = new Date('2026-03-01T13:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'blackout-1',
+          type: CalendarEventType.BLACKOUT,
+          title: 'Maintenance Blackout',
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].conflictType).toBe(ConflictType.BLACKOUT_WINDOW);
+      expect(results[0].severity).toBe(ConflictSeverity.CRITICAL);
+      expect(results[0].conflictingEventId).toBe('blackout-1');
+      expect(results[0].details).toHaveProperty(
+        'reason',
+        'Change overlaps with a blackout window',
+      );
+    });
+
+    it('should NOT detect blackout conflict for non-BLACKOUT events', () => {
+      const start = new Date('2026-03-01T09:00:00Z');
+      const end = new Date('2026-03-01T13:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'evt-change',
+          type: CalendarEventType.CHANGE,
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+        makeEvent({
+          id: 'evt-maint',
+          type: CalendarEventType.MAINTENANCE,
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+          changeId: 'change-maint',
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('should NOT detect blackout conflict when times do not overlap', () => {
+      const start = new Date('2026-03-01T14:00:00Z');
+      const end = new Date('2026-03-01T16:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'blackout-2',
+          type: CalendarEventType.BLACKOUT,
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('should exclude same change via excludeChangeId', () => {
+      const start = new Date('2026-03-01T09:00:00Z');
+      const end = new Date('2026-03-01T13:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'blackout-3',
+          type: CalendarEventType.BLACKOUT,
+          changeId: 'my-change',
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(
+        start,
+        end,
+        events,
+        'my-change',
+      );
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('should detect multiple blackout conflicts', () => {
+      const start = new Date('2026-03-01T08:00:00Z');
+      const end = new Date('2026-03-01T20:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'b1',
+          type: CalendarEventType.BLACKOUT,
+          startAt: new Date('2026-03-01T09:00:00Z'),
+          endAt: new Date('2026-03-01T11:00:00Z'),
+          changeId: 'c1',
+        }),
+        makeEvent({
+          id: 'b2',
+          type: CalendarEventType.BLACKOUT,
+          startAt: new Date('2026-03-01T15:00:00Z'),
+          endAt: new Date('2026-03-01T17:00:00Z'),
+          changeId: 'c2',
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].conflictingEventId).toBe('b1');
+      expect(results[1].conflictingEventId).toBe('b2');
+    });
+
+    it('should detect partial overlap with blackout (start only)', () => {
+      const start = new Date('2026-03-01T11:00:00Z');
+      const end = new Date('2026-03-01T14:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'blackout-partial',
+          type: CalendarEventType.BLACKOUT,
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(1);
+    });
+
+    it('should NOT detect blackout when exactly adjacent (no overlap)', () => {
+      const start = new Date('2026-03-01T12:00:00Z');
+      const end = new Date('2026-03-01T14:00:00Z');
+      const events = [
+        makeEvent({
+          id: 'blackout-adj',
+          type: CalendarEventType.BLACKOUT,
+          startAt: new Date('2026-03-01T10:00:00Z'),
+          endAt: new Date('2026-03-01T12:00:00Z'),
+        }),
+      ];
+
+      const results = service.detectBlackoutConflicts(start, end, events);
+
+      expect(results).toHaveLength(0);
     });
   });
 

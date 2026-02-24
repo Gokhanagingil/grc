@@ -60,10 +60,11 @@ export enum MajorIncidentLinkType {
  * Valid status transitions for major incidents.
  * Key = current status, Value = array of allowed next statuses
  */
-export const MAJOR_INCIDENT_TRANSITIONS: Record<MajorIncidentStatus, MajorIncidentStatus[]> = {
-  [MajorIncidentStatus.DECLARED]: [
-    MajorIncidentStatus.INVESTIGATING,
-  ],
+export const MAJOR_INCIDENT_TRANSITIONS: Record<
+  MajorIncidentStatus,
+  MajorIncidentStatus[]
+> = {
+  [MajorIncidentStatus.DECLARED]: [MajorIncidentStatus.INVESTIGATING],
   [MajorIncidentStatus.INVESTIGATING]: [
     MajorIncidentStatus.MITIGATING,
     MajorIncidentStatus.MONITORING,
@@ -84,9 +85,7 @@ export const MAJOR_INCIDENT_TRANSITIONS: Record<MajorIncidentStatus, MajorIncide
     MajorIncidentStatus.CLOSED,
     MajorIncidentStatus.INVESTIGATING, // reopen
   ],
-  [MajorIncidentStatus.PIR_PENDING]: [
-    MajorIncidentStatus.CLOSED,
-  ],
+  [MajorIncidentStatus.PIR_PENDING]: [MajorIncidentStatus.CLOSED],
   [MajorIncidentStatus.CLOSED]: [],
 };
 

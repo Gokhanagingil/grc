@@ -269,6 +269,7 @@ export const API_PATHS = {
       TASK_SUMMARY: (changeId: string) => `/grc/itsm/changes/${changeId}/tasks/summary`,
       TASK_DEPENDENCIES: (changeId: string) => `/grc/itsm/changes/${changeId}/tasks/dependencies`,
       CAB_SUMMARY: (changeId: string) => `/grc/itsm/changes/${changeId}/cab-summary`,
+      CALENDAR_RANGE: '/grc/itsm/changes/calendar-range',
     },
     APPROVALS: {
       APPROVE: (approvalId: string) => `/grc/itsm/approvals/${approvalId}/approve`,

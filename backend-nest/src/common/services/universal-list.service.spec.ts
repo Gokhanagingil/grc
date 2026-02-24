@@ -394,7 +394,12 @@ describe('UniversalListService', () => {
         name: { op: '', value: 'test' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).not.toHaveBeenCalled();
     });
@@ -408,7 +413,12 @@ describe('UniversalListService', () => {
       };
 
       expect(() => {
-        service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+        service.applyColumnFilters(
+          mockQb as any,
+          'controls',
+          columnFilters,
+          'entity',
+        );
       }).toThrow(BadRequestException);
     });
 
@@ -420,7 +430,12 @@ describe('UniversalListService', () => {
         name: { op: 'ilike', value: 'test' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.name ILIKE :cf_name_0',
@@ -436,12 +451,16 @@ describe('UniversalListService', () => {
         name: { op: 'eq', value: 'exact' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
-
-      expect(mockQb.andWhere).toHaveBeenCalledWith(
-        'entity.name = :cf_name_0',
-        { cf_name_0: 'exact' },
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
       );
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith('entity.name = :cf_name_0', {
+        cf_name_0: 'exact',
+      });
     });
 
     it('should apply string startsWith filter', () => {
@@ -452,7 +471,12 @@ describe('UniversalListService', () => {
         name: { op: 'startsWith', value: 'prefix' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.name ILIKE :cf_name_0',
@@ -468,7 +492,12 @@ describe('UniversalListService', () => {
         name: { op: 'endsWith', value: 'suffix' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.name ILIKE :cf_name_0',
@@ -484,7 +513,12 @@ describe('UniversalListService', () => {
         name: { op: 'isNull', value: true },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith('entity.name IS NULL');
     });
@@ -497,7 +531,12 @@ describe('UniversalListService', () => {
         name: { op: 'isNotNull', value: true },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith('entity.name IS NOT NULL');
     });
@@ -510,7 +549,12 @@ describe('UniversalListService', () => {
         status: { op: 'eq', value: 'draft' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.status = :cf_status_0',
@@ -526,7 +570,12 @@ describe('UniversalListService', () => {
         status: { op: 'in', value: ['draft', 'implemented'] },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.status IN (:...cf_status_0)',
@@ -542,7 +591,12 @@ describe('UniversalListService', () => {
         createdAt: { op: 'gte', value: '2024-01-01' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.createdAt >= :cf_createdAt_0',
@@ -558,7 +612,12 @@ describe('UniversalListService', () => {
         createdAt: { op: 'lte', value: '2024-12-31' },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.createdAt <= :cf_createdAt_0',
@@ -571,10 +630,19 @@ describe('UniversalListService', () => {
         andWhere: jest.fn(),
       };
       const columnFilters: Record<string, ColumnFilter> = {
-        createdAt: { op: 'between', value: '2024-01-01', valueTo: '2024-12-31' },
+        createdAt: {
+          op: 'between',
+          value: '2024-01-01',
+          valueTo: '2024-12-31',
+        },
       };
 
-      service.applyColumnFilters(mockQb as any, 'controls', columnFilters, 'entity');
+      service.applyColumnFilters(
+        mockQb as any,
+        'controls',
+        columnFilters,
+        'entity',
+      );
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'entity.createdAt BETWEEN :cf_createdAt_0From AND :cf_createdAt_0To',

@@ -7,6 +7,8 @@ export enum CalendarEventType {
   CHANGE = 'CHANGE',
   MAINTENANCE = 'MAINTENANCE',
   FREEZE = 'FREEZE',
+  BLACKOUT = 'BLACKOUT',
+  ADVISORY = 'ADVISORY',
 }
 
 export enum CalendarEventStatus {

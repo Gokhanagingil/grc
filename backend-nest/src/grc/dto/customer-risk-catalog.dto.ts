@@ -55,17 +55,9 @@ export const CUSTOMER_RISK_SCORE_MODELS = [
   'MULTIPLIER',
 ] as const;
 
-export const CUSTOMER_RISK_STATUSES = [
-  'ACTIVE',
-  'INACTIVE',
-  'DRAFT',
-] as const;
+export const CUSTOMER_RISK_STATUSES = ['ACTIVE', 'INACTIVE', 'DRAFT'] as const;
 
-export const CUSTOMER_RISK_SOURCES = [
-  'MANUAL',
-  'IMPORTED',
-  'SYSTEM',
-] as const;
+export const CUSTOMER_RISK_SOURCES = ['MANUAL', 'IMPORTED', 'SYSTEM'] as const;
 
 export const CUSTOMER_RISK_BINDING_TARGET_TYPES = [
   'CI',

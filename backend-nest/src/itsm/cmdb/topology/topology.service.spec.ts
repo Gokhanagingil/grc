@@ -508,10 +508,22 @@ describe('TopologyService', () => {
           TopologyService,
           { provide: getRepositoryToken(CmdbCi), useValue: localCiRepo },
           { provide: getRepositoryToken(CmdbCiRel), useValue: localCiRelRepo },
-          { provide: getRepositoryToken(CmdbService), useValue: localServiceRepo },
-          { provide: getRepositoryToken(CmdbServiceOffering), useValue: localOfferingRepo },
-          { provide: getRepositoryToken(CmdbServiceCi), useValue: localServiceCiRepo },
-          { provide: getRepositoryToken(CmdbRelationshipType), useValue: relTypeRepo },
+          {
+            provide: getRepositoryToken(CmdbService),
+            useValue: localServiceRepo,
+          },
+          {
+            provide: getRepositoryToken(CmdbServiceOffering),
+            useValue: localOfferingRepo,
+          },
+          {
+            provide: getRepositoryToken(CmdbServiceCi),
+            useValue: localServiceCiRepo,
+          },
+          {
+            provide: getRepositoryToken(CmdbRelationshipType),
+            useValue: relTypeRepo,
+          },
         ],
       }).compile();
 
@@ -549,7 +561,11 @@ describe('TopologyService', () => {
 
       const query = new TopologyQueryDto();
       query.includeSemantics = true;
-      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+      const result = await semanticsService.getTopologyForCi(
+        TENANT_ID,
+        'ci-1',
+        query,
+      );
 
       expect(result.edges).toHaveLength(1);
       expect(result.edges[0].relationLabel).toBe('Depends On');
@@ -573,7 +589,11 @@ describe('TopologyService', () => {
 
       const query = new TopologyQueryDto();
       query.includeSemantics = true;
-      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+      const result = await semanticsService.getTopologyForCi(
+        TENANT_ID,
+        'ci-1',
+        query,
+      );
 
       expect(result.meta.semanticsSummary).toBeDefined();
       const summary = result.meta.semanticsSummary!;
@@ -591,7 +611,11 @@ describe('TopologyService', () => {
 
       const query = new TopologyQueryDto();
       query.includeSemantics = true;
-      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+      const result = await semanticsService.getTopologyForCi(
+        TENANT_ID,
+        'ci-1',
+        query,
+      );
 
       const summary = result.meta.semanticsSummary!;
       expect(summary.totalEdges).toBe(1);
@@ -605,7 +629,11 @@ describe('TopologyService', () => {
     it('should NOT include semanticsSummary when includeSemantics is false/absent', async () => {
       const query = new TopologyQueryDto();
       // includeSemantics defaults to false
-      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+      const result = await semanticsService.getTopologyForCi(
+        TENANT_ID,
+        'ci-1',
+        query,
+      );
 
       expect(result.meta.semanticsSummary).toBeUndefined();
       // Edges should NOT have enrichment fields
@@ -621,7 +649,11 @@ describe('TopologyService', () => {
 
       const query = new TopologyQueryDto();
       query.includeSemantics = true;
-      const result = await semanticsService.getTopologyForCi(TENANT_ID, 'ci-1', query);
+      const result = await semanticsService.getTopologyForCi(
+        TENANT_ID,
+        'ci-1',
+        query,
+      );
 
       // Should still return valid response, just without enrichment
       expect(result.edges).toHaveLength(1);

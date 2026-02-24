@@ -22,7 +22,10 @@ import { CreateMajorIncidentDto } from './dto/create-major-incident.dto';
 import { UpdateMajorIncidentDto } from './dto/update-major-incident.dto';
 import { CreateMajorIncidentUpdateDto } from './dto/create-major-incident-update.dto';
 import { CreateMajorIncidentLinkDto } from './dto/major-incident-link.dto';
-import { MajorIncidentFilterDto, MI_SORTABLE_FIELDS } from './dto/major-incident-filter.dto';
+import {
+  MajorIncidentFilterDto,
+  MI_SORTABLE_FIELDS,
+} from './dto/major-incident-filter.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
@@ -89,7 +92,9 @@ export class MajorIncidentService {
       techLeadId: dto.techLeadId || null,
       bridgeUrl: dto.bridgeUrl || null,
       bridgeChannel: dto.bridgeChannel || null,
-      bridgeStartedAt: dto.bridgeStartedAt ? new Date(dto.bridgeStartedAt) : null,
+      bridgeStartedAt: dto.bridgeStartedAt
+        ? new Date(dto.bridgeStartedAt)
+        : null,
       customerImpactSummary: dto.customerImpactSummary || null,
       businessImpactSummary: dto.businessImpactSummary || null,
       primaryServiceId: dto.primaryServiceId || null,
@@ -103,7 +108,9 @@ export class MajorIncidentService {
 
     const saved = await this.miRepo.save(mi);
 
-    this.logger.log(`Major Incident declared: ${saved.number} (${saved.id}) for tenant ${tenantId}`);
+    this.logger.log(
+      `Major Incident declared: ${saved.number} (${saved.id}) for tenant ${tenantId}`,
+    );
 
     // Create initial timeline entry
     await this.createTimelineUpdate(tenantId, userId, saved.id, {
@@ -134,7 +141,10 @@ export class MajorIncidentService {
     return saved;
   }
 
-  async findOne(tenantId: string, id: string): Promise<ItsmMajorIncident | null> {
+  async findOne(
+    tenantId: string,
+    id: string,
+  ): Promise<ItsmMajorIncident | null> {
     return this.miRepo.findOne({
       where: { id, tenantId, isDeleted: false },
     });
@@ -185,9 +195,11 @@ export class MajorIncidentService {
 
     const total = await qb.getCount();
 
-    const validSortBy = MI_SORTABLE_FIELDS.includes(sortBy) ? sortBy : 'createdAt';
+    const validSortBy = MI_SORTABLE_FIELDS.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
     const validSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    qb.orderBy(`mi.${validSortBy}`, validSortOrder as 'ASC' | 'DESC');
+    qb.orderBy(`mi.${validSortBy}`, validSortOrder);
 
     qb.skip((page - 1) * pageSize);
     qb.take(pageSize);
@@ -226,7 +238,8 @@ export class MajorIncidentService {
 
       // Validation: RESOLVED requires resolutionSummary
       if (dto.status === MajorIncidentStatus.RESOLVED) {
-        const resolSummary = dto.resolutionSummary || existing.resolutionSummary;
+        const resolSummary =
+          dto.resolutionSummary || existing.resolutionSummary;
         if (!resolSummary) {
           throw new BadRequestException(
             'Resolution summary is required when resolving a major incident',
@@ -249,18 +262,32 @@ export class MajorIncidentService {
     if (dto.status !== undefined) existing.status = dto.status;
     if (dto.severity !== undefined) existing.severity = dto.severity;
     if (dto.commanderId !== undefined) existing.commanderId = dto.commanderId;
-    if (dto.communicationsLeadId !== undefined) existing.communicationsLeadId = dto.communicationsLeadId;
+    if (dto.communicationsLeadId !== undefined)
+      existing.communicationsLeadId = dto.communicationsLeadId;
     if (dto.techLeadId !== undefined) existing.techLeadId = dto.techLeadId;
     if (dto.bridgeUrl !== undefined) existing.bridgeUrl = dto.bridgeUrl;
-    if (dto.bridgeChannel !== undefined) existing.bridgeChannel = dto.bridgeChannel;
-    if (dto.bridgeStartedAt !== undefined) existing.bridgeStartedAt = dto.bridgeStartedAt ? new Date(dto.bridgeStartedAt) : null;
-    if (dto.bridgeEndedAt !== undefined) existing.bridgeEndedAt = dto.bridgeEndedAt ? new Date(dto.bridgeEndedAt) : null;
-    if (dto.customerImpactSummary !== undefined) existing.customerImpactSummary = dto.customerImpactSummary;
-    if (dto.businessImpactSummary !== undefined) existing.businessImpactSummary = dto.businessImpactSummary;
-    if (dto.primaryServiceId !== undefined) existing.primaryServiceId = dto.primaryServiceId;
-    if (dto.primaryOfferingId !== undefined) existing.primaryOfferingId = dto.primaryOfferingId;
-    if (dto.resolutionSummary !== undefined) existing.resolutionSummary = dto.resolutionSummary;
-    if (dto.resolutionCode !== undefined) existing.resolutionCode = dto.resolutionCode;
+    if (dto.bridgeChannel !== undefined)
+      existing.bridgeChannel = dto.bridgeChannel;
+    if (dto.bridgeStartedAt !== undefined)
+      existing.bridgeStartedAt = dto.bridgeStartedAt
+        ? new Date(dto.bridgeStartedAt)
+        : null;
+    if (dto.bridgeEndedAt !== undefined)
+      existing.bridgeEndedAt = dto.bridgeEndedAt
+        ? new Date(dto.bridgeEndedAt)
+        : null;
+    if (dto.customerImpactSummary !== undefined)
+      existing.customerImpactSummary = dto.customerImpactSummary;
+    if (dto.businessImpactSummary !== undefined)
+      existing.businessImpactSummary = dto.businessImpactSummary;
+    if (dto.primaryServiceId !== undefined)
+      existing.primaryServiceId = dto.primaryServiceId;
+    if (dto.primaryOfferingId !== undefined)
+      existing.primaryOfferingId = dto.primaryOfferingId;
+    if (dto.resolutionSummary !== undefined)
+      existing.resolutionSummary = dto.resolutionSummary;
+    if (dto.resolutionCode !== undefined)
+      existing.resolutionCode = dto.resolutionCode;
     if (dto.metadata !== undefined) existing.metadata = dto.metadata;
 
     existing.updatedBy = userId;
@@ -290,7 +317,11 @@ export class MajorIncidentService {
     return saved;
   }
 
-  async softDelete(tenantId: string, userId: string, id: string): Promise<boolean> {
+  async softDelete(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<boolean> {
     const existing = await this.findOne(tenantId, id);
     if (!existing) return false;
 
@@ -299,7 +330,12 @@ export class MajorIncidentService {
     await this.miRepo.save(existing);
 
     try {
-      await this.auditService.recordDelete('ItsmMajorIncident', existing, userId, tenantId);
+      await this.auditService.recordDelete(
+        'ItsmMajorIncident',
+        existing,
+        userId,
+        tenantId,
+      );
     } catch (err) {
       this.logger.warn(`Failed to record audit for MI delete: ${err}`);
     }
@@ -323,8 +359,12 @@ export class MajorIncidentService {
       message: dto.message,
       updateType: dto.updateType || MajorIncidentUpdateType.TECHNICAL_UPDATE,
       visibility: dto.visibility || MajorIncidentUpdateVisibility.INTERNAL,
-      previousStatus: (dto.metadata as Record<string, unknown>)?.previousStatus as string || null,
-      newStatus: (dto.metadata as Record<string, unknown>)?.newStatus as string || null,
+      previousStatus:
+        ((dto.metadata as Record<string, unknown>)?.previousStatus as string) ||
+        null,
+      newStatus:
+        ((dto.metadata as Record<string, unknown>)?.newStatus as string) ||
+        null,
       metadata: dto.metadata || null,
       createdBy: userId,
       isDeleted: false,
@@ -367,7 +407,9 @@ export class MajorIncidentService {
   ): Promise<ItsmMajorIncidentLink> {
     const mi = await this.findOne(tenantId, majorIncidentId);
     if (!mi) {
-      throw new NotFoundException(`Major Incident with ID ${majorIncidentId} not found`);
+      throw new NotFoundException(
+        `Major Incident with ID ${majorIncidentId} not found`,
+      );
     }
 
     // Check for duplicate
@@ -380,7 +422,9 @@ export class MajorIncidentService {
       },
     });
     if (existing) {
-      throw new ConflictException('This record is already linked to the major incident');
+      throw new ConflictException(
+        'This record is already linked to the major incident',
+      );
     }
 
     const link = this.linkRepo.create({

@@ -13,9 +13,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * This migration runs after CreateMissingSchemaContractTables (1735500000000)
  * to fix the missing columns issue.
  */
-export class AddCreatedAtUpdatedAtToNestTenantSettings1735600000000
-  implements MigrationInterface
-{
+export class AddCreatedAtUpdatedAtToNestTenantSettings1735600000000 implements MigrationInterface {
   name = 'AddCreatedAtUpdatedAtToNestTenantSettings1735600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -46,4 +44,3 @@ export class AddCreatedAtUpdatedAtToNestTenantSettings1735600000000
     `);
   }
 }
-

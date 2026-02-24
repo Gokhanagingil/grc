@@ -1,5 +1,15 @@
-import { IsString, IsOptional, IsEnum, IsUUID, MaxLength, IsDateString } from 'class-validator';
-import { MajorIncidentStatus, MajorIncidentSeverity } from '../major-incident.enums';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  MaxLength,
+  IsDateString,
+} from 'class-validator';
+import {
+  MajorIncidentStatus,
+  MajorIncidentSeverity,
+} from '../major-incident.enums';
 
 /**
  * DTO for updating a Major Incident

@@ -12,7 +12,11 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ChangeTaskType, ChangeTaskStatus, ChangeTaskPriority } from '../../task/change-task.entity';
+import {
+  ChangeTaskType,
+  ChangeTaskStatus,
+  ChangeTaskPriority,
+} from '../../task/change-task.entity';
 
 export class TemplateTaskDefinitionDto {
   @IsString()

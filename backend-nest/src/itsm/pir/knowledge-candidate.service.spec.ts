@@ -99,7 +99,10 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
       find: jest.fn(),
       findOne: jest.fn(),
       save: jest.fn(),
-      create: jest.fn().mockImplementation((data: Record<string, unknown>) => ({ ...data, id: mockKcId })),
+      create: jest.fn().mockImplementation((data: Record<string, unknown>) => ({
+        ...data,
+        id: mockKcId,
+      })),
       createQueryBuilder: jest.fn(),
     };
 
@@ -172,7 +175,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
-      const result = await service.generateFromPir(mockTenantId, mockUserId, mockPirId);
+      const result = await service.generateFromPir(
+        mockTenantId,
+        mockUserId,
+        mockPirId,
+      );
 
       expect(result.sourceType).toBe(KnowledgeCandidateSourceType.PIR);
       expect(result.sourceId).toBe(mockPirId);
@@ -201,7 +208,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
-      const result = await service.generateFromPir(mockTenantId, mockUserId, mockPirId);
+      const result = await service.generateFromPir(
+        mockTenantId,
+        mockUserId,
+        mockPirId,
+      );
 
       expect(result.synopsis).toBe('Incident summary');
       expect(result.rootCauseSummary).toBe('Connection pool exhausted');
@@ -219,7 +230,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
-      const result = await service.generateFromKnownError(mockTenantId, mockUserId, mockKeId);
+      const result = await service.generateFromKnownError(
+        mockTenantId,
+        mockUserId,
+        mockKeId,
+      );
 
       expect(result.sourceType).toBe(KnowledgeCandidateSourceType.KNOWN_ERROR);
       expect(result.sourceId).toBe(mockKeId);
@@ -253,7 +268,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
-      const result = await service.generateFromProblem(mockTenantId, mockUserId, mockProblemId);
+      const result = await service.generateFromProblem(
+        mockTenantId,
+        mockUserId,
+        mockProblemId,
+      );
 
       expect(result.sourceType).toBe(KnowledgeCandidateSourceType.PROBLEM);
       expect(result.sourceId).toBe(mockProblemId);
@@ -281,7 +300,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
-      const result = await service.generateFromProblem(mockTenantId, mockUserId, mockProblemId);
+      const result = await service.generateFromProblem(
+        mockTenantId,
+        mockUserId,
+        mockProblemId,
+      );
 
       expect(result.title).toContain('Database connection issues');
     });
@@ -293,14 +316,20 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
 
   describe('transitionStatus', () => {
     it('should transition DRAFT → REVIEWED', async () => {
-      const existing = { ...baseKc, status: KnowledgeCandidateStatus.DRAFT } as ItsmKnowledgeCandidate;
+      const existing = {
+        ...baseKc,
+        status: KnowledgeCandidateStatus.DRAFT,
+      } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
       kcRepo.save.mockImplementation((entity: unknown) =>
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
       const result = await service.transitionStatus(
-        mockTenantId, mockUserId, mockKcId, KnowledgeCandidateStatus.REVIEWED,
+        mockTenantId,
+        mockUserId,
+        mockKcId,
+        KnowledgeCandidateStatus.REVIEWED,
       );
 
       expect(result.status).toBe(KnowledgeCandidateStatus.REVIEWED);
@@ -309,14 +338,20 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
     });
 
     it('should transition REVIEWED → PUBLISHED and emit event', async () => {
-      const existing = { ...baseKc, status: KnowledgeCandidateStatus.REVIEWED } as ItsmKnowledgeCandidate;
+      const existing = {
+        ...baseKc,
+        status: KnowledgeCandidateStatus.REVIEWED,
+      } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
       kcRepo.save.mockImplementation((entity: unknown) =>
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
       const result = await service.transitionStatus(
-        mockTenantId, mockUserId, mockKcId, KnowledgeCandidateStatus.PUBLISHED,
+        mockTenantId,
+        mockUserId,
+        mockKcId,
+        KnowledgeCandidateStatus.PUBLISHED,
       );
 
       expect(result.status).toBe(KnowledgeCandidateStatus.PUBLISHED);
@@ -330,36 +365,54 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
     });
 
     it('should reject invalid transition DRAFT → PUBLISHED', async () => {
-      const existing = { ...baseKc, status: KnowledgeCandidateStatus.DRAFT } as ItsmKnowledgeCandidate;
+      const existing = {
+        ...baseKc,
+        status: KnowledgeCandidateStatus.DRAFT,
+      } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
 
       await expect(
         service.transitionStatus(
-          mockTenantId, mockUserId, mockKcId, KnowledgeCandidateStatus.PUBLISHED,
+          mockTenantId,
+          mockUserId,
+          mockKcId,
+          KnowledgeCandidateStatus.PUBLISHED,
         ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject transitions from PUBLISHED', async () => {
-      const existing = { ...baseKc, status: KnowledgeCandidateStatus.PUBLISHED } as ItsmKnowledgeCandidate;
+      const existing = {
+        ...baseKc,
+        status: KnowledgeCandidateStatus.PUBLISHED,
+      } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
 
       await expect(
         service.transitionStatus(
-          mockTenantId, mockUserId, mockKcId, KnowledgeCandidateStatus.DRAFT,
+          mockTenantId,
+          mockUserId,
+          mockKcId,
+          KnowledgeCandidateStatus.DRAFT,
         ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should allow REJECTED → DRAFT (re-draft)', async () => {
-      const existing = { ...baseKc, status: KnowledgeCandidateStatus.REJECTED } as ItsmKnowledgeCandidate;
+      const existing = {
+        ...baseKc,
+        status: KnowledgeCandidateStatus.REJECTED,
+      } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
       kcRepo.save.mockImplementation((entity: unknown) =>
         Promise.resolve(entity as ItsmKnowledgeCandidate),
       );
 
       const result = await service.transitionStatus(
-        mockTenantId, mockUserId, mockKcId, KnowledgeCandidateStatus.DRAFT,
+        mockTenantId,
+        mockUserId,
+        mockKcId,
+        KnowledgeCandidateStatus.DRAFT,
       );
 
       expect(result.status).toBe(KnowledgeCandidateStatus.DRAFT);
@@ -370,7 +423,10 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
 
       await expect(
         service.transitionStatus(
-          mockTenantId, mockUserId, 'missing-id', KnowledgeCandidateStatus.REVIEWED,
+          mockTenantId,
+          mockUserId,
+          'missing-id',
+          KnowledgeCandidateStatus.REVIEWED,
         ),
       ).rejects.toThrow(NotFoundException);
     });
@@ -384,9 +440,16 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
     it('should soft-delete a KC', async () => {
       const existing = { ...baseKc } as ItsmKnowledgeCandidate;
       kcRepo.findOne.mockResolvedValue(existing);
-      kcRepo.save.mockResolvedValue({ ...existing, isDeleted: true } as ItsmKnowledgeCandidate);
+      kcRepo.save.mockResolvedValue({
+        ...existing,
+        isDeleted: true,
+      } as ItsmKnowledgeCandidate);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, mockKcId);
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        mockKcId,
+      );
 
       expect(result).toBe(true);
     });
@@ -394,7 +457,11 @@ describe('KnowledgeCandidateService — Phase 3 (Generation, Status Transitions)
     it('should return false when KC not found', async () => {
       kcRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.softDelete(mockTenantId, mockUserId, 'missing-id');
+      const result = await service.softDelete(
+        mockTenantId,
+        mockUserId,
+        'missing-id',
+      );
 
       expect(result).toBe(false);
     });
