@@ -13,6 +13,7 @@ import { CmdbService as CmdbServiceEntity } from '../cmdb/service/cmdb-service.e
 import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
 import {
   IncidentStatus,
+  IncidentPriority,
   IncidentImpact,
   IncidentUrgency,
   calculatePriority,
@@ -65,13 +66,14 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
     tenantId: string,
     impact: IncidentImpact,
     urgency: IncidentUrgency,
-  ): Promise<string> {
+  ): Promise<IncidentPriority> {
     if (this.priorityMatrixService) {
-      return this.priorityMatrixService.computePriority(
+      const result = await this.priorityMatrixService.computePriority(
         tenantId,
         impact,
         urgency,
       );
+      return (result as IncidentPriority) ?? IncidentPriority.P3;
     }
     return calculatePriority(impact, urgency);
   }

@@ -105,6 +105,9 @@ describe('RiskScoringService', () => {
       mockSlaInstanceRepo as never,
       mockConflictRepo as never,
       mockCustomerRiskImpactService as never,
+      undefined, // topologyImpactService (optional)
+      undefined, // changeRiskRepo (optional)
+      undefined, // grcRiskRepo (optional)
     );
   });
 

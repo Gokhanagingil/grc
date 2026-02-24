@@ -541,24 +541,25 @@ export class RiskScoringService {
       };
     }
 
-    // Severity score mapping (from GrcRisk.severity enum)
+    // Severity score mapping (from GrcRisk.severity enum — lowercase values)
     const severityMap: Record<string, number> = {
-      CRITICAL: 100,
-      HIGH: 75,
-      MEDIUM: 50,
-      LOW: 25,
+      critical: 100,
+      high: 75,
+      medium: 50,
+      low: 25,
     };
 
-    // Status weight mapping — open/active risks count more
+    // Status weight mapping — open/active risks count more (lowercase enum values)
     const statusWeightMap: Record<string, number> = {
-      IDENTIFIED: 1.0,
-      OPEN: 1.0,
-      ANALYZING: 1.0,
-      MITIGATING: 0.6,
-      MONITORING: 0.6,
-      CLOSED: 0.2,
-      ACCEPTED: 0.2,
-      DRAFT: 0.4,
+      identified: 1.0,
+      assessed: 1.0,
+      treatment_planned: 1.0,
+      treating: 0.8,
+      mitigating: 0.6,
+      monitored: 0.6,
+      closed: 0.2,
+      accepted: 0.2,
+      draft: 0.4,
     };
 
     const riskIds = links.map((l) => l.riskId);
@@ -593,9 +594,14 @@ export class RiskScoringService {
       const weighted = sevScore * statusWeight;
       totalWeightedScore += weighted;
 
-      if (String(risk.severity).toLowerCase() === 'critical') criticalCount++;
-      if (String(risk.severity).toLowerCase() === 'high') highCount++;
-      if (['IDENTIFIED', 'OPEN', 'ANALYZING'].includes(risk.status))
+      const sevStr = String(risk.severity);
+      if (sevStr === 'critical') criticalCount++;
+      if (sevStr === 'high') highCount++;
+      if (
+        ['identified', 'assessed', 'treatment_planned'].includes(
+          String(risk.status),
+        )
+      )
         openCount++;
 
       details.push(
