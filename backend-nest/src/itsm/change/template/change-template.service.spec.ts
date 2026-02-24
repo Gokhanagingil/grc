@@ -10,7 +10,11 @@ import { ChangeTemplateService } from './change-template.service';
 import { ItsmChangeTemplate } from './change-template.entity';
 import { ItsmChangeTemplateTask } from './change-template-task.entity';
 import { ItsmChangeTemplateDependency } from './change-template-dependency.entity';
-import { ItsmChangeTask, ChangeTaskStatus, ChangeTaskType } from '../task/change-task.entity';
+import {
+  ItsmChangeTask,
+  ChangeTaskStatus,
+  ChangeTaskType,
+} from '../task/change-task.entity';
 import { ItsmChangeTaskDependency } from '../task/change-task-dependency.entity';
 import { ItsmChange } from '../change.entity';
 
@@ -28,7 +32,9 @@ describe('ChangeTemplateService', () => {
   const TEMPLATE_ID = '00000000-0000-0000-0000-000000000030';
   const CHANGE_ID = '00000000-0000-0000-0000-000000000010';
 
-  const makeTemplate = (overrides: Partial<ItsmChangeTemplate> = {}): ItsmChangeTemplate =>
+  const makeTemplate = (
+    overrides: Partial<ItsmChangeTemplate> = {},
+  ): ItsmChangeTemplate =>
     ({
       id: TEMPLATE_ID,
       tenantId: TENANT,
@@ -46,7 +52,11 @@ describe('ChangeTemplateService', () => {
       ...overrides,
     }) as ItsmChangeTemplate;
 
-  const makeTemplateTask = (key: string, title: string, overrides = {}): ItsmChangeTemplateTask =>
+  const makeTemplateTask = (
+    key: string,
+    title: string,
+    overrides = {},
+  ): ItsmChangeTemplateTask =>
     ({
       id: `tt-${key}`,
       tenantId: TENANT,
@@ -69,7 +79,10 @@ describe('ChangeTemplateService', () => {
       ...overrides,
     }) as ItsmChangeTemplateTask;
 
-  const makeTemplateDep = (pred: string, succ: string): ItsmChangeTemplateDependency =>
+  const makeTemplateDep = (
+    pred: string,
+    succ: string,
+  ): ItsmChangeTemplateDependency =>
     ({
       id: `td-${pred}-${succ}`,
       tenantId: TENANT,
@@ -120,11 +133,23 @@ describe('ChangeTemplateService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChangeTemplateService,
-        { provide: getRepositoryToken(ItsmChangeTemplate), useValue: mockTemplateRepo },
-        { provide: getRepositoryToken(ItsmChangeTemplateTask), useValue: mockTemplateTaskRepo },
-        { provide: getRepositoryToken(ItsmChangeTemplateDependency), useValue: mockTemplateDepRepo },
+        {
+          provide: getRepositoryToken(ItsmChangeTemplate),
+          useValue: mockTemplateRepo,
+        },
+        {
+          provide: getRepositoryToken(ItsmChangeTemplateTask),
+          useValue: mockTemplateTaskRepo,
+        },
+        {
+          provide: getRepositoryToken(ItsmChangeTemplateDependency),
+          useValue: mockTemplateDepRepo,
+        },
         { provide: getRepositoryToken(ItsmChangeTask), useValue: mockTaskRepo },
-        { provide: getRepositoryToken(ItsmChangeTaskDependency), useValue: mockTaskDepRepo },
+        {
+          provide: getRepositoryToken(ItsmChangeTaskDependency),
+          useValue: mockTaskDepRepo,
+        },
         { provide: getRepositoryToken(ItsmChange), useValue: mockChangeRepo },
       ],
     }).compile();
@@ -132,7 +157,9 @@ describe('ChangeTemplateService', () => {
     service = module.get<ChangeTemplateService>(ChangeTemplateService);
     templateRepo = module.get(getRepositoryToken(ItsmChangeTemplate));
     templateTaskRepo = module.get(getRepositoryToken(ItsmChangeTemplateTask));
-    templateDepRepo = module.get(getRepositoryToken(ItsmChangeTemplateDependency));
+    templateDepRepo = module.get(
+      getRepositoryToken(ItsmChangeTemplateDependency),
+    );
     taskRepo = module.get(getRepositoryToken(ItsmChangeTask));
     taskDepRepo = module.get(getRepositoryToken(ItsmChangeTaskDependency));
     changeRepo = module.get(getRepositoryToken(ItsmChange));
@@ -151,18 +178,38 @@ describe('ChangeTemplateService', () => {
     it('should create a template with tasks and dependencies', async () => {
       templateRepo.findOne.mockResolvedValue(null);
       templateRepo.create.mockImplementation((d) => d as ItsmChangeTemplate);
-      templateRepo.save.mockImplementation(async (e) => ({ ...e, id: TEMPLATE_ID }) as ItsmChangeTemplate);
-      templateTaskRepo.create.mockImplementation((d) => d as ItsmChangeTemplateTask);
-      templateTaskRepo.save.mockImplementation(async (arr: any) => arr);
-      templateDepRepo.create.mockImplementation((d) => d as ItsmChangeTemplateDependency);
-      templateDepRepo.save.mockImplementation(async (arr: any) => arr);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: TEMPLATE_ID } as ItsmChangeTemplate),
+      );
+      templateTaskRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTemplateTask,
+      );
+
+      templateTaskRepo.save.mockImplementation((arr: any) =>
+        Promise.resolve(arr),
+      );
+      templateDepRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTemplateDependency,
+      );
+
+      templateDepRepo.save.mockImplementation((arr: any) =>
+        Promise.resolve(arr),
+      );
 
       const result = await service.createTemplate(TENANT, USER, {
         name: 'Standard Deploy',
         code: 'STD_DEPLOY',
         tasks: [
-          { taskKey: 'pre_check', title: 'Pre-Check', taskType: ChangeTaskType.PRE_CHECK },
-          { taskKey: 'implement', title: 'Implement', taskType: ChangeTaskType.IMPLEMENTATION },
+          {
+            taskKey: 'pre_check',
+            title: 'Pre-Check',
+            taskType: ChangeTaskType.PRE_CHECK,
+          },
+          {
+            taskKey: 'implement',
+            title: 'Implement',
+            taskType: ChangeTaskType.IMPLEMENTATION,
+          },
         ],
         dependencies: [
           { predecessorTaskKey: 'pre_check', successorTaskKey: 'implement' },
@@ -171,7 +218,11 @@ describe('ChangeTemplateService', () => {
 
       expect(result).toBeDefined();
       expect(templateRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ tenantId: TENANT, name: 'Standard Deploy', code: 'STD_DEPLOY' }),
+        expect.objectContaining({
+          tenantId: TENANT,
+          name: 'Standard Deploy',
+          code: 'STD_DEPLOY',
+        }),
       );
       expect(templateTaskRepo.save).toHaveBeenCalled();
       expect(templateDepRepo.save).toHaveBeenCalled();
@@ -181,14 +232,19 @@ describe('ChangeTemplateService', () => {
       templateRepo.findOne.mockResolvedValue(makeTemplate());
 
       await expect(
-        service.createTemplate(TENANT, USER, { name: 'Another', code: 'STD_DEPLOY' }),
+        service.createTemplate(TENANT, USER, {
+          name: 'Another',
+          code: 'STD_DEPLOY',
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
     it('should reject duplicate task keys', async () => {
       templateRepo.findOne.mockResolvedValue(null);
       templateRepo.create.mockImplementation((d) => d as ItsmChangeTemplate);
-      templateRepo.save.mockImplementation(async (e) => ({ ...e, id: TEMPLATE_ID }) as ItsmChangeTemplate);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: TEMPLATE_ID } as ItsmChangeTemplate),
+      );
 
       await expect(
         service.createTemplate(TENANT, USER, {
@@ -205,9 +261,16 @@ describe('ChangeTemplateService', () => {
     it('should reject self-dependency in template', async () => {
       templateRepo.findOne.mockResolvedValue(null);
       templateRepo.create.mockImplementation((d) => d as ItsmChangeTemplate);
-      templateRepo.save.mockImplementation(async (e) => ({ ...e, id: TEMPLATE_ID }) as ItsmChangeTemplate);
-      templateTaskRepo.create.mockImplementation((d) => d as ItsmChangeTemplateTask);
-      templateTaskRepo.save.mockImplementation(async (arr: any) => arr);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: TEMPLATE_ID } as ItsmChangeTemplate),
+      );
+      templateTaskRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTemplateTask,
+      );
+
+      templateTaskRepo.save.mockImplementation((arr: any) =>
+        Promise.resolve(arr),
+      );
 
       await expect(
         service.createTemplate(TENANT, USER, {
@@ -222,9 +285,16 @@ describe('ChangeTemplateService', () => {
     it('should reject dependency cycle in template (A->B->C->A)', async () => {
       templateRepo.findOne.mockResolvedValue(null);
       templateRepo.create.mockImplementation((d) => d as ItsmChangeTemplate);
-      templateRepo.save.mockImplementation(async (e) => ({ ...e, id: TEMPLATE_ID }) as ItsmChangeTemplate);
-      templateTaskRepo.create.mockImplementation((d) => d as ItsmChangeTemplateTask);
-      templateTaskRepo.save.mockImplementation(async (arr: any) => arr);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: TEMPLATE_ID } as ItsmChangeTemplate),
+      );
+      templateTaskRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTemplateTask,
+      );
+
+      templateTaskRepo.save.mockImplementation((arr: any) =>
+        Promise.resolve(arr),
+      );
 
       await expect(
         service.createTemplate(TENANT, USER, {
@@ -247,16 +317,25 @@ describe('ChangeTemplateService', () => {
     it('should reject dependency referencing unknown task key', async () => {
       templateRepo.findOne.mockResolvedValue(null);
       templateRepo.create.mockImplementation((d) => d as ItsmChangeTemplate);
-      templateRepo.save.mockImplementation(async (e) => ({ ...e, id: TEMPLATE_ID }) as ItsmChangeTemplate);
-      templateTaskRepo.create.mockImplementation((d) => d as ItsmChangeTemplateTask);
-      templateTaskRepo.save.mockImplementation(async (arr: any) => arr);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: TEMPLATE_ID } as ItsmChangeTemplate),
+      );
+      templateTaskRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTemplateTask,
+      );
+
+      templateTaskRepo.save.mockImplementation((arr: any) =>
+        Promise.resolve(arr),
+      );
 
       await expect(
         service.createTemplate(TENANT, USER, {
           name: 'Bad Ref',
           code: 'BAD_REF',
           tasks: [{ taskKey: 'a', title: 'A' }],
-          dependencies: [{ predecessorTaskKey: 'a', successorTaskKey: 'nonexistent' }],
+          dependencies: [
+            { predecessorTaskKey: 'a', successorTaskKey: 'nonexistent' },
+          ],
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -265,7 +344,10 @@ describe('ChangeTemplateService', () => {
   describe('findTemplateById', () => {
     it('should return template with tasks and dependencies', async () => {
       templateRepo.findOne.mockResolvedValue(makeTemplate());
-      const tasks = [makeTemplateTask('pre_check', 'Pre-Check'), makeTemplateTask('implement', 'Implement')];
+      const tasks = [
+        makeTemplateTask('pre_check', 'Pre-Check'),
+        makeTemplateTask('implement', 'Implement'),
+      ];
       templateTaskRepo.find.mockResolvedValue(tasks);
       const deps = [makeTemplateDep('pre_check', 'implement')];
       templateDepRepo.find.mockResolvedValue(deps);
@@ -329,7 +411,9 @@ describe('ChangeTemplateService', () => {
     it('should update template header fields and increment version', async () => {
       const existing = makeTemplate({ version: 1 });
       templateRepo.findOne.mockResolvedValue(existing);
-      templateRepo.save.mockImplementation(async (e) => e as ItsmChangeTemplate);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTemplate),
+      );
 
       const result = await service.updateTemplate(TENANT, USER, TEMPLATE_ID, {
         name: 'Updated Name',
@@ -344,7 +428,12 @@ describe('ChangeTemplateService', () => {
 
     it('should return null when template not found', async () => {
       templateRepo.findOne.mockResolvedValue(null);
-      const result = await service.updateTemplate(TENANT, USER, 'non-existent', { name: 'X' });
+      const result = await service.updateTemplate(
+        TENANT,
+        USER,
+        'non-existent',
+        { name: 'X' },
+      );
       expect(result).toBeNull();
     });
   });
@@ -353,9 +442,15 @@ describe('ChangeTemplateService', () => {
     it('should soft delete template', async () => {
       const existing = makeTemplate();
       templateRepo.findOne.mockResolvedValue(existing);
-      templateRepo.save.mockImplementation(async (e) => e as ItsmChangeTemplate);
+      templateRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTemplate),
+      );
 
-      const result = await service.softDeleteTemplate(TENANT, USER, TEMPLATE_ID);
+      const result = await service.softDeleteTemplate(
+        TENANT,
+        USER,
+        TEMPLATE_ID,
+      );
 
       expect(result).toBe(true);
       expect(existing.isDeleted).toBe(true);
@@ -363,7 +458,11 @@ describe('ChangeTemplateService', () => {
 
     it('should return false when template not found', async () => {
       templateRepo.findOne.mockResolvedValue(null);
-      const result = await service.softDeleteTemplate(TENANT, USER, 'non-existent');
+      const result = await service.softDeleteTemplate(
+        TENANT,
+        USER,
+        'non-existent',
+      );
       expect(result).toBe(false);
     });
   });
@@ -371,12 +470,28 @@ describe('ChangeTemplateService', () => {
   // ---- TEMPLATE APPLICATION ----
   describe('applyTemplateToChange', () => {
     const setupApplyMocks = () => {
-      changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID, tenantId: TENANT, isDeleted: false } as ItsmChange);
+      changeRepo.findOne.mockResolvedValue({
+        id: CHANGE_ID,
+        tenantId: TENANT,
+        isDeleted: false,
+      } as ItsmChange);
       templateRepo.findOne.mockResolvedValue(makeTemplate());
       templateTaskRepo.find.mockResolvedValue([
-        makeTemplateTask('pre_check', 'Pre-Check', { taskType: ChangeTaskType.PRE_CHECK, sortOrder: 0, sequenceOrder: 0 }),
-        makeTemplateTask('implement', 'Implement', { taskType: ChangeTaskType.IMPLEMENTATION, sortOrder: 1, sequenceOrder: 1 }),
-        makeTemplateTask('validate', 'Validate', { taskType: ChangeTaskType.VALIDATION, sortOrder: 2, sequenceOrder: 2 }),
+        makeTemplateTask('pre_check', 'Pre-Check', {
+          taskType: ChangeTaskType.PRE_CHECK,
+          sortOrder: 0,
+          sequenceOrder: 0,
+        }),
+        makeTemplateTask('implement', 'Implement', {
+          taskType: ChangeTaskType.IMPLEMENTATION,
+          sortOrder: 1,
+          sequenceOrder: 1,
+        }),
+        makeTemplateTask('validate', 'Validate', {
+          taskType: ChangeTaskType.VALIDATION,
+          sortOrder: 2,
+          sequenceOrder: 2,
+        }),
       ]);
       templateDepRepo.find.mockResolvedValue([
         makeTemplateDep('pre_check', 'implement'),
@@ -386,19 +501,31 @@ describe('ChangeTemplateService', () => {
       taskRepo.count.mockResolvedValue(0);
       let taskCounter = 0;
       taskRepo.create.mockImplementation((d) => d as ItsmChangeTask);
-      taskRepo.save.mockImplementation(async (e) => {
+      taskRepo.save.mockImplementation((e) => {
         taskCounter++;
-        return { ...e, id: `created-task-${taskCounter}` } as ItsmChangeTask;
+        return Promise.resolve({
+          ...e,
+          id: `created-task-${taskCounter}`,
+        } as ItsmChangeTask);
       });
       taskDepRepo.findOne.mockResolvedValue(null);
-      taskDepRepo.create.mockImplementation((d) => d as ItsmChangeTaskDependency);
-      taskDepRepo.save.mockImplementation(async (d) => d as ItsmChangeTaskDependency);
+      taskDepRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTaskDependency,
+      );
+      taskDepRepo.save.mockImplementation((d) =>
+        Promise.resolve(d as ItsmChangeTaskDependency),
+      );
     };
 
     it('should create expected number of tasks and dependencies', async () => {
       setupApplyMocks();
 
-      const result = await service.applyTemplateToChange(TENANT, USER, CHANGE_ID, TEMPLATE_ID);
+      const result = await service.applyTemplateToChange(
+        TENANT,
+        USER,
+        CHANGE_ID,
+        TEMPLATE_ID,
+      );
 
       expect(result.tasksCreated).toBe(3);
       expect(result.dependenciesCreated).toBe(2);
@@ -442,12 +569,21 @@ describe('ChangeTemplateService', () => {
       changeRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.applyTemplateToChange(TENANT, USER, 'non-existent', TEMPLATE_ID),
+        service.applyTemplateToChange(
+          TENANT,
+          USER,
+          'non-existent',
+          TEMPLATE_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should reject when template not found', async () => {
-      changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID, tenantId: TENANT, isDeleted: false } as ItsmChange);
+      changeRepo.findOne.mockResolvedValue({
+        id: CHANGE_ID,
+        tenantId: TENANT,
+        isDeleted: false,
+      } as ItsmChange);
       templateRepo.findOne.mockResolvedValue(null);
       templateTaskRepo.find.mockResolvedValue([]);
       templateDepRepo.find.mockResolvedValue([]);
@@ -458,7 +594,11 @@ describe('ChangeTemplateService', () => {
     });
 
     it('should reject when template is inactive', async () => {
-      changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID, tenantId: TENANT, isDeleted: false } as ItsmChange);
+      changeRepo.findOne.mockResolvedValue({
+        id: CHANGE_ID,
+        tenantId: TENANT,
+        isDeleted: false,
+      } as ItsmChange);
       templateRepo.findOne.mockResolvedValue(makeTemplate({ isActive: false }));
       templateTaskRepo.find.mockResolvedValue([]);
       templateDepRepo.find.mockResolvedValue([]);
@@ -469,39 +609,82 @@ describe('ChangeTemplateService', () => {
     });
 
     it('should reject duplicate application without force', async () => {
-      changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID, tenantId: TENANT, isDeleted: false } as ItsmChange);
+      changeRepo.findOne.mockResolvedValue({
+        id: CHANGE_ID,
+        tenantId: TENANT,
+        isDeleted: false,
+      } as ItsmChange);
       templateRepo.findOne.mockResolvedValue(makeTemplate());
-      templateTaskRepo.find.mockResolvedValue([makeTemplateTask('pre_check', 'Pre-Check')]);
+      templateTaskRepo.find.mockResolvedValue([
+        makeTemplateTask('pre_check', 'Pre-Check'),
+      ]);
       templateDepRepo.find.mockResolvedValue([]);
       taskRepo.find.mockResolvedValue([
-        { id: 'existing-1', sourceTemplateId: TEMPLATE_ID, templateTaskKey: 'pre_check' } as ItsmChangeTask,
+        {
+          id: 'existing-1',
+          sourceTemplateId: TEMPLATE_ID,
+          templateTaskKey: 'pre_check',
+        } as ItsmChangeTask,
       ]);
 
       await expect(
-        service.applyTemplateToChange(TENANT, USER, CHANGE_ID, TEMPLATE_ID, false),
+        service.applyTemplateToChange(
+          TENANT,
+          USER,
+          CHANGE_ID,
+          TEMPLATE_ID,
+          false,
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
     it('should skip existing tasks on force re-apply', async () => {
-      changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID, tenantId: TENANT, isDeleted: false } as ItsmChange);
+      changeRepo.findOne.mockResolvedValue({
+        id: CHANGE_ID,
+        tenantId: TENANT,
+        isDeleted: false,
+      } as ItsmChange);
       templateRepo.findOne.mockResolvedValue(makeTemplate());
       templateTaskRepo.find.mockResolvedValue([
-        makeTemplateTask('pre_check', 'Pre-Check', { sortOrder: 0, sequenceOrder: 0 }),
-        makeTemplateTask('implement', 'Implement', { sortOrder: 1, sequenceOrder: 1 }),
+        makeTemplateTask('pre_check', 'Pre-Check', {
+          sortOrder: 0,
+          sequenceOrder: 0,
+        }),
+        makeTemplateTask('implement', 'Implement', {
+          sortOrder: 1,
+          sequenceOrder: 1,
+        }),
       ]);
-      templateDepRepo.find.mockResolvedValue([makeTemplateDep('pre_check', 'implement')]);
+      templateDepRepo.find.mockResolvedValue([
+        makeTemplateDep('pre_check', 'implement'),
+      ]);
       taskRepo.find.mockResolvedValue([]);
       taskRepo.findOne
-        .mockResolvedValueOnce({ id: 'existing-pre', templateTaskKey: 'pre_check' } as ItsmChangeTask)
+        .mockResolvedValueOnce({
+          id: 'existing-pre',
+          templateTaskKey: 'pre_check',
+        } as ItsmChangeTask)
         .mockResolvedValueOnce(null);
       taskRepo.count.mockResolvedValue(1);
       taskRepo.create.mockImplementation((d) => d as ItsmChangeTask);
-      taskRepo.save.mockImplementation(async (e) => ({ ...e, id: 'new-impl' }) as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve({ ...e, id: 'new-impl' } as ItsmChangeTask),
+      );
       taskDepRepo.findOne.mockResolvedValue(null);
-      taskDepRepo.create.mockImplementation((d) => d as ItsmChangeTaskDependency);
-      taskDepRepo.save.mockImplementation(async (d) => d as ItsmChangeTaskDependency);
+      taskDepRepo.create.mockImplementation(
+        (d) => d as ItsmChangeTaskDependency,
+      );
+      taskDepRepo.save.mockImplementation((d) =>
+        Promise.resolve(d as ItsmChangeTaskDependency),
+      );
 
-      const result = await service.applyTemplateToChange(TENANT, USER, CHANGE_ID, TEMPLATE_ID, true);
+      const result = await service.applyTemplateToChange(
+        TENANT,
+        USER,
+        CHANGE_ID,
+        TEMPLATE_ID,
+        true,
+      );
 
       expect(result.tasksCreated).toBe(1);
       expect(result.skipped).toContain('pre_check');

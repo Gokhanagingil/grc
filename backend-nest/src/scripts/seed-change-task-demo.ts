@@ -24,11 +24,22 @@ import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
 import { Tenant } from '../tenants/tenant.entity';
-import { ItsmChange, ChangeType, ChangeState, ChangeRisk, ChangeApprovalStatus } from '../itsm/change/change.entity';
+import {
+  ItsmChange,
+  ChangeType,
+  ChangeState,
+  ChangeRisk,
+  ChangeApprovalStatus,
+} from '../itsm/change/change.entity';
 import { ItsmChangeTemplate } from '../itsm/change/template/change-template.entity';
 import { ItsmChangeTemplateTask } from '../itsm/change/template/change-template-task.entity';
 import { ItsmChangeTemplateDependency } from '../itsm/change/template/change-template-dependency.entity';
-import { ItsmChangeTask, ChangeTaskStatus, ChangeTaskType, ChangeTaskPriority } from '../itsm/change/task/change-task.entity';
+import {
+  ItsmChangeTask,
+  ChangeTaskStatus,
+  ChangeTaskType,
+  ChangeTaskPriority,
+} from '../itsm/change/task/change-task.entity';
 import { ItsmChangeTaskDependency } from '../itsm/change/task/change-task-dependency.entity';
 
 // ============================================================================
@@ -116,7 +127,9 @@ async function seedChangeTaskDemo(): Promise<void> {
   try {
     // ── Verify tenant ──
     console.log('LAYER 0: Verifying prerequisites...');
-    const tenant = await ds.getRepository(Tenant).findOne({ where: { id: DEMO_TENANT_ID } });
+    const tenant = await ds
+      .getRepository(Tenant)
+      .findOne({ where: { id: DEMO_TENANT_ID } });
     if (!tenant) {
       console.error('  ERROR: Demo tenant not found. Run seed:grc first.');
       process.exit(1);
@@ -134,7 +147,8 @@ async function seedChangeTaskDemo(): Promise<void> {
         tenantId: DEMO_TENANT_ID,
         name: 'Standard Deployment Pack',
         code: 'STD_DEPLOY_V1',
-        description: 'Standard deployment template with parallel pre-checks, serial implementation, parallel validation, and optional backout.',
+        description:
+          'Standard deployment template with parallel pre-checks, serial implementation, parallel validation, and optional backout.',
         isActive: true,
         isGlobal: false,
         version: 1,
@@ -154,13 +168,76 @@ async function seedChangeTaskDemo(): Promise<void> {
     const ttRepo = ds.getRepository(ItsmChangeTemplateTask);
 
     const templateTasks = [
-      { id: ID.TT_PRE1, taskKey: 'pre_check_1', title: 'Verify DB Backup Completed', taskType: 'PRE_CHECK', seq: 0, sort: 0, stage: 'Pre-Flight', blocking: true },
-      { id: ID.TT_PRE2, taskKey: 'pre_check_2', title: 'Validate Rollback Script', taskType: 'PRE_CHECK', seq: 1, sort: 1, stage: 'Pre-Flight', blocking: true },
-      { id: ID.TT_IMPL1, taskKey: 'implement_1', title: 'Run Database Migration', taskType: 'IMPLEMENTATION', seq: 2, sort: 2, stage: 'Execute', blocking: true },
-      { id: ID.TT_IMPL2, taskKey: 'implement_2', title: 'Update Application Config', taskType: 'IMPLEMENTATION', seq: 3, sort: 3, stage: 'Execute', blocking: true },
-      { id: ID.TT_VAL1, taskKey: 'validate_1', title: 'Run Integration Test Suite', taskType: 'VALIDATION', seq: 4, sort: 4, stage: 'Validate', blocking: true },
-      { id: ID.TT_VAL2, taskKey: 'validate_2', title: 'Verify Monitoring Dashboards', taskType: 'VALIDATION', seq: 5, sort: 5, stage: 'Validate', blocking: false },
-      { id: ID.TT_BACKOUT, taskKey: 'backout_prep', title: 'Prepare Backout Procedure', taskType: 'BACKOUT', seq: 6, sort: 6, stage: 'Backout', blocking: false },
+      {
+        id: ID.TT_PRE1,
+        taskKey: 'pre_check_1',
+        title: 'Verify DB Backup Completed',
+        taskType: 'PRE_CHECK',
+        seq: 0,
+        sort: 0,
+        stage: 'Pre-Flight',
+        blocking: true,
+      },
+      {
+        id: ID.TT_PRE2,
+        taskKey: 'pre_check_2',
+        title: 'Validate Rollback Script',
+        taskType: 'PRE_CHECK',
+        seq: 1,
+        sort: 1,
+        stage: 'Pre-Flight',
+        blocking: true,
+      },
+      {
+        id: ID.TT_IMPL1,
+        taskKey: 'implement_1',
+        title: 'Run Database Migration',
+        taskType: 'IMPLEMENTATION',
+        seq: 2,
+        sort: 2,
+        stage: 'Execute',
+        blocking: true,
+      },
+      {
+        id: ID.TT_IMPL2,
+        taskKey: 'implement_2',
+        title: 'Update Application Config',
+        taskType: 'IMPLEMENTATION',
+        seq: 3,
+        sort: 3,
+        stage: 'Execute',
+        blocking: true,
+      },
+      {
+        id: ID.TT_VAL1,
+        taskKey: 'validate_1',
+        title: 'Run Integration Test Suite',
+        taskType: 'VALIDATION',
+        seq: 4,
+        sort: 4,
+        stage: 'Validate',
+        blocking: true,
+      },
+      {
+        id: ID.TT_VAL2,
+        taskKey: 'validate_2',
+        title: 'Verify Monitoring Dashboards',
+        taskType: 'VALIDATION',
+        seq: 5,
+        sort: 5,
+        stage: 'Validate',
+        blocking: false,
+      },
+      {
+        id: ID.TT_BACKOUT,
+        taskKey: 'backout_prep',
+        title: 'Prepare Backout Procedure',
+        taskType: 'BACKOUT',
+        seq: 6,
+        sort: 6,
+        stage: 'Backout',
+        blocking: false,
+      },
     ];
 
     for (const tt of templateTasks) {
@@ -239,9 +316,10 @@ async function seedChangeTaskDemo(): Promise<void> {
         tenantId: DEMO_TENANT_ID,
         number: 'CHG-TASK-DEMO-001',
         title: 'Database Platform Upgrade v15.4 — Task Orchestration Demo',
-        description: 'Upgrade the primary PostgreSQL database from v15.3 to v15.4. This change demonstrates task orchestration with parallel pre-checks, serial implementation steps, and parallel validation.',
+        description:
+          'Upgrade the primary PostgreSQL database from v15.3 to v15.4. This change demonstrates task orchestration with parallel pre-checks, serial implementation steps, and parallel validation.',
         type: ChangeType.NORMAL,
-        state: ChangeState.SCHEDULED,
+        state: ChangeState.IMPLEMENT,
         risk: ChangeRisk.MEDIUM,
         approvalStatus: ChangeApprovalStatus.APPROVED,
         plannedStartDate: hoursAgo(2),
@@ -270,13 +348,97 @@ async function seedChangeTaskDemo(): Promise<void> {
     const taskRepo = ds.getRepository(ItsmChangeTask);
 
     const appliedTasks = [
-      { id: ID.TASK_PRE1, key: 'pre_check_1', title: 'Verify DB Backup Completed', type: ChangeTaskType.PRE_CHECK, status: ChangeTaskStatus.COMPLETED, seq: 0, sort: 0, stage: 'Pre-Flight', blocking: true, startAt: hoursAgo(2), endAt: hoursAgo(1.5) },
-      { id: ID.TASK_PRE2, key: 'pre_check_2', title: 'Validate Rollback Script', type: ChangeTaskType.PRE_CHECK, status: ChangeTaskStatus.COMPLETED, seq: 1, sort: 1, stage: 'Pre-Flight', blocking: true, startAt: hoursAgo(2), endAt: hoursAgo(1.5) },
-      { id: ID.TASK_IMPL1, key: 'implement_1', title: 'Run Database Migration', type: ChangeTaskType.IMPLEMENTATION, status: ChangeTaskStatus.IN_PROGRESS, seq: 2, sort: 2, stage: 'Execute', blocking: true, startAt: hoursAgo(1), endAt: null },
-      { id: ID.TASK_IMPL2, key: 'implement_2', title: 'Update Application Config', type: ChangeTaskType.IMPLEMENTATION, status: ChangeTaskStatus.OPEN, seq: 3, sort: 3, stage: 'Execute', blocking: true, startAt: null, endAt: null },
-      { id: ID.TASK_VAL1, key: 'validate_1', title: 'Run Integration Test Suite', type: ChangeTaskType.VALIDATION, status: ChangeTaskStatus.OPEN, seq: 4, sort: 4, stage: 'Validate', blocking: true, startAt: null, endAt: null },
-      { id: ID.TASK_VAL2, key: 'validate_2', title: 'Verify Monitoring Dashboards', type: ChangeTaskType.VALIDATION, status: ChangeTaskStatus.OPEN, seq: 5, sort: 5, stage: 'Validate', blocking: false, startAt: null, endAt: null },
-      { id: ID.TASK_BACKOUT, key: 'backout_prep', title: 'Prepare Backout Procedure', type: ChangeTaskType.BACKOUT, status: ChangeTaskStatus.OPEN, seq: 6, sort: 6, stage: 'Backout', blocking: false, startAt: null, endAt: null },
+      {
+        id: ID.TASK_PRE1,
+        key: 'pre_check_1',
+        title: 'Verify DB Backup Completed',
+        type: ChangeTaskType.PRE_CHECK,
+        status: ChangeTaskStatus.COMPLETED,
+        seq: 0,
+        sort: 0,
+        stage: 'Pre-Flight',
+        blocking: true,
+        startAt: hoursAgo(2),
+        endAt: hoursAgo(1.5),
+      },
+      {
+        id: ID.TASK_PRE2,
+        key: 'pre_check_2',
+        title: 'Validate Rollback Script',
+        type: ChangeTaskType.PRE_CHECK,
+        status: ChangeTaskStatus.COMPLETED,
+        seq: 1,
+        sort: 1,
+        stage: 'Pre-Flight',
+        blocking: true,
+        startAt: hoursAgo(2),
+        endAt: hoursAgo(1.5),
+      },
+      {
+        id: ID.TASK_IMPL1,
+        key: 'implement_1',
+        title: 'Run Database Migration',
+        type: ChangeTaskType.IMPLEMENTATION,
+        status: ChangeTaskStatus.IN_PROGRESS,
+        seq: 2,
+        sort: 2,
+        stage: 'Execute',
+        blocking: true,
+        startAt: hoursAgo(1),
+        endAt: null,
+      },
+      {
+        id: ID.TASK_IMPL2,
+        key: 'implement_2',
+        title: 'Update Application Config',
+        type: ChangeTaskType.IMPLEMENTATION,
+        status: ChangeTaskStatus.OPEN,
+        seq: 3,
+        sort: 3,
+        stage: 'Execute',
+        blocking: true,
+        startAt: null,
+        endAt: null,
+      },
+      {
+        id: ID.TASK_VAL1,
+        key: 'validate_1',
+        title: 'Run Integration Test Suite',
+        type: ChangeTaskType.VALIDATION,
+        status: ChangeTaskStatus.OPEN,
+        seq: 4,
+        sort: 4,
+        stage: 'Validate',
+        blocking: true,
+        startAt: null,
+        endAt: null,
+      },
+      {
+        id: ID.TASK_VAL2,
+        key: 'validate_2',
+        title: 'Verify Monitoring Dashboards',
+        type: ChangeTaskType.VALIDATION,
+        status: ChangeTaskStatus.OPEN,
+        seq: 5,
+        sort: 5,
+        stage: 'Validate',
+        blocking: false,
+        startAt: null,
+        endAt: null,
+      },
+      {
+        id: ID.TASK_BACKOUT,
+        key: 'backout_prep',
+        title: 'Prepare Backout Procedure',
+        type: ChangeTaskType.BACKOUT,
+        status: ChangeTaskStatus.OPEN,
+        seq: 6,
+        sort: 6,
+        stage: 'Backout',
+        blocking: false,
+        startAt: null,
+        endAt: null,
+      },
     ];
 
     for (const t of appliedTasks) {
@@ -336,10 +498,18 @@ async function seedChangeTaskDemo(): Promise<void> {
           successorTaskId: d.succ,
         } as Partial<ItsmChangeTaskDependency> as ItsmChangeTaskDependency);
         await depRepo.save(existing);
-        logAction('CREATED', 'Dependency', `${d.pred.slice(-4)} -> ${d.succ.slice(-4)}`);
+        logAction(
+          'CREATED',
+          'Dependency',
+          `${d.pred.slice(-4)} -> ${d.succ.slice(-4)}`,
+        );
         track('CREATED');
       } else {
-        logAction('REUSED', 'Dependency', `${d.pred.slice(-4)} -> ${d.succ.slice(-4)}`);
+        logAction(
+          'REUSED',
+          'Dependency',
+          `${d.pred.slice(-4)} -> ${d.succ.slice(-4)}`,
+        );
         track('REUSED');
       }
     }
@@ -347,21 +517,31 @@ async function seedChangeTaskDemo(): Promise<void> {
     // ── Summary ──
     console.log('');
     console.log('='.repeat(70));
-    console.log(`  SEED COMPLETE: ${stats.created} created, ${stats.reused} reused`);
+    console.log(
+      `  SEED COMPLETE: ${stats.created} created, ${stats.reused} reused`,
+    );
     console.log('');
     console.log('  DEMO DATA SUMMARY:');
     console.log('    Template: "Standard Deployment Pack" (STD_DEPLOY_V1)');
     console.log('      7 template tasks, 6 dependencies');
-    console.log('    Change: "Database Platform Upgrade v15.4" (CHG-TASK-DEMO-001)');
+    console.log(
+      '    Change: "Database Platform Upgrade v15.4" (CHG-TASK-DEMO-001)',
+    );
     console.log('      7 applied tasks with traceability fields');
     console.log('      Mixed states: 2 COMPLETED, 1 IN_PROGRESS, 4 OPEN');
-    console.log('      Readiness: 2 ready (implement_1, backout_prep), 3 blocked');
+    console.log(
+      '      Readiness: 2 ready (implement_1, backout_prep), 3 blocked',
+    );
     console.log('      6 task dependencies (serial + parallel + optional)');
     console.log('');
     console.log('  DEPENDENCY GRAPH:');
     console.log('    pre_check_1 ──┐');
-    console.log('                  ├──> implement_1 ──> implement_2 ──┬──> validate_1');
-    console.log('    pre_check_2 ──┘                                   └──> validate_2');
+    console.log(
+      '                  ├──> implement_1 ──> implement_2 ──┬──> validate_1',
+    );
+    console.log(
+      '    pre_check_2 ──┘                                   └──> validate_2',
+    );
     console.log('    pre_check_1 ──> backout_prep');
     console.log('');
     console.log('  READINESS STATE:');
@@ -371,14 +551,16 @@ async function seedChangeTaskDemo(): Promise<void> {
     console.log('    implement_2:  OPEN (blocked: implement_1 not done)');
     console.log('    validate_1:   OPEN (blocked: implement_2 not done)');
     console.log('    validate_2:   OPEN (blocked: implement_2 not done)');
-    console.log('    backout_prep: OPEN (ready: pre_check_1 done, non-blocking)');
+    console.log(
+      '    backout_prep: OPEN (ready: pre_check_1 done, non-blocking)',
+    );
     console.log('='.repeat(70));
   } finally {
     await app.close();
   }
 }
 
-seedChangeTaskDemo().catch((err) => {
+seedChangeTaskDemo().catch((err: unknown) => {
   console.error('Seed failed:', err);
   process.exit(1);
 });

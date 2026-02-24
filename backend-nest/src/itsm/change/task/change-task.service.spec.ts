@@ -7,7 +7,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { ChangeTaskService } from './change-task.service';
-import { ItsmChangeTask, ChangeTaskStatus, ChangeTaskType, ChangeTaskPriority } from './change-task.entity';
+import {
+  ItsmChangeTask,
+  ChangeTaskStatus,
+  ChangeTaskType,
+  ChangeTaskPriority,
+} from './change-task.entity';
 import { ItsmChangeTaskDependency } from './change-task-dependency.entity';
 import { ItsmChange } from '../change.entity';
 
@@ -23,8 +28,9 @@ describe('ChangeTaskService', () => {
   const TASK_A = '00000000-0000-0000-0000-0000000000a1';
   const TASK_B = '00000000-0000-0000-0000-0000000000a2';
   const TASK_C = '00000000-0000-0000-0000-0000000000a3';
-  const OTHER_CHANGE = '00000000-0000-0000-0000-000000000099';
-  const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+  // Reserved for cross-change / cross-tenant dependency tests
+  const _OTHER_CHANGE = '00000000-0000-0000-0000-000000000099';
+  const _OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
 
   const makeTask = (overrides: Partial<ItsmChangeTask> = {}): ItsmChangeTask =>
     ({
@@ -78,7 +84,9 @@ describe('ChangeTaskService', () => {
       create: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      merge: jest.fn().mockImplementation((entity, data) => ({ ...entity, ...data })),
+      merge: jest
+        .fn()
+        .mockImplementation((entity, data) => ({ ...entity, ...data })),
     };
 
     const mockDepRepo = {
@@ -98,7 +106,10 @@ describe('ChangeTaskService', () => {
       providers: [
         ChangeTaskService,
         { provide: getRepositoryToken(ItsmChangeTask), useValue: mockTaskRepo },
-        { provide: getRepositoryToken(ItsmChangeTaskDependency), useValue: mockDepRepo },
+        {
+          provide: getRepositoryToken(ItsmChangeTaskDependency),
+          useValue: mockDepRepo,
+        },
         { provide: getRepositoryToken(ItsmChange), useValue: mockChangeRepo },
       ],
     }).compile();
@@ -125,10 +136,12 @@ describe('ChangeTaskService', () => {
       changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID } as ItsmChange);
       taskRepo.count.mockResolvedValue(0);
       taskRepo.create.mockImplementation((data) => data as ItsmChangeTask);
-      taskRepo.save.mockImplementation(async (entity) => ({
-        ...entity,
+      taskRepo.save.mockResolvedValue({
         id: TASK_A,
-      }) as ItsmChangeTask);
+        tenantId: TENANT,
+        changeId: CHANGE_ID,
+        title: 'New Task',
+      } as ItsmChangeTask);
 
       const result = await service.createTask(TENANT, USER, CHANGE_ID, {
         title: 'New Task',
@@ -160,7 +173,9 @@ describe('ChangeTaskService', () => {
       changeRepo.findOne.mockResolvedValue({ id: CHANGE_ID } as ItsmChange);
       taskRepo.count.mockResolvedValue(5);
       taskRepo.create.mockImplementation((data) => data as ItsmChangeTask);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       await service.createTask(TENANT, USER, CHANGE_ID, { title: 'Task 6' });
 
@@ -177,7 +192,9 @@ describe('ChangeTaskService', () => {
     it('should update task core fields', async () => {
       const existing = makeTask();
       taskRepo.findOne.mockResolvedValue(existing);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       const result = await service.updateTask(TENANT, USER, CHANGE_ID, TASK_A, {
         title: 'Updated Title',
@@ -192,18 +209,29 @@ describe('ChangeTaskService', () => {
     it('should return null when task not found', async () => {
       taskRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.updateTask(TENANT, USER, CHANGE_ID, 'non-existent', {
-        title: 'X',
-      });
+      const result = await service.updateTask(
+        TENANT,
+        USER,
+        CHANGE_ID,
+        'non-existent',
+        {
+          title: 'X',
+        },
+      );
 
       expect(result).toBeNull();
     });
 
     it('should auto-set actualStartAt when transitioning to IN_PROGRESS', async () => {
-      const existing = makeTask({ status: ChangeTaskStatus.OPEN, actualStartAt: null });
+      const existing = makeTask({
+        status: ChangeTaskStatus.OPEN,
+        actualStartAt: null,
+      });
       taskRepo.findOne.mockResolvedValue(existing);
       depRepo.find.mockResolvedValue([]); // no predecessors, so ready
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       const result = await service.updateTask(TENANT, USER, CHANGE_ID, TASK_A, {
         status: ChangeTaskStatus.IN_PROGRESS,
@@ -214,9 +242,14 @@ describe('ChangeTaskService', () => {
     });
 
     it('should auto-set actualEndAt when transitioning to COMPLETED', async () => {
-      const existing = makeTask({ status: ChangeTaskStatus.IN_PROGRESS, actualEndAt: null });
+      const existing = makeTask({
+        status: ChangeTaskStatus.IN_PROGRESS,
+        actualEndAt: null,
+      });
       taskRepo.findOne.mockResolvedValue(existing);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       const result = await service.updateTask(TENANT, USER, CHANGE_ID, TASK_A, {
         status: ChangeTaskStatus.COMPLETED,
@@ -227,9 +260,14 @@ describe('ChangeTaskService', () => {
     });
 
     it('should auto-set actualEndAt when transitioning to FAILED', async () => {
-      const existing = makeTask({ status: ChangeTaskStatus.IN_PROGRESS, actualEndAt: null });
+      const existing = makeTask({
+        status: ChangeTaskStatus.IN_PROGRESS,
+        actualEndAt: null,
+      });
       taskRepo.findOne.mockResolvedValue(existing);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       const result = await service.updateTask(TENANT, USER, CHANGE_ID, TASK_A, {
         status: ChangeTaskStatus.FAILED,
@@ -240,10 +278,15 @@ describe('ChangeTaskService', () => {
 
     it('should not overwrite existing actualStartAt', async () => {
       const existingDate = new Date('2025-01-01');
-      const existing = makeTask({ status: ChangeTaskStatus.OPEN, actualStartAt: existingDate });
+      const existing = makeTask({
+        status: ChangeTaskStatus.OPEN,
+        actualStartAt: existingDate,
+      });
       taskRepo.findOne.mockResolvedValue(existing);
       depRepo.find.mockResolvedValue([]);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
 
       const result = await service.updateTask(TENANT, USER, CHANGE_ID, TASK_A, {
         status: ChangeTaskStatus.IN_PROGRESS,
@@ -260,7 +303,9 @@ describe('ChangeTaskService', () => {
     it('should soft delete task and remove its dependencies', async () => {
       const existing = makeTask();
       taskRepo.findOne.mockResolvedValue(existing);
-      taskRepo.save.mockImplementation(async (e) => e as ItsmChangeTask);
+      taskRepo.save.mockImplementation((e) =>
+        Promise.resolve(e as ItsmChangeTask),
+      );
       const mockQb = {
         delete: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -269,7 +314,12 @@ describe('ChangeTaskService', () => {
       };
       depRepo.createQueryBuilder.mockReturnValue(mockQb as never);
 
-      const result = await service.softDeleteTask(TENANT, USER, CHANGE_ID, TASK_A);
+      const result = await service.softDeleteTask(
+        TENANT,
+        USER,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result).toBe(true);
       expect(mockQb.execute).toHaveBeenCalled();
@@ -278,7 +328,12 @@ describe('ChangeTaskService', () => {
     it('should return false when task not found', async () => {
       taskRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.softDeleteTask(TENANT, USER, CHANGE_ID, 'non-existent');
+      const result = await service.softDeleteTask(
+        TENANT,
+        USER,
+        CHANGE_ID,
+        'non-existent',
+      );
 
       expect(result).toBe(false);
     });
@@ -304,12 +359,9 @@ describe('ChangeTaskService', () => {
       [ChangeTaskStatus.FAILED, ChangeTaskStatus.CANCELLED],
     ];
 
-    it.each(validCases)(
-      'should allow transition from %s to %s',
-      (from, to) => {
-        expect(() => service.assertValidStatusTransition(from, to)).not.toThrow();
-      },
-    );
+    it.each(validCases)('should allow transition from %s to %s', (from, to) => {
+      expect(() => service.assertValidStatusTransition(from, to)).not.toThrow();
+    });
 
     const invalidCases: [ChangeTaskStatus, ChangeTaskStatus][] = [
       [ChangeTaskStatus.COMPLETED, ChangeTaskStatus.OPEN],
@@ -339,7 +391,11 @@ describe('ChangeTaskService', () => {
     it('should return ready when task has no predecessors', async () => {
       depRepo.find.mockResolvedValue([]);
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(true);
       expect(result.totalPredecessors).toBe(0);
@@ -348,14 +404,21 @@ describe('ChangeTaskService', () => {
 
     it('should return not ready when predecessor is incomplete', async () => {
       depRepo.find.mockResolvedValue([makeDep(TASK_B, TASK_A)]);
-      const predTask = makeTask({ id: TASK_B, status: ChangeTaskStatus.IN_PROGRESS });
+      const predTask = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.IN_PROGRESS,
+      });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([predTask]),
       });
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(false);
       expect(result.blockingPredecessors).toContain(TASK_B);
@@ -363,14 +426,21 @@ describe('ChangeTaskService', () => {
 
     it('should return ready when predecessor is COMPLETED', async () => {
       depRepo.find.mockResolvedValue([makeDep(TASK_B, TASK_A)]);
-      const predTask = makeTask({ id: TASK_B, status: ChangeTaskStatus.COMPLETED });
+      const predTask = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.COMPLETED,
+      });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([predTask]),
       });
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(true);
       expect(result.completedPredecessors).toContain(TASK_B);
@@ -378,14 +448,21 @@ describe('ChangeTaskService', () => {
 
     it('should return ready when predecessor is SKIPPED', async () => {
       depRepo.find.mockResolvedValue([makeDep(TASK_B, TASK_A)]);
-      const predTask = makeTask({ id: TASK_B, status: ChangeTaskStatus.SKIPPED });
+      const predTask = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.SKIPPED,
+      });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([predTask]),
       });
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(true);
     });
@@ -395,15 +472,25 @@ describe('ChangeTaskService', () => {
         makeDep(TASK_B, TASK_A),
         makeDep(TASK_C, TASK_A),
       ]);
-      const predB = makeTask({ id: TASK_B, status: ChangeTaskStatus.COMPLETED });
-      const predC = makeTask({ id: TASK_C, status: ChangeTaskStatus.IN_PROGRESS });
+      const predB = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.COMPLETED,
+      });
+      const predC = makeTask({
+        id: TASK_C,
+        status: ChangeTaskStatus.IN_PROGRESS,
+      });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([predB, predC]),
       });
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(false);
       expect(result.blockingPredecessors).toContain(TASK_C);
@@ -416,7 +503,10 @@ describe('ChangeTaskService', () => {
         makeDep(TASK_B, TASK_A),
         makeDep(TASK_C, TASK_A),
       ]);
-      const predB = makeTask({ id: TASK_B, status: ChangeTaskStatus.COMPLETED });
+      const predB = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.COMPLETED,
+      });
       const predC = makeTask({ id: TASK_C, status: ChangeTaskStatus.SKIPPED });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -424,7 +514,11 @@ describe('ChangeTaskService', () => {
         getMany: jest.fn().mockResolvedValue([predB, predC]),
       });
 
-      const result = await service.calculateReadiness(TENANT, CHANGE_ID, TASK_A);
+      const result = await service.calculateReadiness(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+      );
 
       expect(result.isReady).toBe(true);
     });
@@ -435,7 +529,10 @@ describe('ChangeTaskService', () => {
   // ──────────────────────────────────────────────────────────────────
   describe('calculateAllReadiness', () => {
     it('should calculate readiness for all tasks in a change', async () => {
-      const taskA = makeTask({ id: TASK_A, status: ChangeTaskStatus.COMPLETED });
+      const taskA = makeTask({
+        id: TASK_A,
+        status: ChangeTaskStatus.COMPLETED,
+      });
       const taskB = makeTask({ id: TASK_B, status: ChangeTaskStatus.OPEN });
       const taskC = makeTask({ id: TASK_C, status: ChangeTaskStatus.OPEN });
 
@@ -498,7 +595,7 @@ describe('ChangeTaskService', () => {
       // If A->B exists, then dep with predecessorTaskId=A, successorTaskId=B exists
       // So from B, we find A. Then from A, we check if A === A (successorId). Yes! Cycle detected.
 
-      const result = await service.wouldCreateCycle(TENANT, CHANGE_ID, TASK_B, TASK_A);
+      await service.wouldCreateCycle(TENANT, CHANGE_ID, TASK_B, TASK_A);
 
       // Let's test this properly
       depRepo.find.mockReset();
@@ -506,14 +603,24 @@ describe('ChangeTaskService', () => {
         .mockResolvedValueOnce([makeDep(TASK_A, TASK_B)]) // predecessors of TASK_B (current = TASK_B, successorTaskId = TASK_B)
         .mockResolvedValueOnce([]); // predecessors of TASK_A
 
-      const cycleResult = await service.wouldCreateCycle(TENANT, CHANGE_ID, TASK_B, TASK_A);
+      const cycleResult = await service.wouldCreateCycle(
+        TENANT,
+        CHANGE_ID,
+        TASK_B,
+        TASK_A,
+      );
       expect(cycleResult).toBe(true);
     });
 
     it('should NOT detect cycle when no cycle exists', async () => {
       depRepo.find.mockResolvedValue([]); // no existing edges
 
-      const result = await service.wouldCreateCycle(TENANT, CHANGE_ID, TASK_A, TASK_B);
+      const result = await service.wouldCreateCycle(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+        TASK_B,
+      );
       expect(result).toBe(false);
     });
   });
@@ -528,9 +635,16 @@ describe('ChangeTaskService', () => {
       depRepo.findOne.mockResolvedValue(null); // no duplicate
       depRepo.find.mockResolvedValue([]); // no cycle
       depRepo.create.mockImplementation((d) => d as ItsmChangeTaskDependency);
-      depRepo.save.mockImplementation(async (d) => ({ ...d, id: 'dep-1' }) as ItsmChangeTaskDependency);
+      depRepo.save.mockImplementation((d) =>
+        Promise.resolve({ ...d, id: 'dep-1' } as ItsmChangeTaskDependency),
+      );
 
-      const result = await service.addDependency(TENANT, CHANGE_ID, TASK_A, TASK_B);
+      const result = await service.addDependency(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+        TASK_B,
+      );
 
       expect(result).toBeDefined();
       expect(depRepo.create).toHaveBeenCalledWith(
@@ -550,7 +664,12 @@ describe('ChangeTaskService', () => {
       depRepo.findOne.mockResolvedValue(dep);
       depRepo.remove.mockResolvedValue(dep);
 
-      const result = await service.removeDependency(TENANT, CHANGE_ID, TASK_A, TASK_B);
+      const result = await service.removeDependency(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+        TASK_B,
+      );
 
       expect(result).toBe(true);
       expect(depRepo.remove).toHaveBeenCalledWith(dep);
@@ -559,7 +678,12 @@ describe('ChangeTaskService', () => {
     it('should return false when dependency not found', async () => {
       depRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.removeDependency(TENANT, CHANGE_ID, TASK_A, TASK_B);
+      const result = await service.removeDependency(
+        TENANT,
+        CHANGE_ID,
+        TASK_A,
+        TASK_B,
+      );
 
       expect(result).toBe(false);
     });
@@ -588,7 +712,10 @@ describe('ChangeTaskService', () => {
       taskRepo.findOne.mockResolvedValue(existing);
       // calculateReadiness: has blocking predecessor
       depRepo.find.mockResolvedValue([makeDep(TASK_B, TASK_A)]);
-      const predTask = makeTask({ id: TASK_B, status: ChangeTaskStatus.IN_PROGRESS });
+      const predTask = makeTask({
+        id: TASK_B,
+        status: ChangeTaskStatus.IN_PROGRESS,
+      });
       taskRepo.createQueryBuilder = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
