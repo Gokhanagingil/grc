@@ -49,7 +49,7 @@ interface MatrixEntry {
  * Changes here affect how incident priority is auto-computed.
  */
 export const ItsmStudioPriorityMatrix: React.FC = () => {
-  const { tenantId } = useAuth();
+  const { user } = useAuth();
   const [matrix, setMatrix] = useState<MatrixEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,9 +61,7 @@ export const ItsmStudioPriorityMatrix: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(API_PATHS.ITSM.PRIORITY_MATRIX.GET, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      const response = await api.get(API_PATHS.ITSM.PRIORITY_MATRIX.GET);
       const rows = response?.data?.data || response?.data || [];
       setMatrix(Array.isArray(rows) ? rows : []);
     } catch (err) {
@@ -72,11 +70,11 @@ export const ItsmStudioPriorityMatrix: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, []);
 
   useEffect(() => {
-    if (tenantId) loadMatrix();
-  }, [tenantId, loadMatrix]);
+    if (user) loadMatrix();
+  }, [user, loadMatrix]);
 
   const getEntry = (impact: string, urgency: string): string => {
     const entry = matrix.find((e) => e.impact === impact && e.urgency === urgency);
@@ -117,9 +115,7 @@ export const ItsmStudioPriorityMatrix: React.FC = () => {
         })),
       );
 
-      await api.put(API_PATHS.ITSM.PRIORITY_MATRIX.UPSERT, { entries }, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      await api.put(API_PATHS.ITSM.PRIORITY_MATRIX.UPSERT, { entries });
 
       setSuccess('Priority matrix saved successfully');
       setDirty(false);
@@ -135,9 +131,7 @@ export const ItsmStudioPriorityMatrix: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
-      await api.post(API_PATHS.ITSM.PRIORITY_MATRIX.SEED, {}, {
-        headers: { 'x-tenant-id': tenantId },
-      });
+      await api.post(API_PATHS.ITSM.PRIORITY_MATRIX.SEED, {});
       await loadMatrix();
       setSuccess('Default ITIL matrix seeded');
       setDirty(false);
