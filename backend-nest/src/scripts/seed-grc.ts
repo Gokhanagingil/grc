@@ -9,6 +9,15 @@
  * This script is idempotent - it checks for existing data before creating.
  */
 
+/**
+ * GRC Demo Data Seed Script
+ *
+ * CI-safe: includes timing instrumentation, explicit exit, and safety timeout.
+ *
+ * Environment flags:
+ *   JOBS_ENABLED=false  - disable background job scheduling (set automatically)
+ *   SEED_TIMEOUT_MS     - safety timeout in ms (default: 120000 = 2 min)
+ */
 // Disable job scheduling for seed scripts to ensure deterministic exit
 process.env.JOBS_ENABLED = 'false';
 
@@ -16,6 +25,18 @@ import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { AppModule } from '../app.module';
+
+// ---------------------------------------------------------------------------
+// CI Safety: timeout guard to prevent indefinite hangs in CI
+// ---------------------------------------------------------------------------
+const SEED_TIMEOUT_MS = parseInt(process.env.SEED_TIMEOUT_MS || '120000', 10);
+const safetyTimer = setTimeout(() => {
+  console.error(
+    `[SEED-GRC] FATAL: Safety timeout reached (${SEED_TIMEOUT_MS}ms). Forcing exit.`,
+  );
+  process.exit(2);
+}, SEED_TIMEOUT_MS);
+safetyTimer.unref();
 import { Tenant } from '../tenants/tenant.entity';
 import { User, UserRole } from '../users/user.entity';
 import { GrcRisk } from '../grc/entities/grc-risk.entity';
@@ -79,10 +100,20 @@ const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_ADMIN_ID = '00000000-0000-0000-0000-000000000002';
 
 async function seedGrcData() {
-  console.log('Starting GRC demo data seed...\n');
+  const scriptStart = Date.now();
+  console.log('[SEED-GRC] === GRC Demo Data Seed ===');
+  console.log(`[SEED-GRC] Start: ${new Date().toISOString()}`);
+  console.log('');
 
-  const app = await NestFactory.createApplicationContext(AppModule);
+  console.log('[SEED-GRC] Bootstrapping NestJS application context...');
+  const bootstrapStart = Date.now();
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn'],
+  });
   const dataSource = app.get(DataSource);
+  console.log(
+    `[SEED-GRC] Bootstrap complete (${Date.now() - bootstrapStart}ms)`,
+  );
 
   try {
     // 1. Ensure demo tenant exists
@@ -1645,11 +1676,17 @@ async function seedGrcData() {
     console.log('  6. Call GET /grc/issues/:id/capas to see linked CAPAs');
     console.log('  7. Call GET /grc/capas/:id/tasks to see CAPA tasks');
     console.log('========================================\n');
+    const durationMs = Date.now() - scriptStart;
+    console.log(
+      `[SEED-GRC] Duration: ${durationMs}ms (${(durationMs / 1000).toFixed(1)}s)`,
+    );
+    console.log(`[SEED-GRC] End: ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Error seeding GRC data:', error);
+    console.error('[SEED-GRC] Error seeding GRC data:', error);
     throw error;
   } finally {
     await app.close();
+    clearTimeout(safetyTimer);
   }
 }
 
@@ -1657,6 +1694,6 @@ async function seedGrcData() {
 seedGrcData()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(error);
+    console.error('[SEED-GRC] Unhandled error:', error);
     process.exit(1);
   });

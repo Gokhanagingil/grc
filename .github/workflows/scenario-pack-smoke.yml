@@ -14,6 +14,12 @@ on:
         required: false
         default: "false"
 
+# ---------------------------------------------------------------------------
+# Concurrency: cancel-in-progress is EXPECTED behavior.
+# When a new commit is pushed to the same PR branch, the older run is canceled.
+# This is intentional and NOT a product regression.
+# See: docs/ci-smoke-troubleshooting.md for classification details.
+# ---------------------------------------------------------------------------
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -38,7 +44,9 @@ jobs:
   scenario-pack-smoke:
     name: "Scenario Pack Smoke @real @smoke"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Increased from 10 to 15 minutes to accommodate seed chain + tests.
+    # Seed chain alone can take 3-5 min (4x NestJS bootstrap + DB ops).
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -130,7 +138,14 @@ jobs:
           echo "Backend failed to start"
           exit 1
 
-      - name: Seed base GRC data (tenant + admin + demo data)
+      # =====================================================================
+      # SEED CHAIN — each step is individually timed and has a step timeout.
+      # Seed scripts include internal timing instrumentation.
+      # See docs/ci-smoke-troubleshooting.md for expected durations.
+      # =====================================================================
+
+      - name: "Seed [1/4] base GRC data (tenant + admin + demo data)"
+        timeout-minutes: 3
         env:
           NODE_ENV: development
           DB_HOST: ${{ env.CI_DB_HOST }}
@@ -144,10 +159,21 @@ jobs:
           DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
           DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
-        run: node dist/scripts/seed-grc.js
+          SEED_TIMEOUT_MS: "120000"
+        run: |
+          echo "::group::Seed GRC base data"
+          SEED_START=$SECONDS
+          node dist/scripts/seed-grc.js
+          SEED_EXIT=$?
+          SEED_DURATION=$((SECONDS - SEED_START))
+          echo "::endgroup::"
+          echo "seed-grc duration: ${SEED_DURATION}s (exit: ${SEED_EXIT})"
+          echo "SEED_GRC_DURATION=${SEED_DURATION}" >> $GITHUB_ENV
+          exit $SEED_EXIT
         working-directory: backend-nest
 
-      - name: Seed CMDB baseline (CI classes, choices, relationships)
+      - name: "Seed [2/4] CMDB baseline (CI classes, choices, relationships)"
+        timeout-minutes: 3
         env:
           NODE_ENV: development
           DB_HOST: ${{ env.CI_DB_HOST }}
@@ -161,10 +187,21 @@ jobs:
           DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
           DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
-        run: node dist/scripts/seed-cmdb-baseline.js
+          SEED_TIMEOUT_MS: "120000"
+        run: |
+          echo "::group::Seed CMDB baseline"
+          SEED_START=$SECONDS
+          node dist/scripts/seed-cmdb-baseline.js
+          SEED_EXIT=$?
+          SEED_DURATION=$((SECONDS - SEED_START))
+          echo "::endgroup::"
+          echo "seed-cmdb-baseline duration: ${SEED_DURATION}s (exit: ${SEED_EXIT})"
+          echo "SEED_CMDB_DURATION=${SEED_DURATION}" >> $GITHUB_ENV
+          exit $SEED_EXIT
         working-directory: backend-nest
 
-      - name: Seed ITSM baseline (workflows, SLAs, business rules)
+      - name: "Seed [3/4] ITSM baseline (workflows, SLAs, business rules)"
+        timeout-minutes: 3
         env:
           NODE_ENV: development
           DB_HOST: ${{ env.CI_DB_HOST }}
@@ -178,10 +215,21 @@ jobs:
           DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
           DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
-        run: node dist/scripts/seed-itsm-baseline.js
+          SEED_TIMEOUT_MS: "120000"
+        run: |
+          echo "::group::Seed ITSM baseline"
+          SEED_START=$SECONDS
+          node dist/scripts/seed-itsm-baseline.js
+          SEED_EXIT=$?
+          SEED_DURATION=$((SECONDS - SEED_START))
+          echo "::endgroup::"
+          echo "seed-itsm-baseline duration: ${SEED_DURATION}s (exit: ${SEED_EXIT})"
+          echo "SEED_ITSM_DURATION=${SEED_DURATION}" >> $GITHUB_ENV
+          exit $SEED_EXIT
         working-directory: backend-nest
 
-      - name: Seed scenario pack (deterministic data)
+      - name: "Seed [4/4] scenario pack (deterministic data)"
+        timeout-minutes: 3
         env:
           NODE_ENV: development
           DB_HOST: ${{ env.CI_DB_HOST }}
@@ -195,8 +243,22 @@ jobs:
           DEMO_ADMIN_EMAIL: ${{ env.CI_DEMO_EMAIL }}
           DEMO_ADMIN_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
           JOBS_ENABLED: "false"
-        run: node dist/scripts/seed-scenario-pack.js
+          SEED_TIMEOUT_MS: "120000"
+        run: |
+          echo "::group::Seed scenario pack"
+          SEED_START=$SECONDS
+          node dist/scripts/seed-scenario-pack.js
+          SEED_EXIT=$?
+          SEED_DURATION=$((SECONDS - SEED_START))
+          echo "::endgroup::"
+          echo "seed-scenario-pack duration: ${SEED_DURATION}s (exit: ${SEED_EXIT})"
+          echo "SEED_SCENARIO_DURATION=${SEED_DURATION}" >> $GITHUB_ENV
+          exit $SEED_EXIT
         working-directory: backend-nest
+
+      # =====================================================================
+      # TESTS
+      # =====================================================================
 
       - name: "Run Scenario Pack smoke tests @smoke @real"
         run: npx playwright test --project=scenario-pack
@@ -224,6 +286,10 @@ jobs:
           SMOKE_TEST_EMAIL: ${{ env.CI_DEMO_EMAIL }}
           SMOKE_TEST_PASSWORD: ${{ steps.ci_secrets.outputs.demo_password }}
 
+      # =====================================================================
+      # REPORTING & OBSERVABILITY
+      # =====================================================================
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v6
@@ -233,6 +299,28 @@ jobs:
             test-results/platform-health-report.json
             test-results/
           retention-days: 30
+
+      - name: "Seed & smoke timing summary"
+        if: always()
+        run: |
+          echo "## Scenario Pack Smoke -- Timing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| seed-grc | ${SEED_GRC_DURATION:-?}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| seed-cmdb-baseline | ${SEED_CMDB_DURATION:-?}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| seed-itsm-baseline | ${SEED_ITSM_DURATION:-?}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| seed-scenario-pack | ${SEED_SCENARIO_DURATION:-?}s |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cancellation Classification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If this job was **canceled**, check:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Concurrency policy** -- a newer push to the same branch cancels the older run (expected)" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Job timeout** (15 min) -- seed chain + tests exceeded limit" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Step timeout** (3 min/seed) -- individual seed step hung" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Safety timeout** (2 min) -- seed script internal guard fired (SEED_TIMEOUT_MS)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See docs/ci-smoke-troubleshooting.md for detailed triage." >> $GITHUB_STEP_SUMMARY
 
       - name: Report summary
         if: always()

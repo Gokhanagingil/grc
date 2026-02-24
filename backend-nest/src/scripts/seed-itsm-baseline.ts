@@ -1,8 +1,30 @@
+/**
+ * ITSM Baseline Seed Script
+ *
+ * Seeds workflow definitions, business rules, SLA definitions, UI policies, and UI actions.
+ * CI-safe: includes timing instrumentation, explicit exit, and safety timeout.
+ *
+ * Environment flags:
+ *   JOBS_ENABLED=false  - disable background job scheduling (set automatically)
+ *   SEED_TIMEOUT_MS     - safety timeout in ms (default: 120000 = 2 min)
+ */
 process.env.JOBS_ENABLED = 'false';
 
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
+
+// ---------------------------------------------------------------------------
+// CI Safety: timeout guard to prevent indefinite hangs in CI
+// ---------------------------------------------------------------------------
+const SEED_TIMEOUT_MS = parseInt(process.env.SEED_TIMEOUT_MS || '120000', 10);
+const safetyTimer = setTimeout(() => {
+  console.error(
+    `[SEED-ITSM-BASELINE] FATAL: Safety timeout reached (${SEED_TIMEOUT_MS}ms). Forcing exit.`,
+  );
+  process.exit(2);
+}, SEED_TIMEOUT_MS);
+safetyTimer.unref();
 import {
   WorkflowDefinition,
   WorkflowState,
@@ -908,10 +930,22 @@ const UI_ACTIONS: UiActionSeed[] = [
 // ---------------------------------------------------------------------------
 
 async function seedItsmBaseline() {
-  console.log('=== ITSM Baseline Seed ===\n');
+  const scriptStart = Date.now();
+  console.log('[SEED-ITSM-BASELINE] === ITSM Baseline Seed ===');
+  console.log(`[SEED-ITSM-BASELINE] Start: ${new Date().toISOString()}`);
+  console.log('');
 
-  const app = await NestFactory.createApplicationContext(AppModule);
+  console.log(
+    '[SEED-ITSM-BASELINE] Bootstrapping NestJS application context...',
+  );
+  const bootstrapStart = Date.now();
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn'],
+  });
   const dataSource = app.get(DataSource);
+  console.log(
+    `[SEED-ITSM-BASELINE] Bootstrap complete (${Date.now() - bootstrapStart}ms)`,
+  );
 
   try {
     // --- Seed Workflows ---
@@ -1083,15 +1117,27 @@ async function seedItsmBaseline() {
       wfCreated + brCreated + slaCreated + upCreated + uaCreated;
     const totalSkipped =
       wfSkipped + brSkipped + slaSkipped + upSkipped + uaSkipped;
+    const durationMs = Date.now() - scriptStart;
+    console.log('');
     console.log(
-      `\n=== Seed complete: ${totalCreated} created, ${totalSkipped} skipped ===`,
+      `[SEED-ITSM-BASELINE] === Seed complete: ${totalCreated} created, ${totalSkipped} skipped ===`,
     );
+    console.log(
+      `[SEED-ITSM-BASELINE] Duration: ${durationMs}ms (${(durationMs / 1000).toFixed(1)}s)`,
+    );
+    console.log(`[SEED-ITSM-BASELINE] End: ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Seed failed:', error);
+    console.error('[SEED-ITSM-BASELINE] Seed failed:', error);
     process.exitCode = 1;
   } finally {
     await app.close();
+    clearTimeout(safetyTimer);
   }
 }
 
-void seedItsmBaseline();
+seedItsmBaseline()
+  .then(() => process.exit(process.exitCode ?? 0))
+  .catch((error) => {
+    console.error('[SEED-ITSM-BASELINE] Unhandled error:', error);
+    process.exit(1);
+  });
