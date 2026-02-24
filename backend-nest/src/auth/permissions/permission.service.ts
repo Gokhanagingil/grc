@@ -131,6 +131,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_KNOWN_ERROR_READ,
     Permission.ITSM_KNOWN_ERROR_CREATE,
     Permission.ITSM_KNOWN_ERROR_UPDATE,
+    // ITSM CAB permissions
+    Permission.ITSM_CAB_READ,
+    Permission.ITSM_CAB_WRITE,
   ],
 
   /**
@@ -217,6 +220,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_KNOWN_ERROR_READ,
     Permission.ITSM_KNOWN_ERROR_CREATE,
     Permission.ITSM_KNOWN_ERROR_UPDATE,
+    // ITSM CAB permissions
+    Permission.ITSM_CAB_READ,
+    Permission.ITSM_CAB_WRITE,
   ],
 
   /**
@@ -266,6 +272,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_PROBLEM_RISK_READ,
     // ITSM Known Error read-only
     Permission.ITSM_KNOWN_ERROR_READ,
+    // ITSM CAB read-only
+    Permission.ITSM_CAB_READ,
   ],
 };
 
