@@ -135,7 +135,7 @@ describe('Mega Regression Pack (e2e)', () => {
         .post(`/grc/itsm/cab-meetings/${cabId}/agenda`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-tenant-id', tenantId)
-        .send({ changeId, order: 1 });
+        .send({ changeId, orderIndex: 1 });
 
       // Accept 200 or 201
       expect([200, 201]).toContain(res.status);
