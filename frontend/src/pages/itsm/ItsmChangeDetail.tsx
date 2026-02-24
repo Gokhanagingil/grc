@@ -1009,7 +1009,7 @@ export const ItsmChangeDetail: React.FC = () => {
                 <Chip
                   label={
                     topologyLoading ? 'Loading...'
-                    : topologyError ? (topologyError.statusCode === 404 ? 'Not Evaluated' : 'Error')
+                    : topologyError ? (topologyError.type === 'not_found' ? 'Not Evaluated' : 'Error')
                     : topologyImpact ? `Score: ${topologyImpact.topologyRiskScore ?? 0}`
                     : 'Not Evaluated'
                   }
