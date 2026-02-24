@@ -233,12 +233,15 @@ export class CabMeetingService {
     meetingId: string,
     itemIds: string[],
   ): Promise<CabAgendaItem[]> {
-    for (let i = 0; i < itemIds.length; i++) {
+    // Guard against unbounded input
+    const MAX_AGENDA_ITEMS = 500;
+    const bounded = itemIds.slice(0, MAX_AGENDA_ITEMS);
+    for (let i = 0; i < bounded.length; i++) {
       await this.agendaRepo
         .createQueryBuilder()
         .update(CabAgendaItem)
         .set({ orderIndex: i, updatedBy: userId })
-        .where('id = :id', { id: itemIds[i] })
+        .where('id = :id', { id: bounded[i] })
         .andWhere('tenantId = :tenantId', { tenantId })
         .andWhere('cabMeetingId = :meetingId', { meetingId })
         .andWhere('isDeleted = false')
