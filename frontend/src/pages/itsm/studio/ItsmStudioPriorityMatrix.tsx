@@ -19,7 +19,7 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { useAuth } from '../../../contexts/AuthContext';
-import api from '../../../services/api';
+import { api } from '../../../services/api';
 import { API_PATHS } from '../../../services/grcClient';
 
 const IMPACTS = ['high', 'medium', 'low'] as const;
