@@ -6,6 +6,8 @@ export { ItsmIncidentDetail } from './ItsmIncidentDetail';
 export { ItsmChangeList } from './ItsmChangeList';
 export { ItsmChangeDetail } from './ItsmChangeDetail';
 export { ItsmChangeCalendar } from './ItsmChangeCalendar';
+export { ItsmChangeTemplateList } from './ItsmChangeTemplateList';
+export { ItsmChangeTemplateDetail } from './ItsmChangeTemplateDetail';
 export { ItsmChoiceAdmin } from './ItsmChoiceAdmin';
 
 // ITSM Problem Management

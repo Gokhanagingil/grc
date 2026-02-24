@@ -15,6 +15,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../tenants/guards/tenant.guard';
 import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
@@ -148,5 +149,127 @@ export class ChangeController {
     if (!deleted) {
       throw new NotFoundException(`Change with ID ${id} not found`);
     }
+  }
+
+  // ============================================================================
+  // GRC Bridge — Linked Risks
+  // ============================================================================
+
+  @Get(':id/risks')
+  @Permissions(Permission.GRC_RISK_READ)
+  @ApiOperation({ summary: 'Get linked risks for a change request' })
+  @ApiResponse({ status: 200, description: 'Risks retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Change not found' })
+  @Perf()
+  async getLinkedRisks(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const risks = await this.changeService.getLinkedRisks(tenantId, id);
+    return { success: true, data: risks };
+  }
+
+  @Post(':id/risks/:riskId')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @ApiOperation({ summary: 'Link a risk to a change request' })
+  @ApiResponse({ status: 201, description: 'Risk linked successfully' })
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async linkRisk(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const link = await this.changeService.linkRisk(
+      tenantId,
+      id,
+      riskId,
+      req.user.id,
+    );
+    return { success: true, data: link };
+  }
+
+  @Delete(':id/risks/:riskId')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @ApiOperation({ summary: 'Unlink a risk from a change request' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async unlinkRisk(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Param('riskId') riskId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    await this.changeService.unlinkRisk(tenantId, id, riskId);
+  }
+
+  // ============================================================================
+  // GRC Bridge — Linked Controls
+  // ============================================================================
+
+  @Get(':id/controls')
+  @Permissions(Permission.GRC_CONTROL_READ)
+  @ApiOperation({ summary: 'Get linked controls for a change request' })
+  @ApiResponse({ status: 200, description: 'Controls retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Change not found' })
+  @Perf()
+  async getLinkedControls(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const controls = await this.changeService.getLinkedControls(tenantId, id);
+    return { success: true, data: controls };
+  }
+
+  @Post(':id/controls/:controlId')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @ApiOperation({ summary: 'Link a control to a change request' })
+  @ApiResponse({ status: 201, description: 'Control linked successfully' })
+  @HttpCode(HttpStatus.CREATED)
+  @Perf()
+  async linkControl(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Param('controlId') controlId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const link = await this.changeService.linkControl(
+      tenantId,
+      id,
+      controlId,
+      req.user.id,
+    );
+    return { success: true, data: link };
+  }
+
+  @Delete(':id/controls/:controlId')
+  @Permissions(Permission.ITSM_CHANGE_WRITE)
+  @ApiOperation({ summary: 'Unlink a control from a change request' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Perf()
+  async unlinkControl(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Param('controlId') controlId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    await this.changeService.unlinkControl(tenantId, id, controlId);
   }
 }

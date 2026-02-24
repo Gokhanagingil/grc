@@ -11,6 +11,10 @@ import { MultiTenantServiceBase } from '../../common/multi-tenant-service.base';
 import { ItsmChange, ChangeState } from './change.entity';
 import { CmdbService as CmdbServiceEntity } from '../cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
+import { ItsmChangeRisk } from '../../grc/entities/itsm-change-risk.entity';
+import { ItsmChangeControl } from '../../grc/entities/itsm-change-control.entity';
+import { GrcRisk } from '../../grc/entities/grc-risk.entity';
+import { GrcControl } from '../../grc/entities/grc-control.entity';
 import {
   ChangeFilterDto,
   CHANGE_SORTABLE_FIELDS,
@@ -47,6 +51,18 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     private readonly conflictDetectionService?: ConflictDetectionService,
     @Optional()
     private readonly riskScoringService?: RiskScoringService,
+    @Optional()
+    @InjectRepository(ItsmChangeRisk)
+    private readonly changeRiskRepository?: Repository<ItsmChangeRisk>,
+    @Optional()
+    @InjectRepository(ItsmChangeControl)
+    private readonly changeControlRepository?: Repository<ItsmChangeControl>,
+    @Optional()
+    @InjectRepository(GrcRisk)
+    private readonly grcRiskRepository?: Repository<GrcRisk>,
+    @Optional()
+    @InjectRepository(GrcControl)
+    private readonly grcControlRepository?: Repository<GrcControl>,
   ) {
     super(repository);
   }
@@ -445,5 +461,202 @@ export class ChangeService extends MultiTenantServiceBase<ItsmChange> {
     const items = await qb.getMany();
 
     return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  // ============================================================================
+  // GRC Bridge Methods - Link/Unlink Risks and Controls
+  // ============================================================================
+
+  /**
+   * Get linked GRC risks for a change request.
+   * Returns empty array when change exists but has no linked risks.
+   * Throws NotFoundException when change does not exist.
+   */
+  async getLinkedRisks(tenantId: string, changeId: string): Promise<GrcRisk[]> {
+    const change = await this.findOneActiveForTenant(tenantId, changeId);
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${changeId} not found`);
+    }
+
+    if (!this.changeRiskRepository) {
+      return [];
+    }
+
+    const links = await this.changeRiskRepository.find({
+      where: { tenantId, changeId },
+      relations: ['risk'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return links
+      .map((link) => link.risk)
+      .filter((risk) => risk && !risk.isDeleted);
+  }
+
+  /**
+   * Link a GRC risk to a change request.
+   */
+  async linkRisk(
+    tenantId: string,
+    changeId: string,
+    riskId: string,
+    userId: string,
+  ): Promise<ItsmChangeRisk> {
+    const change = await this.findOneActiveForTenant(tenantId, changeId);
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${changeId} not found`);
+    }
+
+    if (!this.changeRiskRepository || !this.grcRiskRepository) {
+      throw new BadRequestException('Risk linking is not available');
+    }
+
+    const risk = await this.grcRiskRepository.findOne({
+      where: { id: riskId, tenantId, isDeleted: false },
+    });
+    if (!risk) {
+      throw new NotFoundException(`GRC Risk with ID ${riskId} not found`);
+    }
+
+    const existing = await this.changeRiskRepository.findOne({
+      where: { tenantId, changeId, riskId },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Risk ${riskId} is already linked to change ${changeId}`,
+      );
+    }
+
+    const link = this.changeRiskRepository.create({
+      tenantId,
+      changeId,
+      riskId,
+      createdBy: userId,
+    });
+
+    return this.changeRiskRepository.save(link);
+  }
+
+  /**
+   * Unlink a GRC risk from a change request.
+   */
+  async unlinkRisk(
+    tenantId: string,
+    changeId: string,
+    riskId: string,
+  ): Promise<void> {
+    if (!this.changeRiskRepository) {
+      throw new BadRequestException('Risk linking is not available');
+    }
+
+    const link = await this.changeRiskRepository.findOne({
+      where: { tenantId, changeId, riskId },
+    });
+    if (!link) {
+      throw new NotFoundException(
+        `Risk ${riskId} is not linked to change ${changeId}`,
+      );
+    }
+
+    await this.changeRiskRepository.remove(link);
+  }
+
+  /**
+   * Get linked GRC controls for a change request.
+   * Returns empty array when change exists but has no linked controls.
+   * Throws NotFoundException when change does not exist.
+   */
+  async getLinkedControls(
+    tenantId: string,
+    changeId: string,
+  ): Promise<GrcControl[]> {
+    const change = await this.findOneActiveForTenant(tenantId, changeId);
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${changeId} not found`);
+    }
+
+    if (!this.changeControlRepository) {
+      return [];
+    }
+
+    const links = await this.changeControlRepository.find({
+      where: { tenantId, changeId },
+      relations: ['control'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return links
+      .map((link) => link.control)
+      .filter((control) => control && !control.isDeleted);
+  }
+
+  /**
+   * Link a GRC control to a change request.
+   */
+  async linkControl(
+    tenantId: string,
+    changeId: string,
+    controlId: string,
+    userId: string,
+  ): Promise<ItsmChangeControl> {
+    const change = await this.findOneActiveForTenant(tenantId, changeId);
+    if (!change) {
+      throw new NotFoundException(`Change with ID ${changeId} not found`);
+    }
+
+    if (!this.changeControlRepository || !this.grcControlRepository) {
+      throw new BadRequestException('Control linking is not available');
+    }
+
+    const control = await this.grcControlRepository.findOne({
+      where: { id: controlId, tenantId, isDeleted: false },
+    });
+    if (!control) {
+      throw new NotFoundException(
+        `GRC Control with ID ${controlId} not found`,
+      );
+    }
+
+    const existing = await this.changeControlRepository.findOne({
+      where: { tenantId, changeId, controlId },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Control ${controlId} is already linked to change ${changeId}`,
+      );
+    }
+
+    const link = this.changeControlRepository.create({
+      tenantId,
+      changeId,
+      controlId,
+      createdBy: userId,
+    });
+
+    return this.changeControlRepository.save(link);
+  }
+
+  /**
+   * Unlink a GRC control from a change request.
+   */
+  async unlinkControl(
+    tenantId: string,
+    changeId: string,
+    controlId: string,
+  ): Promise<void> {
+    if (!this.changeControlRepository) {
+      throw new BadRequestException('Control linking is not available');
+    }
+
+    const link = await this.changeControlRepository.findOne({
+      where: { tenantId, changeId, controlId },
+    });
+    if (!link) {
+      throw new NotFoundException(
+        `Control ${controlId} is not linked to change ${changeId}`,
+      );
+    }
+
+    await this.changeControlRepository.remove(link);
   }
 }

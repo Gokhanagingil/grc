@@ -137,6 +137,12 @@ import { ItsmChangeTemplateDependency } from './change/template/change-template-
 import { ChangeTemplateService } from './change/template/change-template.service';
 import { ChangeTemplateController } from './change/template/change-template.controller';
 
+// GRC Bridge entities (Change ↔ Risk/Control linkage)
+import { ItsmChangeRisk } from '../grc/entities/itsm-change-risk.entity';
+import { ItsmChangeControl } from '../grc/entities/itsm-change-control.entity';
+import { GrcRisk } from '../grc/entities/grc-risk.entity';
+import { GrcControl } from '../grc/entities/grc-control.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -182,6 +188,11 @@ import { ChangeTemplateController } from './change/template/change-template.cont
       ItsmChangeTemplate,
       ItsmChangeTemplateTask,
       ItsmChangeTemplateDependency,
+      // GRC Bridge entities (Change ↔ Risk/Control linkage)
+      ItsmChangeRisk,
+      ItsmChangeControl,
+      GrcRisk,
+      GrcControl,
     ]),
     AuditModule,
     AuthModule,
