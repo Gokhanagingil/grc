@@ -3,9 +3,11 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ItsmChangeTask, ChangeTaskStatus } from './change-task.entity';
 import { ItsmChangeTaskDependency } from './change-task-dependency.entity';
 import { ItsmChange } from '../change.entity';
@@ -51,7 +53,10 @@ const VALID_TRANSITIONS: Record<ChangeTaskStatus, ChangeTaskStatus[]> = {
     ChangeTaskStatus.CANCELLED,
   ],
   [ChangeTaskStatus.COMPLETED]: [],
-  [ChangeTaskStatus.FAILED]: [ChangeTaskStatus.OPEN, ChangeTaskStatus.CANCELLED],
+  [ChangeTaskStatus.FAILED]: [
+    ChangeTaskStatus.OPEN,
+    ChangeTaskStatus.CANCELLED,
+  ],
   [ChangeTaskStatus.SKIPPED]: [],
   [ChangeTaskStatus.CANCELLED]: [],
 };
@@ -87,6 +92,7 @@ export class ChangeTaskService {
     private readonly depRepo: Repository<ItsmChangeTaskDependency>,
     @InjectRepository(ItsmChange)
     private readonly changeRepo: Repository<ItsmChange>,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   // ── Number generation ────────────────────────────────────────────
@@ -195,7 +201,11 @@ export class ChangeTaskService {
 
     // Check for duplicate
     const existing = await this.depRepo.findOne({
-      where: { tenantId, predecessorTaskId: predecessorId, successorTaskId: successorId },
+      where: {
+        tenantId,
+        predecessorTaskId: predecessorId,
+        successorTaskId: successorId,
+      },
     });
     if (existing) {
       throw new ConflictException('This dependency already exists');
@@ -343,7 +353,9 @@ export class ChangeTaskService {
     tenantId: string,
     userId: string,
     changeId: string,
-    data: Partial<Omit<ItsmChangeTask, 'id' | 'tenantId' | 'changeId' | 'number'>>,
+    data: Partial<
+      Omit<ItsmChangeTask, 'id' | 'tenantId' | 'changeId' | 'number'>
+    >,
   ): Promise<ItsmChangeTask> {
     // Verify change exists
     const change = await this.changeRepo.findOne({
@@ -364,14 +376,33 @@ export class ChangeTaskService {
       isDeleted: false,
     });
 
-    return this.taskRepo.save(task);
+    const saved = await this.taskRepo.save(task);
+
+    // Emit event for SLA integration
+    this.eventEmitter?.emit('change_task.created', {
+      taskId: saved.id,
+      changeId,
+      tenantId,
+      priority: saved.priority,
+      status: saved.status,
+      taskType: saved.taskType,
+      assignmentGroupId: saved.assignmentGroupId,
+      assigneeId: saved.assigneeId,
+      isBlocking: saved.isBlocking,
+      stageLabel: saved.stageLabel,
+      sourceTemplateId: saved.sourceTemplateId,
+    });
+
+    return saved;
   }
 
   async findTasksForChange(
     tenantId: string,
     changeId: string,
     filterDto: ChangeTaskFilterDto,
-  ): Promise<PaginatedResponse<ItsmChangeTask & { readiness?: TaskReadiness }>> {
+  ): Promise<
+    PaginatedResponse<ItsmChangeTask & { readiness?: TaskReadiness }>
+  > {
     const {
       page = 1,
       pageSize = 50,
@@ -404,10 +435,9 @@ export class ChangeTaskService {
       });
     }
     if (search) {
-      qb.andWhere(
-        '(task.number ILIKE :search OR task.title ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      qb.andWhere('(task.number ILIKE :search OR task.title ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     const total = await qb.getCount();
@@ -415,8 +445,7 @@ export class ChangeTaskService {
     const validSortBy = CHANGE_TASK_SORTABLE_FIELDS.includes(sortBy)
       ? sortBy
       : 'sortOrder';
-    const validSortOrder =
-      sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const validSortOrder = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     qb.orderBy(`task.${validSortBy}`, validSortOrder);
     qb.addOrderBy('task.sequenceOrder', 'ASC', 'NULLS LAST');
 
@@ -456,7 +485,9 @@ export class ChangeTaskService {
     userId: string,
     changeId: string,
     taskId: string,
-    data: Partial<Omit<ItsmChangeTask, 'id' | 'tenantId' | 'changeId' | 'number'>>,
+    data: Partial<
+      Omit<ItsmChangeTask, 'id' | 'tenantId' | 'changeId' | 'number'>
+    >,
   ): Promise<ItsmChangeTask | null> {
     const existing = await this.findOneTask(tenantId, changeId, taskId);
     if (!existing) {
@@ -487,7 +518,10 @@ export class ChangeTaskService {
       }
 
       // Auto-set timestamps
-      if (data.status === ChangeTaskStatus.IN_PROGRESS && !existing.actualStartAt) {
+      if (
+        data.status === ChangeTaskStatus.IN_PROGRESS &&
+        !existing.actualStartAt
+      ) {
         data.actualStartAt = new Date();
       }
       if (TERMINAL_STATUSES.includes(data.status) && !existing.actualEndAt) {
@@ -500,7 +534,27 @@ export class ChangeTaskService {
       updatedBy: userId,
     } as Partial<ItsmChangeTask>);
 
-    return this.taskRepo.save(updated);
+    const saved = await this.taskRepo.save(updated);
+
+    // Emit event for SLA integration
+    this.eventEmitter?.emit('change_task.updated', {
+      taskId: saved.id,
+      changeId,
+      tenantId,
+      changes: data,
+      snapshot: {
+        priority: saved.priority,
+        status: saved.status,
+        taskType: saved.taskType,
+        assignmentGroupId: saved.assignmentGroupId,
+        assigneeId: saved.assigneeId,
+        isBlocking: saved.isBlocking,
+        stageLabel: saved.stageLabel,
+        sourceTemplateId: saved.sourceTemplateId,
+      },
+    });
+
+    return saved;
   }
 
   async softDeleteTask(
@@ -519,10 +573,9 @@ export class ChangeTaskService {
       .createQueryBuilder()
       .delete()
       .where('tenantId = :tenantId', { tenantId })
-      .andWhere(
-        '(predecessorTaskId = :taskId OR successorTaskId = :taskId)',
-        { taskId },
-      )
+      .andWhere('(predecessorTaskId = :taskId OR successorTaskId = :taskId)', {
+        taskId,
+      })
       .execute();
 
     existing.isDeleted = true;
@@ -539,7 +592,12 @@ export class ChangeTaskService {
     predecessorId: string,
     successorId: string,
   ): Promise<ItsmChangeTaskDependency> {
-    await this.validateDependency(tenantId, changeId, predecessorId, successorId);
+    await this.validateDependency(
+      tenantId,
+      changeId,
+      predecessorId,
+      successorId,
+    );
 
     const dep = this.depRepo.create({
       tenantId,
@@ -618,12 +676,17 @@ export class ChangeTaskService {
       total: tasks.length,
       draft: tasks.filter((t) => t.status === ChangeTaskStatus.DRAFT).length,
       open: tasks.filter((t) => t.status === ChangeTaskStatus.OPEN).length,
-      inProgress: tasks.filter((t) => t.status === ChangeTaskStatus.IN_PROGRESS).length,
-      pending: tasks.filter((t) => t.status === ChangeTaskStatus.PENDING).length,
-      completed: tasks.filter((t) => t.status === ChangeTaskStatus.COMPLETED).length,
+      inProgress: tasks.filter((t) => t.status === ChangeTaskStatus.IN_PROGRESS)
+        .length,
+      pending: tasks.filter((t) => t.status === ChangeTaskStatus.PENDING)
+        .length,
+      completed: tasks.filter((t) => t.status === ChangeTaskStatus.COMPLETED)
+        .length,
       failed: tasks.filter((t) => t.status === ChangeTaskStatus.FAILED).length,
-      skipped: tasks.filter((t) => t.status === ChangeTaskStatus.SKIPPED).length,
-      cancelled: tasks.filter((t) => t.status === ChangeTaskStatus.CANCELLED).length,
+      skipped: tasks.filter((t) => t.status === ChangeTaskStatus.SKIPPED)
+        .length,
+      cancelled: tasks.filter((t) => t.status === ChangeTaskStatus.CANCELLED)
+        .length,
       ready,
       blocked,
     };

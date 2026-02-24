@@ -40,6 +40,8 @@ import {
   Block as BlockIcon,
   ContentCopy as ContentCopyIcon,
   Refresh as RefreshIcon,
+  Timer as TimerIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import {
   itsmApi,
@@ -53,6 +55,20 @@ import {
   type ChangeTaskPriority,
   type TemplateApplyResult,
 } from '../../services/grcClient';
+
+// ---------- SLA Types ----------
+
+interface TaskSlaInstance {
+  id: string;
+  definitionId?: string;
+  objectiveType?: string;
+  status?: string;
+  breached?: boolean;
+  remainingSeconds?: number | null;
+  dueAt?: string;
+  startAt?: string;
+  matchReason?: string | null;
+}
 
 // ---------- Constants ----------
 
@@ -141,6 +157,34 @@ function getStatusChipColor(status: string): 'default' | 'primary' | 'secondary'
   }
 }
 
+function extractSlaInstances(raw: unknown): TaskSlaInstance[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'object') return [];
+  const obj = raw as Record<string, unknown>;
+  if ('data' in obj && Array.isArray(obj.data)) return obj.data;
+  if ('items' in obj && Array.isArray(obj.items)) return obj.items;
+  return [];
+}
+
+function getSlaStatusLabel(instances: TaskSlaInstance[]): { label: string; color: 'default' | 'success' | 'warning' | 'error' | 'info' } {
+  if (!instances || instances.length === 0) return { label: 'No SLA', color: 'default' };
+  const hasBreached = instances.some(i => i.breached || i.status === 'BREACHED');
+  if (hasBreached) return { label: 'Breached', color: 'error' };
+  const hasAtRisk = instances.some(i => {
+    if (i.status !== 'IN_PROGRESS') return false;
+    if (i.remainingSeconds != null && i.remainingSeconds <= 900) return true; // <=15min
+    return false;
+  });
+  if (hasAtRisk) return { label: 'At Risk', color: 'warning' };
+  const hasMet = instances.some(i => i.status === 'MET');
+  const allMet = instances.every(i => i.status === 'MET' || i.status === 'CANCELLED');
+  if (allMet && hasMet) return { label: 'Met', color: 'success' };
+  const hasActive = instances.some(i => i.status === 'IN_PROGRESS');
+  if (hasActive) return { label: 'On Track', color: 'info' };
+  return { label: `${instances.length} SLA(s)`, color: 'default' };
+}
+
 // ---------- Props ----------
 
 interface ChangeTasksSectionProps {
@@ -172,6 +216,10 @@ export const ChangeTasksSection: React.FC<ChangeTasksSectionProps> = ({
     status: 'OPEN',
     isBlocking: true,
   });
+
+  // SLA state per task
+  const [taskSlas, setTaskSlas] = useState<Record<string, TaskSlaInstance[]>>({});
+  const [slaLoading, setSlaLoading] = useState(false);
 
   // Template apply state
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -210,9 +258,46 @@ export const ChangeTasksSection: React.FC<ChangeTasksSectionProps> = ({
     }
   }, [changeId]);
 
+  const fetchTaskSlas = useCallback(async (taskList: ChangeTaskData[]) => {
+    if (taskList.length === 0) {
+      setTaskSlas({});
+      return;
+    }
+    setSlaLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        taskList.map(task =>
+          itsmApi.sla.recordSlas('CHANGE_TASK', task.id)
+        )
+      );
+      const slaMap: Record<string, TaskSlaInstance[]> = {};
+      taskList.forEach((task, idx) => {
+        const result = results[idx];
+        if (result.status === 'fulfilled') {
+          slaMap[task.id] = extractSlaInstances(result.value?.data);
+        } else {
+          slaMap[task.id] = [];
+        }
+      });
+      setTaskSlas(slaMap);
+    } catch {
+      // SLA fetch failure is non-fatal; show empty state
+      setTaskSlas({});
+    } finally {
+      setSlaLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Fetch SLAs whenever tasks change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      fetchTaskSlas(tasks);
+    }
+  }, [tasks, fetchTaskSlas]);
 
   // ---------- Task CRUD ----------
 
@@ -453,6 +538,7 @@ export const ChangeTasksSection: React.FC<ChangeTasksSectionProps> = ({
                     <TableCell>Status</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Priority</TableCell>
+                    <TableCell>SLA</TableCell>
                     <TableCell>Stage</TableCell>
                     <TableCell>Readiness</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -495,6 +581,34 @@ export const ChangeTasksSection: React.FC<ChangeTasksSectionProps> = ({
                         <Typography variant="caption">
                           {task.priority}
                         </Typography>
+                      </TableCell>
+                      <TableCell data-testid={`task-sla-${task.id}`}>
+                        {slaLoading ? (
+                          <CircularProgress size={14} />
+                        ) : (() => {
+                          const instances = taskSlas[task.id] || [];
+                          const { label, color } = getSlaStatusLabel(instances);
+                          if (instances.length === 0) {
+                            return (
+                              <Typography variant="caption" color="text.secondary">-</Typography>
+                            );
+                          }
+                          return (
+                            <Tooltip title={
+                              instances.map(i =>
+                                `${i.objectiveType || 'SLA'}: ${i.status}${i.breached ? ' (breached)' : ''}${i.remainingSeconds != null ? ` - ${Math.round(i.remainingSeconds / 60)}min left` : ''}`
+                              ).join('\n')
+                            }>
+                              <Chip
+                                icon={color === 'error' ? <WarningIcon sx={{ fontSize: 14 }} /> : <TimerIcon sx={{ fontSize: 14 }} />}
+                                label={label}
+                                size="small"
+                                color={color}
+                                variant="outlined"
+                              />
+                            </Tooltip>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption" color="text.secondary">

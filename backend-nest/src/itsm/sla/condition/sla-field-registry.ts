@@ -162,6 +162,98 @@ const INCIDENT_FIELDS: SlaFieldMeta[] = [
 ];
 
 /**
+ * Default field registry for Change Task record type.
+ * Supports direct task fields + derived parent change fields.
+ */
+const CHANGE_TASK_FIELDS: SlaFieldMeta[] = [
+  {
+    key: 'priority',
+    label: 'Task Priority',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'status',
+    label: 'Task Status',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'taskType',
+    label: 'Task Type',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'assignmentGroupId',
+    label: 'Assignment Group',
+    valueType: 'string',
+    allowedOperators: STRING_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'assigneeId',
+    label: 'Assignee',
+    valueType: 'string',
+    allowedOperators: [...ENUM_OPERATORS],
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'isBlocking',
+    label: 'Is Blocking',
+    valueType: 'boolean',
+    allowedOperators: ['is', 'is_not'],
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'stageLabel',
+    label: 'Stage Label',
+    valueType: 'string',
+    allowedOperators: STRING_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'sourceTemplateId',
+    label: 'Source Template',
+    valueType: 'string',
+    allowedOperators: [...ENUM_OPERATORS],
+    recordTypes: ['CHANGE_TASK'],
+  },
+  // Derived from parent change (dot-walk context)
+  {
+    key: 'change.type',
+    label: 'Change Type (parent)',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'change.risk',
+    label: 'Change Risk (parent)',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'change.serviceId',
+    label: 'Service (parent change)',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+  {
+    key: 'change.state',
+    label: 'Change State (parent)',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['CHANGE_TASK'],
+  },
+];
+
+/**
  * The SLA Field Registry.
  *
  * Holds all registered fields. Modules can call `registerField()` to
@@ -174,6 +266,21 @@ class FieldRegistry {
     // Register default incident fields
     for (const f of INCIDENT_FIELDS) {
       this.fields.set(f.key, f);
+    }
+    // Register change task fields (additive — shared keys like 'priority'
+    // get their recordTypes merged so they appear for both record types)
+    for (const f of CHANGE_TASK_FIELDS) {
+      const existing = this.fields.get(f.key);
+      if (existing) {
+        // Merge recordTypes without duplicates
+        const merged = new Set([...existing.recordTypes, ...f.recordTypes]);
+        this.fields.set(f.key, {
+          ...existing,
+          recordTypes: Array.from(merged),
+        });
+      } else {
+        this.fields.set(f.key, f);
+      }
     }
   }
 

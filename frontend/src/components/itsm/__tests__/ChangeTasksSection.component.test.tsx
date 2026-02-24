@@ -31,6 +31,7 @@ const mockUpdateTask = jest.fn();
 const mockDeleteTask = jest.fn();
 const mockTemplateList = jest.fn();
 const mockTemplateApply = jest.fn();
+const mockRecordSlas = jest.fn();
 
 jest.mock('../../../services/grcClient', () => ({
   itsmApi: {
@@ -44,6 +45,9 @@ jest.mock('../../../services/grcClient', () => ({
     changeTemplates: {
       list: function() { return mockTemplateList.apply(null, arguments); },
       apply: function() { return mockTemplateApply.apply(null, arguments); },
+    },
+    sla: {
+      recordSlas: function() { return mockRecordSlas.apply(null, arguments); },
     },
   },
 }));
@@ -97,6 +101,8 @@ describe('ChangeTasksSection — Component Tests', () => {
     // Default: empty tasks, no summary
     mockListTasks.mockResolvedValue({ data: { data: [] } });
     mockGetTaskSummary.mockResolvedValue({ data: { data: makeSummary() } });
+    // Default: no SLAs
+    mockRecordSlas.mockResolvedValue({ data: [] });
   });
 
   // ===========================================================================
@@ -356,6 +362,169 @@ describe('ChangeTasksSection — Component Tests', () => {
 
       await waitFor(() => {
         expect(mockListTasks).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
+
+  // ===========================================================================
+  // SLA visibility
+  // ===========================================================================
+  describe('SLA visibility for change tasks', () => {
+    it('fetches SLAs for each task after tasks load', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1'), makeTask('t2')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 2 }) },
+      });
+      mockRecordSlas.mockResolvedValue({ data: [] });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(mockRecordSlas).toHaveBeenCalledTimes(2);
+      });
+      expect(mockRecordSlas).toHaveBeenCalledWith('CHANGE_TASK', 't1');
+      expect(mockRecordSlas).toHaveBeenCalledWith('CHANGE_TASK', 't2');
+    });
+
+    it('renders SLA column header in task table', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('tasks-table')).toBeInTheDocument();
+      });
+      expect(screen.getByText('SLA')).toBeInTheDocument();
+    });
+
+    it('renders On Track chip when SLA instance is IN_PROGRESS', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockResolvedValue({
+        data: [{ id: 'sla-1', status: 'IN_PROGRESS', breached: false, remainingSeconds: 3600 }],
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('On Track')).toBeInTheDocument();
+      });
+    });
+
+    it('renders Breached chip when SLA is breached', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockResolvedValue({
+        data: [{ id: 'sla-1', status: 'BREACHED', breached: true, remainingSeconds: 0 }],
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Breached')).toBeInTheDocument();
+      });
+    });
+
+    it('renders At Risk chip when remaining time is low', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockResolvedValue({
+        data: [{ id: 'sla-1', status: 'IN_PROGRESS', breached: false, remainingSeconds: 600 }],
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('At Risk')).toBeInTheDocument();
+      });
+    });
+
+    it('renders Met chip when SLA is met', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockResolvedValue({
+        data: [{ id: 'sla-1', status: 'MET', breached: false }],
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Met')).toBeInTheDocument();
+      });
+    });
+
+    it('renders dash when no SLA exists for a task', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockResolvedValue({ data: [] });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('task-sla-t1')).toBeInTheDocument();
+      });
+    });
+
+    it('does not crash when SLA fetch fails (non-fatal)', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      mockRecordSlas.mockRejectedValue({ response: { status: 403 } });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      // Should still render the tasks table without crashing
+      await waitFor(() => {
+        expect(screen.getByTestId('tasks-table')).toBeInTheDocument();
+      });
+    });
+
+    it('handles SLA response with envelope variants', async () => {
+      mockListTasks.mockResolvedValue({
+        data: { data: [makeTask('t1')] },
+      });
+      mockGetTaskSummary.mockResolvedValue({
+        data: { data: makeSummary({ total: 1 }) },
+      });
+      // Envelope variant: { data: { data: [...] } }
+      mockRecordSlas.mockResolvedValue({
+        data: { data: [{ id: 'sla-1', status: 'IN_PROGRESS', breached: false, remainingSeconds: 7200 }] },
+      });
+
+      render(<ChangeTasksSection changeId={CHANGE_ID} showNotification={mockShowNotification} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('On Track')).toBeInTheDocument();
       });
     });
   });
