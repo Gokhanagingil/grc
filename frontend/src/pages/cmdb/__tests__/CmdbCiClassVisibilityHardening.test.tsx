@@ -33,11 +33,11 @@ jest.mock('react-router-dom', () => {
     useNavigate: () => mockNavigate,
     useSearchParams: () => [new URLSearchParams(), jest.fn()],
     useLocation: () => ({ pathname: '/', search: '', hash: '', state: null }),
-    MemoryRouter: ({ children }: { children: React.ReactNode }) => R.createElement('div', null, children),
-    Routes: ({ children }: { children: React.ReactNode }) => R.createElement('div', null, children),
-    Route: ({ element }: { element: React.ReactNode }) => element,
-    Link: ({ children, to }: { children: React.ReactNode; to: string }) => R.createElement('a', { href: to }, children),
-    NavLink: ({ children, to }: { children: React.ReactNode; to: string }) => R.createElement('a', { href: to }, children),
+    MemoryRouter: (props) => R.createElement('div', null, props.children),
+    Routes: (props) => R.createElement('div', null, props.children),
+    Route: (props) => props.element,
+    Link: (props) => R.createElement('a', { href: props.to }, props.children),
+    NavLink: (props) => R.createElement('a', { href: props.to }, props.children),
   };
 });
 
@@ -48,11 +48,11 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
-      list: (params: unknown) => mockClassesList(params),
+      list: (params) => mockClassesList(params),
       create: jest.fn(),
       summary: () => mockClassesSummary(),
       tree: () => mockClassesTree(),
-      get: (id: string) => mockClassesGet(id),
+      get: (id) => mockClassesGet(id),
       effectiveSchema: jest.fn().mockResolvedValue({ data: { data: { fields: [], inheritanceChain: [] } } }),
       ancestors: jest.fn().mockResolvedValue({ data: { data: [] } }),
       descendants: jest.fn().mockResolvedValue({ data: { data: [] } }),
@@ -63,7 +63,7 @@ jest.mock('../../../services/grcClient', () => ({
 }));
 
 jest.mock('../../../utils/apiErrorClassifier', () => ({
-  classifyApiError: (err: unknown) => ({ message: 'Test error', severity: 'error' }),
+  classifyApiError: () => ({ message: 'Test error', severity: 'error' }),
 }));
 
 // ============================================================================
@@ -141,34 +141,30 @@ const treeDataWithSystem = [
 // ============================================================================
 
 // Mock GenericListPage to render items with columns
-jest.mock('../../../components/common/GenericListPage', () => ({
-  GenericListPage: (props: {
-    onRowClick?: (row: { id: string }) => void;
-    items: Array<Record<string, unknown>>;
-    columns: Array<{ key: string; header: string; render: (row: Record<string, unknown>) => React.ReactNode }>;
-    [key: string]: unknown;
-  }) => {
-    return (
-      <div data-testid="generic-list-page">
-        <table>
-          <tbody>
-            {(props.items || []).map((item: Record<string, unknown>) => (
-              <tr
-                key={item.id as string}
-                data-testid={`row-${item.id}`}
-                onClick={() => props.onRowClick && props.onRowClick(item as { id: string })}
-              >
-                {(props.columns || []).map((col: { key: string; header: string; render: (row: Record<string, unknown>) => React.ReactNode }) => (
-                  <td key={col.key}>{col.render(item)}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  },
-}));
+jest.mock('../../../components/common/GenericListPage', () => {
+  const R = require('react');
+  return {
+    GenericListPage: (props) => {
+      return R.createElement('div', { 'data-testid': 'generic-list-page' },
+        R.createElement('table', null,
+          R.createElement('tbody', null,
+            (props.items || []).map((item) =>
+              R.createElement('tr', {
+                key: item.id,
+                'data-testid': 'row-' + item.id,
+                onClick: () => props.onRowClick && props.onRowClick(item),
+              },
+                (props.columns || []).map((col) =>
+                  R.createElement('td', { key: col.key }, col.render(item))
+                )
+              )
+            )
+          )
+        )
+      );
+    },
+  };
+});
 
 describe('CMDB Visibility Hardening — Class List', () => {
   beforeEach(() => {
@@ -180,7 +176,7 @@ describe('CMDB Visibility Hardening — Class List', () => {
     mockClassesSummary.mockResolvedValue({ data: { data: summaryData } });
 
     const { CmdbCiClassList } = require('../CmdbCiClassList');
-    render(<CmdbCiClassList />);
+    render(React.createElement(CmdbCiClassList));
 
     await waitFor(() => {
       expect(screen.getByTestId('system-badge-cls-system-1')).toBeInTheDocument();
@@ -193,7 +189,7 @@ describe('CMDB Visibility Hardening — Class List', () => {
     mockClassesSummary.mockResolvedValue({ data: { data: summaryData } });
 
     const { CmdbCiClassList } = require('../CmdbCiClassList');
-    render(<CmdbCiClassList />);
+    render(React.createElement(CmdbCiClassList));
 
     await waitFor(() => {
       expect(screen.getByTestId('custom-badge-cls-custom-1')).toBeInTheDocument();
@@ -206,7 +202,7 @@ describe('CMDB Visibility Hardening — Class List', () => {
     mockClassesSummary.mockResolvedValue({ data: summaryData });
 
     const { CmdbCiClassList } = require('../CmdbCiClassList');
-    render(<CmdbCiClassList />);
+    render(React.createElement(CmdbCiClassList));
 
     await waitFor(() => {
       expect(screen.getByTestId('class-summary-banner')).toBeInTheDocument();
@@ -222,7 +218,7 @@ describe('CMDB Visibility Hardening — Class List', () => {
     mockClassesSummary.mockResolvedValue({ data: { data: summaryData } });
 
     const { CmdbCiClassList } = require('../CmdbCiClassList');
-    render(<CmdbCiClassList />);
+    render(React.createElement(CmdbCiClassList));
 
     expect(screen.getByTestId('btn-view-tree')).toBeInTheDocument();
     expect(screen.getByTestId('btn-view-tree')).toHaveTextContent('Class Tree');
@@ -242,7 +238,7 @@ describe('CMDB Visibility Hardening — Class Tree', () => {
     mockClassesTree.mockResolvedValue({ data: { data: treeDataWithSystem } });
 
     const { CmdbCiClassTree } = require('../CmdbCiClassTree');
-    render(<CmdbCiClassTree />);
+    render(React.createElement(CmdbCiClassTree));
 
     await waitFor(() => {
       expect(screen.getByTestId('tree-system-cls-system-1')).toBeInTheDocument();
@@ -254,7 +250,7 @@ describe('CMDB Visibility Hardening — Class Tree', () => {
     mockClassesTree.mockResolvedValue({ data: { data: treeDataWithSystem } });
 
     const { CmdbCiClassTree } = require('../CmdbCiClassTree');
-    render(<CmdbCiClassTree />);
+    render(React.createElement(CmdbCiClassTree));
 
     await waitFor(() => {
       expect(screen.getByTestId('tree-node-cls-custom-1')).toBeInTheDocument();
@@ -266,7 +262,7 @@ describe('CMDB Visibility Hardening — Class Tree', () => {
     mockClassesTree.mockResolvedValue({ data: { data: treeDataWithSystem } });
 
     const { CmdbCiClassTree } = require('../CmdbCiClassTree');
-    render(<CmdbCiClassTree />);
+    render(React.createElement(CmdbCiClassTree));
 
     await waitFor(() => {
       expect(screen.getByTestId('tree-summary-chips')).toBeInTheDocument();
