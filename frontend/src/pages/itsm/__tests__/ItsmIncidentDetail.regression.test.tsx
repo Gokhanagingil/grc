@@ -37,6 +37,17 @@ jest.mock('../../../contexts/NotificationContext', () => ({
   useNotification: () => ({ showNotification: mockShowNotification }),
 }));
 
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 1, tenantId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', role: 'admin', username: 'admin', email: 'admin@test.local', firstName: 'Admin', lastName: 'User', department: 'IT' },
+    token: 'mock-token',
+    loading: false,
+    isAdmin: true,
+    isManager: true,
+    hasRole: () => true,
+  }),
+}));
+
 jest.mock('../../../hooks/useItsmChoices', () => ({
   useItsmChoices: () => ({ choices: {}, loading: false }),
 }));
@@ -65,11 +76,14 @@ jest.mock('../../../services/grcClient', () => ({
     services: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
     serviceOfferings: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
   },
+  riskApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
+  controlApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
 }));
 
 jest.mock('../../../services/api', () => ({
   api: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn(), defaults: { baseURL: '' } },
 }));
+
 
 jest.mock('../../../components/itsm/ActivityStream', () => ({
   ActivityStream: () => null,

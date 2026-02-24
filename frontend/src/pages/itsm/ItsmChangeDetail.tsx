@@ -1587,13 +1587,25 @@ export const ItsmChangeDetail: React.FC = () => {
             <TopologyGuardrailsPanel
               changeId={change.id}
               onFetch={async (cId: string) => {
-                const resp = await itsmApi.changes.getTopologyGuardrails(cId);
-                const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
-                const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
-                // Normalize at boundary — null means "not yet evaluated" (panel handles this state)
-                const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
-                if (!normalized) throw new Error('Guardrails have not been evaluated for this change yet.');
-                return normalized;
+                try {
+                  const resp = await itsmApi.changes.getTopologyGuardrails(cId);
+                  const d = resp?.data as { data?: TopologyGuardrailEvaluationData } | TopologyGuardrailEvaluationData;
+                  const raw = (d && 'data' in d && d.data) ? d.data : (d && 'guardrailStatus' in d) ? d : null;
+                  // Normalize at boundary — null means "not yet evaluated" (panel handles this state)
+                  const normalized = normalizeGuardrailEvaluationResponse(raw as Record<string, unknown> | null);
+                  if (!normalized) throw new Error('Guardrails have not been evaluated for this change yet.');
+                  return normalized;
+                } catch (err) {
+                  // Surface "not yet evaluated" as a distinct message so panel shows empty state
+                  const msg = err instanceof Error ? err.message : '';
+                  if (msg.includes('not been evaluated') || msg.includes('not available')) throw err;
+                  // For API errors (404, 500), reclassify to user-friendly message
+                  const axErr = err as { response?: { status?: number } };
+                  if (axErr?.response?.status === 404) {
+                    throw new Error('Guardrails have not been evaluated for this change yet.');
+                  }
+                  throw err;
+                }
               }}
               onRecalculate={async (cId: string) => {
                 const resp = await itsmApi.changes.recalculateTopologyGuardrails(cId);

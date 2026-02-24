@@ -8,6 +8,10 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   Grid,
@@ -28,10 +32,13 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
   AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, UpdateItsmIncidentDto } from '../../services/grcClient';
+import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, UpdateItsmIncidentDto } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
@@ -184,6 +191,21 @@ export const ItsmIncidentDetail: React.FC = () => {
   // SLA linkage state
   const [slaInstances, setSlaInstances] = useState<SlaInstanceRecord[]>([]);
   const [showSlaSection, setShowSlaSection] = useState(true);
+  const [slaRefreshing, setSlaRefreshing] = useState(false);
+
+  // Link Risk/Control dialog state
+  const [linkRiskOpen, setLinkRiskOpen] = useState(false);
+  const [linkControlOpen, setLinkControlOpen] = useState(false);
+  const [availableRisks, setAvailableRisks] = useState<LinkedRisk[]>([]);
+  const [availableControls, setAvailableControls] = useState<LinkedControl[]>([]);
+  const [linkingRiskId, setLinkingRiskId] = useState<string | null>(null);
+  const [linkingControlId, setLinkingControlId] = useState<string | null>(null);
+  const [linkSearchRisk, setLinkSearchRisk] = useState('');
+  const [linkSearchControl, setLinkSearchControl] = useState('');
+
+  // Auth context for tenant-scoped API calls
+  const { user } = useAuth();
+  const tenantId = user?.tenantId || '';
 
   const fetchIncident = useCallback(async () => {
     if (isNew || !id) return;
@@ -374,6 +396,110 @@ export const ItsmIncidentDetail: React.FC = () => {
     } catch (error) {
       console.error('Error unlinking control:', error);
       showNotification('Failed to unlink control', 'error');
+    }
+  };
+
+  // B1: Link Risk handler
+  const handleOpenLinkRisk = async () => {
+    setLinkRiskOpen(true);
+    setLinkSearchRisk('');
+    if (!tenantId) return;
+    try {
+      const resp = await riskApi.list(tenantId);
+      const d = resp.data as { data?: { items?: LinkedRisk[] } | LinkedRisk[] } | LinkedRisk[];
+      let items: LinkedRisk[] = [];
+      if (d && typeof d === 'object' && 'data' in d) {
+        const inner = (d as { data: { items?: LinkedRisk[] } | LinkedRisk[] }).data;
+        if (Array.isArray(inner)) items = inner;
+        else if (inner && 'items' in inner && Array.isArray(inner.items)) items = inner.items;
+      } else if (Array.isArray(d)) items = d;
+      // Filter out already-linked risks
+      const linkedIds = new Set(linkedRisks.map((r) => r.id));
+      setAvailableRisks(items.filter((r) => !linkedIds.has(r.id)));
+    } catch {
+      setAvailableRisks([]);
+    }
+  };
+
+  const handleLinkRisk = async (riskId: string) => {
+    if (!id) return;
+    setLinkingRiskId(riskId);
+    try {
+      await itsmApi.incidents.linkRisk(id, riskId);
+      showNotification('Risk linked successfully', 'success');
+      // Refresh linked risks
+      const risksResponse = await itsmApi.incidents.getLinkedRisks(id);
+      if (risksResponse.data && 'data' in risksResponse.data) {
+        setLinkedRisks(Array.isArray(risksResponse.data.data) ? risksResponse.data.data : []);
+      }
+      setLinkRiskOpen(false);
+    } catch (error) {
+      const classified = classifyApiError(error);
+      showNotification(classified.message || 'Failed to link risk', 'error');
+    } finally {
+      setLinkingRiskId(null);
+    }
+  };
+
+  // B2: Link Control handler
+  const handleOpenLinkControl = async () => {
+    setLinkControlOpen(true);
+    setLinkSearchControl('');
+    if (!tenantId) return;
+    try {
+      const resp = await controlApi.list(tenantId);
+      const d = resp.data as { data?: { items?: LinkedControl[] } | LinkedControl[] } | LinkedControl[];
+      let items: LinkedControl[] = [];
+      if (d && typeof d === 'object' && 'data' in d) {
+        const inner = (d as { data: { items?: LinkedControl[] } | LinkedControl[] }).data;
+        if (Array.isArray(inner)) items = inner;
+        else if (inner && 'items' in inner && Array.isArray(inner.items)) items = inner.items;
+      } else if (Array.isArray(d)) items = d;
+      // Filter out already-linked controls
+      const linkedIds = new Set(linkedControls.map((c) => c.id));
+      setAvailableControls(items.filter((c) => !linkedIds.has(c.id)));
+    } catch {
+      setAvailableControls([]);
+    }
+  };
+
+  const handleLinkControl = async (controlId: string) => {
+    if (!id) return;
+    setLinkingControlId(controlId);
+    try {
+      await itsmApi.incidents.linkControl(id, controlId);
+      showNotification('Control linked successfully', 'success');
+      // Refresh linked controls
+      const controlsResponse = await itsmApi.incidents.getLinkedControls(id);
+      if (controlsResponse.data && 'data' in controlsResponse.data) {
+        setLinkedControls(Array.isArray(controlsResponse.data.data) ? controlsResponse.data.data : []);
+      }
+      setLinkControlOpen(false);
+    } catch (error) {
+      const classified = classifyApiError(error);
+      showNotification(classified.message || 'Failed to link control', 'error');
+    } finally {
+      setLinkingControlId(null);
+    }
+  };
+
+  // B3: SLA Refresh handler
+  const handleRefreshSla = async () => {
+    if (!id) return;
+    setSlaRefreshing(true);
+    try {
+      const slaResponse = await itsmApi.sla.recordSlas('Incident', id);
+      const slaData = slaResponse.data;
+      if (slaData && 'data' in slaData) {
+        setSlaInstances(Array.isArray(slaData.data) ? slaData.data : []);
+      } else if (Array.isArray(slaData)) {
+        setSlaInstances(slaData);
+      }
+      showNotification('SLA data refreshed', 'success');
+    } catch {
+      showNotification('Failed to refresh SLA data', 'error');
+    } finally {
+      setSlaRefreshing(false);
     }
   };
 
@@ -645,9 +771,20 @@ export const ItsmIncidentDetail: React.FC = () => {
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                   onClick={() => setShowSlaSection(!showSlaSection)}
                 >
-                  <Typography variant="h6">
-                    SLA Linkage ({slaInstances.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">
+                      SLA Linkage ({slaInstances.length})
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleRefreshSla(); }}
+                      disabled={slaRefreshing}
+                      title="Refresh SLA data"
+                      data-testid="sla-refresh-btn"
+                    >
+                      {slaRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+                    </IconButton>
+                  </Box>
                   <IconButton size="small">
                     {showSlaSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
@@ -695,9 +832,19 @@ export const ItsmIncidentDetail: React.FC = () => {
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                   onClick={() => setShowRisksSection(!showRisksSection)}
                 >
-                  <Typography variant="h6">
-                    Linked Risks ({linkedRisks.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">
+                      Linked Risks ({linkedRisks.length})
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleOpenLinkRisk(); }}
+                      title="Link a risk"
+                      data-testid="link-risk-btn"
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                   <IconButton size="small">
                     {showRisksSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
@@ -739,9 +886,19 @@ export const ItsmIncidentDetail: React.FC = () => {
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                   onClick={() => setShowControlsSection(!showControlsSection)}
                 >
-                  <Typography variant="h6">
-                    Linked Controls ({linkedControls.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">
+                      Linked Controls ({linkedControls.length})
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleOpenLinkControl(); }}
+                      title="Link a control"
+                      data-testid="link-control-btn"
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                   <IconButton size="small">
                     {showControlsSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
@@ -797,6 +954,106 @@ export const ItsmIncidentDetail: React.FC = () => {
           incidentNumber={incident.number}
         />
       )}
+
+      {/* B1: Link Risk Dialog */}
+      <Dialog open={linkRiskOpen} onClose={() => setLinkRiskOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Link Risk to Incident</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search risks by code or name..."
+            value={linkSearchRisk}
+            onChange={(e) => setLinkSearchRisk(e.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+            data-testid="link-risk-search"
+          />
+          {availableRisks.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No available risks to link
+            </Typography>
+          ) : (
+            <List dense sx={{ maxHeight: 300, overflow: 'auto' }}>
+              {availableRisks
+                .filter((r) => {
+                  if (!linkSearchRisk) return true;
+                  const q = linkSearchRisk.toLowerCase();
+                  return (r.code || '').toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q);
+                })
+                .map((risk) => (
+                  <ListItem
+                    key={risk.id}
+                    secondaryAction={
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleLinkRisk(risk.id)}
+                        disabled={linkingRiskId === risk.id}
+                      >
+                        {linkingRiskId === risk.id ? 'Linking...' : 'Link'}
+                      </Button>
+                    }
+                  >
+                    <ListItemText primary={risk.code || risk.id} secondary={risk.name} />
+                  </ListItem>
+                ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkRiskOpen(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* B2: Link Control Dialog */}
+      <Dialog open={linkControlOpen} onClose={() => setLinkControlOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Link Control to Incident</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search controls by code or name..."
+            value={linkSearchControl}
+            onChange={(e) => setLinkSearchControl(e.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+            data-testid="link-control-search"
+          />
+          {availableControls.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No available controls to link
+            </Typography>
+          ) : (
+            <List dense sx={{ maxHeight: 300, overflow: 'auto' }}>
+              {availableControls
+                .filter((c) => {
+                  if (!linkSearchControl) return true;
+                  const q = linkSearchControl.toLowerCase();
+                  return (c.code || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q);
+                })
+                .map((control) => (
+                  <ListItem
+                    key={control.id}
+                    secondaryAction={
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleLinkControl(control.id)}
+                        disabled={linkingControlId === control.id}
+                      >
+                        {linkingControlId === control.id ? 'Linking...' : 'Link'}
+                      </Button>
+                    }
+                  >
+                    <ListItemText primary={control.code || control.id} secondary={control.name} />
+                  </ListItem>
+                ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkControlOpen(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
