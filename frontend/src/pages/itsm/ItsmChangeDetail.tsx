@@ -136,8 +136,10 @@ const APPROVAL_OPTIONS = [
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
-/** Maximum time (ms) to wait for page initialization before forcing ready state */
-const INIT_TIMEOUT_MS = 15_000;
+/** Maximum time (ms) to wait for page initialization before forcing ready state.
+ * Reduced from 15s to 8s — if the primary fetch + optional enrichment cannot
+ * complete in 8s the user should see the form with warnings rather than a spinner. */
+const INIT_TIMEOUT_MS = 8_000;
 
 /**
  * Robustly extract an array from various API response envelope shapes.

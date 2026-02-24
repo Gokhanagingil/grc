@@ -91,7 +91,7 @@ describe('Mega Regression Pack (e2e)', () => {
         .set('x-tenant-id', tenantId)
         .send({
           title: 'Regression CAB Meeting',
-          scheduledDate: new Date(
+          meetingAt: new Date(
             Date.now() + 7 * 24 * 60 * 60 * 1000,
           ).toISOString(),
           status: 'SCHEDULED',
@@ -426,7 +426,9 @@ describe('Mega Regression Pack (e2e)', () => {
 
       const data = res.body.data ?? res.body;
       // Should return array of matrix entries
-      const items = Array.isArray(data) ? data : (data.items ?? data);
+      // Controller returns { data: rows }, response interceptor may wrap again
+      const inner = data?.data ?? data;
+      const items = Array.isArray(inner) ? inner : (inner?.items ?? inner);
       expect(Array.isArray(items)).toBe(true);
     });
 

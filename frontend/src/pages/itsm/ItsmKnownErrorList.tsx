@@ -53,7 +53,10 @@ const FIX_STATUS_FILTER_OPTIONS = [
   { value: 'FIX_DEPLOYED', label: 'Fix Deployed' },
 ];
 
-function toDisplayLabel(val: string): string {
+function toDisplayLabel(val: unknown): string {
+  if (val == null) return '\u2014';
+  if (typeof val !== 'string') return String(val);
+  if (val.trim() === '') return '\u2014';
   return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
