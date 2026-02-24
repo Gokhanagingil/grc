@@ -69,7 +69,7 @@ export class CreateCabMeetingTables1742200000000 implements MigrationInterface {
         CONSTRAINT "FK_itsm_cab_agenda_item_meeting" FOREIGN KEY ("cab_meeting_id")
           REFERENCES "itsm_cab_meeting"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_itsm_cab_agenda_item_change" FOREIGN KEY ("change_id")
-          REFERENCES "itsm_change"("id") ON DELETE CASCADE,
+          REFERENCES "itsm_changes"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_itsm_cab_agenda_item_decision_by" FOREIGN KEY ("decision_by_id")
           REFERENCES "nest_users"("id") ON DELETE SET NULL,
         CONSTRAINT "UQ_cab_agenda_meeting_change" UNIQUE ("cab_meeting_id", "change_id")
@@ -93,7 +93,9 @@ export class CreateCabMeetingTables1742200000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "itsm_cab_agenda_item" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "itsm_cab_agenda_item" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "itsm_cab_meeting" CASCADE`);
   }
 }
