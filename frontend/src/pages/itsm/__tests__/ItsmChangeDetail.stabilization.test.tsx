@@ -262,6 +262,10 @@ jest.mock('../../../services/grcClient', () => ({
       update: jest.fn().mockResolvedValue({ data: {} }),
       getLinkedRisks: (...args: unknown[]) => mockGetLinkedRisks(...args),
       getLinkedControls: (...args: unknown[]) => mockGetLinkedControls(...args),
+      linkRisk: jest.fn().mockResolvedValue({ data: {} }),
+      linkControl: jest.fn().mockResolvedValue({ data: {} }),
+      unlinkRisk: jest.fn().mockResolvedValue({ data: {} }),
+      unlinkControl: jest.fn().mockResolvedValue({ data: {} }),
       conflicts: () => Promise.resolve({ data: { data: [] } }),
       getRiskAssessment: (id: string) => mockApiGet(`/changes/${id}/risk-assessment`),
       listApprovals: () => Promise.resolve({ data: { data: [] } }),
@@ -282,6 +286,12 @@ jest.mock('../../../services/grcClient', () => ({
     services: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
     serviceOfferings: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
   },
+  riskApi: {
+    list: () => Promise.resolve({ data: { data: { items: [] } } }),
+  },
+  controlApi: {
+    list: () => Promise.resolve({ data: { data: { items: [] } } }),
+  },
   unwrapResponse: (resp: { data: unknown }) => {
     const raw = resp?.data;
     if (raw && typeof raw === 'object' && 'data' in (raw as Record<string, unknown>)) {
@@ -297,6 +307,14 @@ jest.mock('../../../services/api', () => ({
 
 jest.mock('../../../utils/apiErrorClassifier', () => ({
   classifyApiError: () => ({ kind: 'unknown', message: 'error' }),
+}));
+
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { tenantId: 'test-tenant' }, token: 'test-token' }),
+}));
+
+jest.mock('../../../components/itsm/LinkRecordDialog', () => ({
+  LinkRecordDialog: () => null,
 }));
 
 jest.mock('../../../components/topology-intelligence', () => {

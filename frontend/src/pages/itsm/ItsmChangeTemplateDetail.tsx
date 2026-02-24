@@ -173,12 +173,17 @@ export const ItsmChangeTemplateDetail: React.FC = () => {
       }
     } catch (error: unknown) {
       console.error('Error saving change template:', error);
+      // Extract HTTP status from AxiosError or plain error objects
       const classified = classifyApiError(error);
-      if (classified.kind === 'forbidden') {
+      const httpStatus = classified.status
+        ?? (error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined);
+      if (classified.kind === 'forbidden' || httpStatus === 403) {
         showNotification('You don\'t have permission to manage change templates.', 'error');
-      } else if (classified.kind === 'conflict') {
+      } else if (classified.kind === 'conflict' || httpStatus === 409) {
         showNotification('A template with this code already exists.', 'error');
-      } else if (classified.kind === 'validation') {
+      } else if (classified.kind === 'validation' || httpStatus === 400 || httpStatus === 422) {
         showNotification(`Validation error: ${classified.message}`, 'error');
       } else {
         showNotification(classified.message || 'Failed to save change template', 'error');
