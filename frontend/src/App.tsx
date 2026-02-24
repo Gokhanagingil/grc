@@ -57,7 +57,7 @@ import { BcmServiceList } from './pages/BcmServiceList';
 import { BcmServiceDetail } from './pages/BcmServiceDetail';
 import { BcmExerciseList } from './pages/BcmExerciseList';
 import { CalendarPage } from './pages/CalendarPage';
-import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChangeTemplateList, ItsmChangeTemplateDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail, ItsmMajorIncidentList, ItsmMajorIncidentDetail, ItsmAnalyticsDashboard, ItsmCabMeetingList, ItsmCabMeetingDetail } from './pages/itsm';
+import { ItsmServiceList, ItsmServiceDetail, ItsmIncidentList, ItsmIncidentDetail, ItsmChangeList, ItsmChangeDetail, ItsmChangeCalendar, ItsmChangeTemplateList, ItsmChangeTemplateDetail, ItsmChoiceAdmin, ItsmStudioTables, ItsmStudioBusinessRules, ItsmStudioUiPolicies, ItsmStudioUiActions, ItsmStudioWorkflows, ItsmStudioSla, ItsmStudioPriorityMatrix, ItsmDiagnostics, ItsmProblemList, ItsmProblemDetail, ItsmKnownErrorList, ItsmKnownErrorDetail, ItsmMajorIncidentList, ItsmMajorIncidentDetail, ItsmAnalyticsDashboard, ItsmCabMeetingList, ItsmCabMeetingDetail } from './pages/itsm';
 import { CmdbCiList, CmdbCiDetail, CmdbCiClassList, CmdbCiClassDetail, CmdbCiClassTree, CmdbServiceList, CmdbServiceDetail, CmdbImportJobList, CmdbImportJobDetail, CmdbReconcileRules, CmdbRelationshipTypeList, CmdbRelationshipTypeDetail } from './pages/cmdb';
 import { CopilotPage } from './pages/copilot/CopilotPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -348,6 +348,13 @@ function App() {
                     <ProtectedRoute allowedRoles={['admin']}>
                       <ErrorBoundary>
                         <ItsmStudioSla />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="itsm/studio/priority-matrix" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <ErrorBoundary>
+                        <ItsmStudioPriorityMatrix />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />

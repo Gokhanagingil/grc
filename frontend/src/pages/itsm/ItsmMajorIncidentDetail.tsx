@@ -120,7 +120,14 @@ const LINK_TYPE_OPTIONS = [
   { value: 'CMDB_CI', label: 'CMDB CI' },
 ];
 
-function toDisplayLabel(val: string): string {
+/**
+ * Safely format an enum/key value into a human-readable label.
+ * Accepts unknown input — returns a stable fallback for non-string values.
+ */
+function toDisplayLabel(val: unknown): string {
+  if (val == null) return '\u2014';
+  if (typeof val !== 'string') return String(val);
+  if (val.trim() === '') return '\u2014';
   return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 

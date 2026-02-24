@@ -134,6 +134,11 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // ITSM CAB permissions
     Permission.ITSM_CAB_READ,
     Permission.ITSM_CAB_WRITE,
+    // ITSM Major Incident permissions
+    Permission.ITSM_MAJOR_INCIDENT_READ,
+    Permission.ITSM_MAJOR_INCIDENT_CREATE,
+    Permission.ITSM_MAJOR_INCIDENT_UPDATE,
+    Permission.ITSM_MAJOR_INCIDENT_LINK,
   ],
 
   /**
@@ -223,6 +228,11 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // ITSM CAB permissions
     Permission.ITSM_CAB_READ,
     Permission.ITSM_CAB_WRITE,
+    // ITSM Major Incident permissions
+    Permission.ITSM_MAJOR_INCIDENT_READ,
+    Permission.ITSM_MAJOR_INCIDENT_CREATE,
+    Permission.ITSM_MAJOR_INCIDENT_UPDATE,
+    Permission.ITSM_MAJOR_INCIDENT_LINK,
   ],
 
   /**
@@ -274,6 +284,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ITSM_KNOWN_ERROR_READ,
     // ITSM CAB read-only
     Permission.ITSM_CAB_READ,
+    // ITSM Major Incident read-only
+    Permission.ITSM_MAJOR_INCIDENT_READ,
   ],
 };
 

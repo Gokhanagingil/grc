@@ -29,6 +29,7 @@ export { ItsmStudioUiPolicies } from './studio/ItsmStudioUiPolicies';
 export { ItsmStudioUiActions } from './studio/ItsmStudioUiActions';
 export { ItsmStudioWorkflows } from './studio/ItsmStudioWorkflows';
 export { ItsmStudioSla } from './studio/ItsmStudioSla';
+export { ItsmStudioPriorityMatrix } from './studio/ItsmStudioPriorityMatrix';
 
 // ITSM Diagnostics (Admin runtime health)
 export { ItsmDiagnostics } from './ItsmDiagnostics';

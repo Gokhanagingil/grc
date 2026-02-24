@@ -57,7 +57,10 @@ const PRIORITY_FILTER_OPTIONS = [
   { value: 'P4', label: 'P4 - Low' },
 ];
 
-function toDisplayLabel(val: string): string {
+function toDisplayLabel(val: unknown): string {
+  if (val == null) return '\u2014';
+  if (typeof val !== 'string') return String(val);
+  if (val.trim() === '') return '\u2014';
   return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 

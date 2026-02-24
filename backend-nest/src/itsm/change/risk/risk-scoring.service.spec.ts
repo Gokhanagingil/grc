@@ -105,6 +105,9 @@ describe('RiskScoringService', () => {
       mockSlaInstanceRepo as never,
       mockConflictRepo as never,
       mockCustomerRiskImpactService as never,
+      undefined, // topologyImpactService (optional)
+      undefined, // changeRiskRepo (optional)
+      undefined, // grcRiskRepo (optional)
     );
   });
 
@@ -116,7 +119,7 @@ describe('RiskScoringService', () => {
       expect(result).toBeDefined();
       expect(result!.riskScore).toBeGreaterThanOrEqual(0);
       expect(result!.riskScore).toBeLessThanOrEqual(100);
-      expect(result!.breakdown).toHaveLength(8);
+      expect(result!.breakdown).toHaveLength(9);
       expect(result!.breakdown.map((f) => f.name)).toEqual([
         'Blast Radius',
         'CMDB Quality',
@@ -126,6 +129,7 @@ describe('RiskScoringService', () => {
         'Conflict Status',
         'Customer Risk Exposure',
         'Topology Impact',
+        'Linked Risk Contribution',
       ]);
     });
 
@@ -386,6 +390,394 @@ describe('RiskScoringService', () => {
       mockRiskRepo.findOne.mockResolvedValue(assessment);
       const result = await service.getAssessment('tenant-1', 'change-1');
       expect(result).toEqual(assessment);
+    });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Linked Risk Contribution — enum canonicalization regression tests   */
+  /* ------------------------------------------------------------------ */
+  describe('calculateRisk — Linked Risk Contribution', () => {
+    /**
+     * Formula (from risk-scoring.service.ts, calculateLinkedRiskContribution):
+     *
+     *   For each linked risk:
+     *     severityScore = severityMap[canonical(severity)]  ?? 25
+     *     statusWeight  = statusWeightMap[canonical(status)] ?? 0.5
+     *     weighted      = severityScore × statusWeight
+     *
+     *   avgWeightedScore = sum(weighted) / riskCount
+     *   scaleFactor      = min(2.0, 1 + (riskCount - 1) × 0.25)   (capped at 2×)
+     *   rawScore         = min(100, round(avgWeightedScore × scaleFactor))
+     *   weightedScore    = rawScore × FACTOR_WEIGHTS.LINKED_RISK_CONTRIBUTION (12)
+     *
+     * Severity map:  critical=100, high=75, medium=50, low=25
+     * Status weights: identified=1.0, assessed=1.0, treatment_planned=1.0,
+     *                 treating=0.8, mitigating=0.6, monitored=0.6,
+     *                 closed=0.2, accepted=0.2, draft=0.4
+     */
+
+    let serviceWithLinkedRisks: RiskScoringService;
+    let mockChangeRiskRepo: Record<string, jest.Mock>;
+    let mockGrcRiskRepo: {
+      find: jest.Mock;
+      createQueryBuilder: jest.Mock;
+    };
+
+    /** Helper to build a mock GrcRisk-like object */
+    function makeGrcRisk(overrides: {
+      id?: string;
+      severity: string;
+      status: string;
+      title?: string;
+      code?: string;
+    }) {
+      return {
+        id: overrides.id ?? 'risk-' + Math.random().toString(36).slice(2, 10),
+        tenantId: 'tenant-1',
+        severity: overrides.severity,
+        status: overrides.status,
+        title: overrides.title ?? 'Test Risk',
+        code: overrides.code ?? 'RSK-001',
+        isDeleted: false,
+      };
+    }
+
+    beforeEach(() => {
+      mockChangeRiskRepo = {
+        find: jest.fn().mockResolvedValue([]),
+      };
+
+      mockGrcRiskRepo = {
+        find: jest.fn().mockResolvedValue([]),
+        createQueryBuilder: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValue([]),
+        }),
+      };
+
+      serviceWithLinkedRisks = new RiskScoringService(
+        mockRiskRepo as never,
+        mockServiceCiRepo as never,
+        mockCiRelRepo as never,
+        mockQualitySnapshotRepo as never,
+        mockSlaInstanceRepo as never,
+        mockConflictRepo as never,
+        mockCustomerRiskImpactService as never,
+        undefined, // topologyImpactService
+        mockChangeRiskRepo as never,
+        mockGrcRiskRepo as never,
+      );
+    });
+
+    /* --- Worked example 1: No linked risks → score 0 --- */
+    it('should return score 0 when no linked risks exist', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([]);
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+      expect(factor).toBeDefined();
+      expect(factor!.score).toBe(0);
+      expect(factor!.weightedScore).toBe(0);
+      expect(factor!.evidence).toContain('No linked risks');
+    });
+
+    /* --- Worked example 2: 1 low/identified risk --- */
+    it('should correctly score 1 low open risk (lowercase enums)', async () => {
+      // Setup: 1 link → 1 risk with severity=low, status=identified
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-low-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-low-1',
+        severity: 'low',
+        status: 'identified',
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // Manual calculation:
+      //   sevScore = 25 (low), statusWeight = 1.0 (identified)
+      //   weighted = 25 × 1.0 = 25
+      //   avg = 25 / 1 = 25
+      //   scaleFactor = min(2.0, 1 + 0×0.25) = 1.0
+      //   rawScore = min(100, round(25 × 1.0)) = 25
+      //   weightedScore = 25 × 12 = 300
+      expect(factor!.score).toBe(25);
+      expect(factor!.weightedScore).toBe(25 * 12);
+    });
+
+    /* --- Worked example 3: 1 high/identified risk --- */
+    it('should correctly score 1 high open risk', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-high-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-high-1',
+        severity: 'high',
+        status: 'identified',
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // Manual calculation:
+      //   sevScore = 75 (high), statusWeight = 1.0 (identified)
+      //   weighted = 75 × 1.0 = 75
+      //   avg = 75, scaleFactor = 1.0
+      //   rawScore = min(100, round(75)) = 75
+      //   weightedScore = 75 × 12 = 900
+      expect(factor!.score).toBe(75);
+      expect(factor!.weightedScore).toBe(75 * 12);
+    });
+
+    /* --- Worked example 4: Mixed risks (open + closed) --- */
+    it('should correctly score mixed linked risks (open + closed)', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-a' },
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-b' },
+      ]);
+      const riskA = makeGrcRisk({
+        id: 'risk-a',
+        severity: 'critical',
+        status: 'identified',
+        title: 'Open Critical Risk',
+      });
+      const riskB = makeGrcRisk({
+        id: 'risk-b',
+        severity: 'medium',
+        status: 'closed',
+        title: 'Closed Medium Risk',
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskA, riskB]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // Manual calculation:
+      //   Risk A: critical(100) × identified(1.0) = 100
+      //   Risk B: medium(50) × closed(0.2)       = 10
+      //   total = 110, avg = 110 / 2 = 55
+      //   scaleFactor = min(2.0, 1 + (2-1)×0.25) = 1.25
+      //   rawScore = min(100, round(55 × 1.25)) = min(100, 69) = 69
+      //   weightedScore = 69 × 12 = 828
+      expect(factor!.score).toBe(69);
+      expect(factor!.weightedScore).toBe(69 * 12);
+      expect(factor!.evidence).toContain('1 CRITICAL');
+      expect(factor!.evidence).toContain('1 open/active');
+    });
+
+    /* --- Enum canonicalization: UPPERCASE severity/status --- */
+    it('should handle UPPERCASE enum values via canonicalization', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-up-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-up-1',
+        severity: 'HIGH', // UPPERCASE — must be canonicalized
+        status: 'IDENTIFIED', // UPPERCASE — must be canonicalized
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // Same as "1 high open risk" — canonicalization should normalize
+      // sevScore = 75 (high), statusWeight = 1.0 (identified)
+      // rawScore = 75
+      expect(factor!.score).toBe(75);
+      expect(factor!.weightedScore).toBe(75 * 12);
+    });
+
+    /* --- Enum canonicalization: MixedCase severity/status --- */
+    it('should handle MixedCase enum values via canonicalization', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-mix-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-mix-1',
+        severity: 'Critical', // MixedCase
+        status: 'Treatment_Planned', // MixedCase
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // critical(100) × treatment_planned(1.0) = 100
+      // rawScore = min(100, round(100 × 1.0)) = 100
+      expect(factor!.score).toBe(100);
+      expect(factor!.weightedScore).toBe(100 * 12);
+    });
+
+    /* --- Enum canonicalization: unknown/null values → fallback defaults --- */
+    it('should use fallback defaults for unknown or null enum values', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-null-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-null-1',
+        severity: null as unknown as string, // null severity → fallback 25
+        status: 'UNKNOWN_STATUS', // unknown status → fallback 0.5
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // null severity → canonicalized to '' → not in map → fallback 25
+      // unknown_status → canonicalized to 'unknown_status' → not in map → fallback 0.5
+      // weighted = 25 × 0.5 = 12.5
+      // rawScore = min(100, round(12.5 × 1.0)) = 13
+      expect(factor!.score).toBe(13);
+      expect(factor!.weightedScore).toBe(13 * 12);
+    });
+
+    /* --- Enum canonicalization: whitespace-padded values --- */
+    it('should handle whitespace-padded enum values via trim', async () => {
+      mockChangeRiskRepo.find.mockResolvedValue([
+        { tenantId: 'tenant-1', changeId: 'change-1', riskId: 'risk-ws-1' },
+      ]);
+      const riskObj = makeGrcRisk({
+        id: 'risk-ws-1',
+        severity: '  medium  ', // padded with spaces
+        status: '  closed  ', // padded with spaces
+      });
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([riskObj]),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // medium(50) × closed(0.2) = 10
+      // rawScore = min(100, round(10 × 1.0)) = 10
+      expect(factor!.score).toBe(10);
+      expect(factor!.weightedScore).toBe(10 * 12);
+    });
+
+    /* --- Scale factor capping: 5+ risks → scaleFactor capped at 2.0 --- */
+    it('should cap scaleFactor at 2.0 for 5+ linked risks', async () => {
+      const links = Array.from({ length: 5 }, (_, i) => ({
+        tenantId: 'tenant-1',
+        changeId: 'change-1',
+        riskId: `risk-cap-${i}`,
+      }));
+      mockChangeRiskRepo.find.mockResolvedValue(links);
+
+      const risks = links.map((l) =>
+        makeGrcRisk({
+          id: l.riskId,
+          severity: 'low',
+          status: 'closed',
+        }),
+      );
+      mockGrcRiskRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(risks),
+      });
+
+      const change = makeChange();
+      const result = await serviceWithLinkedRisks.calculateRisk(
+        'tenant-1',
+        'user-1',
+        change,
+      );
+      const factor = result!.breakdown.find(
+        (f) => f.name === 'Linked Risk Contribution',
+      );
+
+      // Each risk: low(25) × closed(0.2) = 5
+      // avg = 5, scaleFactor = min(2.0, 1 + 4×0.25) = min(2.0, 2.0) = 2.0
+      // rawScore = min(100, round(5 × 2.0)) = 10
+      expect(factor!.score).toBe(10);
+      expect(factor!.evidence).toContain('5 linked risk(s)');
+      expect(factor!.evidence).toContain('scale=2.00');
     });
   });
 });

@@ -302,6 +302,13 @@ export const API_PATHS = {
       AGENDA_DECISION: (id: string, itemId: string) => `/grc/itsm/cab-meetings/${id}/agenda/${itemId}/decision`,
     },
 
+    // ITSM Priority Matrix endpoints (ITSM Studio)
+    PRIORITY_MATRIX: {
+      GET: '/grc/itsm/priority-matrix',
+      UPSERT: '/grc/itsm/priority-matrix',
+      SEED: '/grc/itsm/priority-matrix/seed',
+    },
+
     // ITSM Change Calendar endpoints
     CALENDAR: {
       EVENTS: {

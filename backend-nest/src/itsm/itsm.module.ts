@@ -123,6 +123,10 @@ import { KnowledgeCandidateController } from './pir/knowledge-candidate.controll
 import { AnalyticsService } from './analytics/analytics.service';
 import { AnalyticsController } from './analytics/analytics.controller';
 
+import { PriorityMatrixEntry } from './priority-matrix/priority-matrix.entity';
+import { PriorityMatrixService } from './priority-matrix/priority-matrix.service';
+import { PriorityMatrixController } from './priority-matrix/priority-matrix.controller';
+
 import { TopologyImpactAnalysisService } from './change/risk/topology-impact/topology-impact-analysis.service';
 import { TopologyGovernanceService } from './change/risk/topology-impact/topology-governance.service';
 import { TopologyGuardrailService } from './change/risk/topology-impact/topology-guardrail.service';
@@ -209,6 +213,8 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
       ItsmChangeControl,
       GrcRisk,
       GrcControl,
+      // Priority Matrix
+      PriorityMatrixEntry,
     ]),
     AuditModule,
     AuthModule,
@@ -259,6 +265,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTemplateService,
     CabMeetingService,
     ChangeCiService,
+    PriorityMatrixService,
   ],
   controllers: [
     IncidentController,
@@ -290,6 +297,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     CabMeetingController,
     CabChangeSummaryController,
     ChangeCiController,
+    PriorityMatrixController,
   ],
   exports: [
     IncidentService,
@@ -333,6 +341,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTemplateService,
     CabMeetingService,
     ChangeCiService,
+    PriorityMatrixService,
   ],
 })
 export class ItsmModule {}
