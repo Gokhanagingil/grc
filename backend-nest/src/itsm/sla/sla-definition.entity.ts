@@ -22,6 +22,7 @@ export enum SlaRecordType {
   PROBLEM = 'PROBLEM',
   REQUEST = 'REQUEST',
   TASK = 'TASK',
+  CHANGE_TASK = 'CHANGE_TASK',
 }
 
 /**

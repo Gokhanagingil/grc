@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { SlaService } from './sla.service';
 import { RecordContext } from './condition/sla-condition-evaluator';
+import { ItsmChange } from '../change/change.entity';
 
 /** Fields that trigger SLA re-evaluation when changed on an incident. */
 const SLA_RELEVANT_FIELDS = [
@@ -19,11 +22,26 @@ const SLA_RELEVANT_FIELDS = [
   'relatedService',
 ];
 
+/** Fields that trigger SLA re-evaluation when changed on a change task. */
+const CHANGE_TASK_SLA_RELEVANT_FIELDS = [
+  'priority',
+  'status',
+  'taskType',
+  'assignmentGroupId',
+  'assigneeId',
+  'isBlocking',
+  'stageLabel',
+];
+
 @Injectable()
 export class SlaEventListener {
   private readonly logger = new Logger(SlaEventListener.name);
 
-  constructor(private readonly slaService: SlaService) {}
+  constructor(
+    private readonly slaService: SlaService,
+    @InjectRepository(ItsmChange)
+    private readonly changeRepo: Repository<ItsmChange>,
+  ) {}
 
   @OnEvent('incident.created')
   async onIncidentCreated(payload: {
@@ -154,5 +172,147 @@ export class SlaEventListener {
         }`,
       );
     }
+  }
+
+  // ── Change Task SLA Events ───────────────────────────────────────
+
+  @OnEvent('change_task.created')
+  async onChangeTaskCreated(payload: {
+    taskId: string;
+    changeId: string;
+    tenantId: string;
+    priority?: string;
+    status?: string;
+    taskType?: string;
+    assignmentGroupId?: string;
+    assigneeId?: string;
+    isBlocking?: boolean;
+    stageLabel?: string;
+    sourceTemplateId?: string;
+  }): Promise<void> {
+    try {
+      const context = await this.buildChangeTaskContext(payload);
+
+      await this.slaService.startSlaV2ForRecord(
+        payload.tenantId,
+        'CHANGE_TASK',
+        payload.taskId,
+        context,
+      );
+    } catch (err) {
+      this.logger.error(
+        `SLA event listener error on change_task.created: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  @OnEvent('change_task.updated')
+  async onChangeTaskUpdated(payload: {
+    taskId: string;
+    changeId: string;
+    tenantId: string;
+    changes?: Record<string, unknown>;
+    snapshot?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const changes = payload.changes || {};
+
+      // Handle status change for stop/pause logic
+      const status = changes.status as string | undefined;
+      if (status) {
+        await this.slaService.evaluateOnStateChange(
+          payload.tenantId,
+          'CHANGE_TASK',
+          payload.taskId,
+          status,
+        );
+      }
+
+      // Check if any SLA-relevant fields changed → re-evaluate v2
+      const hasSlaRelevantChange = CHANGE_TASK_SLA_RELEVANT_FIELDS.some(
+        (f) => f in changes && f !== 'status',
+      );
+
+      if (hasSlaRelevantChange && payload.snapshot) {
+        const context = await this.buildChangeTaskContext({
+          ...payload.snapshot,
+          taskId: payload.taskId,
+          changeId: payload.changeId,
+          tenantId: payload.tenantId,
+        } as {
+          taskId: string;
+          changeId: string;
+          tenantId: string;
+          [key: string]: unknown;
+        });
+
+        await this.slaService.reEvaluateV2(
+          payload.tenantId,
+          'CHANGE_TASK',
+          payload.taskId,
+          context,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `SLA event listener error on change_task.updated: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Build a RecordContext for a change task, including derived parent change fields.
+   */
+  private async buildChangeTaskContext(
+    payload: Record<string, unknown>,
+  ): Promise<RecordContext> {
+    const context: RecordContext = {};
+
+    // Direct task fields
+    const taskFields = [
+      'priority',
+      'status',
+      'taskType',
+      'assignmentGroupId',
+      'assigneeId',
+      'isBlocking',
+      'stageLabel',
+      'sourceTemplateId',
+    ];
+    for (const field of taskFields) {
+      const val = payload[field];
+      if (val !== undefined && val !== null) {
+        context[field] = val;
+      }
+    }
+
+    // Derived parent change fields (dot-walk)
+    const changeId = payload.changeId as string | undefined;
+    const tenantId = payload.tenantId as string | undefined;
+    if (changeId && tenantId) {
+      try {
+        const change = await this.changeRepo.findOne({
+          where: { id: changeId, tenantId, isDeleted: false },
+        });
+        if (change) {
+          context['change.type'] = change.type;
+          context['change.risk'] = change.risk;
+          context['change.state'] = change.state;
+          if (change.serviceId) context['change.serviceId'] = change.serviceId;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to derive parent change context for task ${String(payload.taskId)}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    return context;
   }
 }

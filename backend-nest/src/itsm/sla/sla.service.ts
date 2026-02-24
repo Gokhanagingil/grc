@@ -623,7 +623,7 @@ export class SlaService extends MultiTenantServiceBase<SlaDefinition> {
 
     try {
       // Attempt v2 matching
-      const matchResult = await this.evaluateV2(tenantId, 'INCIDENT', context);
+      const matchResult = await this.evaluateV2(tenantId, recordType, context);
 
       if (matchResult.matched && matchResult.selectedPolicy) {
         return this.applyV2Match(
