@@ -291,7 +291,13 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         const inner = data.data;
         if (Array.isArray(inner) && inner.length > 0) {
           setPir(inner[0] as ItsmPirData);
+        } else if (inner && typeof inner === 'object' && 'id' in (inner as Record<string, unknown>)) {
+          // Backend returns { data: pirObject } (single object, not array)
+          setPir(inner as ItsmPirData);
         }
+      } else if (data && 'id' in data) {
+        // Flat response: backend returned the PIR object directly
+        setPir(data as unknown as ItsmPirData);
       }
     } catch (err) {
       console.error('Error fetching PIR:', err);

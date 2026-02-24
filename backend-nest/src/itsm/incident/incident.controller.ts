@@ -72,7 +72,11 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentService.findWithFilters(tenantId, filterDto);
+    const result = await this.incidentService.findWithFilters(
+      tenantId,
+      filterDto,
+    );
+    return { success: true, data: result };
   }
 
   /**
@@ -87,7 +91,8 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentService.getStatistics(tenantId);
+    const stats = await this.incidentService.getStatistics(tenantId);
+    return { success: true, data: stats };
   }
 
   /**
@@ -102,7 +107,8 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentService.getSummary(tenantId);
+    const summary = await this.incidentService.getSummary(tenantId);
+    return { success: true, data: summary };
   }
 
   /**
@@ -122,11 +128,12 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentService.createIncident(
+    const incident = await this.incidentService.createIncident(
       tenantId,
       req.user.id,
       createIncidentDto,
     );
+    return { success: true, data: incident };
   }
 
   /**
@@ -152,7 +159,7 @@ export class IncidentController {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    return incident;
+    return { success: true, data: incident };
   }
 
   /**
@@ -183,7 +190,7 @@ export class IncidentController {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    return incident;
+    return { success: true, data: incident };
   }
 
   /**
@@ -244,7 +251,7 @@ export class IncidentController {
       );
     }
 
-    return incident;
+    return { success: true, data: incident };
   }
 
   /**
@@ -275,7 +282,7 @@ export class IncidentController {
       );
     }
 
-    return incident;
+    return { success: true, data: incident };
   }
 
   /**
@@ -294,7 +301,12 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentCiService.findAffectedCis(tenantId, id, filterDto);
+    const result = await this.incidentCiService.findAffectedCis(
+      tenantId,
+      id,
+      filterDto,
+    );
+    return { success: true, data: result };
   }
 
   /**
@@ -315,7 +327,7 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentCiService.addAffectedCi(
+    const ci = await this.incidentCiService.addAffectedCi(
       tenantId,
       req.user.id,
       id,
@@ -323,6 +335,7 @@ export class IncidentController {
       dto.relationshipType,
       dto.impactScope,
     );
+    return { success: true, data: ci };
   }
 
   /**
@@ -372,6 +385,7 @@ export class IncidentController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    return this.incidentCiService.getImpactSummary(tenantId, id);
+    const summary = await this.incidentCiService.getImpactSummary(tenantId, id);
+    return { success: true, data: summary };
   }
 }

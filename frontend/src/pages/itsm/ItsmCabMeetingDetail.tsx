@@ -186,10 +186,16 @@ export default function ItsmCabMeetingDetail() {
 
   const handleAddChange = async () => {
     if (!id || !changeIdInput) return;
+    // Validate UUID format before sending to avoid opaque "verification failed" errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(changeIdInput.trim())) {
+      setError('Invalid Change ID format. Please enter a valid UUID (e.g., 550e8400-e29b-41d4-a716-446655440000).');
+      return;
+    }
     setAddingChange(true);
     setError(null);
     try {
-      await itsmApi.cabMeetings.addAgendaItem(id, { changeId: changeIdInput });
+      await itsmApi.cabMeetings.addAgendaItem(id, { changeId: changeIdInput.trim() });
       setAddChangeOpen(false);
       setChangeIdInput('');
       fetchAgenda();
@@ -198,7 +204,7 @@ export default function ItsmCabMeetingDetail() {
       if (classified.kind === 'validation') {
         setError(`Validation failed: ${classified.message}`);
       } else if (classified.kind === 'not_found') {
-        setError('Change not found. Please verify the Change ID.');
+        setError('Change not found. Please verify the Change ID exists and belongs to your tenant.');
       } else if (classified.kind === 'forbidden') {
         setError('You do not have permission to modify the agenda.');
       } else {
