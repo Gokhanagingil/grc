@@ -52,6 +52,21 @@ function scoreToLevel(score: number): RiskLevel {
   return RiskLevel.LOW;
 }
 
+/**
+ * Canonicalize an enum string value to lowercase for map lookups.
+ *
+ * GrcRisk.severity and GrcRisk.status enums use lowercase string values
+ * (e.g. 'critical', 'identified'), but data from external sources or DB
+ * migrations may arrive in UPPERCASE or MixedCase. This helper ensures
+ * consistent lookups regardless of input casing.
+ */
+function canonicalizeEnumValue(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.toLowerCase().trim();
+  // For non-string truthy values (number, boolean, etc.), coerce safely
+  return `${value as string}`.toLowerCase().trim();
+}
+
 @Injectable()
 export class RiskScoringService {
   constructor(
@@ -541,7 +556,9 @@ export class RiskScoringService {
       };
     }
 
-    // Severity score mapping (from GrcRisk.severity enum — lowercase values)
+    // Severity score mapping (keys are canonical lowercase to match GrcRisk.severity enum values)
+    // RiskSeverity enum: LOW='low', MEDIUM='medium', HIGH='high', CRITICAL='critical'
+    // All lookups use canonicalizeEnumValue() to handle case variations safely.
     const severityMap: Record<string, number> = {
       critical: 100,
       high: 75,
@@ -549,7 +566,11 @@ export class RiskScoringService {
       low: 25,
     };
 
-    // Status weight mapping — open/active risks count more (lowercase enum values)
+    // Status weight mapping (keys are canonical lowercase to match GrcRisk.status enum values)
+    // RiskStatus enum: DRAFT='draft', IDENTIFIED='identified', ASSESSED='assessed',
+    //   TREATMENT_PLANNED='treatment_planned', TREATING='treating', MITIGATING='mitigating',
+    //   MONITORED='monitored', ACCEPTED='accepted', CLOSED='closed'
+    // Open/active statuses (weight 1.0) contribute most; closed/accepted (0.2) least.
     const statusWeightMap: Record<string, number> = {
       identified: 1.0,
       assessed: 1.0,
@@ -589,19 +610,19 @@ export class RiskScoringService {
     let openCount = 0;
 
     for (const risk of risks) {
-      const sevScore = severityMap[risk.severity] ?? 25;
-      const statusWeight = statusWeightMap[risk.status] ?? 0.5;
+      // Canonicalize enum values to lowercase for consistent map lookups.
+      // This guards against UPPERCASE or MixedCase values from DB/external sources.
+      const canonSeverity = canonicalizeEnumValue(risk.severity);
+      const canonStatus = canonicalizeEnumValue(risk.status);
+
+      const sevScore = severityMap[canonSeverity] ?? 25;
+      const statusWeight = statusWeightMap[canonStatus] ?? 0.5;
       const weighted = sevScore * statusWeight;
       totalWeightedScore += weighted;
 
-      const sevStr = String(risk.severity);
-      if (sevStr === 'critical') criticalCount++;
-      if (sevStr === 'high') highCount++;
-      if (
-        ['identified', 'assessed', 'treatment_planned'].includes(
-          String(risk.status),
-        )
-      )
+      if (canonSeverity === 'critical') criticalCount++;
+      if (canonSeverity === 'high') highCount++;
+      if (['identified', 'assessed', 'treatment_planned'].includes(canonStatus))
         openCount++;
 
       details.push(
