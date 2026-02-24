@@ -270,6 +270,9 @@ export const API_PATHS = {
       TASK_DEPENDENCIES: (changeId: string) => `/grc/itsm/changes/${changeId}/tasks/dependencies`,
       CAB_SUMMARY: (changeId: string) => `/grc/itsm/changes/${changeId}/cab-summary`,
       CALENDAR_RANGE: '/grc/itsm/changes/calendar-range',
+      // Change ↔ CI linkage
+      AFFECTED_CIS: (id: string) => `/grc/itsm/changes/${id}/affected-cis`,
+      DELETE_AFFECTED_CI: (changeId: string, linkId: string) => `/grc/itsm/changes/${changeId}/affected-cis/${linkId}`,
     },
     APPROVALS: {
       APPROVE: (approvalId: string) => `/grc/itsm/approvals/${approvalId}/approve`,
@@ -1832,6 +1835,36 @@ export interface ItsmIncidentImpactSummary {
   }[];
 }
 
+// Change ↔ CI linkage types
+export interface ItsmChangeCiLinkData {
+  id: string;
+  changeId: string;
+  ciId: string;
+  relationshipType: string;
+  impactScope: string | null;
+  ci?: {
+    id: string;
+    name: string;
+    description?: string;
+    ciClass?: { id: string; name: string; icon?: string };
+  };
+  createdAt: string;
+}
+
+export interface CreateItsmChangeCiDto {
+  ciId: string;
+  relationshipType: string;
+  impactScope?: string;
+}
+
+export interface ItsmChangeCiListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  relationshipType?: string;
+  impactScope?: string;
+}
+
 export interface ItsmChangeData {
   id: string;
   number: string;
@@ -2548,6 +2581,21 @@ export const itsmApi = {
     // CAB Summary for change detail
     getCabSummary: (changeId: string) =>
       api.get(API_PATHS.ITSM.CHANGES.CAB_SUMMARY(changeId)),
+    // Change ↔ CI linkage
+    listAffectedCis: (changeId: string, params?: ItsmChangeCiListParams) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.relationshipType) searchParams.set('relationshipType', params.relationshipType);
+      if (params?.impactScope) searchParams.set('impactScope', params.impactScope);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.ITSM.CHANGES.AFFECTED_CIS(changeId)}${queryString ? `?${queryString}` : ''}`);
+    },
+    addAffectedCi: (changeId: string, data: CreateItsmChangeCiDto) =>
+      api.post(API_PATHS.ITSM.CHANGES.AFFECTED_CIS(changeId), data),
+    removeAffectedCi: (changeId: string, linkId: string) =>
+      api.delete(API_PATHS.ITSM.CHANGES.DELETE_AFFECTED_CI(changeId, linkId)),
   },
 
   // Change Templates

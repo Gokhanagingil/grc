@@ -231,7 +231,23 @@ export const CmdbCiClassTree: React.FC = () => {
 
       {!loading && !error && treeData.length === 0 && (
         <Alert severity="info" data-testid="tree-empty">
-          No CI classes found. Create your first CI class to see the hierarchy.
+          <Typography variant="subtitle2" gutterBottom>No CI classes found</Typography>
+          <Typography variant="body2">
+            The class hierarchy is empty. This usually means one of:
+          </Typography>
+          <Box component="ul" sx={{ mt: 0.5, mb: 0.5, pl: 2 }}>
+            <li><Typography variant="body2">The CMDB content pack has not been applied yet. Ask an admin to run the content-pack seed.</Typography></li>
+            <li><Typography variant="body2">No classes have been created manually. Go to <strong>CI Classes</strong> to create your first class.</Typography></li>
+            <li><Typography variant="body2">Your current role may not have CMDB read permissions.</Typography></li>
+          </Box>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => navigate('/cmdb/classes')}
+            sx={{ mt: 1 }}
+          >
+            Go to CI Classes
+          </Button>
         </Alert>
       )}
 

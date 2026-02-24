@@ -43,6 +43,7 @@ import {
 import { itsmApi, cmdbApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { ChangeTasksSection } from '../../components/itsm/ChangeTasksSection';
+import { ChangeAffectedCisSection } from '../../components/itsm/ChangeAffectedCisSection';
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
@@ -1865,6 +1866,11 @@ export const ItsmChangeDetail: React.FC = () => {
             </Collapse>
           </CardContent>
         </Card>
+      )}
+
+      {/* Affected CIs Section */}
+      {!isNew && change.id && (
+        <ChangeAffectedCisSection changeId={change.id} showNotification={showNotification} />
       )}
 
       {/* Change Tasks Section */}

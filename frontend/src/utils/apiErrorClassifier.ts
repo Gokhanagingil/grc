@@ -211,6 +211,14 @@ function extractErrorMessage(
     }
   }
 
+  // ChoiceService validation: { error: 'INVALID_CHOICE', message, details: [...] }
+  if (data.error === 'INVALID_CHOICE' && Array.isArray(data.details)) {
+    const details = data.details as Array<{ field: string; message: string }>;
+    if (details.length > 0) {
+      return details.map((d) => d.message || `${d.field}: invalid value`).join('; ');
+    }
+  }
+
   // Flat message string
   if (typeof data.message === 'string') return data.message;
 

@@ -143,6 +143,11 @@ import { ItsmChangeTemplateDependency } from './change/template/change-template-
 import { ChangeTemplateService } from './change/template/change-template.service';
 import { ChangeTemplateController } from './change/template/change-template.controller';
 
+// Change ↔ CI linkage
+import { ItsmChangeCi } from './change/change-ci.entity';
+import { ChangeCiService } from './change/change-ci.service';
+import { ChangeCiController } from './change/change-ci.controller';
+
 // GRC Bridge entities (Change ↔ Risk/Control linkage)
 import { ItsmChangeRisk } from '../grc/entities/itsm-change-risk.entity';
 import { ItsmChangeControl } from '../grc/entities/itsm-change-control.entity';
@@ -197,6 +202,8 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
       // CAB entities
       CabMeeting,
       CabAgendaItem,
+      // Change ↔ CI linkage
+      ItsmChangeCi,
       // GRC Bridge entities (Change ↔ Risk/Control linkage)
       ItsmChangeRisk,
       ItsmChangeControl,
@@ -251,6 +258,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTaskService,
     ChangeTemplateService,
     CabMeetingService,
+    ChangeCiService,
   ],
   controllers: [
     IncidentController,
@@ -281,6 +289,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTemplateController,
     CabMeetingController,
     CabChangeSummaryController,
+    ChangeCiController,
   ],
   exports: [
     IncidentService,
@@ -323,6 +332,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     ChangeTaskService,
     ChangeTemplateService,
     CabMeetingService,
+    ChangeCiService,
   ],
 })
 export class ItsmModule {}

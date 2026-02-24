@@ -47,7 +47,7 @@ export function isConditionGroup(node: ConditionNode): node is ConditionGroup {
 export interface FieldRegistryEntry {
   key: string;
   label: string;
-  type: 'string' | 'enum' | 'uuid' | 'number';
+  type: 'string' | 'enum' | 'uuid' | 'number' | 'boolean' | 'date';
   operators: string[];
   options?: string[];
 }
@@ -74,16 +74,169 @@ const DEFAULT_FIELDS: FieldRegistryEntry[] = [
   { key: 'priority', label: 'Priority', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], options: ['P1', 'P2', 'P3', 'P4'] },
   { key: 'impact', label: 'Impact', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], options: ['HIGH', 'MEDIUM', 'LOW'] },
   { key: 'urgency', label: 'Urgency', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], options: ['HIGH', 'MEDIUM', 'LOW'] },
-  { key: 'category', label: 'Category', type: 'string', operators: ['is', 'is_not', 'in', 'not_in', 'contains', 'is_empty', 'is_not_empty'] },
+  { key: 'category', label: 'Category', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], options: ['HARDWARE', 'SOFTWARE', 'NETWORK', 'DATABASE', 'SECURITY', 'ACCESS', 'OTHER'] },
   { key: 'subcategory', label: 'Subcategory', type: 'string', operators: ['is', 'is_not', 'in', 'not_in', 'contains', 'is_empty', 'is_not_empty'] },
   { key: 'serviceId', label: 'Service', type: 'uuid', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
   { key: 'offeringId', label: 'Offering', type: 'uuid', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
   { key: 'assignmentGroup', label: 'Assignment Group', type: 'string', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
-  { key: 'source', label: 'Source / Channel', type: 'string', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
-  { key: 'status', label: 'Status', type: 'string', operators: ['is', 'is_not', 'in', 'not_in'] },
+  { key: 'source', label: 'Source / Channel', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], options: ['EMAIL', 'PHONE', 'WEB', 'CHAT', 'API', 'MONITORING', 'SELF_SERVICE'] },
+  { key: 'status', label: 'Status', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in'], options: ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED', 'CANCELLED'] },
   { key: 'assignedTo', label: 'Assigned To', type: 'uuid', operators: ['is', 'is_not', 'is_empty', 'is_not_empty'] },
   { key: 'relatedService', label: 'Related Service', type: 'uuid', operators: ['is', 'is_not', 'is_empty', 'is_not_empty'] },
 ];
+
+// ── Typed Value Editor Strategy ─────────────────────────────────────────
+
+/**
+ * Renders the appropriate value input based on field metadata + operator.
+ * Strategy:
+ *  - enum/choice fields with options → Select dropdown (single or multi)
+ *  - boolean → true/false Select
+ *  - number → numeric TextField
+ *  - uuid → text input with UUID hint
+ *  - date → date input
+ *  - string (no options) → text input
+ *  - unary operators (is_empty/is_not_empty) → no value input (handled by caller)
+ *  - array operators (in/not_in) → multi-select if options, comma-separated text otherwise
+ */
+function renderValueEditor(
+  leaf: ConditionLeaf,
+  fieldMeta: FieldRegistryEntry | undefined,
+  isArray: boolean,
+  onChange: (updated: ConditionLeaf) => void,
+): React.ReactNode {
+  const fieldType = fieldMeta?.type ?? 'string';
+  const options = fieldMeta?.options;
+
+  // Boolean fields → true/false toggle select
+  if (fieldType === 'boolean') {
+    return (
+      <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+        <InputLabel>Value</InputLabel>
+        <Select
+          value={String(leaf.value ?? '')}
+          label="Value"
+          onChange={(e) => onChange({ ...leaf, value: e.target.value })}
+        >
+          <MenuItem value="true">True</MenuItem>
+          <MenuItem value="false">False</MenuItem>
+        </Select>
+      </FormControl>
+    );
+  }
+
+  // Number fields → numeric input
+  if (fieldType === 'number') {
+    return (
+      <TextField
+        size="small"
+        type="number"
+        label="Value"
+        value={leaf.value ?? ''}
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange({ ...leaf, value: val === '' ? null : Number(val) });
+        }}
+        sx={{ flex: 1, minWidth: 120 }}
+        inputProps={{ step: 'any' }}
+      />
+    );
+  }
+
+  // Date fields → date input
+  if (fieldType === 'date') {
+    return (
+      <TextField
+        size="small"
+        type="date"
+        label="Value"
+        value={String(leaf.value ?? '')}
+        onChange={(e) => onChange({ ...leaf, value: e.target.value })}
+        sx={{ flex: 1, minWidth: 160 }}
+        InputLabelProps={{ shrink: true }}
+      />
+    );
+  }
+
+  // Enum/choice fields with options → select dropdown
+  if (options && options.length > 0) {
+    if (isArray) {
+      return (
+        <FormControl size="small" sx={{ flex: 1, minWidth: 160 }}>
+          <InputLabel>Values</InputLabel>
+          <Select
+            multiple
+            value={Array.isArray(leaf.value) ? leaf.value : (leaf.value ? [String(leaf.value)] : [])}
+            label="Values"
+            onChange={(e) => onChange({ ...leaf, value: e.target.value as string[] })}
+            renderValue={(selected) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {(selected as string[]).map((v) => (<Chip key={v} label={v} size="small" />))}
+              </Box>
+            )}
+          >
+            {options.map((opt) => (
+              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
+    return (
+      <FormControl size="small" sx={{ flex: 1, minWidth: 160 }}>
+        <InputLabel>Value</InputLabel>
+        <Select
+          value={String(leaf.value ?? '')}
+          label="Value"
+          onChange={(e) => onChange({ ...leaf, value: e.target.value })}
+        >
+          {options.map((opt) => (
+            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    );
+  }
+
+  // UUID fields → text with hint
+  if (fieldType === 'uuid') {
+    return (
+      <TextField
+        size="small"
+        label={isArray ? 'UUIDs (comma-separated)' : 'UUID'}
+        placeholder="e.g., 00000000-0000-..."
+        value={Array.isArray(leaf.value) ? leaf.value.join(', ') : (leaf.value ?? '')}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (isArray) {
+            onChange({ ...leaf, value: raw.split(',').map((v) => v.trim()).filter(Boolean) });
+          } else {
+            onChange({ ...leaf, value: raw });
+          }
+        }}
+        sx={{ flex: 1 }}
+      />
+    );
+  }
+
+  // Default string fallback → text input
+  return (
+    <TextField
+      size="small"
+      label={isArray ? 'Values (comma-separated)' : 'Value'}
+      value={Array.isArray(leaf.value) ? leaf.value.join(', ') : (leaf.value ?? '')}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (isArray) {
+          onChange({ ...leaf, value: raw.split(',').map((v) => v.trim()).filter(Boolean) });
+        } else {
+          onChange({ ...leaf, value: raw });
+        }
+      }}
+      sx={{ flex: 1 }}
+    />
+  );
+}
 
 // ── Sub-Components ─────────────────────────────────────────────────────
 
@@ -128,58 +281,7 @@ const LeafEditor: React.FC<LeafEditorProps> = ({ leaf, fields, onChange, onRemov
         </Select>
       </FormControl>
 
-      {!isUnary && (
-        fieldMeta?.options ? (
-          isArray ? (
-            <FormControl size="small" sx={{ flex: 1, minWidth: 160 }}>
-              <InputLabel>Values</InputLabel>
-              <Select
-                multiple
-                value={Array.isArray(leaf.value) ? leaf.value : (leaf.value ? [String(leaf.value)] : [])}
-                label="Values"
-                onChange={(e) => onChange({ ...leaf, value: e.target.value as string[] })}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(selected as string[]).map((v) => (<Chip key={v} label={v} size="small" />))}
-                  </Box>
-                )}
-              >
-                {fieldMeta.options.map((opt) => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          ) : (
-            <FormControl size="small" sx={{ flex: 1, minWidth: 160 }}>
-              <InputLabel>Value</InputLabel>
-              <Select
-                value={String(leaf.value ?? '')}
-                label="Value"
-                onChange={(e) => onChange({ ...leaf, value: e.target.value })}
-              >
-                {fieldMeta.options.map((opt) => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )
-        ) : (
-          <TextField
-            size="small"
-            label={isArray ? 'Values (comma-separated)' : 'Value'}
-            value={Array.isArray(leaf.value) ? leaf.value.join(', ') : (leaf.value ?? '')}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (isArray) {
-                onChange({ ...leaf, value: raw.split(',').map((v) => v.trim()).filter(Boolean) });
-              } else {
-                onChange({ ...leaf, value: raw });
-              }
-            }}
-            sx={{ flex: 1 }}
-          />
-        )
-      )}
+      {!isUnary && renderValueEditor(leaf, fieldMeta, isArray, onChange)}
 
       <Tooltip title="Remove condition">
         <IconButton size="small" onClick={onRemove} color="error">
