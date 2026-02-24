@@ -10,9 +10,39 @@ export type Permission =
   | 'grc:requirement:write'
   | 'grc:statistics:read'
   | 'grc:admin'
+  | 'grc:audit:read'
+  | 'grc:audit:write'
+  | 'grc:control:read'
+  | 'grc:control:write'
+  | 'grc:evidence:read'
+  | 'grc:evidence:write'
+  | 'grc:issue:read'
+  | 'grc:issue:write'
+  | 'grc:capa:read'
+  | 'grc:capa:write'
+  | 'grc:process:read'
+  | 'grc:process:write'
   | 'itsm:incident:read'
   | 'itsm:incident:write'
+  | 'itsm:service:read'
+  | 'itsm:service:write'
+  | 'itsm:change:read'
+  | 'itsm:change:write'
+  | 'itsm:approval:read'
+  | 'itsm:approval:write'
+  | 'itsm:sla:read'
+  | 'itsm:sla:write'
+  | 'itsm:workflow:read'
+  | 'itsm:workflow:write'
+  | 'itsm:cab:read'
+  | 'itsm:cab:write'
+  | 'itsm:problem:read'
+  | 'itsm:known_error:read'
   | 'itsm:statistics:read'
+  | 'cmdb:ci:read'
+  | 'cmdb:ci:write'
+  | 'cmdb:service:read'
+  | 'cmdb:service:write'
   | 'admin:users:read'
   | 'admin:users:write'
   | 'admin:roles:read'
@@ -30,11 +60,41 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'grc:policy:write',
     'grc:requirement:read',
     'grc:requirement:write',
+    'grc:audit:read',
+    'grc:audit:write',
+    'grc:control:read',
+    'grc:control:write',
+    'grc:evidence:read',
+    'grc:evidence:write',
+    'grc:issue:read',
+    'grc:issue:write',
+    'grc:capa:read',
+    'grc:capa:write',
+    'grc:process:read',
+    'grc:process:write',
     'grc:statistics:read',
     'grc:admin',
     'itsm:incident:read',
     'itsm:incident:write',
+    'itsm:service:read',
+    'itsm:service:write',
+    'itsm:change:read',
+    'itsm:change:write',
+    'itsm:approval:read',
+    'itsm:approval:write',
+    'itsm:sla:read',
+    'itsm:sla:write',
+    'itsm:workflow:read',
+    'itsm:workflow:write',
+    'itsm:cab:read',
+    'itsm:cab:write',
+    'itsm:problem:read',
+    'itsm:known_error:read',
     'itsm:statistics:read',
+    'cmdb:ci:read',
+    'cmdb:ci:write',
+    'cmdb:service:read',
+    'cmdb:service:write',
     'admin:users:read',
     'admin:users:write',
     'admin:roles:read',
@@ -51,16 +111,62 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'grc:policy:write',
     'grc:requirement:read',
     'grc:requirement:write',
+    'grc:audit:read',
+    'grc:audit:write',
+    'grc:control:read',
+    'grc:control:write',
+    'grc:evidence:read',
+    'grc:evidence:write',
+    'grc:issue:read',
+    'grc:issue:write',
+    'grc:capa:read',
+    'grc:capa:write',
+    'grc:process:read',
+    'grc:process:write',
     'grc:statistics:read',
     'itsm:incident:read',
     'itsm:incident:write',
+    'itsm:service:read',
+    'itsm:service:write',
+    'itsm:change:read',
+    'itsm:change:write',
+    'itsm:approval:read',
+    'itsm:approval:write',
+    'itsm:sla:read',
+    'itsm:sla:write',
+    'itsm:workflow:read',
+    'itsm:workflow:write',
+    'itsm:cab:read',
+    'itsm:cab:write',
+    'itsm:problem:read',
+    'itsm:known_error:read',
     'itsm:statistics:read',
+    'cmdb:ci:read',
+    'cmdb:ci:write',
+    'cmdb:service:read',
+    'cmdb:service:write',
   ],
   user: [
     'grc:risk:read',
     'grc:policy:read',
     'grc:requirement:read',
+    'grc:audit:read',
+    'grc:control:read',
+    'grc:evidence:read',
+    'grc:issue:read',
+    'grc:capa:read',
+    'grc:process:read',
     'itsm:incident:read',
+    'itsm:service:read',
+    'itsm:change:read',
+    'itsm:approval:read',
+    'itsm:sla:read',
+    'itsm:workflow:read',
+    'itsm:cab:read',
+    'itsm:problem:read',
+    'itsm:known_error:read',
+    'cmdb:ci:read',
+    'cmdb:service:read',
   ],
 };
 
