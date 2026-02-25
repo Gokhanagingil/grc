@@ -938,6 +938,105 @@ export const ItsmChangeDetail: React.FC = () => {
         />
       )}
 
+      {/* Change Impact Snapshot — WOW card */}
+      {!isNew && (
+        <Card
+          sx={{
+            mb: 2,
+            background: 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
+            color: 'white',
+          }}
+          data-testid="change-impact-snapshot"
+        >
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <Typography variant="subtitle2" sx={{ opacity: 0.85, mb: 1.5, fontWeight: 600, letterSpacing: 1 }}>
+              CHANGE IMPACT SNAPSHOT
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+              {/* Linked Risks */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {linkedRisks.length}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Risks</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Linked Controls */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {linkedControls.length}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Controls</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Affected CIs */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {riskAssessment?.impactedCiCount ?? (topologyImpact?.metrics?.impactedCiCount ?? 0)}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Affected CIs</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* CAB Status */}
+              <Box sx={{ textAlign: 'center', minWidth: 80 }}>
+                <Chip
+                  label={cabSummary ? 'CAB Linked' : 'No CAB'}
+                  size="small"
+                  sx={{
+                    bgcolor: cabSummary ? 'rgba(76,175,80,0.4)' : 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    fontWeight: 600,
+                  }}
+                />
+                <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', mt: 0.5 }}>CAB</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Topology Status */}
+              <Box sx={{ textAlign: 'center', minWidth: 80 }}>
+                <Chip
+                  label={
+                    topologyLoading ? 'Loading...'
+                    : topologyError ? (topologyError.type === 'not_found' ? 'Not Evaluated' : 'Error')
+                    : topologyImpact ? `Score: ${topologyImpact.topologyRiskScore ?? 0}`
+                    : 'Not Evaluated'
+                  }
+                  size="small"
+                  sx={{
+                    bgcolor: topologyImpact ? 'rgba(255,152,0,0.4)' : 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    fontWeight: 600,
+                  }}
+                />
+                <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', mt: 0.5 }}>Topology</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Risk Score */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {riskAssessment?.riskScore ?? '—'}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Risk Score</Typography>
+              </Box>
+              {/* Risk Level Badge */}
+              {riskAssessment?.riskLevel && (
+                <Chip
+                  label={riskAssessment.riskLevel}
+                  size="small"
+                  sx={{
+                    bgcolor: riskAssessment.riskLevel === 'CRITICAL' ? 'rgba(211,47,47,0.5)'
+                      : riskAssessment.riskLevel === 'HIGH' ? 'rgba(237,108,2,0.5)'
+                      : riskAssessment.riskLevel === 'MEDIUM' ? 'rgba(33,150,243,0.5)'
+                      : 'rgba(76,175,80,0.5)',
+                    color: 'white',
+                    fontWeight: 600,
+                  }}
+                />
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Governance Error Banner */}
       {governanceError && (
         <Alert

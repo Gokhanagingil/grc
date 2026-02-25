@@ -49,6 +49,7 @@ import {
   INCIDENT_UPDATE_FIELDS,
   INCIDENT_EMPTY_STRING_FIELDS,
 } from '../../utils/payloadNormalizer';
+import { calculatePriorityFromMatrix, getPriorityLabel, getPriorityColor } from '../../utils/priorityMatrix';
 
 interface ItsmIncident {
   id: string;
@@ -152,7 +153,6 @@ export const ItsmIncidentDetail: React.FC = () => {
   const { choices } = useItsmChoices('itsm_incidents', FALLBACK_CHOICES);
 
   const stateOptions = choices['status'] || FALLBACK_CHOICES['status'];
-  const priorityOptions = choices['priority'] || FALLBACK_CHOICES['priority'];
   const impactOptions = choices['impact'] || FALLBACK_CHOICES['impact'];
   const urgencyOptions = choices['urgency'] || FALLBACK_CHOICES['urgency'];
   const categoryOptions = choices['category'] || FALLBACK_CHOICES['category'];
@@ -287,7 +287,17 @@ export const ItsmIncidentDetail: React.FC = () => {
   }, [incident.serviceId]);
 
   const handleChange = (field: keyof ItsmIncident, value: string) => {
-    setIncident((prev) => ({ ...prev, [field]: value }));
+    setIncident((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Live priority recalculation when impact or urgency changes
+      if (field === 'impact' || field === 'urgency') {
+        updated.priority = calculatePriorityFromMatrix(
+          field === 'impact' ? value : prev.impact,
+          field === 'urgency' ? value : prev.urgency,
+        );
+      }
+      return updated;
+    });
   };
 
   const handleSave = async () => {
@@ -524,6 +534,84 @@ export const ItsmIncidentDetail: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Incident Intelligence Summary — WOW card */}
+      {!isNew && incident.id && (
+        <Card
+          sx={{
+            mb: 3,
+            background: incident.priority === 'p1'
+              ? 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)'
+              : incident.priority === 'p2'
+              ? 'linear-gradient(135deg, #ed6c02 0%, #e65100 100%)'
+              : incident.priority === 'p3'
+              ? 'linear-gradient(135deg, #2196f3 0%, #1565c0 100%)'
+              : 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+            color: 'white',
+          }}
+          data-testid="incident-intelligence-summary"
+        >
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <Typography variant="subtitle2" sx={{ opacity: 0.85, mb: 1.5, fontWeight: 600, letterSpacing: 1 }}>
+              INCIDENT INTELLIGENCE
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+              {/* Priority badge */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h4" fontWeight={700} lineHeight={1}>
+                  {(incident.priority || 'P3').toUpperCase()}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Priority</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* SLA summary */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {slaInstances.length}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>SLA Records</Typography>
+              </Box>
+              {slaInstances.some(s => s.breached) && (
+                <Chip
+                  label={`${slaInstances.filter(s => s.breached).length} Breached`}
+                  size="small"
+                  sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white', fontWeight: 600 }}
+                />
+              )}
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Linked risks */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {linkedRisks.length}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Risks</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Linked controls */}
+              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                <Typography variant="h5" fontWeight={700} lineHeight={1}>
+                  {linkedControls.length}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Controls</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+              {/* Health badges */}
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                {linkedRisks.length === 0 && (
+                  <Chip label="No Linked Risks" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                )}
+                {slaInstances.length === 0 && (
+                  <Chip label="No SLA" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                )}
+                <Chip label="Priority Auto-managed" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                {incident.state === 'resolved' && (
+                  <Chip label="Resolved" size="small" sx={{ bgcolor: 'rgba(76,175,80,0.4)', color: 'white' }} />
+                )}
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
           <Card>
@@ -565,12 +653,19 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <TextField
                     fullWidth
                     label="Priority"
-                    value={
-                      priorityOptions.find((o) => o.value === (incident.priority || 'p3'))?.label
-                      || (incident.priority || 'P3').toUpperCase()
-                    }
-                    InputProps={{ readOnly: true }}
-                    helperText="Auto-computed from Impact × Urgency"
+                    value={getPriorityLabel(incident.priority || 'p3')}
+                    InputProps={{
+                      readOnly: true,
+                      startAdornment: (
+                        <Chip
+                          label={(incident.priority || 'p3').toUpperCase()}
+                          size="small"
+                          color={getPriorityColor(incident.priority || 'p3')}
+                          sx={{ mr: 1 }}
+                        />
+                      ),
+                    }}
+                    helperText="Auto-computed from Impact × Urgency — updates live"
                     data-testid="incident-priority-readonly"
                   />
                 </Grid>

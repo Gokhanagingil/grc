@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -39,7 +39,7 @@ import {
   Gavel as GavelIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto, unwrapResponse, unwrapArrayResponse } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto, unwrapResponse, unwrapArrayResponse, ItsmChangeData } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import {
   normalizeUpdatePayload,
@@ -89,6 +89,9 @@ export default function ItsmCabMeetingDetail() {
   const [addChangeOpen, setAddChangeOpen] = useState(false);
   const [changeIdInput, setChangeIdInput] = useState('');
   const [addingChange, setAddingChange] = useState(false);
+  const [changeSearchResults, setChangeSearchResults] = useState<ItsmChangeData[]>([]);
+  const [changeSearching, setChangeSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Decision dialog
   const [decisionOpen, setDecisionOpen] = useState(false);
@@ -176,12 +179,57 @@ export default function ItsmCabMeetingDetail() {
     }
   };
 
+  const searchChanges = useCallback(async (query: string) => {
+    if (!query || query.length < 2) {
+      setChangeSearchResults([]);
+      return;
+    }
+    setChangeSearching(true);
+    try {
+      const res = await itsmApi.changes.list({ q: query, pageSize: 10 });
+      const data = res?.data;
+      let items: ItsmChangeData[] = [];
+      if (data && 'items' in (data as Record<string, unknown>) && Array.isArray((data as Record<string, unknown>).items)) {
+        items = (data as Record<string, unknown>).items as ItsmChangeData[];
+      } else if (data && 'data' in (data as Record<string, unknown>)) {
+        const inner = (data as Record<string, unknown>).data;
+        if (inner && 'items' in (inner as Record<string, unknown>)) {
+          items = (inner as Record<string, unknown>).items as ItsmChangeData[];
+        } else if (Array.isArray(inner)) {
+          items = inner as ItsmChangeData[];
+        }
+      }
+      setChangeSearchResults(items);
+    } catch {
+      setChangeSearchResults([]);
+    } finally {
+      setChangeSearching(false);
+    }
+  }, []);
+
+  const handleChangeSearchInput = (value: string) => {
+    setChangeIdInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    // If it looks like a UUID, don't search
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(value.trim())) {
+      setChangeSearchResults([]);
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => searchChanges(value), 400);
+  };
+
+  const handleSelectChange = (change: ItsmChangeData) => {
+    setChangeIdInput(change.id);
+    setChangeSearchResults([]);
+  };
+
   const handleAddChange = async () => {
     if (!id || !changeIdInput) return;
     // Validate UUID format before sending to avoid opaque "verification failed" errors
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(changeIdInput.trim())) {
-      setError('Invalid Change ID format. Please enter a valid UUID (e.g., 550e8400-e29b-41d4-a716-446655440000).');
+      setError('Invalid Change ID format. Please search and select a change, or enter a valid UUID.');
       return;
     }
     setAddingChange(true);
@@ -190,6 +238,7 @@ export default function ItsmCabMeetingDetail() {
       await itsmApi.cabMeetings.addAgendaItem(id, { changeId: changeIdInput.trim() });
       setAddChangeOpen(false);
       setChangeIdInput('');
+      setChangeSearchResults([]);
       fetchAgenda();
     } catch (err: unknown) {
       const classified = classifyApiError(err);
@@ -514,28 +563,54 @@ export default function ItsmCabMeetingDetail() {
       </Card>
 
       {/* Add Change Dialog */}
-      <Dialog open={addChangeOpen} onClose={() => setAddChangeOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addChangeOpen} onClose={() => { setAddChangeOpen(false); setChangeSearchResults([]); }} maxWidth="sm" fullWidth>
         <DialogTitle>Add Change to Agenda</DialogTitle>
         <DialogContent>
           <TextField
-            label="Change ID"
+            label="Search Changes"
             value={changeIdInput}
-            onChange={(e) => setChangeIdInput(e.target.value)}
+            onChange={(e) => handleChangeSearchInput(e.target.value)}
             fullWidth
             size="small"
             sx={{ mt: 1 }}
-            placeholder="Enter change UUID"
-            helperText="Paste the Change record ID"
+            placeholder="Type to search changes by number or title, or paste a UUID"
+            helperText={changeSearching ? 'Searching...' : 'Search by change number, title, or paste a UUID directly'}
+            autoFocus
+            data-testid="cab-change-search-input"
           />
+          {changeSearchResults.length > 0 && (
+            <Card variant="outlined" sx={{ mt: 1, maxHeight: 240, overflow: 'auto' }}>
+              {changeSearchResults.map((c) => (
+                <Box
+                  key={c.id}
+                  sx={{
+                    px: 2, py: 1, cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' },
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                  onClick={() => handleSelectChange(c)}
+                  data-testid={`cab-change-result-${c.id}`}
+                >
+                  <Typography variant="body2" fontWeight={600}>
+                    {c.number || c.id?.slice(0, 8)} — {c.title || 'Untitled'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {c.type || ''} {c.risk ? `| Risk: ${c.risk}` : ''} {c.state ? `| ${c.state}` : ''}
+                  </Typography>
+                </Box>
+              ))}
+            </Card>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddChangeOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setAddChangeOpen(false); setChangeSearchResults([]); }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleAddChange}
             disabled={addingChange || !changeIdInput}
           >
-            {addingChange ? 'Adding...' : 'Add'}
+            {addingChange ? 'Adding...' : 'Add to Agenda'}
           </Button>
         </DialogActions>
       </Dialog>
