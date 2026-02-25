@@ -34,7 +34,7 @@ import {
   Lightbulb as LightbulbIcon,
   Shield as ShieldIcon,
   Speed as SpeedIcon,
-  Storage as StorageIcon,
+
   TrendingUp as TrendingUpIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';

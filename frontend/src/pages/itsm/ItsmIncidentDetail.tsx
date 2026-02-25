@@ -396,6 +396,7 @@ export const ItsmIncidentDetail: React.FC = () => {
         await itsmApi.incidents.update(id, cleanPayload as UpdateItsmIncidentDto);
         showNotification('Incident updated successfully', 'success');
         fetchIncident();
+        refreshCiCount();
       }
     } catch (error: unknown) {
       console.error('Error saving incident:', error);
@@ -579,7 +580,8 @@ export const ItsmIncidentDetail: React.FC = () => {
     }
   };
 
-  // B5: Refresh CI count after IncidentImpactTab operations
+  // B5: Refresh CI count after save/tab operations
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const refreshCiCount = useCallback(async () => {
     if (!id) return;
     try {
