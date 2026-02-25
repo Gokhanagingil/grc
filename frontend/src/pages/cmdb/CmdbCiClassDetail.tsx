@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
+  Breadcrumbs,
   Card,
   CardContent,
   Chip,
@@ -10,6 +11,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  Link,
   Switch,
   FormControlLabel,
   Tab,
@@ -29,8 +31,18 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   AccountTree as TreeIcon,
+  NavigateNext as NavigateNextIcon,
 } from '@mui/icons-material';
-import { cmdbApi, CmdbCiClassData, CmdbCiClassFieldDefinition, ValidateInheritanceResponse } from '../../services/grcClient';
+import {
+  cmdbApi,
+  CmdbCiClassData,
+  CmdbCiClassFieldDefinition,
+  ValidateInheritanceResponse,
+  ClassAncestorEntry,
+  EffectiveFieldDefinition,
+  unwrapResponse,
+  unwrapArrayResponse,
+} from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { EffectiveSchemaPanel } from './EffectiveSchemaPanel';
@@ -49,20 +61,16 @@ export const CmdbCiClassDetail: React.FC = () => {
   const [schemaTab, setSchemaTab] = useState(0);
   const [pendingParentId, setPendingParentId] = useState<string | null | undefined>(undefined);
   const [parentValidation, setParentValidation] = useState<ValidateInheritanceResponse | null>(null);
+  const [ancestors, setAncestors] = useState<ClassAncestorEntry[]>([]);
+  const [fieldOrigin, setFieldOrigin] = useState<{ total: number; inherited: number; local: number } | null>(null);
 
   const fetchClass = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
       const response = await cmdbApi.classes.get(id);
-      const data = response.data;
-      let classData: CmdbCiClassData | null = null;
-      if (data && 'data' in data && data.data && typeof data.data === 'object') {
-        classData = data.data as CmdbCiClassData;
-      } else if (data && typeof data === 'object' && 'id' in data) {
-        classData = data as CmdbCiClassData;
-      }
-      if (classData) {
+      const classData = unwrapResponse<CmdbCiClassData>(response);
+      if (classData && typeof classData === 'object' && 'id' in classData) {
         setCiClass(classData);
         setFieldsSchema(Array.isArray(classData.fieldsSchema) ? classData.fieldsSchema : []);
         setPendingParentId(undefined);
@@ -71,15 +79,40 @@ export const CmdbCiClassDetail: React.FC = () => {
         if (classData.parentClassId) {
           try {
             const parentRes = await cmdbApi.classes.get(classData.parentClassId);
-            const pData = parentRes.data;
-            if (pData && 'data' in pData && pData.data) {
-              setParentClass(pData.data as CmdbCiClassData);
-            } else if (pData && typeof pData === 'object' && 'id' in pData) {
-              setParentClass(pData as CmdbCiClassData);
+            const pData = unwrapResponse<CmdbCiClassData>(parentRes);
+            if (pData && typeof pData === 'object' && 'id' in pData) {
+              setParentClass(pData);
             }
           } catch {
             // Parent class fetch is non-critical
           }
+        }
+        // Fetch ancestors for breadcrumb (WOW UX)
+        try {
+          const ancestorRes = await cmdbApi.classes.ancestors(id);
+          const ancestorData = unwrapArrayResponse<ClassAncestorEntry>(ancestorRes);
+          setAncestors(ancestorData);
+        } catch {
+          // Ancestor fetch is non-critical
+        }
+        // Fetch effective schema for field origin summary (WOW UX)
+        try {
+          const schemaRes = await cmdbApi.classes.effectiveSchema(id);
+          const schemaData = unwrapResponse<{ effectiveFields: EffectiveFieldDefinition[]; totalFieldCount: number; inheritedFieldCount: number; localFieldCount: number }>(schemaRes);
+          if (schemaData && 'effectiveFields' in schemaData) {
+            setFieldOrigin({
+              total: schemaData.totalFieldCount ?? 0,
+              inherited: schemaData.inheritedFieldCount ?? 0,
+              local: schemaData.localFieldCount ?? 0,
+            });
+          } else if (schemaData && 'totalFieldCount' in schemaData) {
+            const totalFields = (schemaData as { totalFieldCount: number }).totalFieldCount;
+            const localFields = (schemaData as { localFieldCount: number }).localFieldCount;
+            const inheritedFields = (schemaData as { inheritedFieldCount: number }).inheritedFieldCount;
+            setFieldOrigin({ total: totalFields, inherited: inheritedFields, local: localFields });
+          }
+        } catch {
+          // Field origin fetch is non-critical
         }
       } else {
         showNotification('CI class not found', 'error');
@@ -151,7 +184,7 @@ export const CmdbCiClassDetail: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
         <IconButton onClick={() => navigate('/cmdb/classes')} data-testid="btn-back-to-classes">
           <ArrowBackIcon />
         </IconButton>
@@ -191,6 +224,51 @@ export const CmdbCiClassDetail: React.FC = () => {
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </Box>
+
+      {/* WOW UX: Class Inheritance Breadcrumb */}
+      {ancestors.length > 0 && (
+        <Box sx={{ mb: 2, ml: 6 }} data-testid="class-inheritance-breadcrumb">
+          <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} aria-label="class inheritance">
+            {[...ancestors].reverse().map((ancestor) => (
+              <Link
+                key={ancestor.id}
+                component="button"
+                variant="body2"
+                underline="hover"
+                color="text.secondary"
+                onClick={() => navigate(`/cmdb/classes/${ancestor.id}`)}
+                sx={{ cursor: 'pointer' }}
+              >
+                {ancestor.label || ancestor.name}
+              </Link>
+            ))}
+            <Typography variant="body2" color="text.primary" fontWeight={600}>
+              {ciClass.label || ciClass.name}
+            </Typography>
+          </Breadcrumbs>
+        </Box>
+      )}
+
+      {/* WOW UX: Field Origin Summary */}
+      {fieldOrigin && fieldOrigin.total > 0 && (
+        <Box sx={{ mb: 2, ml: 6, display: 'flex', gap: 1.5, alignItems: 'center' }} data-testid="field-origin-summary">
+          <Typography variant="body2" color="text.secondary">
+            Total fields: <strong>{fieldOrigin.total}</strong>
+          </Typography>
+          <Chip
+            label={`Inherited: ${fieldOrigin.inherited}`}
+            size="small"
+            variant="outlined"
+            color="info"
+          />
+          <Chip
+            label={`Local: ${fieldOrigin.local}`}
+            size="small"
+            variant="outlined"
+            color="secondary"
+          />
+        </Box>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>

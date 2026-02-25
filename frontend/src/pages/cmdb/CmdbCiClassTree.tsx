@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -10,6 +10,12 @@ import {
   IconButton,
   Collapse,
   Paper,
+  TextField,
+  ToggleButtonGroup,
+  ToggleButton,
+  Card,
+  CardContent,
+  InputAdornment,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -17,9 +23,23 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   AccountTree as TreeIcon,
+  Search as SearchIcon,
+  BugReport as DiagnosticsIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { cmdbApi, ClassTreeNode } from '../../services/grcClient';
+import {
+  cmdbApi,
+  ClassTreeNode,
+  ContentPackStatusResponse,
+  unwrapResponse,
+  unwrapArrayResponse,
+} from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { classifyApiError, ApiErrorKind } from '../../utils/apiErrorClassifier';
+
+/** Quick filter type for tree view */
+type TreeFilter = 'all' | 'system' | 'custom' | 'abstract';
 
 /** Recursive tree node renderer */
 const TreeNodeItem: React.FC<{
@@ -134,39 +154,75 @@ export const CmdbCiClassTree: React.FC = () => {
   const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ApiErrorKind | null>(null);
   const [treeData, setTreeData] = useState<ClassTreeNode[]>([]);
+  const [contentPackStatus, setContentPackStatus] = useState<ContentPackStatusResponse | null>(null);
+  const [treeFilter, setTreeFilter] = useState<TreeFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<{
+    totalFromEndpoint: number;
+    fetchTimestamp: string;
+    contentPackVersion: string | null;
+    tenantScoped: boolean;
+  } | null>(null);
 
   const fetchTree = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorKind(null);
     try {
       const response = await cmdbApi.classes.tree();
-      const data = response.data;
-      let nodes: ClassTreeNode[] = [];
-      if (data && 'data' in data && Array.isArray(data.data)) {
-        nodes = data.data;
-      } else if (Array.isArray(data)) {
-        nodes = data;
-      } else if (data && 'data' in data && data.data && typeof data.data === 'object') {
-        // Handle envelope with items array
-        const inner = data.data as Record<string, unknown>;
-        if ('items' in inner && Array.isArray(inner.items)) {
-          nodes = inner.items;
-        }
-      }
+      const nodes = unwrapArrayResponse<ClassTreeNode>(response);
       setTreeData(nodes);
+      setDiagnosticInfo(prev => ({
+        ...prev,
+        totalFromEndpoint: countNodes(nodes),
+        fetchTimestamp: new Date().toISOString(),
+        contentPackVersion: prev?.contentPackVersion ?? null,
+        tenantScoped: true,
+      }));
     } catch (err) {
+      const classified = classifyApiError(err);
       console.error('Error fetching class tree:', err);
-      setError('Failed to load class hierarchy tree.');
-      showNotification('Failed to load class hierarchy tree.', 'error');
+      setErrorKind(classified.kind);
+      if (classified.kind === 'forbidden') {
+        setError('You do not have permission to view the class hierarchy. Contact your administrator to request CMDB_CLASS_READ permission.');
+      } else if (classified.kind === 'network') {
+        setError('Network error. Please check your connection and try again.');
+      } else if (classified.kind === 'auth') {
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError(classified.message || 'Failed to load class hierarchy tree.');
+      }
+      showNotification(classified.message || 'Failed to load class hierarchy tree.', 'error');
     } finally {
       setLoading(false);
     }
   }, [showNotification]);
 
+  const fetchContentPackStatus = useCallback(async () => {
+    try {
+      const response = await cmdbApi.classes.contentPackStatus();
+      const data = unwrapResponse<ContentPackStatusResponse>(response);
+      if (data && typeof data === 'object' && 'applied' in data) {
+        setContentPackStatus(data);
+        setDiagnosticInfo(prev => ({
+          totalFromEndpoint: prev?.totalFromEndpoint ?? 0,
+          fetchTimestamp: prev?.fetchTimestamp ?? new Date().toISOString(),
+          contentPackVersion: data.version,
+          tenantScoped: true,
+        }));
+      }
+    } catch {
+      // Content pack status is non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchTree();
-  }, [fetchTree]);
+    fetchContentPackStatus();
+  }, [fetchTree, fetchContentPackStatus]);
 
   const handleNavigate = useCallback(
     (classId: string) => {
@@ -175,8 +231,38 @@ export const CmdbCiClassTree: React.FC = () => {
     [navigate]
   );
 
+  /** Apply quick filters and search to the tree */
+  const filteredTree = useMemo(() => {
+    const filterNode = (node: ClassTreeNode): ClassTreeNode | null => {
+      // Apply type filter
+      let matchesFilter = true;
+      if (treeFilter === 'system') matchesFilter = node.isSystem;
+      else if (treeFilter === 'custom') matchesFilter = !node.isSystem;
+      else if (treeFilter === 'abstract') matchesFilter = node.isAbstract;
+
+      // Apply search
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch = !query ||
+        node.name.toLowerCase().includes(query) ||
+        node.label.toLowerCase().includes(query);
+
+      // Recursively filter children
+      const filteredChildren = (node.children || []).map(filterNode).filter(Boolean) as ClassTreeNode[];
+
+      // Include node if it matches or has matching descendants
+      if ((matchesFilter && matchesSearch) || filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren };
+      }
+      return null;
+    };
+
+    if (treeFilter === 'all' && !searchQuery.trim()) return treeData;
+    return treeData.map(filterNode).filter(Boolean) as ClassTreeNode[];
+  }, [treeData, treeFilter, searchQuery]);
+
   const totalNodes = countNodes(treeData);
   const rootCount = treeData.length;
+  const filteredCount = countNodes(filteredTree);
 
   return (
     <Box>
@@ -190,9 +276,18 @@ export const CmdbCiClassTree: React.FC = () => {
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Button
+          variant="text"
+          size="small"
+          startIcon={<DiagnosticsIcon />}
+          onClick={() => setShowDiagnostics(!showDiagnostics)}
+          data-testid="btn-toggle-diagnostics"
+        >
+          Diagnostics
+        </Button>
+        <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          onClick={fetchTree}
+          onClick={() => { fetchTree(); fetchContentPackStatus(); }}
           disabled={loading}
           data-testid="btn-refresh-tree"
         >
@@ -200,14 +295,118 @@ export const CmdbCiClassTree: React.FC = () => {
         </Button>
       </Box>
 
+      {/* Content Pack Status Card */}
+      {contentPackStatus && (
+        <Card variant="outlined" sx={{ mb: 2 }} data-testid="content-pack-status-card">
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 }, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            {contentPackStatus.applied ? (
+              <CheckCircleIcon color="success" fontSize="small" />
+            ) : (
+              <WarningIcon color="warning" fontSize="small" />
+            )}
+            <Typography variant="subtitle2">
+              Baseline Content Pack: {contentPackStatus.applied ? 'Applied' : 'Not Applied'}
+            </Typography>
+            {contentPackStatus.version && (
+              <Chip label={contentPackStatus.version} size="small" variant="outlined" />
+            )}
+            <Chip
+              label={`${contentPackStatus.systemClasses} system`}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+            <Chip
+              label={`${contentPackStatus.customClasses} custom`}
+              size="small"
+              color="secondary"
+              variant="outlined"
+            />
+            {!contentPackStatus.applied && (
+              <Typography variant="body2" color="text.secondary">
+                Run the content-pack seed to populate system CI classes.
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary chips + Quick Filters */}
       {!loading && !error && treeData.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 2 }} data-testid="tree-summary-chips">
+        <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }} data-testid="tree-summary-chips">
           <Chip label={`${totalNodes} total classes`} size="small" variant="outlined" />
           <Chip label={`${rootCount} root class${rootCount !== 1 ? 'es' : ''}`} size="small" variant="outlined" />
           <Chip label={`${countSystemNodes(treeData)} system`} size="small" color="primary" variant="outlined" />
           <Chip label={`${totalNodes - countSystemNodes(treeData)} custom`} size="small" color="secondary" variant="outlined" />
+          <Chip label={`${countAbstractNodes(treeData)} abstract`} size="small" color="warning" variant="outlined" />
         </Box>
       )}
+
+      {/* Quick Filters Bar */}
+      {!loading && !error && treeData.length > 0 && (
+        <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }} data-testid="tree-filters-bar">
+          <TextField
+            size="small"
+            placeholder="Search by name or label..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            data-testid="tree-search-input"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 240 }}
+          />
+          <ToggleButtonGroup
+            value={treeFilter}
+            exclusive
+            onChange={(_, val) => val && setTreeFilter(val as TreeFilter)}
+            size="small"
+            data-testid="tree-filter-toggle"
+          >
+            <ToggleButton value="all" data-testid="filter-all">All</ToggleButton>
+            <ToggleButton value="system" data-testid="filter-system">System</ToggleButton>
+            <ToggleButton value="custom" data-testid="filter-custom">Custom</ToggleButton>
+            <ToggleButton value="abstract" data-testid="filter-abstract">Abstract</ToggleButton>
+          </ToggleButtonGroup>
+          {(treeFilter !== 'all' || searchQuery.trim()) && (
+            <Typography variant="caption" color="text.secondary" data-testid="tree-filter-count">
+              Showing {filteredCount} of {totalNodes} classes
+            </Typography>
+          )}
+        </Box>
+      )}
+
+      {/* Collapsible Diagnostics Panel */}
+      <Collapse in={showDiagnostics}>
+        <Card variant="outlined" sx={{ mb: 2, bgcolor: 'grey.50' }} data-testid="diagnostics-panel">
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Typography variant="subtitle2" gutterBottom>Diagnostics</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Tree endpoint response: {diagnosticInfo?.totalFromEndpoint ?? 'N/A'} classes
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Content pack version: {diagnosticInfo?.contentPackVersion ?? 'N/A'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Tenant-scoped: {diagnosticInfo?.tenantScoped ? 'Yes' : 'Unknown'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Last fetched: {diagnosticInfo?.fetchTimestamp ? new Date(diagnosticInfo.fetchTimestamp).toLocaleString() : 'N/A'}
+              </Typography>
+              {errorKind && (
+                <Typography variant="body2" color="error.main">
+                  Last error type: {errorKind}
+                </Typography>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Collapse>
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }} data-testid="tree-loading">
@@ -217,7 +416,7 @@ export const CmdbCiClassTree: React.FC = () => {
 
       {error && !loading && (
         <Alert
-          severity="error"
+          severity={errorKind === 'forbidden' ? 'warning' : 'error'}
           data-testid="tree-error"
           action={
             <Button color="inherit" size="small" onClick={fetchTree}>
@@ -240,6 +439,14 @@ export const CmdbCiClassTree: React.FC = () => {
             <li><Typography variant="body2">No classes have been created manually. Go to <strong>CI Classes</strong> to create your first class.</Typography></li>
             <li><Typography variant="body2">Your current role may not have CMDB read permissions.</Typography></li>
           </Box>
+          {contentPackStatus && !contentPackStatus.applied && (
+            <Alert severity="warning" variant="outlined" sx={{ mt: 1, mb: 1 }}>
+              <Typography variant="body2">
+                <strong>Confirmed:</strong> The baseline content pack has not been applied for this tenant.
+                Contact an administrator to run the content-pack seed.
+              </Typography>
+            </Alert>
+          )}
           <Button
             size="small"
             variant="outlined"
@@ -251,9 +458,16 @@ export const CmdbCiClassTree: React.FC = () => {
         </Alert>
       )}
 
-      {!loading && !error && treeData.length > 0 && (
+      {/* Filtered empty state */}
+      {!loading && !error && treeData.length > 0 && filteredTree.length === 0 && (
+        <Alert severity="info" data-testid="tree-filter-empty">
+          No classes match the current filter. Try adjusting your search or filter criteria.
+        </Alert>
+      )}
+
+      {!loading && !error && filteredTree.length > 0 && (
         <Paper variant="outlined" sx={{ p: 1 }} data-testid="tree-container">
-          {treeData.map((node) => (
+          {filteredTree.map((node) => (
             <TreeNodeItem
               key={node.id}
               node={node}
@@ -286,6 +500,18 @@ function countSystemNodes(nodes: ClassTreeNode[]): number {
     if (node.isSystem) count += 1;
     if (Array.isArray(node.children)) {
       count += countSystemNodes(node.children);
+    }
+  }
+  return count;
+}
+
+/** Count abstract nodes in tree recursively */
+function countAbstractNodes(nodes: ClassTreeNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.isAbstract) count += 1;
+    if (Array.isArray(node.children)) {
+      count += countAbstractNodes(node.children);
     }
   }
   return count;

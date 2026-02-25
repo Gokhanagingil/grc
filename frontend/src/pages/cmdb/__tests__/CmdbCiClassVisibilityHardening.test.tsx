@@ -48,22 +48,48 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
-      list: (params) => mockClassesList(params),
+      list: (params: unknown) => mockClassesList(params),
       create: jest.fn(),
       summary: () => mockClassesSummary(),
       tree: () => mockClassesTree(),
-      get: (id) => mockClassesGet(id),
-      effectiveSchema: jest.fn().mockResolvedValue({ data: { data: { fields: [], inheritanceChain: [] } } }),
+      get: (id: string) => mockClassesGet(id),
+      effectiveSchema: jest.fn().mockResolvedValue({ data: { data: { effectiveFields: [], totalFieldCount: 0, inheritedFieldCount: 0, localFieldCount: 0, ancestors: [] } } }),
       ancestors: jest.fn().mockResolvedValue({ data: { data: [] } }),
       descendants: jest.fn().mockResolvedValue({ data: { data: [] } }),
       validateInheritance: jest.fn().mockResolvedValue({ data: { data: { valid: true } } }),
-      contentPackStatus: jest.fn().mockResolvedValue({ data: { data: { applied: true, version: 'v1.0.0' } } }),
+      contentPackStatus: jest.fn().mockResolvedValue({ data: { data: { applied: true, version: 'v1.0.0', systemClasses: 19, customClasses: 2, totalClasses: 21, abstractClasses: 5 } } }),
     },
+  },
+  unwrapPaginatedResponse: (resp: unknown) => {
+    if (!resp) return { items: [], total: 0 };
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data) {
+      const inner = data.data as Record<string, unknown>;
+      if (inner && 'items' in inner) return inner;
+      if (Array.isArray(inner)) return { items: inner, total: inner.length };
+    }
+    return { items: [], total: 0 };
+  },
+  unwrapResponse: (resp: unknown) => {
+    if (!resp) return null;
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data) return data.data;
+    return data ?? null;
+  },
+  unwrapArrayResponse: (resp: unknown) => {
+    if (!resp) return [];
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data && Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data)) return data;
+    return [];
   },
 }));
 
 jest.mock('../../../utils/apiErrorClassifier', () => ({
-  classifyApiError: () => ({ message: 'Test error', severity: 'error' }),
+  classifyApiError: () => ({ kind: 'server', message: 'Test error', status: 500, isRetryable: false, shouldLogout: false }),
 }));
 
 // ============================================================================

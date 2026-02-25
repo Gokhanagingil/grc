@@ -19,7 +19,8 @@ import {
 import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { cmdbApi, EffectiveSchemaResponse, EffectiveFieldDefinition } from '../../services/grcClient';
+import { cmdbApi, EffectiveSchemaResponse, EffectiveFieldDefinition, unwrapResponse } from '../../services/grcClient';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 type FieldFilter = 'all' | 'local' | 'inherited';
 
@@ -39,17 +40,22 @@ export const EffectiveSchemaPanel: React.FC<EffectiveSchemaPanelProps> = ({ clas
     setError(null);
     try {
       const response = await cmdbApi.classes.effectiveSchema(classId);
-      const data = response.data;
-      let schemaData: EffectiveSchemaResponse | null = null;
-      if (data && 'data' in data && data.data && typeof data.data === 'object') {
-        schemaData = data.data as EffectiveSchemaResponse;
-      } else if (data && typeof data === 'object' && 'effectiveFields' in data) {
-        schemaData = data as EffectiveSchemaResponse;
+      const schemaData = unwrapResponse<EffectiveSchemaResponse>(response);
+      if (schemaData && typeof schemaData === 'object' && 'effectiveFields' in schemaData) {
+        setSchema(schemaData);
+      } else {
+        setSchema(null);
       }
-      setSchema(schemaData);
     } catch (err) {
       console.error('Error fetching effective schema:', err);
-      setError('Failed to load effective schema. The class detail is still usable.');
+      const classified = classifyApiError(err);
+      if (classified.kind === 'forbidden') {
+        setError('You do not have permission to view the effective schema.');
+      } else if (classified.kind === 'network') {
+        setError('Network error loading effective schema. Please try again.');
+      } else {
+        setError(classified.message || 'Failed to load effective schema. The class detail is still usable.');
+      }
     } finally {
       setLoading(false);
     }

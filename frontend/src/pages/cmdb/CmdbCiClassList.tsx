@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -16,8 +17,16 @@ import {
   AccountTree as TreeIcon,
 } from '@mui/icons-material';
 import { GenericListPage, ColumnDefinition } from '../../components/common/GenericListPage';
-import { cmdbApi, CmdbCiClassData, ClassSummaryResponse } from '../../services/grcClient';
+import {
+  cmdbApi,
+  CmdbCiClassData,
+  ClassSummaryResponse,
+  ContentPackStatusResponse,
+  unwrapPaginatedResponse,
+  unwrapResponse,
+} from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
+import { classifyApiError } from '../../utils/apiErrorClassifier';
 
 export const CmdbCiClassList: React.FC = () => {
   const navigate = useNavigate();
@@ -33,30 +42,27 @@ export const CmdbCiClassList: React.FC = () => {
   const [newClass, setNewClass] = useState({ name: '', label: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<ClassSummaryResponse | null>(null);
+  const [contentPackStatus, setContentPackStatus] = useState<ContentPackStatusResponse | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await cmdbApi.classes.list({ page, pageSize, q: search });
-      const data = response.data;
-      if (data && 'data' in data) {
-        const inner = data.data;
-        if (inner && 'items' in inner) {
-          setItems(Array.isArray(inner.items) ? inner.items : []);
-          setTotal(inner.total || 0);
-        } else {
-          setItems(Array.isArray(inner) ? inner : []);
-          setTotal(data.total || 0);
-        }
-      } else {
-        setItems([]);
-        setTotal(0);
-      }
+      const result = unwrapPaginatedResponse<CmdbCiClassData>(response);
+      setItems(Array.isArray(result.items) ? result.items : []);
+      setTotal(result.total || 0);
     } catch (err) {
+      const classified = classifyApiError(err);
       console.error('Error fetching CI classes:', err);
-      setError('Failed to load CI classes.');
-      showNotification('Failed to load CI classes.', 'error');
+      if (classified.kind === 'forbidden') {
+        setError('You do not have permission to view CI classes. Contact your administrator.');
+      } else if (classified.kind === 'network') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(classified.message || 'Failed to load CI classes.');
+      }
+      showNotification(classified.message || 'Failed to load CI classes.', 'error');
       setItems([]);
     } finally {
       setLoading(false);
@@ -66,14 +72,24 @@ export const CmdbCiClassList: React.FC = () => {
   const fetchSummary = useCallback(async () => {
     try {
       const response = await cmdbApi.classes.summary();
-      const data = response.data;
-      if (data && 'data' in data && data.data) {
-        setSummary(data.data as ClassSummaryResponse);
-      } else if (data && typeof data === 'object' && 'total' in data) {
-        setSummary(data as ClassSummaryResponse);
+      const data = unwrapResponse<ClassSummaryResponse>(response);
+      if (data && typeof data === 'object' && 'total' in data) {
+        setSummary(data);
       }
     } catch {
       // Summary fetch is non-critical
+    }
+  }, []);
+
+  const fetchContentPackStatus = useCallback(async () => {
+    try {
+      const response = await cmdbApi.classes.contentPackStatus();
+      const data = unwrapResponse<ContentPackStatusResponse>(response);
+      if (data && typeof data === 'object' && 'applied' in data) {
+        setContentPackStatus(data);
+      }
+    } catch {
+      // Content pack status fetch is non-critical
     }
   }, []);
 
@@ -83,7 +99,8 @@ export const CmdbCiClassList: React.FC = () => {
 
   useEffect(() => {
     fetchSummary();
-  }, [fetchSummary]);
+    fetchContentPackStatus();
+  }, [fetchSummary, fetchContentPackStatus]);
 
   const handleCreate = async () => {
     if (!newClass.name.trim() || !newClass.label.trim()) {
@@ -103,12 +120,8 @@ export const CmdbCiClassList: React.FC = () => {
       fetchItems();
     } catch (err: unknown) {
       console.error('Error creating CI class:', err);
-      const axiosErr = err as { response?: { status?: number } };
-      if (axiosErr?.response?.status === 403) {
-        showNotification('You don\'t have permission to create CI classes.', 'error');
-      } else {
-        showNotification('Failed to create CI class', 'error');
-      }
+      const classified = classifyApiError(err);
+      showNotification(classified.message || 'Failed to create CI class', 'error');
     } finally {
       setSaving(false);
     }
@@ -226,31 +239,54 @@ export const CmdbCiClassList: React.FC = () => {
         <Typography variant="h4" fontWeight={600}>
           CI Classes
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<TreeIcon />}
-          onClick={() => navigate('/cmdb/classes/tree')}
-          data-testid="btn-view-tree"
-          sx={{ mr: 1 }}
-        >
-          Class Tree
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
-        >
-          New Class
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<TreeIcon />}
+            onClick={() => navigate('/cmdb/classes/tree')}
+            data-testid="btn-view-tree"
+          >
+            Class Tree
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+          >
+            New Class
+          </Button>
+        </Box>
       </Box>
 
       {summary && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap' }} data-testid="class-summary-banner">
+        <Box sx={{ mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }} data-testid="class-summary-banner">
           <Chip label={`${summary.total} Total`} size="small" variant="outlined" />
           <Chip label={`${summary.system} System`} size="small" color="primary" variant="outlined" />
           <Chip label={`${summary.custom} Custom`} size="small" color="secondary" variant="outlined" />
           <Chip label={`${summary.abstract} Abstract`} size="small" color="warning" variant="outlined" />
+          {contentPackStatus && (
+            <Chip
+              label={contentPackStatus.applied
+                ? `Content Pack: ${contentPackStatus.version || 'Applied'}`
+                : 'Content Pack: Not Applied'}
+              size="small"
+              color={contentPackStatus.applied ? 'success' : 'default'}
+              variant="outlined"
+              data-testid="content-pack-chip"
+            />
+          )}
         </Box>
+      )}
+
+      {/* Content pack not applied warning */}
+      {contentPackStatus && !contentPackStatus.applied && !loading && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="content-pack-not-applied-alert">
+          <Typography variant="subtitle2" gutterBottom>Baseline Content Pack Not Applied</Typography>
+          <Typography variant="body2">
+            The CMDB baseline content pack provides system CI classes (e.g., Hardware, Server, Network, Application).
+            Ask an administrator to run the content-pack seed to populate the class hierarchy.
+          </Typography>
+        </Alert>
       )}
 
       <GenericListPage<CmdbCiClassData>

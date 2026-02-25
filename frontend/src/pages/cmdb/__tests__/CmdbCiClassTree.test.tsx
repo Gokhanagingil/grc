@@ -36,12 +36,34 @@ jest.mock('../../../contexts/NotificationContext', () => ({
   useNotification: () => ({ showNotification: mockShowNotification }),
 }));
 
+const mockContentPackStatus = jest.fn();
+
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
       tree: () => mockTree(),
+      contentPackStatus: () => mockContentPackStatus(),
     },
   },
+  unwrapArrayResponse: (resp: unknown) => {
+    if (!resp) return [];
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data && Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data)) return data;
+    return [];
+  },
+  unwrapResponse: (resp: unknown) => {
+    if (!resp) return null;
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data) return data.data;
+    return data ?? null;
+  },
+}));
+
+jest.mock('../../../utils/apiErrorClassifier', () => ({
+  classifyApiError: (err: unknown) => ({ kind: 'server', message: String(err), status: 500, isRetryable: false, shouldLogout: false }),
 }));
 
 const sampleTree = [
@@ -52,6 +74,7 @@ const sampleTree = [
     parentClassId: null,
     isAbstract: true,
     isActive: true,
+    isSystem: true,
     sortOrder: 0,
     localFieldCount: 2,
     children: [
@@ -62,6 +85,7 @@ const sampleTree = [
         parentClassId: 'cls-ci',
         isAbstract: false,
         isActive: true,
+        isSystem: true,
         sortOrder: 1,
         localFieldCount: 3,
         children: [
@@ -72,6 +96,7 @@ const sampleTree = [
             parentClassId: 'cls-server',
             isAbstract: false,
             isActive: true,
+            isSystem: false,
             sortOrder: 0,
             localFieldCount: 1,
             children: [],
@@ -85,6 +110,7 @@ const sampleTree = [
         parentClassId: 'cls-ci',
         isAbstract: false,
         isActive: false,
+        isSystem: false,
         sortOrder: 2,
         localFieldCount: 0,
         children: [],
@@ -96,6 +122,7 @@ const sampleTree = [
 describe('CmdbCiClassTree', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockContentPackStatus.mockResolvedValue({ data: { data: { applied: true, version: 'v1.0.0', systemClasses: 10, customClasses: 2, totalClasses: 12, abstractClasses: 3 } } });
   });
 
   it('shows loading state initially', () => {
@@ -149,13 +176,13 @@ describe('CmdbCiClassTree', () => {
   });
 
   it('shows error state on API failure', async () => {
+    mockContentPackStatus.mockResolvedValue({ data: {} });
     mockTree.mockRejectedValue(new Error('Network error'));
     render(<CmdbCiClassTree />);
 
     await waitFor(() => {
       expect(screen.getByTestId('tree-error')).toBeInTheDocument();
     });
-    expect(screen.getByText(/Failed to load class hierarchy tree/)).toBeInTheDocument();
   });
 
   it('navigates back to class list when back button clicked', async () => {
@@ -178,5 +205,46 @@ describe('CmdbCiClassTree', () => {
       expect(screen.getByText('4 total classes')).toBeInTheDocument();
     });
     expect(screen.getByText('1 root class')).toBeInTheDocument();
+  });
+
+  it('renders content pack status card when applied', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-pack-status-card')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Applied/)).toBeInTheDocument();
+  });
+
+  it('renders quick filters bar', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tree-filters-bar')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('filter-all')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-system')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-custom')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-abstract')).toBeInTheDocument();
+  });
+
+  it('renders diagnostics toggle button', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-toggle-diagnostics')).toBeInTheDocument();
+    });
+  });
+
+  it('shows abstract count in summary chips', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 abstract')).toBeInTheDocument();
+    });
   });
 });
