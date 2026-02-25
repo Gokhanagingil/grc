@@ -39,6 +39,7 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import {
   itsmApi,
@@ -67,6 +68,8 @@ import {
   RcaDecisionsSummaryData,
   HypothesisDecisionStatus,
   normalizeRcaDecisionsSummary,
+  unwrapResponse,
+  unwrapArrayResponse,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
@@ -232,8 +235,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setError(null);
     try {
       const response = await itsmApi.majorIncidents.get(id);
-      const data = (response.data as { data?: ItsmMajorIncidentData })?.data;
-      if (data) {
+      const data = unwrapResponse<ItsmMajorIncidentData>(response);
+      if (data && typeof data === 'object' && 'id' in data) {
         setMi(data);
       } else {
         setError('Major Incident not found');
@@ -251,10 +254,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setTimelineLoading(true);
     try {
       const response = await itsmApi.majorIncidents.getTimeline(id);
-      const data = response.data as Record<string, unknown>;
-      if (data && 'items' in data && Array.isArray(data.items)) {
-        setTimeline(data.items as ItsmMajorIncidentUpdateData[]);
-      }
+      const items = unwrapArrayResponse<ItsmMajorIncidentUpdateData>(response);
+      setTimeline(items);
     } catch (err) {
       console.error('Error fetching timeline:', err);
     } finally {
@@ -267,10 +268,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setLinksLoading(true);
     try {
       const response = await itsmApi.majorIncidents.getLinks(id);
-      const data = (response.data as { data?: ItsmMajorIncidentLinkData[] })?.data;
-      if (Array.isArray(data)) {
-        setLinks(data);
-      }
+      const items = unwrapArrayResponse<ItsmMajorIncidentLinkData>(response);
+      setLinks(items);
     } catch (err) {
       console.error('Error fetching links:', err);
     } finally {
@@ -284,24 +283,29 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setPirError(null);
     try {
       const response = await pirApi.getByMajorIncident(id);
-      const data = response.data as Record<string, unknown>;
-      if (data && 'items' in data && Array.isArray(data.items) && data.items.length > 0) {
-        setPir(data.items[0] as ItsmPirData);
-      } else if (data && 'data' in data) {
-        const inner = data.data;
-        if (Array.isArray(inner) && inner.length > 0) {
-          setPir(inner[0] as ItsmPirData);
-        } else if (inner && typeof inner === 'object' && 'id' in (inner as Record<string, unknown>)) {
-          // Backend returns { data: pirObject } (single object, not array)
-          setPir(inner as ItsmPirData);
+      const unwrapped = unwrapResponse<unknown>(response);
+      // PIR endpoint may return: single object, array, or paginated { items: [...] }
+      if (unwrapped && typeof unwrapped === 'object') {
+        if (Array.isArray(unwrapped)) {
+          if (unwrapped.length > 0) setPir(unwrapped[0] as ItsmPirData);
+        } else if ('items' in unwrapped && Array.isArray((unwrapped as { items: unknown[] }).items)) {
+          const items = (unwrapped as { items: ItsmPirData[] }).items;
+          if (items.length > 0) setPir(items[0]);
+        } else if ('id' in unwrapped) {
+          setPir(unwrapped as ItsmPirData);
         }
-      } else if (data && 'id' in data) {
-        // Flat response: backend returned the PIR object directly
-        setPir(data as unknown as ItsmPirData);
       }
     } catch (err) {
       console.error('Error fetching PIR:', err);
-      setPirError('Failed to load PIR');
+      const axErr = err as { response?: { status?: number } };
+      if (axErr.response?.status === 403) {
+        setPirError('You do not have permission to view PIR data.');
+      } else if (axErr.response?.status === 404) {
+        // No PIR exists yet — not an error, just empty state
+        setPir(null);
+      } else {
+        setPirError('Failed to load PIR. Click refresh to retry.');
+      }
     } finally {
       setPirLoading(false);
     }
@@ -311,10 +315,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setPirActionsLoading(true);
     try {
       const response = await pirActionApi.list({ pirId, pageSize: 100 });
-      const data = response.data as Record<string, unknown>;
-      if (data && 'items' in data && Array.isArray(data.items)) {
-        setPirActions(data.items as ItsmPirActionData[]);
-      }
+      const items = unwrapArrayResponse<ItsmPirActionData>(response);
+      setPirActions(items);
     } catch (err) {
       console.error('Error fetching PIR actions:', err);
     } finally {
@@ -326,12 +328,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setKcLoading(true);
     try {
       const response = await knowledgeCandidateApi.list({ sourceType: 'PIR' });
-      const data = response.data as Record<string, unknown>;
-      if (data && 'items' in data && Array.isArray(data.items)) {
-        setKnowledgeCandidates(
-          (data.items as ItsmKnowledgeCandidateData[]).filter(kc => kc.sourceId === pirId)
-        );
-      }
+      const items = unwrapArrayResponse<ItsmKnowledgeCandidateData>(response);
+      setKnowledgeCandidates(items.filter(kc => kc.sourceId === pirId));
     } catch (err) {
       console.error('Error fetching knowledge candidates:', err);
     } finally {
@@ -349,8 +347,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         summary: mi.resolutionSummary || '',
       };
       const response = await pirApi.create(dto);
-      const created = (response.data as { data?: ItsmPirData })?.data;
-      if (created) {
+      const created = unwrapResponse<ItsmPirData>(response);
+      if (created && typeof created === 'object' && 'id' in created) {
         setPir(created);
         showNotification('PIR created successfully', 'success');
       }
@@ -427,8 +425,8 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
     setGeneratingKc(true);
     try {
       const response = await knowledgeCandidateApi.generateFromPir(pir.id);
-      const created = (response.data as { data?: ItsmKnowledgeCandidateData })?.data;
-      if (created) {
+      const created = unwrapResponse<ItsmKnowledgeCandidateData>(response);
+      if (created && typeof created === 'object') {
         showNotification('Knowledge Candidate generated', 'success');
         fetchKnowledgeCandidates(pir.id);
       }
@@ -1311,7 +1309,23 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         {pirLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
         ) : pirError ? (
-          <Alert severity="warning" sx={{ mb: 2 }}>{pirError}</Alert>
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            data-testid="pir-error-state"
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={fetchPir}
+              >
+                Retry
+              </Button>
+            }
+          >
+            {pirError}
+          </Alert>
         ) : !pir ? (
           <Paper sx={{ p: 4, textAlign: 'center' }} data-testid="pir-empty-state">
             <Typography variant="h6" gutterBottom>Post-Incident Review</Typography>

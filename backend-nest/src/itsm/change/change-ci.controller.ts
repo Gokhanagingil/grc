@@ -48,7 +48,7 @@ export class ChangeCiController {
       changeId,
       filterDto,
     );
-    return { success: true, data: result };
+    return result;
   }
 
   @Post(':changeId/affected-cis')
@@ -79,7 +79,7 @@ export class ChangeCiController {
       body.relationshipType,
       body.impactScope,
     );
-    return { success: true, data: link };
+    return link;
   }
 
   @Delete(':changeId/affected-cis/:linkId')

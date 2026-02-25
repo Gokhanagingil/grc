@@ -36,7 +36,7 @@ import {
   Refresh as RefreshIcon,
   AutoAwesome as CopilotIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, UpdateItsmIncidentDto } from '../../services/grcClient';
+import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, UpdateItsmIncidentDto, unwrapResponse, unwrapArrayResponse } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
@@ -213,9 +213,8 @@ export const ItsmIncidentDetail: React.FC = () => {
     setLoading(true);
     try {
       const response = await itsmApi.incidents.get(id);
-      const data = response.data;
-      if (data && 'data' in data) {
-        const record = data.data as Record<string, unknown>;
+      const record = unwrapResponse<Record<string, unknown>>(response);
+      if (record && typeof record === 'object' && 'id' in record) {
         // Backend returns 'status', frontend interface uses 'state'
         // Map status → state so UI rendering and save both work correctly
         setIncident({
@@ -227,18 +226,14 @@ export const ItsmIncidentDetail: React.FC = () => {
       // Fetch linked risks and controls
       try {
         const risksResponse = await itsmApi.incidents.getLinkedRisks(id);
-        if (risksResponse.data && 'data' in risksResponse.data) {
-          setLinkedRisks(Array.isArray(risksResponse.data.data) ? risksResponse.data.data : []);
-        }
+        setLinkedRisks(unwrapArrayResponse<LinkedRisk>(risksResponse));
       } catch {
         // Ignore errors for linked risks
       }
 
       try {
         const controlsResponse = await itsmApi.incidents.getLinkedControls(id);
-        if (controlsResponse.data && 'data' in controlsResponse.data) {
-          setLinkedControls(Array.isArray(controlsResponse.data.data) ? controlsResponse.data.data : []);
-        }
+        setLinkedControls(unwrapArrayResponse<LinkedControl>(controlsResponse));
       } catch {
         // Ignore errors for linked controls
       }
@@ -246,12 +241,7 @@ export const ItsmIncidentDetail: React.FC = () => {
       // Fetch SLA instances for this incident
       try {
         const slaResponse = await itsmApi.sla.recordSlas('Incident', id);
-        const slaData = slaResponse.data;
-        if (slaData && 'data' in slaData) {
-          setSlaInstances(Array.isArray(slaData.data) ? slaData.data : []);
-        } else if (Array.isArray(slaData)) {
-          setSlaInstances(slaData);
-        }
+        setSlaInstances(unwrapArrayResponse<SlaInstanceRecord>(slaResponse));
       } catch {
         // SLA fetch is non-critical — show empty state
         setSlaInstances([]);
@@ -331,17 +321,15 @@ export const ItsmIncidentDetail: React.FC = () => {
           offeringId: incident.offeringId || undefined,
         };
         const response = await itsmApi.incidents.create(createPayload);
-        const data = response.data;
-        // Robust ID extraction: { data: { id } } or { id } or { data: { data: { id } } }
-        const inner = (data && typeof data === 'object' && 'data' in data) ? (data as Record<string, unknown>).data : data;
-        const recordId = inner && typeof inner === 'object' && 'id' in (inner as Record<string, unknown>)
-          ? (inner as { id: string }).id
+        const created = unwrapResponse<{ id?: string }>(response);
+        const recordId = created && typeof created === 'object' && 'id' in created
+          ? created.id
           : undefined;
         if (recordId) {
           showNotification('Incident created successfully', 'success');
           navigate(`/itsm/incidents/${recordId}`);
         } else {
-          console.warn('[ItsmIncidentDetail] Create succeeded but response shape unexpected:', data);
+          console.warn('[ItsmIncidentDetail] Create succeeded but response shape unexpected:', created);
           showNotification('Incident created. Redirecting to list.', 'success');
           navigate('/itsm/incidents');
         }
@@ -416,13 +404,7 @@ export const ItsmIncidentDetail: React.FC = () => {
     if (!tenantId) return;
     try {
       const resp = await riskApi.list(tenantId);
-      const d = resp.data as { data?: { items?: LinkedRisk[] } | LinkedRisk[] } | LinkedRisk[];
-      let items: LinkedRisk[] = [];
-      if (d && typeof d === 'object' && 'data' in d) {
-        const inner = (d as { data: { items?: LinkedRisk[] } | LinkedRisk[] }).data;
-        if (Array.isArray(inner)) items = inner;
-        else if (inner && 'items' in inner && Array.isArray(inner.items)) items = inner.items;
-      } else if (Array.isArray(d)) items = d;
+      const items = unwrapArrayResponse<LinkedRisk>(resp);
       // Filter out already-linked risks
       const linkedIds = new Set(linkedRisks.map((r) => r.id));
       setAvailableRisks(items.filter((r) => !linkedIds.has(r.id)));
@@ -439,9 +421,7 @@ export const ItsmIncidentDetail: React.FC = () => {
       showNotification('Risk linked successfully', 'success');
       // Refresh linked risks
       const risksResponse = await itsmApi.incidents.getLinkedRisks(id);
-      if (risksResponse.data && 'data' in risksResponse.data) {
-        setLinkedRisks(Array.isArray(risksResponse.data.data) ? risksResponse.data.data : []);
-      }
+      setLinkedRisks(unwrapArrayResponse<LinkedRisk>(risksResponse));
       setLinkRiskOpen(false);
     } catch (error) {
       const classified = classifyApiError(error);
@@ -458,13 +438,7 @@ export const ItsmIncidentDetail: React.FC = () => {
     if (!tenantId) return;
     try {
       const resp = await controlApi.list(tenantId);
-      const d = resp.data as { data?: { items?: LinkedControl[] } | LinkedControl[] } | LinkedControl[];
-      let items: LinkedControl[] = [];
-      if (d && typeof d === 'object' && 'data' in d) {
-        const inner = (d as { data: { items?: LinkedControl[] } | LinkedControl[] }).data;
-        if (Array.isArray(inner)) items = inner;
-        else if (inner && 'items' in inner && Array.isArray(inner.items)) items = inner.items;
-      } else if (Array.isArray(d)) items = d;
+      const items = unwrapArrayResponse<LinkedControl>(resp);
       // Filter out already-linked controls
       const linkedIds = new Set(linkedControls.map((c) => c.id));
       setAvailableControls(items.filter((c) => !linkedIds.has(c.id)));
@@ -481,9 +455,7 @@ export const ItsmIncidentDetail: React.FC = () => {
       showNotification('Control linked successfully', 'success');
       // Refresh linked controls
       const controlsResponse = await itsmApi.incidents.getLinkedControls(id);
-      if (controlsResponse.data && 'data' in controlsResponse.data) {
-        setLinkedControls(Array.isArray(controlsResponse.data.data) ? controlsResponse.data.data : []);
-      }
+      setLinkedControls(unwrapArrayResponse<LinkedControl>(controlsResponse));
       setLinkControlOpen(false);
     } catch (error) {
       const classified = classifyApiError(error);
@@ -499,12 +471,7 @@ export const ItsmIncidentDetail: React.FC = () => {
     setSlaRefreshing(true);
     try {
       const slaResponse = await itsmApi.sla.recordSlas('Incident', id);
-      const slaData = slaResponse.data;
-      if (slaData && 'data' in slaData) {
-        setSlaInstances(Array.isArray(slaData.data) ? slaData.data : []);
-      } else if (Array.isArray(slaData)) {
-        setSlaInstances(slaData);
-      }
+      setSlaInstances(unwrapArrayResponse<SlaInstanceRecord>(slaResponse));
       showNotification('SLA data refreshed', 'success');
     } catch {
       showNotification('Failed to refresh SLA data', 'error');
@@ -946,9 +913,20 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Box>
                 <Collapse in={showRisksSection}>
                   {linkedRisks.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      No linked risks
-                    </Typography>
+                    <Box sx={{ textAlign: 'center', py: 2 }} data-testid="risks-empty-state">
+                      <WarningIcon sx={{ fontSize: 32, color: 'text.disabled', mb: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No linked risks yet
+                      </Typography>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenLinkRisk}
+                        sx={{ mt: 1 }}
+                      >
+                        Link a Risk
+                      </Button>
+                    </Box>
                   ) : (
                     <List dense>
                       {linkedRisks.map((risk) => (
@@ -1000,9 +978,20 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Box>
                 <Collapse in={showControlsSection}>
                   {linkedControls.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      No linked controls
-                    </Typography>
+                    <Box sx={{ textAlign: 'center', py: 2 }} data-testid="controls-empty-state">
+                      <WarningIcon sx={{ fontSize: 32, color: 'text.disabled', mb: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No linked controls yet
+                      </Typography>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenLinkControl}
+                        sx={{ mt: 1 }}
+                      >
+                        Link a Control
+                      </Button>
+                    </Box>
                   ) : (
                     <List dense>
                       {linkedControls.map((control) => (

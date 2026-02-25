@@ -57,7 +57,7 @@ export class PirActionController {
   @Perf()
   async findOverdue(@Headers('x-tenant-id') tenantId: string) {
     const items = await this.actionService.findOverdue(tenantId);
-    return { data: items };
+    return items;
   }
 
   @Post()
@@ -71,7 +71,7 @@ export class PirActionController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.actionService.create(tenantId, userId, dto);
-    return { data: result };
+    return result;
   }
 
   @Get(':id')
@@ -85,7 +85,7 @@ export class PirActionController {
     if (!action) {
       throw new NotFoundException(`PIR Action with ID ${id} not found`);
     }
-    return { data: action };
+    return action;
   }
 
   @Patch(':id')
@@ -99,7 +99,7 @@ export class PirActionController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.actionService.update(tenantId, userId, id, dto);
-    return { data: result };
+    return result;
   }
 
   @Delete(':id')
@@ -115,6 +115,6 @@ export class PirActionController {
     if (!deleted) {
       throw new NotFoundException(`PIR Action with ID ${id} not found`);
     }
-    return { data: { deleted: true } };
+    return { deleted: true };
   }
 }

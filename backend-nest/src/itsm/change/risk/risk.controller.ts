@@ -69,7 +69,7 @@ export class RiskController {
       );
     }
 
-    return { data: { assessment, policyEvaluation } };
+    return { assessment, policyEvaluation };
   }
 
   @Post(':changeId/recalculate-risk')
@@ -112,12 +112,7 @@ export class RiskController {
       customerRiskImpact,
     );
 
-    return {
-      data: {
-        assessment,
-        policyEvaluation,
-      },
-    };
+    return { assessment, policyEvaluation };
   }
 
   @Get(':changeId/customer-risk-impact')
@@ -144,7 +139,7 @@ export class RiskController {
       change,
     );
 
-    return { data: impact };
+    return impact;
   }
 
   @Post(':changeId/recalculate-customer-risk')
@@ -186,11 +181,9 @@ export class RiskController {
     );
 
     return {
-      data: {
-        customerRiskImpact: impact,
-        assessment,
-        policyEvaluation,
-      },
+      customerRiskImpact: impact,
+      assessment,
+      policyEvaluation,
     };
   }
 }

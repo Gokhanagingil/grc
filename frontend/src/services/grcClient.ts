@@ -1140,13 +1140,23 @@ export function withTenantId(tenantId: string, config?: AxiosRequestConfig): Axi
 
 /**
  * Unwrap NestJS response envelope
- * Handles both: { success: true, data: T } (NestJS) and flat T (legacy Express)
+ * Handles:
+ *   1. { success: true, data: T }  — NestJS ResponseTransformInterceptor
+ *   2. { data: T }                 — legacy envelope without success flag
+ *   3. T                           — flat / no envelope
  */
 export function unwrapResponse<T>(response: { data: unknown }): T {
   const data = response.data;
+  // Shape 1: NestJS envelope with success flag
   if (data && typeof data === 'object' && 'success' in data && (data as { success: boolean }).success === true && 'data' in data) {
     return (data as { data: T }).data;
   }
+  // Shape 2: envelope without success flag — { data: T }
+  // Detect by: has 'data' key, is not an array, and is not a domain entity (no 'id') or paginated list (no 'items')
+  if (data && typeof data === 'object' && !Array.isArray(data) && 'data' in data && !('id' in data) && !('items' in data) && !('success' in data)) {
+    return (data as { data: T }).data;
+  }
+  // Shape 3: flat response
   return data as T;
 }
 

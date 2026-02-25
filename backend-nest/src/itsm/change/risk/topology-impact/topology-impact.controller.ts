@@ -124,7 +124,7 @@ export class TopologyImpactController {
       change,
     );
 
-    return { data: impact };
+    return impact;
   }
 
   /**
@@ -156,7 +156,7 @@ export class TopologyImpactController {
       change,
     );
 
-    return { data: impact };
+    return impact;
   }
 
   // ==========================================================================
@@ -222,7 +222,7 @@ export class TopologyImpactController {
       customerRiskImpact,
     );
 
-    return { data: result };
+    return result;
   }
 
   // ==========================================================================
@@ -260,7 +260,7 @@ export class TopologyImpactController {
       change,
     );
 
-    return { data: result };
+    return result;
   }
 
   /**
@@ -317,7 +317,7 @@ export class TopologyImpactController {
       previousEvaluation,
     );
 
-    return { data: result };
+    return result;
   }
 
   // ==========================================================================
@@ -350,7 +350,7 @@ export class TopologyImpactController {
       mi,
     );
 
-    return { data: result };
+    return result;
   }
 
   /**
@@ -379,7 +379,7 @@ export class TopologyImpactController {
       mi,
     );
 
-    return { data: result };
+    return result;
   }
 
   // ==========================================================================
@@ -418,7 +418,7 @@ export class TopologyImpactController {
         dto,
       );
 
-    return { data: result };
+    return result;
   }
 
   /**
@@ -452,7 +452,7 @@ export class TopologyImpactController {
         dto,
       );
 
-    return { data: result };
+    return result;
   }
 
   /**
@@ -486,7 +486,7 @@ export class TopologyImpactController {
         dto,
       );
 
-    return { data: result };
+    return result;
   }
 
   // ==========================================================================
@@ -518,7 +518,7 @@ export class TopologyImpactController {
       id,
     );
 
-    return { data: summary };
+    return summary;
   }
 
   /**
@@ -557,7 +557,7 @@ export class TopologyImpactController {
       dto,
     );
 
-    return { data: decision };
+    return decision;
   }
 
   /**
@@ -597,7 +597,7 @@ export class TopologyImpactController {
       dto,
     );
 
-    return { data: note };
+    return note;
   }
 
   /**
@@ -635,7 +635,7 @@ export class TopologyImpactController {
       dto,
     );
 
-    return { data: summary };
+    return summary;
   }
 
   // ==========================================================================
@@ -670,7 +670,7 @@ export class TopologyImpactController {
       change.id,
     );
 
-    return { data: pack };
+    return pack;
   }
 
   // ==========================================================================
@@ -705,7 +705,7 @@ export class TopologyImpactController {
       change.id,
     );
 
-    return { data: summary };
+    return summary;
   }
 
   /**
@@ -734,6 +734,6 @@ export class TopologyImpactController {
         id,
       );
 
-    return { data: summary };
+    return summary;
   }
 }

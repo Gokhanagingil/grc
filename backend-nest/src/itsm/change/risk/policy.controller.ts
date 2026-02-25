@@ -46,7 +46,7 @@ export class PolicyController {
     if (!policy) {
       throw new NotFoundException(`Policy ${id} not found`);
     }
-    return { data: policy };
+    return policy;
   }
 
   @Post()
@@ -61,7 +61,7 @@ export class PolicyController {
       req.user.id,
       dto,
     );
-    return { data: policy };
+    return policy;
   }
 
   @Put(':id')
@@ -80,7 +80,7 @@ export class PolicyController {
     if (!policy) {
       throw new NotFoundException(`Policy ${id} not found`);
     }
-    return { data: policy };
+    return policy;
   }
 
   @Delete(':id')

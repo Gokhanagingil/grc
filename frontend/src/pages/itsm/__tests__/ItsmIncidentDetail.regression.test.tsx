@@ -56,29 +56,53 @@ jest.mock('../../../utils/apiErrorClassifier', () => ({
   classifyApiError: () => ({ kind: 'unknown', message: 'error' }),
 }));
 
-jest.mock('../../../services/grcClient', () => ({
-  itsmApi: {
-    incidents: {
-      get: (id: string) => mockIncidentsGet(id),
-      create: jest.fn().mockResolvedValue({ data: { data: { id: 'new-inc' } } }),
-      update: jest.fn().mockResolvedValue({ data: {} }),
-      getLinkedRisks: (id: string) => mockGetLinkedRisks(id),
-      getLinkedControls: (id: string) => mockGetLinkedControls(id),
-      unlinkRisk: jest.fn(),
-      unlinkControl: jest.fn(),
+jest.mock('../../../services/grcClient', () => {
+  // Inline helpers matching the real unwrapResponse / unwrapArrayResponse signatures
+  const _unwrap = (response: { data: unknown }) => {
+    const d = response?.data;
+    if (d && typeof d === 'object' && !Array.isArray(d)) {
+      const obj = d as Record<string, unknown>;
+      if ('success' in obj && obj.success === true && 'data' in obj) return obj.data;
+      if ('data' in obj && !('id' in obj) && !('items' in obj) && !('success' in obj)) return obj.data;
+    }
+    return d;
+  };
+  const _unwrapArray = (response: { data: unknown }) => {
+    const inner = _unwrap(response);
+    if (Array.isArray(inner)) return inner;
+    if (inner && typeof inner === 'object' && 'items' in (inner as Record<string, unknown>)) {
+      const items = (inner as Record<string, unknown>).items;
+      if (Array.isArray(items)) return items;
+    }
+    return [];
+  };
+  return {
+    unwrapResponse: _unwrap,
+    unwrapArrayResponse: _unwrapArray,
+    ensureArray: (v: unknown) => (Array.isArray(v) ? v : []),
+    itsmApi: {
+      incidents: {
+        get: (id: string) => mockIncidentsGet(id),
+        create: jest.fn().mockResolvedValue({ data: { data: { id: 'new-inc' } } }),
+        update: jest.fn().mockResolvedValue({ data: {} }),
+        getLinkedRisks: (id: string) => mockGetLinkedRisks(id),
+        getLinkedControls: (id: string) => mockGetLinkedControls(id),
+        unlinkRisk: jest.fn(),
+        unlinkControl: jest.fn(),
+      },
+      sla: {
+        recordSlas: (entityType: string, entityId: string) => mockRecordSlas(entityType, entityId),
+      },
+      choices: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
     },
-    sla: {
-      recordSlas: (entityType: string, entityId: string) => mockRecordSlas(entityType, entityId),
+    cmdbApi: {
+      services: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
+      serviceOfferings: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
     },
-    choices: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
-  },
-  cmdbApi: {
-    services: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
-    serviceOfferings: { list: () => Promise.resolve({ data: { data: { items: [] } } }) },
-  },
-  riskApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
-  controlApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
-}));
+    riskApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
+    controlApi: { list: jest.fn().mockResolvedValue({ data: { data: { items: [] } } }) },
+  };
+});
 
 jest.mock('../../../services/api', () => ({
   api: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn(), defaults: { baseURL: '' } },

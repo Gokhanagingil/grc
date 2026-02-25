@@ -74,7 +74,7 @@ export class ChangeController {
       new Date(end),
       { state, type, risk, serviceId },
     );
-    return { success: true, data: { items, total: items.length } };
+    return { items, total: items.length };
   }
 
   @Post()
@@ -202,7 +202,7 @@ export class ChangeController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const risks = await this.changeService.getLinkedRisks(tenantId, id);
-    return { success: true, data: risks };
+    return risks;
   }
 
   @Post(':id/risks/:riskId')
@@ -226,7 +226,7 @@ export class ChangeController {
       riskId,
       req.user.id,
     );
-    return { success: true, data: link };
+    return link;
   }
 
   @Delete(':id/risks/:riskId')
@@ -263,7 +263,7 @@ export class ChangeController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const controls = await this.changeService.getLinkedControls(tenantId, id);
-    return { success: true, data: controls };
+    return controls;
   }
 
   @Post(':id/controls/:controlId')
@@ -287,7 +287,7 @@ export class ChangeController {
       controlId,
       req.user.id,
     );
-    return { success: true, data: link };
+    return link;
   }
 
   @Delete(':id/controls/:controlId')

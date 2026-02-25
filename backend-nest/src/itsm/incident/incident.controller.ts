@@ -76,7 +76,7 @@ export class IncidentController {
       tenantId,
       filterDto,
     );
-    return { success: true, data: result };
+    return result;
   }
 
   /**
@@ -92,7 +92,7 @@ export class IncidentController {
     }
 
     const stats = await this.incidentService.getStatistics(tenantId);
-    return { success: true, data: stats };
+    return stats;
   }
 
   /**
@@ -108,7 +108,7 @@ export class IncidentController {
     }
 
     const summary = await this.incidentService.getSummary(tenantId);
-    return { success: true, data: summary };
+    return summary;
   }
 
   /**
@@ -133,7 +133,7 @@ export class IncidentController {
       req.user.id,
       createIncidentDto,
     );
-    return { success: true, data: incident };
+    return incident;
   }
 
   /**
@@ -159,7 +159,7 @@ export class IncidentController {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    return { success: true, data: incident };
+    return incident;
   }
 
   /**
@@ -190,7 +190,7 @@ export class IncidentController {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    return { success: true, data: incident };
+    return incident;
   }
 
   /**
@@ -251,7 +251,7 @@ export class IncidentController {
       );
     }
 
-    return { success: true, data: incident };
+    return incident;
   }
 
   /**
@@ -282,7 +282,7 @@ export class IncidentController {
       );
     }
 
-    return { success: true, data: incident };
+    return incident;
   }
 
   /**
@@ -306,7 +306,7 @@ export class IncidentController {
       id,
       filterDto,
     );
-    return { success: true, data: result };
+    return result;
   }
 
   /**
@@ -335,7 +335,7 @@ export class IncidentController {
       dto.relationshipType,
       dto.impactScope,
     );
-    return { success: true, data: ci };
+    return ci;
   }
 
   /**
@@ -386,6 +386,6 @@ export class IncidentController {
     }
 
     const summary = await this.incidentCiService.getImpactSummary(tenantId, id);
-    return { success: true, data: summary };
+    return summary;
   }
 }
