@@ -49,7 +49,7 @@ export class PriorityMatrixController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const rows = await this.matrixService.getMatrix(tenantId);
-    return { data: rows };
+    return rows;
   }
 
   /**
@@ -73,7 +73,7 @@ export class PriorityMatrixController {
       req.user.id,
       dto.entries,
     );
-    return { data: rows };
+    return rows;
   }
 
   /**
@@ -96,6 +96,6 @@ export class PriorityMatrixController {
       tenantId,
       req.user.id,
     );
-    return { data: { seeded } };
+    return { seeded };
   }
 }

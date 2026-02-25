@@ -65,7 +65,7 @@ export class PirController {
       tenantId,
       majorIncidentId,
     );
-    return { data: pir };
+    return pir;
   }
 
   @Post()
@@ -79,7 +79,7 @@ export class PirController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.pirService.create(tenantId, userId, dto);
-    return { data: result };
+    return result;
   }
 
   @Get(':id')
@@ -93,7 +93,7 @@ export class PirController {
     if (!pir) {
       throw new NotFoundException(`PIR with ID ${id} not found`);
     }
-    return { data: pir };
+    return pir;
   }
 
   @Patch(':id')
@@ -107,7 +107,7 @@ export class PirController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.pirService.update(tenantId, userId, id, dto);
-    return { data: result };
+    return result;
   }
 
   @Post(':id/approve')
@@ -121,7 +121,7 @@ export class PirController {
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
     const result = await this.pirService.approve(tenantId, userId, id);
-    return { data: result };
+    return result;
   }
 
   @Delete(':id')
@@ -137,6 +137,6 @@ export class PirController {
     if (!deleted) {
       throw new NotFoundException(`PIR with ID ${id} not found`);
     }
-    return { data: { deleted: true } };
+    return { deleted: true };
   }
 }

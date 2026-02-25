@@ -78,7 +78,7 @@ export class KnowledgeCandidateController {
       userId,
       pirId,
     );
-    return { data: result };
+    return result;
   }
 
   @Post('generate/known-error/:knownErrorId')
@@ -96,7 +96,7 @@ export class KnowledgeCandidateController {
       userId,
       knownErrorId,
     );
-    return { data: result };
+    return result;
   }
 
   @Post('generate/problem/:problemId')
@@ -114,7 +114,7 @@ export class KnowledgeCandidateController {
       userId,
       problemId,
     );
-    return { data: result };
+    return result;
   }
 
   @Get(':id')
@@ -130,7 +130,7 @@ export class KnowledgeCandidateController {
         `Knowledge Candidate with ID ${id} not found`,
       );
     }
-    return { data: kc };
+    return kc;
   }
 
   @Post(':id/review')
@@ -149,7 +149,7 @@ export class KnowledgeCandidateController {
       id,
       KnowledgeCandidateStatus.REVIEWED,
     );
-    return { data: result };
+    return result;
   }
 
   @Post(':id/publish')
@@ -168,7 +168,7 @@ export class KnowledgeCandidateController {
       id,
       KnowledgeCandidateStatus.PUBLISHED,
     );
-    return { data: result };
+    return result;
   }
 
   @Post(':id/reject')
@@ -187,7 +187,7 @@ export class KnowledgeCandidateController {
       id,
       KnowledgeCandidateStatus.REJECTED,
     );
-    return { data: result };
+    return result;
   }
 
   @Delete(':id')
@@ -205,6 +205,6 @@ export class KnowledgeCandidateController {
         `Knowledge Candidate with ID ${id} not found`,
       );
     }
-    return { data: { deleted: true } };
+    return { deleted: true };
   }
 }
