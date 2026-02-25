@@ -228,6 +228,11 @@ import { CustomerRiskCatalogController } from './controllers/customer-risk-catal
 // Customer Risk Catalog service (ITSM↔GRC Bridge)
 import { CustomerRiskCatalogService } from './services/customer-risk-catalog.service';
 
+// Risk Intelligence Advisory Pack v1
+import { RiskAdvisoryService } from './risk-advisory/risk-advisory.service';
+import { RiskAdvisoryController } from './risk-advisory/risk-advisory.controller';
+import { RiskAdvisoryHeuristics } from './risk-advisory/heuristics/risk-advisory-heuristics';
+
 // NOTE: ITSM controllers (ItsmServiceController, ItsmChangeController) removed from GrcModule
 // to eliminate duplicate route registration. Canonical ITSM controllers live in ItsmModule.
 // See: PR #363 (removed ItsmIncidentController), this PR (removed remaining duplicates).
@@ -402,6 +407,9 @@ import { CustomerRiskCatalogService } from './services/customer-risk-catalog.ser
     ItsmChangeService,
     // Customer Risk Catalog service (ITSM↔GRC Bridge)
     CustomerRiskCatalogService,
+    // Risk Intelligence Advisory Pack v1
+    RiskAdvisoryHeuristics,
+    RiskAdvisoryService,
   ],
   controllers: [
     // Core controllers
@@ -463,6 +471,8 @@ import { CustomerRiskCatalogService } from './services/customer-risk-catalog.ser
     // Customer Risk Catalog controller (ITSM↔GRC Bridge)
     CustomerRiskCatalogController,
     // NOTE: ITSM controllers moved to ItsmModule (no duplicate route registration)
+    // Risk Intelligence Advisory Pack v1
+    RiskAdvisoryController,
   ],
   exports: [
     // Universal List Service (platform-level)
@@ -520,6 +530,8 @@ import { CustomerRiskCatalogService } from './services/customer-risk-catalog.ser
     ItsmChangeService,
     // Customer Risk Catalog service (ITSM↔GRC Bridge)
     CustomerRiskCatalogService,
+    // Risk Intelligence Advisory Pack v1
+    RiskAdvisoryService,
   ],
 })
 export class GrcModule {}

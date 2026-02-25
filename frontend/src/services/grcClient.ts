@@ -60,6 +60,10 @@ export const API_PATHS = {
       // Residual Risk calculation endpoints
       RECALCULATE_RESIDUAL: (riskId: string) => `/grc/risks/${riskId}/recalculate-residual`,
       CONTROLS_EFFECTIVENESS: (riskId: string) => `/grc/risks/${riskId}/controls/effectiveness`,
+      // Risk Intelligence Advisory Pack v1 endpoints
+      ADVISORY_ANALYZE: (riskId: string) => `/grc/risks/${riskId}/advisory/analyze`,
+      ADVISORY_LATEST: (riskId: string) => `/grc/risks/${riskId}/advisory/latest`,
+      ADVISORY_CREATE_DRAFTS: (riskId: string) => `/grc/risks/${riskId}/advisory/create-drafts`,
     },
 
   // GRC Policy endpoints (NestJS backend at /grc/policies)
@@ -1373,6 +1377,105 @@ export function unwrapPaginatedRequirementResponse<T>(
 }
 
 // ============================================================================
+// Risk Intelligence Advisory Pack v1 Types
+// ============================================================================
+
+export type AdvisoryRiskTheme =
+  | 'PATCHING' | 'ACCESS' | 'BACKUP' | 'END_OF_SUPPORT' | 'VULNERABILITY'
+  | 'CERTIFICATE' | 'NETWORK_EXPOSURE' | 'CONFIGURATION' | 'COMPLIANCE'
+  | 'AVAILABILITY' | 'DATA_PROTECTION' | 'GENERAL';
+
+export type AdvisorySuggestedRecordType = 'CHANGE' | 'CAPA' | 'CONTROL_TEST' | 'TASK';
+export type AdvisoryMitigationTimeframe = 'IMMEDIATE' | 'SHORT_TERM' | 'PERMANENT' | 'VERIFICATION';
+
+export interface AdvisoryMitigationAction {
+  id: string;
+  title: string;
+  description: string;
+  timeframe: AdvisoryMitigationTimeframe;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  estimatedEffort?: string;
+  category?: string;
+}
+
+export interface AdvisorySuggestedRecord {
+  id: string;
+  type: AdvisorySuggestedRecordType;
+  title: string;
+  description: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  mitigationActionId?: string;
+  templateData?: Record<string, unknown>;
+}
+
+export interface AdvisoryExplainabilityEntry {
+  signal: string;
+  reasoning: string;
+  confidence: number;
+  source: string;
+}
+
+export interface AdvisoryAffectedServiceInfo {
+  id: string;
+  name: string;
+  criticality?: string;
+  source: 'LINKED' | 'KEYWORD_MATCH' | 'CMDB_TOPOLOGY';
+}
+
+export interface AdvisoryTopologyImpactSummary {
+  totalDependencies: number;
+  criticalDependencies: number;
+  affectedServiceCount: number;
+  highestCriticality?: string;
+  impactDescription: string;
+}
+
+export interface AdvisoryResult {
+  riskId: string;
+  generatedAt: string;
+  riskTheme: AdvisoryRiskTheme;
+  confidence: number;
+  summary: string;
+  affectedServices: AdvisoryAffectedServiceInfo[];
+  affectedCis: AdvisoryAffectedServiceInfo[];
+  topologyImpactSummary: AdvisoryTopologyImpactSummary | null;
+  mitigationPlan: {
+    immediateActions: AdvisoryMitigationAction[];
+    shortTermActions: AdvisoryMitigationAction[];
+    permanentActions: AdvisoryMitigationAction[];
+    verificationSteps: AdvisoryMitigationAction[];
+  };
+  suggestedRecords: AdvisorySuggestedRecord[];
+  explainability: AdvisoryExplainabilityEntry[];
+  warnings: string[];
+  assumptions: string[];
+}
+
+export interface AdvisoryCreateDraftItem {
+  suggestedRecordId: string;
+  type: AdvisorySuggestedRecordType;
+  titleOverride?: string;
+  descriptionOverride?: string;
+}
+
+export interface AdvisoryDraftCreationResultItem {
+  suggestedRecordId: string;
+  type: AdvisorySuggestedRecordType;
+  success: boolean;
+  createdRecordId?: string;
+  createdRecordCode?: string;
+  error?: string;
+  linkToRisk: boolean;
+}
+
+export interface AdvisoryCreateDraftsResult {
+  totalRequested: number;
+  totalCreated: number;
+  totalFailed: number;
+  results: AdvisoryDraftCreationResultItem[];
+}
+
+// ============================================================================
 // GRC Risk API
 // ============================================================================
 
@@ -1488,6 +1591,16 @@ export const riskApi = {
 
   updateEffectivenessOverride: (tenantId: string, riskId: string, controlId: string, overrideEffectivenessPercent: number | null) =>
     api.patch(API_PATHS.GRC_RISKS.UPDATE_EFFECTIVENESS_OVERRIDE(riskId, controlId), { overrideEffectivenessPercent }, withTenantId(tenantId)),
+
+  // Risk Intelligence Advisory Pack v1
+  advisoryAnalyze: (tenantId: string, riskId: string, options?: { includeCmdbTopology?: boolean; includeLinkedEntities?: boolean }) =>
+    api.post(API_PATHS.GRC_RISKS.ADVISORY_ANALYZE(riskId), options || {}, withTenantId(tenantId)),
+
+  advisoryLatest: (tenantId: string, riskId: string) =>
+    api.get(API_PATHS.GRC_RISKS.ADVISORY_LATEST(riskId), withTenantId(tenantId)),
+
+  advisoryCreateDrafts: (tenantId: string, riskId: string, selectedItems: AdvisoryCreateDraftItem[]) =>
+    api.post(API_PATHS.GRC_RISKS.ADVISORY_CREATE_DRAFTS(riskId), { selectedItems }, withTenantId(tenantId)),
 };
 
 // ============================================================================

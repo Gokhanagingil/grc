@@ -48,6 +48,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
+  Psychology as AdvisoryIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -61,7 +62,7 @@ import {
 } from '../services/grcClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingState, ErrorState } from '../components/common';
-import { TreatmentPlanTab } from '../components/risk';
+import { TreatmentPlanTab, RiskIntelligenceAdvisoryPanel } from '../components/risk';
 
 interface Risk {
   id: string;
@@ -876,6 +877,7 @@ export const RiskDetail: React.FC = () => {
                       <Tab icon={<PolicyIcon />} label="Relations" iconPosition="start" />
                       <Tab icon={<TreatmentIcon />} label="Treatment Plan" iconPosition="start" />
                       <Tab icon={<HistoryIcon />} label="Timeline" iconPosition="start" />
+                      <Tab icon={<AdvisoryIcon />} label="Advisory" iconPosition="start" />
                     </Tabs>
 
           <TabPanel value={tabValue} index={0}>
@@ -1387,6 +1389,15 @@ export const RiskDetail: React.FC = () => {
               </CardContent>
             </Card>
           </TabPanel>
+
+                    <TabPanel value={tabValue} index={4}>
+                      {risk && (
+                        <RiskIntelligenceAdvisoryPanel
+                          riskId={risk.id}
+                          tenantId={risk.tenantId}
+                        />
+                      )}
+                    </TabPanel>
         </Paper>
       )}
 
