@@ -212,21 +212,23 @@ test.describe('Phase 0 Quality Gate — No Silent UI Failures @mock @smoke @phas
 
     await page.goto('/itsm/changes');
 
-    // Wait for page to settle — either table, empty state, or content appears
-    // The page MUST exit loading state within 30 seconds
-    const loadingSpinner = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
-    const tableOrContent = page.locator('table, [data-testid="changes-table"], [data-testid="empty-state"], [data-testid="changes-list"]').first();
+    // Deterministic wait: poll until either real content appears OR spinner disappears.
+    // Uses expect.poll (auto-retry) instead of point-in-time isVisible() which is racy.
+    const contentLocator = page.locator(
+      'table, [data-testid="list-table"], [data-testid="list-empty"], ' +
+      '[data-testid="changes-table"], [data-testid="empty-state"], [data-testid="changes-list"], ' +
+      '[data-testid="universal-list-page"]'
+    );
+    const spinnerLocator = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
 
-    // Wait up to 30s for content to appear
-    const contentVisible = await tableOrContent.isVisible({ timeout: 30000 }).catch(() => false);
-    
-    if (!contentVisible) {
-      // If no content yet, at minimum the spinner should have stopped
-      const spinnerStillVisible = await loadingSpinner.first().isVisible({ timeout: 2000 }).catch(() => false);
-      // Allow spinner only if page hasn't loaded yet
-      // The key invariant: page must not be stuck in loading state forever
-      expect(spinnerStillVisible).toBe(false);
-    }
+    // The page MUST exit loading state within 30 seconds:
+    // either content becomes visible or all spinners disappear.
+    await expect.poll(async () => {
+      const hasContent = await contentLocator.first().isVisible().catch(() => false);
+      if (hasContent) return 'content';
+      const hasSpinner = await spinnerLocator.first().isVisible().catch(() => false);
+      return hasSpinner ? 'loading' : 'no-spinner';
+    }, { timeout: 30000, message: 'Page stuck in loading state — infinite spinner detected' }).not.toBe('loading');
 
     // Additional check: page should not be completely blank
     const bodyText = await page.locator('body').innerText();
@@ -238,15 +240,19 @@ test.describe('Phase 0 Quality Gate — No Silent UI Failures @mock @smoke @phas
 
     await page.goto('/cmdb/classes');
 
-    // Wait for page to settle
-    const tableOrContent = page.locator('table, [data-testid="classes-table"], [data-testid="empty-state"], [data-testid="classes-list"]').first();
-    const contentVisible = await tableOrContent.isVisible({ timeout: 30000 }).catch(() => false);
+    const contentLocator = page.locator(
+      'table, [data-testid="list-table"], [data-testid="list-empty"], ' +
+      '[data-testid="classes-table"], [data-testid="empty-state"], [data-testid="classes-list"], ' +
+      '[data-testid="universal-list-page"]'
+    );
+    const spinnerLocator = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
 
-    if (!contentVisible) {
-      const loadingSpinner = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
-      const spinnerStillVisible = await loadingSpinner.first().isVisible({ timeout: 2000 }).catch(() => false);
-      expect(spinnerStillVisible).toBe(false);
-    }
+    await expect.poll(async () => {
+      const hasContent = await contentLocator.first().isVisible().catch(() => false);
+      if (hasContent) return 'content';
+      const hasSpinner = await spinnerLocator.first().isVisible().catch(() => false);
+      return hasSpinner ? 'loading' : 'no-spinner';
+    }, { timeout: 30000, message: 'Page stuck in loading state — infinite spinner detected' }).not.toBe('loading');
 
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.length).toBeGreaterThan(0);
@@ -257,14 +263,19 @@ test.describe('Phase 0 Quality Gate — No Silent UI Failures @mock @smoke @phas
 
     await page.goto('/cmdb/cis');
 
-    const tableOrContent = page.locator('table, [data-testid="cis-table"], [data-testid="empty-state"], [data-testid="cis-list"]').first();
-    const contentVisible = await tableOrContent.isVisible({ timeout: 30000 }).catch(() => false);
+    const contentLocator = page.locator(
+      'table, [data-testid="list-table"], [data-testid="list-empty"], ' +
+      '[data-testid="cis-table"], [data-testid="empty-state"], [data-testid="cis-list"], ' +
+      '[data-testid="universal-list-page"]'
+    );
+    const spinnerLocator = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
 
-    if (!contentVisible) {
-      const loadingSpinner = page.locator('[data-testid="loading-spinner"], [role="progressbar"], .MuiCircularProgress-root');
-      const spinnerStillVisible = await loadingSpinner.first().isVisible({ timeout: 2000 }).catch(() => false);
-      expect(spinnerStillVisible).toBe(false);
-    }
+    await expect.poll(async () => {
+      const hasContent = await contentLocator.first().isVisible().catch(() => false);
+      if (hasContent) return 'content';
+      const hasSpinner = await spinnerLocator.first().isVisible().catch(() => false);
+      return hasSpinner ? 'loading' : 'no-spinner';
+    }, { timeout: 30000, message: 'Page stuck in loading state — infinite spinner detected' }).not.toBe('loading');
 
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.length).toBeGreaterThan(0);
