@@ -445,6 +445,17 @@ export const CmdbCiClassTree: React.FC = () => {
         </Card>
       )}
 
+      {/* Summary chips (system/custom/abstract counts from tree data) */}
+      {!loading && !error && treeData.length > 0 && (
+        <Box sx={{ mx: 1, mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }} data-testid="tree-summary-chips">
+          <Chip label={`${totalNodes} total classes`} size="small" variant="outlined" />
+          <Chip label={`${rootCount} root class${rootCount !== 1 ? 'es' : ''}`} size="small" variant="outlined" />
+          <Chip label={`${countSystemNodes(treeData)} system`} size="small" color="primary" variant="outlined" />
+          <Chip label={`${totalNodes - countSystemNodes(treeData)} custom`} size="small" color="secondary" variant="outlined" />
+          <Chip label={`${countAbstractNodes(treeData)} abstract`} size="small" color="warning" variant="outlined" />
+        </Box>
+      )}
+
       {/* Page-level Diagnostics Summary (collapsible) */}
       <Collapse in={showDiagnostics}>
         <Card variant="outlined" sx={{ mb: 1, mx: 1, bgcolor: 'grey.50' }} data-testid="diagnostics-panel">
@@ -666,6 +677,30 @@ function countNodes(nodes: ClassTreeNode[]): number {
     count += 1;
     if (Array.isArray(node.children)) {
       count += countNodes(node.children);
+    }
+  }
+  return count;
+}
+
+/** Count system nodes in tree recursively */
+function countSystemNodes(nodes: ClassTreeNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.isSystem) count += 1;
+    if (Array.isArray(node.children)) {
+      count += countSystemNodes(node.children);
+    }
+  }
+  return count;
+}
+
+/** Count abstract nodes in tree recursively */
+function countAbstractNodes(nodes: ClassTreeNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.isAbstract) count += 1;
+    if (Array.isArray(node.children)) {
+      count += countAbstractNodes(node.children);
     }
   }
   return count;
