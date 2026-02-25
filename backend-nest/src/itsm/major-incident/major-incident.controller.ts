@@ -64,8 +64,7 @@ export class MajorIncidentController {
   @Permissions(Permission.ITSM_MAJOR_INCIDENT_READ)
   @Perf()
   async getStatistics(@Headers('x-tenant-id') tenantId: string) {
-    const stats = await this.miService.getStatistics(tenantId);
-    return { data: stats };
+    return this.miService.getStatistics(tenantId);
   }
 
   // ============================================================================
@@ -82,8 +81,7 @@ export class MajorIncidentController {
     @Body() dto: CreateMajorIncidentDto,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.miService.declare(tenantId, userId, dto);
-    return { data: result };
+    return this.miService.declare(tenantId, userId, dto);
   }
 
   // ============================================================================
@@ -101,7 +99,7 @@ export class MajorIncidentController {
     if (!mi) {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
-    return { data: mi };
+    return mi;
   }
 
   // ============================================================================
@@ -118,8 +116,7 @@ export class MajorIncidentController {
     @Body() dto: UpdateMajorIncidentDto,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.miService.update(tenantId, userId, id, dto);
-    return { data: result };
+    return this.miService.update(tenantId, userId, id, dto);
   }
 
   // ============================================================================
@@ -139,7 +136,7 @@ export class MajorIncidentController {
     if (!deleted) {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
-    return { data: { deleted: true } };
+    return { deleted: true };
   }
 
   // ============================================================================
@@ -182,13 +179,7 @@ export class MajorIncidentController {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.miService.createTimelineUpdate(
-      tenantId,
-      userId,
-      id,
-      dto,
-    );
-    return { data: result };
+    return this.miService.createTimelineUpdate(tenantId, userId, id, dto);
   }
 
   // ============================================================================
@@ -207,12 +198,7 @@ export class MajorIncidentController {
     if (!mi) {
       throw new NotFoundException(`Major Incident with ID ${id} not found`);
     }
-    const links = await this.miService.getLinks(
-      tenantId,
-      id,
-      linkType as never,
-    );
-    return { data: links };
+    return this.miService.getLinks(tenantId, id, linkType as never);
   }
 
   @Post(':id/links')
@@ -226,8 +212,7 @@ export class MajorIncidentController {
     @Body() dto: CreateMajorIncidentLinkDto,
   ) {
     const userId = req.user?.id || req.user?.sub || 'system';
-    const result = await this.miService.linkRecord(tenantId, userId, id, dto);
-    return { data: result };
+    return this.miService.linkRecord(tenantId, userId, id, dto);
   }
 
   @Delete(':id/links/:linkId')
@@ -246,6 +231,6 @@ export class MajorIncidentController {
     if (!unlinked) {
       throw new NotFoundException(`Link with ID ${linkId} not found`);
     }
-    return { data: { deleted: true } };
+    return { deleted: true };
   }
 }
