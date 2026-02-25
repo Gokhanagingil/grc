@@ -39,6 +39,7 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import {
   itsmApi,
@@ -1308,7 +1309,23 @@ export const ItsmMajorIncidentDetail: React.FC = () => {
         {pirLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
         ) : pirError ? (
-          <Alert severity="warning" sx={{ mb: 2 }}>{pirError}</Alert>
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            data-testid="pir-error-state"
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={fetchPir}
+              >
+                Retry
+              </Button>
+            }
+          >
+            {pirError}
+          </Alert>
         ) : !pir ? (
           <Paper sx={{ p: 4, textAlign: 'center' }} data-testid="pir-empty-state">
             <Typography variant="h6" gutterBottom>Post-Incident Review</Typography>

@@ -818,9 +818,20 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Box>
                 <Collapse in={showRisksSection}>
                   {linkedRisks.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      No linked risks
-                    </Typography>
+                    <Box sx={{ textAlign: 'center', py: 2 }} data-testid="risks-empty-state">
+                      <WarningIcon sx={{ fontSize: 32, color: 'text.disabled', mb: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No linked risks yet
+                      </Typography>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenLinkRisk}
+                        sx={{ mt: 1 }}
+                      >
+                        Link a Risk
+                      </Button>
+                    </Box>
                   ) : (
                     <List dense>
                       {linkedRisks.map((risk) => (
@@ -872,9 +883,20 @@ export const ItsmIncidentDetail: React.FC = () => {
                 </Box>
                 <Collapse in={showControlsSection}>
                   {linkedControls.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      No linked controls
-                    </Typography>
+                    <Box sx={{ textAlign: 'center', py: 2 }} data-testid="controls-empty-state">
+                      <WarningIcon sx={{ fontSize: 32, color: 'text.disabled', mb: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No linked controls yet
+                      </Typography>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenLinkControl}
+                        sx={{ mt: 1 }}
+                      >
+                        Link a Control
+                      </Button>
+                    </Box>
                   ) : (
                     <List dense>
                       {linkedControls.map((control) => (
