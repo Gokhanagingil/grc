@@ -163,19 +163,38 @@ export class CreateDraftsDto {
 // Draft Creation Result
 // ============================================================================
 
+export type DraftCreationStatus = 'created' | 'failed' | 'skipped';
+
 export interface DraftCreationResultItem {
   suggestedRecordId: string;
-  type: SuggestedRecordType;
-  success: boolean;
+  /** The type as requested by the frontend (e.g. TASK, CAPA) */
+  requestedType: SuggestedRecordType;
+  /** The actual target type used for creation (e.g. TASK -> CAPA) */
+  resolvedTargetType: SuggestedRecordType;
+  status: DraftCreationStatus;
   createdRecordId?: string;
   createdRecordCode?: string;
-  error?: string;
+  /** User-safe error message suitable for display in UI */
+  userSafeMessage?: string;
+  /** Technical error detail (for logs / collapsible UI) */
+  technicalMessage?: string;
+  /** Error code for programmatic handling */
+  errorCode?: string;
   linkToRisk: boolean;
+
+  // Legacy compat fields — kept for backward compatibility with existing frontend
+  /** @deprecated Use requestedType instead */
+  type: SuggestedRecordType;
+  /** @deprecated Use status === 'created' instead */
+  success: boolean;
+  /** @deprecated Use userSafeMessage instead */
+  error?: string;
 }
 
 export interface CreateDraftsResult {
   totalRequested: number;
   totalCreated: number;
   totalFailed: number;
+  totalSkipped: number;
   results: DraftCreationResultItem[];
 }

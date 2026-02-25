@@ -616,26 +616,40 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
 
           {draftsResult && (
             <Alert
-              severity={draftsResult.totalFailed === 0 ? 'success' : 'warning'}
+              severity={
+                draftsResult.totalFailed === 0 && draftsResult.totalSkipped === 0
+                  ? 'success'
+                  : draftsResult.totalCreated > 0
+                    ? 'warning'
+                    : 'error'
+              }
               sx={{ mb: 2 }}
               onClose={() => setDraftsResult(null)}
             >
-              <Typography variant="body2">
+              <Typography variant="body2" fontWeight="medium">
                 Created {draftsResult.totalCreated} of {draftsResult.totalRequested} draft(s).
                 {draftsResult.totalFailed > 0 && ` ${draftsResult.totalFailed} failed.`}
+                {(draftsResult.totalSkipped ?? 0) > 0 && ` ${draftsResult.totalSkipped} skipped.`}
               </Typography>
               {draftsResult.results
-                .filter((r) => r.success && r.createdRecordId)
+                .filter((r) => r.status === 'created' && r.createdRecordId)
                 .map((r) => (
                   <Typography key={r.suggestedRecordId} variant="body2" sx={{ mt: 0.5 }}>
-                    {getRecordTypeLabel(r.type)}: {r.createdRecordCode || r.createdRecordId}
+                    {getRecordTypeLabel(r.resolvedTargetType || r.type)}: {r.createdRecordCode || r.createdRecordId}
                   </Typography>
                 ))}
               {draftsResult.results
-                .filter((r) => !r.success && r.error)
+                .filter((r) => r.status === 'failed')
                 .map((r) => (
                   <Typography key={r.suggestedRecordId} variant="body2" color="error" sx={{ mt: 0.5 }}>
-                    {getRecordTypeLabel(r.type)}: {r.error}
+                    {getRecordTypeLabel(r.resolvedTargetType || r.type)}: {r.userSafeMessage || r.error || 'Unknown error'}
+                  </Typography>
+                ))}
+              {draftsResult.results
+                .filter((r) => r.status === 'skipped')
+                .map((r) => (
+                  <Typography key={r.suggestedRecordId} variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {getRecordTypeLabel(r.resolvedTargetType || r.type)}: {r.userSafeMessage || 'Skipped'}
                   </Typography>
                 ))}
             </Alert>
