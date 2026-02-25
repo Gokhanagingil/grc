@@ -50,6 +50,7 @@ import {
   INCIDENT_EMPTY_STRING_FIELDS,
 } from '../../utils/payloadNormalizer';
 import { calculatePriorityFromMatrix, fetchTenantMatrix, getPriorityLabel, getPriorityColor } from '../../utils/priorityMatrix';
+import { IncidentCommandCenter } from '../../components/itsm/IncidentCommandCenter';
 
 interface ItsmIncident {
   id: string;
@@ -195,6 +196,10 @@ export const ItsmIncidentDetail: React.FC = () => {
 
   // Tenant-specific priority matrix for live recalculation
   const [tenantMatrix, setTenantMatrix] = useState<Record<string, Record<string, string>> | null>(null);
+  const [matrixSource, setMatrixSource] = useState<'tenant' | 'default' | null>(null);
+
+  // Affected CI count for command center (derived from IncidentImpactTab data)
+  const [affectedCiCount, setAffectedCiCount] = useState(0);
 
   // Link Risk/Control dialog state
   const [linkRiskOpen, setLinkRiskOpen] = useState(false);
@@ -268,12 +273,30 @@ export const ItsmIncidentDetail: React.FC = () => {
       try {
         const matrix = await fetchTenantMatrix();
         setTenantMatrix(matrix);
+        // Detect if the returned matrix differs from ITIL default (has custom entries)
+        setMatrixSource('tenant');
       } catch {
         // Keep using default matrix on error
+        setMatrixSource('default');
       }
     };
     loadMatrix();
   }, []);
+
+  // Fetch affected CI count for command center health indicators
+  useEffect(() => {
+    if (isNew || !id) return;
+    const loadCiCount = async () => {
+      try {
+        const response = await itsmApi.incidents.listAffectedCis(id, { page: 1, pageSize: 1 });
+        const d = response.data as { data?: { total?: number } };
+        setAffectedCiCount(d?.data?.total ?? 0);
+      } catch {
+        setAffectedCiCount(0);
+      }
+    };
+    loadCiCount();
+  }, [id, isNew]);
 
   useEffect(() => {
     const loadServices = async () => {
@@ -398,9 +421,15 @@ export const ItsmIncidentDetail: React.FC = () => {
       showNotification('Risk unlinked successfully', 'success');
       setLinkedRisks((prev) => prev.filter((r) => r.id !== riskId));
     } catch (error) {
-      console.error('Error unlinking risk:', error);
       const classified = classifyApiError(error);
-      showNotification(classified.message || 'Failed to unlink risk', 'error');
+      if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: Cannot unlink risk.', 'error');
+      } else if (classified.kind === 'not_found') {
+        showNotification('Risk link not found. It may have already been removed.', 'warning');
+        setLinkedRisks((prev) => prev.filter((r) => r.id !== riskId));
+      } else {
+        showNotification(classified.message || 'Failed to unlink risk', 'error');
+      }
     }
   };
 
@@ -411,9 +440,15 @@ export const ItsmIncidentDetail: React.FC = () => {
       showNotification('Control unlinked successfully', 'success');
       setLinkedControls((prev) => prev.filter((c) => c.id !== controlId));
     } catch (error) {
-      console.error('Error unlinking control:', error);
       const classified = classifyApiError(error);
-      showNotification(classified.message || 'Failed to unlink control', 'error');
+      if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: Cannot unlink control.', 'error');
+      } else if (classified.kind === 'not_found') {
+        showNotification('Control link not found. It may have already been removed.', 'warning');
+        setLinkedControls((prev) => prev.filter((c) => c.id !== controlId));
+      } else {
+        showNotification(classified.message || 'Failed to unlink control', 'error');
+      }
     }
   };
 
@@ -421,14 +456,23 @@ export const ItsmIncidentDetail: React.FC = () => {
   const handleOpenLinkRisk = async () => {
     setLinkRiskOpen(true);
     setLinkSearchRisk('');
-    if (!tenantId) return;
+    if (!tenantId) {
+      showNotification('Tenant context missing. Cannot load risks.', 'warning');
+      return;
+    }
     try {
       const resp = await riskApi.list(tenantId);
       const items = unwrapArrayResponse<LinkedRisk>(resp);
       // Filter out already-linked risks
       const linkedIds = new Set(linkedRisks.map((r) => r.id));
       setAvailableRisks(items.filter((r) => !linkedIds.has(r.id)));
-    } catch {
+    } catch (error) {
+      const classified = classifyApiError(error);
+      if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: Cannot view risks.', 'error');
+      } else {
+        showNotification('Failed to load available risks', 'error');
+      }
       setAvailableRisks([]);
     }
   };
@@ -455,14 +499,23 @@ export const ItsmIncidentDetail: React.FC = () => {
   const handleOpenLinkControl = async () => {
     setLinkControlOpen(true);
     setLinkSearchControl('');
-    if (!tenantId) return;
+    if (!tenantId) {
+      showNotification('Tenant context missing. Cannot load controls.', 'warning');
+      return;
+    }
     try {
       const resp = await controlApi.list(tenantId);
       const items = unwrapArrayResponse<LinkedControl>(resp);
       // Filter out already-linked controls
       const linkedIds = new Set(linkedControls.map((c) => c.id));
       setAvailableControls(items.filter((c) => !linkedIds.has(c.id)));
-    } catch {
+    } catch (error) {
+      const classified = classifyApiError(error);
+      if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: Cannot view controls.', 'error');
+      } else {
+        showNotification('Failed to load available controls', 'error');
+      }
       setAvailableControls([]);
     }
   };
@@ -493,12 +546,50 @@ export const ItsmIncidentDetail: React.FC = () => {
       const slaResponse = await itsmApi.sla.recordSlas('Incident', id);
       setSlaInstances(unwrapArrayResponse<SlaInstanceRecord>(slaResponse));
       showNotification('SLA data refreshed', 'success');
-    } catch {
-      showNotification('Failed to refresh SLA data', 'error');
+    } catch (error) {
+      const classified = classifyApiError(error);
+      if (classified.kind === 'forbidden') {
+        showNotification('Permission denied: Cannot refresh SLA data.', 'error');
+      } else if (classified.kind === 'network') {
+        showNotification('Network error refreshing SLA. Check your connection.', 'error');
+      } else {
+        showNotification(classified.message || 'Failed to refresh SLA data', 'error');
+      }
     } finally {
       setSlaRefreshing(false);
     }
   };
+
+  // B4: Recalculate Priority handler (re-fetch tenant matrix and recompute)
+  const handleRecalculatePriority = async () => {
+    try {
+      const matrix = await fetchTenantMatrix();
+      setTenantMatrix(matrix);
+      setMatrixSource('tenant');
+      const newPriority = calculatePriorityFromMatrix(
+        incident.impact,
+        incident.urgency,
+        matrix,
+      );
+      setIncident((prev) => ({ ...prev, priority: newPriority }));
+      showNotification(`Priority recalculated: ${newPriority.toUpperCase()}`, 'success');
+    } catch {
+      setMatrixSource('default');
+      showNotification('Using default ITIL matrix for priority calculation', 'info');
+    }
+  };
+
+  // B5: Refresh CI count after IncidentImpactTab operations
+  const refreshCiCount = useCallback(async () => {
+    if (!id) return;
+    try {
+      const response = await itsmApi.incidents.listAffectedCis(id, { page: 1, pageSize: 1 });
+      const d = response.data as { data?: { total?: number } };
+      setAffectedCiCount(d?.data?.total ?? 0);
+    } catch {
+      // non-critical
+    }
+  }, [id]);
 
   if (loading) {
     return (
@@ -532,16 +623,39 @@ export const ItsmIncidentDetail: React.FC = () => {
             />
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {!isNew && incident.id && (
-            <Button
-              variant="outlined"
-              startIcon={<CopilotIcon />}
-              onClick={() => setCopilotOpen(true)}
-              color="secondary"
-            >
-              Copilot
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={handleRecalculatePriority}
+                title="Re-fetch priority matrix and recalculate"
+                data-testid="recalculate-priority-btn"
+              >
+                Recalculate Priority
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={handleRefreshSla}
+                disabled={slaRefreshing}
+                title="Refresh SLA records"
+                data-testid="refresh-sla-btn"
+              >
+                {slaRefreshing ? 'Refreshing...' : 'Refresh SLA'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CopilotIcon />}
+                onClick={() => setCopilotOpen(true)}
+                color="secondary"
+              >
+                Copilot
+              </Button>
+            </>
           )}
           <Button
             variant="contained"
@@ -554,82 +668,16 @@ export const ItsmIncidentDetail: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Incident Intelligence Summary — WOW card */}
+      {/* ── Incident Command Center (WOW) ── */}
       {!isNew && incident.id && (
-        <Card
-          sx={{
-            mb: 3,
-            background: incident.priority === 'p1'
-              ? 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)'
-              : incident.priority === 'p2'
-              ? 'linear-gradient(135deg, #ed6c02 0%, #e65100 100%)'
-              : incident.priority === 'p3'
-              ? 'linear-gradient(135deg, #2196f3 0%, #1565c0 100%)'
-              : 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
-            color: 'white',
-          }}
-          data-testid="incident-intelligence-summary"
-        >
-          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-            <Typography variant="subtitle2" sx={{ opacity: 0.85, mb: 1.5, fontWeight: 600, letterSpacing: 1 }}>
-              INCIDENT INTELLIGENCE
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-              {/* Priority badge */}
-              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
-                <Typography variant="h4" fontWeight={700} lineHeight={1}>
-                  {(incident.priority || 'P3').toUpperCase()}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.85 }}>Priority</Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
-              {/* SLA summary */}
-              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
-                <Typography variant="h5" fontWeight={700} lineHeight={1}>
-                  {slaInstances.length}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.85 }}>SLA Records</Typography>
-              </Box>
-              {slaInstances.some(s => s.breached) && (
-                <Chip
-                  label={`${slaInstances.filter(s => s.breached).length} Breached`}
-                  size="small"
-                  sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white', fontWeight: 600 }}
-                />
-              )}
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
-              {/* Linked risks */}
-              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
-                <Typography variant="h5" fontWeight={700} lineHeight={1}>
-                  {linkedRisks.length}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Risks</Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
-              {/* Linked controls */}
-              <Box sx={{ textAlign: 'center', minWidth: 60 }}>
-                <Typography variant="h5" fontWeight={700} lineHeight={1}>
-                  {linkedControls.length}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.85 }}>Linked Controls</Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
-              {/* Health badges */}
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                {linkedRisks.length === 0 && (
-                  <Chip label="No Linked Risks" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-                )}
-                {slaInstances.length === 0 && (
-                  <Chip label="No SLA" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-                )}
-                <Chip label="Priority Auto-managed" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-                {incident.state === 'resolved' && (
-                  <Chip label="Resolved" size="small" sx={{ bgcolor: 'rgba(76,175,80,0.4)', color: 'white' }} />
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
+        <IncidentCommandCenter
+          incident={incident}
+          linkedRisks={linkedRisks}
+          linkedControls={linkedControls}
+          slaInstances={slaInstances}
+          affectedCiCount={affectedCiCount}
+          matrixSource={matrixSource}
+        />
       )}
 
       <Grid container spacing={3}>
@@ -685,7 +733,9 @@ export const ItsmIncidentDetail: React.FC = () => {
                         />
                       ),
                     }}
-                    helperText="Auto-computed from Impact × Urgency — updates live"
+                    helperText={
+                      `Computed: Impact (${(incident.impact || 'medium').charAt(0).toUpperCase() + (incident.impact || 'medium').slice(1)}) × Urgency (${(incident.urgency || 'medium').charAt(0).toUpperCase() + (incident.urgency || 'medium').slice(1)}) via ${matrixSource === 'tenant' ? 'Tenant' : 'ITIL'} Matrix`
+                    }
                     data-testid="incident-priority-readonly"
                   />
                 </Grid>
