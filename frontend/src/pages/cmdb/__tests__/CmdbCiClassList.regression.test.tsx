@@ -35,12 +35,36 @@ jest.mock('../../../contexts/NotificationContext', () => ({
   useNotification: () => ({ showNotification: mockShowNotification }),
 }));
 
+jest.mock('../../../utils/apiErrorClassifier', () => ({
+  classifyApiError: (err: unknown) => ({ kind: 'server', message: 'Failed to load CI classes.', status: 500, isRetryable: false, shouldLogout: false }),
+}));
+
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
       list: (params: unknown) => mockClassesList(params),
       create: jest.fn(),
+      summary: () => Promise.resolve({ data: { data: null } }),
+      contentPackStatus: () => Promise.resolve({ data: { data: null } }),
     },
+  },
+  unwrapPaginatedResponse: (resp: unknown) => {
+    if (!resp) return { items: [], total: 0 };
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data) {
+      const inner = (data as Record<string, unknown>).data as Record<string, unknown>;
+      if (inner && 'items' in inner) return inner;
+    }
+    if (data && 'items' in data) return data;
+    return { items: [], total: 0 };
+  },
+  unwrapResponse: (resp: unknown) => {
+    if (!resp) return null;
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && typeof data === 'object' && 'data' in data) return (data as Record<string, unknown>).data;
+    return data ?? null;
   },
 }));
 
