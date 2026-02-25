@@ -1,13 +1,16 @@
 /**
- * Tests for CmdbCiClassTree component
+ * Tests for CmdbCiClassTree component (Workbench v1)
  *
  * Covers:
  * - Render nested tree nodes
- * - Node click navigation
+ * - Node click selects class (workbench inline panel)
  * - Abstract/inactive badges
  * - Empty state
  * - Error state
  * - Loading state
+ * - Content pack banner with Apply CTA
+ * - Workbench split layout
+ * - No-selection guidance text
  */
 
 import React from 'react';
@@ -18,6 +21,7 @@ import { CmdbCiClassTree } from '../CmdbCiClassTree';
 const mockNavigate = jest.fn();
 const mockShowNotification = jest.fn();
 const mockTree = jest.fn();
+const mockSetSearchParams = jest.fn();
 
 jest.mock('react-router-dom', () => {
   const R = require('react');
@@ -25,7 +29,7 @@ jest.mock('react-router-dom', () => {
     __esModule: true,
     useParams: () => ({}),
     useNavigate: () => mockNavigate,
-    useSearchParams: () => [new URLSearchParams(), jest.fn()],
+    useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],
     useLocation: () => ({ pathname: '/', search: '', hash: '', state: null }),
     MemoryRouter: ({ children }: { children: React.ReactNode }) => R.createElement('div', null, children),
     Link: ({ children, to }: { children: React.ReactNode; to: string }) => R.createElement('a', { href: to }, children),
@@ -37,12 +41,16 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 }));
 
 const mockContentPackStatus = jest.fn();
+const mockApplyContentPack = jest.fn();
+const mockDiagnosticsSummary = jest.fn();
 
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
       tree: () => mockTree(),
       contentPackStatus: () => mockContentPackStatus(),
+      applyContentPack: () => mockApplyContentPack(),
+      diagnosticsSummary: () => mockDiagnosticsSummary(),
     },
   },
   unwrapArrayResponse: (resp: unknown) => {
@@ -64,6 +72,17 @@ jest.mock('../../../services/grcClient', () => ({
 
 jest.mock('../../../utils/apiErrorClassifier', () => ({
   classifyApiError: (err: unknown) => ({ kind: 'server', message: String(err), status: 500, isRetryable: false, shouldLogout: false }),
+}));
+
+// Mock ClassWorkbenchDetailPanel to avoid deep rendering
+jest.mock('../ClassWorkbenchDetailPanel', () => ({
+  ClassWorkbenchDetailPanel: ({ classId, onClose }: { classId: string; onClose: () => void }) => {
+    const R = require('react');
+    return R.createElement('div', { 'data-testid': 'mock-detail-panel', 'data-class-id': classId },
+      R.createElement('button', { 'data-testid': 'mock-close-btn', onClick: onClose }, 'Close'),
+      'Detail Panel for ', classId
+    );
+  },
 }));
 
 const sampleTree = [
@@ -119,10 +138,11 @@ const sampleTree = [
   },
 ];
 
-describe('CmdbCiClassTree', () => {
+describe('CmdbCiClassTree (Workbench v1)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockContentPackStatus.mockResolvedValue({ data: { data: { applied: true, version: 'v1.0.0', systemClasses: 10, customClasses: 2, totalClasses: 12, abstractClasses: 3 } } });
+    mockDiagnosticsSummary.mockResolvedValue({ data: { data: { totalClasses: 12, classesWithErrors: 0, classesWithWarnings: 0, totalErrors: 0, totalWarnings: 0, totalInfos: 0, topIssues: [] } } });
   });
 
   it('shows loading state initially', () => {
@@ -154,7 +174,7 @@ describe('CmdbCiClassTree', () => {
     });
   });
 
-  it('navigates to class detail on node click', async () => {
+  it('selects class on node click (workbench inline selection)', async () => {
     mockTree.mockResolvedValue({ data: { data: sampleTree } });
     render(<CmdbCiClassTree />);
 
@@ -163,7 +183,15 @@ describe('CmdbCiClassTree', () => {
     });
 
     fireEvent.click(screen.getByTestId('tree-node-cls-server'));
-    expect(mockNavigate).toHaveBeenCalledWith('/cmdb/classes/cls-server');
+
+    // Should show detail panel instead of navigating away
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-detail-panel')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('mock-detail-panel')).toHaveAttribute('data-class-id', 'cls-server');
+
+    // Should update URL search params
+    expect(mockSetSearchParams).toHaveBeenCalledWith({ selected: 'cls-server' }, { replace: true });
   });
 
   it('shows empty state when no classes exist', async () => {
@@ -195,16 +223,6 @@ describe('CmdbCiClassTree', () => {
 
     fireEvent.click(screen.getByTestId('btn-back-to-classes'));
     expect(mockNavigate).toHaveBeenCalledWith('/cmdb/classes');
-  });
-
-  it('shows total node count summary', async () => {
-    mockTree.mockResolvedValue({ data: { data: sampleTree } });
-    render(<CmdbCiClassTree />);
-
-    await waitFor(() => {
-      expect(screen.getByText('4 total classes')).toBeInTheDocument();
-    });
-    expect(screen.getByText('1 root class')).toBeInTheDocument();
   });
 
   it('renders content pack status card when applied', async () => {
@@ -239,12 +257,86 @@ describe('CmdbCiClassTree', () => {
     });
   });
 
-  it('shows abstract count in summary chips', async () => {
+  it('shows "no class selected" guidance when tree loaded without selection', async () => {
     mockTree.mockResolvedValue({ data: { data: sampleTree } });
     render(<CmdbCiClassTree />);
 
     await waitFor(() => {
-      expect(screen.getByText('1 abstract')).toBeInTheDocument();
+      expect(screen.getByTestId('workbench-no-selection')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Select a class from the tree/)).toBeInTheDocument();
+  });
+
+  it('shows Apply Baseline Content Pack button when not applied', async () => {
+    mockContentPackStatus.mockResolvedValue({
+      data: { data: { applied: false, version: null, systemClasses: 0, customClasses: 2, totalClasses: 2, abstractClasses: 0 } }
+    });
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-apply-content-pack')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Apply Baseline Content Pack')).toBeInTheDocument();
+  });
+
+  it('calls apply content pack API when Apply CTA clicked', async () => {
+    mockContentPackStatus.mockResolvedValue({
+      data: { data: { applied: false, version: null, systemClasses: 0, customClasses: 2, totalClasses: 2, abstractClasses: 0 } }
+    });
+    mockApplyContentPack.mockResolvedValue({
+      data: { data: { version: 'v1.0.0', totalProcessed: 15, created: 10, updated: 3, reused: 2, skipped: 0, actions: [] } }
+    });
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-apply-content-pack')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('btn-apply-content-pack'));
+
+    await waitFor(() => {
+      expect(mockApplyContentPack).toHaveBeenCalledTimes(1);
+    });
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.stringContaining('Content pack applied'),
+      'success'
+    );
+  });
+
+  it('closes detail panel when close button clicked', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tree-node-cls-server')).toBeInTheDocument();
+    });
+
+    // Select a class first
+    fireEvent.click(screen.getByTestId('tree-node-cls-server'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-detail-panel')).toBeInTheDocument();
+    });
+
+    // Close the panel
+    fireEvent.click(screen.getByTestId('mock-close-btn'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('mock-detail-panel')).not.toBeInTheDocument();
+    });
+
+    // Should clear search params
+    expect(mockSetSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it('renders workbench title', async () => {
+    mockTree.mockResolvedValue({ data: { data: sampleTree } });
+    render(<CmdbCiClassTree />);
+
+    await waitFor(() => {
+      expect(screen.getByText('CMDB Class Hierarchy Workbench')).toBeInTheDocument();
     });
   });
 });

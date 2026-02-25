@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -16,6 +16,7 @@ import {
   Card,
   CardContent,
   InputAdornment,
+  Divider,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -27,28 +28,34 @@ import {
   BugReport as DiagnosticsIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
+  PlayArrow as ApplyIcon,
 } from '@mui/icons-material';
 import {
   cmdbApi,
   ClassTreeNode,
   ContentPackStatusResponse,
+  ContentPackApplyResult,
+  PageDiagnosticsSummary,
   unwrapResponse,
   unwrapArrayResponse,
 } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { classifyApiError, ApiErrorKind } from '../../utils/apiErrorClassifier';
+import { ClassWorkbenchDetailPanel } from './ClassWorkbenchDetailPanel';
 
 /** Quick filter type for tree view */
 type TreeFilter = 'all' | 'system' | 'custom' | 'abstract';
 
-/** Recursive tree node renderer */
+/** Recursive tree node renderer with selection support */
 const TreeNodeItem: React.FC<{
   node: ClassTreeNode;
   depth: number;
-  onNavigate: (id: string) => void;
-}> = ({ node, depth, onNavigate }) => {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}> = ({ node, depth, selectedId, onSelect }) => {
   const [expanded, setExpanded] = useState(depth < 2);
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const isSelected = node.id === selectedId;
 
   return (
     <Box>
@@ -62,10 +69,13 @@ const TreeNodeItem: React.FC<{
           pl: depth * 3 + 1,
           cursor: 'pointer',
           borderRadius: 1,
-          '&:hover': { bgcolor: 'action.hover' },
+          bgcolor: isSelected ? 'primary.50' : 'transparent',
+          borderLeft: isSelected ? 3 : 0,
+          borderColor: isSelected ? 'primary.main' : 'transparent',
+          '&:hover': { bgcolor: isSelected ? 'primary.100' : 'action.hover' },
           transition: 'background-color 0.15s',
         }}
-        onClick={() => onNavigate(node.id)}
+        onClick={() => onSelect(node.id)}
       >
         {hasChildren ? (
           <IconButton
@@ -84,7 +94,7 @@ const TreeNodeItem: React.FC<{
         )}
         <Typography
           variant="body2"
-          fontWeight={500}
+          fontWeight={isSelected ? 600 : 500}
           sx={{ mr: 1, flexShrink: 0 }}
         >
           {node.label || node.name}
@@ -140,7 +150,8 @@ const TreeNodeItem: React.FC<{
               key={child.id}
               node={child}
               depth={depth + 1}
-              onNavigate={onNavigate}
+              selectedId={selectedId}
+              onSelect={onSelect}
             />
           ))}
         </Collapse>
@@ -151,6 +162,7 @@ const TreeNodeItem: React.FC<{
 
 export const CmdbCiClassTree: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,6 +178,17 @@ export const CmdbCiClassTree: React.FC = () => {
     contentPackVersion: string | null;
     tenantScoped: boolean;
   } | null>(null);
+
+  // Workbench: selected class for inline detail panel
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(
+    searchParams.get('selected') || null
+  );
+
+  // Content pack apply state
+  const [applying, setApplying] = useState(false);
+
+  // Page-level diagnostics summary
+  const [pageDiagnostics, setPageDiagnostics] = useState<PageDiagnosticsSummary | null>(null);
 
   const fetchTree = useCallback(async () => {
     setLoading(true);
@@ -219,17 +242,82 @@ export const CmdbCiClassTree: React.FC = () => {
     }
   }, []);
 
+  const fetchPageDiagnostics = useCallback(async () => {
+    try {
+      const response = await cmdbApi.classes.diagnosticsSummary();
+      const data = unwrapResponse<PageDiagnosticsSummary>(response);
+      if (data && typeof data === 'object' && 'totalClasses' in data) {
+        setPageDiagnostics(data);
+      }
+    } catch {
+      // Page diagnostics is non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchTree();
     fetchContentPackStatus();
   }, [fetchTree, fetchContentPackStatus]);
 
-  const handleNavigate = useCallback(
+  // Fetch page-level diagnostics when diagnostics panel is opened
+  useEffect(() => {
+    if (showDiagnostics) {
+      fetchPageDiagnostics();
+    }
+  }, [showDiagnostics, fetchPageDiagnostics]);
+
+  /** Select a class in the workbench (inline, no navigation away) */
+  const handleSelectClass = useCallback(
     (classId: string) => {
-      navigate(`/cmdb/classes/${classId}`);
+      setSelectedClassId(classId);
+      setSearchParams({ selected: classId }, { replace: true });
     },
-    [navigate]
+    [setSearchParams]
   );
+
+  /** Close the detail panel */
+  const handleCloseDetail = useCallback(() => {
+    setSelectedClassId(null);
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
+  /** Apply content pack */
+  const handleApplyContentPack = useCallback(async () => {
+    setApplying(true);
+    try {
+      const response = await cmdbApi.classes.applyContentPack();
+      const result = unwrapResponse<ContentPackApplyResult>(response);
+      if (result && typeof result === 'object' && 'totalProcessed' in result) {
+        showNotification(
+          `Content pack applied: ${result.created} created, ${result.updated} updated, ${result.reused} reused, ${result.skipped} skipped`,
+          'success'
+        );
+      } else {
+        showNotification('Content pack applied successfully.', 'success');
+      }
+      // Refresh tree + status after apply
+      fetchTree();
+      fetchContentPackStatus();
+    } catch (err) {
+      const classified = classifyApiError(err);
+      if (classified.kind === 'forbidden') {
+        showNotification('You do not have permission to apply the content pack. Admin access required.', 'error');
+      } else {
+        showNotification(classified.message || 'Failed to apply content pack.', 'error');
+      }
+    } finally {
+      setApplying(false);
+    }
+  }, [showNotification, fetchTree, fetchContentPackStatus]);
+
+  /** Refresh all data */
+  const handleRefresh = useCallback(() => {
+    fetchTree();
+    fetchContentPackStatus();
+    if (showDiagnostics) {
+      fetchPageDiagnostics();
+    }
+  }, [fetchTree, fetchContentPackStatus, showDiagnostics, fetchPageDiagnostics]);
 
   /** Apply quick filters and search to the tree */
   const filteredTree = useMemo(() => {
@@ -265,14 +353,15 @@ export const CmdbCiClassTree: React.FC = () => {
   const filteredCount = countNodes(filteredTree);
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+      {/* Header Bar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexShrink: 0, px: 1 }}>
         <IconButton onClick={() => navigate('/cmdb/classes')} data-testid="btn-back-to-classes">
           <ArrowBackIcon />
         </IconButton>
         <TreeIcon color="primary" />
-        <Typography variant="h4" fontWeight={600}>
-          CI Class Hierarchy
+        <Typography variant="h5" fontWeight={600}>
+          CMDB Class Hierarchy Workbench
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Button
@@ -281,24 +370,34 @@ export const CmdbCiClassTree: React.FC = () => {
           startIcon={<DiagnosticsIcon />}
           onClick={() => setShowDiagnostics(!showDiagnostics)}
           data-testid="btn-toggle-diagnostics"
+          color={pageDiagnostics && pageDiagnostics.totalErrors > 0 ? 'error' : 'inherit'}
         >
           Diagnostics
+          {pageDiagnostics && pageDiagnostics.totalErrors > 0 && (
+            <Chip
+              label={pageDiagnostics.totalErrors}
+              size="small"
+              color="error"
+              sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }}
+            />
+          )}
         </Button>
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          onClick={() => { fetchTree(); fetchContentPackStatus(); }}
+          onClick={handleRefresh}
           disabled={loading}
           data-testid="btn-refresh-tree"
+          size="small"
         >
           Refresh
         </Button>
       </Box>
 
-      {/* Content Pack Status Card */}
+      {/* Content Pack Status Banner */}
       {contentPackStatus && (
-        <Card variant="outlined" sx={{ mb: 2 }} data-testid="content-pack-status-card">
-          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 }, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Card variant="outlined" sx={{ mb: 1, mx: 1, flexShrink: 0 }} data-testid="content-pack-status-card">
+          <CardContent sx={{ py: 1, '&:last-child': { pb: 1 }, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             {contentPackStatus.applied ? (
               <CheckCircleIcon color="success" fontSize="small" />
             ) : (
@@ -322,78 +421,58 @@ export const CmdbCiClassTree: React.FC = () => {
               color="secondary"
               variant="outlined"
             />
+            {contentPackStatus.abstractClasses > 0 && (
+              <Chip
+                label={`${contentPackStatus.abstractClasses} abstract`}
+                size="small"
+                color="warning"
+                variant="outlined"
+              />
+            )}
             {!contentPackStatus.applied && (
-              <Typography variant="body2" color="text.secondary">
-                Run the content-pack seed to populate system CI classes.
-              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<ApplyIcon />}
+                onClick={handleApplyContentPack}
+                disabled={applying}
+                data-testid="btn-apply-content-pack"
+              >
+                {applying ? 'Applying...' : 'Apply Baseline Content Pack'}
+              </Button>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Summary chips + Quick Filters */}
-      {!loading && !error && treeData.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }} data-testid="tree-summary-chips">
-          <Chip label={`${totalNodes} total classes`} size="small" variant="outlined" />
-          <Chip label={`${rootCount} root class${rootCount !== 1 ? 'es' : ''}`} size="small" variant="outlined" />
-          <Chip label={`${countSystemNodes(treeData)} system`} size="small" color="primary" variant="outlined" />
-          <Chip label={`${totalNodes - countSystemNodes(treeData)} custom`} size="small" color="secondary" variant="outlined" />
-          <Chip label={`${countAbstractNodes(treeData)} abstract`} size="small" color="warning" variant="outlined" />
-        </Box>
-      )}
-
-      {/* Quick Filters Bar */}
-      {!loading && !error && treeData.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }} data-testid="tree-filters-bar">
-          <TextField
-            size="small"
-            placeholder="Search by name or label..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            data-testid="tree-search-input"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ minWidth: 240 }}
-          />
-          <ToggleButtonGroup
-            value={treeFilter}
-            exclusive
-            onChange={(_, val) => val && setTreeFilter(val as TreeFilter)}
-            size="small"
-            data-testid="tree-filter-toggle"
-          >
-            <ToggleButton value="all" data-testid="filter-all">All</ToggleButton>
-            <ToggleButton value="system" data-testid="filter-system">System</ToggleButton>
-            <ToggleButton value="custom" data-testid="filter-custom">Custom</ToggleButton>
-            <ToggleButton value="abstract" data-testid="filter-abstract">Abstract</ToggleButton>
-          </ToggleButtonGroup>
-          {(treeFilter !== 'all' || searchQuery.trim()) && (
-            <Typography variant="caption" color="text.secondary" data-testid="tree-filter-count">
-              Showing {filteredCount} of {totalNodes} classes
-            </Typography>
-          )}
-        </Box>
-      )}
-
-      {/* Collapsible Diagnostics Panel */}
+      {/* Page-level Diagnostics Summary (collapsible) */}
       <Collapse in={showDiagnostics}>
-        <Card variant="outlined" sx={{ mb: 2, bgcolor: 'grey.50' }} data-testid="diagnostics-panel">
+        <Card variant="outlined" sx={{ mb: 1, mx: 1, bgcolor: 'grey.50' }} data-testid="diagnostics-panel">
           <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            <Typography variant="subtitle2" gutterBottom>Diagnostics</Typography>
+            <Typography variant="subtitle2" gutterBottom>Page Diagnostics Summary</Typography>
+            {pageDiagnostics ? (
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Chip label={`${pageDiagnostics.totalClasses} classes`} size="small" variant="outlined" />
+                {pageDiagnostics.totalErrors > 0 && (
+                  <Chip label={`${pageDiagnostics.totalErrors} errors in ${pageDiagnostics.classesWithErrors} classes`} size="small" color="error" variant="outlined" />
+                )}
+                {pageDiagnostics.totalWarnings > 0 && (
+                  <Chip label={`${pageDiagnostics.totalWarnings} warnings in ${pageDiagnostics.classesWithWarnings} classes`} size="small" color="warning" variant="outlined" />
+                )}
+                {pageDiagnostics.totalErrors === 0 && pageDiagnostics.totalWarnings === 0 && (
+                  <Chip label="All classes healthy" size="small" color="success" variant="outlined" />
+                )}
+              </Box>
+            ) : (
+              <CircularProgress size={16} />
+            )}
+            <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Typography variant="body2" color="text.secondary">
-                Tree endpoint response: {diagnosticInfo?.totalFromEndpoint ?? 'N/A'} classes
+                Tree endpoint: {diagnosticInfo?.totalFromEndpoint ?? 'N/A'} classes
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Content pack version: {diagnosticInfo?.contentPackVersion ?? 'N/A'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tenant-scoped: {diagnosticInfo?.tenantScoped ? 'Yes' : 'Unknown'}
+                Content pack: {diagnosticInfo?.contentPackVersion ?? 'N/A'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Last fetched: {diagnosticInfo?.fetchTimestamp ? new Date(diagnosticInfo.fetchTimestamp).toLocaleString() : 'N/A'}
@@ -408,74 +487,173 @@ export const CmdbCiClassTree: React.FC = () => {
         </Card>
       </Collapse>
 
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }} data-testid="tree-loading">
-          <CircularProgress />
+      {/* Filters Bar */}
+      {!loading && !error && treeData.length > 0 && (
+        <Box sx={{ mx: 1, mb: 1, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }} data-testid="tree-filters-bar">
+          <TextField
+            size="small"
+            placeholder="Search classes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            data-testid="tree-search-input"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 200 }}
+          />
+          <ToggleButtonGroup
+            value={treeFilter}
+            exclusive
+            onChange={(_, val) => val && setTreeFilter(val as TreeFilter)}
+            size="small"
+            data-testid="tree-filter-toggle"
+          >
+            <ToggleButton value="all" data-testid="filter-all">All</ToggleButton>
+            <ToggleButton value="system" data-testid="filter-system">System</ToggleButton>
+            <ToggleButton value="custom" data-testid="filter-custom">Custom</ToggleButton>
+            <ToggleButton value="abstract" data-testid="filter-abstract">Abstract</ToggleButton>
+          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Chip label={`${totalNodes} total`} size="small" variant="outlined" />
+            <Chip label={`${rootCount} roots`} size="small" variant="outlined" />
+          </Box>
+          {(treeFilter !== 'all' || searchQuery.trim()) && (
+            <Typography variant="caption" color="text.secondary" data-testid="tree-filter-count">
+              Showing {filteredCount} of {totalNodes}
+            </Typography>
+          )}
         </Box>
       )}
 
-      {error && !loading && (
-        <Alert
-          severity={errorKind === 'forbidden' ? 'warning' : 'error'}
-          data-testid="tree-error"
-          action={
-            <Button color="inherit" size="small" onClick={fetchTree}>
-              Retry
-            </Button>
-          }
+      {/* Main Workbench Area: Split Layout */}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          gap: 0,
+          overflow: 'hidden',
+          mx: 1,
+          mb: 1,
+          minHeight: 0,
+        }}
+        data-testid="workbench-main-area"
+      >
+        {/* Left: Tree Panel */}
+        <Paper
+          variant="outlined"
+          sx={{
+            flex: selectedClassId ? '0 0 45%' : '1 1 100%',
+            overflow: 'auto',
+            p: 1,
+            transition: 'flex 0.2s ease',
+            minWidth: 0,
+          }}
+          data-testid="tree-container"
         >
-          {error}
-        </Alert>
-      )}
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }} data-testid="tree-loading">
+              <CircularProgress />
+            </Box>
+          )}
 
-      {!loading && !error && treeData.length === 0 && (
-        <Alert severity="info" data-testid="tree-empty">
-          <Typography variant="subtitle2" gutterBottom>No CI classes found</Typography>
-          <Typography variant="body2">
-            The class hierarchy is empty. This usually means one of:
-          </Typography>
-          <Box component="ul" sx={{ mt: 0.5, mb: 0.5, pl: 2 }}>
-            <li><Typography variant="body2">The CMDB content pack has not been applied yet. Ask an admin to run the content-pack seed.</Typography></li>
-            <li><Typography variant="body2">No classes have been created manually. Go to <strong>CI Classes</strong> to create your first class.</Typography></li>
-            <li><Typography variant="body2">Your current role may not have CMDB read permissions.</Typography></li>
-          </Box>
-          {contentPackStatus && !contentPackStatus.applied && (
-            <Alert severity="warning" variant="outlined" sx={{ mt: 1, mb: 1 }}>
-              <Typography variant="body2">
-                <strong>Confirmed:</strong> The baseline content pack has not been applied for this tenant.
-                Contact an administrator to run the content-pack seed.
-              </Typography>
+          {error && !loading && (
+            <Alert
+              severity={errorKind === 'forbidden' ? 'warning' : 'error'}
+              data-testid="tree-error"
+              action={
+                <Button color="inherit" size="small" onClick={fetchTree}>
+                  Retry
+                </Button>
+              }
+            >
+              {error}
             </Alert>
           )}
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => navigate('/cmdb/classes')}
-            sx={{ mt: 1 }}
-          >
-            Go to CI Classes
-          </Button>
-        </Alert>
-      )}
 
-      {/* Filtered empty state */}
-      {!loading && !error && treeData.length > 0 && filteredTree.length === 0 && (
-        <Alert severity="info" data-testid="tree-filter-empty">
-          No classes match the current filter. Try adjusting your search or filter criteria.
-        </Alert>
-      )}
+          {!loading && !error && treeData.length === 0 && (
+            <Alert severity="info" data-testid="tree-empty">
+              <Typography variant="subtitle2" gutterBottom>No CI classes found</Typography>
+              <Typography variant="body2">
+                The class hierarchy is empty. This usually means one of:
+              </Typography>
+              <Box component="ul" sx={{ mt: 0.5, mb: 0.5, pl: 2 }}>
+                <li><Typography variant="body2">The CMDB content pack has not been applied yet.</Typography></li>
+                <li><Typography variant="body2">No classes have been created manually.</Typography></li>
+                <li><Typography variant="body2">Your current role may not have CMDB read permissions.</Typography></li>
+              </Box>
+              {contentPackStatus && !contentPackStatus.applied && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<ApplyIcon />}
+                  onClick={handleApplyContentPack}
+                  disabled={applying}
+                  sx={{ mt: 1 }}
+                  data-testid="btn-apply-content-pack-empty"
+                >
+                  {applying ? 'Applying...' : 'Apply Baseline Content Pack'}
+                </Button>
+              )}
+            </Alert>
+          )}
 
-      {!loading && !error && filteredTree.length > 0 && (
-        <Paper variant="outlined" sx={{ p: 1 }} data-testid="tree-container">
-          {filteredTree.map((node) => (
-            <TreeNodeItem
-              key={node.id}
-              node={node}
-              depth={0}
-              onNavigate={handleNavigate}
-            />
-          ))}
+          {/* Filtered empty state */}
+          {!loading && !error && treeData.length > 0 && filteredTree.length === 0 && (
+            <Alert severity="info" data-testid="tree-filter-empty">
+              No classes match the current filter. Try adjusting your search or filter criteria.
+            </Alert>
+          )}
+
+          {!loading && !error && filteredTree.length > 0 && (
+            <>
+              {filteredTree.map((node) => (
+                <TreeNodeItem
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  selectedId={selectedClassId}
+                  onSelect={handleSelectClass}
+                />
+              ))}
+            </>
+          )}
         </Paper>
+
+        {/* Right: Detail Panel (shown when a class is selected) */}
+        {selectedClassId && (
+          <>
+            <Divider orientation="vertical" flexItem />
+            <Paper
+              variant="outlined"
+              sx={{
+                flex: '0 0 55%',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: 0,
+              }}
+              data-testid="workbench-detail-container"
+            >
+              <ClassWorkbenchDetailPanel
+                classId={selectedClassId}
+                onClose={handleCloseDetail}
+              />
+            </Paper>
+          </>
+        )}
+      </Box>
+
+      {/* No selection guidance (only visible when tree is loaded with data but nothing selected) */}
+      {!selectedClassId && !loading && !error && treeData.length > 0 && (
+        <Box sx={{ textAlign: 'center', py: 0.5, flexShrink: 0 }}>
+          <Typography variant="caption" color="text.disabled" data-testid="workbench-no-selection">
+            Select a class from the tree to view details, effective schema, and diagnostics
+          </Typography>
+        </Box>
       )}
     </Box>
   );
@@ -488,30 +666,6 @@ function countNodes(nodes: ClassTreeNode[]): number {
     count += 1;
     if (Array.isArray(node.children)) {
       count += countNodes(node.children);
-    }
-  }
-  return count;
-}
-
-/** Count system nodes in tree recursively */
-function countSystemNodes(nodes: ClassTreeNode[]): number {
-  let count = 0;
-  for (const node of nodes) {
-    if (node.isSystem) count += 1;
-    if (Array.isArray(node.children)) {
-      count += countSystemNodes(node.children);
-    }
-  }
-  return count;
-}
-
-/** Count abstract nodes in tree recursively */
-function countAbstractNodes(nodes: ClassTreeNode[]): number {
-  let count = 0;
-  for (const node of nodes) {
-    if (node.isAbstract) count += 1;
-    if (Array.isArray(node.children)) {
-      count += countAbstractNodes(node.children);
     }
   }
   return count;

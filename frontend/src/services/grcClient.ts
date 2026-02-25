@@ -518,6 +518,9 @@ export const API_PATHS = {
       VALIDATE_INHERITANCE: (id: string) => `/grc/cmdb/classes/${id}/validate-inheritance`,
       SUMMARY: '/grc/cmdb/classes/summary',
       CONTENT_PACK_STATUS: '/grc/cmdb/classes/content-pack-status',
+      CONTENT_PACK_APPLY: '/grc/cmdb/classes/content-pack/apply',
+      DIAGNOSTICS: (id: string) => `/grc/cmdb/classes/${id}/diagnostics`,
+      DIAGNOSTICS_SUMMARY: '/grc/cmdb/classes/diagnostics/summary',
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
@@ -4430,6 +4433,54 @@ export interface ContentPackStatusResponse {
   abstractClasses: number;
 }
 
+/** Diagnostic severity type */
+export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+
+/** Single diagnostic item */
+export interface DiagnosticItem {
+  severity: DiagnosticSeverity;
+  code: string;
+  message: string;
+  suggestedAction?: string;
+}
+
+/** Per-class diagnostics result */
+export interface ClassDiagnosticsResult {
+  classId: string;
+  className: string;
+  classLabel: string;
+  diagnostics: DiagnosticItem[];
+  errorCount: number;
+  warningCount: number;
+  infoCount: number;
+}
+
+/** Page-level diagnostics summary */
+export interface PageDiagnosticsSummary {
+  totalClasses: number;
+  classesWithErrors: number;
+  classesWithWarnings: number;
+  totalErrors: number;
+  totalWarnings: number;
+  totalInfos: number;
+  topIssues: DiagnosticItem[];
+}
+
+/** Content pack apply result */
+export interface ContentPackApplyResult {
+  version: string;
+  totalProcessed: number;
+  created: number;
+  updated: number;
+  reused: number;
+  skipped: number;
+  actions: Array<{
+    entity: string;
+    name: string;
+    action: string;
+  }>;
+}
+
 /** Class summary counts */
 export interface ClassSummaryResponse {
   total: number;
@@ -5017,6 +5068,9 @@ export const cmdbApi = {
       api.post(API_PATHS.CMDB.CLASSES.VALIDATE_INHERITANCE(classId), data),
     summary: () => api.get(API_PATHS.CMDB.CLASSES.SUMMARY),
     contentPackStatus: () => api.get(API_PATHS.CMDB.CLASSES.CONTENT_PACK_STATUS),
+    applyContentPack: () => api.post(API_PATHS.CMDB.CLASSES.CONTENT_PACK_APPLY, {}),
+    diagnostics: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.DIAGNOSTICS(classId)),
+    diagnosticsSummary: () => api.get(API_PATHS.CMDB.CLASSES.DIAGNOSTICS_SUMMARY),
   },
   cis: {
     list: (params?: CmdbListParams) => {

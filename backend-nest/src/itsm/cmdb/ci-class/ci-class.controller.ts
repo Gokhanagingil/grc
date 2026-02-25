@@ -22,11 +22,17 @@ import { Permissions } from '../../../auth/permissions/permissions.decorator';
 import { Permission } from '../../../auth/permissions/permission.enum';
 import { CiClassService } from './ci-class.service';
 import { CiClassInheritanceService } from './ci-class-inheritance.service';
+import { CiClassDiagnosticsService } from './ci-class-diagnostics.service';
 import { CreateCiClassDto } from './dto/create-ci-class.dto';
 import { UpdateCiClassDto } from './dto/update-ci-class.dto';
 import { CiClassFilterDto } from './dto/ci-class-filter.dto';
 import { ValidateInheritanceDto } from './dto/validate-inheritance.dto';
 import { Perf } from '../../../common/decorators';
+import { DataSource } from 'typeorm';
+import {
+  applyBaselineContentPack,
+  ContentPackApplyResult,
+} from '../content-pack/apply';
 
 @Controller('grc/cmdb/classes')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -34,6 +40,8 @@ export class CiClassController {
   constructor(
     private readonly ciClassService: CiClassService,
     private readonly inheritanceService: CiClassInheritanceService,
+    private readonly diagnosticsService: CiClassDiagnosticsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   // ========================================================================
@@ -89,6 +97,40 @@ export class CiClassController {
       totalClasses: summary.total,
       abstractClasses: summary.abstract,
     };
+  }
+
+  /**
+   * POST /grc/cmdb/classes/content-pack/apply
+   * Apply the baseline content pack for this tenant (idempotent, admin-only).
+   */
+  @Post('content-pack/apply')
+  @Permissions(Permission.GRC_ADMIN)
+  @Perf()
+  async applyContentPack(
+    @Headers('x-tenant-id') tenantId: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<ContentPackApplyResult> {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return applyBaselineContentPack(this.dataSource, {
+      tenantId,
+      adminUserId: req.user.id,
+    });
+  }
+
+  /**
+   * GET /grc/cmdb/classes/diagnostics/summary
+   * Returns a page-level diagnostics summary across all classes.
+   */
+  @Get('diagnostics/summary')
+  @Permissions(Permission.CMDB_CLASS_READ)
+  @Perf()
+  async getDiagnosticsSummary(@Headers('x-tenant-id') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return this.diagnosticsService.getPageDiagnosticsSummary(tenantId);
   }
 
   // ========================================================================
@@ -282,6 +324,23 @@ export class CiClassController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     return this.inheritanceService.getEffectiveSchema(tenantId, id);
+  }
+
+  /**
+   * GET /grc/cmdb/classes/:id/diagnostics
+   * Returns diagnostics for a single class.
+   */
+  @Get(':id/diagnostics')
+  @Permissions(Permission.CMDB_CLASS_READ)
+  @Perf()
+  async getClassDiagnostics(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    return this.diagnosticsService.diagnoseClass(tenantId, id);
   }
 
   /**
