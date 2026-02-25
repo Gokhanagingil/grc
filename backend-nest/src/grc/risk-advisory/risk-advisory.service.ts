@@ -80,7 +80,11 @@ export class RiskAdvisoryService {
   async analyzeRisk(
     tenantId: string,
     riskId: string,
-    _options?: { includeCmdbTopology?: boolean; includeLinkedEntities?: boolean },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _options?: {
+      includeCmdbTopology?: boolean;
+      includeLinkedEntities?: boolean;
+    },
   ): Promise<AdvisoryResult> {
     this.logger.log(`Analyzing risk ${riskId} for tenant ${tenantId}`);
 
@@ -119,7 +123,10 @@ export class RiskAdvisoryService {
     });
 
     // 5. Build advisory using heuristics (deterministic)
-    const advisory = this.heuristics.buildAdvisoryResult(riskContext, cmdbContext);
+    const advisory = this.heuristics.buildAdvisoryResult(
+      riskContext,
+      cmdbContext,
+    );
 
     // If AI provider returned something, merge it (Phase 2)
     if (aiResult) {
@@ -356,7 +363,8 @@ export class RiskAdvisoryService {
           suggestedRecordId: suggestedRecord.id,
           type: SuggestedRecordType.CHANGE,
           success: false,
-          error: 'Change creation via advisory will be available in Phase 2. Please create the change manually from ITSM > Changes.',
+          error:
+            'Change creation via advisory will be available in Phase 2. Please create the change manually from ITSM > Changes.',
           linkToRisk: false,
         };
 
@@ -395,7 +403,7 @@ export class RiskAdvisoryService {
           suggestedRecordId: suggestedRecord.id,
           type: suggestedRecord.type,
           success: false,
-          error: `Unsupported record type: ${suggestedRecord.type}`,
+          error: `Unsupported record type: ${String(suggestedRecord.type)}`,
           linkToRisk: false,
         };
     }
@@ -449,7 +457,9 @@ export class RiskAdvisoryService {
         type: suggestedRecord.type,
         success: true,
         createdRecordId: capa.id,
-        createdRecordCode: (capa as unknown as Record<string, unknown>).code as string | undefined,
+        createdRecordCode: (capa as unknown as Record<string, unknown>).code as
+          | string
+          | undefined,
         linkToRisk: false, // CAPA linkage is via issue, not direct risk link
       };
     } catch (error) {
@@ -463,20 +473,22 @@ export class RiskAdvisoryService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async createDraftControlTest(
     _tenantId: string,
     _riskId: string,
     _userId: string,
     suggestedRecord: SuggestedRecord,
-    _title: string,
-    _description: string,
+    _title: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _description: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<DraftCreationResultItem> {
     // Control tests require a controlId — cannot create without one.
     return {
       suggestedRecordId: suggestedRecord.id,
       type: SuggestedRecordType.CONTROL_TEST,
       success: false,
-      error: 'Control test creation requires a linked control. Please link a control to this risk first, then create the test from the control detail page.',
+      error:
+        'Control test creation requires a linked control. Please link a control to this risk first, then create the test from the control detail page.',
       linkToRisk: false,
     };
   }

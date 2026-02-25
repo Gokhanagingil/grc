@@ -56,14 +56,10 @@ export class RiskAdvisoryController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const advisory = await this.advisoryService.analyzeRisk(
-      tenantId,
-      riskId,
-      {
-        includeCmdbTopology: dto.includeCmdbTopology,
-        includeLinkedEntities: dto.includeLinkedEntities,
-      },
-    );
+    const advisory = await this.advisoryService.analyzeRisk(tenantId, riskId, {
+      includeCmdbTopology: dto.includeCmdbTopology,
+      includeLinkedEntities: dto.includeLinkedEntities,
+    });
 
     return {
       success: true,

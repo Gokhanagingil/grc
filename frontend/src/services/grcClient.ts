@@ -1394,8 +1394,8 @@ export interface AdvisoryMitigationAction {
   description: string;
   timeframe: AdvisoryMitigationTimeframe;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  estimatedEffort?: string;
-  category?: string;
+  suggestedRecordType: AdvisorySuggestedRecordType;
+  templateData: Record<string, unknown>;
 }
 
 export interface AdvisorySuggestedRecord {
@@ -1404,35 +1404,40 @@ export interface AdvisorySuggestedRecord {
   title: string;
   description: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  mitigationActionId?: string;
-  templateData?: Record<string, unknown>;
+  timeframe: AdvisoryMitigationTimeframe;
+  templateData: Record<string, unknown>;
 }
 
 export interface AdvisoryExplainabilityEntry {
   signal: string;
-  reasoning: string;
-  confidence: number;
   source: string;
+  contribution: string;
+  detail?: string;
 }
 
 export interface AdvisoryAffectedServiceInfo {
   id: string;
   name: string;
+  type: 'service' | 'ci';
+  className?: string;
+  lifecycle?: string;
+  environment?: string;
   criticality?: string;
-  source: 'LINKED' | 'KEYWORD_MATCH' | 'CMDB_TOPOLOGY';
 }
 
 export interface AdvisoryTopologyImpactSummary {
   totalDependencies: number;
-  criticalDependencies: number;
-  affectedServiceCount: number;
-  highestCriticality?: string;
-  impactDescription: string;
+  upstreamCount: number;
+  downstreamCount: number;
+  serviceCount: number;
+  criticalPathNodes: string[];
+  summary: string;
 }
 
 export interface AdvisoryResult {
+  id: string;
   riskId: string;
-  generatedAt: string;
+  analyzedAt: string;
   riskTheme: AdvisoryRiskTheme;
   confidence: number;
   summary: string;

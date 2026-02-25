@@ -153,9 +153,9 @@ const MitigationActionCard: React.FC<{ action: AdvisoryMitigationAction }> = ({ 
     <Typography variant="body2" color="text.secondary">
       {action.description}
     </Typography>
-    {action.estimatedEffort && (
+    {action.suggestedRecordType && (
       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-        Estimated effort: {action.estimatedEffort}
+        Record type: {action.suggestedRecordType}
       </Typography>
     )}
   </Box>
@@ -370,7 +370,7 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
               <Box>
                 <Typography variant="h6">Risk Intelligence Advisory</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Generated: {advisory?.generatedAt ? new Date(advisory.generatedAt).toLocaleString() : '-'}
+                  Generated: {advisory?.analyzedAt ? new Date(advisory.analyzedAt).toLocaleString() : '-'}
                 </Typography>
               </Box>
             </Box>
@@ -496,22 +496,22 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
                 <Divider sx={{ mb: 2 }} />
                 <Grid container spacing={2}>
                   <Grid item xs={4}>
-                    <Typography variant="body2" color="text.secondary">Dependencies</Typography>
-                    <Typography variant="h6">{advisory.topologyImpactSummary.totalDependencies}</Typography>
+                    <Typography variant="body2" color="text.secondary">Upstream</Typography>
+                    <Typography variant="h6">{advisory.topologyImpactSummary.upstreamCount}</Typography>
                   </Grid>
                   <Grid item xs={4}>
-                    <Typography variant="body2" color="text.secondary">Critical</Typography>
+                    <Typography variant="body2" color="text.secondary">Downstream</Typography>
                     <Typography variant="h6" color="error.main">
-                      {advisory.topologyImpactSummary.criticalDependencies}
+                      {advisory.topologyImpactSummary.downstreamCount}
                     </Typography>
                   </Grid>
                   <Grid item xs={4}>
                     <Typography variant="body2" color="text.secondary">Services</Typography>
-                    <Typography variant="h6">{advisory.topologyImpactSummary.affectedServiceCount}</Typography>
+                    <Typography variant="h6">{advisory.topologyImpactSummary.serviceCount}</Typography>
                   </Grid>
                 </Grid>
                 <Typography variant="body2" color="text.secondary" mt={1}>
-                  {advisory.topologyImpactSummary.impactDescription}
+                  {advisory.topologyImpactSummary.summary}
                 </Typography>
               </CardContent>
             </Card>
@@ -552,15 +552,15 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
                       <Box display="flex" alignItems="center" gap={1} sx={{ width: '100%' }}>
                         <Typography variant="body2" sx={{ flex: 1 }}>{entry.signal}</Typography>
                         <Chip
-                          label={`${entry.confidence}%`}
+                          label={entry.contribution}
                           size="small"
-                          color={getConfidenceColor(entry.confidence)}
+                          color="info"
                           sx={{ fontSize: '0.65rem', height: 18 }}
                         />
                       </Box>
                     </AccordionSummary>
                     <AccordionDetails sx={{ px: 0, pt: 0 }}>
-                      <Typography variant="body2" color="text.secondary">{entry.reasoning}</Typography>
+                      <Typography variant="body2" color="text.secondary">{entry.detail || entry.contribution}</Typography>
                       <Typography variant="caption" color="text.secondary">Source: {entry.source}</Typography>
                     </AccordionDetails>
                   </Accordion>
@@ -665,17 +665,7 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
                 </TableRow>
               </TableHead>
               <TableBody>
-                {suggestedRecords.map((record: AdvisorySuggestedRecord) => {
-                  // Find the matching mitigation action to get timeframe
-                  const allActions: AdvisoryMitigationAction[] = [
-                    ...ensureArray<AdvisoryMitigationAction>(mitigationPlan.immediateActions),
-                    ...ensureArray<AdvisoryMitigationAction>(mitigationPlan.shortTermActions),
-                    ...ensureArray<AdvisoryMitigationAction>(mitigationPlan.permanentActions),
-                    ...ensureArray<AdvisoryMitigationAction>(mitigationPlan.verificationSteps),
-                  ];
-                  const matchingAction = allActions.find((a) => a.id === record.mitigationActionId);
-
-                  return (
+                {suggestedRecords.map((record: AdvisorySuggestedRecord) => (
                     <TableRow key={record.id} hover>
                       <TableCell padding="checkbox">
                         <Checkbox
@@ -705,11 +695,10 @@ export const RiskIntelligenceAdvisoryPanel: React.FC<RiskIntelligenceAdvisoryPan
                         />
                       </TableCell>
                       <TableCell>
-                        {matchingAction ? getTimeframeLabel(matchingAction.timeframe) : '-'}
+                        {record.timeframe ? getTimeframeLabel(record.timeframe) : '-'}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                ))}
               </TableBody>
             </Table>
           )}

@@ -1,10 +1,20 @@
-import { RiskAdvisoryHeuristics, RiskContext, CmdbContext } from './risk-advisory-heuristics';
-import { RiskTheme, MitigationTimeframe, SuggestedRecordType } from '../dto/advisory.dto';
+import {
+  RiskAdvisoryHeuristics,
+  RiskContext,
+  CmdbContext,
+} from './risk-advisory-heuristics';
+import {
+  RiskTheme,
+  MitigationTimeframe,
+  SuggestedRecordType,
+} from '../dto/advisory.dto';
 
 describe('RiskAdvisoryHeuristics', () => {
   let heuristics: RiskAdvisoryHeuristics;
 
-  const makeRiskContext = (overrides: Partial<RiskContext> = {}): RiskContext => ({
+  const makeRiskContext = (
+    overrides: Partial<RiskContext> = {},
+  ): RiskContext => ({
     id: 'risk-001',
     title: 'Test Risk',
     description: 'Test risk description',
@@ -151,34 +161,65 @@ describe('RiskAdvisoryHeuristics', () => {
     const ctx = makeRiskContext();
 
     it('should generate mitigation plan for PATCHING theme', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.PATCHING, ctx, emptyCmdb);
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.PATCHING,
+        ctx,
+        emptyCmdb,
+      );
       expect(plan.immediateActions.length).toBeGreaterThan(0);
       expect(plan.shortTermActions.length).toBeGreaterThan(0);
       expect(plan.verificationSteps.length).toBeGreaterThan(0);
     });
 
     it('should generate mitigation plan for ACCESS theme', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.ACCESS, ctx, emptyCmdb);
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.ACCESS,
+        ctx,
+        emptyCmdb,
+      );
       expect(plan.immediateActions.length).toBeGreaterThan(0);
     });
 
     it('should generate mitigation plan for GENERAL theme', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.GENERAL, ctx, emptyCmdb);
-      const total = plan.immediateActions.length + plan.shortTermActions.length +
-        plan.permanentActions.length + plan.verificationSteps.length;
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.GENERAL,
+        ctx,
+        emptyCmdb,
+      );
+      const total =
+        plan.immediateActions.length +
+        plan.shortTermActions.length +
+        plan.permanentActions.length +
+        plan.verificationSteps.length;
       expect(total).toBeGreaterThan(0);
     });
 
     it('should categorize actions by timeframe', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.PATCHING, ctx, emptyCmdb);
-      plan.immediateActions.forEach((a) => expect(a.timeframe).toBe(MitigationTimeframe.IMMEDIATE));
-      plan.shortTermActions.forEach((a) => expect(a.timeframe).toBe(MitigationTimeframe.SHORT_TERM));
-      plan.permanentActions.forEach((a) => expect(a.timeframe).toBe(MitigationTimeframe.PERMANENT));
-      plan.verificationSteps.forEach((a) => expect(a.timeframe).toBe(MitigationTimeframe.VERIFICATION));
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.PATCHING,
+        ctx,
+        emptyCmdb,
+      );
+      plan.immediateActions.forEach((a) =>
+        expect(a.timeframe).toBe(MitigationTimeframe.IMMEDIATE),
+      );
+      plan.shortTermActions.forEach((a) =>
+        expect(a.timeframe).toBe(MitigationTimeframe.SHORT_TERM),
+      );
+      plan.permanentActions.forEach((a) =>
+        expect(a.timeframe).toBe(MitigationTimeframe.PERMANENT),
+      );
+      plan.verificationSteps.forEach((a) =>
+        expect(a.timeframe).toBe(MitigationTimeframe.VERIFICATION),
+      );
     });
 
     it('should assign unique IDs to each action', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.PATCHING, ctx, emptyCmdb);
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.PATCHING,
+        ctx,
+        emptyCmdb,
+      );
       const allIds = [
         ...plan.immediateActions.map((a) => a.id),
         ...plan.shortTermActions.map((a) => a.id),
@@ -194,7 +235,11 @@ describe('RiskAdvisoryHeuristics', () => {
     const ctx = makeRiskContext();
 
     it('should generate suggested records from mitigation plan', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.PATCHING, ctx, emptyCmdb);
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.PATCHING,
+        ctx,
+        emptyCmdb,
+      );
       const records = heuristics.buildSuggestedRecords(plan);
       expect(records.length).toBeGreaterThan(0);
       records.forEach((r) => {
@@ -213,7 +258,11 @@ describe('RiskAdvisoryHeuristics', () => {
     });
 
     it('should produce records matching action IDs', () => {
-      const plan = heuristics.generateMitigationPlan(RiskTheme.ACCESS, ctx, emptyCmdb);
+      const plan = heuristics.generateMitigationPlan(
+        RiskTheme.ACCESS,
+        ctx,
+        emptyCmdb,
+      );
       const records = heuristics.buildSuggestedRecords(plan);
       const allActionIds = [
         ...plan.immediateActions.map((a) => a.id),
@@ -231,7 +280,8 @@ describe('RiskAdvisoryHeuristics', () => {
     it('should produce a valid advisory result', () => {
       const ctx = makeRiskContext({
         title: 'Unpatched Production Servers',
-        description: 'Critical security patches are missing on production servers',
+        description:
+          'Critical security patches are missing on production servers',
       });
       const result = heuristics.buildAdvisoryResult(ctx, emptyCmdb);
       expect(result.riskId).toBe('risk-001');
@@ -254,7 +304,14 @@ describe('RiskAdvisoryHeuristics', () => {
         description: 'Missing patches',
       });
       const cmdb: CmdbContext = {
-        affectedServices: [{ id: 'svc-1', name: 'Payment Service', type: 'service', criticality: 'CRITICAL' }],
+        affectedServices: [
+          {
+            id: 'svc-1',
+            name: 'Payment Service',
+            type: 'service',
+            criticality: 'CRITICAL',
+          },
+        ],
         affectedCis: [{ id: 'ci-1', name: 'Server-01', type: 'ci' }],
         topologyImpact: null,
       };
@@ -271,7 +328,9 @@ describe('RiskAdvisoryHeuristics', () => {
         linkedControls: [],
       });
       const result = heuristics.buildAdvisoryResult(ctx, emptyCmdb);
-      expect(result.warnings.some((w) => w.toLowerCase().includes('control'))).toBe(true);
+      expect(
+        result.warnings.some((w) => w.toLowerCase().includes('control')),
+      ).toBe(true);
     });
 
     it('should generate warnings when no CMDB CIs found', () => {
@@ -280,9 +339,12 @@ describe('RiskAdvisoryHeuristics', () => {
         description: 'Missing patches',
       });
       const result = heuristics.buildAdvisoryResult(ctx, emptyCmdb);
-      expect(result.warnings.some((w) =>
-        w.toLowerCase().includes('cmdb') || w.toLowerCase().includes('ci'),
-      )).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.toLowerCase().includes('cmdb') || w.toLowerCase().includes('ci'),
+        ),
+      ).toBe(true);
     });
 
     it('should increase confidence when controls are linked', () => {
@@ -294,12 +356,26 @@ describe('RiskAdvisoryHeuristics', () => {
         title: 'Unpatched Servers',
         description: 'Missing patches',
         linkedControls: [
-          { id: 'ctrl-1', name: 'Patch Management Control', code: 'CTRL-001', status: 'ACTIVE', effectivenessPercent: 70 },
+          {
+            id: 'ctrl-1',
+            name: 'Patch Management Control',
+            code: 'CTRL-001',
+            status: 'ACTIVE',
+            effectivenessPercent: 70,
+          },
         ],
       });
-      const resultNoControls = heuristics.buildAdvisoryResult(noControls, emptyCmdb);
-      const resultWithControls = heuristics.buildAdvisoryResult(withControls, emptyCmdb);
-      expect(resultWithControls.confidence).toBeGreaterThanOrEqual(resultNoControls.confidence);
+      const resultNoControls = heuristics.buildAdvisoryResult(
+        noControls,
+        emptyCmdb,
+      );
+      const resultWithControls = heuristics.buildAdvisoryResult(
+        withControls,
+        emptyCmdb,
+      );
+      expect(resultWithControls.confidence).toBeGreaterThanOrEqual(
+        resultNoControls.confidence,
+      );
     });
   });
 });

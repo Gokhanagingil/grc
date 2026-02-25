@@ -27,8 +27,16 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.PATCHING,
     keywords: [
-      'patch', 'update', 'upgrade', 'hotfix', 'security update',
-      'firmware', 'version', 'outdated', 'unpatched', 'cve',
+      'patch',
+      'update',
+      'upgrade',
+      'hotfix',
+      'security update',
+      'firmware',
+      'version',
+      'outdated',
+      'unpatched',
+      'cve',
     ],
     categoryPatterns: ['technology', 'operational'],
     weight: 10,
@@ -36,9 +44,23 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.ACCESS,
     keywords: [
-      'access', 'permission', 'privilege', 'authentication', 'authorization',
-      'password', 'credential', 'mfa', 'multi-factor', 'rbac', 'iam',
-      'login', 'session', 'token', 'sso', 'ldap', 'active directory',
+      'access',
+      'permission',
+      'privilege',
+      'authentication',
+      'authorization',
+      'password',
+      'credential',
+      'mfa',
+      'multi-factor',
+      'rbac',
+      'iam',
+      'login',
+      'session',
+      'token',
+      'sso',
+      'ldap',
+      'active directory',
     ],
     categoryPatterns: ['compliance', 'technology'],
     weight: 10,
@@ -46,8 +68,17 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.BACKUP,
     keywords: [
-      'backup', 'restore', 'recovery', 'disaster', 'dr', 'rpo', 'rto',
-      'data loss', 'replication', 'failover', 'continuity',
+      'backup',
+      'restore',
+      'recovery',
+      'disaster',
+      'dr',
+      'rpo',
+      'rto',
+      'data loss',
+      'replication',
+      'failover',
+      'continuity',
     ],
     categoryPatterns: ['operational', 'technology'],
     weight: 10,
@@ -55,8 +86,15 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.END_OF_SUPPORT,
     keywords: [
-      'end of life', 'eol', 'end of support', 'eos', 'deprecated',
-      'legacy', 'unsupported', 'obsolete', 'sunset',
+      'end of life',
+      'eol',
+      'end of support',
+      'eos',
+      'deprecated',
+      'legacy',
+      'unsupported',
+      'obsolete',
+      'sunset',
     ],
     categoryPatterns: ['technology'],
     weight: 10,
@@ -64,9 +102,20 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.VULNERABILITY,
     keywords: [
-      'vulnerability', 'vuln', 'exploit', 'threat', 'malware',
-      'ransomware', 'injection', 'xss', 'csrf', 'sql injection',
-      'penetration', 'pentest', 'scan', 'weakness',
+      'vulnerability',
+      'vuln',
+      'exploit',
+      'threat',
+      'malware',
+      'ransomware',
+      'injection',
+      'xss',
+      'csrf',
+      'sql injection',
+      'penetration',
+      'pentest',
+      'scan',
+      'weakness',
     ],
     categoryPatterns: ['technology', 'compliance'],
     weight: 10,
@@ -74,8 +123,16 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.CERTIFICATE,
     keywords: [
-      'certificate', 'cert', 'ssl', 'tls', 'https', 'x509',
-      'expir', 'renewal', 'ca', 'pki',
+      'certificate',
+      'cert',
+      'ssl',
+      'tls',
+      'https',
+      'x509',
+      'expir',
+      'renewal',
+      'ca',
+      'pki',
     ],
     categoryPatterns: ['technology'],
     weight: 10,
@@ -83,9 +140,19 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.NETWORK_EXPOSURE,
     keywords: [
-      'network', 'firewall', 'port', 'exposure', 'open port',
-      'dmz', 'segmentation', 'lateral', 'perimeter', 'ingress',
-      'egress', 'vpn', 'proxy',
+      'network',
+      'firewall',
+      'port',
+      'exposure',
+      'open port',
+      'dmz',
+      'segmentation',
+      'lateral',
+      'perimeter',
+      'ingress',
+      'egress',
+      'vpn',
+      'proxy',
     ],
     categoryPatterns: ['technology'],
     weight: 10,
@@ -93,8 +160,14 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.CONFIGURATION,
     keywords: [
-      'configuration', 'config', 'misconfiguration', 'hardening',
-      'baseline', 'drift', 'setting', 'parameter',
+      'configuration',
+      'config',
+      'misconfiguration',
+      'hardening',
+      'baseline',
+      'drift',
+      'setting',
+      'parameter',
     ],
     categoryPatterns: ['technology', 'operational'],
     weight: 8,
@@ -102,9 +175,19 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.COMPLIANCE,
     keywords: [
-      'compliance', 'regulation', 'audit', 'standard', 'iso',
-      'gdpr', 'hipaa', 'sox', 'pci', 'nist', 'policy violation',
-      'non-compliance', 'finding',
+      'compliance',
+      'regulation',
+      'audit',
+      'standard',
+      'iso',
+      'gdpr',
+      'hipaa',
+      'sox',
+      'pci',
+      'nist',
+      'policy violation',
+      'non-compliance',
+      'finding',
     ],
     categoryPatterns: ['compliance'],
     weight: 8,
@@ -112,9 +195,17 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.AVAILABILITY,
     keywords: [
-      'availability', 'uptime', 'downtime', 'outage', 'sla',
-      'redundancy', 'high availability', 'ha', 'cluster',
-      'load balancer', 'capacity',
+      'availability',
+      'uptime',
+      'downtime',
+      'outage',
+      'sla',
+      'redundancy',
+      'high availability',
+      'ha',
+      'cluster',
+      'load balancer',
+      'capacity',
     ],
     categoryPatterns: ['operational'],
     weight: 8,
@@ -122,9 +213,17 @@ const THEME_PATTERNS: ThemePattern[] = [
   {
     theme: RiskTheme.DATA_PROTECTION,
     keywords: [
-      'data protection', 'encryption', 'privacy', 'pii',
-      'personal data', 'data leak', 'data breach', 'classification',
-      'dlp', 'masking', 'anonymization',
+      'data protection',
+      'encryption',
+      'privacy',
+      'pii',
+      'personal data',
+      'data leak',
+      'data breach',
+      'classification',
+      'dlp',
+      'masking',
+      'anonymization',
     ],
     categoryPatterns: ['compliance', 'technology'],
     weight: 8,
@@ -148,15 +247,20 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.PATCHING]: [
     {
       title: 'Emergency Patch Assessment',
-      description: 'Assess the scope and impact of required patches. Identify affected systems and create a patch schedule.',
+      description:
+        'Assess the scope and impact of required patches. Identify affected systems and create a patch schedule.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Security patch deployment' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Security patch deployment',
+      },
     },
     {
       title: 'Patch Rollout Change Request',
-      description: 'Create a change request for deploying patches to affected systems with proper testing and rollback plan.',
+      description:
+        'Create a change request for deploying patches to affected systems with proper testing and rollback plan.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
@@ -164,7 +268,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Backup Verification Before Patching',
-      description: 'Verify that current backups are complete and restorable before applying patches.',
+      description:
+        'Verify that current backups are complete and restorable before applying patches.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -172,7 +277,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Rollback Plan Task',
-      description: 'Document and validate the rollback procedure in case patch deployment fails.',
+      description:
+        'Document and validate the rollback procedure in case patch deployment fails.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -180,7 +286,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Post-Patch Verification Test',
-      description: 'Verify that systems function correctly after patch deployment. Test critical functionality.',
+      description:
+        'Verify that systems function correctly after patch deployment. Test critical functionality.',
       timeframe: MitigationTimeframe.VERIFICATION,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CONTROL_TEST,
@@ -190,7 +297,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.ACCESS]: [
     {
       title: 'Access Review Task',
-      description: 'Conduct a comprehensive review of user access rights and permissions for affected systems.',
+      description:
+        'Conduct a comprehensive review of user access rights and permissions for affected systems.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -198,7 +306,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Access Control Verification Test',
-      description: 'Test that access controls are properly enforced. Verify least-privilege principle is applied.',
+      description:
+        'Test that access controls are properly enforced. Verify least-privilege principle is applied.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CONTROL_TEST,
@@ -206,15 +315,20 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Access Configuration Change',
-      description: 'Implement required access control changes (e.g., MFA enforcement, role updates, permission tightening).',
+      description:
+        'Implement required access control changes (e.g., MFA enforcement, role updates, permission tightening).',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Access control remediation' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Access control remediation',
+      },
     },
     {
       title: 'Access Control Policy CAPA',
-      description: 'Create corrective action to update access control policies and procedures.',
+      description:
+        'Create corrective action to update access control policies and procedures.',
       timeframe: MitigationTimeframe.PERMANENT,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CAPA,
@@ -224,7 +338,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.BACKUP]: [
     {
       title: 'Backup Restore Test',
-      description: 'Perform a restore test to verify backup integrity and recovery procedures.',
+      description:
+        'Perform a restore test to verify backup integrity and recovery procedures.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CONTROL_TEST,
@@ -232,7 +347,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Evidence Request: Backup Verification',
-      description: 'Request evidence of successful backup completion and retention compliance.',
+      description:
+        'Request evidence of successful backup completion and retention compliance.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -240,7 +356,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Backup Process CAPA',
-      description: 'Corrective action to improve backup procedures, frequency, or coverage.',
+      description:
+        'Corrective action to improve backup procedures, frequency, or coverage.',
       timeframe: MitigationTimeframe.PERMANENT,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CAPA,
@@ -250,7 +367,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.END_OF_SUPPORT]: [
     {
       title: 'EOL System Inventory Task',
-      description: 'Document all systems and components affected by end-of-support status.',
+      description:
+        'Document all systems and components affected by end-of-support status.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -258,7 +376,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Migration/Upgrade Change Request',
-      description: 'Plan and execute migration from end-of-support systems to supported versions.',
+      description:
+        'Plan and execute migration from end-of-support systems to supported versions.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
@@ -266,7 +385,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Compensating Controls Verification',
-      description: 'Verify compensating controls are in place until migration is complete.',
+      description:
+        'Verify compensating controls are in place until migration is complete.',
       timeframe: MitigationTimeframe.VERIFICATION,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CONTROL_TEST,
@@ -276,7 +396,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.VULNERABILITY]: [
     {
       title: 'Vulnerability Assessment Task',
-      description: 'Conduct vulnerability scan and assessment of affected systems.',
+      description:
+        'Conduct vulnerability scan and assessment of affected systems.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -288,11 +409,15 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Vulnerability remediation' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Vulnerability remediation',
+      },
     },
     {
       title: 'Vulnerability Management CAPA',
-      description: 'Corrective action to improve vulnerability management processes.',
+      description:
+        'Corrective action to improve vulnerability management processes.',
       timeframe: MitigationTimeframe.PERMANENT,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CAPA,
@@ -300,7 +425,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Post-Remediation Verification',
-      description: 'Verify vulnerabilities are remediated and no new issues introduced.',
+      description:
+        'Verify vulnerabilities are remediated and no new issues introduced.',
       timeframe: MitigationTimeframe.VERIFICATION,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CONTROL_TEST,
@@ -310,7 +436,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.CERTIFICATE]: [
     {
       title: 'Certificate Inventory Task',
-      description: 'Inventory all certificates, their expiration dates, and renewal requirements.',
+      description:
+        'Inventory all certificates, their expiration dates, and renewal requirements.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -318,7 +445,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Certificate Renewal Change',
-      description: 'Renew or replace certificates that are expired or expiring soon.',
+      description:
+        'Renew or replace certificates that are expired or expiring soon.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
@@ -344,11 +472,15 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Firewall/Network Change',
-      description: 'Implement network segmentation or firewall rule changes to reduce exposure.',
+      description:
+        'Implement network segmentation or firewall rule changes to reduce exposure.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Network security hardening' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Network security hardening',
+      },
     },
     {
       title: 'Network Security Verification',
@@ -362,7 +494,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.CONFIGURATION]: [
     {
       title: 'Configuration Baseline Review',
-      description: 'Review current configuration against security baselines and best practices.',
+      description:
+        'Review current configuration against security baselines and best practices.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -374,7 +507,10 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Configuration hardening' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Configuration hardening',
+      },
     },
     {
       title: 'Configuration Compliance Test',
@@ -388,7 +524,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.COMPLIANCE]: [
     {
       title: 'Compliance Gap Analysis',
-      description: 'Analyze compliance gaps and identify required remediation actions.',
+      description:
+        'Analyze compliance gaps and identify required remediation actions.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -414,7 +551,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.AVAILABILITY]: [
     {
       title: 'Availability Assessment Task',
-      description: 'Assess current availability controls and identify single points of failure.',
+      description:
+        'Assess current availability controls and identify single points of failure.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -426,11 +564,15 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Availability improvement' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Availability improvement',
+      },
     },
     {
       title: 'Availability CAPA',
-      description: 'Preventive action to improve availability processes and monitoring.',
+      description:
+        'Preventive action to improve availability processes and monitoring.',
       timeframe: MitigationTimeframe.PERMANENT,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CAPA,
@@ -440,7 +582,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.DATA_PROTECTION]: [
     {
       title: 'Data Classification Review',
-      description: 'Review data classification and protection requirements for affected data.',
+      description:
+        'Review data classification and protection requirements for affected data.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -448,11 +591,15 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Data Protection Change',
-      description: 'Implement data protection controls (encryption, DLP, access restrictions).',
+      description:
+        'Implement data protection controls (encryption, DLP, access restrictions).',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'HIGH',
       suggestedRecordType: SuggestedRecordType.CHANGE,
-      templateData: { type: 'NORMAL', justification: 'Data protection enhancement' },
+      templateData: {
+        type: 'NORMAL',
+        justification: 'Data protection enhancement',
+      },
     },
     {
       title: 'Data Protection Verification',
@@ -466,7 +613,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
   [RiskTheme.GENERAL]: [
     {
       title: 'Risk Assessment Task',
-      description: 'Conduct a detailed assessment of the identified risk and its potential impact.',
+      description:
+        'Conduct a detailed assessment of the identified risk and its potential impact.',
       timeframe: MitigationTimeframe.IMMEDIATE,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.TASK,
@@ -474,7 +622,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Risk Mitigation Change',
-      description: 'Implement mitigation measures identified during risk assessment.',
+      description:
+        'Implement mitigation measures identified during risk assessment.',
       timeframe: MitigationTimeframe.SHORT_TERM,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CHANGE,
@@ -482,7 +631,8 @@ const MITIGATION_TEMPLATES: Record<RiskTheme, MitigationTemplate[]> = {
     },
     {
       title: 'Risk Treatment CAPA',
-      description: 'Corrective/preventive action to address the root cause of the risk.',
+      description:
+        'Corrective/preventive action to address the root cause of the risk.',
       timeframe: MitigationTimeframe.PERMANENT,
       priority: 'MEDIUM',
       suggestedRecordType: SuggestedRecordType.CAPA,
@@ -623,7 +773,8 @@ export class RiskAdvisoryHeuristics {
     permanentActions: MitigationAction[];
     verificationSteps: MitigationAction[];
   } {
-    const templates = MITIGATION_TEMPLATES[theme] || MITIGATION_TEMPLATES[RiskTheme.GENERAL];
+    const templates =
+      MITIGATION_TEMPLATES[theme] || MITIGATION_TEMPLATES[RiskTheme.GENERAL];
 
     const immediateActions: MitigationAction[] = [];
     const shortTermActions: MitigationAction[] = [];
@@ -661,7 +812,12 @@ export class RiskAdvisoryHeuristics {
       }
     }
 
-    return { immediateActions, shortTermActions, permanentActions, verificationSteps };
+    return {
+      immediateActions,
+      shortTermActions,
+      permanentActions,
+      verificationSteps,
+    };
   }
 
   /**
@@ -839,7 +995,11 @@ export class RiskAdvisoryHeuristics {
       );
     }
 
-    if (!cmdbContext || (cmdbContext.affectedCis.length === 0 && cmdbContext.affectedServices.length === 0)) {
+    if (
+      !cmdbContext ||
+      (cmdbContext.affectedCis.length === 0 &&
+        cmdbContext.affectedServices.length === 0)
+    ) {
       warnings.push(
         'No CMDB configuration items or services are associated. Advisory does not include infrastructure impact analysis.',
       );
@@ -927,7 +1087,11 @@ export class RiskAdvisoryHeuristics {
 
     // 6. Generate warnings & assumptions
     const warnings = this.generateWarnings(riskContext, cmdbContext);
-    const assumptions = this.generateAssumptions(theme, riskContext, cmdbContext);
+    const assumptions = this.generateAssumptions(
+      theme,
+      riskContext,
+      cmdbContext,
+    );
 
     // 7. Combine explainability
     const explainability = [
@@ -937,7 +1101,8 @@ export class RiskAdvisoryHeuristics {
         signal: 'Deterministic heuristics engine',
         source: 'advisory_engine',
         contribution: 'Primary advisory source',
-        detail: 'Phase 1 uses rule-based analysis. LLM integration available in Phase 2.',
+        detail:
+          'Phase 1 uses rule-based analysis. LLM integration available in Phase 2.',
       },
     ];
 
@@ -968,9 +1133,10 @@ export class RiskAdvisoryHeuristics {
     riskContext: RiskContext,
   ): string {
     // Prepend risk code/title context
-    const prefix = riskContext.title.length > 40
-      ? riskContext.title.substring(0, 37) + '...'
-      : riskContext.title;
+    const prefix =
+      riskContext.title.length > 40
+        ? riskContext.title.substring(0, 37) + '...'
+        : riskContext.title;
     return `[${prefix}] ${template}`;
   }
 

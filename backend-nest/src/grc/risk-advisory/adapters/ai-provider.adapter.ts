@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AdvisoryResult, RiskTheme } from '../dto/advisory.dto';
+import { RiskTheme } from '../dto/advisory.dto';
 
 /**
  * AI Provider Adapter Interface
@@ -18,7 +18,9 @@ export interface AiProviderAdapter {
    * Returns null if the provider cannot generate an advisory
    * (e.g., stub mode with insufficient context).
    */
-  generateAdvisory(context: AiAdvisoryContext): Promise<AiAdvisoryResponse | null>;
+  generateAdvisory(
+    context: AiAdvisoryContext,
+  ): Promise<AiAdvisoryResponse | null>;
 
   /**
    * Check if the provider is available and configured.
@@ -84,13 +86,15 @@ export interface AiAdvisoryResponse {
  */
 @Injectable()
 export class StubAiProvider implements AiProviderAdapter {
+  // eslint-disable-next-line @typescript-eslint/require-await
   async generateAdvisory(
-    _context: AiAdvisoryContext,
+    _context: AiAdvisoryContext, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<AiAdvisoryResponse | null> {
     // Stub: always returns null, forcing deterministic heuristics
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async isAvailable(): Promise<boolean> {
     return false;
   }
