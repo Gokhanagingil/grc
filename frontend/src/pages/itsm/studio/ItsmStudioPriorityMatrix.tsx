@@ -20,7 +20,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../services/api';
-import { API_PATHS } from '../../../services/grcClient';
+import { API_PATHS, unwrapArrayResponse } from '../../../services/grcClient';
 
 const IMPACTS = ['high', 'medium', 'low'] as const;
 const URGENCIES = ['high', 'medium', 'low'] as const;
@@ -62,8 +62,8 @@ export const ItsmStudioPriorityMatrix: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await api.get(API_PATHS.ITSM.PRIORITY_MATRIX.GET);
-      const rows = response?.data?.data || response?.data || [];
-      setMatrix(Array.isArray(rows) ? rows : []);
+      const rows = unwrapArrayResponse<MatrixEntry>(response);
+      setMatrix(rows);
     } catch (err) {
       setError('Failed to load priority matrix');
       console.error('Failed to load priority matrix:', err);

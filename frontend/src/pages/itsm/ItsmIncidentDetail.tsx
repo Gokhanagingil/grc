@@ -49,7 +49,7 @@ import {
   INCIDENT_UPDATE_FIELDS,
   INCIDENT_EMPTY_STRING_FIELDS,
 } from '../../utils/payloadNormalizer';
-import { calculatePriorityFromMatrix, getPriorityLabel, getPriorityColor } from '../../utils/priorityMatrix';
+import { calculatePriorityFromMatrix, fetchTenantMatrix, getPriorityLabel, getPriorityColor } from '../../utils/priorityMatrix';
 
 interface ItsmIncident {
   id: string;
@@ -193,6 +193,9 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [showSlaSection, setShowSlaSection] = useState(true);
   const [slaRefreshing, setSlaRefreshing] = useState(false);
 
+  // Tenant-specific priority matrix for live recalculation
+  const [tenantMatrix, setTenantMatrix] = useState<Record<string, Record<string, string>> | null>(null);
+
   // Link Risk/Control dialog state
   const [linkRiskOpen, setLinkRiskOpen] = useState(false);
   const [linkControlOpen, setLinkControlOpen] = useState(false);
@@ -259,6 +262,19 @@ export const ItsmIncidentDetail: React.FC = () => {
     fetchIncident();
   }, [fetchIncident]);
 
+  // Fetch tenant-specific priority matrix for live recalculation
+  useEffect(() => {
+    const loadMatrix = async () => {
+      try {
+        const matrix = await fetchTenantMatrix();
+        setTenantMatrix(matrix);
+      } catch {
+        // Keep using default matrix on error
+      }
+    };
+    loadMatrix();
+  }, []);
+
   useEffect(() => {
     const loadServices = async () => {
       try {
@@ -290,10 +306,12 @@ export const ItsmIncidentDetail: React.FC = () => {
     setIncident((prev) => {
       const updated = { ...prev, [field]: value };
       // Live priority recalculation when impact or urgency changes
+      // Uses tenant-specific matrix from ITSM Studio if available
       if (field === 'impact' || field === 'urgency') {
         updated.priority = calculatePriorityFromMatrix(
           field === 'impact' ? value : prev.impact,
           field === 'urgency' ? value : prev.urgency,
+          tenantMatrix,
         );
       }
       return updated;
@@ -368,7 +386,7 @@ export const ItsmIncidentDetail: React.FC = () => {
       } else {
         showNotification(classified.message || 'Failed to save incident', 'error');
       }
-    }finally {
+    } finally {
       setSaving(false);
     }
   };
@@ -381,7 +399,8 @@ export const ItsmIncidentDetail: React.FC = () => {
       setLinkedRisks((prev) => prev.filter((r) => r.id !== riskId));
     } catch (error) {
       console.error('Error unlinking risk:', error);
-      showNotification('Failed to unlink risk', 'error');
+      const classified = classifyApiError(error);
+      showNotification(classified.message || 'Failed to unlink risk', 'error');
     }
   };
 
@@ -393,7 +412,8 @@ export const ItsmIncidentDetail: React.FC = () => {
       setLinkedControls((prev) => prev.filter((c) => c.id !== controlId));
     } catch (error) {
       console.error('Error unlinking control:', error);
-      showNotification('Failed to unlink control', 'error');
+      const classified = classifyApiError(error);
+      showNotification(classified.message || 'Failed to unlink control', 'error');
     }
   };
 
