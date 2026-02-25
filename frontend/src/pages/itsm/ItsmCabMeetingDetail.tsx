@@ -39,7 +39,7 @@ import {
   Gavel as GavelIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto, unwrapResponse } from '../../services/grcClient';
+import { itsmApi, CabMeetingData, CabAgendaItemData, UpdateCabMeetingDto, unwrapResponse, unwrapArrayResponse } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import {
   normalizeUpdatePayload,
@@ -127,16 +127,8 @@ export default function ItsmCabMeetingDetail() {
     setAgendaLoading(true);
     try {
       const res = await itsmApi.cabMeetings.listAgenda(id);
-      const data = res?.data;
-      if (Array.isArray(data)) {
-        setAgenda(data);
-      } else if (data?.items) {
-        setAgenda(data.items);
-      } else if (data?.data) {
-        setAgenda(data.data);
-      } else {
-        setAgenda([]);
-      }
+      const items = unwrapArrayResponse<CabAgendaItemData>(res);
+      setAgenda(items);
     } catch {
       setAgenda([]);
     } finally {

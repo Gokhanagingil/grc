@@ -40,7 +40,7 @@ import {
   Cancel as CancelIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
-import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
+import { itsmApi, cmdbApi, riskApi, controlApi, CmdbServiceData, CmdbServiceOfferingData, ItsmCalendarConflictData, ItsmApprovalData, RiskAssessmentData, RiskFactorData, unwrapResponse, unwrapArrayResponse, TopologyImpactResponseData, TopologyGovernanceEvaluationData, TopologyGuardrailEvaluationData, SuggestedTaskPackResponseData, TraceabilitySummaryResponseData, CabChangeSummaryData } from '../../services/grcClient';
 import { CustomerRiskIntelligence } from '../../components/itsm/CustomerRiskIntelligence';
 import { ChangeTasksSection } from '../../components/itsm/ChangeTasksSection';
 import { ChangeAffectedCisSection } from '../../components/itsm/ChangeAffectedCisSection';
@@ -343,12 +343,9 @@ export const ItsmChangeDetail: React.FC = () => {
     try {
       // CRITICAL: Fetch the change record itself — must succeed
       const response = await itsmApi.changes.get(id);
-      const data = response.data;
-      if (data && 'data' in data && data.data && typeof data.data === 'object') {
-        setChange(data.data);
-      } else if (data && typeof data === 'object' && 'id' in data) {
-        // Flat response shape (no envelope)
-        setChange(data as Partial<ItsmChange>);
+      const record = unwrapResponse<Partial<ItsmChange>>(response);
+      if (record && typeof record === 'object' && 'id' in record) {
+        setChange(record);
       }
       if (process.env.NODE_ENV === 'development') {
         console.debug('[ItsmChangeDetail] init:change:success', { elapsed: Date.now() - initStart });
@@ -377,8 +374,7 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [0] Linked risks — robust envelope parsing + classified error messages
       if (optionalResults[0].status === 'fulfilled') {
-        const risksRaw = optionalResults[0].value.data;
-        const parsed = extractLinkedArray<LinkedRisk>(risksRaw);
+        const parsed = unwrapArrayResponse<LinkedRisk>(optionalResults[0].value);
         setLinkedRisks(parsed);
         setLinkedRisksError(null);
       } else {
@@ -393,8 +389,7 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [1] Linked controls — robust envelope parsing + classified error messages
       if (optionalResults[1].status === 'fulfilled') {
-        const controlsRaw = optionalResults[1].value.data;
-        const parsed = extractLinkedArray<LinkedControl>(controlsRaw);
+        const parsed = unwrapArrayResponse<LinkedControl>(optionalResults[1].value);
         setLinkedControls(parsed);
         setLinkedControlsError(null);
       } else {
@@ -409,10 +404,8 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [2] Conflicts
       if (optionalResults[2].status === 'fulfilled') {
-        const cData = optionalResults[2].value.data as { data?: ItsmCalendarConflictData[] };
-        if (cData?.data) {
-          setConflicts(Array.isArray(cData.data) ? cData.data : []);
-        }
+        const parsed = unwrapArrayResponse<ItsmCalendarConflictData>(optionalResults[2].value);
+        setConflicts(parsed);
       } else {
         if (process.env.NODE_ENV === 'development') {
           console.warn('[ItsmChangeDetail] init:conflicts:error', optionalResults[2].reason);
@@ -422,11 +415,10 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [3] Risk assessment
       if (optionalResults[3].status === 'fulfilled') {
-        const rData = optionalResults[3].value.data as { data?: { assessment?: RiskAssessmentData } | RiskAssessmentData };
-        if (rData?.data) {
-          const payload = rData.data;
-          if ('assessment' in payload && payload.assessment) {
-            setRiskAssessment(payload.assessment);
+        const payload = unwrapResponse<{ assessment?: RiskAssessmentData } | RiskAssessmentData>(optionalResults[3].value);
+        if (payload && typeof payload === 'object') {
+          if ('assessment' in payload && (payload as { assessment?: RiskAssessmentData }).assessment) {
+            setRiskAssessment((payload as { assessment: RiskAssessmentData }).assessment);
           } else if ('riskScore' in payload) {
             setRiskAssessment(payload as RiskAssessmentData);
           }
@@ -440,10 +432,8 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [4] Approvals
       if (optionalResults[4].status === 'fulfilled') {
-        const aData = optionalResults[4].value.data as { data?: ItsmApprovalData[] };
-        if (aData?.data) {
-          setApprovals(Array.isArray(aData.data) ? aData.data : []);
-        }
+        const parsed = unwrapArrayResponse<ItsmApprovalData>(optionalResults[4].value);
+        setApprovals(parsed);
       } else {
         if (process.env.NODE_ENV === 'development') {
           console.warn('[ItsmChangeDetail] init:approvals:error', optionalResults[4].reason);
@@ -452,12 +442,9 @@ export const ItsmChangeDetail: React.FC = () => {
 
       // [5] CAB Summary
       if (optionalResults[5]?.status === 'fulfilled') {
-        const cabRaw = optionalResults[5].value.data;
-        if (cabRaw && typeof cabRaw === 'object') {
-          const payload = 'data' in cabRaw ? (cabRaw as Record<string, unknown>).data : cabRaw;
-          if (payload && typeof payload === 'object') {
-            setCabSummary(payload as CabChangeSummaryData);
-          }
+        const payload = unwrapResponse<CabChangeSummaryData>(optionalResults[5].value);
+        if (payload && typeof payload === 'object') {
+          setCabSummary(payload);
         }
       } else {
         if (process.env.NODE_ENV === 'development') {
