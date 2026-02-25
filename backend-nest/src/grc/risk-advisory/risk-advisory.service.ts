@@ -34,6 +34,10 @@ import {
 import { GrcCapaService } from '../services/grc-capa.service';
 import { GrcControlTestService } from '../services/grc-control-test.service';
 import { AuditService } from '../../audit/audit.service';
+import {
+  buildCapaDraftPayload,
+  resolveEffectiveTargetType,
+} from './advisory-draft-mapper';
 
 /**
  * Risk Advisory Service
@@ -162,7 +166,7 @@ export class RiskAdvisoryService {
   /**
    * Create draft records from selected advisory suggestions.
    * Uses existing service layer (CapaService, ControlTestService).
-   * Returns partial success results.
+   * Returns partial success results with accurate per-item attribution.
    */
   async createDrafts(
     tenantId: string,
@@ -196,13 +200,19 @@ export class RiskAdvisoryService {
       );
 
       if (!suggestedRecord) {
-        results.push({
-          suggestedRecordId: item.suggestedRecordId,
-          type: item.type,
-          success: false,
-          error: 'Suggested record not found in advisory',
-          linkToRisk: false,
-        });
+        results.push(
+          this.buildResultItem(
+            item.suggestedRecordId,
+            item.type,
+            item.type,
+            'failed',
+            {
+              userSafeMessage:
+                'Suggested record not found in current advisory. Please re-analyze first.',
+              errorCode: 'SUGGESTION_NOT_FOUND',
+            },
+          ),
+        );
         continue;
       }
 
@@ -217,30 +227,43 @@ export class RiskAdvisoryService {
         );
         results.push(result);
       } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
-          `Failed to create draft for ${item.suggestedRecordId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Failed to create draft for ${item.suggestedRecordId}: ${errorMsg}`,
         );
-        results.push({
-          suggestedRecordId: item.suggestedRecordId,
-          type: item.type,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          linkToRisk: false,
-        });
+        const effectiveTarget = resolveEffectiveTargetType(
+          suggestedRecord.type,
+        );
+        results.push(
+          this.buildResultItem(
+            item.suggestedRecordId,
+            suggestedRecord.type,
+            effectiveTarget,
+            'failed',
+            {
+              userSafeMessage: `Failed to create ${this.getTypeLabel(effectiveTarget)} draft. Please try again or create manually.`,
+              technicalMessage: errorMsg,
+              errorCode: 'CREATION_ERROR',
+            },
+          ),
+        );
       }
     }
 
-    const totalCreated = results.filter((r) => r.success).length;
-    const totalFailed = results.filter((r) => !r.success).length;
+    const totalCreated = results.filter((r) => r.status === 'created').length;
+    const totalFailed = results.filter((r) => r.status === 'failed').length;
+    const totalSkipped = results.filter((r) => r.status === 'skipped').length;
 
     this.logger.log(
-      `Draft creation complete: ${totalCreated} created, ${totalFailed} failed`,
+      `Draft creation complete: ${totalCreated} created, ${totalFailed} failed, ${totalSkipped} skipped`,
     );
 
     return {
       totalRequested: dto.selectedItems.length,
       totalCreated,
       totalFailed,
+      totalSkipped,
       results,
     };
   }
@@ -344,6 +367,10 @@ export class RiskAdvisoryService {
     return null;
   }
 
+  /**
+   * Route a suggested record to the appropriate draft creation method.
+   * Uses resolveEffectiveTargetType for accurate error attribution.
+   */
   private async createDraftRecord(
     tenantId: string,
     riskId: string,
@@ -352,30 +379,35 @@ export class RiskAdvisoryService {
     titleOverride?: string,
     descriptionOverride?: string,
   ): Promise<DraftCreationResultItem> {
-    const title = titleOverride || suggestedRecord.title;
-    const description = descriptionOverride || suggestedRecord.description;
+    const effectiveTarget = resolveEffectiveTargetType(suggestedRecord.type);
 
     switch (suggestedRecord.type) {
       case SuggestedRecordType.CHANGE:
         // Phase 1: Change creation requires ItsmModule cross-dependency.
-        // Deferred to Phase 2. Return informative message.
-        return {
-          suggestedRecordId: suggestedRecord.id,
-          type: SuggestedRecordType.CHANGE,
-          success: false,
-          error:
-            'Change creation via advisory will be available in Phase 2. Please create the change manually from ITSM > Changes.',
-          linkToRisk: false,
-        };
+        // Deferred to Phase 2. Return informative skip message.
+        return this.buildResultItem(
+          suggestedRecord.id,
+          suggestedRecord.type,
+          SuggestedRecordType.CHANGE,
+          'skipped',
+          {
+            userSafeMessage:
+              'Change creation via advisory will be available in Phase 2. Please create the change manually from ITSM > Changes.',
+            errorCode: 'CHANGE_NOT_SUPPORTED_YET',
+          },
+        );
 
       case SuggestedRecordType.CAPA:
+      case SuggestedRecordType.TASK:
+        // Both CAPA and TASK suggestions create CAPA records.
+        // TASK items are domain-mapped to CAPA in the current architecture.
         return this.createDraftCapa(
           tenantId,
           riskId,
           userId,
           suggestedRecord,
-          title,
-          description,
+          titleOverride,
+          descriptionOverride,
         );
 
       case SuggestedRecordType.CONTROL_TEST:
@@ -384,112 +416,210 @@ export class RiskAdvisoryService {
           riskId,
           userId,
           suggestedRecord,
-          title,
-          description,
-        );
-
-      case SuggestedRecordType.TASK:
-        return this.createDraftCapa(
-          tenantId,
-          riskId,
-          userId,
-          suggestedRecord,
-          title,
-          description,
+          titleOverride,
+          descriptionOverride,
         );
 
       default:
-        return {
-          suggestedRecordId: suggestedRecord.id,
-          type: suggestedRecord.type,
-          success: false,
-          error: `Unsupported record type: ${String(suggestedRecord.type)}`,
-          linkToRisk: false,
-        };
+        return this.buildResultItem(
+          suggestedRecord.id,
+          suggestedRecord.type,
+          effectiveTarget,
+          'failed',
+          {
+            userSafeMessage: `Unsupported record type: ${String(suggestedRecord.type)}`,
+            errorCode: 'UNSUPPORTED_TYPE',
+          },
+        );
     }
   }
 
+  /**
+   * Create a CAPA draft using the centralized advisory-draft-mapper.
+   *
+   * This method uses buildCapaDraftPayload() to resolve advisory semantics
+   * (e.g. UPPERCASE "CORRECTIVE") to valid domain enum values (lowercase "corrective"),
+   * with compile-time type safety and runtime validation before DB insert.
+   */
   private async createDraftCapa(
     tenantId: string,
     _riskId: string,
     userId: string,
     suggestedRecord: SuggestedRecord,
-    title: string,
-    description: string,
+    titleOverride?: string,
+    descriptionOverride?: string,
   ): Promise<DraftCreationResultItem> {
+    const effectiveTarget = resolveEffectiveTargetType(suggestedRecord.type);
+
     if (!this.capaService) {
-      return {
-        suggestedRecordId: suggestedRecord.id,
-        type: suggestedRecord.type,
-        success: false,
-        error: 'CAPA service not available',
-        linkToRisk: false,
-      };
+      return this.buildResultItem(
+        suggestedRecord.id,
+        suggestedRecord.type,
+        effectiveTarget,
+        'failed',
+        {
+          userSafeMessage:
+            'CAPA service is not available. Please contact your administrator.',
+          errorCode: 'CAPA_SERVICE_UNAVAILABLE',
+        },
+      );
+    }
+
+    // Use centralized mapper to build validated payload
+    const mapResult = buildCapaDraftPayload(
+      suggestedRecord,
+      titleOverride,
+      descriptionOverride,
+    );
+
+    // Check for mapping/validation errors BEFORE attempting DB insert
+    if ('error' in mapResult) {
+      this.logger.warn(
+        `CAPA draft mapping failed for ${suggestedRecord.id}: ${mapResult.error}`,
+      );
+      return this.buildResultItem(
+        suggestedRecord.id,
+        suggestedRecord.type,
+        effectiveTarget,
+        'failed',
+        {
+          userSafeMessage: mapResult.error,
+          errorCode: mapResult.errorCode,
+        },
+      );
     }
 
     try {
-      const capaType =
-        suggestedRecord.templateData?.type === 'PREVENTIVE'
-          ? 'PREVENTIVE'
-          : 'CORRECTIVE';
+      const { payload } = mapResult;
 
       const capa = await this.capaService.create(
         tenantId,
         {
-          title,
-          description,
-          type: capaType as never,
-          priority: (suggestedRecord.priority === 'HIGH'
-            ? 'HIGH'
-            : suggestedRecord.priority === 'LOW'
-              ? 'LOW'
-              : 'MEDIUM') as never,
-          metadata: {
-            advisorySource: 'risk-advisory-pack-v1',
-            suggestedRecordId: suggestedRecord.id,
-          },
+          title: payload.title,
+          description: payload.description,
+          type: payload.type,
+          priority: payload.priority,
+          metadata: payload.metadata,
         },
         userId,
       );
 
-      return {
-        suggestedRecordId: suggestedRecord.id,
-        type: suggestedRecord.type,
-        success: true,
-        createdRecordId: capa.id,
-        createdRecordCode: (capa as unknown as Record<string, unknown>).code as
-          | string
-          | undefined,
-        linkToRisk: false, // CAPA linkage is via issue, not direct risk link
-      };
+      return this.buildResultItem(
+        suggestedRecord.id,
+        suggestedRecord.type,
+        effectiveTarget,
+        'created',
+        {
+          createdRecordId: capa.id,
+          createdRecordCode: capa.title || undefined,
+        },
+      );
     } catch (error) {
-      return {
-        suggestedRecordId: suggestedRecord.id,
-        type: suggestedRecord.type,
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create CAPA',
-        linkToRisk: false,
-      };
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to create CAPA';
+      this.logger.warn(
+        `CAPA creation failed for ${suggestedRecord.id}: ${errorMsg}`,
+      );
+      return this.buildResultItem(
+        suggestedRecord.id,
+        suggestedRecord.type,
+        effectiveTarget,
+        'failed',
+        {
+          userSafeMessage: `Failed to create ${this.getTypeLabel(effectiveTarget)} draft. ${
+            errorMsg.includes('enum')
+              ? 'Internal type mapping error.'
+              : 'Please try again.'
+          }`,
+          technicalMessage: errorMsg,
+          errorCode: 'CAPA_CREATION_ERROR',
+        },
+      );
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+  /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
   private async createDraftControlTest(
     _tenantId: string,
     _riskId: string,
     _userId: string,
     suggestedRecord: SuggestedRecord,
-    _title: string, // eslint-disable-line @typescript-eslint/no-unused-vars
-    _description: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _titleOverride?: string,
+    _descriptionOverride?: string,
   ): Promise<DraftCreationResultItem> {
+    /* eslint-enable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
     // Control tests require a controlId — cannot create without one.
+    return this.buildResultItem(
+      suggestedRecord.id,
+      suggestedRecord.type,
+      SuggestedRecordType.CONTROL_TEST,
+      'skipped',
+      {
+        userSafeMessage:
+          'Control test creation requires a linked control. Please link a control to this risk first, then create the test from the control detail page.',
+        errorCode: 'CONTROL_TEST_NO_LINKED_CONTROL',
+      },
+    );
+  }
+
+  // ===========================================================================
+  // Result builder helper
+  // ===========================================================================
+
+  /**
+   * Builds a DraftCreationResultItem with both new fields and legacy compat fields.
+   * This ensures backward compatibility with the existing frontend while
+   * providing richer error attribution for future frontend updates.
+   */
+  private buildResultItem(
+    suggestedRecordId: string,
+    requestedType: SuggestedRecordType,
+    resolvedTargetType: SuggestedRecordType,
+    status: 'created' | 'failed' | 'skipped',
+    details: {
+      createdRecordId?: string;
+      createdRecordCode?: string;
+      userSafeMessage?: string;
+      technicalMessage?: string;
+      errorCode?: string;
+    } = {},
+  ): DraftCreationResultItem {
     return {
-      suggestedRecordId: suggestedRecord.id,
-      type: SuggestedRecordType.CONTROL_TEST,
-      success: false,
-      error:
-        'Control test creation requires a linked control. Please link a control to this risk first, then create the test from the control detail page.',
+      // New fields for accurate attribution
+      suggestedRecordId,
+      requestedType,
+      resolvedTargetType,
+      status,
+      createdRecordId: details.createdRecordId,
+      createdRecordCode: details.createdRecordCode,
+      userSafeMessage: details.userSafeMessage,
+      technicalMessage: details.technicalMessage,
+      errorCode: details.errorCode,
       linkToRisk: false,
+
+      // Legacy compat fields — existing frontend reads these
+      type: requestedType,
+      success: status === 'created',
+      error: details.userSafeMessage,
     };
+  }
+
+  /**
+   * Human-readable label for a SuggestedRecordType.
+   * Used in user-facing error messages.
+   */
+  private getTypeLabel(type: SuggestedRecordType): string {
+    switch (type) {
+      case SuggestedRecordType.CAPA:
+        return 'CAPA';
+      case SuggestedRecordType.TASK:
+        return 'Task';
+      case SuggestedRecordType.CHANGE:
+        return 'Change Request';
+      case SuggestedRecordType.CONTROL_TEST:
+        return 'Control Test';
+      default:
+        return String(type);
+    }
   }
 }

@@ -1463,20 +1463,39 @@ export interface AdvisoryCreateDraftItem {
   descriptionOverride?: string;
 }
 
+export type AdvisoryDraftCreationStatus = 'created' | 'failed' | 'skipped';
+
 export interface AdvisoryDraftCreationResultItem {
   suggestedRecordId: string;
-  type: AdvisorySuggestedRecordType;
-  success: boolean;
+  /** The type as requested (e.g. TASK, CAPA) */
+  requestedType: AdvisorySuggestedRecordType;
+  /** The actual target type used for creation (e.g. TASK -> CAPA) */
+  resolvedTargetType: AdvisorySuggestedRecordType;
+  status: AdvisoryDraftCreationStatus;
   createdRecordId?: string;
   createdRecordCode?: string;
-  error?: string;
+  /** User-safe error message */
+  userSafeMessage?: string;
+  /** Technical detail (for logs / collapsible UI) */
+  technicalMessage?: string;
+  /** Error code for programmatic handling */
+  errorCode?: string;
   linkToRisk: boolean;
+
+  // Legacy compat fields
+  /** @deprecated Use requestedType */
+  type: AdvisorySuggestedRecordType;
+  /** @deprecated Use status === 'created' */
+  success: boolean;
+  /** @deprecated Use userSafeMessage */
+  error?: string;
 }
 
 export interface AdvisoryCreateDraftsResult {
   totalRequested: number;
   totalCreated: number;
   totalFailed: number;
+  totalSkipped: number;
   results: AdvisoryDraftCreationResultItem[];
 }
 
