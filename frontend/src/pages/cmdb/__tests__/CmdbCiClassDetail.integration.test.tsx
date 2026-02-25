@@ -41,7 +41,7 @@ jest.mock('../../../contexts/NotificationContext', () => ({
 }));
 
 jest.mock('../../../utils/apiErrorClassifier', () => ({
-  classifyApiError: (err: unknown) => ({ message: 'Test error' }),
+  classifyApiError: (err: unknown) => ({ kind: 'server', message: 'Test error', status: 500, isRetryable: false, shouldLogout: false }),
 }));
 
 jest.mock('../../../services/grcClient', () => ({
@@ -53,7 +53,23 @@ jest.mock('../../../services/grcClient', () => ({
       descendants: (id: string) => mockDescendants(id),
       effectiveSchema: (id: string) => mockEffectiveSchema(id),
       validateInheritance: (id: string, data: unknown) => mockValidateInheritance(id, data),
+      ancestors: () => Promise.resolve({ data: { data: [] } }),
     },
+  },
+  unwrapResponse: (resp: unknown) => {
+    if (!resp) return null;
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && typeof data === 'object' && 'data' in data) return (data as Record<string, unknown>).data;
+    return data ?? null;
+  },
+  unwrapArrayResponse: (resp: unknown) => {
+    if (!resp) return [];
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && 'data' in data && Array.isArray((data as Record<string, unknown>).data)) return (data as Record<string, unknown>).data;
+    if (Array.isArray(data)) return data;
+    return [];
   },
 }));
 

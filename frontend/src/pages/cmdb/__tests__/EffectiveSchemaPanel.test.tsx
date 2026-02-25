@@ -17,11 +17,23 @@ import { EffectiveSchemaPanel } from '../EffectiveSchemaPanel';
 
 const mockEffectiveSchema = jest.fn();
 
+jest.mock('../../../utils/apiErrorClassifier', () => ({
+  classifyApiError: () => ({ kind: 'server', message: '', status: 500, isRetryable: false, shouldLogout: false }),
+}));
+
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     classes: {
       effectiveSchema: (classId: string) => mockEffectiveSchema(classId),
     },
+  },
+  unwrapResponse: (resp: unknown) => {
+    if (!resp) return null;
+    const r = resp as Record<string, unknown>;
+    const data = r.data as Record<string, unknown> | undefined;
+    if (data && typeof data === 'object' && 'data' in data) return (data as Record<string, unknown>).data;
+    if (data && typeof data === 'object' && 'effectiveFields' in data) return data;
+    return data ?? null;
   },
 }));
 
