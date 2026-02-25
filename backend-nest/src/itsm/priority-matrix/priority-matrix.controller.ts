@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Query,
   Body,
   UseGuards,
   Headers,
@@ -27,9 +28,10 @@ import { UpsertPriorityMatrixDto } from './dto/upsert-priority-matrix.dto';
  * The matrix maps (impact, urgency) pairs to priority levels.
  *
  * Routes:
- * - GET  /grc/itsm/priority-matrix       → get current matrix for tenant
- * - PUT  /grc/itsm/priority-matrix       → replace entire matrix (admin)
- * - POST /grc/itsm/priority-matrix/seed  → seed default ITIL matrix if empty
+ * - GET  /grc/itsm/priority-matrix            → get current matrix for tenant
+ * - GET  /grc/itsm/priority-matrix/evaluate   → compute priority for given impact+urgency
+ * - PUT  /grc/itsm/priority-matrix            → replace entire matrix (admin)
+ * - POST /grc/itsm/priority-matrix/seed       → seed default ITIL matrix if empty
  */
 @Controller('grc/itsm/priority-matrix')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -50,6 +52,36 @@ export class PriorityMatrixController {
     }
     const rows = await this.matrixService.getMatrix(tenantId);
     return rows;
+  }
+
+  /**
+   * GET /grc/itsm/priority-matrix/evaluate
+   * Compute priority for a given impact + urgency pair.
+   * Uses tenant-specific matrix if available, otherwise ITIL defaults.
+   * Useful for frontend live-preview without a full save round-trip.
+   */
+  @Get('evaluate')
+  @Permissions(Permission.ITSM_INCIDENT_READ)
+  @Perf()
+  async evaluate(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('impact') impact: string,
+    @Query('urgency') urgency: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    if (!impact || !urgency) {
+      throw new BadRequestException(
+        'impact and urgency query params are required',
+      );
+    }
+    const priority = await this.matrixService.computePriority(
+      tenantId,
+      impact,
+      urgency,
+    );
+    return { impact, urgency, priority };
   }
 
   /**

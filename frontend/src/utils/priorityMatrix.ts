@@ -1,9 +1,12 @@
 /**
  * Frontend Priority Matrix
  *
- * Mirrors the backend ITIL priority matrix (calculatePriority in enums/index.ts)
- * so the frontend can show live priority recalculation when impact/urgency changes
+ * Provides live priority recalculation when impact/urgency changes
  * without waiting for a save round-trip.
+ *
+ * Supports two modes:
+ * 1. Hardcoded ITIL default matrix (instant, no API call)
+ * 2. Tenant-specific matrix fetched from backend API (configurable via ITSM Studio)
  *
  * | Impact \ Urgency | High | Medium | Low |
  * |------------------|------|--------|-----|
@@ -12,28 +15,79 @@
  * | Low              | P3   | P4     | P4  |
  */
 
-const PRIORITY_MATRIX: Record<string, Record<string, string>> = {
+import { api } from '../services/api';
+import { API_PATHS } from '../services/grcClient';
+
+/** Shape of a single priority matrix entry from the backend API */
+export interface PriorityMatrixEntry {
+  impact: string;
+  urgency: string;
+  priority: string;
+  label: string | null;
+}
+
+const DEFAULT_MATRIX: Record<string, Record<string, string>> = {
   high: { high: 'p1', medium: 'p2', low: 'p3' },
   medium: { high: 'p2', medium: 'p3', low: 'p4' },
   low: { high: 'p3', medium: 'p4', low: 'p4' },
 };
 
 /**
- * Calculate incident priority from impact and urgency using ITIL matrix.
- * Uses lowercase enum values to match frontend convention (p1-p4, high/medium/low).
+ * Build a lookup map from a flat array of matrix entries.
+ * Keys are lowercase impact → urgency → priority.
+ */
+export function buildMatrixLookup(
+  entries: PriorityMatrixEntry[],
+): Record<string, Record<string, string>> {
+  const lookup: Record<string, Record<string, string>> = {};
+  for (const entry of entries) {
+    const impact = (entry.impact || '').toLowerCase();
+    const urgency = (entry.urgency || '').toLowerCase();
+    if (!lookup[impact]) {
+      lookup[impact] = {};
+    }
+    lookup[impact][urgency] = (entry.priority || 'p3').toLowerCase();
+  }
+  return lookup;
+}
+
+/**
+ * Fetch the tenant-specific priority matrix from the backend.
+ * Returns a lookup map for fast priority resolution.
+ * Falls back to the default ITIL matrix on error.
+ */
+export async function fetchTenantMatrix(): Promise<Record<string, Record<string, string>>> {
+  try {
+    const response = await api.get(API_PATHS.ITSM.PRIORITY_MATRIX.GET);
+    const rows = response?.data?.data || response?.data || [];
+    if (Array.isArray(rows) && rows.length > 0) {
+      return buildMatrixLookup(rows as PriorityMatrixEntry[]);
+    }
+  } catch {
+    // Fallback to default on any error
+  }
+  return { ...DEFAULT_MATRIX };
+}
+
+/**
+ * Calculate incident priority from impact and urgency using a matrix lookup.
+ * Uses the provided matrix if available, otherwise falls back to ITIL default.
  *
  * @param impact - Impact level ('high' | 'medium' | 'low')
  * @param urgency - Urgency level ('high' | 'medium' | 'low')
+ * @param matrixOverride - Optional tenant-specific matrix lookup
  * @returns Priority string ('p1' | 'p2' | 'p3' | 'p4'), defaults to 'p3' for unknown inputs
  */
 export function calculatePriorityFromMatrix(
   impact: string | undefined,
   urgency: string | undefined,
+  matrixOverride?: Record<string, Record<string, string>> | null,
 ): string {
   const normalizedImpact = (impact || 'medium').toLowerCase();
   const normalizedUrgency = (urgency || 'medium').toLowerCase();
 
-  const row = PRIORITY_MATRIX[normalizedImpact];
+  const matrix = matrixOverride || DEFAULT_MATRIX;
+  const row = matrix[normalizedImpact];
   if (!row) return 'p3';
 
   return row[normalizedUrgency] || 'p3';
@@ -48,6 +102,7 @@ export function getPriorityLabel(priority: string): string {
     p2: 'P2 - High',
     p3: 'P3 - Medium',
     p4: 'P4 - Low',
+    p5: 'P5 - Planning',
   };
   return labels[(priority || '').toLowerCase()] || priority?.toUpperCase() || 'P3';
 }
@@ -61,6 +116,7 @@ export function getPriorityColor(priority: string): 'error' | 'warning' | 'info'
     p2: 'warning',
     p3: 'info',
     p4: 'success',
+    p5: 'default',
   };
   return colors[(priority || '').toLowerCase()] || 'default';
 }

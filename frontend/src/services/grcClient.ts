@@ -307,6 +307,7 @@ export const API_PATHS = {
       GET: '/grc/itsm/priority-matrix',
       UPSERT: '/grc/itsm/priority-matrix',
       SEED: '/grc/itsm/priority-matrix/seed',
+      EVALUATE: '/grc/itsm/priority-matrix/evaluate',
     },
 
     // ITSM Change Calendar endpoints
