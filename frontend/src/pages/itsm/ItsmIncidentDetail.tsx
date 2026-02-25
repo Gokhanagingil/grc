@@ -319,7 +319,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           showNotification('Incident created successfully', 'success');
           navigate(`/itsm/incidents/${recordId}`);
         } else {
-          console.warn('[ItsmIncidentDetail] Create succeeded but response shape unexpected:', data);
+          console.warn('[ItsmIncidentDetail] Create succeeded but response shape unexpected:', created);
           showNotification('Incident created. Redirecting to list.', 'success');
           navigate('/itsm/incidents');
         }
