@@ -15,7 +15,7 @@ import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
 import { AdminPanel } from './pages/AdminPanel';
-import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder, AdminEventLog, AdminNotificationStudio, AdminApiCatalog, AdminPlatformHealth } from './pages/admin';
+import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder, AdminEventLog, AdminNotificationStudio, AdminApiCatalog, AdminPlatformHealth, AdminAiControlCenter } from './pages/admin';
 import AdminDataModel from './pages/admin/AdminDataModel';
 import DynamicDataList from './pages/DynamicDataList';
 import { DotWalkingBuilder } from './pages/DotWalkingBuilder';
@@ -551,6 +551,7 @@ function App() {
                   <Route path="notification-studio" element={<AdminNotificationStudio />} />
                   <Route path="api-catalog" element={<AdminApiCatalog />} />
                   <Route path="platform-health" element={<AdminPlatformHealth />} />
+                  <Route path="ai-control-center" element={<AdminAiControlCenter />} />
                                 </Route>
                 {/* Dynamic Data Routes */}
                 <Route path="/data/:tableName" element={
