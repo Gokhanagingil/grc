@@ -63,7 +63,11 @@ export class AiFeaturePolicy {
   /**
    * Whether human approval is required by default for AI actions
    */
-  @Column({ name: 'human_approval_required_default', type: 'boolean', default: true })
+  @Column({
+    name: 'human_approval_required_default',
+    type: 'boolean',
+    default: true,
+  })
   humanApprovalRequiredDefault: boolean;
 
   /**

@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 2. nest_ai_feature_policy — Per-tenant AI feature policy
  * 3. nest_ai_audit_event — AI audit trail (metadata only, no prompts)
  */
-export class CreateAiControlCenterTables1742600000000
-  implements MigrationInterface
-{
+export class CreateAiControlCenterTables1742600000000 implements MigrationInterface {
   name = 'CreateAiControlCenterTables1742600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -113,9 +111,7 @@ export class CreateAiControlCenterTables1742600000000
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_ai_audit_event_tenant_feature_created"`,
     );
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_ai_audit_event_tenant"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ai_audit_event_tenant"`);
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_ai_provider_config_tenant_enabled"`,
     );

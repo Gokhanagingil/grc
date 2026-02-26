@@ -69,9 +69,10 @@ export class AiAdminService {
       modelName: config.modelName,
       requestTimeoutMs: config.requestTimeoutMs,
       maxTokens: config.maxTokens,
-      temperature: config.temperature !== null && config.temperature !== undefined
-        ? Number(config.temperature)
-        : null,
+      temperature:
+        config.temperature !== null && config.temperature !== undefined
+          ? Number(config.temperature)
+          : null,
       hasApiKey: !!config.apiKeyEncrypted,
       hasCustomHeaders: !!config.customHeadersEncrypted,
       createdAt: config.createdAt,
@@ -87,7 +88,9 @@ export class AiAdminService {
     const configs = await this.providerRepo
       .createQueryBuilder('p')
       .where('p.is_deleted = false')
-      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', { tenantId })
+      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+        tenantId,
+      })
       .orderBy('p.created_at', 'DESC')
       .getMany();
 
@@ -106,7 +109,9 @@ export class AiAdminService {
       .createQueryBuilder('p')
       .where('p.id = :id', { id })
       .andWhere('p.is_deleted = false')
-      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', { tenantId })
+      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+        tenantId,
+      })
       .getOne();
 
     if (!result) {
@@ -157,7 +162,9 @@ export class AiAdminService {
       .createQueryBuilder('p')
       .where('p.id = :id', { id })
       .andWhere('p.is_deleted = false')
-      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', { tenantId })
+      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+        tenantId,
+      })
       .getOne();
 
     if (!existing) {
@@ -165,12 +172,14 @@ export class AiAdminService {
     }
 
     // Update non-secret fields
-    if (dto.providerType !== undefined) existing.providerType = dto.providerType;
+    if (dto.providerType !== undefined)
+      existing.providerType = dto.providerType;
     if (dto.displayName !== undefined) existing.displayName = dto.displayName;
     if (dto.isEnabled !== undefined) existing.isEnabled = dto.isEnabled;
     if (dto.baseUrl !== undefined) existing.baseUrl = dto.baseUrl;
     if (dto.modelName !== undefined) existing.modelName = dto.modelName;
-    if (dto.requestTimeoutMs !== undefined) existing.requestTimeoutMs = dto.requestTimeoutMs;
+    if (dto.requestTimeoutMs !== undefined)
+      existing.requestTimeoutMs = dto.requestTimeoutMs;
     if (dto.maxTokens !== undefined) existing.maxTokens = dto.maxTokens;
     if (dto.temperature !== undefined) existing.temperature = dto.temperature;
 
@@ -198,7 +207,9 @@ export class AiAdminService {
       .createQueryBuilder('p')
       .where('p.id = :id', { id })
       .andWhere('p.is_deleted = false')
-      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', { tenantId })
+      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+        tenantId,
+      })
       .getOne();
 
     if (!existing) {
@@ -228,7 +239,9 @@ export class AiAdminService {
       .createQueryBuilder('p')
       .where('p.id = :id', { id })
       .andWhere('p.is_deleted = false')
-      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', { tenantId })
+      .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+        tenantId,
+      })
       .getOne();
 
     if (!config) {
@@ -249,7 +262,7 @@ export class AiAdminService {
 
         // Build headers
         const headers: Record<string, string> = {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         };
 
         // Add auth token if encrypted key exists
@@ -267,7 +280,10 @@ export class AiAdminService {
           );
           if (customHeadersJson) {
             try {
-              const customHeaders = JSON.parse(customHeadersJson) as Record<string, string>;
+              const customHeaders = JSON.parse(customHeadersJson) as Record<
+                string,
+                string
+              >;
               for (const [key, value] of Object.entries(customHeaders)) {
                 headers[key] = value;
               }
@@ -321,7 +337,8 @@ export class AiAdminService {
           }
         } else {
           success = true;
-          message = 'Provider configuration saved (test not applicable for this type)';
+          message =
+            'Provider configuration saved (test not applicable for this type)';
         }
       }
     } catch (error) {
@@ -538,7 +555,11 @@ export class AiAdminService {
 
     if (policy.defaultProviderConfigId) {
       provider = await this.providerRepo.findOne({
-        where: { id: policy.defaultProviderConfigId, isDeleted: false, isEnabled: true },
+        where: {
+          id: policy.defaultProviderConfigId,
+          isDeleted: false,
+          isEnabled: true,
+        },
       });
     }
 

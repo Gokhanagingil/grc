@@ -30,6 +30,7 @@ import {
   Notifications as NotificationsIcon,
   Api as ApiIcon,
   HealthAndSafety as HealthIcon,
+  SmartToy as AiIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -126,6 +127,12 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'Platform Health',
     icon: <HealthIcon />,
     path: '/admin/platform-health',
+  },
+  {
+    id: 'ai-control-center',
+    text: 'AI Control Center',
+    icon: <AiIcon />,
+    path: '/admin/ai-control-center',
   },
 ];
 

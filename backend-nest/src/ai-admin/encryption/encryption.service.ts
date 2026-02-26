@@ -27,10 +27,7 @@ export class EncryptionService {
 
     if (encryptionKey) {
       // Use dedicated AI encryption key (recommended)
-      this.key = crypto
-        .createHash('sha256')
-        .update(encryptionKey)
-        .digest();
+      this.key = crypto.createHash('sha256').update(encryptionKey).digest();
     } else if (jwtSecret) {
       // Derive from JWT secret as fallback
       this.key = crypto
@@ -83,12 +80,17 @@ export class EncryptionService {
       const packed = Buffer.from(encryptedBase64, 'base64');
 
       if (packed.length < this.ivLength + this.authTagLength + 1) {
-        this.logger.warn('Encrypted data too short to contain iv + authTag + ciphertext');
+        this.logger.warn(
+          'Encrypted data too short to contain iv + authTag + ciphertext',
+        );
         return null;
       }
 
       const iv = packed.subarray(0, this.ivLength);
-      const authTag = packed.subarray(this.ivLength, this.ivLength + this.authTagLength);
+      const authTag = packed.subarray(
+        this.ivLength,
+        this.ivLength + this.authTagLength,
+      );
       const ciphertext = packed.subarray(this.ivLength + this.authTagLength);
 
       const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv, {
@@ -102,7 +104,7 @@ export class EncryptionService {
       ]);
 
       return decrypted.toString('utf8');
-    } catch (error) {
+    } catch (_error) {
       this.logger.warn('Decryption failed — key mismatch or corrupted data');
       return null;
     }

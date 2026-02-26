@@ -74,7 +74,12 @@ export class AiAuditEvent {
   @Column({ name: 'request_hash', type: 'varchar', length: 64, nullable: true })
   requestHash: string | null;
 
-  @Column({ name: 'response_hash', type: 'varchar', length: 64, nullable: true })
+  @Column({
+    name: 'response_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
   responseHash: string | null;
 
   @Column({ type: 'text', nullable: true })

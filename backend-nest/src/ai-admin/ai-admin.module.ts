@@ -22,11 +22,7 @@ import { TenantsModule } from '../tenants/tenants.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      AiProviderConfig,
-      AiFeaturePolicy,
-      AiAuditEvent,
-    ]),
+    TypeOrmModule.forFeature([AiProviderConfig, AiFeaturePolicy, AiAuditEvent]),
     ConfigModule,
     AuthModule,
     TenantsModule,

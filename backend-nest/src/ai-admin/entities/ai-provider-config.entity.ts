@@ -77,7 +77,13 @@ export class AiProviderConfig {
   @Column({ name: 'max_tokens', type: 'int', nullable: true })
   maxTokens: number | null;
 
-  @Column({ name: 'temperature', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  @Column({
+    name: 'temperature',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    nullable: true,
+  })
   temperature: number | null;
 
   /**
