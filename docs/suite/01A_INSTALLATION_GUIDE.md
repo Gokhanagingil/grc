@@ -68,8 +68,8 @@ cd /opt/grc-platform
 # Create external volume (CRITICAL — prevents data loss)
 docker volume create grc-platform_grc_staging_postgres_data
 
-# Configure environment
-cp backend-nest/.env.production.template backend-nest/.env
+# Configure environment (Docker Compose reads .env from project root)
+cp backend-nest/.env.production.template .env
 # Edit .env — set JWT_SECRET, DB credentials, etc.
 
 # Create upload directory with correct permissions
@@ -252,15 +252,15 @@ cd /opt/grc-platform
 ### 5.2 Environment Setup
 
 ```bash
-# Copy production template
-cp backend-nest/.env.production.template backend-nest/.env
+# Copy production template to project root (Docker Compose reads .env from here)
+cp backend-nest/.env.production.template .env
 
 # Generate required secrets (use sed to replace placeholders, not append)
-sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" backend-nest/.env
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" .env
 # REFRESH_TOKEN_SECRET is not in the template — append it
-echo "REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)" >> backend-nest/.env
+echo "REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)" >> .env
 # Append keys not in template
-echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> backend-nest/.env
+echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
 ```
 
 ### 5.3 Required Environment Variables
