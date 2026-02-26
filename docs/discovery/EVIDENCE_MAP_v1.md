@@ -411,7 +411,7 @@
 | Test entity | `src/grc/entities/grc-control-test.entity.ts` |
 | Process link | `src/grc/entities/grc-control-process.entity.ts` |
 | Controller | `src/grc/controllers/grc-control.controller.ts` |
-| Service | `src/grc/services/grc-evidence.service.ts` |
+| Service | `src/grc/services/grc-control.service.ts` |
 | Tests | `src/grc/controllers/grc-control.controller.spec.ts` |
 | UI - List | `frontend/src/pages/ControlList.tsx` |
 | UI - Detail | `frontend/src/pages/ControlDetail.tsx` |

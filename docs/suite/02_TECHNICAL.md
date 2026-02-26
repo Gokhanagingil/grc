@@ -397,7 +397,7 @@ sequenceDiagram
 
 <!-- AuthContext.tsx — JWT management, token refresh -->
 
-> **EVIDENCE:** `frontend/src/context/AuthContext.tsx`
+> **EVIDENCE:** `frontend/src/contexts/AuthContext.tsx`
 
 ### 11.4 Route Map
 
