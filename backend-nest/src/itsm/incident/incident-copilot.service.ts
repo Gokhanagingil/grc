@@ -159,7 +159,7 @@ export class IncidentCopilotService {
               toolKey: 'SERVICENOW_GET_RECORD',
               input: {
                 table: 'incident',
-                sysId: externalSysId,
+                sys_id: externalSysId,
                 fields: [
                   'number',
                   'short_description',
@@ -183,8 +183,11 @@ export class IncidentCopilotService {
             },
           );
           if (snResult.success && snResult.data) {
+            const rawData = snResult.data as {
+              record?: Record<string, unknown>;
+            };
             snIncidentData = this.truncateRecord(
-              snResult.data as Record<string, unknown>,
+              (rawData.record as Record<string, unknown>) ?? {},
             );
             dataSources.push('SERVICENOW_INCIDENT');
             toolKeysUsed.push('SERVICENOW_GET_RECORD');
