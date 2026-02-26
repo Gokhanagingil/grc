@@ -270,10 +270,11 @@ export class ServiceNowToolProvider {
       ? (input.fields as string[])
       : [];
     const safeFieldSet = SAFE_FIELDS[table] || DEFAULT_FIELDS;
-    const fields =
+    const filteredFields =
       requestedFields.length > 0
         ? requestedFields.filter((f) => safeFieldSet.includes(f))
-        : safeFieldSet;
+        : [];
+    const fields = filteredFields.length > 0 ? filteredFields : safeFieldSet;
 
     const rawLimit =
       typeof input.limit === 'number' ? input.limit : DEFAULT_LIMIT;
@@ -375,10 +376,11 @@ export class ServiceNowToolProvider {
       ? (input.fields as string[])
       : [];
     const safeFieldSet = SAFE_FIELDS[table] || DEFAULT_FIELDS;
-    const fields =
+    const filteredFields =
       requestedFields.length > 0
         ? requestedFields.filter((f) => safeFieldSet.includes(f))
-        : safeFieldSet;
+        : [];
+    const fields = filteredFields.length > 0 ? filteredFields : safeFieldSet;
 
     const baseUrl = config.baseUrl.replace(/\/+$/, '');
     const params = new URLSearchParams({
