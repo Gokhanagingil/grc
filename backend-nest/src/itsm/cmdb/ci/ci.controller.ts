@@ -82,11 +82,12 @@ export class CiController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const take = Math.min(parseInt(limit || '20', 10) || 20, 100);
-    const result = await this.ciService.findWithFilters(tenantId, {
+    const filterDto = Object.assign(new CiFilterDto(), {
       q: q || undefined,
       page: 1,
       pageSize: take,
     });
+    const result = await this.ciService.findWithFilters(tenantId, filterDto);
     let items = result.items;
     if (excludeId) {
       items = items.filter((ci) => ci.id !== excludeId);
