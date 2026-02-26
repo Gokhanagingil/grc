@@ -6,7 +6,7 @@
  * Effective rules merge strategy:
  * 1. Walk the ancestor chain from root → ... → parent → self
  * 2. Union all rules from each ancestor
- * 3. On collision key (sourceClassId + relationshipTypeId + targetClassId),
+ * 3. On collision key (relationshipTypeId + targetClassId),
  *    the nearest ancestor (or self) wins (override).
  * 4. Each effective rule carries its origin (which class defined it).
  */
@@ -208,7 +208,7 @@ export class CiClassRelationshipRuleService {
    * Compute effective relationship rules for a class by merging ancestor rules.
    *
    * Resolution order: root → ... → grandparent → parent → self
-   * On collision (same sourceClassId + relationshipTypeId + targetClassId),
+   * On collision (same relationshipTypeId + targetClassId),
    * the nearer class overrides.
    */
   async getEffectiveRules(
@@ -280,7 +280,7 @@ export class CiClassRelationshipRuleService {
       });
 
       for (const rule of rulesForClass) {
-        const key = `${rule.sourceClassId}::${rule.relationshipTypeId}::${rule.targetClassId}`;
+        const key = `${rule.relationshipTypeId}::${rule.targetClassId}`;
         const relType = relTypeMap.get(rule.relationshipTypeId);
         const sourceClass = classMap.get(rule.sourceClassId);
         const targetClassRef = classMap.get(rule.targetClassId);

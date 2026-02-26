@@ -636,16 +636,8 @@ describe('CiClassRelationshipRuleService', () => {
       seedClassHierarchy();
       seedRelTypes();
 
-      // The collision key is sourceClassId::relationshipTypeId::targetClassId.
-      // For a child to override a parent rule, both rules must share the same
-      // sourceClassId (the owning class stored on the rule row). In practice
-      // this happens when a parent defines a rule for its own id and the child
-      // re-defines the exact same triple, but the typical pattern is different
-      // sourceClassIds (parent owns its own, child owns its own).
-      //
-      // We test the override path by having BOTH rules reference the SAME
-      // sourceClassId (ROOT_CLASS_ID). The root ancestor layer inserts first,
-      // then the child layer overwrites the same key.
+      // The collision key is relationshipTypeId::targetClassId.
+      // Parent defines depends_on → TARGET from ROOT
       ruleStore.push(
         makeRule({
           id: RULE_ID_1,
@@ -656,12 +648,11 @@ describe('CiClassRelationshipRuleService', () => {
         }),
       );
 
-      // Child defines a rule with the SAME sourceClassId + relType + target
-      // (different rule row id), simulating an explicit override.
+      // Child defines depends_on → TARGET from CHILD (same relType + target = override)
       ruleStore.push(
         makeRule({
           id: RULE_ID_2,
-          sourceClassId: ROOT_CLASS_ID,
+          sourceClassId: CHILD_CLASS_ID,
           relationshipTypeId: REL_TYPE_DEPENDS_ON,
           targetClassId: TARGET_CLASS_ID,
           propagationOverride: PropagationPolicy.BOTH,
@@ -681,21 +672,18 @@ describe('CiClassRelationshipRuleService', () => {
 
       const result = await service.getEffectiveRules(TENANT_ID, CHILD_CLASS_ID);
 
-      // Both rules share the same collision key, so only one survives.
-      // The child layer processes ROOT_CLASS_ID rules again (mock returns all
-      // matching rules), but in real usage the child would have its own
-      // sourceClassId. Here, the last layer (self) overwrites the ancestor
-      // entry, so the surviving rule is whichever the mock returns last.
-      // With our mock, both rules are returned for sourceClassId=ROOT_CLASS_ID,
-      // and the second one (RULE_ID_2) overwrites the first.
+      // Both rules share the same collision key (relType::target), so only
+      // the child's rule survives (nearest wins).
       expect(result.effectiveRules).toHaveLength(1);
 
       const effectiveRule = result.effectiveRules[0];
       expect(effectiveRule.propagationOverride).toBe(PropagationPolicy.BOTH);
       expect(effectiveRule.propagationWeight).toBe(PropagationWeight.HIGH);
+      expect(effectiveRule.originClassId).toBe(CHILD_CLASS_ID);
+      expect(effectiveRule.inherited).toBe(false);
     });
 
-    it('should produce separate entries when parent and child have different sourceClassIds', async () => {
+    it('should produce separate entries when parent and child target different classes', async () => {
       seedClassHierarchy();
       seedRelTypes();
 
@@ -709,13 +697,13 @@ describe('CiClassRelationshipRuleService', () => {
         }),
       );
 
-      // Child defines depends_on from CHILD → TARGET (different sourceClassId = different key)
+      // Child defines depends_on from CHILD → ROOT (different targetClassId = different key)
       ruleStore.push(
         makeRule({
           id: RULE_ID_2,
           sourceClassId: CHILD_CLASS_ID,
           relationshipTypeId: REL_TYPE_DEPENDS_ON,
-          targetClassId: TARGET_CLASS_ID,
+          targetClassId: ROOT_CLASS_ID,
           propagationOverride: PropagationPolicy.BOTH,
         }),
       );
@@ -731,7 +719,7 @@ describe('CiClassRelationshipRuleService', () => {
 
       const result = await service.getEffectiveRules(TENANT_ID, CHILD_CLASS_ID);
 
-      // Different sourceClassIds → different collision keys → both survive
+      // Different targetClassIds → different collision keys → both survive
       expect(result.effectiveRules).toHaveLength(2);
       expect(result.inheritedRuleCount).toBe(1);
       expect(result.localRuleCount).toBe(1);
