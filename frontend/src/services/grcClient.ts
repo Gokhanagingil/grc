@@ -521,6 +521,14 @@ export const API_PATHS = {
       CONTENT_PACK_APPLY: '/grc/cmdb/classes/content-pack/apply',
       DIAGNOSTICS: (id: string) => `/grc/cmdb/classes/${id}/diagnostics`,
       DIAGNOSTICS_SUMMARY: '/grc/cmdb/classes/diagnostics/summary',
+      EFFECTIVE_RELATIONSHIP_RULES: (id: string) => `/grc/cmdb/classes/${id}/relationship-rules/effective`,
+    },
+    CLASS_RELATIONSHIP_RULES: {
+      LIST: '/grc/cmdb/class-relationship-rules',
+      GET: (id: string) => `/grc/cmdb/class-relationship-rules/${id}`,
+      CREATE: '/grc/cmdb/class-relationship-rules',
+      UPDATE: (id: string) => `/grc/cmdb/class-relationship-rules/${id}`,
+      DELETE: (id: string) => `/grc/cmdb/class-relationship-rules/${id}`,
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
@@ -4912,6 +4920,81 @@ export interface UpdateCmdbRelationshipTypeDto {
   metadata?: Record<string, unknown>;
 }
 
+// CMDB Class Relationship Rule Types
+export type PropagationPolicy = 'NONE' | 'UPSTREAM_ONLY' | 'DOWNSTREAM_ONLY' | 'BOTH';
+export type PropagationWeight = 'LOW' | 'MEDIUM' | 'HIGH';
+export type RuleDirection = 'OUTBOUND' | 'INBOUND';
+
+export interface EffectiveRuleEntry {
+  ruleId: string;
+  sourceClassId: string;
+  sourceClassName: string;
+  sourceClassLabel: string;
+  relationshipTypeId: string;
+  relationshipTypeName: string;
+  relationshipTypeLabel: string;
+  targetClassId: string;
+  targetClassName: string;
+  targetClassLabel: string;
+  direction: RuleDirection;
+  propagationOverride: PropagationPolicy | null;
+  propagationWeight: PropagationWeight | null;
+  defaultPropagation: string;
+  directionality: string;
+  isActive: boolean;
+  isSystem: boolean;
+  originClassId: string;
+  originClassName: string;
+  originClassLabel: string;
+  inherited: boolean;
+  inheritanceDepth: number;
+}
+
+export interface EffectiveRulesResult {
+  classId: string;
+  className: string;
+  classLabel: string;
+  effectiveRules: EffectiveRuleEntry[];
+  totalRuleCount: number;
+  inheritedRuleCount: number;
+  localRuleCount: number;
+}
+
+export interface CmdbClassRelationshipRuleData {
+  id: string;
+  tenantId: string;
+  sourceClassId: string;
+  relationshipTypeId: string;
+  targetClassId: string;
+  direction: RuleDirection;
+  propagationOverride: PropagationPolicy | null;
+  propagationWeight: PropagationWeight | null;
+  isActive: boolean;
+  isSystem: boolean;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClassRelationshipRuleDto {
+  sourceClassId: string;
+  relationshipTypeId: string;
+  targetClassId: string;
+  direction?: RuleDirection;
+  propagationOverride?: PropagationPolicy;
+  propagationWeight?: PropagationWeight;
+  isActive?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateClassRelationshipRuleDto {
+  direction?: RuleDirection;
+  propagationOverride?: PropagationPolicy | null;
+  propagationWeight?: PropagationWeight | null;
+  isActive?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
 // CMDB Topology Types
 export interface TopologyNode {
   id: string;
@@ -5199,6 +5282,23 @@ export const cmdbApi = {
     create: (data: CreateCmdbRelationshipTypeDto) => api.post(API_PATHS.CMDB.RELATIONSHIP_TYPES.CREATE, data),
     update: (id: string, data: UpdateCmdbRelationshipTypeDto) => api.patch(API_PATHS.CMDB.RELATIONSHIP_TYPES.UPDATE(id), data),
     delete: (id: string) => api.delete(API_PATHS.CMDB.RELATIONSHIP_TYPES.DELETE(id)),
+  },
+  classRelationshipRules: {
+    list: (params?: { page?: number; pageSize?: number; sourceClassId?: string; targetClassId?: string; relationshipTypeId?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+      if (params?.sourceClassId) searchParams.set('sourceClassId', params.sourceClassId);
+      if (params?.targetClassId) searchParams.set('targetClassId', params.targetClassId);
+      if (params?.relationshipTypeId) searchParams.set('relationshipTypeId', params.relationshipTypeId);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.CLASS_RELATIONSHIP_RULES.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    get: (id: string) => api.get(API_PATHS.CMDB.CLASS_RELATIONSHIP_RULES.GET(id)),
+    create: (data: CreateClassRelationshipRuleDto) => api.post(API_PATHS.CMDB.CLASS_RELATIONSHIP_RULES.CREATE, data),
+    update: (id: string, data: UpdateClassRelationshipRuleDto) => api.patch(API_PATHS.CMDB.CLASS_RELATIONSHIP_RULES.UPDATE(id), data),
+    delete: (id: string) => api.delete(API_PATHS.CMDB.CLASS_RELATIONSHIP_RULES.DELETE(id)),
+    effectiveForClass: (classId: string) => api.get(API_PATHS.CMDB.CLASSES.EFFECTIVE_RELATIONSHIP_RULES(classId)),
   },
 };
 
