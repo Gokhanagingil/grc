@@ -255,9 +255,10 @@ cd /opt/grc-platform
 # Copy production template
 cp backend-nest/.env.production.template backend-nest/.env
 
-# Generate required secrets
-echo "JWT_SECRET=$(openssl rand -hex 32)" >> backend-nest/.env
-echo "REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)" >> backend-nest/.env
+# Generate required secrets (use sed to replace placeholders, not append)
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" backend-nest/.env
+sed -i "s|^REFRESH_TOKEN_SECRET=.*|REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)|" backend-nest/.env
+# Append keys not in template
 echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> backend-nest/.env
 ```
 
