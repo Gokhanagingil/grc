@@ -55,6 +55,21 @@ import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
 import { SchemaFieldRenderer } from '../../components/cmdb/SchemaFieldRenderer';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 
+/**
+ * Keys that map to entity-level CI columns (rendered in the CI Details card).
+ * These must be excluded from both the class-fields rendering AND validation
+ * to avoid duplicate display and phantom required-field errors.
+ */
+const ENTITY_COLUMN_KEYS = new Set([
+  'name',
+  'description',
+  'environment',
+  'ip_address', 'ipAddress', 'ip_addr',
+  'dns_name', 'dnsName', 'dns',
+  'asset_tag', 'assetTag',
+  'serial_number', 'serialNumber', 'serial',
+]);
+
 const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
   lifecycle: [
     { value: 'installed', label: 'Installed' },
@@ -361,6 +376,8 @@ export const CmdbCiDetail: React.FC = () => {
     const attrs = ci.attributes || {};
     const errors: Record<string, string> = {};
     for (const field of effectiveSchema.effectiveFields) {
+      // Skip fields rendered as entity-level columns (same filter as rendering)
+      if (ENTITY_COLUMN_KEYS.has(field.key)) continue;
       const val = attrs[field.key];
       // Required check
       if (field.required && (val === undefined || val === null || val === '')) {
@@ -700,18 +717,7 @@ export const CmdbCiDetail: React.FC = () => {
                 {effectiveSchema.effectiveFields
                   .slice()
                   // Phase 4: Filter out schema fields that duplicate entity-level columns
-                  .filter((field) => {
-                    const ENTITY_COLUMN_KEYS = new Set([
-                      'name',
-                      'description',
-                      'environment',
-                      'ip_address', 'ipAddress', 'ip_addr',
-                      'dns_name', 'dnsName', 'dns',
-                      'asset_tag', 'assetTag',
-                      'serial_number', 'serialNumber', 'serial',
-                    ]);
-                    return !ENTITY_COLUMN_KEYS.has(field.key);
-                  })
+                  .filter((field) => !ENTITY_COLUMN_KEYS.has(field.key))
                   .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                   .map((field) => (
                     <Grid
