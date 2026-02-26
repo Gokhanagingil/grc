@@ -217,8 +217,12 @@ function markdownToHtml(md: string): string {
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
 
-  // Ordered lists
-  html = html.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>');
+  // Ordered lists — use temporary <oli> tag to distinguish from unordered
+  html = html.replace(/^\d+\.\s(.+)$/gm, '<oli>$1</oli>');
+  html = html.replace(/((?:<oli>.*<\/oli>\n?)+)/g, (_m, items) => {
+    const fixed = (items as string).replace(/<oli>/g, '<li>').replace(/<\/oli>/g, '</li>');
+    return `<ol>${fixed}</ol>`;
+  });
 
   // Checkbox lists
   html = html.replace(/<li>\[x\]\s*/g, '<li class="checklist checked">');
