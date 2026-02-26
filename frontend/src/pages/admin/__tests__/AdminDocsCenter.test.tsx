@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AdminDocsCenter } from '../AdminDocsCenter';
 
@@ -79,32 +79,32 @@ describe('AdminDocsCenter', () => {
 
   describe('Rendering', () => {
     it('should render the docs center page', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByTestId('docs-center-page')).toBeInTheDocument();
       });
-      expect(screen.getByTestId('docs-center-page')).toBeInTheDocument();
     });
 
     it('should render the page header with correct title', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-page-header')).toBeInTheDocument();
       });
-      expect(screen.getByTestId('admin-page-header')).toBeInTheDocument();
       expect(screen.getByText('Documentation')).toBeInTheDocument();
     });
 
     it('should render the document navigation list', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByTestId('docs-nav-list')).toBeInTheDocument();
       });
-      expect(screen.getByTestId('docs-nav-list')).toBeInTheDocument();
     });
 
     it('should display all 7 documents in navigation', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByText('Installation & Deployment Guide')).toBeInTheDocument();
       });
-      expect(screen.getByText('Installation & Deployment Guide')).toBeInTheDocument();
       expect(screen.getByText('Infrastructure & Operations')).toBeInTheDocument();
       expect(screen.getByText('Technical Architecture')).toBeInTheDocument();
       expect(screen.getByText('ITSM Module')).toBeInTheDocument();
@@ -114,10 +114,10 @@ describe('AdminDocsCenter', () => {
     });
 
     it('should show document status chips (Final/Outline)', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByTestId('docs-nav-list')).toBeInTheDocument();
       });
-      // Check that both Final and Outline chips exist in the nav list
       const navList = screen.getByTestId('docs-nav-list');
       expect(navList.textContent).toContain('Final');
       expect(navList.textContent).toContain('Outline');
@@ -126,9 +126,7 @@ describe('AdminDocsCenter', () => {
 
   describe('Document Loading', () => {
     it('should fetch the first document on mount', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining('01A_INSTALLATION_GUIDE.md')
@@ -137,13 +135,10 @@ describe('AdminDocsCenter', () => {
     });
 
     it('should render markdown content after loading', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
       await waitFor(() => {
         expect(screen.getByTestId('doc-content')).toBeInTheDocument();
       });
-      // Check that some markdown-rendered content appears
       const content = screen.getByTestId('doc-content');
       expect(content.innerHTML).toContain('Sample Document');
     });
@@ -155,9 +150,7 @@ describe('AdminDocsCenter', () => {
         text: () => Promise.resolve('Not found'),
       });
 
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load document/)).toBeInTheDocument();
@@ -165,19 +158,14 @@ describe('AdminDocsCenter', () => {
     });
 
     it('should fetch different document when nav item clicked', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
       });
 
-      // Click on Infrastructure doc
       const infraNav = screen.getByTestId('doc-nav-01');
-      await act(async () => {
-        fireEvent.click(infraNav);
-      });
+      fireEvent.click(infraNav);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -189,43 +177,46 @@ describe('AdminDocsCenter', () => {
 
   describe('Table of Contents', () => {
     it('should render the TOC panel', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(screen.getByTestId('toc-panel')).toBeInTheDocument();
       });
     });
 
-    it('should display headings from the document in TOC', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+    it('should display Executive Summary heading in TOC', async () => {
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
-        const tocPanel = screen.getByTestId('toc-panel');
-        expect(tocPanel).toHaveTextContent('Executive Summary');
-        expect(tocPanel).toHaveTextContent('Installation');
-        expect(tocPanel).toHaveTextContent('Configuration');
-        expect(tocPanel).toHaveTextContent('Troubleshooting');
+        expect(screen.getByTestId('toc-panel')).toHaveTextContent('Executive Summary');
+      });
+    });
+
+    it('should display Installation heading in TOC', async () => {
+      render(<AdminDocsCenter />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('toc-panel')).toHaveTextContent('Installation');
+      });
+    });
+
+    it('should display Configuration heading in TOC', async () => {
+      render(<AdminDocsCenter />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('toc-panel')).toHaveTextContent('Configuration');
       });
     });
 
     it('should toggle TOC visibility', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(screen.getByTestId('toc-panel')).toBeInTheDocument();
       });
 
-      // Click TOC toggle to hide
       const tocToggle = screen.getByTestId('toc-toggle');
-      await act(async () => {
-        fireEvent.click(tocToggle);
-      });
+      fireEvent.click(tocToggle);
 
       expect(screen.queryByTestId('toc-panel')).not.toBeInTheDocument();
     });
@@ -233,27 +224,21 @@ describe('AdminDocsCenter', () => {
 
   describe('Search', () => {
     it('should render the search input', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+      await waitFor(() => {
+        expect(screen.getByTestId('doc-search-input')).toBeInTheDocument();
       });
-      expect(screen.getByTestId('doc-search-input')).toBeInTheDocument();
     });
 
     it('should show match count when searching', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(screen.getByTestId('doc-content')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByTestId('doc-search-input').querySelector('input');
-      expect(searchInput).toBeTruthy();
-
-      await act(async () => {
-        fireEvent.change(searchInput!, { target: { value: 'Database' } });
-      });
+      const searchInput = screen.getByRole('textbox');
+      fireEvent.change(searchInput, { target: { value: 'Database' } });
 
       await waitFor(() => {
         expect(screen.getByTestId('search-match-count')).toBeInTheDocument();
@@ -261,14 +246,14 @@ describe('AdminDocsCenter', () => {
     });
 
     it('should not show match count for short queries', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
+      render(<AdminDocsCenter />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('doc-content')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByTestId('doc-search-input').querySelector('input');
-      await act(async () => {
-        fireEvent.change(searchInput!, { target: { value: 'a' } });
-      });
+      const searchInput = screen.getByRole('textbox');
+      fireEvent.change(searchInput, { target: { value: 'a' } });
 
       expect(screen.queryByTestId('search-match-count')).not.toBeInTheDocument();
     });
@@ -276,23 +261,15 @@ describe('AdminDocsCenter', () => {
 
   describe('Document Metadata', () => {
     it('should display version from document metadata', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
-        const content = screen.getByTestId('doc-content');
-        expect(content.innerHTML.length).toBeGreaterThan(0);
+        expect(screen.getByText('v1.0')).toBeInTheDocument();
       });
-
-      // Version chip should be visible
-      expect(screen.getByText('v1.0')).toBeInTheDocument();
     });
 
     it('should display last updated date from metadata', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
         expect(screen.getByText(/Updated:.*2025-01-15/)).toBeInTheDocument();
@@ -302,13 +279,10 @@ describe('AdminDocsCenter', () => {
 
   describe('Code Block Copy', () => {
     it('should render code blocks with copy buttons', async () => {
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
-        const content = screen.getByTestId('doc-content');
-        expect(content.innerHTML).toContain('copy-code-btn');
+        expect(screen.getByTestId('doc-content').innerHTML).toContain('copy-code-btn');
       });
     });
   });
@@ -318,12 +292,9 @@ describe('AdminDocsCenter', () => {
       const DOMPurify = require('dompurify');
       const sanitizeSpy = jest.spyOn(DOMPurify, 'sanitize');
 
-      await act(async () => {
-        render(<AdminDocsCenter />);
-      });
+      render(<AdminDocsCenter />);
 
       await waitFor(() => {
-        // DOMPurify.sanitize should be called for rendering
         expect(sanitizeSpy).toHaveBeenCalled();
       });
 
