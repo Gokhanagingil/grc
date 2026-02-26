@@ -66,8 +66,19 @@ function seedBaseHierarchy() {
       name: 'cmdb_ci',
       label: 'Configuration Item',
       fieldsSchema: [
-        { key: 'name', label: 'Name', dataType: 'string', required: true, order: 1 },
-        { key: 'description', label: 'Description', dataType: 'text', order: 2 },
+        {
+          key: 'name',
+          label: 'Name',
+          dataType: 'string',
+          required: true,
+          order: 1,
+        },
+        {
+          key: 'description',
+          label: 'Description',
+          dataType: 'text',
+          order: 2,
+        },
       ],
     }),
     makeClass({
@@ -76,7 +87,12 @@ function seedBaseHierarchy() {
       label: 'Hardware',
       parentClassId: ROOT_ID,
       fieldsSchema: [
-        { key: 'serial_number', label: 'Serial Number', dataType: 'string', order: 10 },
+        {
+          key: 'serial_number',
+          label: 'Serial Number',
+          dataType: 'string',
+          order: 10,
+        },
       ],
     }),
     makeClass({
@@ -87,7 +103,13 @@ function seedBaseHierarchy() {
       fieldsSchema: [
         { key: 'cpu_count', label: 'CPU Count', dataType: 'number', order: 20 },
         // Override inherited serial_number
-        { key: 'serial_number', label: 'Computer S/N', dataType: 'string', required: true, order: 10 },
+        {
+          key: 'serial_number',
+          label: 'Computer S/N',
+          dataType: 'string',
+          required: true,
+          order: 10,
+        },
       ],
     }),
   ];
@@ -104,9 +126,15 @@ const mockRepository = {
 
     let result = classStore.filter((c) => {
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
-      if (where.parentClassId !== undefined && c.parentClassId !== where.parentClassId) return false;
-      if (where.isActive !== undefined && c.isActive !== where.isActive) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
+      if (
+        where.parentClassId !== undefined &&
+        c.parentClassId !== where.parentClassId
+      )
+        return false;
+      if (where.isActive !== undefined && c.isActive !== where.isActive)
+        return false;
       return true;
     });
 
@@ -129,7 +157,8 @@ const mockRepository = {
     const match = classStore.find((c) => {
       if (where.id && c.id !== where.id) return false;
       if (where.tenantId && c.tenantId !== where.tenantId) return false;
-      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted) return false;
+      if (where.isDeleted !== undefined && c.isDeleted !== where.isDeleted)
+        return false;
       return true;
     });
     if (!match) return Promise.resolve(null);
@@ -221,7 +250,9 @@ describe('CiClassDiagnosticsService', () => {
 
       const result = await service.diagnoseClass(TENANT_ID, CHILD_ID);
 
-      const missingParent = result.diagnostics.find((d) => d.code === 'MISSING_PARENT');
+      const missingParent = result.diagnostics.find(
+        (d) => d.code === 'MISSING_PARENT',
+      );
       expect(missingParent).toBeDefined();
       expect(missingParent!.severity).toBe('error');
       expect(result.errorCount).toBeGreaterThanOrEqual(1);
@@ -229,14 +260,24 @@ describe('CiClassDiagnosticsService', () => {
 
     it('should detect inheritance cycle', async () => {
       classStore = [
-        makeClass({ id: CYCLE_A_ID, name: 'cycle_a', parentClassId: CYCLE_B_ID }),
-        makeClass({ id: CYCLE_B_ID, name: 'cycle_b', parentClassId: CYCLE_A_ID }),
+        makeClass({
+          id: CYCLE_A_ID,
+          name: 'cycle_a',
+          parentClassId: CYCLE_B_ID,
+        }),
+        makeClass({
+          id: CYCLE_B_ID,
+          name: 'cycle_b',
+          parentClassId: CYCLE_A_ID,
+        }),
       ];
       mockInheritanceService.hasCycle.mockResolvedValueOnce(true);
 
       const result = await service.diagnoseClass(TENANT_ID, CYCLE_A_ID);
 
-      const cycleErr = result.diagnostics.find((d) => d.code === 'INHERITANCE_CYCLE');
+      const cycleErr = result.diagnostics.find(
+        (d) => d.code === 'INHERITANCE_CYCLE',
+      );
       expect(cycleErr).toBeDefined();
       expect(cycleErr!.severity).toBe('error');
     });
@@ -245,13 +286,20 @@ describe('CiClassDiagnosticsService', () => {
       seedBaseHierarchy();
       // Setup mock: child overrides serial_number from hardware
       mockInheritanceService.getAncestorChain.mockResolvedValueOnce([
-        { id: PARENT_ID, name: 'cmdb_ci_hardware', label: 'Hardware', depth: 1 },
+        {
+          id: PARENT_ID,
+          name: 'cmdb_ci_hardware',
+          label: 'Hardware',
+          depth: 1,
+        },
         { id: ROOT_ID, name: 'cmdb_ci', label: 'Configuration Item', depth: 2 },
       ]);
 
       const result = await service.diagnoseClass(TENANT_ID, CHILD_ID);
 
-      const overrideInfo = result.diagnostics.find((d) => d.code === 'FIELD_OVERRIDE');
+      const overrideInfo = result.diagnostics.find(
+        (d) => d.code === 'FIELD_OVERRIDE',
+      );
       expect(overrideInfo).toBeDefined();
       expect(overrideInfo!.severity).toBe('info');
       expect(overrideInfo!.message).toContain('serial_number');
@@ -263,7 +311,9 @@ describe('CiClassDiagnosticsService', () => {
           id: ROOT_ID,
           name: '',
           label: 'Something',
-          fieldsSchema: [{ key: 'f1', label: 'F1', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f1', label: 'F1', dataType: 'string', order: 1 },
+          ],
         }),
       ];
 
@@ -280,13 +330,17 @@ describe('CiClassDiagnosticsService', () => {
           id: ROOT_ID,
           name: 'has_name',
           label: '',
-          fieldsSchema: [{ key: 'f1', label: 'F1', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f1', label: 'F1', dataType: 'string', order: 1 },
+          ],
         }),
       ];
 
       const result = await service.diagnoseClass(TENANT_ID, ROOT_ID);
 
-      const emptyLabel = result.diagnostics.find((d) => d.code === 'EMPTY_LABEL');
+      const emptyLabel = result.diagnostics.find(
+        (d) => d.code === 'EMPTY_LABEL',
+      );
       expect(emptyLabel).toBeDefined();
       expect(emptyLabel!.severity).toBe('warning');
     });
@@ -304,7 +358,9 @@ describe('CiClassDiagnosticsService', () => {
 
       const result = await service.diagnoseClass(TENANT_ID, ROOT_ID);
 
-      const noFields = result.diagnostics.find((d) => d.code === 'NO_LOCAL_FIELDS');
+      const noFields = result.diagnostics.find(
+        (d) => d.code === 'NO_LOCAL_FIELDS',
+      );
       expect(noFields).toBeDefined();
       expect(noFields!.severity).toBe('warning');
     });
@@ -322,7 +378,9 @@ describe('CiClassDiagnosticsService', () => {
 
       const result = await service.diagnoseClass(TENANT_ID, ROOT_ID);
 
-      const noFields = result.diagnostics.find((d) => d.code === 'NO_LOCAL_FIELDS');
+      const noFields = result.diagnostics.find(
+        (d) => d.code === 'NO_LOCAL_FIELDS',
+      );
       expect(noFields).toBeUndefined();
     });
 
@@ -333,7 +391,9 @@ describe('CiClassDiagnosticsService', () => {
           name: 'inactive_parent',
           label: 'Inactive',
           isActive: false,
-          fieldsSchema: [{ key: 'f1', label: 'F1', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f1', label: 'F1', dataType: 'string', order: 1 },
+          ],
         }),
         makeClass({
           id: CHILD_ID,
@@ -341,7 +401,9 @@ describe('CiClassDiagnosticsService', () => {
           label: 'Active Child',
           parentClassId: INACTIVE_ID,
           isActive: true,
-          fieldsSchema: [{ key: 'f2', label: 'F2', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f2', label: 'F2', dataType: 'string', order: 1 },
+          ],
         }),
       ];
 
@@ -407,13 +469,17 @@ describe('CiClassDiagnosticsService', () => {
           id: ROOT_ID,
           name: '',
           label: 'Root',
-          fieldsSchema: [{ key: 'f1', label: 'F1', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f1', label: 'F1', dataType: 'string', order: 1 },
+          ],
         }), // EMPTY_NAME → error
         makeClass({
           id: PARENT_ID,
           name: 'healthy',
           label: 'Healthy',
-          fieldsSchema: [{ key: 'f2', label: 'F2', dataType: 'string', order: 1 }],
+          fieldsSchema: [
+            { key: 'f2', label: 'F2', dataType: 'string', order: 1 },
+          ],
         }), // ALL_CLEAR
       ];
 

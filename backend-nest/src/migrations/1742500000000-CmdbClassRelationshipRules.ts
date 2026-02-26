@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Creates the `cmdb_ci_class_relationship_rule` table which stores
  * class-level relationship allow-list rules with inheritance awareness.
  */
-export class CmdbClassRelationshipRules1742500000000
-  implements MigrationInterface
-{
+export class CmdbClassRelationshipRules1742500000000 implements MigrationInterface {
   name = 'CmdbClassRelationshipRules1742500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

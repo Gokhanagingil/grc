@@ -45,9 +45,7 @@ import { Perf } from '../../../common/decorators';
 @Controller('grc/cmdb/class-relationship-rules')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class CiClassRelationshipRuleController {
-  constructor(
-    private readonly ruleService: CiClassRelationshipRuleService,
-  ) {}
+  constructor(private readonly ruleService: CiClassRelationshipRuleService) {}
 
   @Get()
   @Permissions(Permission.CMDB_REL_READ)
@@ -63,7 +61,11 @@ export class CiClassRelationshipRuleController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const isActive =
-      isActiveStr === 'true' ? true : isActiveStr === 'false' ? false : undefined;
+      isActiveStr === 'true'
+        ? true
+        : isActiveStr === 'false'
+          ? false
+          : undefined;
 
     const items = await this.ruleService.findAllForTenant(tenantId, {
       sourceClassId,

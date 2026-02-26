@@ -222,7 +222,12 @@ export class CiClassDiagnosticsService {
 
     // 8. Relationship rule diagnostics
     try {
-      await this.diagnoseRelationshipRules(tenantId, classId, cls.name, diagnostics);
+      await this.diagnoseRelationshipRules(
+        tenantId,
+        classId,
+        cls.name,
+        diagnostics,
+      );
     } catch {
       // Non-blocking: relationship diagnostics should not break class diagnostics
     }
@@ -342,7 +347,8 @@ export class CiClassDiagnosticsService {
         });
         if (
           relType &&
-          rule.propagationOverride !== relType.riskPropagation.toUpperCase()
+          (rule.propagationOverride as string) !==
+            (relType.riskPropagation as string).toUpperCase()
         ) {
           diagnostics.push({
             severity: 'info',

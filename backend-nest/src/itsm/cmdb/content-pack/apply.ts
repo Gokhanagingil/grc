@@ -227,7 +227,8 @@ export async function applyBaselineContentPack(
       log(`   ERROR: ${msg}`);
     }
   }
-  result.classRelationshipRules.total = BASELINE_CLASS_RELATIONSHIP_RULES.length;
+  result.classRelationshipRules.total =
+    BASELINE_CLASS_RELATIONSHIP_RULES.length;
   log(
     `   Summary: ${result.classRelationshipRules.created} created, ${result.classRelationshipRules.updated} updated, ` +
       `${result.classRelationshipRules.reused} reused, ${result.classRelationshipRules.skipped} skipped\n`,
@@ -620,9 +621,10 @@ function ruleNeedsUpdate(
   def: BaselineClassRelRuleDef,
 ): boolean {
   return (
-    existing.direction !== def.direction ||
-    existing.propagationOverride !== def.propagationOverride ||
-    existing.propagationWeight !== def.propagationWeight
+    (existing.direction as string) !== def.direction ||
+    (existing.propagationOverride as string | null) !==
+      def.propagationOverride ||
+    (existing.propagationWeight as string | null) !== def.propagationWeight
   );
 }
 
