@@ -19,11 +19,16 @@
 import { DataSource, Repository } from 'typeorm';
 import { CmdbCiClass } from '../ci-class/ci-class.entity';
 import { CmdbRelationshipType } from '../relationship-type/relationship-type.entity';
+import { CmdbCiClassRelationshipRule } from '../ci-class/ci-class-relationship-rule.entity';
 import { BASELINE_CLASSES, BaselineClassDef } from './classes';
 import {
   BASELINE_RELATIONSHIP_TYPES,
   BaselineRelTypeDef,
 } from './relationship-types';
+import {
+  BASELINE_CLASS_RELATIONSHIP_RULES,
+  BaselineClassRelRuleDef,
+} from './class-relationship-rules';
 import {
   CMDB_BASELINE_CONTENT_PACK_VERSION,
   CONTENT_PACK_SOURCE,
@@ -55,6 +60,13 @@ export interface ContentPackApplyResult {
     total: number;
   };
   relationshipTypes: {
+    created: number;
+    updated: number;
+    reused: number;
+    skipped: number;
+    total: number;
+  };
+  classRelationshipRules: {
     created: number;
     updated: number;
     reused: number;
@@ -108,6 +120,13 @@ export async function applyBaselineContentPack(
       skipped: 0,
       total: 0,
     },
+    classRelationshipRules: {
+      created: 0,
+      updated: 0,
+      reused: 0,
+      skipped: 0,
+      total: 0,
+    },
     actions: [],
     errors: [],
   };
@@ -119,6 +138,7 @@ export async function applyBaselineContentPack(
 
   const classRepo = ds.getRepository(CmdbCiClass);
   const relTypeRepo = ds.getRepository(CmdbRelationshipType);
+  const ruleRepo = ds.getRepository(CmdbCiClassRelationshipRule);
 
   // ── Phase 1: Apply CI Classes ──
   log('Phase 1: Applying CI class hierarchy...');
@@ -182,6 +202,37 @@ export async function applyBaselineContentPack(
       `${result.relationshipTypes.reused} reused, ${result.relationshipTypes.skipped} skipped\n`,
   );
 
+  // ── Phase 3: Apply Class Relationship Rules ──
+  log('Phase 3: Applying class relationship rules...');
+  for (const ruleDef of BASELINE_CLASS_RELATIONSHIP_RULES) {
+    try {
+      const action = await applyClassRelationshipRule(
+        ruleRepo,
+        tenantId,
+        adminUserId,
+        ruleDef,
+        dryRun,
+      );
+      result.actions.push({
+        entity: 'ClassRelRule',
+        name: `${ruleDef.sourceClassId}→${ruleDef.targetClassId}`,
+        action: action.action,
+        reason: action.reason,
+      });
+      result.classRelationshipRules[actionToKey(action.action)]++;
+      logAction(log, action.action, 'ClassRelRule', ruleDef.id, action.reason);
+    } catch (err) {
+      const msg = `Error applying class rel rule ${ruleDef.id}: ${String(err)}`;
+      result.errors.push(msg);
+      log(`   ERROR: ${msg}`);
+    }
+  }
+  result.classRelationshipRules.total = BASELINE_CLASS_RELATIONSHIP_RULES.length;
+  log(
+    `   Summary: ${result.classRelationshipRules.created} created, ${result.classRelationshipRules.updated} updated, ` +
+      `${result.classRelationshipRules.reused} reused, ${result.classRelationshipRules.skipped} skipped\n`,
+  );
+
   // ── Final Summary ──
   log('='.repeat(60));
   log(
@@ -192,6 +243,9 @@ export async function applyBaselineContentPack(
   );
   log(
     `  Rel Types: ${result.relationshipTypes.created}C / ${result.relationshipTypes.updated}U / ${result.relationshipTypes.reused}R / ${result.relationshipTypes.skipped}S`,
+  );
+  log(
+    `  Class Rel Rules: ${result.classRelationshipRules.created}C / ${result.classRelationshipRules.updated}U / ${result.classRelationshipRules.reused}R / ${result.classRelationshipRules.skipped}S`,
   );
   if (result.errors.length > 0) {
     log(`  Errors: ${result.errors.length}`);
@@ -436,6 +490,113 @@ async function applyRelationshipType(
 }
 
 // ============================================================================
+// Class Relationship Rule Apply Logic
+// ============================================================================
+
+async function applyClassRelationshipRule(
+  repo: Repository<CmdbCiClassRelationshipRule>,
+  tenantId: string,
+  adminUserId: string,
+  def: BaselineClassRelRuleDef,
+  dryRun: boolean,
+): Promise<ApplyActionResult> {
+  // 1. Check by deterministic ID
+  const existingById = await repo.findOne({
+    where: { id: def.id, tenantId },
+  });
+
+  if (existingById) {
+    if (existingById.isDeleted) {
+      // Soft-deleted — restore
+      if (!dryRun) {
+        await repo.update(existingById.id, {
+          isDeleted: false,
+          isSystem: true,
+          sourceClassId: def.sourceClassId,
+          relationshipTypeId: def.relationshipTypeId,
+          targetClassId: def.targetClassId,
+          direction: def.direction as never,
+          propagationOverride: def.propagationOverride as never,
+          propagationWeight: def.propagationWeight as never,
+          metadata: buildMetadata(existingById.metadata),
+          updatedBy: adminUserId,
+        });
+      }
+      return { action: 'UPDATED', reason: 'restored from soft-delete' };
+    }
+
+    // Check if needs update
+    const needsUpdate = ruleNeedsUpdate(existingById, def);
+    if (needsUpdate) {
+      if (!dryRun) {
+        await repo.update(existingById.id, {
+          isSystem: true,
+          direction: def.direction as never,
+          propagationOverride: def.propagationOverride as never,
+          propagationWeight: def.propagationWeight as never,
+          metadata: buildMetadata(existingById.metadata),
+          updatedBy: adminUserId,
+        });
+      }
+      return { action: 'UPDATED', reason: 'baseline rule updated' };
+    }
+
+    // Ensure isSystem flag
+    if (!existingById.isSystem) {
+      if (!dryRun) {
+        await repo.update(existingById.id, {
+          isSystem: true,
+          metadata: buildMetadata(existingById.metadata),
+        });
+      }
+      return { action: 'UPDATED', reason: 'marked as system rule' };
+    }
+
+    return { action: 'REUSED' };
+  }
+
+  // 2. Check by composite key (source+relType+target) for tenant
+  const existingByKey = await repo.findOne({
+    where: {
+      tenantId,
+      sourceClassId: def.sourceClassId,
+      relationshipTypeId: def.relationshipTypeId,
+      targetClassId: def.targetClassId,
+      isDeleted: false,
+    },
+  });
+
+  if (existingByKey) {
+    return {
+      action: 'SKIPPED',
+      reason: `rule already exists (id=${existingByKey.id})`,
+    };
+  }
+
+  // 3. Create new with deterministic ID
+  if (!dryRun) {
+    const entity = repo.create({
+      tenantId,
+      sourceClassId: def.sourceClassId,
+      relationshipTypeId: def.relationshipTypeId,
+      targetClassId: def.targetClassId,
+      direction: def.direction as never,
+      propagationOverride: def.propagationOverride as never,
+      propagationWeight: def.propagationWeight as never,
+      isActive: true,
+      isSystem: true,
+      metadata: buildMetadata(null),
+      createdBy: adminUserId,
+      isDeleted: false,
+    });
+    entity.id = def.id;
+    await repo.save(entity);
+  }
+
+  return { action: 'CREATED' };
+}
+
+// ============================================================================
 // Comparison helpers
 // ============================================================================
 
@@ -451,6 +612,17 @@ function classNeedsUpdate(
     existing.isAbstract !== def.isAbstract ||
     existing.sortOrder !== def.sortOrder ||
     JSON.stringify(existing.fieldsSchema) !== JSON.stringify(def.fieldsSchema)
+  );
+}
+
+function ruleNeedsUpdate(
+  existing: CmdbCiClassRelationshipRule,
+  def: BaselineClassRelRuleDef,
+): boolean {
+  return (
+    existing.direction !== def.direction ||
+    existing.propagationOverride !== def.propagationOverride ||
+    existing.propagationWeight !== def.propagationWeight
   );
 }
 

@@ -13,6 +13,11 @@ export {
   type BaselineRelTypeDef,
 } from './relationship-types';
 export {
+  RULE_IDS,
+  BASELINE_CLASS_RELATIONSHIP_RULES,
+  type BaselineClassRelRuleDef,
+} from './class-relationship-rules';
+export {
   applyBaselineContentPack,
   type ContentPackApplyOptions,
   type ContentPackApplyResult,

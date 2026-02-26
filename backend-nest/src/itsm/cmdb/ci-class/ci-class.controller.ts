@@ -23,6 +23,7 @@ import { Permission } from '../../../auth/permissions/permission.enum';
 import { CiClassService } from './ci-class.service';
 import { CiClassInheritanceService } from './ci-class-inheritance.service';
 import { CiClassDiagnosticsService } from './ci-class-diagnostics.service';
+import { CiClassRelationshipRuleService } from './ci-class-relationship-rule.service';
 import { CreateCiClassDto } from './dto/create-ci-class.dto';
 import { UpdateCiClassDto } from './dto/update-ci-class.dto';
 import { CiClassFilterDto } from './dto/ci-class-filter.dto';
@@ -41,6 +42,7 @@ export class CiClassController {
     private readonly ciClassService: CiClassService,
     private readonly inheritanceService: CiClassInheritanceService,
     private readonly diagnosticsService: CiClassDiagnosticsService,
+    private readonly ruleService: CiClassRelationshipRuleService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -341,6 +343,27 @@ export class CiClassController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     return this.diagnosticsService.diagnoseClass(tenantId, id);
+  }
+
+  /**
+   * GET /grc/cmdb/classes/:id/relationship-rules/effective
+   * Returns the effective (inheritance-aware) relationship rules for a class.
+   */
+  @Get(':id/relationship-rules/effective')
+  @Permissions(Permission.CMDB_REL_READ)
+  @Perf()
+  async getEffectiveRelationshipRules(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const cls = await this.ciClassService.findOneActiveForTenant(tenantId, id);
+    if (!cls) {
+      throw new NotFoundException(`CI Class with ID ${id} not found`);
+    }
+    return this.ruleService.getEffectiveRules(tenantId, id);
   }
 
   /**
