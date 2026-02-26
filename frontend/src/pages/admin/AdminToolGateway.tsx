@@ -677,9 +677,10 @@ export const AdminToolGateway: React.FC = () => {
                       label="Rate Limit (per minute)"
                       type="number"
                       value={policy.rateLimitPerMinute}
-                      onChange={(e) =>
-                        setPolicy({ ...policy, rateLimitPerMinute: parseInt(e.target.value, 10) || 60 })
-                      }
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10);
+                        setPolicy({ ...policy, rateLimitPerMinute: Number.isNaN(parsed) ? policy.rateLimitPerMinute : parsed });
+                      }}
                       fullWidth
                       sx={{ mb: 2 }}
                       inputProps={{ min: 1, max: 1000 }}
@@ -689,9 +690,10 @@ export const AdminToolGateway: React.FC = () => {
                       label="Max Tool Calls Per Run"
                       type="number"
                       value={policy.maxToolCallsPerRun}
-                      onChange={(e) =>
-                        setPolicy({ ...policy, maxToolCallsPerRun: parseInt(e.target.value, 10) || 10 })
-                      }
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10);
+                        setPolicy({ ...policy, maxToolCallsPerRun: Number.isNaN(parsed) ? policy.maxToolCallsPerRun : parsed });
+                      }}
                       fullWidth
                       sx={{ mb: 2 }}
                       inputProps={{ min: 1, max: 100 }}
