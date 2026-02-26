@@ -463,6 +463,7 @@ export class IncidentCopilotService {
     let totalChars = 0;
     for (const [key, value] of Object.entries(data)) {
       if (totalChars >= MAX_SN_RECORD_CHARS) break;
+      if (value === null || value === undefined) continue;
       const strVal = typeof value === 'string' ? value : JSON.stringify(value);
       const bounded = strVal.substring(0, 500);
       truncated[key] = bounded;
