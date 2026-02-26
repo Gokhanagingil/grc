@@ -2,11 +2,11 @@
  * Regression tests for CmdbCiDetail component — CI Relationship target selector
  *
  * Issue #5: CI Relationship popup cannot select target CI (Target CI dropdown empty)
- * Root cause: fetchAllCis only handled nested {data: {data: {items: [...]}}} envelope format.
- * Fix: Added multiple envelope format handlers and error fallback with setAllCis([]).
+ * Root cause: Old implementation used fetchAllCis with cis.list; new implementation uses
+ * searchCis with cis.search endpoint and an Autocomplete component.
  *
- * Note: fetchAllCis is triggered ONLY when the user clicks "Create Relationship" button,
- * NOT on component mount. Tests simulate this interaction.
+ * The CI search is triggered by typing in the Autocomplete field (debounced),
+ * NOT by clicking "Create Relationship".
  */
 
 import React from 'react';
@@ -17,10 +17,11 @@ import { CmdbCiDetail } from '../CmdbCiDetail';
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
 const mockShowNotification = jest.fn();
-const mockCisList = jest.fn();
+const mockCisSearch = jest.fn();
 const mockCisGet = jest.fn();
 const mockClassesList = jest.fn();
 const mockRelationshipsList = jest.fn();
+const mockRelTypesList = jest.fn();
 
 jest.mock('react-router-dom', () => {
   const R = require('react');
@@ -47,8 +48,9 @@ jest.mock('../../../hooks/useItsmChoices', () => ({
 jest.mock('../../../services/grcClient', () => ({
   cmdbApi: {
     cis: {
-      list: (params: unknown) => mockCisList(params),
+      list: jest.fn().mockResolvedValue({ data: { data: { items: [], total: 0 } } }),
       get: (id: string) => mockCisGet(id),
+      search: (params: unknown) => mockCisSearch(params),
       create: jest.fn().mockResolvedValue({ data: { data: { id: 'new-ci' } } }),
       update: jest.fn().mockResolvedValue({ data: {} }),
     },
@@ -60,6 +62,9 @@ jest.mock('../../../services/grcClient', () => ({
       list: (params: unknown) => mockRelationshipsList(params),
       create: jest.fn().mockResolvedValue({ data: {} }),
       delete: jest.fn().mockResolvedValue({ data: {} }),
+    },
+    relationshipTypes: {
+      list: (params: unknown) => mockRelTypesList(params),
     },
     serviceCi: {
       servicesForCi: () => Promise.resolve({ data: { data: { items: [] } } }),
@@ -90,26 +95,33 @@ jest.mock('../../../components/cmdb/SchemaFieldRenderer', () => ({
   SchemaFieldRenderer: () => null,
 }));
 
-const MOCK_CI= {
+const MOCK_CI = {
   id: 'ci-1', name: 'web-server-01', classId: 'cls-server', lifecycle: 'active',
   environment: 'production', attributes: {}, description: '',
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
 };
 
-const MOCK_CI_LIST = [
-  { id: 'ci-2', name: 'db-server-01', classId: 'cls-db', lifecycle: 'active' },
-  { id: 'ci-3', name: 'app-server-01', classId: 'cls-app', lifecycle: 'active' },
+const MOCK_SEARCH_RESULTS = [
+  { id: 'ci-2', name: 'db-server-01', classId: 'cls-db', classLabel: 'Database', lifecycle: 'active' },
+  { id: 'ci-3', name: 'app-server-01', classId: 'cls-app', classLabel: 'Application Server', lifecycle: 'active' },
+];
+
+const MOCK_REL_TYPES = [
+  { id: 'rt-1', name: 'depends_on', label: 'Depends On', inverseLabel: 'Depended On By' },
+  { id: 'rt-2', name: 'hosted_on', label: 'Hosted On', inverseLabel: 'Hosts' },
 ];
 
 const setupDefaults = () => {
   mockCisGet.mockResolvedValue({ data: { data: MOCK_CI } });
   mockClassesList.mockResolvedValue({ data: { data: { items: [], total: 0 } } });
   mockRelationshipsList.mockResolvedValue({ data: { data: [] } });
+  mockCisSearch.mockResolvedValue({ data: { data: { items: MOCK_SEARCH_RESULTS, total: 2 } } });
+  mockRelTypesList.mockResolvedValue({ data: { data: { items: MOCK_REL_TYPES, total: 2 } } });
 };
 
 /**
- * Helper: render in detail mode and click "Create Relationship" button to trigger fetchAllCis.
- * fetchAllCis is ONLY invoked on that button click, not on component mount.
+ * Helper: render in detail mode and click "Create Relationship" button to open dialog.
+ * Note: CI search is now triggered by typing in the Autocomplete, not by the button click.
  */
 const renderAndOpenRelDialog = async () => {
   render(<CmdbCiDetail />);
@@ -119,82 +131,69 @@ const renderAndOpenRelDialog = async () => {
     expect(screen.getByTestId('btn-create-relationship')).toBeInTheDocument();
   });
 
-  // Click "Create Relationship" → triggers fetchAllCis()
+  // Click "Create Relationship" → opens dialog
   fireEvent.click(screen.getByTestId('btn-create-relationship'));
 };
 
 describe('CmdbCiDetail — Regression #5: CI Relationship target selector empty', () => {
   beforeEach(() => { jest.clearAllMocks(); setupDefaults(); });
 
-  describe('fetchAllCis — response envelope parsing (triggered via Create Relationship button)', () => {
-    it('should call cis.list with pageSize 200 when Create Relationship clicked', async () => {
+  describe('searchCis — Autocomplete-based CI search', () => {
+    it('should open Create Relationship dialog with Autocomplete when button clicked', async () => {
       mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { data: { items: MOCK_CI_LIST, total: 2 } } });
+
+      await renderAndOpenRelDialog();
+
+      // The dialog should be open with the create relationship form
+      expect(screen.getByText('Create CI Relationship')).toBeInTheDocument();
+      // Autocomplete-based target CI field should be present
+      expect(screen.getByTestId('autocomplete-rel-target-ci')).toBeInTheDocument();
+    });
+
+    it('should handle search API error gracefully without crash', async () => {
+      mockUseParams.mockReturnValue({ id: 'ci-1' });
+      mockCisSearch.mockRejectedValue(new Error('Network error'));
+
+      await renderAndOpenRelDialog();
+
+      // Dialog should still be open even if search fails
+      expect(screen.getByText('Create CI Relationship')).toBeInTheDocument();
+    });
+
+    it('should handle empty search results', async () => {
+      mockUseParams.mockReturnValue({ id: 'ci-1' });
+      mockCisSearch.mockResolvedValue({ data: { data: { items: [], total: 0 } } });
+
+      await renderAndOpenRelDialog();
+
+      expect(screen.getByText('Create CI Relationship')).toBeInTheDocument();
+    });
+
+    it('should handle null data gracefully', async () => {
+      mockUseParams.mockReturnValue({ id: 'ci-1' });
+      mockCisSearch.mockResolvedValue({ data: null });
+
+      await renderAndOpenRelDialog();
+
+      expect(screen.getByText('Create CI Relationship')).toBeInTheDocument();
+    });
+  });
+
+  describe('Relationship types loaded from API', () => {
+    it('should fetch relationship types when dialog opens', async () => {
+      mockUseParams.mockReturnValue({ id: 'ci-1' });
 
       await renderAndOpenRelDialog();
 
       await waitFor(() => {
-        expect(mockCisList).toHaveBeenCalledWith({ pageSize: 200 });
+        expect(mockRelTypesList).toHaveBeenCalledWith({ pageSize: 100 });
       });
-    });
-
-    it('should parse nested envelope {data: {data: {items: [...]}}}', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { data: { items: MOCK_CI_LIST, total: 2 } } });
-
-      await renderAndOpenRelDialog();
-
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
-
-      // The dialog should be open with the create relationship form
-      expect(screen.getByText('Create CI Relationship')).toBeInTheDocument();
-    });
-
-    it('should parse flat array envelope {data: {data: [...]}}', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { data: MOCK_CI_LIST } });
-
-      await renderAndOpenRelDialog();
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
-    });
-
-    it('should parse top-level items envelope {data: {items: [...]}}', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { items: MOCK_CI_LIST, total: 2 } });
-
-      await renderAndOpenRelDialog();
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
-    });
-
-    it('should handle null data gracefully without crash', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: null });
-
-      await renderAndOpenRelDialog();
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
-    });
-
-    it('should handle empty items array', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { data: { items: [], total: 0 } } });
-
-      await renderAndOpenRelDialog();
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
-    });
-
-    it('should handle API error by setting allCis to empty array', async () => {
-      mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockRejectedValue(new Error('Network error'));
-
-      await renderAndOpenRelDialog();
-      await waitFor(() => { expect(mockCisList).toHaveBeenCalled(); });
     });
   });
 
   describe('Component renders without crash', () => {
     it('should render in edit mode for existing CI', async () => {
       mockUseParams.mockReturnValue({ id: 'ci-1' });
-      mockCisList.mockResolvedValue({ data: { data: { items: MOCK_CI_LIST, total: 2 } } });
 
       expect(() => { render(<CmdbCiDetail />); }).not.toThrow();
       await waitFor(() => { expect(mockCisGet).toHaveBeenCalledWith('ci-1'); });
@@ -202,7 +201,6 @@ describe('CmdbCiDetail — Regression #5: CI Relationship target selector empty'
 
     it('should render create mode without crash', () => {
       mockUseParams.mockReturnValue({});
-      mockCisList.mockResolvedValue({ data: { data: { items: [], total: 0 } } });
 
       expect(() => { render(<CmdbCiDetail />); }).not.toThrow();
     });

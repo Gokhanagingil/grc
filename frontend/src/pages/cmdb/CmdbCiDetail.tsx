@@ -1009,7 +1009,7 @@ export const CmdbCiDetail: React.FC = () => {
                 `${option.name}${option.classLabel ? ` (${option.classLabel})` : ''}`
               }
               loading={ciSearchLoading}
-              onInputChange={(_e, value) => setCiSearchQuery(value)}
+              onInputChange={(_e, value, reason) => { if (reason === 'input') setCiSearchQuery(value); }}
               onChange={(_e, value) => setRelTargetCiId(value?.id || '')}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               noOptionsText={ciSearchQuery ? 'No CIs found' : 'Type to search...'}
