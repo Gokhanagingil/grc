@@ -257,7 +257,8 @@ cp backend-nest/.env.production.template backend-nest/.env
 
 # Generate required secrets (use sed to replace placeholders, not append)
 sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" backend-nest/.env
-sed -i "s|^REFRESH_TOKEN_SECRET=.*|REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)|" backend-nest/.env
+# REFRESH_TOKEN_SECRET is not in the template — append it
+echo "REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)" >> backend-nest/.env
 # Append keys not in template
 echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> backend-nest/.env
 ```
@@ -271,9 +272,9 @@ echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> backend-nest/.env
 | `REFRESH_TOKEN_EXPIRES_IN` | Yes | e.g., `7d` | Refresh token TTL |
 | `DB_HOST` | Yes | `db` (container name) | PostgreSQL host |
 | `DB_PORT` | Yes | `5432` | PostgreSQL port |
-| `DB_USERNAME` | Yes | — | PostgreSQL user |
+| `DB_USER` | Yes | — | PostgreSQL user |
 | `DB_PASSWORD` | Yes | — | PostgreSQL password |
-| `DB_DATABASE` | Yes | — | PostgreSQL database name |
+| `DB_NAME` | Yes | — | PostgreSQL database name |
 | `DB_SYNC` | Yes | `false` | **MUST be false** in production |
 | `NODE_ENV` | Yes | `production` | Runtime environment |
 | `PORT` | Yes | `3002` | Backend listening port |
@@ -521,12 +522,12 @@ docker compose -f docker-compose.staging.yml logs backend 2>&1 | grep -i error
 ```bash
 # Create timestamped backup
 docker compose -f docker-compose.staging.yml exec -T db \
-  pg_dump -U <DB_USERNAME> <DB_DATABASE> \
+  pg_dump -U <DB_USER> <DB_NAME> \
   > /opt/grc-platform/backups/grc_$(date +%Y%m%d_%H%M%S).sql
 
 # Compressed backup
 docker compose -f docker-compose.staging.yml exec -T db \
-  pg_dump -U <DB_USERNAME> <DB_DATABASE> | gzip \
+  pg_dump -U <DB_USER> <DB_NAME> | gzip \
   > /opt/grc-platform/backups/grc_$(date +%Y%m%d_%H%M%S).sql.gz
 ```
 
@@ -538,7 +539,7 @@ docker compose -f docker-compose.staging.yml stop backend
 
 # Restore from backup
 docker compose -f docker-compose.staging.yml exec -T db \
-  psql -U <DB_USERNAME> <DB_DATABASE> \
+  psql -U <DB_USER> <DB_NAME> \
   < /opt/grc-platform/backups/grc_YYYYMMDD_HHMMSS.sql
 
 # Restart backend
