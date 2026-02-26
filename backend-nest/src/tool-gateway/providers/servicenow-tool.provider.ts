@@ -486,7 +486,11 @@ export class ServiceNowToolProvider {
             string,
             string
           >;
-          const BLOCKED_HEADER_KEYS = new Set(['authorization', 'host', 'cookie']);
+          const BLOCKED_HEADER_KEYS = new Set([
+            'authorization',
+            'host',
+            'cookie',
+          ]);
           for (const [key, value] of Object.entries(customHeaders)) {
             if (!BLOCKED_HEADER_KEYS.has(key.toLowerCase())) {
               headers[key] = value;

@@ -444,7 +444,9 @@ export class ToolGatewayService {
     }
 
     // 4. SSRF validation on base URL before outbound request
-    const ssrfResult = this.ssrfGuardService.validateUrl(providerConfig.baseUrl);
+    const ssrfResult = this.ssrfGuardService.validateUrl(
+      providerConfig.baseUrl,
+    );
     if (!ssrfResult.valid) {
       await this.logToolAuditEvent({
         tenantId,

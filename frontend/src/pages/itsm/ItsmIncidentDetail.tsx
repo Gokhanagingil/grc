@@ -41,6 +41,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
 import { CopilotPanel } from '../../components/copilot/CopilotPanel';
+import { IncidentCopilotPanel } from '../../components/copilot/IncidentCopilotPanel';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { IncidentImpactTab } from '../../components/itsm/IncidentImpactTab';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
@@ -188,6 +189,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   const [showRisksSection, setShowRisksSection] = useState(false);
   const [showControlsSection, setShowControlsSection] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [aiCopilotOpen, setAiCopilotOpen] = useState(false);
 
   // SLA linkage state
   const [slaInstances, setSlaInstances] = useState<SlaInstanceRecord[]>([]);
@@ -657,6 +659,16 @@ export const ItsmIncidentDetail: React.FC = () => {
               >
                 Copilot
               </Button>
+              <Button
+                variant="contained"
+                startIcon={<CopilotIcon />}
+                onClick={() => setAiCopilotOpen(true)}
+                color="primary"
+                size="small"
+                data-testid="ai-copilot-btn"
+              >
+                AI Analyze
+              </Button>
             </>
           )}
           <Button
@@ -1107,6 +1119,15 @@ export const ItsmIncidentDetail: React.FC = () => {
           open={copilotOpen}
           onClose={() => setCopilotOpen(false)}
           incidentSysId={incident.id}
+          incidentNumber={incident.number}
+        />
+      )}
+
+      {!isNew && incident.id && incident.number && (
+        <IncidentCopilotPanel
+          open={aiCopilotOpen}
+          onClose={() => setAiCopilotOpen(false)}
+          incidentId={incident.id}
           incidentNumber={incident.number}
         />
       )}
