@@ -84,8 +84,8 @@ export class IncidentCopilotController {
       throw new BadRequestException('x-tenant-id header is required');
     }
 
-    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
-    const parsedPageSize = Math.max(1, Math.min(parseInt(pageSize, 10) || 10, 50));
+    const parsedPage = Math.max(1, parseInt(page ?? '1', 10) || 1);
+    const parsedPageSize = Math.max(1, Math.min(parseInt(pageSize ?? '10', 10) || 10, 50));
 
     const result = await this.copilotService.listAnalyses(
       tenantId,
