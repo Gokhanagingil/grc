@@ -22,6 +22,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlatformModule } from './platform/platform.module';
 import { AdminModule } from './admin/admin.module';
 import { AiAdminModule } from './ai-admin/ai-admin.module';
+import { ToolGatewayModule } from './tool-gateway/tool-gateway.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PlatformHealthModule } from './platform-health/platform-health.module';
@@ -176,6 +177,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // AI Control Center v1 (provider config, feature policy, audit)
     AiAdminModule,
+
+    // Tool Gateway v1.1 (ServiceNow read-only integration, tool governance)
+    ToolGatewayModule,
 
     // Notifications Foundation (Email + Webhook with audit logging)
     NotificationsModule,

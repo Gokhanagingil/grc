@@ -52,6 +52,7 @@ import { GuardsModule } from '../common/guards';
     NotificationEngineService,
     SafeTemplateService,
     WebhookDeliveryService,
+    SsrfGuardService,
   ],
 })
 export class NotificationEngineModule {}
