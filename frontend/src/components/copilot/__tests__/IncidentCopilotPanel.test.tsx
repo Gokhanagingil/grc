@@ -214,11 +214,11 @@ describe('IncidentCopilotPanel', () => {
   });
 
   it('does not render when open is false', () => {
-    const { container } = render(
+    render(
       <IncidentCopilotPanel {...defaultProps} open={false} />,
     );
 
     // MUI Drawer with open=false should not render the panel content visibly
-    expect(container.querySelector('[data-testid="copilot-analyze-btn"]')).toBeNull();
+    expect(screen.queryByTestId('copilot-analyze-btn')).toBeNull();
   });
 });
