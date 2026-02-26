@@ -28,7 +28,6 @@ import {
   PropagationPolicy,
   PropagationWeight,
   RuleDirection,
-  unwrapResponse,
   ensureArray,
 } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
