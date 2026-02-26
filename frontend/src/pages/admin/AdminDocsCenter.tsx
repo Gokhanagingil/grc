@@ -144,18 +144,28 @@ function extractMetadata(markdown: string): { version?: string; lastUpdated?: st
 function markdownToHtml(md: string): string {
   let html = md;
 
-  // Code blocks (fenced) — must be first
+  // Code blocks (fenced) — extract into placeholders to protect from subsequent regexes
+  const codeBlocks: string[] = [];
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang, code) => {
     const escaped = code
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     const langAttr = lang ? ` data-lang="${lang}"` : '';
-    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang">${lang || 'text'}</span><button class="copy-code-btn" title="Copy code">Copy</button></div><pre><code${langAttr}>${escaped}</code></pre></div>`;
+    const rendered = `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang">${lang || 'text'}</span><button class="copy-code-btn" title="Copy code">Copy</button></div><pre><code${langAttr}>${escaped}</code></pre></div>`;
+    const idx = codeBlocks.length;
+    codeBlocks.push(rendered);
+    return `%%CODE_BLOCK_${idx}%%`;
   });
 
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+  // Inline code — escape angle brackets to prevent DOMPurify stripping placeholders
+  html = html.replace(/`([^`]+)`/g, (_match, code) => {
+    const escaped = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<code class="inline-code">${escaped}</code>`;
+  });
 
   // Tables
   html = html.replace(
@@ -231,10 +241,15 @@ function markdownToHtml(md: string): string {
   // Horizontal rules
   html = html.replace(/^---$/gm, '<hr/>');
 
-  // Paragraphs — wrap remaining non-tag lines
-  html = html.replace(/^(?!<[a-z/])(.+)$/gm, '<p>$1</p>');
+  // Paragraphs — wrap remaining non-tag lines (skip code block placeholders)
+  html = html.replace(/^(?!<[a-z/])(?!%%CODE_BLOCK_)(.+)$/gm, '<p>$1</p>');
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // Restore code blocks from placeholders (use function replacement to avoid $-pattern issues)
+  for (let i = 0; i < codeBlocks.length; i++) {
+    html = html.replace(`%%CODE_BLOCK_${i}%%`, () => codeBlocks[i]);
+  }
 
   return html;
 }
