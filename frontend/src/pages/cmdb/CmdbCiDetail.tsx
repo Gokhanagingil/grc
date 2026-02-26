@@ -991,7 +991,7 @@ export const CmdbCiDetail: React.FC = () => {
       {/* Create CI-to-CI Relationship Dialog */}
       <Dialog
         open={createRelDialogOpen}
-        onClose={() => setCreateRelDialogOpen(false)}
+        onClose={() => { setCreateRelDialogOpen(false); setRelTargetCiId(''); setCiSearchQuery(''); setCiSearchResults([]); }}
         maxWidth="sm"
         fullWidth
       >
@@ -1066,7 +1066,7 @@ export const CmdbCiDetail: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateRelDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setCreateRelDialogOpen(false); setRelTargetCiId(''); setCiSearchQuery(''); setCiSearchResults([]); }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleCreateRelationship}
