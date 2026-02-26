@@ -702,6 +702,9 @@ export const CmdbCiDetail: React.FC = () => {
                   // Phase 4: Filter out schema fields that duplicate entity-level columns
                   .filter((field) => {
                     const ENTITY_COLUMN_KEYS = new Set([
+                      'name',
+                      'description',
+                      'environment',
                       'ip_address', 'ipAddress', 'ip_addr',
                       'dns_name', 'dnsName', 'dns',
                       'asset_tag', 'assetTag',
