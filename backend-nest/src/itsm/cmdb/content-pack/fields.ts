@@ -570,6 +570,78 @@ export const LOAD_BALANCER_FIELDS: CiClassFieldDefinition[] = [
   },
 ];
 
+// Router-specific fields
+export const ROUTER_FIELDS: CiClassFieldDefinition[] = [
+  {
+    key: 'routing_protocol',
+    label: 'Routing Protocol',
+    dataType: 'enum',
+    choices: ['BGP', 'OSPF', 'EIGRP', 'RIP', 'STATIC', 'IS-IS', 'OTHER'],
+    order: 80,
+    group: 'Router',
+    helpText: 'Primary routing protocol in use.',
+  },
+  {
+    key: 'wan_interfaces',
+    label: 'WAN Interfaces',
+    dataType: 'number',
+    order: 81,
+    group: 'Router',
+    helpText: 'Number of WAN-facing interfaces.',
+  },
+  // Override device_type to ROUTER
+  {
+    key: 'device_type',
+    label: 'Device Type',
+    dataType: 'enum',
+    choices: ['ROUTER'],
+    readOnly: true,
+    defaultValue: 'ROUTER',
+    order: 61,
+    group: 'Network',
+  },
+];
+
+// Switch-specific fields
+export const SWITCH_FIELDS: CiClassFieldDefinition[] = [
+  {
+    key: 'switch_type',
+    label: 'Switch Type',
+    dataType: 'enum',
+    choices: ['ACCESS', 'DISTRIBUTION', 'CORE', 'TOR', 'VIRTUAL', 'OTHER'],
+    order: 80,
+    group: 'Switch',
+    helpText: 'Type of switch in the network topology.',
+  },
+  {
+    key: 'vlan_count',
+    label: 'VLAN Count',
+    dataType: 'number',
+    order: 81,
+    group: 'Switch',
+    helpText: 'Number of VLANs configured.',
+  },
+  {
+    key: 'poe_capable',
+    label: 'PoE Capable',
+    dataType: 'boolean',
+    order: 82,
+    group: 'Switch',
+    helpText: 'Whether the switch supports Power over Ethernet.',
+  },
+  // Override device_type to SWITCH
+  {
+    key: 'device_type',
+    label: 'Device Type',
+    dataType: 'enum',
+    choices: ['SWITCH'],
+    readOnly: true,
+    defaultValue: 'SWITCH',
+    order: 61,
+    group: 'Network',
+  },
+];
+
 // Storage-specific fields
 export const STORAGE_FIELDS: CiClassFieldDefinition[] = [
   {

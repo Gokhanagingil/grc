@@ -65,6 +65,56 @@ export class CiController {
     return this.ciService.createCi(tenantId, req.user.id, dto);
   }
 
+  /**
+   * Lightweight search endpoint for CI autocomplete/picker.
+   * Returns a compact list of CIs matching the query string.
+   */
+  @Get('search')
+  @Permissions(Permission.CMDB_CI_READ)
+  @Perf()
+  async search(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const take = Math.min(Math.max(1, parseInt(limit || '20', 10) || 20), 100);
+    // Request one extra item when excludeId is set so we still return `take` results
+    const fetchSize = excludeId ? take + 1 : take;
+    const filterDto = Object.assign(new CiFilterDto(), {
+      q: q || undefined,
+      page: 1,
+      pageSize: fetchSize,
+    });
+    const result = await this.ciService.findWithFilters(tenantId, filterDto);
+    let items = result.items;
+    let total = result.total;
+    if (excludeId) {
+      const beforeLen = items.length;
+      items = items.filter((ci) => ci.id !== excludeId);
+      if (items.length < beforeLen) {
+        total = Math.max(0, total - 1);
+      }
+      // Trim back to requested limit
+      items = items.slice(0, take);
+    }
+    return {
+      items: items.map((ci) => ({
+        id: ci.id,
+        name: ci.name,
+        classId: ci.classId,
+        className: ci.ciClass?.name || null,
+        classLabel: ci.ciClass?.label || null,
+        lifecycle: ci.lifecycle,
+        environment: ci.environment,
+      })),
+      total,
+    };
+  }
+
   @Get(':id')
   @Permissions(Permission.CMDB_CI_READ)
   @Perf()

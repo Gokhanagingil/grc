@@ -532,6 +532,7 @@ export const API_PATHS = {
     },
     CIS: {
       LIST: '/grc/cmdb/cis',
+      SEARCH: '/grc/cmdb/cis/search',
       GET: (id: string) => `/grc/cmdb/cis/${id}`,
       CREATE: '/grc/cmdb/cis',
       UPDATE: (id: string) => `/grc/cmdb/cis/${id}`,
@@ -5166,6 +5167,14 @@ export const cmdbApi = {
       if (params?.environment) searchParams.set('environment', params.environment);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.CMDB.CIS.LIST}${queryString ? `?${queryString}` : ''}`);
+    },
+    search: (params?: { q?: string; limit?: number; excludeId?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.q) searchParams.set('q', params.q);
+      if (params?.limit) searchParams.set('limit', String(params.limit));
+      if (params?.excludeId) searchParams.set('excludeId', params.excludeId);
+      const queryString = searchParams.toString();
+      return api.get(`${API_PATHS.CMDB.CIS.SEARCH}${queryString ? `?${queryString}` : ''}`);
     },
     get: (id: string) => api.get(API_PATHS.CMDB.CIS.GET(id)),
     create: (data: CreateCmdbCiDto) => api.post(API_PATHS.CMDB.CIS.CREATE, data),

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -44,6 +45,7 @@ import {
   CmdbCiRelData,
   CmdbServiceCiData,
   CmdbServiceData,
+  CmdbRelationshipTypeData,
   CreateCmdbCiRelDto,
   EffectiveSchemaResponse,
 } from '../../services/grcClient';
@@ -52,6 +54,21 @@ import { extractPaginatedItems } from '../../utils/safeHelpers';
 import { TopologyPanel } from '../../components/cmdb/TopologyPanel';
 import { SchemaFieldRenderer } from '../../components/cmdb/SchemaFieldRenderer';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
+
+/**
+ * Keys that map to entity-level CI columns (rendered in the CI Details card).
+ * These must be excluded from both the class-fields rendering AND validation
+ * to avoid duplicate display and phantom required-field errors.
+ */
+const ENTITY_COLUMN_KEYS = new Set([
+  'name',
+  'description',
+  'environment',
+  'ip_address', 'ipAddress', 'ip_addr',
+  'dns_name', 'dnsName', 'dns',
+  'asset_tag', 'assetTag',
+  'serial_number', 'serialNumber', 'serial',
+]);
 
 const FALLBACK_CHOICES: Record<string, ChoiceOption[]> = {
   lifecycle: [
@@ -105,11 +122,17 @@ export const CmdbCiDetail: React.FC = () => {
 
   // CI-to-CI Relationship creation state
   const [createRelDialogOpen, setCreateRelDialogOpen] = useState(false);
-  const [allCis, setAllCis] = useState<CmdbCiData[]>([]);
+  const [ciSearchQuery, setCiSearchQuery] = useState('');
+  const [ciSearchResults, setCiSearchResults] = useState<Array<{ id: string; name: string; classLabel: string | null }>>([]);
+  const [ciSearchLoading, setCiSearchLoading] = useState(false);
   const [relTargetCiId, setRelTargetCiId] = useState('');
   const [relType, setRelType] = useState('depends_on');
   const [relNotes, setRelNotes] = useState('');
   const [creatingRel, setCreatingRel] = useState(false);
+
+  // Relationship types loaded from API
+  const [relationshipTypes, setRelationshipTypes] = useState<CmdbRelationshipTypeData[]>([]);
+  const [relTypesLoading, setRelTypesLoading] = useState(false);
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -189,17 +212,46 @@ export const CmdbCiDetail: React.FC = () => {
     }
   }, []);
 
-  const fetchAllCis = useCallback(async () => {
+  const searchCis = useCallback(async (query: string) => {
+    setCiSearchLoading(true);
     try {
-      const response = await cmdbApi.cis.list({ pageSize: 200 });
-      const items = extractPaginatedItems<CmdbCiData>(response.data);
-      // Filter out current CI from the list
-      setAllCis(id ? items.filter(c => c.id !== id) : items);
+      const response = await cmdbApi.cis.search({ q: query || undefined, limit: 20, excludeId: id || undefined });
+      const data = response.data;
+      // Unwrap: { success, data: { items } } or { items } or { data: { items } }
+      let items: Array<{ id: string; name: string; classLabel: string | null }> = [];
+      if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>;
+        if ('data' in obj && obj.data && typeof obj.data === 'object') {
+          const inner = obj.data as Record<string, unknown>;
+          if ('items' in inner && Array.isArray(inner.items)) {
+            items = inner.items as Array<{ id: string; name: string; classLabel: string | null }>;
+          }
+        } else if ('items' in obj && Array.isArray(obj.items)) {
+          items = obj.items as Array<{ id: string; name: string; classLabel: string | null }>;
+        }
+      }
+      setCiSearchResults(items);
     } catch (err) {
-      console.error('Error fetching CIs for relationship selector:', err);
-      setAllCis([]);
+      console.error('Error searching CIs:', err);
+      setCiSearchResults([]);
+    } finally {
+      setCiSearchLoading(false);
     }
   }, [id]);
+
+  const fetchRelationshipTypes = useCallback(async () => {
+    setRelTypesLoading(true);
+    try {
+      const response = await cmdbApi.relationshipTypes.list({ pageSize: 100 });
+      const items = extractPaginatedItems<CmdbRelationshipTypeData>(response.data);
+      setRelationshipTypes(items);
+    } catch (err) {
+      console.error('Error fetching relationship types:', err);
+      setRelationshipTypes([]);
+    } finally {
+      setRelTypesLoading(false);
+    }
+  }, []);
 
   const handleCreateRelationship = async () => {
     if (!id || !relTargetCiId) return;
@@ -218,6 +270,8 @@ export const CmdbCiDetail: React.FC = () => {
       setRelTargetCiId('');
       setRelType('depends_on');
       setRelNotes('');
+      setCiSearchQuery('');
+      setCiSearchResults([]);
       fetchRelationships();
     } catch (err) {
       console.error('Error creating relationship:', err);
@@ -253,7 +307,17 @@ export const CmdbCiDetail: React.FC = () => {
     fetchRelationships();
     fetchRelatedServices();
     fetchAllServices();
-  }, [fetchClasses, fetchCi, fetchRelationships, fetchRelatedServices, fetchAllServices]);
+    fetchRelationshipTypes();
+  }, [fetchClasses, fetchCi, fetchRelationships, fetchRelatedServices, fetchAllServices, fetchRelationshipTypes]);
+
+  // Debounced CI search for relationship target autocomplete
+  useEffect(() => {
+    if (!createRelDialogOpen) return;
+    const timer = setTimeout(() => {
+      searchCis(ciSearchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ciSearchQuery, createRelDialogOpen, searchCis]);
 
   const handleLinkService = async () => {
     if (!id || !selectedServiceId) return;
@@ -312,6 +376,8 @@ export const CmdbCiDetail: React.FC = () => {
     const attrs = ci.attributes || {};
     const errors: Record<string, string> = {};
     for (const field of effectiveSchema.effectiveFields) {
+      // Skip fields rendered as entity-level columns (same filter as rendering)
+      if (ENTITY_COLUMN_KEYS.has(field.key)) continue;
       const val = attrs[field.key];
       // Required check
       if (field.required && (val === undefined || val === null || val === '')) {
@@ -357,10 +423,23 @@ export const CmdbCiDetail: React.FC = () => {
           serialNumber: ci.serialNumber,
           attributes: ci.attributes,
         });
-        const data = response.data;
-        if (data && 'data' in data && data.data?.id) {
+        // Unwrap envelope: axios.data = { success, data: entity } or { data: entity } or entity
+        const raw = response.data;
+        let createdId: string | undefined;
+        if (raw && typeof raw === 'object') {
+          const obj = raw as Record<string, unknown>;
+          if ('data' in obj && obj.data && typeof obj.data === 'object') {
+            const inner = obj.data as Record<string, unknown>;
+            createdId = inner.id as string | undefined;
+          } else if ('id' in obj) {
+            createdId = obj.id as string | undefined;
+          }
+        }
+        if (createdId) {
           showNotification('Configuration item created successfully', 'success');
-          navigate(`/cmdb/cis/${data.data.id}`);
+          navigate(`/cmdb/cis/${createdId}`);
+        } else {
+          showNotification('CI created but could not determine ID', 'warning');
         }
       } else if (id) {
         await cmdbApi.cis.update(id, {
@@ -637,6 +716,8 @@ export const CmdbCiDetail: React.FC = () => {
               <Grid container spacing={3}>
                 {effectiveSchema.effectiveFields
                   .slice()
+                  // Phase 4: Filter out schema fields that duplicate entity-level columns
+                  .filter((field) => !ENTITY_COLUMN_KEYS.has(field.key))
                   .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                   .map((field) => (
                     <Grid
@@ -754,7 +835,6 @@ export const CmdbCiDetail: React.FC = () => {
                 variant="outlined"
                 startIcon={<AddIcon />}
                 onClick={() => {
-                  fetchAllCis();
                   setCreateRelDialogOpen(true);
                 }}
                 data-testid="btn-create-relationship"
@@ -873,12 +953,24 @@ export const CmdbCiDetail: React.FC = () => {
                 label="Relationship Type"
                 data-testid="select-link-rel-type"
               >
-                <MenuItem value="depends_on">Depends On</MenuItem>
-                <MenuItem value="hosted_on">Hosted On</MenuItem>
-                <MenuItem value="consumed_by">Consumed By</MenuItem>
-                <MenuItem value="supports">Supports</MenuItem>
-                <MenuItem value="managed_by">Managed By</MenuItem>
-                <MenuItem value="monitored_by">Monitored By</MenuItem>
+                {relTypesLoading ? (
+                  <MenuItem disabled>Loading...</MenuItem>
+                ) : relationshipTypes.length > 0 ? (
+                  relationshipTypes.map((rt) => (
+                    <MenuItem key={rt.id} value={rt.name}>
+                      {rt.label || rt.name}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <>
+                    <MenuItem value="depends_on">Depends On</MenuItem>
+                    <MenuItem value="hosted_on">Hosted On</MenuItem>
+                    <MenuItem value="consumed_by">Consumed By</MenuItem>
+                    <MenuItem value="supports">Supports</MenuItem>
+                    <MenuItem value="managed_by">Managed By</MenuItem>
+                    <MenuItem value="monitored_by">Monitored By</MenuItem>
+                  </>
+                )}
               </Select>
             </FormControl>
           </Box>
@@ -899,7 +991,7 @@ export const CmdbCiDetail: React.FC = () => {
       {/* Create CI-to-CI Relationship Dialog */}
       <Dialog
         open={createRelDialogOpen}
-        onClose={() => setCreateRelDialogOpen(false)}
+        onClose={() => { setCreateRelDialogOpen(false); setRelTargetCiId(''); setCiSearchQuery(''); setCiSearchResults([]); }}
         maxWidth="sm"
         fullWidth
       >
@@ -910,21 +1002,28 @@ export const CmdbCiDetail: React.FC = () => {
               Create a relationship from <strong>{ci.name || 'this CI'}</strong> to another configuration item.
               Relationships are used by Topology Intelligence to calculate blast radius and impact analysis.
             </Typography>
-            <FormControl fullWidth required>
-              <InputLabel>Target CI</InputLabel>
-              <Select
-                value={relTargetCiId}
-                onChange={(e) => setRelTargetCiId(e.target.value)}
-                label="Target CI"
-                data-testid="select-rel-target-ci"
-              >
-                {allCis.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.name} {c.ciClass?.name ? `(${c.ciClass.name})` : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={ciSearchResults}
+              getOptionLabel={(option) =>
+                `${option.name}${option.classLabel ? ` (${option.classLabel})` : ''}`
+              }
+              loading={ciSearchLoading}
+              onInputChange={(_e, value, reason) => { if (reason === 'input') setCiSearchQuery(value); }}
+              onChange={(_e, value) => setRelTargetCiId(value?.id || '')}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText={ciSearchQuery ? 'No CIs found' : 'Type to search...'}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Target CI"
+                  required
+                  placeholder="Search configuration items..."
+                  data-testid="select-rel-target-ci"
+                />
+              )}
+              data-testid="autocomplete-rel-target-ci"
+            />
             <FormControl fullWidth required>
               <InputLabel>Relationship Type</InputLabel>
               <Select
@@ -933,14 +1032,26 @@ export const CmdbCiDetail: React.FC = () => {
                 label="Relationship Type"
                 data-testid="select-rel-type"
               >
-                <MenuItem value="depends_on">Depends On</MenuItem>
-                <MenuItem value="hosted_on">Hosted On</MenuItem>
-                <MenuItem value="runs_on">Runs On</MenuItem>
-                <MenuItem value="consumed_by">Consumed By</MenuItem>
-                <MenuItem value="supports">Supports</MenuItem>
-                <MenuItem value="managed_by">Managed By</MenuItem>
-                <MenuItem value="monitored_by">Monitored By</MenuItem>
-                <MenuItem value="connected_to">Connected To</MenuItem>
+                {relTypesLoading ? (
+                  <MenuItem disabled>Loading...</MenuItem>
+                ) : relationshipTypes.length > 0 ? (
+                  relationshipTypes.map((rt) => (
+                    <MenuItem key={rt.id} value={rt.name}>
+                      {rt.label || rt.name}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <>
+                    <MenuItem value="depends_on">Depends On</MenuItem>
+                    <MenuItem value="hosted_on">Hosted On</MenuItem>
+                    <MenuItem value="runs_on">Runs On</MenuItem>
+                    <MenuItem value="consumed_by">Consumed By</MenuItem>
+                    <MenuItem value="supports">Supports</MenuItem>
+                    <MenuItem value="managed_by">Managed By</MenuItem>
+                    <MenuItem value="monitored_by">Monitored By</MenuItem>
+                    <MenuItem value="connected_to">Connected To</MenuItem>
+                  </>
+                )}
               </Select>
             </FormControl>
             <TextField
@@ -955,7 +1066,7 @@ export const CmdbCiDetail: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateRelDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setCreateRelDialogOpen(false); setRelTargetCiId(''); setCiSearchQuery(''); setCiSearchResults([]); }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleCreateRelationship}

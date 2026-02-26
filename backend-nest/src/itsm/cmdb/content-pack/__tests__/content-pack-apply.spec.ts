@@ -217,17 +217,17 @@ function createMockDataSource() {
       .mockImplementation((data: Partial<CmdbCiClassRelationshipRule>) => {
         return { ...data } as CmdbCiClassRelationshipRule;
       }),
-    save: jest.fn().mockImplementation((entity: CmdbCiClassRelationshipRule) => {
-      ruleStore.push(entity);
-      return Promise.resolve(entity);
-    }),
+    save: jest
+      .fn()
+      .mockImplementation((entity: CmdbCiClassRelationshipRule) => {
+        ruleStore.push(entity);
+        return Promise.resolve(entity);
+      }),
     update: jest
       .fn()
       .mockImplementation(
         (id: string, data: Partial<CmdbCiClassRelationshipRule>) => {
-          const idx = ruleStore.findIndex(
-            (r) => r.id === id,
-          );
+          const idx = ruleStore.findIndex((r) => r.id === id);
           if (idx >= 0) {
             ruleStore[idx] = {
               ...ruleStore[idx],
@@ -271,7 +271,7 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
   // ========================================================================
 
   describe('First-run creation', () => {
-    it('should create all 20 baseline classes on first run', async () => {
+    it('should create all baseline classes on first run', async () => {
       const { ds } = createMockDataSource();
 
       const result = await applyBaselineContentPack(ds as never, {
@@ -281,11 +281,11 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
       });
 
       expect(result.classes.created).toBe(BASELINE_CLASSES.length);
-      expect(result.classes.created).toBe(19);
+      expect(result.classes.created).toBe(21);
       expect(result.classes.updated).toBe(0);
       expect(result.classes.reused).toBe(0);
       expect(result.classes.skipped).toBe(0);
-      expect(classStore).toHaveLength(19);
+      expect(classStore).toHaveLength(21);
     });
 
     it('should create all 9 baseline relationship types on first run', async () => {
@@ -426,7 +426,9 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
       );
       expect(classActions).toHaveLength(BASELINE_CLASSES.length);
       expect(relActions).toHaveLength(BASELINE_RELATIONSHIP_TYPES.length);
-      expect(ruleActions).toHaveLength(BASELINE_CLASS_RELATIONSHIP_RULES.length);
+      expect(ruleActions).toHaveLength(
+        BASELINE_CLASS_RELATIONSHIP_RULES.length,
+      );
     });
   });
 
@@ -992,8 +994,8 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
 
 describe('CMDB Baseline Content Pack v1 — Content Definitions', () => {
   describe('Class definitions', () => {
-    it('should have exactly 19 baseline classes', () => {
-      expect(BASELINE_CLASSES).toHaveLength(19);
+    it('should have exactly 21 baseline classes', () => {
+      expect(BASELINE_CLASSES).toHaveLength(21);
     });
 
     it('all classes should have deterministic UUIDs', () => {

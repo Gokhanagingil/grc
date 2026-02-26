@@ -256,9 +256,7 @@ describe('CiClassDiagnosticsService', () => {
       expect(result.errorCount).toBe(0);
       expect(result.warningCount).toBe(0);
       // ALL_CLEAR + NO_RELATIONSHIP_RULES info (mock returns no rules)
-      const allClear = result.diagnostics.find(
-        (d) => d.code === 'ALL_CLEAR',
-      );
+      const allClear = result.diagnostics.find((d) => d.code === 'ALL_CLEAR');
       expect(allClear).toBeDefined();
       expect(allClear!.severity).toBe('info');
     });
