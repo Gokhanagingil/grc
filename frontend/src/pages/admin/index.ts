@@ -13,3 +13,4 @@ export { AdminApiCatalog } from './AdminApiCatalog';
 export { AdminPlatformHealth } from './AdminPlatformHealth';
 export { AdminAiControlCenter } from './AdminAiControlCenter';
 export { AdminToolGateway } from './AdminToolGateway';
+export { AdminDocsCenter } from './AdminDocsCenter';
