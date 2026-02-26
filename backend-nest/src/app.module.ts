@@ -21,6 +21,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlatformModule } from './platform/platform.module';
 import { AdminModule } from './admin/admin.module';
+import { AiAdminModule } from './ai-admin/ai-admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PlatformHealthModule } from './platform-health/platform-health.module';
@@ -172,6 +173,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Admin Core (system visibility, security posture)
     AdminModule,
+
+    // AI Control Center v1 (provider config, feature policy, audit)
+    AiAdminModule,
 
     // Notifications Foundation (Email + Webhook with audit logging)
     NotificationsModule,
