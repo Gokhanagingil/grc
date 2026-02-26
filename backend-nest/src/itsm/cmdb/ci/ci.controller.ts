@@ -65,6 +65,46 @@ export class CiController {
     return this.ciService.createCi(tenantId, req.user.id, dto);
   }
 
+  /**
+   * Lightweight search endpoint for CI autocomplete/picker.
+   * Returns a compact list of CIs matching the query string.
+   */
+  @Get('search')
+  @Permissions(Permission.CMDB_CI_READ)
+  @Perf()
+  async search(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    const take = Math.min(parseInt(limit || '20', 10) || 20, 100);
+    const result = await this.ciService.findWithFilters(tenantId, {
+      q: q || undefined,
+      page: 1,
+      pageSize: take,
+    });
+    let items = result.items;
+    if (excludeId) {
+      items = items.filter((ci) => ci.id !== excludeId);
+    }
+    return {
+      items: items.map((ci) => ({
+        id: ci.id,
+        name: ci.name,
+        classId: ci.classId,
+        className: ci.ciClass?.name || null,
+        classLabel: ci.ciClass?.label || null,
+        lifecycle: ci.lifecycle,
+        environment: ci.environment,
+      })),
+      total: result.total,
+    };
+  }
+
   @Get(':id')
   @Permissions(Permission.CMDB_CI_READ)
   @Perf()

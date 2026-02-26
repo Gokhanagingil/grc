@@ -14,7 +14,9 @@
  *   │   │   └── cmdb_ci_virtual_machine
  *   │   ├── cmdb_ci_network_device
  *   │   │   ├── cmdb_ci_firewall
- *   │   │   └── cmdb_ci_load_balancer
+ *   │   │   ├── cmdb_ci_load_balancer
+ *   │   │   ├── cmdb_ci_router
+ *   │   │   └── cmdb_ci_switch
  *   │   └── cmdb_ci_storage
  *   ├── cmdb_ci_application (abstract)
  *   │   ├── cmdb_ci_business_app
@@ -38,6 +40,8 @@ import {
   NETWORK_DEVICE_FIELDS,
   FIREWALL_FIELDS,
   LOAD_BALANCER_FIELDS,
+  ROUTER_FIELDS,
+  SWITCH_FIELDS,
   STORAGE_FIELDS,
   APPLICATION_FIELDS,
   BUSINESS_APP_FIELDS,
@@ -68,6 +72,8 @@ export const CLASS_IDS = {
   cmdb_ci_network_device: 'c1a00000-0000-0000-0000-000000000020',
   cmdb_ci_firewall: 'c1a00000-0000-0000-0000-000000000021',
   cmdb_ci_load_balancer: 'c1a00000-0000-0000-0000-000000000022',
+  cmdb_ci_router: 'c1a00000-0000-0000-0000-000000000024',
+  cmdb_ci_switch: 'c1a00000-0000-0000-0000-000000000025',
   cmdb_ci_storage: 'c1a00000-0000-0000-0000-000000000023',
 
   // Application subtree
@@ -226,6 +232,29 @@ export const BASELINE_CLASSES: BaselineClassDef[] = [
     isAbstract: false,
     sortOrder: 52,
     fieldsSchema: LOAD_BALANCER_FIELDS,
+  },
+  {
+    id: CLASS_IDS.cmdb_ci_router,
+    name: 'cmdb_ci_router',
+    label: 'Router',
+    description: 'Network router for directing traffic between networks.',
+    icon: 'router',
+    parentClassId: CLASS_IDS.cmdb_ci_network_device,
+    isAbstract: false,
+    sortOrder: 53,
+    fieldsSchema: ROUTER_FIELDS,
+  },
+  {
+    id: CLASS_IDS.cmdb_ci_switch,
+    name: 'cmdb_ci_switch',
+    label: 'Switch',
+    description:
+      'Network switch for connecting devices within a network segment.',
+    icon: 'device_hub',
+    parentClassId: CLASS_IDS.cmdb_ci_network_device,
+    isAbstract: false,
+    sortOrder: 54,
+    fieldsSchema: SWITCH_FIELDS,
   },
   {
     id: CLASS_IDS.cmdb_ci_storage,

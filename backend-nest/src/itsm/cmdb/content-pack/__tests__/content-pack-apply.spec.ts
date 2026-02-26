@@ -217,17 +217,17 @@ function createMockDataSource() {
       .mockImplementation((data: Partial<CmdbCiClassRelationshipRule>) => {
         return { ...data } as CmdbCiClassRelationshipRule;
       }),
-    save: jest.fn().mockImplementation((entity: CmdbCiClassRelationshipRule) => {
-      ruleStore.push(entity);
-      return Promise.resolve(entity);
-    }),
+    save: jest
+      .fn()
+      .mockImplementation((entity: CmdbCiClassRelationshipRule) => {
+        ruleStore.push(entity);
+        return Promise.resolve(entity);
+      }),
     update: jest
       .fn()
       .mockImplementation(
         (id: string, data: Partial<CmdbCiClassRelationshipRule>) => {
-          const idx = ruleStore.findIndex(
-            (r) => r.id === id,
-          );
+          const idx = ruleStore.findIndex((r) => r.id === id);
           if (idx >= 0) {
             ruleStore[idx] = {
               ...ruleStore[idx],
@@ -426,7 +426,9 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
       );
       expect(classActions).toHaveLength(BASELINE_CLASSES.length);
       expect(relActions).toHaveLength(BASELINE_RELATIONSHIP_TYPES.length);
-      expect(ruleActions).toHaveLength(BASELINE_CLASS_RELATIONSHIP_RULES.length);
+      expect(ruleActions).toHaveLength(
+        BASELINE_CLASS_RELATIONSHIP_RULES.length,
+      );
     });
   });
 
