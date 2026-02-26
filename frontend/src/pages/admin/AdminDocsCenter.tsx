@@ -246,9 +246,9 @@ function markdownToHtml(md: string): string {
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
 
-  // Restore code blocks from placeholders
+  // Restore code blocks from placeholders (use function replacement to avoid $-pattern issues)
   for (let i = 0; i < codeBlocks.length; i++) {
-    html = html.replace(`%%CODE_BLOCK_${i}%%`, codeBlocks[i]);
+    html = html.replace(`%%CODE_BLOCK_${i}%%`, () => codeBlocks[i]);
   }
 
   return html;
