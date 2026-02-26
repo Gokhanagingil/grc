@@ -53,7 +53,8 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
   classId,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [result, setResult] = useState<EffectiveRulesResult | null>(null);
   const [filter, setFilter] = useState<RuleFilter>('all');
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -63,7 +64,7 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
   const fetchEffectiveRules = useCallback(async () => {
     if (!classId) return;
     setLoading(true);
-    setError(null);
+    setFetchError(null);
     try {
       const response = await cmdbApi.classRelationshipRules.effectiveForClass(classId);
       const data = unwrapResponse<EffectiveRulesResult>(response);
@@ -75,11 +76,11 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
     } catch (err) {
       const classified = classifyApiError(err);
       if (classified.kind === 'forbidden') {
-        setError('You do not have permission to view relationship rules.');
+        setFetchError('You do not have permission to view relationship rules.');
       } else if (classified.kind === 'network') {
-        setError('Network error loading relationship rules. Please try again.');
+        setFetchError('Network error loading relationship rules. Please try again.');
       } else {
-        setError(classified.message || 'Failed to load effective relationship rules.');
+        setFetchError(classified.message || 'Failed to load effective relationship rules.');
       }
     } finally {
       setLoading(false);
@@ -92,6 +93,7 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
 
   const handleToggleActive = useCallback(async (rule: EffectiveRuleEntry) => {
     if (rule.inherited) return; // Can't toggle inherited rules
+    setActionError(null);
     setTogglingRuleId(rule.ruleId);
     try {
       await cmdbApi.classRelationshipRules.update(rule.ruleId, {
@@ -100,7 +102,7 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
       await fetchEffectiveRules();
     } catch (err) {
       const classified = classifyApiError(err);
-      setError(classified.message || 'Failed to toggle rule status.');
+      setActionError(classified.message || 'Failed to toggle rule status.');
     } finally {
       setTogglingRuleId(null);
     }
@@ -108,13 +110,14 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
 
   const handleDeleteRule = useCallback(async (rule: EffectiveRuleEntry) => {
     if (rule.inherited || rule.isSystem) return;
+    setActionError(null);
     setDeletingRuleId(rule.ruleId);
     try {
       await cmdbApi.classRelationshipRules.delete(rule.ruleId);
       await fetchEffectiveRules();
     } catch (err) {
       const classified = classifyApiError(err);
-      setError(classified.message || 'Failed to delete rule.');
+      setActionError(classified.message || 'Failed to delete rule.');
     } finally {
       setDeletingRuleId(null);
     }
@@ -146,7 +149,7 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
     );
   }
 
-  if (error) {
+  if (fetchError) {
     return (
       <Alert
         severity="warning"
@@ -157,7 +160,7 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
           </Button>
         }
       >
-        {error}
+        {fetchError}
       </Alert>
     );
   }
@@ -188,6 +191,17 @@ export const RelationshipSemanticsTab: React.FC<RelationshipSemanticsTabProps> =
 
   return (
     <Box data-testid="rel-semantics-panel">
+      {/* Inline action error — does not hide the rules table */}
+      {actionError && (
+        <Alert
+          severity="error"
+          onClose={() => setActionError(null)}
+          sx={{ mb: 2 }}
+          data-testid="rel-semantics-action-error"
+        >
+          {actionError}
+        </Alert>
+      )}
       {/* Summary chips + actions */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <Chip
