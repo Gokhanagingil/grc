@@ -198,10 +198,12 @@ export class IncidentCopilotService {
         }
       }
 
-      // Try to get related changes
+      // Try to get related changes (using CMDB CI from the SN incident, not the incident sys_id)
+      const snCmdbCi = snIncidentData?.['cmdb_ci'] as string | undefined;
       if (
         dto.depth !== 'quick' &&
-        toolStatus.availableTools.includes('SERVICENOW_QUERY_CHANGES')
+        toolStatus.availableTools.includes('SERVICENOW_QUERY_CHANGES') &&
+        snCmdbCi
       ) {
         try {
           const changesResult = await this.toolGatewayService.runTool(
@@ -210,7 +212,7 @@ export class IncidentCopilotService {
             {
               toolKey: 'SERVICENOW_QUERY_CHANGES',
               input: {
-                query: `cmdb_ci=${externalSysId}`,
+                query: `cmdb_ci=${snCmdbCi}`,
                 limit: 5,
                 fields: [
                   'number',
