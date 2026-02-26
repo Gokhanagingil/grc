@@ -294,12 +294,11 @@ export class ServiceNowToolProvider {
     }
 
     const url = `${baseUrl}/api/now/table/${table}?${params.toString()}`;
+    const headers = this.buildHeaders(config);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const headers = this.buildHeaders(config);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -335,6 +334,7 @@ export class ServiceNowToolProvider {
         },
       };
     } catch (err) {
+      clearTimeout(timeout);
       this.logger.error('ServiceNow query failed', {
         table,
         error: err instanceof Error ? err.message : String(err),
@@ -389,12 +389,11 @@ export class ServiceNowToolProvider {
     });
 
     const url = `${baseUrl}/api/now/table/${table}/${sysId}?${params.toString()}`;
+    const headers = this.buildHeaders(config);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const headers = this.buildHeaders(config);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -427,6 +426,7 @@ export class ServiceNowToolProvider {
         meta: { table, recordCount: 1 },
       };
     } catch (err) {
+      clearTimeout(timeout);
       this.logger.error('ServiceNow getRecord failed', {
         table,
         sysId,
