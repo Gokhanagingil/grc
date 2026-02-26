@@ -82,15 +82,24 @@ export class CiController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     const take = Math.min(parseInt(limit || '20', 10) || 20, 100);
+    // Request one extra item when excludeId is set so we still return `take` results
+    const fetchSize = excludeId ? take + 1 : take;
     const filterDto = Object.assign(new CiFilterDto(), {
       q: q || undefined,
       page: 1,
-      pageSize: take,
+      pageSize: fetchSize,
     });
     const result = await this.ciService.findWithFilters(tenantId, filterDto);
     let items = result.items;
+    let total = result.total;
     if (excludeId) {
+      const beforeLen = items.length;
       items = items.filter((ci) => ci.id !== excludeId);
+      if (items.length < beforeLen) {
+        total = Math.max(0, total - 1);
+      }
+      // Trim back to requested limit
+      items = items.slice(0, take);
     }
     return {
       items: items.map((ci) => ({
@@ -102,7 +111,7 @@ export class CiController {
         lifecycle: ci.lifecycle,
         environment: ci.environment,
       })),
-      total: result.total,
+      total,
     };
   }
 
