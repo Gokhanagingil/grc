@@ -228,18 +228,25 @@ export const AdminAiControlCenter: React.FC = () => {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchProviders, fetchPolicy]);
+  }, [fetchProviders, fetchPolicy, fetchAudit]);
 
-  // Initial load
+  // Initial load only (run once)
+  const [initialized, setInitialized] = useState(false);
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (!initialized) {
+      setInitialized(true);
+      fetchAll();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Audit pagination — only re-fetch audit data, no full-page spinner
   useEffect(() => {
-    fetchAudit();
-  }, [fetchAudit]);
+    if (initialized) {
+      fetchAudit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auditPage, auditPageSize]);
 
   // ── Provider CRUD ────────────────────────────────────────────────────
 
@@ -291,9 +298,13 @@ export const AdminAiControlCenter: React.FC = () => {
 
       if (providerForm.maxTokens) {
         payload.maxTokens = parseInt(providerForm.maxTokens, 10);
+      } else if (editingProvider) {
+        payload.maxTokens = null;
       }
       if (providerForm.temperature) {
         payload.temperature = parseFloat(providerForm.temperature);
+      } else if (editingProvider) {
+        payload.temperature = null;
       }
       if (providerForm.apiKey) {
         payload.apiKey = providerForm.apiKey;
