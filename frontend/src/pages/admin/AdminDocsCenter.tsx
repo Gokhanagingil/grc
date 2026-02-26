@@ -241,8 +241,8 @@ function markdownToHtml(md: string): string {
   // Horizontal rules
   html = html.replace(/^---$/gm, '<hr/>');
 
-  // Paragraphs — wrap remaining non-tag lines
-  html = html.replace(/^(?!<[a-z/])(.+)$/gm, '<p>$1</p>');
+  // Paragraphs — wrap remaining non-tag lines (skip code block placeholders)
+  html = html.replace(/^(?!<[a-z/])(?!%%CODE_BLOCK_)(.+)$/gm, '<p>$1</p>');
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
 
