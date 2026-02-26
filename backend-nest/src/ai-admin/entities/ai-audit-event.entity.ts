@@ -15,6 +15,8 @@ export enum AiActionType {
   DRAFT_CREATE = 'DRAFT_CREATE',
   CONFIG_CHANGE = 'CONFIG_CHANGE',
   POLICY_CHANGE = 'POLICY_CHANGE',
+  TOOL_RUN = 'TOOL_RUN',
+  TOOL_TEST_CONNECTION = 'TOOL_TEST_CONNECTION',
   OTHER = 'OTHER',
 }
 
@@ -84,6 +86,25 @@ export class AiAuditEvent {
 
   @Column({ type: 'text', nullable: true })
   details: string | null;
+
+  // ── Tool Gateway v1.1 columns ──────────────────────────────────────
+
+  @Column({ name: 'tool_key', type: 'varchar', length: 50, nullable: true })
+  toolKey: string | null;
+
+  @Column({ name: 'provider_key', type: 'varchar', length: 30, nullable: true })
+  providerKey: string | null;
+
+  @Column({
+    name: 'external_request_id',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  externalRequestId: string | null;
+
+  @Column({ name: 'request_meta', type: 'jsonb', nullable: true })
+  requestMeta: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

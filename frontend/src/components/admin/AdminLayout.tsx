@@ -31,6 +31,7 @@ import {
   Api as ApiIcon,
   HealthAndSafety as HealthIcon,
   SmartToy as AiIcon,
+  Extension as ToolsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -133,6 +134,12 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'AI Control Center',
     icon: <AiIcon />,
     path: '/admin/ai-control-center',
+  },
+  {
+    id: 'tool-gateway',
+    text: 'Tool Gateway',
+    icon: <ToolsIcon />,
+    path: '/admin/tool-gateway',
   },
 ];
 
