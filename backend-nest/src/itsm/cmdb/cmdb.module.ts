@@ -8,6 +8,7 @@ import { CmdbCiClass } from './ci-class/ci-class.entity';
 import { CiClassService } from './ci-class/ci-class.service';
 import { CiClassInheritanceService } from './ci-class/ci-class-inheritance.service';
 import { CiClassController } from './ci-class/ci-class.controller';
+import { CiClassDiagnosticsService } from './ci-class/ci-class-diagnostics.service';
 
 import { CmdbCi } from './ci/ci.entity';
 import { CiService } from './ci/ci.service';
@@ -60,6 +61,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
   providers: [
     CiClassService,
     CiClassInheritanceService,
+    CiClassDiagnosticsService,
     CiService,
     CiAttributeValidationService,
     CiRelService,
@@ -84,6 +86,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
   exports: [
     CiClassService,
     CiClassInheritanceService,
+    CiClassDiagnosticsService,
     CiService,
     CiRelService,
     CmdbServiceService,
