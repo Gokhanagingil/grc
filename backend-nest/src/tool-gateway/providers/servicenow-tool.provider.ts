@@ -484,8 +484,11 @@ export class ServiceNowToolProvider {
             string,
             string
           >;
+          const BLOCKED_HEADER_KEYS = new Set(['authorization', 'host', 'cookie']);
           for (const [key, value] of Object.entries(customHeaders)) {
-            headers[key] = value;
+            if (!BLOCKED_HEADER_KEYS.has(key.toLowerCase())) {
+              headers[key] = value;
+            }
           }
         } catch {
           // Invalid JSON — skip custom headers

@@ -443,7 +443,25 @@ export class ToolGatewayService {
       );
     }
 
-    // 4. Execute tool
+    // 4. SSRF validation on base URL before outbound request
+    const ssrfResult = this.ssrfGuardService.validateUrl(providerConfig.baseUrl);
+    if (!ssrfResult.valid) {
+      await this.logToolAuditEvent({
+        tenantId,
+        userId,
+        toolKey: dto.toolKey,
+        providerKey: providerConfig.providerKey,
+        actionType: AiActionType.TOOL_RUN,
+        status: AiAuditStatus.FAIL,
+        latencyMs: Date.now() - startTime,
+        details: `Base URL failed SSRF validation: ${ssrfResult.reason}`,
+      });
+      throw new BadRequestException(
+        `Provider base URL failed SSRF validation: ${ssrfResult.reason}`,
+      );
+    }
+
+    // 5. Execute tool
     const result = await this.snToolProvider.execute(
       dto.toolKey,
       dto.input,
@@ -452,7 +470,7 @@ export class ToolGatewayService {
 
     const latencyMs = Date.now() - startTime;
 
-    // 5. Audit log
+    // 6. Audit log
     await this.logToolAuditEvent({
       tenantId,
       userId,
