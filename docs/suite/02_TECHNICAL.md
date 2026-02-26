@@ -171,6 +171,7 @@ All 28 modules registered in `app.module.ts`:
 | **Notifications** | NotificationsModule | `src/notifications/` | **[IMPL]** |
 | **Notifications** | NotificationEngineModule | `src/notification-engine/` | **[IMPL]** |
 | **Events** | EventBusModule | `src/event-bus/` | **[IMPL]** |
+| **Events** | EventsModule | `src/events/` | **[IMPL]** |
 | **Infra** | DashboardModule | `src/dashboard/` | **[IMPL]** |
 | **Infra** | JobsModule | `src/jobs/` | **[IMPL]** |
 | **Infra** | ApiCatalogModule | `src/api-catalog/` | **[IMPL]** |
