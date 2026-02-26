@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -171,6 +172,13 @@ export class AiAdminService {
       throw new NotFoundException(`Provider config ${id} not found`);
     }
 
+    // Prevent tenant admins from modifying global (shared) provider configs
+    if (existing.tenantId === null) {
+      throw new ForbiddenException(
+        'Global provider configs cannot be modified by tenant admins',
+      );
+    }
+
     // Update non-secret fields
     if (dto.providerType !== undefined)
       existing.providerType = dto.providerType;
@@ -214,6 +222,13 @@ export class AiAdminService {
 
     if (!existing) {
       throw new NotFoundException(`Provider config ${id} not found`);
+    }
+
+    // Prevent tenant admins from deleting global (shared) provider configs
+    if (existing.tenantId === null) {
+      throw new ForbiddenException(
+        'Global provider configs cannot be deleted by tenant admins',
+      );
     }
 
     existing.isDeleted = true;

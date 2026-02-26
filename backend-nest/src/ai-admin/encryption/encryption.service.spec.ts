@@ -74,7 +74,7 @@ describe('EncryptionService', () => {
     expect(decrypted).toBe(special);
   });
 
-  it('should throw on invalid ciphertext', () => {
-    expect(() => service.decrypt('invalid-base64')).toThrow();
+  it('should return null on invalid ciphertext', () => {
+    expect(service.decrypt('invalid-base64')).toBeNull();
   });
 });

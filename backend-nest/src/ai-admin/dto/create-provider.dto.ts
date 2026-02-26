@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsNumber,
+  IsUrl,
   Min,
   Max,
 } from 'class-validator';
@@ -21,7 +22,14 @@ export class CreateProviderDto {
   isEnabled?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsUrl(
+    {
+      require_tld: false,
+      require_protocol: true,
+      protocols: ['http', 'https'],
+    },
+    { message: 'baseUrl must be a valid HTTP or HTTPS URL' },
+  )
   baseUrl?: string;
 
   @IsOptional()

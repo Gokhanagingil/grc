@@ -22,8 +22,8 @@ export class EncryptionService {
   private key: Buffer;
 
   constructor(private readonly configService: ConfigService) {
-    const encryptionKey = process.env.AI_ENCRYPTION_KEY;
-    const jwtSecret = process.env.JWT_SECRET;
+    const encryptionKey = this.configService.get<string>('AI_ENCRYPTION_KEY');
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
 
     if (encryptionKey) {
       // Use dedicated AI encryption key (recommended)
@@ -79,7 +79,7 @@ export class EncryptionService {
     try {
       const packed = Buffer.from(encryptedBase64, 'base64');
 
-      if (packed.length < this.ivLength + this.authTagLength + 1) {
+      if (packed.length < this.ivLength + this.authTagLength) {
         this.logger.warn(
           'Encrypted data too short to contain iv + authTag + ciphertext',
         );
