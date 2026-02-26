@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import {
-  ToolGatewayService,
-  SafeIntegrationProviderResponse,
-} from '../tool-gateway.service';
+import { ToolGatewayService } from '../tool-gateway.service';
 import {
   IntegrationProviderConfig,
   IntegrationProviderKey,
