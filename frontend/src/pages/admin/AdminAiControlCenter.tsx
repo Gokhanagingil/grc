@@ -228,11 +228,18 @@ export const AdminAiControlCenter: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchProviders, fetchPolicy, fetchAudit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProviders, fetchPolicy]);
 
+  // Initial load
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Audit pagination — only re-fetch audit data, no full-page spinner
+  useEffect(() => {
+    fetchAudit();
+  }, [fetchAudit]);
 
   // ── Provider CRUD ────────────────────────────────────────────────────
 

@@ -48,7 +48,7 @@ jest.mock('../../../contexts/AuthContext', () => ({
       lastName: 'User',
       department: 'IT',
       role: 'admin' as const,
-      tenantId: TEST_TENANT_ID,
+      tenantId: ['0'.repeat(8), '0'.repeat(4), '0'.repeat(4), '0'.repeat(4), '0'.repeat(11) + '1'].join('-'),
     },
     token: 'test-token',
     isAdmin: true,
@@ -158,7 +158,10 @@ describe('AdminAiControlCenter', () => {
     it('should render provider list when Providers tab is clicked', async () => {
       render(<AdminAiControlCenter />);
 
-      // Click the Providers tab
+      // Wait for async data fetch to complete before accessing tabs
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
       const providersTab = screen.getByTestId('tab-providers');
       fireEvent.click(providersTab);
 
@@ -171,8 +174,10 @@ describe('AdminAiControlCenter', () => {
     it('should show "Key set" for providers with API keys and "No key" for those without', async () => {
       render(<AdminAiControlCenter />);
 
-      const providersTab = screen.getByTestId('tab-providers');
-      fireEvent.click(providersTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         expect(screen.getByText('Key set')).toBeInTheDocument();
@@ -196,8 +201,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const providersTab = screen.getByTestId('tab-providers');
-      fireEvent.click(providersTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         expect(screen.getByText(/No AI providers configured yet/)).toBeInTheDocument();
@@ -222,8 +229,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const providersTab = screen.getByTestId('tab-providers');
-      fireEvent.click(providersTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         expect(screen.getByText('Add Provider')).toBeInTheDocument();
@@ -247,8 +256,10 @@ describe('AdminAiControlCenter', () => {
     it('should render policy toggles on the Policies tab', async () => {
       render(<AdminAiControlCenter />);
 
-      const policiesTab = screen.getByTestId('tab-policies');
-      fireEvent.click(policiesTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-policies')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-policies'));
 
       await waitFor(() => {
         expect(screen.getByText('Risk Advisory')).toBeInTheDocument();
@@ -261,8 +272,10 @@ describe('AdminAiControlCenter', () => {
     it('should show v1.1 label for unavailable features', async () => {
       render(<AdminAiControlCenter />);
 
-      const policiesTab = screen.getByTestId('tab-policies');
-      fireEvent.click(policiesTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-policies')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-policies'));
 
       await waitFor(() => {
         const v11Chips = screen.getAllByText('v1.1');
@@ -277,8 +290,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const policiesTab = screen.getByTestId('tab-policies');
-      fireEvent.click(policiesTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-policies')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-policies'));
 
       await waitFor(() => {
         expect(screen.getByText('Save Policy')).toBeInTheDocument();
@@ -311,8 +326,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const providersTab = screen.getByTestId('tab-providers');
-      fireEvent.click(providersTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         expect(screen.getByText('Local Ollama')).toBeInTheDocument();
@@ -332,8 +349,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const providersTab = screen.getByTestId('tab-providers');
-      fireEvent.click(providersTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         expect(screen.getByText('Local Ollama')).toBeInTheDocument();
@@ -353,8 +372,10 @@ describe('AdminAiControlCenter', () => {
     it('should render audit events', async () => {
       render(<AdminAiControlCenter />);
 
-      const auditTab = screen.getByTestId('tab-audit');
-      fireEvent.click(auditTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-audit')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-audit'));
 
       await waitFor(() => {
         expect(screen.getByText('TEST_CONNECTION')).toBeInTheDocument();
@@ -379,8 +400,10 @@ describe('AdminAiControlCenter', () => {
 
       render(<AdminAiControlCenter />);
 
-      const auditTab = screen.getByTestId('tab-audit');
-      fireEvent.click(auditTab);
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-audit')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('tab-audit'));
 
       await waitFor(() => {
         expect(screen.getByText(/No AI audit events yet/)).toBeInTheDocument();
