@@ -4,7 +4,6 @@ import {
   IsBoolean,
   IsEnum,
   IsNumber,
-  IsUrl,
   Min,
   Max,
 } from 'class-validator';

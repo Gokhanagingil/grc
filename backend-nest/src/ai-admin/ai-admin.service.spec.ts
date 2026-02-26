@@ -311,7 +311,7 @@ describe('AiAdminService', () => {
     });
 
     it('should log audit events with correct fields', async () => {
-      const result = await service.logAuditEvent({
+      await service.logAuditEvent({
         tenantId: TENANT_ID,
         userId: 'user-1',
         featureKey: 'SYSTEM',

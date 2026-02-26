@@ -104,7 +104,7 @@ export class EncryptionService {
       ]);
 
       return decrypted.toString('utf8');
-    } catch (_error) {
+    } catch {
       this.logger.warn('Decryption failed — key mismatch or corrupted data');
       return null;
     }
