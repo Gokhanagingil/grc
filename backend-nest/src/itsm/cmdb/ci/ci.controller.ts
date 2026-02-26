@@ -81,7 +81,7 @@ export class CiController {
     if (!tenantId) {
       throw new BadRequestException('x-tenant-id header is required');
     }
-    const take = Math.min(parseInt(limit || '20', 10) || 20, 100);
+    const take = Math.min(Math.max(1, parseInt(limit || '20', 10) || 20), 100);
     // Request one extra item when excludeId is set so we still return `take` results
     const fetchSize = excludeId ? take + 1 : take;
     const filterDto = Object.assign(new CiFilterDto(), {
