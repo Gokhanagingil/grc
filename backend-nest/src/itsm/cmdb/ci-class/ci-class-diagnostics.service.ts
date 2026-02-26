@@ -16,6 +16,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CmdbCiClass } from './ci-class.entity';
 import { CiClassInheritanceService } from './ci-class-inheritance.service';
+import { CmdbCiClassRelationshipRule } from './ci-class-relationship-rule.entity';
+import { CmdbRelationshipType } from '../relationship-type/relationship-type.entity';
 
 // ============================================================================
 // Types
@@ -60,6 +62,10 @@ export class CiClassDiagnosticsService {
     @InjectRepository(CmdbCiClass)
     private readonly classRepo: Repository<CmdbCiClass>,
     private readonly inheritanceService: CiClassInheritanceService,
+    @InjectRepository(CmdbCiClassRelationshipRule)
+    private readonly ruleRepo: Repository<CmdbCiClassRelationshipRule>,
+    @InjectRepository(CmdbRelationshipType)
+    private readonly relTypeRepo: Repository<CmdbRelationshipType>,
   ) {}
 
   /**
@@ -214,8 +220,25 @@ export class CiClassDiagnosticsService {
       }
     }
 
-    // 8. Positive signal if no issues
-    if (diagnostics.length === 0) {
+    // 8. Relationship rule diagnostics
+    try {
+      await this.diagnoseRelationshipRules(
+        tenantId,
+        classId,
+        cls.name,
+        diagnostics,
+      );
+    } catch {
+      // Non-blocking: relationship diagnostics should not break class diagnostics
+    }
+
+    // 9. Positive signal if no errors or warnings
+    // Info-level diagnostics (e.g. NO_RELATIONSHIP_RULES) are advisory and
+    // should not suppress the ALL_CLEAR signal.
+    const hasProblems = diagnostics.some(
+      (d) => d.severity === 'error' || d.severity === 'warning',
+    );
+    if (!hasProblems) {
       diagnostics.push({
         severity: 'info',
         code: 'ALL_CLEAR',
@@ -238,6 +261,108 @@ export class CiClassDiagnosticsService {
       warningCount,
       infoCount,
     };
+  }
+
+  // ========================================================================
+  // Relationship Rule Diagnostics
+  // ========================================================================
+
+  /**
+   * Diagnose relationship rules for a given class.
+   * Checks for: no rules, duplicate rules, invalid targets, propagation inconsistencies.
+   */
+  private async diagnoseRelationshipRules(
+    tenantId: string,
+    classId: string,
+    className: string,
+    diagnostics: DiagnosticItem[],
+  ): Promise<void> {
+    // Get rules where this class is the source
+    const rules = await this.ruleRepo.find({
+      where: { tenantId, sourceClassId: classId, isDeleted: false },
+    });
+
+    // 8a. No relationship rules defined
+    if (rules.length === 0) {
+      diagnostics.push({
+        severity: 'info',
+        code: 'NO_RELATIONSHIP_RULES',
+        message: `No class-level relationship rules defined for "${className}".`,
+        suggestedAction:
+          'Consider adding relationship rules to define which relationship types this class can initiate. Rules can be inherited from parent classes.',
+      });
+      return;
+    }
+
+    // 8b. Check for duplicate rules (same relType + targetClass)
+    const seen = new Map<string, number>();
+    for (const rule of rules) {
+      const key = `${rule.relationshipTypeId}::${rule.targetClassId}`;
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+    for (const [key, count] of seen.entries()) {
+      if (count > 1) {
+        const [relTypeId, targetId] = key.split('::');
+        diagnostics.push({
+          severity: 'warning',
+          code: 'DUPLICATE_RELATIONSHIP_RULE',
+          message: `Duplicate rule: ${count} rules for relationship type ${relTypeId} targeting class ${targetId}.`,
+          suggestedAction: 'Remove duplicate rules to avoid ambiguity.',
+        });
+      }
+    }
+
+    // 8c. Check for invalid target class references
+    for (const rule of rules) {
+      const targetClass = await this.classRepo.findOne({
+        where: { id: rule.targetClassId, tenantId, isDeleted: false },
+      });
+      if (!targetClass) {
+        diagnostics.push({
+          severity: 'error',
+          code: 'INVALID_RULE_TARGET',
+          message: `Rule references target class ${rule.targetClassId} which does not exist.`,
+          suggestedAction:
+            'Update or remove the rule to reference a valid target class.',
+        });
+      }
+    }
+
+    // 8d. Check for invalid relationship type references
+    for (const rule of rules) {
+      const relType = await this.relTypeRepo.findOne({
+        where: { id: rule.relationshipTypeId, tenantId, isDeleted: false },
+      });
+      if (!relType) {
+        diagnostics.push({
+          severity: 'error',
+          code: 'INVALID_RULE_RELTYPE',
+          message: `Rule references relationship type ${rule.relationshipTypeId} which does not exist.`,
+          suggestedAction:
+            'Update or remove the rule to reference a valid relationship type.',
+        });
+      }
+    }
+
+    // 8e. Check for propagation overrides
+    // When a rule has a propagation override, always report it as informational.
+    // PropagationPolicy (NONE/UPSTREAM_ONLY/DOWNSTREAM_ONLY/BOTH) and
+    // RiskPropagationHint (forward/reverse/both/none) use different vocabularies,
+    // so a direct string comparison is not meaningful.
+    for (const rule of rules) {
+      if (rule.propagationOverride) {
+        const relType = await this.relTypeRepo.findOne({
+          where: { id: rule.relationshipTypeId, tenantId, isDeleted: false },
+        });
+        if (relType) {
+          diagnostics.push({
+            severity: 'info',
+            code: 'PROPAGATION_OVERRIDE',
+            message: `Rule overrides default propagation ("${relType.riskPropagation}") with "${rule.propagationOverride}" for relationship type "${relType.label}".`,
+          });
+        }
+      }
+    }
   }
 
   /**

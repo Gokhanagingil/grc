@@ -42,6 +42,7 @@ import {
 } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { EffectiveSchemaPanel } from './EffectiveSchemaPanel';
+import { RelationshipSemanticsTab } from './RelationshipSemanticsTab';
 
 interface ClassWorkbenchDetailPanelProps {
   classId: string;
@@ -51,7 +52,8 @@ interface ClassWorkbenchDetailPanelProps {
 /** Tab indices */
 const TAB_OVERVIEW = 0;
 const TAB_SCHEMA = 1;
-const TAB_DIAGNOSTICS = 2;
+const TAB_REL_SEMANTICS = 2;
+const TAB_DIAGNOSTICS = 3;
 
 export const ClassWorkbenchDetailPanel: React.FC<ClassWorkbenchDetailPanelProps> = ({
   classId,
@@ -264,6 +266,7 @@ export const ClassWorkbenchDetailPanel: React.FC<ClassWorkbenchDetailPanelProps>
       >
         <Tab label="Overview" data-testid="tab-overview" />
         <Tab label="Effective Schema" data-testid="tab-effective-schema" />
+        <Tab label="Rel. Semantics" data-testid="tab-rel-semantics" />
         <Tab
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -294,6 +297,10 @@ export const ClassWorkbenchDetailPanel: React.FC<ClassWorkbenchDetailPanelProps>
 
         {activeTab === TAB_SCHEMA && (
           <EffectiveSchemaPanel classId={classId} />
+        )}
+
+        {activeTab === TAB_REL_SEMANTICS && (
+          <RelationshipSemanticsTab classId={classId} className={ciClass.name} />
         )}
 
         {activeTab === TAB_DIAGNOSTICS && (
@@ -377,7 +384,7 @@ const OverviewTab: React.FC<{
       {/* Placeholder: future capabilities */}
       <Divider sx={{ my: 2 }} />
       <Typography variant="caption" color="text.disabled">
-        Relationship Semantics, Usage / Impact Analysis &mdash; coming in v1.1
+        Usage / Impact Analysis &mdash; coming in v1.1
       </Typography>
     </Box>
   );
@@ -453,7 +460,9 @@ const DiagnosticsTab: React.FC<{
   const items = diagnostics.diagnostics;
 
   // All clear state
-  if (items.length === 1 && items[0].code === 'ALL_CLEAR') {
+  const hasAllClear = items.some((d) => d.code === 'ALL_CLEAR');
+  const hasNoProblems = !items.some((d) => d.severity === 'error' || d.severity === 'warning');
+  if (hasAllClear && hasNoProblems) {
     return (
       <Alert severity="success" icon={<CheckCircleIcon />} data-testid="diagnostics-all-clear">
         <Typography variant="subtitle2">No issues detected</Typography>

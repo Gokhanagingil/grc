@@ -9,6 +9,9 @@ import { CiClassService } from './ci-class/ci-class.service';
 import { CiClassInheritanceService } from './ci-class/ci-class-inheritance.service';
 import { CiClassController } from './ci-class/ci-class.controller';
 import { CiClassDiagnosticsService } from './ci-class/ci-class-diagnostics.service';
+import { CmdbCiClassRelationshipRule } from './ci-class/ci-class-relationship-rule.entity';
+import { CiClassRelationshipRuleService } from './ci-class/ci-class-relationship-rule.service';
+import { CiClassRelationshipRuleController } from './ci-class/ci-class-relationship-rule.controller';
 
 import { CmdbCi } from './ci/ci.entity';
 import { CiService } from './ci/ci.service';
@@ -53,6 +56,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
       CmdbServiceCi,
       SysChoice,
       CmdbRelationshipType,
+      CmdbCiClassRelationshipRule,
     ]),
     AuditModule,
     AuthModule,
@@ -62,6 +66,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
     CiClassService,
     CiClassInheritanceService,
     CiClassDiagnosticsService,
+    CiClassRelationshipRuleService,
     CiService,
     CiAttributeValidationService,
     CiRelService,
@@ -75,6 +80,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
   ],
   controllers: [
     CiClassController,
+    CiClassRelationshipRuleController,
     CiController,
     CiRelController,
     CmdbServiceController,
@@ -87,6 +93,7 @@ import { RelationshipSemanticsValidationService } from './relationship-type/rela
     CiClassService,
     CiClassInheritanceService,
     CiClassDiagnosticsService,
+    CiClassRelationshipRuleService,
     CiService,
     CiRelService,
     CmdbServiceService,
