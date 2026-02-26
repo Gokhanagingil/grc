@@ -9,6 +9,9 @@ import { ItsmIncidentCi } from './incident/incident-ci.entity';
 import { IncidentService } from './incident/incident.service';
 import { IncidentCiService } from './incident/incident-ci.service';
 import { IncidentController } from './incident/incident.controller';
+import { IncidentCopilotController } from './incident/incident-copilot.controller';
+import { IncidentCopilotService } from './incident/incident-copilot.service';
+import { IncidentAiAnalysis } from './incident/incident-ai-analysis.entity';
 
 import { ItsmService } from './service/service.entity';
 import { ItsmServiceService } from './service/service.service';
@@ -158,6 +161,10 @@ import { ItsmChangeControl } from '../grc/entities/itsm-change-control.entity';
 import { GrcRisk } from '../grc/entities/grc-risk.entity';
 import { GrcControl } from '../grc/entities/grc-control.entity';
 
+// AI modules for Incident Copilot
+import { AiAdminModule } from '../ai-admin/ai-admin.module';
+import { ToolGatewayModule } from '../tool-gateway/tool-gateway.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -215,11 +222,15 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
       GrcControl,
       // Priority Matrix
       PriorityMatrixEntry,
+      // Incident Copilot
+      IncidentAiAnalysis,
     ]),
     AuditModule,
     AuthModule,
     TenantsModule,
     EventBusModule,
+    AiAdminModule,
+    ToolGatewayModule,
   ],
   providers: [
     IncidentService,
@@ -266,6 +277,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     CabMeetingService,
     ChangeCiService,
     PriorityMatrixService,
+    IncidentCopilotService,
   ],
   controllers: [
     IncidentController,
@@ -298,6 +310,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     CabChangeSummaryController,
     ChangeCiController,
     PriorityMatrixController,
+    IncidentCopilotController,
   ],
   exports: [
     IncidentService,
@@ -342,6 +355,7 @@ import { GrcControl } from '../grc/entities/grc-control.entity';
     CabMeetingService,
     ChangeCiService,
     PriorityMatrixService,
+    IncidentCopilotService,
   ],
 })
 export class ItsmModule {}

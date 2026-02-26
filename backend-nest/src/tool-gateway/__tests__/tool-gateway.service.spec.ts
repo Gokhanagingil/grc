@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ToolGatewayService, SafeIntegrationProviderResponse } from '../tool-gateway.service';
+import {
+  ToolGatewayService,
+  SafeIntegrationProviderResponse,
+} from '../tool-gateway.service';
 import {
   IntegrationProviderConfig,
   IntegrationProviderKey,
@@ -11,13 +14,19 @@ import {
 import { AiAuditEvent } from '../../ai-admin/entities';
 import { EncryptionService } from '../../ai-admin/encryption';
 import { SsrfGuardService } from '../../notification-engine/services/ssrf-guard.service';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
-function mockProvider(overrides: Partial<IntegrationProviderConfig> = {}): IntegrationProviderConfig {
+function mockProvider(
+  overrides: Partial<IntegrationProviderConfig> = {},
+): IntegrationProviderConfig {
   return {
     id: 'provider-1',
     tenantId: TENANT_ID,
@@ -43,7 +52,10 @@ function mockPolicy(overrides: Partial<ToolPolicy> = {}): ToolPolicy {
     id: 'policy-1',
     tenantId: TENANT_ID,
     isToolsEnabled: true,
-    allowedTools: [ToolKey.SERVICENOW_QUERY_INCIDENTS, ToolKey.SERVICENOW_QUERY_TABLE],
+    allowedTools: [
+      ToolKey.SERVICENOW_QUERY_INCIDENTS,
+      ToolKey.SERVICENOW_QUERY_TABLE,
+    ],
     rateLimitPerMinute: 60,
     maxToolCallsPerRun: 10,
     createdAt: new Date(),
@@ -109,7 +121,10 @@ describe('ToolGatewayService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ToolGatewayService,
-        { provide: getRepositoryToken(IntegrationProviderConfig), useValue: mockProviderRepo },
+        {
+          provide: getRepositoryToken(IntegrationProviderConfig),
+          useValue: mockProviderRepo,
+        },
         { provide: getRepositoryToken(ToolPolicy), useValue: mockPolicyRepo },
         { provide: getRepositoryToken(AiAuditEvent), useValue: mockAuditRepo },
         { provide: EncryptionService, useValue: mockEncryptionService },
@@ -134,12 +149,20 @@ describe('ToolGatewayService', () => {
       const result = await service.listProviders(TENANT_ID);
       expect(result).toHaveLength(1);
 
-      const safe = result[0] as SafeIntegrationProviderResponse;
+      const safe = result[0];
       // Must NOT have any encrypted fields
-      expect((safe as unknown as Record<string, unknown>).usernameEncrypted).toBeUndefined();
-      expect((safe as unknown as Record<string, unknown>).passwordEncrypted).toBeUndefined();
-      expect((safe as unknown as Record<string, unknown>).tokenEncrypted).toBeUndefined();
-      expect((safe as unknown as Record<string, unknown>).customHeadersEncrypted).toBeUndefined();
+      expect(
+        (safe as unknown as Record<string, unknown>).usernameEncrypted,
+      ).toBeUndefined();
+      expect(
+        (safe as unknown as Record<string, unknown>).passwordEncrypted,
+      ).toBeUndefined();
+      expect(
+        (safe as unknown as Record<string, unknown>).tokenEncrypted,
+      ).toBeUndefined();
+      expect(
+        (safe as unknown as Record<string, unknown>).customHeadersEncrypted,
+      ).toBeUndefined();
 
       // Must have boolean flags
       expect(safe.hasUsername).toBe(true);
@@ -149,9 +172,16 @@ describe('ToolGatewayService', () => {
     });
 
     it('should mask secrets when creating a provider', async () => {
-      mockProviderRepo.save.mockImplementation((data: Record<string, unknown>) => Promise.resolve(
-        Object.assign({}, data, { id: 'new-id', createdAt: new Date(), updatedAt: new Date() }),
-      ));
+      mockProviderRepo.save.mockImplementation(
+        (data: Record<string, unknown>) =>
+          Promise.resolve(
+            Object.assign({}, data, {
+              id: 'new-id',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }),
+          ),
+      );
 
       const result = await service.createProvider(TENANT_ID, {
         providerKey: IntegrationProviderKey.SERVICENOW,
@@ -169,8 +199,12 @@ describe('ToolGatewayService', () => {
       // Verify response has boolean flags, not secrets
       expect(result.hasUsername).toBe(true);
       expect(result.hasPassword).toBe(true);
-      expect((result as unknown as Record<string, unknown>).usernameEncrypted).toBeUndefined();
-      expect((result as unknown as Record<string, unknown>).passwordEncrypted).toBeUndefined();
+      expect(
+        (result as unknown as Record<string, unknown>).usernameEncrypted,
+      ).toBeUndefined();
+      expect(
+        (result as unknown as Record<string, unknown>).passwordEncrypted,
+      ).toBeUndefined();
     });
   });
 
@@ -180,9 +214,9 @@ describe('ToolGatewayService', () => {
 
   describe('SSRF baseUrl validation', () => {
     it('should reject provider creation with SSRF-unsafe URL', async () => {
-      mockSsrfGuardService.validateUrl.mockReturnValueOnce(
-        { valid: false } as { valid: boolean },
-      );
+      mockSsrfGuardService.validateUrl.mockReturnValueOnce({ valid: false } as {
+        valid: boolean;
+      });
 
       await expect(
         service.createProvider(TENANT_ID, {
@@ -193,14 +227,23 @@ describe('ToolGatewayService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockSsrfGuardService.validateUrl).toHaveBeenCalledWith('http://192.168.1.1');
+      expect(mockSsrfGuardService.validateUrl).toHaveBeenCalledWith(
+        'http://192.168.1.1',
+      );
     });
 
     it('should accept provider creation with valid HTTPS URL', async () => {
       mockSsrfGuardService.validateUrl.mockReturnValueOnce({ valid: true });
-      mockProviderRepo.save.mockImplementation((data: Record<string, unknown>) => Promise.resolve(
-        Object.assign({}, data, { id: 'new-id', createdAt: new Date(), updatedAt: new Date() }),
-      ));
+      mockProviderRepo.save.mockImplementation(
+        (data: Record<string, unknown>) =>
+          Promise.resolve(
+            Object.assign({}, data, {
+              id: 'new-id',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }),
+          ),
+      );
 
       const result = await service.createProvider(TENANT_ID, {
         providerKey: IntegrationProviderKey.SERVICENOW,
@@ -288,7 +331,9 @@ describe('ToolGatewayService', () => {
       const qb = freshQb();
       qb.getOne.mockResolvedValue(Object.assign({}, provider));
       mockProviderRepo.createQueryBuilder.mockReturnValue(qb);
-      mockProviderRepo.save.mockImplementation((data: Record<string, unknown>) => Promise.resolve(data));
+      mockProviderRepo.save.mockImplementation(
+        (data: Record<string, unknown>) => Promise.resolve(data),
+      );
 
       await service.deleteProvider('provider-1', TENANT_ID);
 
@@ -350,23 +395,37 @@ describe('ToolGatewayService', () => {
   describe('upsertPolicy', () => {
     it('should reject invalid tool keys', async () => {
       await expect(
-        service.upsertPolicy(TENANT_ID, {
-          isToolsEnabled: true,
-          allowedTools: ['INVALID_TOOL' as ToolKey],
-        }, 'user-1'),
+        service.upsertPolicy(
+          TENANT_ID,
+          {
+            isToolsEnabled: true,
+            allowedTools: ['INVALID_TOOL' as ToolKey],
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should create new policy when none exists', async () => {
       mockPolicyRepo.findOne.mockResolvedValueOnce(null);
-      mockPolicyRepo.save.mockImplementation((data: Record<string, unknown>) => Promise.resolve(
-        Object.assign({}, data, { id: 'new-policy', createdAt: new Date(), updatedAt: new Date() }),
-      ));
+      mockPolicyRepo.save.mockImplementation((data: Record<string, unknown>) =>
+        Promise.resolve(
+          Object.assign({}, data, {
+            id: 'new-policy',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        ),
+      );
 
-      const result = await service.upsertPolicy(TENANT_ID, {
-        isToolsEnabled: true,
-        allowedTools: [ToolKey.SERVICENOW_QUERY_INCIDENTS],
-      }, 'user-1');
+      const result = await service.upsertPolicy(
+        TENANT_ID,
+        {
+          isToolsEnabled: true,
+          allowedTools: [ToolKey.SERVICENOW_QUERY_INCIDENTS],
+        },
+        'user-1',
+      );
 
       expect(result.isToolsEnabled).toBe(true);
       expect(result.allowedTools).toEqual([ToolKey.SERVICENOW_QUERY_INCIDENTS]);

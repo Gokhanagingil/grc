@@ -248,6 +248,11 @@ export const API_PATHS = {
       AFFECTED_CIS: (id: string) => `/grc/itsm/incidents/${id}/affected-cis`,
       DELETE_AFFECTED_CI: (incidentId: string, linkId: string) => `/grc/itsm/incidents/${incidentId}/affected-cis/${linkId}`,
       IMPACT_SUMMARY: (id: string) => `/grc/itsm/incidents/${id}/impact-summary`,
+      // Incident Copilot AI endpoints
+      AI_ANALYZE: (id: string) => `/grc/itsm/incidents/${id}/ai/analyze`,
+      AI_ANALYSES: (id: string) => `/grc/itsm/incidents/${id}/ai/analyses`,
+      AI_ANALYSIS_DETAIL: (id: string, analysisId: string) => `/grc/itsm/incidents/${id}/ai/analyses/${analysisId}`,
+      AI_STATUS: (id: string) => `/grc/itsm/incidents/${id}/ai/status`,
     },
     // ITSM Change endpoints
     CHANGES: {
@@ -8804,5 +8809,113 @@ export const copilotApi = {
   getIndexStats: async (tenantId: string) => {
     const response = await api.get(API_PATHS.COPILOT.INDEXING.STATS, withTenantId(tenantId));
     return unwrapResponse<{ incidents: number; kbArticles: number }>(response);
+  },
+};
+
+// ============================================================================
+// Incident Copilot v1 — Platform-native AI analysis (local-first, tool-powered)
+// ============================================================================
+
+export interface IncidentCopilotAction {
+  action: string;
+  severity?: string;
+  category?: string;
+  isDraft?: boolean;
+}
+
+export interface IncidentCopilotTask {
+  title: string;
+  description?: string;
+  assignmentGroup?: string;
+  priority?: string;
+}
+
+export interface IncidentCopilotSimilar {
+  id?: string;
+  number?: string;
+  shortDescription?: string;
+  resolutionSummary?: string;
+  similarity?: number;
+}
+
+export interface IncidentCopilotExplainability {
+  dataSources: string[];
+  assumptions: string[];
+  confidence: string;
+  toolCallCount: number;
+  toolKeysUsed: string[];
+}
+
+export interface IncidentCopilotAnalysisResult {
+  analysisId: string;
+  incidentId: string;
+  status: 'SUCCESS' | 'FAIL' | 'SKIPPED';
+  providerType: string;
+  modelName: string | null;
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  summary: string | null;
+  recommendedActions: IncidentCopilotAction[] | null;
+  customerUpdateDraft: string | null;
+  proposedTasks: IncidentCopilotTask[] | null;
+  similarIncidents: IncidentCopilotSimilar[] | null;
+  impactAssessment: string | null;
+  explainability: IncidentCopilotExplainability;
+  createdAt: string;
+  error?: string;
+}
+
+export interface IncidentCopilotStatusResponse {
+  isAiEnabled: boolean;
+  isFeatureEnabled: boolean;
+  providerType: string | null;
+  modelName: string | null;
+  humanApprovalRequired: boolean;
+  isToolsEnabled: boolean;
+  hasServiceNowProvider: boolean;
+  availableTools: string[];
+  lastAnalysis: {
+    id: string;
+    status: string;
+    confidence: string;
+    createdAt: string;
+  } | null;
+}
+
+export interface AnalyzeIncidentRequest {
+  depth?: 'quick' | 'standard';
+  tone?: 'professional' | 'calm' | 'transparent';
+  externalSysId?: string;
+}
+
+export const incidentCopilotApi = {
+  /** Run AI analysis on an incident */
+  analyze: async (incidentId: string, data?: AnalyzeIncidentRequest): Promise<IncidentCopilotAnalysisResult> => {
+    const response = await api.post(API_PATHS.ITSM.INCIDENTS.AI_ANALYZE(incidentId), data ?? {});
+    return unwrapResponse<IncidentCopilotAnalysisResult>(response);
+  },
+
+  /** List analysis snapshots for an incident */
+  listAnalyses: async (incidentId: string, params?: { page?: number; pageSize?: number }) => {
+    const response = await api.get(API_PATHS.ITSM.INCIDENTS.AI_ANALYSES(incidentId), { params });
+    const raw = response.data as { data?: { items?: IncidentCopilotAnalysisResult[]; total?: number; page?: number; pageSize?: number; totalPages?: number } };
+    return {
+      items: raw?.data?.items ?? [],
+      total: raw?.data?.total ?? 0,
+      page: raw?.data?.page ?? 1,
+      pageSize: raw?.data?.pageSize ?? 10,
+      totalPages: raw?.data?.totalPages ?? 0,
+    };
+  },
+
+  /** Get a single analysis by ID */
+  getAnalysis: async (incidentId: string, analysisId: string): Promise<IncidentCopilotAnalysisResult> => {
+    const response = await api.get(API_PATHS.ITSM.INCIDENTS.AI_ANALYSIS_DETAIL(incidentId, analysisId));
+    return unwrapResponse<IncidentCopilotAnalysisResult>(response);
+  },
+
+  /** Get copilot status (policy info, tool availability, last analysis) */
+  getStatus: async (incidentId: string): Promise<IncidentCopilotStatusResponse> => {
+    const response = await api.get(API_PATHS.ITSM.INCIDENTS.AI_STATUS(incidentId));
+    return unwrapResponse<IncidentCopilotStatusResponse>(response);
   },
 };
