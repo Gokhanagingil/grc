@@ -569,13 +569,15 @@ export class AiAdminService {
     let provider: AiProviderConfig | null = null;
 
     if (policy.defaultProviderConfigId) {
-      provider = await this.providerRepo.findOne({
-        where: {
-          id: policy.defaultProviderConfigId,
-          isDeleted: false,
-          isEnabled: true,
-        },
-      });
+      provider = await this.providerRepo
+        .createQueryBuilder('p')
+        .where('p.id = :id', { id: policy.defaultProviderConfigId })
+        .andWhere('p.is_deleted = false')
+        .andWhere('p.is_enabled = true')
+        .andWhere('(p.tenant_id = :tenantId OR p.tenant_id IS NULL)', {
+          tenantId,
+        })
+        .getOne();
     }
 
     // Fallback to any enabled global provider
