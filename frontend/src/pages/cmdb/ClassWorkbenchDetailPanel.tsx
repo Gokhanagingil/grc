@@ -460,7 +460,9 @@ const DiagnosticsTab: React.FC<{
   const items = diagnostics.diagnostics;
 
   // All clear state
-  if (items.length === 1 && items[0].code === 'ALL_CLEAR') {
+  const hasAllClear = items.some((d) => d.code === 'ALL_CLEAR');
+  const hasNoProblems = !items.some((d) => d.severity === 'error' || d.severity === 'warning');
+  if (hasAllClear && hasNoProblems) {
     return (
       <Alert severity="success" icon={<CheckCircleIcon />} data-testid="diagnostics-all-clear">
         <Typography variant="subtitle2">No issues detected</Typography>

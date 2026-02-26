@@ -152,7 +152,7 @@ export const AddRuleModal: React.FC<AddRuleModalProps> = ({
   }, [sourceClassId, relationshipTypeId, targetClassId, direction, propagationOverride, propagationWeight, onRuleAdded]);
 
   const activeRelTypes = relationshipTypes.filter((rt) => rt.isActive);
-  const activeClasses = classes.filter((c) => c.isActive && c.id !== sourceClassId);
+  const activeClasses = classes.filter((c) => c.isActive);
 
   return (
     <Dialog
