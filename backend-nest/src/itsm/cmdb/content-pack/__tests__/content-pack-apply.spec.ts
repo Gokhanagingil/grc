@@ -20,6 +20,7 @@ import {
   RelationshipDirectionality,
   RiskPropagationHint,
 } from '../../relationship-type/relationship-type.entity';
+import { CmdbCiClassRelationshipRule } from '../../ci-class/ci-class-relationship-rule.entity';
 import { applyBaselineContentPack } from '../apply';
 import {
   CMDB_BASELINE_CONTENT_PACK_VERSION,
@@ -31,6 +32,7 @@ import {
   BASELINE_RELATIONSHIP_TYPES,
   RELTYPE_IDS,
 } from '../relationship-types';
+import { BASELINE_CLASS_RELATIONSHIP_RULES } from '../class-relationship-rules';
 import {
   ROOT_FIELDS,
   HARDWARE_FIELDS,
@@ -52,10 +54,12 @@ const ADMIN_ID = '00000000-0000-0000-0000-000000000002';
 
 let classStore: CmdbCiClass[] = [];
 let relTypeStore: CmdbRelationshipType[] = [];
+let ruleStore: CmdbCiClassRelationshipRule[] = [];
 
 function resetStores() {
   classStore = [];
   relTypeStore = [];
+  ruleStore = [];
 }
 
 // ============================================================================
@@ -194,15 +198,57 @@ function createMockDataSource() {
       }),
   };
 
+  const ruleRepo = {
+    findOne: jest
+      .fn()
+      .mockImplementation((opts: { where: Record<string, unknown> }) => {
+        const w = opts.where;
+        const match = ruleStore.find((r) => {
+          for (const [k, v] of Object.entries(w)) {
+            if ((r as unknown as Record<string, unknown>)[k] !== v)
+              return false;
+          }
+          return true;
+        });
+        return Promise.resolve(match ?? null);
+      }),
+    create: jest
+      .fn()
+      .mockImplementation((data: Partial<CmdbCiClassRelationshipRule>) => {
+        return { ...data } as CmdbCiClassRelationshipRule;
+      }),
+    save: jest.fn().mockImplementation((entity: CmdbCiClassRelationshipRule) => {
+      ruleStore.push(entity);
+      return Promise.resolve(entity);
+    }),
+    update: jest
+      .fn()
+      .mockImplementation(
+        (id: string, data: Partial<CmdbCiClassRelationshipRule>) => {
+          const idx = ruleStore.findIndex(
+            (r) => r.id === id,
+          );
+          if (idx >= 0) {
+            ruleStore[idx] = {
+              ...ruleStore[idx],
+              ...data,
+            } as CmdbCiClassRelationshipRule;
+          }
+          return Promise.resolve({ affected: idx >= 0 ? 1 : 0 });
+        },
+      ),
+  };
+
   const ds = {
     getRepository: jest.fn().mockImplementation((entity: unknown) => {
       if (entity === CmdbCiClass) return classRepo;
       if (entity === CmdbRelationshipType) return relTypeRepo;
+      if (entity === CmdbCiClassRelationshipRule) return ruleRepo;
       throw new Error(`Unknown entity: ${String(entity)}`);
     }),
   };
 
-  return { ds, classRepo, relTypeRepo };
+  return { ds, classRepo, relTypeRepo, ruleRepo };
 }
 
 // ============================================================================
@@ -367,14 +413,20 @@ describe('CMDB Baseline Content Pack v1 — Apply Engine', () => {
       });
 
       expect(result.actions).toHaveLength(
-        BASELINE_CLASSES.length + BASELINE_RELATIONSHIP_TYPES.length,
+        BASELINE_CLASSES.length +
+          BASELINE_RELATIONSHIP_TYPES.length +
+          BASELINE_CLASS_RELATIONSHIP_RULES.length,
       );
       const classActions = result.actions.filter((a) => a.entity === 'CiClass');
       const relActions = result.actions.filter(
         (a) => a.entity === 'RelationshipType',
       );
+      const ruleActions = result.actions.filter(
+        (a) => a.entity === 'ClassRelRule',
+      );
       expect(classActions).toHaveLength(BASELINE_CLASSES.length);
       expect(relActions).toHaveLength(BASELINE_RELATIONSHIP_TYPES.length);
+      expect(ruleActions).toHaveLength(BASELINE_CLASS_RELATIONSHIP_RULES.length);
     });
   });
 

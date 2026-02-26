@@ -232,8 +232,13 @@ export class CiClassDiagnosticsService {
       // Non-blocking: relationship diagnostics should not break class diagnostics
     }
 
-    // 9. Positive signal if no issues
-    if (diagnostics.length === 0) {
+    // 9. Positive signal if no errors or warnings
+    // Info-level diagnostics (e.g. NO_RELATIONSHIP_RULES) are advisory and
+    // should not suppress the ALL_CLEAR signal.
+    const hasProblems = diagnostics.some(
+      (d) => d.severity === 'error' || d.severity === 'warning',
+    );
+    if (!hasProblems) {
       diagnostics.push({
         severity: 'info',
         code: 'ALL_CLEAR',
@@ -339,17 +344,17 @@ export class CiClassDiagnosticsService {
       }
     }
 
-    // 8e. Check for propagation inconsistencies
+    // 8e. Check for propagation overrides
+    // When a rule has a propagation override, always report it as informational.
+    // PropagationPolicy (NONE/UPSTREAM_ONLY/DOWNSTREAM_ONLY/BOTH) and
+    // RiskPropagationHint (forward/reverse/both/none) use different vocabularies,
+    // so a direct string comparison is not meaningful.
     for (const rule of rules) {
       if (rule.propagationOverride) {
         const relType = await this.relTypeRepo.findOne({
           where: { id: rule.relationshipTypeId, tenantId, isDeleted: false },
         });
-        if (
-          relType &&
-          (rule.propagationOverride as string) !==
-            (relType.riskPropagation as string).toUpperCase()
-        ) {
+        if (relType) {
           diagnostics.push({
             severity: 'info',
             code: 'PROPAGATION_OVERRIDE',

@@ -44,6 +44,7 @@ export enum RuleDirection {
 @Entity('cmdb_ci_class_relationship_rule')
 @Index(['tenantId', 'sourceClassId', 'relationshipTypeId', 'targetClassId'], {
   unique: true,
+  where: '"is_deleted" = false',
 })
 @Index(['tenantId', 'sourceClassId'])
 @Index(['tenantId', 'targetClassId'])

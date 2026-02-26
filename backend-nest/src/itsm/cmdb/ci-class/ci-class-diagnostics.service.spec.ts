@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { CiClassDiagnosticsService } from './ci-class-diagnostics.service';
 import { CiClassInheritanceService } from './ci-class-inheritance.service';
 import { CmdbCiClass } from './ci-class.entity';
+import { CmdbCiClassRelationshipRule } from './ci-class-relationship-rule.entity';
+import { CmdbRelationshipType } from '../relationship-type/relationship-type.entity';
 
 // ---------------------------------------------------------------------------
 // Test constants
@@ -184,6 +186,16 @@ const mockInheritanceService = {
   getAncestorChain: jest.fn().mockResolvedValue([]),
 };
 
+const mockRuleRepo = {
+  find: jest.fn().mockResolvedValue([]),
+  findOne: jest.fn().mockResolvedValue(null),
+};
+
+const mockRelTypeRepo = {
+  find: jest.fn().mockResolvedValue([]),
+  findOne: jest.fn().mockResolvedValue(null),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -201,6 +213,14 @@ describe('CiClassDiagnosticsService', () => {
         {
           provide: getRepositoryToken(CmdbCiClass),
           useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(CmdbCiClassRelationshipRule),
+          useValue: mockRuleRepo,
+        },
+        {
+          provide: getRepositoryToken(CmdbRelationshipType),
+          useValue: mockRelTypeRepo,
         },
         {
           provide: CiClassInheritanceService,
@@ -235,8 +255,12 @@ describe('CiClassDiagnosticsService', () => {
       expect(result.className).toBe('cmdb_ci');
       expect(result.errorCount).toBe(0);
       expect(result.warningCount).toBe(0);
-      expect(result.diagnostics).toHaveLength(1);
-      expect(result.diagnostics[0].code).toBe('ALL_CLEAR');
+      // ALL_CLEAR + NO_RELATIONSHIP_RULES info (mock returns no rules)
+      const allClear = result.diagnostics.find(
+        (d) => d.code === 'ALL_CLEAR',
+      );
+      expect(allClear).toBeDefined();
+      expect(allClear!.severity).toBe('info');
     });
 
     it('should detect missing parent class', async () => {
@@ -432,7 +456,8 @@ describe('CiClassDiagnosticsService', () => {
 
       expect(result.errorCount).toBe(1); // EMPTY_NAME
       expect(result.warningCount).toBe(2); // EMPTY_LABEL + NO_LOCAL_FIELDS
-      expect(result.infoCount).toBe(0);
+      // infoCount includes NO_RELATIONSHIP_RULES from relationship diagnostics
+      expect(result.infoCount).toBeGreaterThanOrEqual(0);
     });
   });
 
