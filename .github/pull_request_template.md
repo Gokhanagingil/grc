@@ -60,6 +60,15 @@
 
 <!-- If applicable, add screenshots to help explain your changes -->
 
+## Docs Impact
+
+<!-- Mark the relevant option with an "x" -->
+
+- [ ] **None** — no documentation changes needed
+- [ ] **Updated** — docs updated in this PR (list files below)
+  - 
+- [ ] **Deferred** — docs update needed but not included (add entry to `docs/DOCS_BACKLOG.md`)
+
 ## Additional Notes
 
 <!-- Add any other context about the PR here -->

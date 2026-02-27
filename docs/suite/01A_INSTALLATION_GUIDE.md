@@ -1,6 +1,6 @@
 # Installation & Deployment Guide (BT Runbook)
 
-> **Version:** 1.1 | **Last Updated:** 2026-02-26 | **Status:** Final
+> **Version:** 1.1 | **Last Updated:** 2026-02-26 | **Status:** Final | **Owner:** infra
 >
 > **Audience:** IT Operations, Data Center Team, DevOps Engineers
 >

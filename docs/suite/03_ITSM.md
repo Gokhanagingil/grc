@@ -2,7 +2,7 @@
 
 > **Version:** 2.0
 > **Last Updated:** 2026-02-27
-> **Status:** Final
+> **Status:** Final | **Owner:** itsm
 > **Audience:** Product/Engineering, IT Operations, Service Desk, Auditors
 > **Evidence Map:** [EVIDENCE_MAP_v1.md](../discovery/EVIDENCE_MAP_v1.md) — Section 3
 
