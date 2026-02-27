@@ -255,6 +255,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setToken(newToken);
       setUser(userData);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+      // Sync i18n locale from user profile after login
+      if (userData?.locale) {
+        i18n.changeLanguage(userData.locale);
+        localStorage.setItem('locale', userData.locale);
+      }
     } catch (error: unknown) {
       // Handle standardized ApiError from the API client
       if (error instanceof ApiError) {
