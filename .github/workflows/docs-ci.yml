@@ -44,13 +44,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # 1. Markdown Lint (basic)
       # -----------------------------------------------------------------------
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -111,8 +111,9 @@ jobs:
             dir=$(dirname "$file")
 
             # Strip fenced code blocks before extracting links
-            # This prevents false positives from example link syntax in code blocks
-            stripped=$(sed '/^```/,/^```/d' "$file")
+            # Uses awk to properly track open/close fences (handles indented fences
+            # and avoids the sed issue where odd fence counts delete to EOF)
+            stripped=$(awk 'BEGIN{in_code=0} /^[[:space:]]*```/{in_code=!in_code; next} !in_code{print}' "$file")
 
             # Extract relative links: [text](./path) or [text](../path) or [text](path.md)
             # Skip anchors (#), URLs (http/https), and empty links
