@@ -70,7 +70,7 @@ Catches common issues: trailing whitespace, missing blank lines, inconsistent he
 
 ### 5.2 Broken Relative Link Check
 
-A shell script scans all `.md` files under `docs/` for relative links (`[text](./path)` or `[text](../path)`) and verifies the target file exists.
+A shell script scans all `.md` files under `docs/` for relative links and verifies the target file exists.
 This prevents dead links caused by file renames or deletions.
 
 ### 5.3 Raw HTML Block Check
