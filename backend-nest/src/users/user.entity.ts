@@ -57,6 +57,13 @@ export class User {
   isActive: boolean;
 
   /**
+   * User's preferred locale (IETF language tag).
+   * Fallback chain: user.locale → system default (en-US)
+   */
+  @Column({ nullable: true })
+  locale?: string;
+
+  /**
    * Tenant relationship
    *
    * Each user belongs to exactly one tenant.

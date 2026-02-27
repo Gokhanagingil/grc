@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -8,6 +8,12 @@ import {
   Avatar,
   Chip,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -15,11 +21,43 @@ import {
   Business as DepartmentIcon,
   Badge as RoleIcon,
   Domain as TenantIcon,
+  Language as LanguageIcon,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../services/api';
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '../i18n/config';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation('common');
+  const [localeSaving, setLocaleSaving] = useState(false);
+  const [localeMessage, setLocaleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleLocaleChange = async (event: SelectChangeEvent<string>) => {
+    const newLocale = event.target.value;
+    setLocaleSaving(true);
+    setLocaleMessage(null);
+
+    try {
+      // Apply immediately in the UI
+      i18n.changeLanguage(newLocale);
+      localStorage.setItem('locale', newLocale);
+
+      // Persist to backend
+      if (user?.id) {
+        await api.patch(`/users/me/locale`, { locale: newLocale });
+      }
+      setLocaleMessage({ type: 'success', text: t('profile.localeSaved') });
+    } catch (err) {
+      console.error('Failed to save locale:', err);
+      setLocaleMessage({ type: 'error', text: t('profile.localeError') });
+    } finally {
+      setLocaleSaving(false);
+      // Auto-dismiss success message after 3s
+      setTimeout(() => setLocaleMessage(null), 3000);
+    }
+  };
 
   const getRoleColor = (role: string): 'error' | 'warning' | 'default' => {
     switch (role) {
@@ -35,7 +73,7 @@ export const Profile: React.FC = () => {
   if (!user) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <Typography color="textSecondary">Loading user information...</Typography>
+        <Typography color="textSecondary">{t('profile.loading')}</Typography>
       </Box>
     );
   }
@@ -43,7 +81,7 @@ export const Profile: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Profile Settings
+        {t('profile.title')}
       </Typography>
 
       <Card sx={{ maxWidth: 600, mt: 3 }}>
@@ -81,7 +119,7 @@ export const Profile: React.FC = () => {
                 <PersonIcon color="action" />
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Username
+                    {t('profile.username')}
                   </Typography>
                   <Typography variant="body1">
                     {user.username || '-'}
@@ -95,7 +133,7 @@ export const Profile: React.FC = () => {
                 <EmailIcon color="action" />
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Email
+                    {t('profile.email')}
                   </Typography>
                   <Typography variant="body1">
                     {user.email || '-'}
@@ -109,7 +147,7 @@ export const Profile: React.FC = () => {
                 <RoleIcon color="action" />
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Role
+                    {t('profile.role')}
                   </Typography>
                   <Typography variant="body1">
                     {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : '-'}
@@ -123,7 +161,7 @@ export const Profile: React.FC = () => {
                 <DepartmentIcon color="action" />
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Department
+                    {t('profile.department')}
                   </Typography>
                   <Typography variant="body1">
                     {user.department || '-'}
@@ -137,11 +175,49 @@ export const Profile: React.FC = () => {
                 <TenantIcon color="action" />
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Tenant ID
+                    {t('profile.tenantId')}
                   </Typography>
                   <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                     {user.tenantId || '-'}
                   </Typography>
+                </Box>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Box display="flex" alignItems="flex-start" gap={2} mt={2}>
+                <LanguageIcon color="action" sx={{ mt: 1 }} />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="textSecondary">
+                    {t('profile.languageLabel')}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                    {t('profile.languageDescription')}
+                  </Typography>
+                  <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel id="locale-select-label">{t('profile.language')}</InputLabel>
+                    <Select
+                      labelId="locale-select-label"
+                      id="locale-select"
+                      value={i18n.language || user.locale || DEFAULT_LOCALE}
+                      label={t('profile.language')}
+                      onChange={handleLocaleChange}
+                      disabled={localeSaving}
+                      data-testid="locale-select"
+                    >
+                      {SUPPORTED_LOCALES.map((loc) => (
+                        <MenuItem key={loc.code} value={loc.code}>
+                          {loc.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {localeMessage && (
+                    <Alert severity={localeMessage.type} sx={{ mt: 1 }}>
+                      {localeMessage.text}
+                    </Alert>
+                  )}
                 </Box>
               </Box>
             </Grid>

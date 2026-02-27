@@ -249,11 +249,24 @@ export class UsersService extends MultiTenantServiceBase<User> {
       user.role = updateUserDto.role;
     if (updateUserDto.isActive !== undefined && isAdmin)
       user.isActive = updateUserDto.isActive;
+    if (updateUserDto.locale !== undefined) user.locale = updateUserDto.locale;
 
     const savedUser = await this.usersRepository.save(user);
     const userResponse = { ...savedUser };
     delete (userResponse as { passwordHash?: string }).passwordHash;
     return userResponse;
+  }
+
+  /**
+   * Update user locale preference
+   */
+  async updateLocale(userId: string, locale: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.locale = locale;
+    return this.usersRepository.save(user);
   }
 
   /**

@@ -102,6 +102,31 @@ The NestJS backend returns responses in a standardized envelope format with succ
 
 JWT-based authentication with access and refresh tokens. The NestJS backend includes brute-force protection and rate limiting.
 
+### Internationalization (i18n)
+
+The platform supports user-selectable language preferences (Phase 1: en-US and tr-TR).
+
+**Locale Fallback Chain:** `user.locale` (if set) → system default (`en-US`)
+
+**Backend:**
+- User locale is stored in the `locale` column of the `nest_users` table (nullable VARCHAR, IETF codes like `en-US`, `tr-TR`).
+- The `PATCH /users/me/locale` endpoint allows authenticated users to update their locale preference.
+- The `GET /users/me` profile response includes the `locale` field.
+
+**Frontend:**
+- Uses `react-i18next` with static JSON translation files in `frontend/src/i18n/locales/{locale}/common.json`.
+- Language selector is available on the Profile Settings page.
+- Missing translation keys fall back to English (`en-US`) and log a console warning in development mode.
+- On auth initialization, the user's locale from the backend is synced to i18next and localStorage.
+
+**Supported Locales (Phase 1):**
+| Code  | Label            |
+|-------|------------------|
+| en-US | English (en-US)  |
+| tr-TR | Türkçe (tr-TR)   |
+
+To add a new locale: add a JSON file under `frontend/src/i18n/locales/{code}/common.json`, update `SUPPORTED_LOCALES` in `frontend/src/i18n/config.ts` and `backend-nest/src/users/dto/update-user.dto.ts`.
+
 ## Additional Documentation
 
 For more detailed information, see:
