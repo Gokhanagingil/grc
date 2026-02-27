@@ -332,12 +332,12 @@ stateDiagram-v2
 | `GET` | `/api/grc/controls` | List controls (universal list with filter DSL) | `GRC_CONTROL_READ` |
 | `GET` | `/api/grc/controls/:id` | Get control with relations | `GRC_CONTROL_READ` |
 | `PATCH` | `/api/grc/controls/:id` | Update control | `GRC_CONTROL_WRITE` |
-| `POST` | `/api/grc/controls/:id/processes` | Link process to control | `GRC_CONTROL_WRITE` |
+| `POST` | `/api/grc/controls/:id/processes/:processId` | Link process to control | `GRC_CONTROL_WRITE` |
 | `DELETE` | `/api/grc/controls/:id/processes/:processId` | Unlink process | `GRC_CONTROL_WRITE` |
 | `GET` | `/api/grc/controls/:id/processes` | Get linked processes | `GRC_CONTROL_READ` |
 | `GET` | `/api/grc/controls/:id/evidences` | Get linked evidence records | `GRC_CONTROL_READ` |
 | `GET` | `/api/grc/controls/:id/test-results` | Get test results for control | `GRC_CONTROL_READ` |
-| `GET` | `/api/grc/controls/:id/control-tests` | Get control tests for control | `GRC_CONTROL_READ` |
+| `GET` | `/api/grc/controls/:id/tests` | Get control tests for control | `GRC_CONTROL_READ` |
 
 #### Advanced Filter DSL
 
