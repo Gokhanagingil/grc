@@ -42,9 +42,9 @@ The GRC platform delivers a **full Governance, Risk & Compliance module** spanni
 
 | Module | Status | Key Features |
 |--------|--------|--------------|
-| **Risk Management** | IMPLEMENTED | Full CRUD, 5x5 heat-map scoring, treatment strategies (mitigate / accept / transfer / avoid), risk appetite thresholds, residual risk calculation, risk-control effectiveness linking, policy & requirement linking, treatment actions, risk assessments |
+| **Risk Management** | IMPLEMENTED | Full CRUD, 4x5 heat-map scoring (4 severity x 5 likelihood), treatment strategies (mitigate / accept / transfer / avoid), risk appetite thresholds, residual risk calculation, risk-control effectiveness linking, policy & requirement linking, treatment actions, risk assessments |
 | **Control Management** | IMPLEMENTED | Full CRUD, lifecycle (DRAFT / IN_DESIGN / IMPLEMENTED / INOPERATIVE / RETIRED), process linking, evidence linking, test results, control tests, issue tracking, universal list with advanced filter DSL |
-| **Policy Management** | IMPLEMENTED | Full CRUD, lifecycle (DRAFT / IN_REVIEW / APPROVED / PUBLISHED / RETIRED), versioning (major / minor), control linking, risk linking, review scheduling, statistics |
+| **Policy Management** | IMPLEMENTED | Full CRUD, lifecycle (DRAFT / UNDER_REVIEW / APPROVED / ACTIVE / RETIRED), versioning (major / minor), control linking, risk linking, review scheduling, statistics |
 | **Evidence Management** | IMPLEMENTED | Full CRUD, metadata-based records (DOCUMENT / SCREENSHOT / LOG / REPORT / CONFIG_EXPORT / LINK), control linking, test-result linking, issue linking, status lifecycle (DRAFT / APPROVED / RETIRED) |
 | **Issue Management** | IMPLEMENTED | Full CRUD, lifecycle (OPEN / IN_PROGRESS / RESOLVED / CLOSED / REJECTED), severity levels, source tracking (MANUAL / TEST_RESULT / SOA_ITEM), control / test-result / evidence linking, status transitions with history, CAPA creation from issues |
 | **CAPA Management** | IMPLEMENTED | Full CRUD, lifecycle (PLANNED / IN_PROGRESS / IMPLEMENTED / VERIFIED / REJECTED / CLOSED), task management with progress tracking, issue linking, status history |
@@ -101,7 +101,7 @@ flowchart LR
 
 | Step | Entity | Key Enum Values | Evidence |
 |------|--------|----------------|----------|
-| 1. Standard / Requirement | `GrcStandard`, `GrcStandardClause`, `GrcRequirement` | `RequirementStatus`: DRAFT, IN_PROGRESS, IMPLEMENTED, VERIFIED, NON_COMPLIANT | `backend-nest/src/grc/entities/standard.entity.ts` |
+| 1. Standard / Requirement | `GrcStandard`, `GrcStandardClause`, `GrcRequirement` | `RequirementStatus`: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, VERIFIED, NON_COMPLIANT | `backend-nest/src/grc/entities/standard.entity.ts` |
 | 2. Control | `GrcControl` | `ControlStatus`: DRAFT, IN_DESIGN, IMPLEMENTED, INOPERATIVE, RETIRED | `backend-nest/src/grc/entities/grc-control.entity.ts` |
 | 3. Evidence | `GrcEvidence`, `GrcControlEvidence` | `EvidenceType`: DOCUMENT, SCREENSHOT, LOG, REPORT, CONFIG_EXPORT, LINK; `ControlEvidenceType`: BASELINE, TEST, PERIODIC | `backend-nest/src/grc/entities/grc-evidence.entity.ts` |
 | 4. Control Test | `GrcControlTest` | `ControlTestType`: MANUAL, AUTOMATED, HYBRID; `ControlTestStatus`: PLANNED, IN_PROGRESS, COMPLETED, CANCELLED | `backend-nest/src/grc/entities/grc-control-test.entity.ts` |
@@ -204,19 +204,23 @@ erDiagram
 
 ### 4.1 Overview
 
-The Risk module provides a comprehensive risk register with 5x5 risk scoring (severity x likelihood), treatment strategy assignment, control effectiveness tracking, and residual risk calculation.
+The Risk module provides a comprehensive risk register with 4x5 risk scoring (4 severity levels x 5 likelihood levels), treatment strategy assignment, control effectiveness tracking, and residual risk calculation.
 
 ### 4.2 Risk Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> identified : Create
+    [*] --> draft : Create
+    draft --> identified : Identify
     identified --> assessed : Assess Risk
-    assessed --> mitigating : Assign Controls
-    mitigating --> monitoring : Controls Implemented
-    monitoring --> closed : Risk Accepted/Resolved
-    monitoring --> mitigating : Re-assess
-    identified --> closed : Accept/Transfer
+    assessed --> treatment_planned : Plan Treatment
+    treatment_planned --> treating : Begin Treatment
+    treating --> mitigating : Controls Assigned
+    mitigating --> monitored : Controls Implemented
+    monitored --> closed : Risk Accepted/Resolved
+    monitored --> mitigating : Re-assess
+    identified --> accepted : Accept Risk
+    accepted --> closed : Close
     closed --> [*]
 ```
 
@@ -224,12 +228,12 @@ stateDiagram-v2
 
 | Enum | Values |
 |------|--------|
-| `RiskStatus` | `identified`, `assessed`, `mitigating`, `monitoring`, `closed`, `accepted` |
-| `RiskSeverity` | `negligible`, `minor`, `moderate`, `major`, `critical` |
+| `RiskStatus` | `draft`, `identified`, `assessed`, `treatment_planned`, `treating`, `mitigating`, `monitored`, `accepted`, `closed` |
+| `RiskSeverity` | `low`, `medium`, `high`, `critical` |
 | `RiskLikelihood` | `rare`, `unlikely`, `possible`, `likely`, `almost_certain` |
-| `RiskType` | `strategic`, `operational`, `financial`, `compliance`, `technology`, `reputational`, `legal`, `environmental` |
+| `RiskType` | `strategic`, `operational`, `compliance`, `financial`, `technology`, `cyber`, `third_party`, `other` |
 | `TreatmentStrategy` | `mitigate`, `accept`, `transfer`, `avoid` |
-| `RiskAppetite` | `averse`, `minimal`, `cautious`, `open` |
+| `RiskAppetite` | `low`, `medium`, `high` |
 
 ### 4.4 Endpoints
 
@@ -240,7 +244,7 @@ stateDiagram-v2
 | `GET` | `/api/grc/risks/summary` | Summary by status / severity / likelihood | `GRC_STATISTICS_READ` |
 | `GET` | `/api/grc/risks/statistics` | Risk statistics | `GRC_STATISTICS_READ` |
 | `GET` | `/api/grc/risks/high-severity` | High-severity risks | `GRC_RISK_READ` |
-| `GET` | `/api/grc/risks/heatmap` | 5x5 heat-map data | `GRC_RISK_READ` |
+| `GET` | `/api/grc/risks/heatmap` | 4x5 heat-map data | `GRC_RISK_READ` |
 | `GET` | `/api/grc/risks/above-appetite` | Risks exceeding appetite threshold | `GRC_RISK_READ` |
 | `GET` | `/api/grc/risks/stats-with-appetite` | Stats with appetite overlay | `GRC_RISK_READ` |
 | `GET` | `/api/grc/risks/:id` | Get risk by ID | `GRC_RISK_READ` |
@@ -317,9 +321,9 @@ stateDiagram-v2
 | Enum | Values |
 |------|--------|
 | `ControlType` | `preventive`, `detective`, `corrective` |
-| `ControlImplementationType` | `manual`, `automated`, `hybrid` |
+| `ControlImplementationType` | `manual`, `automated`, `it_dependent` |
 | `ControlStatus` | `draft`, `in_design`, `implemented`, `inoperative`, `retired` |
-| `ControlFrequency` | `daily`, `weekly`, `monthly`, `quarterly`, `semi_annually`, `annually`, `continuous` |
+| `ControlFrequency` | `continuous`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` |
 
 ### 5.4 Endpoints
 
@@ -379,12 +383,12 @@ The Policy module manages organizational policies with versioning, review schedu
 ```mermaid
 stateDiagram-v2
     [*] --> draft : Create
-    draft --> in_review : Submit for Review
-    in_review --> approved : Approve
-    approved --> published : Publish
-    published --> retired : Retire
-    in_review --> draft : Reject
-    published --> draft : Revise (new version)
+    draft --> under_review : Submit for Review
+    under_review --> approved : Approve
+    approved --> active : Activate
+    active --> retired : Retire
+    under_review --> draft : Reject
+    active --> draft : Revise (new version)
     retired --> [*]
 ```
 
@@ -392,7 +396,7 @@ stateDiagram-v2
 
 | Enum | Values |
 |------|--------|
-| `PolicyStatus` | `draft`, `in_review`, `approved`, `published`, `retired` |
+| `PolicyStatus` | `draft`, `under_review`, `approved`, `active`, `retired` |
 | `PolicyVersionStatus` | `draft`, `in_review`, `approved`, `published`, `retired` |
 | `VersionType` | `major`, `minor` |
 
@@ -718,8 +722,8 @@ Requirements represent specific compliance obligations derived from standards an
 
 | Enum | Values |
 |------|--------|
-| `RequirementType` | `mandatory`, `recommended`, `optional`, `informative`, `regulatory`, `contractual` |
-| `RequirementStatus` | `draft`, `in_progress`, `implemented`, `verified`, `non_compliant` |
+| `RequirementType` | `regulatory`, `contractual`, `internal`, `industry_standard`, `best_practice` |
+| `RequirementStatus` | `not_started`, `in_progress`, `implemented`, `verified`, `non_compliant` |
 
 ### 11.3 Endpoints
 
@@ -758,9 +762,9 @@ The SOA module implements ISO 27001 Annex A Statement of Applicability profiles.
 
 | Enum | Values |
 |------|--------|
-| `SoaProfileStatus` | `draft`, `published`, `archived` |
-| `SoaApplicability` | `applicable`, `not_applicable`, `partially_applicable` |
-| `SoaImplementationStatus` | `not_implemented`, `partially_implemented`, `fully_implemented`, `not_applicable` |
+| `SoaProfileStatus` | `DRAFT`, `PUBLISHED`, `ARCHIVED` |
+| `SoaApplicability` | `APPLICABLE`, `NOT_APPLICABLE`, `UNDECIDED` |
+| `SoaImplementationStatus` | `IMPLEMENTED`, `PARTIALLY_IMPLEMENTED`, `PLANNED`, `NOT_IMPLEMENTED` |
 
 ### 12.3 Endpoints
 
@@ -811,14 +815,14 @@ The BCM module supports business continuity planning per ISO 22301. It covers cr
 
 | Enum | Values |
 |------|--------|
-| `BcmServiceStatus` | `active`, `inactive`, `under_review`, `deprecated` |
-| `BcmCriticalityTier` | `tier_1_critical`, `tier_2_important`, `tier_3_standard`, `tier_4_low`, `tier_5_minimal` |
-| `BcmBiaStatus` | `draft`, `in_review`, `approved`, `archived` |
-| `BcmPlanType` | `bcp`, `drp`, `crisis`, `communication` |
-| `BcmPlanStatus` | `draft`, `in_review`, `approved`, `active`, `retired` |
-| `BcmExerciseType` | `tabletop`, `walkthrough`, `simulation`, `parallel`, `full_interruption` |
-| `BcmExerciseStatus` | `planned`, `in_progress`, `completed`, `cancelled` |
-| `BcmExerciseOutcome` | `successful`, `partially_successful`, `failed`, `inconclusive` |
+| `BcmServiceStatus` | `DRAFT`, `ACTIVE`, `ARCHIVED` |
+| `BcmCriticalityTier` | `TIER_0`, `TIER_1`, `TIER_2`, `TIER_3` |
+| `BcmBiaStatus` | `DRAFT`, `REVIEWED`, `APPROVED` |
+| `BcmPlanType` | `BCP`, `DRP`, `IT_CONTINUITY` |
+| `BcmPlanStatus` | `DRAFT`, `APPROVED`, `ACTIVE`, `RETIRED` |
+| `BcmExerciseType` | `TABLETOP`, `FAILOVER`, `RESTORE`, `COMMS` |
+| `BcmExerciseStatus` | `PLANNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED` |
+| `BcmExerciseOutcome` | `PASS`, `PARTIAL`, `FAIL` |
 
 ### 13.3 Endpoints
 
@@ -953,8 +957,8 @@ The Insights dashboard aggregates key GRC health metrics into a single view.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Risk Register (CRUD, scoring, lifecycle) | IMPLEMENTED | Full 5x5 heat-map, treatment strategies, appetite thresholds |
-| Risk Assessments (basic) | IMPLEMENTED | Create / view assessments with type (inherent / residual / target) |
+| Risk Register (CRUD, scoring, lifecycle) | IMPLEMENTED | Full 4x5 heat-map (4 severity x 5 likelihood), treatment strategies, appetite thresholds |
+| Risk Assessments (basic) | IMPLEMENTED | Create / view assessments with type (inherent / residual) |
 | Risk Assessments (multi-stage workflows) | PLANNED | Advanced assessment workflow engine |
 | Risk-Control Effectiveness & Residual Calc | IMPLEMENTED | Override capability, recalculate endpoint |
 | Risk Treatment Actions | IMPLEMENTED | Full CRUD with status tracking |
