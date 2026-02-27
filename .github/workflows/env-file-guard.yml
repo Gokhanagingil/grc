@@ -52,6 +52,12 @@ jobs:
                 echo "  ALLOWED: $file (dev/test defaults)"
                 continue
                 ;;
+              frontend/.env.production|frontend/.env.staging)
+                # Frontend build-time config only (e.g., REACT_APP_API_URL=/api)
+                # These do NOT contain secrets — safe to track.
+                echo "  ALLOWED: $file (frontend build-time config, no secrets)"
+                continue
+                ;;
               *)
                 # Check if it looks like a real .env file
                 basename=$(basename "$file")
