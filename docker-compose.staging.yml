@@ -35,6 +35,10 @@ services:
   # ---------------------------------------------------------------------------
   # PostgreSQL Database
   # ---------------------------------------------------------------------------
+  # ⚠️  RED LINE: DB must NEVER expose ports to the host or public network.
+  #    It is accessible ONLY via the internal Docker network (grc-staging-network).
+  #    If you need psql access, use: docker compose exec db psql -U $DB_USER $DB_NAME
+  # ---------------------------------------------------------------------------
   db:
     image: postgres:15-alpine
     container_name: grc-staging-db
@@ -43,6 +47,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-grc_platform}
+    # ⚠️  RED LINE: No 'ports:' section here — DB is internal-only.
     volumes:
       - grc_staging_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -96,8 +101,12 @@ services:
       GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
       GIT_COMMIT_SHORT: ${GIT_COMMIT_SHORT:-unknown}
       BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
-    ports:
-      - "3002:3002"
+    # ⚠️  RED LINE: Backend port must NOT be exposed to host in production.
+    #    Nginx (frontend container) is the ONLY public entry point.
+    #    Backend is accessed internally via Docker network on port 3002.
+    #    Uncomment ONLY for local debugging:
+    # ports:
+    #   - "127.0.0.1:3002:3002"
     volumes:
       # Mount host directory for general data storage (platform builder, etc.)
       # The LocalFsAdapter uses /app/data/uploads by default in production
@@ -131,6 +140,9 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    # ⚠️  This is the ONLY publicly exposed port.
+    #    All traffic enters through nginx, which proxies /api/* to backend.
+    #    TLS termination happens at the corporate LB/ADC upstream of this port.
     ports:
       - "80:80"
     healthcheck:

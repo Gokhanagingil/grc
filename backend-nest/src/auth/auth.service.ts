@@ -299,10 +299,27 @@ export class AuthService {
   /**
    * Ensure demo admin user and tenant exist (for initial setup/demo purposes)
    *
-   * WARNING: This is for development/demo only. In production, use proper
-   * user seeding or remove this method entirely.
+   * PRODUCTION SAFETY: In production (NODE_ENV=production), this method is
+   * a no-op unless ENABLE_DEMO_BOOTSTRAP=true is explicitly set.
+   * This prevents accidental demo user creation on production databases.
    */
   private async ensureDemoAdminExists(): Promise<void> {
+    // Production safety gate: require explicit opt-in for demo bootstrap
+    const nodeEnv = this.configService.get<string>(
+      'app.nodeEnv',
+      'development',
+    );
+    if (nodeEnv === 'production') {
+      const enableBootstrap = process.env.ENABLE_DEMO_BOOTSTRAP;
+      if (enableBootstrap !== 'true') {
+        return; // Silent no-op in production without explicit opt-in
+      }
+      this.logger.warn('demo.bootstrap.production_mode', {
+        warning:
+          'ENABLE_DEMO_BOOTSTRAP=true in production — disable after initial setup!',
+      });
+    }
+
     const { email, password } = this.getDemoAdminCredentials();
     const existingAdmin = await this.usersService.findByEmail(email);
 
