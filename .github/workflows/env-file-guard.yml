@@ -71,6 +71,10 @@ jobs:
                       echo "  BLOCKED: $file — this file may contain real secrets!"
                       FOUND_ISSUES=1
                       ;;
+                    *)
+                      echo "  BLOCKED: $file — unrecognized .env variant, may contain secrets!"
+                      FOUND_ISSUES=1
+                      ;;
                   esac
                 fi
                 ;;

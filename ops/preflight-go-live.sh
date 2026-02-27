@@ -9,6 +9,9 @@
 #   bash ops/preflight-go-live.sh                     # default compose file
 #   COMPOSE_FILE=docker-compose.staging.yml bash ops/preflight-go-live.sh
 #
+# The script checks health via nginx (port 80) by default.
+# Override NGINX_URL or BACKEND_URL if your setup differs.
+#
 # Exit codes:
 #   0 = all checks passed (GO)
 #   1 = one or more checks failed (NO-GO)
@@ -19,7 +22,7 @@ set -uo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.staging.yml}"
 BACKEND_CONTAINER="${BACKEND_CONTAINER:-grc-staging-backend}"
-BACKEND_URL="${BACKEND_URL:-http://localhost:3002}"
+BACKEND_URL="${BACKEND_URL:-http://localhost}"
 PASS=0
 FAIL=0
 WARN=0
@@ -93,15 +96,12 @@ check_health() {
   fi
 }
 
-# Check from host (assumes backend port is accessible or via nginx)
-check_health "/health/live (backend direct)" "${BACKEND_URL}/health/live"
-check_health "/health/ready (backend direct)" "${BACKEND_URL}/health/ready"
-check_health "/health/db (backend direct)" "${BACKEND_URL}/health/db"
-
-# Check via nginx (public entry point)
-NGINX_URL="${NGINX_URL:-http://localhost}"
-check_health "/health/live (via nginx)" "${NGINX_URL}/health/live"
-check_health "/frontend-health (nginx)" "${NGINX_URL}/frontend-health"
+# Check health via nginx (the only publicly exposed entry point)
+NGINX_URL="${NGINX_URL:-${BACKEND_URL}}"
+check_health "/health/live" "${NGINX_URL}/health/live"
+check_health "/health/ready" "${NGINX_URL}/health/ready"
+check_health "/health/db" "${NGINX_URL}/health/db"
+check_health "/frontend-health" "${NGINX_URL}/frontend-health"
 
 # ─── 5. Build / Version Info ─────────────────────────────────────────────────
 section "5. Build & Version Info"

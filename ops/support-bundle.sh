@@ -15,7 +15,7 @@ set -uo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.staging.yml}"
 BACKEND_CONTAINER="${BACKEND_CONTAINER:-grc-staging-backend}"
-BACKEND_URL="${BACKEND_URL:-http://localhost:3002}"
+BACKEND_URL="${BACKEND_URL:-http://localhost}"
 NGINX_URL="${NGINX_URL:-http://localhost}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BUNDLE_FILE="./support-bundle-${TIMESTAMP}.txt"
