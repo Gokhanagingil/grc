@@ -143,7 +143,7 @@ supports ServiceNow read-only tools with strict security controls:
 
 - **Table allowlist** — Only 7 tables: `incident`, `change_request`, `cmdb_ci`,
   `problem`, `kb_knowledge`, `sc_req_item`, `sys_user`
-- **Field allowlist** — Per-table safe field sets (e.g., 17 fields for `incident`,
+- **Field allowlist** — Per-table safe field sets (e.g., 18 fields for `incident`,
   18 for `change_request`)
 - **SSRF validation** — Every outbound URL checked against private IP ranges and
   blocked hostnames
