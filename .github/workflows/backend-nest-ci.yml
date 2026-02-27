@@ -9,7 +9,8 @@
 #
 # Jobs:
 #   1. lint           - ESLint code quality checks
-#   2. security-audit - npm audit for vulnerability scanning
+#   2. security-audit - npm audit for production/runtime deps (blocking)
+#   2b. security-audit-dev - npm audit for all deps incl. dev (non-blocking)
 #   3. build          - TypeScript compilation
 #   4. unit-tests     - Jest unit tests
 #   5. e2e-tests      - Full E2E tests (non-blocking for PRs, runs nightly)
@@ -123,7 +124,12 @@ jobs:
         run: npm run lint
 
   # ---------------------------------------------------------------------------
-  # Security Audit - Vulnerability Scanning
+  # Security Audit (Production) - Vulnerability Scanning for Runtime Deps
+  # ---------------------------------------------------------------------------
+  # Rationale: Only production/runtime dependencies are gated because they
+  # ship in the Docker image and run in production. Dev-tooling vulnerabilities
+  # (e.g. @nestjs/cli, eslint transitive deps) are tracked separately in a
+  # non-blocking job below so they don't block deploys.
   # ---------------------------------------------------------------------------
   security-audit:
     name: Security Audit
@@ -146,10 +152,61 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
       
-      - name: Run npm audit
-        run: npm audit --audit-level=high
-        # Security audit is enforced - CI will fail on high/critical vulnerabilities
-        # This ensures security issues are addressed before merging
+      - name: Run npm audit (production deps only)
+        run: npm audit --omit=dev --audit-level=high
+        # BLOCKING: high/critical vulnerabilities in production deps fail CI.
+        # Only runtime packages that ship in the Docker image are checked here.
+
+  # ---------------------------------------------------------------------------
+  # Security Audit (Dev Dependencies) - Non-blocking Full Audit
+  # ---------------------------------------------------------------------------
+  # Tracks vulnerabilities in dev/build tooling (e.g. @nestjs/cli, eslint,
+  # webpack plugins). These do NOT ship in production but should still be
+  # monitored. Failures here are informational only — they never block merges.
+  # ---------------------------------------------------------------------------
+  security-audit-dev:
+    name: Security Audit (Dev Deps)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-nest/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run full npm audit (all deps)
+        run: |
+          echo "=== Full Security Audit (including dev dependencies) ==="
+          echo "This job is NON-BLOCKING. Dev-tooling vulnerabilities are"
+          echo "tracked here for visibility but do not gate production deploys."
+          echo ""
+          npm audit --audit-level=high 2>&1 || true
+          echo ""
+          echo "=== Audit Summary ==="
+          npm audit --json 2>/dev/null | node -e "
+            const data = require('fs').readFileSync('/dev/stdin','utf8');
+            try {
+              const report = JSON.parse(data);
+              const meta = report.metadata?.vulnerabilities || {};
+              console.log('Vulnerabilities: ' +
+                'critical=' + (meta.critical||0) +
+                ' high=' + (meta.high||0) +
+                ' moderate=' + (meta.moderate||0) +
+                ' low=' + (meta.low||0));
+            } catch(e) { console.log('Could not parse audit JSON'); }
+          " || true
 
   # ---------------------------------------------------------------------------
   # Build - TypeScript Compilation
