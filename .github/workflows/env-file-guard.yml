@@ -1,0 +1,91 @@
+# =============================================================================
+# GRC Platform - .env File Commit Guard
+# =============================================================================
+# Prevents accidental commit of real .env files (containing secrets).
+# Only .env.example, .env.*.example, and .env.*.template files are allowed.
+#
+# Risk Level: P0 (Critical) - .env files may contain production secrets
+# =============================================================================
+
+name: Env File Guard
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  env-file-guard:
+    name: Check for .env file commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Scan for prohibited .env files
+        run: |
+          echo "Scanning for .env files that should not be committed..."
+
+          FOUND_ISSUES=0
+
+          # Find all .env files in the repo (tracked by git)
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
+            # Allow known safe patterns
+            case "$file" in
+              *.example|*.template)
+                echo "  ALLOWED: $file (example/template)"
+                continue
+                ;;
+              */.env.development|*/.env.test|.env.development|.env.test)
+                echo "  ALLOWED: $file (dev/test defaults)"
+                continue
+                ;;
+              frontend/.env.production|frontend/.env.staging)
+                # Frontend build-time config only (e.g., REACT_APP_API_URL=/api)
+                # These do NOT contain secrets — safe to track.
+                echo "  ALLOWED: $file (frontend build-time config, no secrets)"
+                continue
+                ;;
+              *)
+                # Check if it looks like a real .env file
+                basename=$(basename "$file")
+                if echo "$basename" | grep -qE '^\.env(\..+)?$'; then
+                  # It's an .env file — check if it's a real secret file
+                  case "$basename" in
+                    .env.example|.env.*.example|.env.*.template|.env.development|.env.test)
+                      echo "  ALLOWED: $file"
+                      ;;
+                    .env|.env.production|.env.staging|.env.local|.env.*.local)
+                      echo "  BLOCKED: $file — this file may contain real secrets!"
+                      FOUND_ISSUES=1
+                      ;;
+                    *)
+                      echo "  BLOCKED: $file — unrecognized .env variant, may contain secrets!"
+                      FOUND_ISSUES=1
+                      ;;
+                  esac
+                fi
+                ;;
+            esac
+          done < <(git ls-files | grep -E '\.env')
+
+          if [ $FOUND_ISSUES -eq 1 ]; then
+            echo ""
+            echo "FAILURE: Prohibited .env files found in repository."
+            echo "Real .env files must NEVER be committed. Use .env.example or .env.*.template instead."
+            exit 1
+          fi
+
+          echo "SUCCESS: No prohibited .env files found."

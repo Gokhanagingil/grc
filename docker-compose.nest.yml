@@ -34,6 +34,8 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-grc_platform}
+    # ⚠️  RED LINE: DB port must NEVER be exposed publicly in production.
+    # For local dev only — remove or comment out before deploying.
     ports:
       - "${DB_EXTERNAL_PORT:-5432}:5432"
     volumes:
@@ -71,11 +73,15 @@ services:
       DB_SYNC: ${DB_SYNC:-true}
       
       # Security
+      # ⚠️  RED LINE: Change JWT_SECRET in production! Never use dev defaults.
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-32chars}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       
       # CORS
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002}
+    # ⚠️  RED LINE: Backend port must NOT be exposed publicly in production.
+    # In production, only nginx (port 80/443) should be exposed.
+    # Backend is accessed internally via Docker network.
     ports:
       - "${APP_PORT:-3002}:3002"
     healthcheck:
