@@ -36,14 +36,15 @@ export const Profile: React.FC = () => {
 
   const handleLocaleChange = async (event: SelectChangeEvent<string>) => {
     const newLocale = event.target.value;
+    const previousLocale = i18n.language;
     setLocaleSaving(true);
     setLocaleMessage(null);
 
-    try {
-      // Apply immediately in the UI
-      i18n.changeLanguage(newLocale);
-      localStorage.setItem('locale', newLocale);
+    // Apply immediately in the UI (optimistic update)
+    i18n.changeLanguage(newLocale);
+    localStorage.setItem('locale', newLocale);
 
+    try {
       // Persist to backend
       if (user?.id) {
         await api.patch(`/users/me/locale`, { locale: newLocale });
@@ -51,6 +52,9 @@ export const Profile: React.FC = () => {
       setLocaleMessage({ type: 'success', text: t('profile.localeSaved') });
     } catch (err) {
       console.error('Failed to save locale:', err);
+      // Rollback to previous locale on failure
+      i18n.changeLanguage(previousLocale);
+      localStorage.setItem('locale', previousLocale);
       setLocaleMessage({ type: 'error', text: t('profile.localeError') });
     } finally {
       setLocaleSaving(false);

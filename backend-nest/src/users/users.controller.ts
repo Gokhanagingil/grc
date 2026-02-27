@@ -138,7 +138,6 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    user.locale = updateLocaleDto.locale;
     const savedUser = await this.usersService.updateLocale(
       userId,
       updateLocaleDto.locale,
