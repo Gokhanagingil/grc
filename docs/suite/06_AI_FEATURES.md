@@ -291,7 +291,7 @@ incident, change_request, cmdb_ci, problem, kb_knowledge, sc_req_item, sys_user
 
 | Table | Allowed Fields (count) | Example Fields |
 |---|---|---|
-| `incident` | 17 | `sys_id`, `number`, `short_description`, `state`, `priority`, `category`, `assignment_group` |
+| `incident` | 18 | `sys_id`, `number`, `short_description`, `state`, `priority`, `category`, `assignment_group` |
 | `change_request` | 18 | `sys_id`, `number`, `short_description`, `state`, `type`, `risk`, `priority` |
 | `cmdb_ci` | 11 | `sys_id`, `name`, `sys_class_name`, `operational_status`, `environment` |
 | `problem` | 10 | `sys_id`, `number`, `short_description`, `state`, `priority` |
