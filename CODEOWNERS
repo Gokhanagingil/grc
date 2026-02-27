@@ -1,0 +1,34 @@
+# =============================================================================
+# GRC Platform - CODEOWNERS
+# =============================================================================
+# Defines code ownership for automated PR review assignments.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Pattern format: <pattern> <owner1> <owner2> ...
+# Owners are GitHub usernames or team slugs (@org/team-name).
+# =============================================================================
+
+# --- Documentation Suite Ownership ---
+# Each numbered doc in docs/suite/ has a designated domain owner.
+
+# 01* — Infrastructure & Installation
+docs/suite/01*                    @Gokhanagingil
+
+# 02 — Technical Architecture
+docs/suite/02*                    @Gokhanagingil
+
+# 03 — ITSM Module
+docs/suite/03*                    @Gokhanagingil
+
+# 04 — GRC Module
+docs/suite/04*                    @Gokhanagingil
+
+# 05 — ITSM-GRC Bridges
+docs/suite/05*                    @Gokhanagingil
+
+# 06 — AI Features
+docs/suite/06*                    @Gokhanagingil
+
+# --- Docs Lifecycle ---
+docs/DOCS_BACKLOG.md              @Gokhanagingil
+docs/runbooks/DOCS-LIFECYCLE.md   @Gokhanagingil

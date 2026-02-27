@@ -1,6 +1,6 @@
 # Infrastructure & Platform Operations Guide
 
-> **Version:** 1.1 | **Last Updated:** 2026-02-26 | **Status:** Final (High-Impact Sections)
+> **Version:** 1.1 | **Last Updated:** 2026-02-26 | **Status:** Final (High-Impact Sections) | **Owner:** infra
 >
 > **Audience:** IT Operations, DevOps, Data Center Team, Auditors
 >

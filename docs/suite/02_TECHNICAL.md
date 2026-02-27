@@ -1,6 +1,6 @@
 # Technical Architecture Guide
 
-> **Version:** 2.0 | **Last Updated:** 2026-02-26 | **Status:** Final
+> **Version:** 2.0 | **Last Updated:** 2026-02-26 | **Status:** Final | **Owner:** architecture
 >
 > **Audience:** Product/Engineering, Backend Developers, Solution Architects, Auditors
 >

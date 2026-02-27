@@ -1,0 +1,181 @@
+# =============================================================================
+# GRC Platform - Docs CI Workflow
+# =============================================================================
+# Lightweight documentation quality checks:
+#   1. Markdown lint (basic rules)
+#   2. Broken relative link check under /docs
+#   3. Raw HTML block detection (render-safety)
+#
+# Triggers on PRs and pushes that touch docs/** or *.md files.
+# =============================================================================
+
+name: Docs CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/docs-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/docs-ci.yml'
+
+# Prevent workflow pile-ups: cancel older runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docs-checks:
+    name: Docs Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # -----------------------------------------------------------------------
+      # 1. Markdown Lint (basic)
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install markdownlint-cli2
+        run: npm install -g markdownlint-cli2
+
+      - name: Run markdownlint
+        run: |
+          # Create a relaxed config inline — allow common patterns in our docs
+          cat > .markdownlint-cli2.jsonc <<'EOF'
+          {
+            "config": {
+              "default": true,
+              "MD013": false,
+              "MD024": false,
+              "MD033": false,
+              "MD041": false,
+              "MD025": false,
+              "MD036": false,
+              "MD046": false,
+              "MD007": false,
+              "MD012": false,
+              "MD022": false,
+              "MD032": false,
+              "MD034": false,
+              "MD040": false,
+              "MD047": false,
+              "MD004": false,
+              "MD009": false,
+              "MD010": false,
+              "MD023": false,
+              "MD026": false,
+              "MD029": false,
+              "MD030": false,
+              "MD031": false,
+              "MD035": false,
+              "MD049": false,
+              "MD050": false,
+              "MD058": false,
+              "MD060": false
+            },
+            "globs": ["docs/**/*.md"]
+          }
+          EOF
+          markdownlint-cli2 || true
+          echo "Markdown lint completed (warnings only, non-blocking)"
+
+      # -----------------------------------------------------------------------
+      # 2. Broken Relative Link Check
+      # -----------------------------------------------------------------------
+      - name: Check broken relative links in docs
+        run: |
+          echo "Checking for broken relative links under docs/..."
+          ERRORS=0
+
+          # Find all markdown files under docs/
+          while IFS= read -r -d '' file; do
+            dir=$(dirname "$file")
+
+            # Strip fenced code blocks before extracting links
+            # Uses awk to properly track open/close fences (handles indented fences
+            # and avoids the sed issue where odd fence counts delete to EOF)
+            stripped=$(awk 'BEGIN{in_code=0} /^[[:space:]]*```/{in_code=!in_code; next} !in_code{print}' "$file")
+
+            # Extract relative links: [text](./path) or [text](../path) or [text](path.md)
+            # Skip anchors (#), URLs (http/https), and empty links
+            while IFS= read -r link; do
+              # Remove any anchor fragment
+              target="${link%%#*}"
+
+              # Skip empty targets (pure anchor links)
+              [ -z "$target" ] && continue
+
+              # Skip absolute URLs
+              case "$target" in
+                http://*|https://*|mailto:*|ftp://*) continue ;;
+              esac
+
+              # Resolve the target relative to the file's directory
+              resolved="$dir/$target"
+
+              if [ ! -e "$resolved" ]; then
+                echo "BROKEN LINK: $file -> $link (resolved: $resolved)"
+                ERRORS=$((ERRORS + 1))
+              fi
+            done < <(echo "$stripped" | grep -oP '\[.*?\]\(\K[^)]+' 2>/dev/null || true)
+          done < <(find docs -name '*.md' -print0)
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo ""
+            echo "ERROR: Found $ERRORS broken relative link(s) in docs/"
+            echo "Please fix or remove these broken links."
+            exit 1
+          fi
+
+          echo "SUCCESS: All relative links in docs/ are valid."
+
+      # -----------------------------------------------------------------------
+      # 3. Raw HTML Block Check (render-safety)
+      # -----------------------------------------------------------------------
+      - name: Check for raw HTML blocks in docs
+        run: |
+          echo "Checking for raw HTML block elements in docs/..."
+          ERRORS=0
+
+          # Block-level HTML tags that may be stripped by strict Markdown renderers.
+          # Inline elements (<br>, <sub>, <sup>, <kbd>, <code>, <small>, <img>) are OK.
+          BLOCK_PATTERN='<(div|table|thead|tbody|tr|td|th|details|summary|iframe|script|style|form|input|select|textarea|button|fieldset|legend|section|article|aside|header|footer|nav|main|figure|figcaption)(\s|>|/>)'
+
+          while IFS= read -r -d '' file; do
+            matches=$(grep -nPi "$BLOCK_PATTERN" "$file" 2>/dev/null || true)
+            if [ -n "$matches" ]; then
+              echo "RAW HTML BLOCKS in $file:"
+              echo "$matches"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done < <(find docs -name '*.md' -print0)
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo ""
+            echo "WARNING: Found raw HTML block elements in $ERRORS file(s)."
+            echo "These may be stripped by strict Markdown renderers."
+            echo "Consider using Markdown syntax instead, or verify render output."
+            # Non-blocking warning — exit 0 so CI stays green
+            # Change to exit 1 to enforce strictly
+          fi
+
+          echo "Docs render-safety check completed."

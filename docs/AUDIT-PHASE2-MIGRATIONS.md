@@ -234,5 +234,5 @@ Ensure the database user has:
 ## Related Documentation
 
 - [TypeORM Migrations Guide](https://typeorm.io/migrations)
-- [Multi-Tenant Architecture](../docs/MULTI-TENANT.md) (if exists)
-- [Database Schema](../docs/DATABASE-SCHEMA.md) (if exists)
+- Multi-Tenant Architecture — `docs/MULTI-TENANT.md` (planned)
+- Database Schema — `docs/DATABASE-SCHEMA.md` (planned)

@@ -2,7 +2,7 @@
 
 > **Version:** 1.0  
 > **Last Updated:** 2026-02-27  
-> **Status:** Final  
+> **Status:** Final | **Owner:** ai  
 > **Audience:** Platform Operators, Security Auditors, GRC Analysts, Developers  
 > **Evidence Map:** [EVIDENCE_MAP_v1.md](../discovery/EVIDENCE_MAP_v1.md) — Section 6
 
