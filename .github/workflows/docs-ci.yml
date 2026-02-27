@@ -141,13 +141,12 @@ jobs:
 
           if [ "$ERRORS" -gt 0 ]; then
             echo ""
-            echo "WARNING: Found $ERRORS broken relative link(s) in docs/"
+            echo "ERROR: Found $ERRORS broken relative link(s) in docs/"
             echo "Please fix or remove these broken links."
-            # Non-blocking — log warnings but don't fail CI for pre-existing issues
-            # Change to 'exit 1' to enforce strictly once all links are fixed
+            exit 1
           fi
 
-          echo "Relative link check completed."
+          echo "SUCCESS: All relative links in docs/ are valid."
 
       # -----------------------------------------------------------------------
       # 3. Raw HTML Block Check (render-safety)
