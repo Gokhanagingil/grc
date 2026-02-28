@@ -473,45 +473,51 @@ jobs:
             echo "=== Container Status ==="
             docker compose -f docker-compose.staging.yml ps
             
-            # Health checks
+            # Health checks - use Docker's own health status instead of host curl
+            # (backend port 3002 is not exposed to host; container healthcheck uses Node.js)
             echo "=== Health Checks ==="
             
-            # Backend health check
-            echo "Checking backend health..."
-            for i in {1..30}; do
-              if curl -sf http://localhost:3002/health/live > /dev/null; then
-                echo "Backend health check passed"
+            # Backend health check (via Docker health status)
+            echo "Checking backend health (via docker inspect)..."
+            for i in $(seq 1 30); do
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' grc-staging-backend 2>/dev/null || echo "unknown")
+              if [ "$HEALTH" = "healthy" ]; then
+                echo "Backend health check passed (container healthy)"
                 break
               fi
-              if [ $i -eq 30 ]; then
-                echo "Backend health check failed after 30 attempts"
+              if [ "$i" -eq 30 ]; then
+                echo "Backend health check failed after 30 attempts (last status: $HEALTH)"
                 echo "=== Container Status ==="
                 docker compose -f docker-compose.staging.yml ps || true
+                echo "=== Docker Health Log ==="
+                docker inspect --format='{{json .State.Health}}' grc-staging-backend 2>/dev/null || true
+                echo ""
                 echo "=== Backend Logs (last 200 lines) ==="
                 docker compose -f docker-compose.staging.yml logs --tail=200 backend || true
                 exit 1
               fi
-              echo "Waiting for backend... ($i/30)"
-              sleep 2
+              echo "Waiting for backend... ($i/30) [status: $HEALTH]"
+              sleep 10
             done
             
-            # Frontend health check
-            echo "Checking frontend health..."
-            for i in {1..30}; do
-              if curl -sf http://localhost/health > /dev/null; then
-                echo "Frontend health check passed"
+            # Frontend health check (via Docker health status)
+            echo "Checking frontend health (via docker inspect)..."
+            for i in $(seq 1 20); do
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' grc-staging-frontend 2>/dev/null || echo "unknown")
+              if [ "$HEALTH" = "healthy" ]; then
+                echo "Frontend health check passed (container healthy)"
                 break
               fi
-              if [ $i -eq 30 ]; then
-                echo "Frontend health check failed after 30 attempts"
+              if [ "$i" -eq 20 ]; then
+                echo "Frontend health check failed after 20 attempts (last status: $HEALTH)"
                 echo "=== Container Status ==="
                 docker compose -f docker-compose.staging.yml ps || true
                 echo "=== Frontend Logs (last 200 lines) ==="
                 docker compose -f docker-compose.staging.yml logs --tail=200 frontend || true
                 exit 1
               fi
-              echo "Waiting for frontend... ($i/30)"
-              sleep 2
+              echo "Waiting for frontend... ($i/20) [status: $HEALTH]"
+              sleep 5
             done
             
             # =============================================================================

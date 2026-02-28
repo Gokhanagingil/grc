@@ -74,9 +74,10 @@ EXPOSE 3002
 # Switch to non-root user
 USER nestjs
 
-# Health check using the /health/live endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health/live || exit 1
+# Health check using Node.js http module (no dependency on curl/wget binaries)
+# Uses /health/live for simple liveness (no DB query, fast response)
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+    CMD node -e "const http=require('http');const r=http.get('http://localhost:'+(process.env.PORT||3002)+'/health/live',res=>{process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.setTimeout(3000,()=>{r.destroy();process.exit(1)})"
 
 # Start the application
 CMD ["node", "dist/main.js"]
