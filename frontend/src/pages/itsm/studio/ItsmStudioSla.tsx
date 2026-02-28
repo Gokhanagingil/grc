@@ -345,7 +345,8 @@ export const ItsmStudioSla: React.FC = () => {
       const rawFields = body?.fields;
       if (Array.isArray(rawFields)) {
         const uuidKeys = new Set(['customerCompanyId', 'serviceId', 'offeringId', 'assignedTo', 'relatedService']);
-        const normalized: FieldRegistryEntry[] = rawFields.map((f: Record<string, unknown>) => {
+        const fields = rawFields as Record<string, unknown>[];
+        const normalized: FieldRegistryEntry[] = fields.map((f) => {
           const key = String(f.key ?? '');
           const valueType = (f.valueType as string) ?? 'string';
           const type: FieldRegistryEntry['type'] = uuidKeys.has(key)
