@@ -60,6 +60,7 @@ The GRC platform includes a **full-featured ITSM (IT Service Management) module*
 | **SLA User-Facing Dashboard** | PLANNED | SLA admin UI exists in Studio; dedicated reporting dashboard is planned |
 | **CMDB Import Source Connectors** | PARTIAL | Import job entity exists; source connectors need validation |
 | **ServiceNow Sync** | PLANNED | No direct sync; Tool Gateway provides read-only ServiceNow access for Incident Copilot only |
+| **Company Dimension** | PARTIAL | `core_companies` shared dimension created (v1). Nullable `companyId` FK on Incident/Change planned for future iteration |
 
 > **SECURITY:** All ITSM endpoints require JWT authentication, tenant isolation (`x-tenant-id` header), and permission-based access control. ITSM permissions are separate from GRC permissions (e.g., `ITSM_INCIDENT_READ/WRITE`, `ITSM_CHANGE_READ/WRITE`).
 

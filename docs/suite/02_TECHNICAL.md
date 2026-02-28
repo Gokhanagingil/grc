@@ -1030,7 +1030,17 @@ Frontend telemetry service records API calls with correlation IDs for debugging 
 
 > **EVIDENCE:** `backend-nest/src/itsm/cmdb/`
 
-### 10.4 AI Control Center
+### 10.4 Core Company (Shared Dimension)
+
+| Module | Key Entities | Key Endpoints (backend) | Key UI Routes |
+|--------|-------------|------------------------|---------------|
+| **Core Company** | `core-company.entity.ts` | `GET/POST /grc/admin/companies`, `GET/PATCH/DELETE /grc/admin/companies/:id` | `/admin/companies` |
+
+> **Cross-module adoption planned:** Incident, Change, Risk, SLA, Contract entities will gain a nullable `companyId` FK in future iterations.
+
+> **EVIDENCE:** `backend-nest/src/core-company/`
+
+### 10.5 AI Control Center
 
 | Module | Key Entities | Key Endpoints (backend) | Key UI Routes |
 |--------|-------------|------------------------|---------------|
@@ -1039,7 +1049,7 @@ Frontend telemetry service records API calls with correlation IDs for debugging 
 
 > **EVIDENCE:** `backend-nest/src/ai-admin/`, `backend-nest/src/copilot/`
 
-### 10.5 Tool Gateway
+### 10.6 Tool Gateway
 
 | Module | Key Entities | Key Endpoints (backend) | Key UI Routes |
 |--------|-------------|------------------------|---------------|
@@ -1048,7 +1058,7 @@ Frontend telemetry service records API calls with correlation IDs for debugging 
 
 > **EVIDENCE:** `backend-nest/src/tool-gateway/`
 
-### 10.6 Docs Center and Platform
+### 10.7 Docs Center and Platform
 
 | Module | Key Files | Key Endpoints | Key UI Routes |
 |--------|-----------|---------------|---------------|
@@ -1081,6 +1091,7 @@ Frontend telemetry service records API calls with correlation IDs for debugging 
 | **Standards and Clauses** | **[IMPL]** | Legacy tables (`standards`, `standard_clauses`) |
 | **Compliance Frameworks** | **[IMPL]** | Framework management + tenant assignment |
 | **Customer Risk Catalog** | **[IMPL]** | Risk catalog with bindings and observations |
+| **Core Company** | **[IMPL]** | Shared dimension (CUSTOMER, VENDOR, INTERNAL) with admin CRUD |
 | **ITSM Incident** | **[IMPL]** | Full lifecycle, SLA, journal, CI linking |
 | **ITSM Change** | **[IMPL]** | Full lifecycle, CAB, approval, CI linking |
 | **ITSM Problem** | **[IMPL]** | Problem management + known error database |

@@ -33,6 +33,7 @@ import {
   SmartToy as AiIcon,
   Extension as ToolsIcon,
   MenuBook as DocsIcon,
+  Business as CompaniesIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -141,6 +142,12 @@ const adminMenuItems: AdminMenuItem[] = [
     text: 'Tool Gateway',
     icon: <ToolsIcon />,
     path: '/admin/tool-gateway',
+  },
+  {
+    id: 'companies',
+    text: 'Companies',
+    icon: <CompaniesIcon />,
+    path: '/admin/companies',
   },
   {
     id: 'documentation',

@@ -204,6 +204,10 @@ export enum Permission {
   ITSM_KNOWLEDGE_CANDIDATE_CREATE = 'itsm:knowledge_candidate:create',
   ITSM_KNOWLEDGE_CANDIDATE_UPDATE = 'itsm:knowledge_candidate:update',
 
+  // Core Company permissions (shared dimension)
+  ADMIN_COMPANY_READ = 'admin:company:read',
+  ADMIN_COMPANY_WRITE = 'admin:company:write',
+
   // Customer Risk Catalog permissions
   GRC_CUSTOMER_RISK_READ = 'grc:customer_risk:read',
   GRC_CUSTOMER_RISK_WRITE = 'grc:customer_risk:write',
@@ -338,6 +342,8 @@ export const PermissionDescriptions: Record<Permission, string> = {
   [Permission.ITSM_CAB_READ]: 'View CAB meetings, agenda items, and decisions',
   [Permission.ITSM_CAB_WRITE]:
     'Create, update, and manage CAB meetings, agenda items, and decisions',
+  [Permission.ADMIN_COMPANY_READ]: 'View companies and company details',
+  [Permission.ADMIN_COMPANY_WRITE]: 'Create, update, and delete companies',
   [Permission.GRC_CUSTOMER_RISK_READ]: 'View customer risk catalog entries',
   [Permission.GRC_CUSTOMER_RISK_WRITE]:
     'Create, update, and delete customer risk catalog entries',
