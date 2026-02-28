@@ -366,7 +366,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           category: incident.category || undefined, // empty string → undefined to avoid enum validation failure
           serviceId: incident.serviceId || undefined,
           offeringId: incident.offeringId || undefined,
-          customerCompanyId: incident.customerCompanyId || undefined,
+          customerCompanyId: incident.customerCompanyId || null,
         };
         const response = await itsmApi.incidents.create(createPayload);
         const created = unwrapResponse<{ id?: string }>(response);
@@ -394,7 +394,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           resolutionNotes: incident.resolutionNotes || undefined,
           serviceId: incident.serviceId || undefined,
           offeringId: incident.offeringId || undefined,
-          customerCompanyId: incident.customerCompanyId || undefined,
+          customerCompanyId: incident.customerCompanyId || null,
         };
         const cleanPayload = normalizeUpdatePayload(
           rawPayload,

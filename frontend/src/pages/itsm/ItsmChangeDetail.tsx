@@ -560,7 +560,7 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
-          customerCompanyId: change.customerCompanyId || undefined,
+          customerCompanyId: change.customerCompanyId || null,
         };
         if (process.env.NODE_ENV === 'development') {
           console.debug('[ItsmChangeDetail] save:payload', createPayload);
@@ -595,7 +595,7 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
-          customerCompanyId: change.customerCompanyId || undefined,
+          customerCompanyId: change.customerCompanyId || null,
         };
         if (process.env.NODE_ENV === 'development') {
           console.debug('[ItsmChangeDetail] save:payload', updatePayload);

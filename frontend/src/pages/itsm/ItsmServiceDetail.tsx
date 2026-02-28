@@ -123,7 +123,7 @@ export const ItsmServiceDetail: React.FC = () => {
           description: service.description,
           criticality: service.criticality as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
           status: service.status as 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE',
-          customerCompanyId: service.customerCompanyId || undefined,
+          customerCompanyId: service.customerCompanyId || null,
         });
         const data = response.data;
         if (data && 'data' in data && data.data?.id) {
@@ -136,7 +136,7 @@ export const ItsmServiceDetail: React.FC = () => {
           description: service.description,
           criticality: service.criticality as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
           status: service.status as 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE',
-          customerCompanyId: service.customerCompanyId || undefined,
+          customerCompanyId: service.customerCompanyId || null,
         });
         showNotification('ITSM service updated successfully', 'success');
         fetchService();

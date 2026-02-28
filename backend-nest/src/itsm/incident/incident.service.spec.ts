@@ -271,6 +271,7 @@ describe('IncidentService', () => {
           tenantId: mockTenantId,
           isDeleted: false,
         },
+        relations: ['customerCompany'],
       });
     });
 
@@ -301,6 +302,7 @@ describe('IncidentService', () => {
           tenantId: differentTenantId,
           isDeleted: false,
         },
+        relations: ['customerCompany'],
       });
     });
   });
@@ -463,6 +465,7 @@ describe('IncidentService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(1),
         getMany: jest.fn().mockResolvedValue([mockIncident]),
       };
@@ -490,6 +493,7 @@ describe('IncidentService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(0),
         getMany: jest.fn().mockResolvedValue([]),
       };

@@ -161,6 +161,7 @@ export const INCIDENT_UPDATE_FIELDS = new Set([
   'relatedPolicyId',
   'firstResponseAt',
   'resolutionNotes',
+  'customerCompanyId',
   'metadata',
 ]);
 
@@ -179,6 +180,7 @@ export const INCIDENT_CREATE_FIELDS = new Set([
   'offeringId',
   'relatedRiskId',
   'relatedPolicyId',
+  'customerCompanyId',
   'metadata',
 ]);
 
@@ -197,6 +199,7 @@ export const INCIDENT_EMPTY_STRING_FIELDS = new Set([
   'assignmentGroup',
   'assignedTo',
   'relatedService',
+  'customerCompanyId',
 ]);
 
 /** CAB meeting fields where empty string should become undefined */
