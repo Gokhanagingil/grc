@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+// Initialize i18next before any component renders
+import './i18n/config';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 

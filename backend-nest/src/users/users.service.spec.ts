@@ -403,6 +403,28 @@ describe('UsersService', () => {
     });
   });
 
+  describe('updateLocale', () => {
+    it('should update user locale successfully', async () => {
+      repository.findOne.mockResolvedValue(mockUser);
+      repository.save.mockResolvedValue({ ...mockUser, locale: 'tr-TR' });
+
+      const result = await service.updateLocale(mockUser.id, 'tr-TR');
+
+      expect(result.locale).toBe('tr-TR');
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ locale: 'tr-TR' }),
+      );
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      repository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateLocale('nonexistent-id', 'tr-TR'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('getStatisticsForTenant', () => {
     it('should return user statistics', async () => {
       repository.count

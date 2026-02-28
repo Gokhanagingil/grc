@@ -9,6 +9,7 @@ import {
   Container,
   Paper,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Login: React.FC = () => {
@@ -18,6 +19,7 @@ export const Login: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,11 +64,11 @@ export const Login: React.FC = () => {
                   letterSpacing: '0.02em',
                 }}
               >
-                NILES
+                {t('login.title')}
               </Typography>
             </Box>
             <Typography component="h1" variant="h6" align="center" gutterBottom data-testid="page-login-title" sx={{ color: 'text.secondary' }}>
-              Sign in to continue
+              {t('login.subtitle')}
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <TextField
@@ -74,7 +76,7 @@ export const Login: React.FC = () => {
               required
               fullWidth
               id="username"
-              label="Username"
+              label={t('login.username')}
               name="username"
               autoComplete="username"
               autoFocus
@@ -87,7 +89,7 @@ export const Login: React.FC = () => {
               required
               fullWidth
               name="password"
-              label="Password"
+              label={t('login.password')}
               type="password"
               id="password"
               autoComplete="current-password"
@@ -103,10 +105,10 @@ export const Login: React.FC = () => {
               disabled={loading}
               data-testid="button-login"
             >
-              {loading ? 'Signing In...' : 'Sign In'}
+              {loading ? t('login.signingIn') : t('login.signIn')}
             </Button>
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-              Need an account? Contact your administrator for access.
+              {t('login.needAccount')}
             </Typography>
           </Box>
         </Paper>

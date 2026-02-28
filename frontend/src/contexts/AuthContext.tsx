@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api, ApiError, ApiSuccessResponse, STORAGE_TENANT_ID_KEY } from '../services/api';
 import { API_PATHS } from '../services/grcClient';
+import i18n, { DEFAULT_LOCALE } from '../i18n/config';
 
 /**
  * Helper to unwrap API responses that may be in the new envelope format
@@ -22,6 +23,7 @@ export interface User {
   department: string;
   role: 'admin' | 'manager' | 'user';
   tenantId?: string;
+  locale?: string;
 }
 
 export interface AuthContextType {
@@ -137,6 +139,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (userData?.tenantId) {
             localStorage.setItem('tenantId', userData.tenantId);
           }
+          // Sync i18n locale from user profile
+          if (userData?.locale) {
+            i18n.changeLanguage(userData.locale);
+            localStorage.setItem('locale', userData.locale);
+          } else {
+            i18n.changeLanguage(DEFAULT_LOCALE);
+            localStorage.removeItem('locale');
+          }
         } catch (error: unknown) {
           const axiosError = error as { response?: { status?: number } };
           // If token is expired, try to refresh
@@ -150,6 +160,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setUser(userData);
                 if (userData?.tenantId) {
                   localStorage.setItem(STORAGE_TENANT_ID_KEY, userData.tenantId);
+                }
+                // Sync i18n locale from user profile
+                if (userData?.locale) {
+                  i18n.changeLanguage(userData.locale);
+                  localStorage.setItem('locale', userData.locale);
+                } else {
+                  i18n.changeLanguage(DEFAULT_LOCALE);
+                  localStorage.removeItem('locale');
                 }
               } catch {
                 // Refresh succeeded but /me failed, clear everything
@@ -243,6 +261,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setToken(newToken);
       setUser(userData);
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+      // Sync i18n locale from user profile after login
+      if (userData?.locale) {
+        i18n.changeLanguage(userData.locale);
+        localStorage.setItem('locale', userData.locale);
+      } else {
+        i18n.changeLanguage(DEFAULT_LOCALE);
+        localStorage.removeItem('locale');
+      }
     } catch (error: unknown) {
       // Handle standardized ApiError from the API client
       if (error instanceof ApiError) {
@@ -320,10 +347,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem(STORAGE_TENANT_ID_KEY);
+    localStorage.removeItem('locale');
     setToken(null);
     setRefreshToken(null);
     setUser(null);
     delete api.defaults.headers.common['Authorization'];
+    // Reset i18n to default locale to prevent leakage between users
+    i18n.changeLanguage(DEFAULT_LOCALE);
   };
 
   const value: AuthContextType = {

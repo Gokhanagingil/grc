@@ -4,8 +4,13 @@ import {
   IsOptional,
   IsEnum,
   IsBoolean,
+  IsIn,
 } from 'class-validator';
 import { UserRole } from '../user.entity';
+
+/** Supported locale codes for i18n Phase 1 */
+export const SUPPORTED_LOCALES = ['en-US', 'tr-TR'] as const;
+export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 /**
  * Update User DTO
@@ -42,4 +47,10 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsIn(SUPPORTED_LOCALES, {
+    message: `Locale must be one of: ${SUPPORTED_LOCALES.join(', ')}`,
+  })
+  @IsOptional()
+  locale?: SupportedLocale;
 }

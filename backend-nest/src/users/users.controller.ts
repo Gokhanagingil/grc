@@ -25,6 +25,7 @@ import { RequestWithUser } from '../common/types';
 import {
   CreateUserDto,
   UpdateUserDto,
+  UpdateLocaleDto,
   UpdateRoleDto,
   ChangePasswordDto,
   QueryUsersDto,
@@ -117,6 +118,31 @@ export class UsersController {
     }
 
     const userResponse = { ...user };
+    delete (userResponse as { passwordHash?: string }).passwordHash;
+    return userResponse;
+  }
+
+  /**
+   * Update current user's locale preference
+   * Any authenticated user can change their own locale.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/locale')
+  async updateLocale(
+    @Request() req: RequestWithUser,
+    @Body() updateLocaleDto: UpdateLocaleDto,
+  ) {
+    const userId = req.user?.sub || '';
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const savedUser = await this.usersService.updateLocale(
+      userId,
+      updateLocaleDto.locale,
+    );
+    const userResponse = { ...savedUser };
     delete (userResponse as { passwordHash?: string }).passwordHash;
     return userResponse;
   }

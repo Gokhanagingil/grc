@@ -1,15 +1,20 @@
 /**
  * i18n Module
  * 
- * FAZ 2 establishes the i18n foundation for the Admin Studio.
- * FAZ 3 extends i18n to Admin Core security screens.
+ * Phase 1: react-i18next integration with user-selectable locale.
+ * Supports en-US and tr-TR with JSON translation files.
  * 
- * This module provides translation keys and a simple translation function.
- * 
- * Full i18n implementation (language switching, translation management)
- * is deferred to future phases.
+ * Legacy keys (ADMIN_DATA_MODEL_KEYS, etc.) are preserved for backward
+ * compatibility with Admin Studio screens (FAZ 2/3/5).
  */
 
+// Initialize i18next (must be imported before any component uses useTranslation)
+import './config';
+
+export { default as i18n } from './config';
+export { SUPPORTED_LOCALES, DEFAULT_LOCALE } from './config';
+
+// Legacy exports for backward compatibility with Admin Studio screens
 export { 
   ADMIN_DATA_MODEL_KEYS, 
   ADMIN_DATA_MODEL_EN, 
