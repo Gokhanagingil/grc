@@ -15,9 +15,9 @@ import { CoreCompanyService } from './core-company.service';
 import { CompanyLookupQueryDto } from './dto/company-lookup-query.dto';
 
 /**
- * Tenant-scoped company lookup for ITSM selectors (service/incident/change).
+ * Tenant-scoped company lookup for ITSM selectors (service/incident/change/SLA).
  * GET /grc/companies/lookup — does not require admin; allows any of:
- * ITSM_SERVICE_READ, ITSM_INCIDENT_READ, ITSM_CHANGE_READ, ADMIN_COMPANY_READ.
+ * ITSM_SERVICE_READ, ITSM_INCIDENT_READ, ITSM_CHANGE_READ, ITSM_SLA_READ, ADMIN_COMPANY_READ.
  */
 @Controller('grc/companies')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -29,6 +29,7 @@ export class CoreCompanyLookupController {
     Permission.ITSM_SERVICE_READ,
     Permission.ITSM_INCIDENT_READ,
     Permission.ITSM_CHANGE_READ,
+    Permission.ITSM_SLA_READ,
     Permission.ADMIN_COMPANY_READ,
   )
   async lookup(

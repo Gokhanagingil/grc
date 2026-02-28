@@ -4,10 +4,12 @@
  * Supports nested groups with arbitrary depth for SLA Engine 2.0.
  * Designed to be reusable for future rule engines (filters, automation, etc.).
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
+  Autocomplete,
   Box,
   Button,
+  CircularProgress,
   FormControl,
   IconButton,
   InputLabel,
@@ -22,6 +24,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import { useCompanyLookupSearch } from '../../hooks/useCompanyLookup';
+import type { CompanyOption } from '../../hooks/useCompanyLookup';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -68,6 +72,111 @@ const OPERATOR_LABELS: Record<string, string> = {
 
 const UNARY_OPERATORS = ['is_empty', 'is_not_empty'];
 const ARRAY_OPERATORS = ['in', 'not_in'];
+
+// ── Company selector for SLA Customer Company condition ───────────────────
+
+function companyOptionLabel(opt: CompanyOption): string {
+  return opt.name;
+}
+
+interface CompanyConditionValueEditorProps {
+  leaf: ConditionLeaf;
+  isArray: boolean;
+  onChange: (updated: ConditionLeaf) => void;
+}
+
+/** Renders company name autocomplete for customerCompanyId; stores uuid(s) in condition value. */
+const CompanyConditionValueEditor: React.FC<CompanyConditionValueEditorProps> = ({
+  leaf,
+  isArray,
+  onChange,
+}) => {
+  const { companies, loading, error } = useCompanyLookupSearch({ type: 'CUSTOMER', limit: 200 });
+
+  const valueSingle = useMemo(() => {
+    const raw = leaf.value;
+    const id = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null;
+    if (!id) return null;
+    const found = companies.find((c) => c.id === id);
+    return found ?? { id, name: `Unknown company (id=${id.slice(0, 8)}…)`, type: 'CUSTOMER' };
+  }, [leaf.value, companies]);
+
+  const valueMultiple = useMemo(() => {
+    const raw = leaf.value;
+    const ids = Array.isArray(raw) ? raw : typeof raw === 'string' && raw ? [raw] : [];
+    return ids.map((id) => {
+      const found = companies.find((c) => c.id === id);
+      return found ?? { id, name: `Unknown company (id=${id.slice(0, 8)}…)`, type: 'CUSTOMER' };
+    });
+  }, [leaf.value, companies]);
+
+  if (isArray) {
+    return (
+      <Autocomplete
+        multiple
+        size="small"
+        options={companies}
+        getOptionLabel={companyOptionLabel}
+        value={valueMultiple}
+        onChange={(_, newValue) => {
+          onChange({ ...leaf, value: newValue.map((o) => o.id) });
+        }}
+        loading={loading}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Companies"
+            error={!!error}
+            helperText={error ?? undefined}
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
+          />
+        )}
+        sx={{ flex: 1, minWidth: 200 }}
+        data-testid="sla-condition-company-autocomplete"
+      />
+    );
+  }
+
+  return (
+    <Autocomplete
+      size="small"
+      options={companies}
+      getOptionLabel={companyOptionLabel}
+      value={valueSingle}
+      onChange={(_, newValue) => {
+        onChange({ ...leaf, value: newValue ? newValue.id : null });
+      }}
+      loading={loading}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Company"
+          error={!!error}
+          helperText={error ?? undefined}
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+      sx={{ flex: 1, minWidth: 200 }}
+      data-testid="sla-condition-company-autocomplete"
+    />
+  );
+};
 
 // Default field registry (used when server registry hasn't loaded yet)
 const DEFAULT_FIELDS: FieldRegistryEntry[] = [
@@ -211,6 +320,13 @@ function renderValueEditor(
           ))}
         </Select>
       </FormControl>
+    );
+  }
+
+  // Customer Company → name-based autocomplete (store uuid(s) in value)
+  if (fieldMeta?.key === 'customerCompanyId') {
+    return (
+      <CompanyConditionValueEditor leaf={leaf} isArray={isArray} onChange={onChange} />
     );
   }
 
