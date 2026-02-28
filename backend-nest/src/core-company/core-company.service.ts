@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MultiTenantServiceBase } from '../common/multi-tenant-service.base';
 import { CoreCompany } from './core-company.entity';
+import { CompanyStatus } from './core-company.enum';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import {
@@ -203,7 +204,8 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
         'company.code',
       ])
       .where('company.tenantId = :tenantId', { tenantId })
-      .andWhere('company.isDeleted = :isDeleted', { isDeleted: false });
+      .andWhere('company.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere('company.status = :status', { status: CompanyStatus.ACTIVE });
 
     if (type) {
       qb.andWhere('company.type = :type', { type });

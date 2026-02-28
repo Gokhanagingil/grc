@@ -59,14 +59,16 @@ export function useCompanyLookup(): UseCompanyLookupResult {
   const mountedRef = useRef(true);
   const lastErrorShownRef = useRef<string | null>(null);
 
-  const fetchCompanies = useCallback(async () => {
+  const fetchCompanies = useCallback(async (bypassCache = false) => {
     const tenantId = currentTenantKey();
     const cacheKey = `${tenantId}:CUSTOMER`;
-    const cached = companyCacheMap.get(cacheKey);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      setCompanies(cached.data);
-      setLoading(false);
-      return;
+    if (!bypassCache) {
+      const cached = companyCacheMap.get(cacheKey);
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        setCompanies(cached.data);
+        setLoading(false);
+        return;
+      }
     }
 
     setLoading(true);
@@ -110,6 +112,12 @@ export function useCompanyLookup(): UseCompanyLookupResult {
     }
   }, []);
 
+  const refresh = useCallback(() => {
+    const cacheKey = `${currentTenantKey()}:CUSTOMER`;
+    companyCacheMap.delete(cacheKey);
+    fetchCompanies(true);
+  }, [fetchCompanies]);
+
   useEffect(() => {
     mountedRef.current = true;
     fetchCompanies();
@@ -126,7 +134,7 @@ export function useCompanyLookup(): UseCompanyLookupResult {
     if (!error) lastErrorShownRef.current = null;
   }, [error, showNotification]);
 
-  return { companies, loading, error, refresh: fetchCompanies };
+  return { companies, loading, error, refresh };
 }
 
 export function invalidateCompanyCache(): void {

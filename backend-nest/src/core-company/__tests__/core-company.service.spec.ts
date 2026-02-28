@@ -196,7 +196,7 @@ describe('CoreCompanyService', () => {
   });
 
   describe('lookup', () => {
-    it('should filter by tenantId and return minimal payload', async () => {
+    it('should filter by tenantId, ACTIVE status, and return minimal payload', async () => {
       mockQueryBuilder.getMany.mockResolvedValue([
         { id: 'c1', name: 'Acme', type: CompanyType.CUSTOMER, status: CompanyStatus.ACTIVE, code: 'ACM' },
       ]);
@@ -205,6 +205,9 @@ describe('CoreCompanyService', () => {
 
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('company.tenantId = :tenantId', { tenantId: TENANT_ID });
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.isDeleted = :isDeleted', { isDeleted: false });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.status = :status', {
+        status: CompanyStatus.ACTIVE,
+      });
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.type = :type', { type: CompanyType.CUSTOMER });
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(50);
       expect(result).toHaveLength(1);
@@ -217,6 +220,9 @@ describe('CoreCompanyService', () => {
       await service.lookup(TENANT_ID, {});
 
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('company.tenantId = :tenantId', { tenantId: TENANT_ID });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.status = :status', {
+        status: CompanyStatus.ACTIVE,
+      });
     });
   });
 

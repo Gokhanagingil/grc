@@ -96,6 +96,16 @@ const RECORD_TYPE_OPTIONS = [
   { value: 'REQUEST', label: 'Request' },
 ];
 
+/** Known enum options for SLA condition fields (backend registry does not expose these). */
+const SLA_FIELD_OPTIONS: Record<string, string[]> = {
+  priority: ['P1', 'P2', 'P3', 'P4'],
+  impact: ['HIGH', 'MEDIUM', 'LOW'],
+  urgency: ['HIGH', 'MEDIUM', 'LOW'],
+  category: ['HARDWARE', 'SOFTWARE', 'NETWORK', 'DATABASE', 'SECURITY', 'ACCESS', 'OTHER'],
+  source: ['EMAIL', 'PHONE', 'WEB', 'CHAT', 'API', 'MONITORING', 'SELF_SERVICE'],
+  status: ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED', 'CANCELLED'],
+};
+
 const PRIORITY_OPTIONS = ['p1', 'p2', 'p3', 'p4'];
 const STATE_OPTIONS = ['open', 'in_progress', 'assigned', 'resolved', 'closed', 'on_hold', 'pending'];
 
@@ -350,12 +360,17 @@ export const ItsmStudioSla: React.FC = () => {
                     ? 'string'
                     : 'string';
           const operators = Array.isArray(f.allowedOperators) ? (f.allowedOperators as string[]) : [];
+          const optionsFromApi = Array.isArray(f.options) ? (f.options as string[]) : undefined;
+          const optionsFromKnown = SLA_FIELD_OPTIONS[key];
+          const options = optionsFromApi?.length ? optionsFromApi : optionsFromKnown;
+          const finalType: FieldRegistryEntry['type'] =
+            type === 'uuid' ? 'uuid' : (options?.length ? 'enum' : type);
           return {
             key,
             label: String(f.label ?? key),
-            type,
+            type: finalType,
             operators: operators.length ? operators : ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'],
-            options: Array.isArray(f.options) ? (f.options as string[]) : undefined,
+            options,
           };
         });
         setFieldRegistry(normalized);
