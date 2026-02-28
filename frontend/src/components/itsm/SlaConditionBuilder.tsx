@@ -271,7 +271,7 @@ const LeafEditor: React.FC<LeafEditorProps> = ({ leaf, fields, onChange, onRemov
 
   return (
     <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-      <FormControl size="small" sx={{ minWidth: 160 }}>
+      <FormControl size="small" sx={{ minWidth: 160 }} data-testid="sla-condition-field-wrap">
         <InputLabel>Field</InputLabel>
         <Select
           value={leaf.field || ''}

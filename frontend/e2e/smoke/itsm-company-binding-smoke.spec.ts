@@ -170,9 +170,10 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
     await addConditionBtn.click();
     await page.waitForTimeout(500);
 
-    const fieldDropdown = page.getByLabel('Field');
-    await expect(fieldDropdown).toBeVisible({ timeout: 5000 });
-    await fieldDropdown.click();
+    const fieldWrap = page.getByTestId('sla-condition-field-wrap');
+    await expect(fieldWrap).toBeVisible({ timeout: 5000 });
+    const fieldTrigger = fieldWrap.getByRole('button');
+    await fieldTrigger.click();
     await page.waitForTimeout(300);
 
     const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
