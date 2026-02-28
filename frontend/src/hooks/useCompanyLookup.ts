@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, getTenantId } from '../services/api';
+import { api, STORAGE_TENANT_ID_KEY } from '../services/api';
 
 export interface CompanyOption {
   id: string;
@@ -17,6 +17,14 @@ interface UseCompanyLookupResult {
 const companyCacheMap = new Map<string, { data: CompanyOption[]; ts: number }>();
 const CACHE_TTL = 120_000; // 2 minutes
 
+function currentTenantKey(): string {
+  try {
+    return localStorage.getItem(STORAGE_TENANT_ID_KEY) ?? '_default';
+  } catch {
+    return '_default';
+  }
+}
+
 /**
  * Hook to fetch core_companies for use in ITSM selectors and filters.
  * Uses the existing admin companies list endpoint with a large page size
@@ -29,7 +37,7 @@ export function useCompanyLookup(): UseCompanyLookupResult {
   const mountedRef = useRef(true);
 
   const fetchCompanies = useCallback(async () => {
-    const tenantId = getTenantId() ?? '_default';
+    const tenantId = currentTenantKey();
     const cached = companyCacheMap.get(tenantId);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       setCompanies(cached.data);

@@ -256,6 +256,7 @@ export const ItsmServiceDetail: React.FC = () => {
                 <Select
                   value={service.customerCompanyId || ''}
                   label="Customer Company"
+                  data-testid="service-company-select"
                   onChange={(e) => {
                     const val = e.target.value || undefined;
                     setService((prev) => ({ ...prev, customerCompanyId: val }));
