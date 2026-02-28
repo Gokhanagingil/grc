@@ -120,22 +120,27 @@ print_footer_failure() {
 }
 
 wait_for_health() {
-    local url=$1
+    local container=$1
     local timeout=$2
     local interval=$3
     local elapsed=0
 
-    log_info "Waiting for health check at $url (timeout: ${timeout}s)..."
+    log_info "Waiting for container '$container' to become healthy (timeout: ${timeout}s)..."
     
     while [ $elapsed -lt $timeout ]; do
-        if curl -s -f "$url" > /dev/null 2>&1; then
+        local status
+        status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "unknown")
+        if [ "$status" = "healthy" ]; then
             return 0
         fi
         sleep $interval
         elapsed=$((elapsed + interval))
-        echo "  Waiting... ($elapsed/$timeout seconds)"
+        echo "  Waiting... ($elapsed/$timeout seconds) [status: $status]"
     done
     
+    # On failure, print last health log for diagnostics
+    log_info "Docker health log for $container:"
+    docker inspect --format='{{json .State.Health}}' "$container" 2>/dev/null || true
     return 1
 }
 
@@ -340,12 +345,13 @@ step_docker_build() {
 step_health_check() {
     log_step "Step 5/8: Health Check"
     
-    if wait_for_health "$HEALTH_CHECK_URL" "$HEALTH_CHECK_TIMEOUT" "$HEALTH_CHECK_INTERVAL"; then
-        log_ok "Backend health check passed"
+    if wait_for_health "grc-staging-backend" "$HEALTH_CHECK_TIMEOUT" "$HEALTH_CHECK_INTERVAL"; then
+        log_ok "Backend health check passed (container healthy)"
         
-        # Show health response
+        # Show health response via docker exec (port not exposed to host)
         log_info "Health check response:"
-        curl -s "$HEALTH_CHECK_URL" | head -c 500 || true
+        docker compose -f "$COMPOSE_FILE" exec -T backend \
+            node -e "const http=require('http');http.get('http://localhost:3002/health/ready',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>{console.log(d.slice(0,500));process.exit(0)})}).on('error',e=>{console.error(e.message);process.exit(1)})" 2>/dev/null || true
         echo ""
     else
         log_fail "Backend health check failed after ${HEALTH_CHECK_TIMEOUT}s"
@@ -357,12 +363,13 @@ step_health_check() {
         return 1
     fi
     
-    # Check frontend health if available
-    local frontend_health_url="http://localhost/frontend-health"
-    if curl -s -f "$frontend_health_url" > /dev/null 2>&1; then
-        log_ok "Frontend health check passed"
+    # Check frontend health via Docker health status
+    local frontend_status
+    frontend_status=$(docker inspect --format='{{.State.Health.Status}}' grc-staging-frontend 2>/dev/null || echo "unknown")
+    if [ "$frontend_status" = "healthy" ]; then
+        log_ok "Frontend health check passed (container healthy)"
     else
-        log_warn "Frontend health check not available (may be normal)"
+        log_warn "Frontend health status: $frontend_status"
     fi
     
     return 0
