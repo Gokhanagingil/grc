@@ -40,7 +40,11 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
     dto: CreateCompanyDto,
   ): Promise<CoreCompany> {
     if (dto.code !== undefined && dto.code !== null) {
-      await this.assertCodeUnique(tenantId, dto.code);
+      if (dto.code === '') {
+        dto.code = undefined; // treat empty string as "no code"
+      } else {
+        await this.assertCodeUnique(tenantId, dto.code);
+      }
     }
 
     return this.createForTenant(tenantId, {
@@ -65,8 +69,16 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
       return null;
     }
 
-    if (dto.code !== undefined && dto.code !== null && dto.code !== existing.code) {
-      await this.assertCodeUnique(tenantId, dto.code, id);
+    if (
+      dto.code !== undefined &&
+      dto.code !== null &&
+      dto.code !== existing.code
+    ) {
+      if (dto.code === '') {
+        dto.code = null as unknown as undefined; // treat empty string as "clear code"
+      } else {
+        await this.assertCodeUnique(tenantId, dto.code, id);
+      }
     }
 
     return this.updateForTenant(tenantId, id, {
