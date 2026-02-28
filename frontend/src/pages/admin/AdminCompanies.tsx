@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -123,6 +123,7 @@ export const AdminCompanies: React.FC = () => {
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchTrigger, setSearchTrigger] = useState(0);
+  const searchTriggeredRef = useRef(false);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -172,6 +173,11 @@ export const AdminCompanies: React.FC = () => {
 
   useEffect(() => {
     if (initialized) {
+      // Skip if this page change was caused by a search trigger (it will fetch via searchTrigger effect)
+      if (searchTriggeredRef.current) {
+        searchTriggeredRef.current = false;
+        return;
+      }
       fetchCompanies();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,6 +195,7 @@ export const AdminCompanies: React.FC = () => {
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      searchTriggeredRef.current = page !== 0; // guard page effect only if page actually changes
       setPage(0);
       setSearchTrigger((prev) => prev + 1);
     }

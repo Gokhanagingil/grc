@@ -39,7 +39,7 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
     userId: string,
     dto: CreateCompanyDto,
   ): Promise<CoreCompany> {
-    if (dto.code) {
+    if (dto.code !== undefined && dto.code !== null) {
       await this.assertCodeUnique(tenantId, dto.code);
     }
 
@@ -65,7 +65,7 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
       return null;
     }
 
-    if (dto.code && dto.code !== existing.code) {
+    if (dto.code !== undefined && dto.code !== null && dto.code !== existing.code) {
       await this.assertCodeUnique(tenantId, dto.code, id);
     }
 
