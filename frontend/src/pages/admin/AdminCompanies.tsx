@@ -86,6 +86,15 @@ function unwrapData<T>(responseData: unknown): T {
   return responseData as T;
 }
 
+function extractErrorMessage(err: unknown, fallback: string): string {
+  const axiosErr = err as { response?: { data?: { error?: { message?: string }; message?: string } } };
+  return (
+    axiosErr?.response?.data?.error?.message ||
+    axiosErr?.response?.data?.message ||
+    (err instanceof Error ? err.message : fallback)
+  );
+}
+
 function getTypeColor(type: string): 'primary' | 'secondary' | 'info' {
   switch (type) {
     case 'CUSTOMER':
@@ -155,8 +164,7 @@ export const AdminCompanies: React.FC = () => {
       setCompanies(data.items || []);
       setTotal(data.total || 0);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load companies';
-      setError(msg);
+      setError(extractErrorMessage(err, 'Failed to load companies'));
     } finally {
       setLoading(false);
     }
@@ -195,6 +203,11 @@ export const AdminCompanies: React.FC = () => {
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      if (search === committedSearch && page !== 0) {
+        // Same search term but different page — just reset page and let page effect fetch
+        setPage(0);
+        return;
+      }
       searchTriggeredRef.current = page !== 0; // guard page effect only if page actually changes
       setPage(0);
       setCommittedSearch(search);
@@ -257,8 +270,7 @@ export const AdminCompanies: React.FC = () => {
       setModalOpen(false);
       await fetchCompanies();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to save company';
-      setError(msg);
+      setError(extractErrorMessage(err, 'Failed to save company'));
     } finally {
       setSaving(false);
     }
@@ -271,8 +283,7 @@ export const AdminCompanies: React.FC = () => {
       setSuccessMsg('Company deleted');
       await fetchCompanies();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete company';
-      setError(msg);
+      setError(extractErrorMessage(err, 'Failed to delete company'));
     }
   };
 
