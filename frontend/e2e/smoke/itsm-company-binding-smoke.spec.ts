@@ -146,32 +146,34 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
 
   test('SLA condition builder includes Customer Company field', async ({ page }) => {
     await login(page);
-    await page.goto('/itsm/studio');
+    await page.goto('/itsm/studio/sla');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
 
-    const slaLink = page.locator('a[href*="studio/sla"]').first();
-    await expect(slaLink).toBeVisible({ timeout: 10000 });
-    await slaLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const addBtn = page.getByRole('button', { name: /Add|Create/i }).first();
+    const addBtn = page.getByRole('button', { name: /Add|Create|New/i }).first();
+    await expect(addBtn).toBeVisible({ timeout: 10000 });
     await addBtn.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
     const conditionsTab = page.getByRole('tab', { name: /Condition/i });
-    if (await conditionsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await conditionsTab.click();
-      await page.waitForTimeout(300);
+    const conditionsButton = page.locator('button').filter({ hasText: /Condition/i });
+    const conditionTrigger = (await conditionsTab.isVisible({ timeout: 2000 }).catch(() => false))
+      ? conditionsTab
+      : conditionsButton.first();
+    if (await conditionTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await conditionTrigger.click();
+      await page.waitForTimeout(500);
     }
 
     const addConditionBtn = page.getByRole('button', { name: /Add Condition/i }).first();
+    await expect(addConditionBtn).toBeVisible({ timeout: 5000 });
     await addConditionBtn.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
 
-    const fieldTrigger = page.getByText('Field').first();
-    await fieldTrigger.click({ timeout: 5000 });
-    await page.waitForTimeout(200);
+    const fieldDropdown = page.getByLabel('Field');
+    await expect(fieldDropdown).toBeVisible({ timeout: 5000 });
+    await fieldDropdown.click();
+    await page.waitForTimeout(300);
 
     const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
     await expect(customerCompanyOption.first()).toBeVisible({ timeout: 5000 });
