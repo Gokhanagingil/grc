@@ -9,10 +9,19 @@ import {
   CompanyFilterDto,
   COMPANY_SORTABLE_FIELDS,
 } from './dto/company-filter.dto';
+import { CompanyLookupQueryDto } from './dto/company-lookup-query.dto';
 import {
   PaginatedResponse,
   createPaginatedResponse,
 } from '../grc/dto/pagination.dto';
+
+export interface CompanyLookupItem {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  code: string | null;
+}
 
 /**
  * Core Company Service
@@ -172,6 +181,52 @@ export class CoreCompanyService extends MultiTenantServiceBase<CoreCompany> {
     const items = await qb.getMany();
 
     return createPaginatedResponse(items, total, page, pageSize);
+  }
+
+  /**
+   * Lookup companies for tenant-scoped selectors (ITSM service/incident/change).
+   * Returns minimal payload for dropdowns. Optional filter by type and search.
+   */
+  async lookup(
+    tenantId: string,
+    query: CompanyLookupQueryDto,
+  ): Promise<CompanyLookupItem[]> {
+    const { type, query: search, limit = 50 } = query;
+
+    const qb = this.repository
+      .createQueryBuilder('company')
+      .select([
+        'company.id',
+        'company.name',
+        'company.type',
+        'company.status',
+        'company.code',
+      ])
+      .where('company.tenantId = :tenantId', { tenantId })
+      .andWhere('company.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (type) {
+      qb.andWhere('company.type = :type', { type });
+    }
+
+    if (search && search.trim()) {
+      qb.andWhere(
+        '(company.name ILIKE :search OR company.code ILIKE :search)',
+        { search: `%${search.trim()}%` },
+      );
+    }
+
+    qb.orderBy('company.name', 'ASC');
+    qb.take(limit);
+
+    const items = await qb.getMany();
+    return items.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      status: c.status,
+      code: c.code,
+    }));
   }
 
   /**

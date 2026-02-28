@@ -385,6 +385,15 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle grc/companies/lookup - GET (tenant-scoped company dropdown for ITSM)
+    if (url.includes('/grc/companies/lookup') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse([
+        { id: 'mock-company-1', name: 'Mock Customer Co', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST' },
+      ]));
+      return;
+    }
+
     // Handle users/statistics/overview - GET
     if (url.includes('/users/statistics/overview') && method === 'GET') {
       logMock(method, url, true);

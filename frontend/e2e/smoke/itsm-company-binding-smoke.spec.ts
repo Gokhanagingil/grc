@@ -1,26 +1,19 @@
 /**
  * ITSM Company Binding Smoke Test
  *
- * Validates the core_company integration with ITSM entities:
- *   login -> navigate to ITSM service -> set/select a company -> save -> verify persisted
+ * Validates the core_company integration with ITSM entities.
+ * In CI (E2E_MODE=MOCK_UI) runs with mocked /grc/companies/lookup; with real backend
+ * uses seeded companies. One test (persistence) is skipped in mock mode.
  *
- * Environment Variables:
- *   E2E_BASE_URL - Base URL for tests (default: http://localhost:3000)
- *   E2E_MOCK_API - Set to '1' to skip these tests (they require real backend)
- *   E2E_EMAIL - Admin email (default: admin@grc-platform.local)
- *   E2E_PASSWORD - Admin password (default: TestPassword123!)
- *
- * @smoke
+ * @smoke @mock
  */
 
 import { test, expect } from '@playwright/test';
 import { login, setupMockApi } from '../helpers';
 
-const isMockMode = process.env.E2E_MOCK_API === '1';
+const isMockMode = process.env.E2E_MOCK_API === '1' || process.env.E2E_MODE === 'MOCK_UI';
 
 test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
-  test.skip(isMockMode, 'Smoke tests require real backend - skipping in mock API mode');
-
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
   });
@@ -65,7 +58,28 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
     await expect(companySelect).toBeVisible({ timeout: 5000 });
   });
 
+  test('incident create company dropdown has at least one company option', async ({ page }) => {
+    await login(page);
+    await page.goto('/itsm/incidents/new');
+    await page.waitForLoadState('networkidle');
+
+    const companySelect = page.locator('[data-testid="incident-company-select"]');
+    await expect(companySelect).toBeVisible({ timeout: 10000 });
+
+    const combobox = companySelect.locator('[role="combobox"]').first();
+    const clickTarget = (await combobox.isVisible({ timeout: 3000 }).catch(() => false))
+      ? combobox
+      : companySelect;
+    await clickTarget.click();
+
+    const options = page.locator('[role="listbox"] [role="option"]');
+    await expect(options.first()).toBeVisible({ timeout: 5000 });
+    const count = await options.count();
+    expect(count).toBeGreaterThanOrEqual(2, 'Expected at least None + 1 company (mock or seeded)');
+  });
+
   test('should create service with company, verify persistence', async ({ page }) => {
+    test.skip(isMockMode, 'Persistence verification requires real backend');
     test.slow();
     await login(page);
 
@@ -127,6 +141,38 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
         }
       }
     }
+  });
+
+  test('SLA condition builder includes Customer Company field', async ({ page }) => {
+    await login(page);
+    await page.goto('/itsm/studio');
+    await page.waitForLoadState('networkidle');
+
+    const slaLink = page.locator('a[href*="sla"], text=SLA').first();
+    await slaLink.click();
+    await page.waitForLoadState('networkidle');
+
+    const addBtn = page.locator('button:has-text("Add"), button:has-text("Create")').first();
+    await addBtn.click();
+    await page.waitForTimeout(500);
+
+    const conditionsTab = page.locator('button[role="tab"]:has-text("Condition")').first();
+    if (await conditionsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await conditionsTab.click();
+      await page.waitForTimeout(300);
+    }
+
+    const addConditionBtn = page.locator('button:has-text("Add Condition")').first();
+    await addConditionBtn.click();
+    await page.waitForTimeout(300);
+
+    const fieldSelect = page.locator('[aria-label="Field"], label:has-text("Field")').first();
+    const fieldTrigger = page.locator('text=Field').first();
+    await (await fieldTrigger.isVisible({ timeout: 2000 }).catch(() => false) ? fieldTrigger : fieldSelect).click();
+    await page.waitForTimeout(200);
+
+    const customerCompanyOption = page.locator('[role="option"]:has-text("Customer Company")');
+    await expect(customerCompanyOption.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should show Company filter on service list page', async ({ page }) => {

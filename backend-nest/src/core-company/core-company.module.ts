@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CoreCompany } from './core-company.entity';
 import { CoreCompanyService } from './core-company.service';
 import { CoreCompanyController } from './core-company.controller';
+import { CoreCompanyLookupController } from './core-company-lookup.controller';
 import { AuthModule } from '../auth/auth.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
@@ -12,13 +13,14 @@ import { TenantsModule } from '../tenants/tenants.module';
  * Provides shared company dimension management:
  * - CRUD operations for companies (CUSTOMER, VENDOR, INTERNAL)
  * - Admin endpoints for company management
+ * - Tenant-scoped lookup GET /grc/companies/lookup for ITSM selectors
  * - Exports CoreCompanyService for cross-module usage
  *
  * Used by: ITSM, GRC, SLA, Contracts modules
  */
 @Module({
   imports: [TypeOrmModule.forFeature([CoreCompany]), AuthModule, TenantsModule],
-  controllers: [CoreCompanyController],
+  controllers: [CoreCompanyController, CoreCompanyLookupController],
   providers: [CoreCompanyService],
   exports: [CoreCompanyService],
 })

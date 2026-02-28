@@ -83,6 +83,7 @@ const DEFAULT_FIELDS: FieldRegistryEntry[] = [
   { key: 'status', label: 'Status', type: 'enum', operators: ['is', 'is_not', 'in', 'not_in'], options: ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED', 'CANCELLED'] },
   { key: 'assignedTo', label: 'Assigned To', type: 'uuid', operators: ['is', 'is_not', 'is_empty', 'is_not_empty'] },
   { key: 'relatedService', label: 'Related Service', type: 'uuid', operators: ['is', 'is_not', 'is_empty', 'is_not_empty'] },
+  { key: 'customerCompanyId', label: 'Customer Company', type: 'uuid', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
 ];
 
 // ── Typed Value Editor Strategy ─────────────────────────────────────────

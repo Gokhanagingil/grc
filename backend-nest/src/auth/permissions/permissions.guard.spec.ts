@@ -4,6 +4,7 @@ import { PermissionsGuard } from './permissions.guard';
 import { PermissionService } from './permission.service';
 import { Permission } from './permission.enum';
 import { UserRole } from '../../users/user.entity';
+import { REQUIRE_ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from './permissions.decorator';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
@@ -162,6 +163,55 @@ describe('PermissionsGuard', () => {
       const context = createMockContext('unknown_role', [
         Permission.ITSM_CHANGE_READ,
       ]);
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('Company lookup (RequireAnyOf)', () => {
+    const lookupPermissions = [
+      Permission.ITSM_SERVICE_READ,
+      Permission.ITSM_INCIDENT_READ,
+      Permission.ITSM_CHANGE_READ,
+      Permission.ADMIN_COMPANY_READ,
+    ];
+
+    const createLookupContext = (role: string): ExecutionContext => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => {
+        if (key === REQUIRE_ANY_PERMISSIONS_KEY) return lookupPermissions;
+        if (key === PERMISSIONS_KEY) return undefined;
+        return undefined;
+      });
+      return {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user: {
+              sub: 'test-user-id',
+              email: 'test@example.com',
+              role,
+              tenantId: '00000000-0000-0000-0000-000000000001',
+            },
+            headers: { 'x-tenant-id': '00000000-0000-0000-0000-000000000001' },
+            path: '/grc/companies/lookup',
+            method: 'GET',
+          }),
+        }),
+        getHandler: () => jest.fn(),
+        getClass: () => jest.fn(),
+      } as unknown as ExecutionContext;
+    };
+
+    it('should allow user with ITSM_SERVICE_READ to access company lookup', () => {
+      const context = createLookupContext(UserRole.USER);
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it('should allow user with ITSM_INCIDENT_READ to access company lookup', () => {
+      const context = createLookupContext(UserRole.USER);
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it('should deny access when user has no lookup permissions', () => {
+      const context = createLookupContext('unknown_role');
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
     });
   });

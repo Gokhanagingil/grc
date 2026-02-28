@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission } from './permission.enum';
-import { PERMISSIONS_KEY } from './permissions.decorator';
+import {
+  PERMISSIONS_KEY,
+  REQUIRE_ANY_PERMISSIONS_KEY,
+} from './permissions.decorator';
 import { PermissionService } from './permission.service';
 import { StructuredLoggerService } from '../../common/logger';
 import { RequestWithUser } from '../../common/types';
@@ -42,13 +45,20 @@ export class PermissionsGuard implements CanActivate {
   }
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requireAnyPermissions = this.reflector.getAllAndOverride<
+      Permission[] | undefined
+    >(REQUIRE_ANY_PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    const requiredPermissions = this.reflector.getAllAndOverride<
+      Permission[] | undefined
+    >(PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
+
+    const permissionsToCheck = requireAnyPermissions ?? requiredPermissions;
 
     // If no permissions are required, allow access
-    if (!requiredPermissions || requiredPermissions.length === 0) {
+    if (!permissionsToCheck || permissionsToCheck.length === 0) {
       return true;
     }
 
@@ -59,7 +69,7 @@ export class PermissionsGuard implements CanActivate {
     if (!user) {
       this.logAccessDenied(
         request,
-        requiredPermissions,
+        permissionsToCheck,
         [],
         'No user in request',
       );
@@ -76,21 +86,27 @@ export class PermissionsGuard implements CanActivate {
       user.role as UserRole,
     );
 
-    // Check if user has ALL required permissions
-    const hasAllPermissions = requiredPermissions.every((permission) =>
-      userPermissions.includes(permission),
-    );
+    const hasAccess = requireAnyPermissions
+      ? this.permissionService.roleHasAnyPermission(
+          user.role as UserRole,
+          requireAnyPermissions,
+        )
+      : permissionsToCheck.every((permission) =>
+          userPermissions.includes(permission),
+        );
 
-    if (!hasAllPermissions) {
-      const missingPermissions = requiredPermissions.filter(
+    if (!hasAccess) {
+      const missingPermissions = permissionsToCheck.filter(
         (permission) => !userPermissions.includes(permission),
       );
 
       this.logAccessDenied(
         request,
-        requiredPermissions,
+        permissionsToCheck,
         userPermissions,
-        `Missing permissions: ${missingPermissions.join(', ')}`,
+        requireAnyPermissions
+          ? `Missing any of: ${permissionsToCheck.join(', ')}`
+          : `Missing permissions: ${missingPermissions.join(', ')}`,
       );
 
       throw new ForbiddenException({
@@ -98,7 +114,7 @@ export class PermissionsGuard implements CanActivate {
         error: 'Forbidden',
         message: 'Access denied: Insufficient permissions',
         code: 'ACCESS_DENIED_INSUFFICIENT_PERMISSIONS',
-        requiredPermissions,
+        requiredPermissions: permissionsToCheck,
         missingPermissions,
       });
     }
