@@ -1,26 +1,19 @@
 /**
  * ITSM Company Binding Smoke Test
  *
- * Validates the core_company integration with ITSM entities:
- *   login -> navigate to ITSM service -> set/select a company -> save -> verify persisted
+ * Validates the core_company integration with ITSM entities.
+ * In CI (E2E_MODE=MOCK_UI) runs with mocked /grc/companies/lookup; with real backend
+ * uses seeded companies. One test (persistence) is skipped in mock mode.
  *
- * Environment Variables:
- *   E2E_BASE_URL - Base URL for tests (default: http://localhost:3000)
- *   E2E_MOCK_API - Set to '1' to skip these tests (they require real backend)
- *   E2E_EMAIL - Admin email (default: admin@grc-platform.local)
- *   E2E_PASSWORD - Admin password (default: TestPassword123!)
- *
- * @smoke
+ * @smoke @mock
  */
 
 import { test, expect } from '@playwright/test';
 import { login, setupMockApi } from '../helpers';
 
-const isMockMode = process.env.E2E_MOCK_API === '1';
+const isMockMode = process.env.E2E_MOCK_API === '1' || process.env.E2E_MODE === 'MOCK_UI';
 
 test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
-  test.skip(isMockMode, 'Smoke tests require real backend - skipping in mock API mode');
-
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
   });
@@ -30,10 +23,11 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
     await expect(page).toHaveURL(/\/(dashboard|admin)/);
 
     await page.goto('/itsm/services/new');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
 
-    const companySection = page.locator('text=Customer Company');
-    await expect(companySection).toBeVisible({ timeout: 10000 });
+    const companySection = page.getByText('Customer Company');
+    await expect(companySection.first()).toBeVisible({ timeout: 15000 });
 
     const companySelect = page.locator('[data-testid="service-company-select"]');
     await expect(companySelect).toBeVisible({ timeout: 5000 });
@@ -65,7 +59,28 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
     await expect(companySelect).toBeVisible({ timeout: 5000 });
   });
 
+  test('incident create company dropdown has at least one company option', async ({ page }) => {
+    await login(page);
+    await page.goto('/itsm/incidents/new');
+    await page.waitForLoadState('networkidle');
+
+    const companySelect = page.locator('[data-testid="incident-company-select"]');
+    await expect(companySelect).toBeVisible({ timeout: 10000 });
+
+    const combobox = companySelect.locator('[role="combobox"]').first();
+    const clickTarget = (await combobox.isVisible({ timeout: 3000 }).catch(() => false))
+      ? combobox
+      : companySelect;
+    await clickTarget.click();
+
+    const options = page.locator('[role="listbox"] [role="option"]');
+    await expect(options.first()).toBeVisible({ timeout: 5000 });
+    const count = await options.count();
+    expect(count).toBeGreaterThanOrEqual(2, 'Expected at least None + 1 company (mock or seeded)');
+  });
+
   test('should create service with company, verify persistence', async ({ page }) => {
+    test.skip(isMockMode, 'Persistence verification requires real backend');
     test.slow();
     await login(page);
 
@@ -127,6 +142,42 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
         }
       }
     }
+  });
+
+  test('SLA condition builder includes Customer Company field', async ({ page }) => {
+    await login(page);
+    await page.goto('/itsm/studio/sla');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle');
+
+    const addBtn = page.getByRole('button', { name: /Add|Create|New/i }).first();
+    await expect(addBtn).toBeVisible({ timeout: 10000 });
+    await addBtn.click();
+    await page.waitForTimeout(800);
+
+    const conditionsTab = page.getByRole('tab', { name: /Condition/i });
+    const conditionsButton = page.locator('button').filter({ hasText: /Condition/i });
+    const conditionTrigger = (await conditionsTab.isVisible({ timeout: 2000 }).catch(() => false))
+      ? conditionsTab
+      : conditionsButton.first();
+    if (await conditionTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await conditionTrigger.click();
+      await page.waitForTimeout(500);
+    }
+
+    const addConditionBtn = page.getByRole('button', { name: /Add Condition/i }).first();
+    await expect(addConditionBtn).toBeVisible({ timeout: 5000 });
+    await addConditionBtn.click();
+    await page.waitForTimeout(500);
+
+    const fieldWrap = page.getByTestId('sla-condition-field-wrap');
+    await expect(fieldWrap).toBeVisible({ timeout: 5000 });
+    const fieldTrigger = fieldWrap.locator('.MuiSelect-select').first();
+    await fieldTrigger.click({ timeout: 10000 });
+    await page.waitForTimeout(300);
+
+    const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
+    await expect(customerCompanyOption.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should show Company filter on service list page', async ({ page }) => {

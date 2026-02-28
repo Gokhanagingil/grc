@@ -37,6 +37,16 @@ describe('SlaFieldRegistry — CHANGE_TASK support', () => {
     expect(keys).toContain('urgency');
   });
 
+  it('should include customerCompanyId (Customer Company) for INCIDENT', () => {
+    const fields = slaFieldRegistry.getFieldsForRecordType('INCIDENT');
+    const customerCompany = fields.find((f) => f.key === 'customerCompanyId');
+    expect(customerCompany).toBeDefined();
+    expect(customerCompany!.label).toBe('Customer Company');
+    expect(customerCompany!.allowedOperators).toContain('is');
+    expect(customerCompany!.allowedOperators).toContain('in');
+    expect(customerCompany!.allowedOperators).toContain('is_empty');
+  });
+
   it('should share common fields between INCIDENT and CHANGE_TASK', () => {
     const incFields = slaFieldRegistry.getFieldsForRecordType('INCIDENT');
     const ctFields = slaFieldRegistry.getFieldsForRecordType('CHANGE_TASK');

@@ -159,6 +159,13 @@ const INCIDENT_FIELDS: SlaFieldMeta[] = [
     allowedOperators: STRING_OPERATORS,
     recordTypes: ['INCIDENT'],
   },
+  {
+    key: 'customerCompanyId',
+    label: 'Customer Company',
+    valueType: 'string',
+    allowedOperators: ENUM_OPERATORS,
+    recordTypes: ['INCIDENT'],
+  },
 ];
 
 /**

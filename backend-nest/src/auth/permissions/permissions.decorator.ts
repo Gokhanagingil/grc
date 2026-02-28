@@ -7,6 +7,19 @@ import { Permission } from './permission.enum';
 export const PERMISSIONS_KEY = 'permissions';
 
 /**
+ * Metadata key for "require any of" permissions (OR).
+ * Used only by routes that accept one of several permissions (e.g. company lookup).
+ */
+export const REQUIRE_ANY_PERMISSIONS_KEY = 'require_any_permissions';
+
+/**
+ * Require any one of the given permissions (OR).
+ * Must be used with PermissionsGuard. User needs at least one of the listed permissions.
+ */
+export const RequireAnyOf = (...permissions: Permission[]) =>
+  SetMetadata(REQUIRE_ANY_PERMISSIONS_KEY, permissions);
+
+/**
  * Permissions Decorator
  *
  * Use this decorator to specify which permissions are required to access a route.

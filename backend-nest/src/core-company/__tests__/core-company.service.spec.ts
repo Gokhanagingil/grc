@@ -41,6 +41,7 @@ describe('CoreCompanyService', () => {
   let service: CoreCompanyService;
 
   const mockQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -191,6 +192,37 @@ describe('CoreCompanyService', () => {
       );
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('lookup', () => {
+    it('should filter by tenantId, ACTIVE status, and return minimal payload', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: 'c1', name: 'Acme', type: CompanyType.CUSTOMER, status: CompanyStatus.ACTIVE, code: 'ACM' },
+      ]);
+
+      const result = await service.lookup(TENANT_ID, { type: CompanyType.CUSTOMER, limit: 50 });
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('company.tenantId = :tenantId', { tenantId: TENANT_ID });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.isDeleted = :isDeleted', { isDeleted: false });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.status = :status', {
+        status: CompanyStatus.ACTIVE,
+      });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.type = :type', { type: CompanyType.CUSTOMER });
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(50);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ id: 'c1', name: 'Acme', type: CompanyType.CUSTOMER, status: CompanyStatus.ACTIVE, code: 'ACM' });
+    });
+
+    it('should not leak other tenants data', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.lookup(TENANT_ID, {});
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('company.tenantId = :tenantId', { tenantId: TENANT_ID });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('company.status = :status', {
+        status: CompanyStatus.ACTIVE,
+      });
     });
   });
 
