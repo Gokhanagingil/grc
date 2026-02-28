@@ -394,6 +394,21 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
+    // Handle SLA field-registry - GET (condition builder fields; must include Customer Company for MOCK_UI)
+    if (url.includes('/grc/itsm/sla/field-registry') && method === 'GET') {
+      logMock(method, url, true);
+      await route.fulfill(successResponse({
+        recordType: 'INCIDENT',
+        fields: [
+          { key: 'priority', label: 'Priority', valueType: 'string', allowedOperators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], recordTypes: ['INCIDENT'] },
+          { key: 'impact', label: 'Impact', valueType: 'string', allowedOperators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], recordTypes: ['INCIDENT'] },
+          { key: 'customerCompanyId', label: 'Customer Company', valueType: 'string', allowedOperators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'], recordTypes: ['INCIDENT'] },
+          { key: 'status', label: 'Status', valueType: 'string', allowedOperators: ['is', 'is_not', 'in', 'not_in'], recordTypes: ['INCIDENT'] },
+        ],
+      }));
+      return;
+    }
+
     // Handle users/statistics/overview - GET
     if (url.includes('/users/statistics/overview') && method === 'GET') {
       logMock(method, url, true);

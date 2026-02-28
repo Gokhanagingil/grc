@@ -331,12 +331,37 @@ export const ItsmStudioSla: React.FC = () => {
   const loadFieldRegistry = useCallback(async () => {
     try {
       const response = await itsmApi.sla.fieldRegistry();
-      const data = (response as { data?: { fields?: FieldRegistryEntry[] } }).data;
-      if (data?.fields && Array.isArray(data.fields)) {
-        setFieldRegistry(data.fields);
+      const body = (response as { data?: { recordType?: string; fields?: unknown[] } }).data;
+      const rawFields = body?.fields;
+      if (Array.isArray(rawFields)) {
+        const uuidKeys = new Set(['customerCompanyId', 'serviceId', 'offeringId', 'assignedTo', 'relatedService']);
+        const normalized: FieldRegistryEntry[] = rawFields.map((f: Record<string, unknown>) => {
+          const key = String(f.key ?? '');
+          const valueType = (f.valueType as string) ?? 'string';
+          const type: FieldRegistryEntry['type'] = uuidKeys.has(key)
+            ? 'uuid'
+            : valueType === 'number'
+              ? 'number'
+              : valueType === 'boolean'
+                ? 'boolean'
+                : valueType === 'date'
+                  ? 'date'
+                  : valueType === 'string' || valueType === 'array'
+                    ? 'string'
+                    : 'string';
+          const operators = Array.isArray(f.allowedOperators) ? (f.allowedOperators as string[]) : [];
+          return {
+            key,
+            label: String(f.label ?? key),
+            type,
+            operators: operators.length ? operators : ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'],
+            options: Array.isArray(f.options) ? (f.options as string[]) : undefined,
+          };
+        });
+        setFieldRegistry(normalized);
       }
     } catch {
-      // Silently use defaults
+      // Use SlaConditionBuilder defaults (includes Customer Company)
     }
   }, []);
 
