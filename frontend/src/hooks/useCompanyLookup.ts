@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getTenantId } from '../services/api';
 
 export interface CompanyOption {
   id: string;
@@ -14,13 +14,13 @@ interface UseCompanyLookupResult {
   refresh: () => void;
 }
 
-let companyCache: { data: CompanyOption[]; ts: number } | null = null;
+const companyCacheMap = new Map<string, { data: CompanyOption[]; ts: number }>();
 const CACHE_TTL = 120_000; // 2 minutes
 
 /**
  * Hook to fetch core_companies for use in ITSM selectors and filters.
  * Uses the existing admin companies list endpoint with a large page size
- * to populate dropdowns. Results are cached for 2 minutes.
+ * to populate dropdowns. Results are cached per-tenant for 2 minutes.
  */
 export function useCompanyLookup(): UseCompanyLookupResult {
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
@@ -29,8 +29,10 @@ export function useCompanyLookup(): UseCompanyLookupResult {
   const mountedRef = useRef(true);
 
   const fetchCompanies = useCallback(async () => {
-    if (companyCache && Date.now() - companyCache.ts < CACHE_TTL) {
-      setCompanies(companyCache.data);
+    const tenantId = getTenantId() ?? '_default';
+    const cached = companyCacheMap.get(tenantId);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setCompanies(cached.data);
       setLoading(false);
       return;
     }
@@ -62,7 +64,7 @@ export function useCompanyLookup(): UseCompanyLookupResult {
         }
       }
 
-      companyCache = { data: items, ts: Date.now() };
+      companyCacheMap.set(tenantId, { data: items, ts: Date.now() });
       if (mountedRef.current) {
         setCompanies(items);
       }
@@ -90,5 +92,5 @@ export function useCompanyLookup(): UseCompanyLookupResult {
 }
 
 export function invalidateCompanyCache(): void {
-  companyCache = null;
+  companyCacheMap.clear();
 }

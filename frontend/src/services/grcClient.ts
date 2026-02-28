@@ -1893,7 +1893,7 @@ export interface CreateItsmServiceDto {
   ownerUserId?: string;
   serviceId?: string;
   offeringId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmServiceDto {
@@ -1904,7 +1904,7 @@ export interface UpdateItsmServiceDto {
   ownerUserId?: string;
   serviceId?: string;
   offeringId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface ItsmIncidentData {
@@ -1944,7 +1944,7 @@ export interface CreateItsmIncidentDto {
   offeringId?: string;
   assigneeId?: string;
   requesterId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmIncidentDto {
@@ -1959,7 +1959,7 @@ export interface UpdateItsmIncidentDto {
   serviceId?: string;
   offeringId?: string;
   assigneeId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface ItsmAffectedCiListParams {
@@ -2076,7 +2076,7 @@ export interface CreateItsmChangeDto {
   plannedEndAt?: string;
   serviceId?: string;
   offeringId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmChangeDto {
@@ -2092,7 +2092,7 @@ export interface UpdateItsmChangeDto {
   plannedEndAt?: string;
   serviceId?: string;
   offeringId?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 // ========== Change Task Types ==========
@@ -2610,7 +2610,7 @@ export interface ItsmListParams {
   state?: string;
   priority?: string;
   type?: string;
-  customerCompanyId?: string;
+  customerCompanyId?: string | null;
 }
 
 // ITSM API object with all endpoints
