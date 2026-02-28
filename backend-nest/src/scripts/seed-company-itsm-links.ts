@@ -17,8 +17,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
 import { CoreCompany } from '../core-company/core-company.entity';
 import { ItsmService } from '../itsm/service/service.entity';
-import { Incident } from '../itsm/incident/incident.entity';
-import { Change } from '../itsm/change/change.entity';
+import { ItsmIncident } from '../itsm/incident/incident.entity';
+import { ItsmChange } from '../itsm/change/change.entity';
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -84,7 +84,7 @@ async function seedCompanyItsmLinks(): Promise<void> {
   // 3. Link first available ITSM incident to the vendor company (or customer if vendor missing)
   const incidentCompany = vendorCompany || customerCompany;
   if (incidentCompany) {
-    const incidentRepo = ds.getRepository(Incident);
+    const incidentRepo = ds.getRepository(ItsmIncident);
     const incident = await incidentRepo.findOne({
       where: { tenantId: DEMO_TENANT_ID, isDeleted: false },
       order: { createdAt: 'ASC' },
@@ -112,7 +112,7 @@ async function seedCompanyItsmLinks(): Promise<void> {
   // 4. Link first available ITSM change to the internal company (or customer if internal missing)
   const changeCompany = internalCompany || customerCompany;
   if (changeCompany) {
-    const changeRepo = ds.getRepository(Change);
+    const changeRepo = ds.getRepository(ItsmChange);
     const change = await changeRepo.findOne({
       where: { tenantId: DEMO_TENANT_ID, isDeleted: false },
       order: { createdAt: 'ASC' },
