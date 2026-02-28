@@ -65,6 +65,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ADMIN_SETTINGS_WRITE,
     Permission.ADMIN_TENANTS_READ,
     Permission.ADMIN_TENANTS_WRITE,
+    // Admin Company permissions
+    Permission.ADMIN_COMPANY_READ,
+    Permission.ADMIN_COMPANY_WRITE,
     // Platform Builder permissions
     Permission.ADMIN_TABLES_READ,
     Permission.ADMIN_TABLES_WRITE,
