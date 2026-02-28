@@ -26,6 +26,8 @@ describe('PermissionService', () => {
       expect(adminPermissions).toContain(Permission.ADMIN_SETTINGS_WRITE);
       expect(adminPermissions).toContain(Permission.ADMIN_TENANTS_READ);
       expect(adminPermissions).toContain(Permission.ADMIN_TENANTS_WRITE);
+      expect(adminPermissions).toContain(Permission.ADMIN_COMPANY_READ);
+      expect(adminPermissions).toContain(Permission.ADMIN_COMPANY_WRITE);
     });
 
     it('should have Platform Builder permissions (ADMIN_TABLES_READ, ADMIN_TABLES_WRITE)', () => {
