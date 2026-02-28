@@ -13,6 +13,7 @@
  * - array operators (in/not_in) render multi-select for enum fields
  * - category field renders select (not free text) — regression for Phase 6
  * - backward compatibility with existing saved conditions
+ * - customerCompanyId: company autocomplete is covered by E2E (itsm-company-binding-smoke)
  *
  * @regression
  * @phase6-sla-typed-editors
@@ -26,6 +27,17 @@ import {
   FieldRegistryEntry,
 } from '../SlaConditionBuilder';
 
+jest.mock('../../../hooks/useCompanyLookup', () => ({
+  useCompanyLookupSearch: () => ({
+    companies: [
+      { id: 'c1-uuid-1111', name: 'Acme Corp', type: 'CUSTOMER' },
+      { id: 'c2-uuid-2222', name: 'Beta Inc', type: 'CUSTOMER' },
+    ],
+    loading: false,
+    error: null,
+  }),
+}));
+
 const mockOnChange = jest.fn();
 
 const FIELDS: FieldRegistryEntry[] = [
@@ -34,6 +46,7 @@ const FIELDS: FieldRegistryEntry[] = [
   { key: 'isBlocking', label: 'Is Blocking', type: 'boolean', operators: ['is', 'is_not'] },
   { key: 'subcategory', label: 'Subcategory', type: 'string', operators: ['is', 'is_not', 'contains', 'is_empty', 'is_not_empty'] },
   { key: 'serviceId', label: 'Service', type: 'uuid', operators: ['is', 'is_not', 'is_empty', 'is_not_empty'] },
+  { key: 'customerCompanyId', label: 'Customer Company', type: 'uuid', operators: ['is', 'is_not', 'in', 'not_in', 'is_empty', 'is_not_empty'] },
 ];
 
 describe('SlaConditionBuilder — Typed Value Editors', () => {
@@ -139,5 +152,19 @@ describe('SlaConditionBuilder — Typed Value Editors', () => {
     );
     expect(screen.getByText('AND')).toBeInTheDocument();
     expect(screen.getByText('OR')).toBeInTheDocument();
+  });
+
+  it('renders company autocomplete for customerCompanyId (not UUID text input)', () => {
+    const condition: ConditionGroup = {
+      operator: 'AND',
+      children: [
+        { field: 'customerCompanyId', operator: 'is', value: null },
+      ],
+    };
+    render(
+      <SlaConditionBuilder value={condition} onChange={mockOnChange} fields={FIELDS} />
+    );
+    expect(screen.getByTestId('sla-condition-company-autocomplete')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/00000000-0000/)).not.toBeInTheDocument();
   });
 });
