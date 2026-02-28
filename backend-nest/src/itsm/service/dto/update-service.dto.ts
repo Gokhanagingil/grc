@@ -38,6 +38,10 @@ export class UpdateServiceDto {
   @IsOptional()
   offeringId?: string;
 
+  @IsUUID('4')
+  @IsOptional()
+  customerCompanyId?: string;
+
   @IsObject()
   @IsOptional()
   metadata?: Record<string, unknown>;

@@ -44,6 +44,10 @@ export class CreateChangeDto {
   @IsOptional()
   offeringId?: string;
 
+  @IsUUID('4')
+  @IsOptional()
+  customerCompanyId?: string;
+
   @IsDateString()
   @IsOptional()
   plannedStartAt?: string;

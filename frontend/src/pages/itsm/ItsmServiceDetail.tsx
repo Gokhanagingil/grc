@@ -22,6 +22,7 @@ import {
 import { itsmApi } from '../../services/grcClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { AxiosError } from 'axios';
 
@@ -40,6 +41,8 @@ interface ItsmService {
   criticality: string;
   status: string;
   ownerUserId?: string;
+  customerCompanyId?: string;
+  customerCompany?: { id: string; name: string; type: string } | null;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -68,6 +71,7 @@ export const ItsmServiceDetail: React.FC = () => {
 
   const criticalityOptions = choices['criticality'] || FALLBACK_CHOICES['criticality'];
   const statusOptions = choices['status'] || FALLBACK_CHOICES['status'];
+  const { companies } = useCompanyLookup();
 
   const [loading, setLoading]= useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -119,6 +123,7 @@ export const ItsmServiceDetail: React.FC = () => {
           description: service.description,
           criticality: service.criticality as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
           status: service.status as 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE',
+          customerCompanyId: service.customerCompanyId || undefined,
         });
         const data = response.data;
         if (data && 'data' in data && data.data?.id) {
@@ -131,6 +136,7 @@ export const ItsmServiceDetail: React.FC = () => {
           description: service.description,
           criticality: service.criticality as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
           status: service.status as 'ACTIVE' | 'INACTIVE' | 'DEPRECATED' | 'MAINTENANCE',
+          customerCompanyId: service.customerCompanyId || undefined,
         });
         showNotification('ITSM service updated successfully', 'success');
         fetchService();
@@ -239,6 +245,25 @@ export const ItsmServiceDetail: React.FC = () => {
                     <MenuItem key={option.value} value={option.value}>
                       {option.label}
                     </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Customer Company</InputLabel>
+                <Select
+                  value={service.customerCompanyId || ''}
+                  label="Customer Company"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setService((prev) => ({ ...prev, customerCompanyId: val }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {companies.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

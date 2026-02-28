@@ -33,6 +33,10 @@ export class ChangeFilterDto extends PaginationQueryDto {
   offeringId?: string;
 
   @IsOptional()
+  @IsUUID()
+  customerCompanyId?: string;
+
+  @IsOptional()
   @IsString()
   search?: string;
 

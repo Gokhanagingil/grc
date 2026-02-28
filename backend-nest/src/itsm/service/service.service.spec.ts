@@ -122,6 +122,7 @@ describe('ItsmServiceService', () => {
       expect(result).toEqual(mockService);
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: mockService.id, tenantId: mockTenantId, isDeleted: false },
+        relations: ['customerCompany'],
       });
     });
 
@@ -213,6 +214,7 @@ describe('ItsmServiceService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(1),
         getMany: jest.fn().mockResolvedValue([mockService]),
       };
@@ -242,6 +244,7 @@ describe('ItsmServiceService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(0),
         getMany: jest.fn().mockResolvedValue([]),
       };
@@ -260,6 +263,143 @@ describe('ItsmServiceService', () => {
         expect.stringContaining('ILIKE'),
         expect.objectContaining({ search: '%email%' }),
       );
+    });
+
+    it('should filter by customerCompanyId', async () => {
+      const mockCompanyId = '00000000-0000-0000-0000-000000000099';
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(1),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([
+            { ...mockService, customerCompanyId: mockCompanyId },
+          ]),
+      };
+
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
+
+      const result = await service.findWithFilters(mockTenantId, {
+        customerCompanyId: mockCompanyId,
+        page: 1,
+        pageSize: 20,
+      } as ServiceFilterDto);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'service.customerCompanyId = :customerCompanyId',
+        { customerCompanyId: mockCompanyId },
+      );
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+
+    it('should NOT filter by customerCompanyId when not provided', async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(1),
+        getMany: jest.fn().mockResolvedValue([mockService]),
+      };
+
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
+
+      await service.findWithFilters(mockTenantId, {
+        page: 1,
+        pageSize: 20,
+      } as ServiceFilterDto);
+
+      // Verify customerCompanyId filter was NOT applied
+      const andWhereCalls = mockQueryBuilder.andWhere.mock.calls;
+      const companyFilterCalls = andWhereCalls.filter(
+        (call: [string, Record<string, unknown>]) =>
+          typeof call[0] === 'string' && call[0].includes('customerCompanyId'),
+      );
+      expect(companyFilterCalls).toHaveLength(0);
+    });
+
+    it('should join customerCompany relation in results', async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(1),
+        getMany: jest.fn().mockResolvedValue([mockService]),
+      };
+
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
+
+      await service.findWithFilters(mockTenantId, {
+        page: 1,
+        pageSize: 20,
+      } as ServiceFilterDto);
+
+      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'service.customerCompany',
+        'customerCompany',
+      );
+    });
+
+    it('should enforce tenant isolation when filtering by company', async () => {
+      const differentTenantId = '00000000-0000-0000-0000-000000000999';
+      const mockCompanyId = '00000000-0000-0000-0000-000000000099';
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      repository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder as unknown as ReturnType<
+          Repository<ItsmService>['createQueryBuilder']
+        >,
+      );
+
+      const result = await service.findWithFilters(differentTenantId, {
+        customerCompanyId: mockCompanyId,
+        page: 1,
+        pageSize: 20,
+      } as ServiceFilterDto);
+
+      // Verify tenant scoping is applied first
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'service.tenantId = :tenantId',
+        { tenantId: differentTenantId },
+      );
+      // Verify company filter is also applied
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'service.customerCompanyId = :customerCompanyId',
+        { customerCompanyId: mockCompanyId },
+      );
+      expect(result.items).toHaveLength(0);
     });
   });
 });

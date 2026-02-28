@@ -50,6 +50,7 @@ import {
   INCIDENT_UPDATE_FIELDS,
   INCIDENT_EMPTY_STRING_FIELDS,
 } from '../../utils/payloadNormalizer';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 import { calculatePriorityFromMatrix, fetchTenantMatrix, getPriorityLabel, getPriorityColor } from '../../utils/priorityMatrix';
 import { IncidentCommandCenter } from '../../components/itsm/IncidentCommandCenter';
 
@@ -71,6 +72,8 @@ interface ItsmIncident {
   assignee?: { id: string; firstName: string; lastName: string };
   requesterId?: string;
   requester?: { id: string; firstName: string; lastName: string };
+  customerCompanyId?: string;
+  customerCompany?: { id: string; name: string; type: string } | null;
   resolutionNotes?: string;
   openedAt?: string;
   resolvedAt?: string;
@@ -158,6 +161,7 @@ export const ItsmIncidentDetail: React.FC = () => {
   const impactOptions = choices['impact'] || FALLBACK_CHOICES['impact'];
   const urgencyOptions = choices['urgency'] || FALLBACK_CHOICES['urgency'];
   const categoryOptions = choices['category'] || FALLBACK_CHOICES['category'];
+  const { companies } = useCompanyLookup();
 
   const handleBackToList= useCallback(() => {
     const returnParams = searchParams.get('returnParams');
@@ -362,6 +366,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           category: incident.category || undefined, // empty string → undefined to avoid enum validation failure
           serviceId: incident.serviceId || undefined,
           offeringId: incident.offeringId || undefined,
+          customerCompanyId: incident.customerCompanyId || undefined,
         };
         const response = await itsmApi.incidents.create(createPayload);
         const created = unwrapResponse<{ id?: string }>(response);
@@ -389,6 +394,7 @@ export const ItsmIncidentDetail: React.FC = () => {
           resolutionNotes: incident.resolutionNotes || undefined,
           serviceId: incident.serviceId || undefined,
           offeringId: incident.offeringId || undefined,
+          customerCompanyId: incident.customerCompanyId || undefined,
         };
         const cleanPayload = normalizeUpdatePayload(
           rawPayload,
@@ -872,6 +878,32 @@ export const ItsmIncidentDetail: React.FC = () => {
                   <MenuItem value=""><em>None</em></MenuItem>
                   {cmdbOfferings.map((o) => (
                     <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </CardContent>
+          </Card>
+
+          {/* Customer Company */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Customer Company
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Company</InputLabel>
+                <Select
+                  value={incident.customerCompanyId || ''}
+                  label="Company"
+                  data-testid="incident-company-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setIncident((prev) => ({ ...prev, customerCompanyId: val }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {companies.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

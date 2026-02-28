@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
@@ -11,6 +15,7 @@ import { GenericListPage, ColumnDefinition } from '../../components/common/Gener
 import { itsmApi } from '../../services/grcClient';
 import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
@@ -35,6 +40,7 @@ interface ItsmChange {
   plannedStartAt?: string;
   plannedEndAt?: string;
   service?: { id: string; name: string };
+  customerCompany?: { id: string; name: string; type: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,12 +83,14 @@ export const ItsmChangeList: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const { companies } = useCompanyLookup();
 
   const fetchChanges = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await itsmApi.changes.list({ page, pageSize, q: search });
+      const response = await itsmApi.changes.list({ page, pageSize, q: search, customerCompanyId: companyFilter || undefined });
       const data = response.data;
       if (data && typeof data === 'object') {
         const envelope = data as Record<string, unknown>;
@@ -111,7 +119,7 @@ export const ItsmChangeList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, showNotification]);
+  }, [page, pageSize, search, companyFilter, showNotification]);
 
   useEffect(() => {
     fetchChanges();
@@ -193,6 +201,15 @@ export const ItsmChangeList: React.FC = () => {
       ),
     },
     {
+      key: 'customerCompany',
+      header: 'Company',
+      render: (row) => (
+        <Typography variant="body2" color="text.secondary">
+          {row.customerCompany?.name || '-'}
+        </Typography>
+      ),
+    },
+    {
       key: 'updatedAt',
       header: 'Last Updated',
       render: (row) => (
@@ -209,13 +226,28 @@ export const ItsmChangeList: React.FC = () => {
         <Typography variant="h4" fontWeight={600}>
           Changes
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/itsm/changes/new')}
-        >
-          New Change
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Company</InputLabel>
+            <Select
+              value={companyFilter}
+              label="Company"
+              onChange={(e) => { setCompanyFilter(e.target.value); setPage(1); }}
+            >
+              <MenuItem value="">All Companies</MenuItem>
+              {companies.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/itsm/changes/new')}
+          >
+            New Change
+          </Button>
+        </Box>
       </Box>
 
       <GenericListPage<ItsmChange>
