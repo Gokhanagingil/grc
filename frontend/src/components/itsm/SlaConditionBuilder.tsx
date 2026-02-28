@@ -276,6 +276,7 @@ const LeafEditor: React.FC<LeafEditorProps> = ({ leaf, fields, onChange, onRemov
         <Select
           value={leaf.field || ''}
           label="Field"
+          inputProps={{ 'data-testid': 'sla-condition-field-select' }}
           onChange={(e) => onChange({ ...leaf, field: e.target.value, operator: 'is', value: '' })}
         >
           {fields.map((f) => (

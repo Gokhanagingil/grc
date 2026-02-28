@@ -172,8 +172,8 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
 
     const fieldWrap = page.getByTestId('sla-condition-field-wrap');
     await expect(fieldWrap).toBeVisible({ timeout: 5000 });
-    const fieldTrigger = fieldWrap.getByRole('button');
-    await fieldTrigger.click();
+    const fieldTrigger = fieldWrap.locator('.MuiSelect-select').first();
+    await fieldTrigger.click({ timeout: 10000 });
     await page.waitForTimeout(300);
 
     const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
