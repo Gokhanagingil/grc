@@ -12,7 +12,10 @@ import { CompanyType, CompanyStatus } from './core-company.enum';
  */
 @Entity('core_companies')
 @Index(['tenantId', 'name'])
-@Index(['tenantId', 'code'], { unique: true, where: '"code" IS NOT NULL' })
+@Index(['tenantId', 'code'], {
+  unique: true,
+  where: '"code" IS NOT NULL AND "is_deleted" = false',
+})
 export class CoreCompany extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })

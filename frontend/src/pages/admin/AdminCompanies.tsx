@@ -122,6 +122,7 @@ export const AdminCompanies: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -176,12 +177,20 @@ export const AdminCompanies: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, filterType, filterStatus]);
 
+  // Re-fetch when search is triggered (Enter key)
+  useEffect(() => {
+    if (initialized && searchTrigger > 0) {
+      fetchCompanies();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTrigger]);
+
   // ── Search handler (debounced via Enter key) ──────────────────────────
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setPage(0);
-      fetchCompanies();
+      setSearchTrigger((prev) => prev + 1);
     }
   };
 

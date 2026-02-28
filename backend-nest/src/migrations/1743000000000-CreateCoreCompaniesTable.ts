@@ -50,7 +50,7 @@ export class CreateCoreCompaniesTable1743000000000 implements MigrationInterface
       `CREATE INDEX "IDX_core_companies_tenant_name" ON "core_companies" ("tenant_id", "name")`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_core_companies_tenant_code" ON "core_companies" ("tenant_id", "code") WHERE "code" IS NOT NULL`,
+      `CREATE UNIQUE INDEX "IDX_core_companies_tenant_code" ON "core_companies" ("tenant_id", "code") WHERE "code" IS NOT NULL AND "is_deleted" = false`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_core_companies_created_at" ON "core_companies" ("created_at")`,
