@@ -23,10 +23,11 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
     await expect(page).toHaveURL(/\/(dashboard|admin)/);
 
     await page.goto('/itsm/services/new');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
 
-    const companySection = page.locator('text=Customer Company');
-    await expect(companySection).toBeVisible({ timeout: 10000 });
+    const companySection = page.getByText('Customer Company');
+    await expect(companySection.first()).toBeVisible({ timeout: 15000 });
 
     const companySelect = page.locator('[data-testid="service-company-select"]');
     await expect(companySelect).toBeVisible({ timeout: 5000 });
@@ -146,32 +147,33 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
   test('SLA condition builder includes Customer Company field', async ({ page }) => {
     await login(page);
     await page.goto('/itsm/studio');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
 
-    const slaLink = page.locator('a[href*="sla"], text=SLA').first();
+    const slaLink = page.locator('a[href*="studio/sla"]').first();
+    await expect(slaLink).toBeVisible({ timeout: 10000 });
     await slaLink.click();
     await page.waitForLoadState('networkidle');
 
-    const addBtn = page.locator('button:has-text("Add"), button:has-text("Create")').first();
+    const addBtn = page.getByRole('button', { name: /Add|Create/i }).first();
     await addBtn.click();
     await page.waitForTimeout(500);
 
-    const conditionsTab = page.locator('button[role="tab"]:has-text("Condition")').first();
+    const conditionsTab = page.getByRole('tab', { name: /Condition/i });
     if (await conditionsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
       await conditionsTab.click();
       await page.waitForTimeout(300);
     }
 
-    const addConditionBtn = page.locator('button:has-text("Add Condition")').first();
+    const addConditionBtn = page.getByRole('button', { name: /Add Condition/i }).first();
     await addConditionBtn.click();
     await page.waitForTimeout(300);
 
-    const fieldSelect = page.locator('[aria-label="Field"], label:has-text("Field")').first();
-    const fieldTrigger = page.locator('text=Field').first();
-    await (await fieldTrigger.isVisible({ timeout: 2000 }).catch(() => false) ? fieldTrigger : fieldSelect).click();
+    const fieldTrigger = page.getByText('Field').first();
+    await fieldTrigger.click({ timeout: 5000 });
     await page.waitForTimeout(200);
 
-    const customerCompanyOption = page.locator('[role="option"]:has-text("Customer Company")');
+    const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
     await expect(customerCompanyOption.first()).toBeVisible({ timeout: 5000 });
   });
 

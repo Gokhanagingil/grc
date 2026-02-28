@@ -29,15 +29,25 @@ test.describe('Webhook Integration @mock @smoke', () => {
       });
 
       await login(page);
-      await page.goto('/admin/notification-studio');
 
-      const webhooksTab = page.locator('button', { hasText: /Webhooks/i });
-      if (await webhooksTab.isVisible()) {
+      const requestPromise = page.waitForRequest(
+        (req) => req.url().includes('/grc/webhook-endpoints'),
+        { timeout: 25000 },
+      );
+
+      await page.goto('/admin/notification-studio');
+      await page.waitForLoadState('domcontentloaded');
+
+      const webhooksTab = page.getByRole('button', { name: /Webhooks/i });
+      if (await webhooksTab.isVisible({ timeout: 5000 }).catch(() => false)) {
         await webhooksTab.click();
+        await page.waitForTimeout(500);
       }
 
+      await requestPromise;
+
       await expect.poll(() => webhookRequests.length, {
-        timeout: 15000,
+        timeout: 5000,
         message: 'Expected at least one request to /grc/webhook-endpoints',
       }).toBeGreaterThanOrEqual(1);
 
@@ -59,17 +69,29 @@ test.describe('Webhook Integration @mock @smoke', () => {
       });
 
       await login(page);
-      await page.goto('/admin/notification-studio');
 
-      const webhooksTab = page.locator('button', { hasText: /Webhooks/i });
-      if (await webhooksTab.isVisible()) {
+      const requestPromise = page.waitForRequest(
+        (req) => req.url().includes('/grc/webhook-endpoints'),
+        { timeout: 25000 },
+      );
+
+      await page.goto('/admin/notification-studio');
+      await page.waitForLoadState('domcontentloaded');
+
+      const webhooksTab = page.getByRole('button', { name: /Webhooks/i });
+      if (await webhooksTab.isVisible({ timeout: 5000 }).catch(() => false)) {
         await webhooksTab.click();
+        await page.waitForTimeout(500);
       }
 
-      await expect.poll(() => capturedHeaders.length, {
-        timeout: 15000,
-        message: 'Expected at least one webhook request',
-      }).toBeGreaterThanOrEqual(1);
+      await requestPromise;
+
+      await expect
+        .poll(
+          () => capturedHeaders.length,
+          { timeout: 5000, message: 'Expected at least one webhook request' },
+        )
+        .toBeGreaterThanOrEqual(1);
 
       expect(capturedHeaders[0]).toBeTruthy();
       expect(capturedHeaders[0]).toMatch(/^Bearer .+/);
