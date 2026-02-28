@@ -6,6 +6,7 @@ import { GrcRisk } from '../../grc/entities/grc-risk.entity';
 import { GrcPolicy } from '../../grc/entities/grc-policy.entity';
 import { CmdbService } from '../cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
+import { CoreCompany } from '../../core-company/core-company.entity';
 import {
   IncidentCategory,
   IncidentImpact,
@@ -31,6 +32,7 @@ import {
 @Index(['tenantId', 'createdAt'])
 @Index(['tenantId', 'serviceId'])
 @Index(['tenantId', 'offeringId'])
+@Index(['tenantId', 'customerCompanyId'])
 export class ItsmIncident extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
@@ -149,6 +151,13 @@ export class ItsmIncident extends BaseEntity {
 
   @Column({ name: 'resolution_notes', type: 'text', nullable: true })
   resolutionNotes: string | null;
+
+  @Column({ name: 'customer_company_id', type: 'uuid', nullable: true })
+  customerCompanyId: string | null;
+
+  @ManyToOne(() => CoreCompany, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'customer_company_id' })
+  customerCompany: CoreCompany | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;

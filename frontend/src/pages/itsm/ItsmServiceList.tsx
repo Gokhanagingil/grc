@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
@@ -11,6 +15,7 @@ import { GenericListPage, ColumnDefinition } from '../../components/common/Gener
 import { itsmApi } from '../../services/grcClient';
 import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
@@ -29,6 +34,7 @@ interface ItsmService {
   description?: string;
   criticality: string;
   status: string;
+  customerCompany?: { id: string; name: string; type: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,12 +63,14 @@ export const ItsmServiceList: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const { companies } = useCompanyLookup();
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await itsmApi.services.list({ page, pageSize, q: search });
+      const response = await itsmApi.services.list({ page, pageSize, q: search, customerCompanyId: companyFilter || undefined });
       const data = response.data;
       if (data && typeof data === 'object') {
         const envelope = data as Record<string, unknown>;
@@ -91,7 +99,7 @@ export const ItsmServiceList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, showNotification]);
+  }, [page, pageSize, search, companyFilter, showNotification]);
 
   useEffect(() => {
     fetchServices();
@@ -140,6 +148,15 @@ export const ItsmServiceList: React.FC = () => {
       ),
     },
     {
+      key: 'customerCompany',
+      header: 'Company',
+      render: (row) => (
+        <Typography variant="body2" color="text.secondary">
+          {row.customerCompany?.name || '-'}
+        </Typography>
+      ),
+    },
+    {
       key: 'updatedAt',
       header: 'Last Updated',
       render: (row) => (
@@ -150,19 +167,40 @@ export const ItsmServiceList: React.FC = () => {
     },
   ], []);
 
+  const filterActions = (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 160 }}>
+        <InputLabel>Company</InputLabel>
+        <Select
+          value={companyFilter}
+          label="Company"
+          onChange={(e) => { setCompanyFilter(e.target.value); setPage(1); }}
+        >
+          <MenuItem value="">All Companies</MenuItem>
+          {companies.map((c) => (
+            <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Box>
+  );
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight={600}>
           ITSM Services
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/itsm/services/new')}
-        >
-          New Service
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {filterActions}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/itsm/services/new')}
+          >
+            New Service
+          </Button>
+        </Box>
       </Box>
 
       <GenericListPage<ItsmService>

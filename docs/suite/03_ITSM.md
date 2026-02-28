@@ -60,7 +60,7 @@ The GRC platform includes a **full-featured ITSM (IT Service Management) module*
 | **SLA User-Facing Dashboard** | PLANNED | SLA admin UI exists in Studio; dedicated reporting dashboard is planned |
 | **CMDB Import Source Connectors** | PARTIAL | Import job entity exists; source connectors need validation |
 | **ServiceNow Sync** | PLANNED | No direct sync; Tool Gateway provides read-only ServiceNow access for Incident Copilot only |
-| **Company Dimension** | PARTIAL | `core_companies` shared dimension created (v1). Nullable `companyId` FK on Incident/Change planned for future iteration |
+| **Company Dimension** | IMPLEMENTED | `core_companies` shared dimension with `customer_company_id` FK on Services, Incidents, and Changes. Supports filtering, selection, and display in list/detail views |
 
 > **SECURITY:** All ITSM endpoints require JWT authentication, tenant isolation (`x-tenant-id` header), and permission-based access control. ITSM permissions are separate from GRC permissions (e.g., `ITSM_INCIDENT_READ/WRITE`, `ITSM_CHANGE_READ/WRITE`).
 
@@ -133,13 +133,13 @@ graph TD
 
 | Sub-Module | Entities | Key Relationships |
 |------------|----------|-------------------|
-| **Incident** | `ItsmIncident`, `ItsmIncidentCi`, `IncidentAiAnalysis` | CmdbService, CmdbServiceOffering, CmdbCi, GrcRisk, GrcPolicy |
-| **Change** | `ItsmChange`, `ItsmChangeCi`, `ItsmChangeTask`, `ItsmChangeTemplate`, `RiskAssessment`, `ItsmApproval`, `CabMeeting`, `CalendarEvent`, `FreezeWindow` | CmdbService, CmdbCi, GrcRisk (via `ItsmChangeRisk`), GrcControl (via `ItsmChangeControl`) |
+| **Incident** | `ItsmIncident`, `ItsmIncidentCi`, `IncidentAiAnalysis` | CmdbService, CmdbServiceOffering, CmdbCi, GrcRisk, GrcPolicy, CoreCompany |
+| **Change** | `ItsmChange`, `ItsmChangeCi`, `ItsmChangeTask`, `ItsmChangeTemplate`, `RiskAssessment`, `ItsmApproval`, `CabMeeting`, `CalendarEvent`, `FreezeWindow` | CmdbService, CmdbCi, GrcRisk (via `ItsmChangeRisk`), GrcControl (via `ItsmChangeControl`), CoreCompany |
 | **Problem** | `ItsmProblem`, `ItsmProblemIncident`, `ItsmProblemChange` | Incident, Change |
 | **Known Error** | `ItsmKnownError` | Problem |
 | **Major Incident** | `ItsmMajorIncident`, `ItsmMajorIncidentUpdate`, `ItsmMajorIncidentLink` | Incident, Change, Problem, CmdbService, CmdbCi |
 | **PIR** | `ItsmPir`, `ItsmPirAction`, `ItsmKnowledgeCandidate` | MajorIncident |
-| **Service** | `ItsmService` | CmdbService, CmdbServiceOffering |
+| **Service** | `ItsmService` | CmdbService, CmdbServiceOffering, CoreCompany |
 | **SLA** | `SlaDefinition`, `SlaInstance` | Incident, Change, Problem, Request, Task |
 | **CMDB** | `CmdbCi`, `CmdbCiClass`, `CmdbCiRel`, `CmdbService`, `CmdbServiceOffering`, `CmdbImportJob`, `CmdbQualitySnapshot` | Hierarchical CI classes, relationships, service portfolio |
 | **Studio** | `BusinessRule`, `UiPolicy`, `UiAction`, `WorkflowDefinition`, `SysChoice`, `PriorityMatrixEntry` | Configuration for all ITSM modules |
@@ -1386,6 +1386,40 @@ All endpoints require:
 | `/itsm/studio/*` | Studio components | 305-361 |
 | `/cmdb/*` | CMDB components | 188-404 |
 
+### Company Linkage (core_company Integration)
+
+ITSM entities support optional linkage to `core_companies` via the `customer_company_id` foreign key. This enables tracking which customer, vendor, or internal company is associated with each ITSM record.
+
+**Schema:**
+
+| Table | Column | Type | Nullable | FK Target |
+|-------|--------|------|----------|-----------|
+| `itsm_services` | `customer_company_id` | uuid | YES | `core_companies.id` |
+| `itsm_incidents` | `customer_company_id` | uuid | YES | `core_companies.id` |
+| `itsm_changes` | `customer_company_id` | uuid | YES | `core_companies.id` |
+
+All columns have `ON DELETE SET NULL` behavior and tenant-aware composite indexes (`tenant_id + customer_company_id`).
+
+**API Usage:**
+
+- **Create/Update:** Include `customerCompanyId` (UUID) in the request body. Field is optional.
+- **Filter:** Add `?customerCompanyId=<uuid>` query parameter to list endpoints.
+- **Response:** When a company is linked, the response includes a `customerCompany` object with `{ id, name, type }`.
+
+Example:
+```
+GET /api/grc/itsm/services?customerCompanyId=<uuid>
+```
+
+**Frontend:**
+- List pages (Services, Incidents, Changes) include a "Company" filter dropdown and a "Company" column in the table.
+- Detail/create pages include a "Customer Company" selector card.
+
+**Seed Script:**
+- `seed-company-itsm-links.ts` links demo companies to existing ITSM records (idempotent).
+
+> **EVIDENCE:** `backend-nest/src/migrations/1743100000000-AddCustomerCompanyToItsmEntities.ts`, `backend-nest/src/scripts/seed-company-itsm-links.ts`
+
 ### Seed Scripts
 
 | Script | Path |
@@ -1395,6 +1429,7 @@ All endpoints require:
 | `seed-itsm-analytics-demo.ts` | `backend-nest/src/scripts/seed-itsm-analytics-demo.ts` |
 | `seed-cmdb-content-pack-v1.ts` | `backend-nest/src/scripts/seed-cmdb-content-pack-v1.ts` |
 | `seed-cmdb-mi-demo.ts` | `backend-nest/src/scripts/seed-cmdb-mi-demo.ts` |
+| `seed-company-itsm-links.ts` | `backend-nest/src/scripts/seed-company-itsm-links.ts` |
 
 ### Enums
 

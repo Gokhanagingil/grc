@@ -318,6 +318,7 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
   ): Promise<ItsmIncident | null> {
     return this.repository.findOne({
       where: { id, tenantId, isDeleted: false },
+      relations: ['customerCompany'],
     });
   }
 
@@ -355,6 +356,7 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
       createdTo,
       serviceId,
       offeringId,
+      customerCompanyId,
       search,
     } = filterDto;
 
@@ -413,6 +415,12 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
       qb.andWhere('incident.offeringId = :offeringId', { offeringId });
     }
 
+    if (customerCompanyId) {
+      qb.andWhere('incident.customerCompanyId = :customerCompanyId', {
+        customerCompanyId,
+      });
+    }
+
     if (search) {
       qb.andWhere(
         '(incident.number ILIKE :search OR incident.shortDescription ILIKE :search OR incident.description ILIKE :search)',
@@ -430,6 +438,8 @@ export class IncidentService extends MultiTenantServiceBase<ItsmIncident> {
 
     qb.skip((page - 1) * pageSize);
     qb.take(pageSize);
+
+    qb.leftJoinAndSelect('incident.customerCompany', 'customerCompany');
 
     const items = await qb.getMany();
 

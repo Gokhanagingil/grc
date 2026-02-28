@@ -47,6 +47,7 @@ import { ChangeAffectedCisSection } from '../../components/itsm/ChangeAffectedCi
 import { GovernanceBanner } from '../../components/itsm/GovernanceBanner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useItsmChoices, ChoiceOption } from '../../hooks/useItsmChoices';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 import { ActivityStream } from '../../components/itsm/ActivityStream';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { useAuth } from '../../contexts/AuthContext';
@@ -90,6 +91,8 @@ interface ItsmChange {
   serviceId?: string;
   offeringId?: string;
   service?: { id: string; name: string };
+  customerCompanyId?: string;
+  customerCompany?: { id: string; name: string; type: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -249,6 +252,7 @@ export const ItsmChangeDetail: React.FC = () => {
   const typeOptions = choices['type'] || FALLBACK_CHOICES['type'];
   const stateOptions = choices['state'] || FALLBACK_CHOICES['state'];
   const riskOptions = choices['risk'] || FALLBACK_CHOICES['risk'];
+  const { companies } = useCompanyLookup();
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -556,6 +560,7 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
+          customerCompanyId: change.customerCompanyId || null,
         };
         if (process.env.NODE_ENV === 'development') {
           console.debug('[ItsmChangeDetail] save:payload', createPayload);
@@ -590,6 +595,7 @@ export const ItsmChangeDetail: React.FC = () => {
           plannedEndAt: change.plannedEndAt,
           serviceId: change.serviceId,
           offeringId: change.offeringId,
+          customerCompanyId: change.customerCompanyId || null,
         };
         if (process.env.NODE_ENV === 'development') {
           console.debug('[ItsmChangeDetail] save:payload', updatePayload);
@@ -1369,6 +1375,32 @@ export const ItsmChangeDetail: React.FC = () => {
                   <MenuItem value=""><em>None</em></MenuItem>
                   {cmdbOfferings.map((o) => (
                     <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </CardContent>
+          </Card>
+
+          {/* Customer Company */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Customer Company
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Company</InputLabel>
+                <Select
+                  value={change.customerCompanyId || ''}
+                  label="Company"
+                  data-testid="change-company-select"
+                  onChange={(e) => {
+                    const val = e.target.value || undefined;
+                    setChange((prev) => ({ ...prev, customerCompanyId: val }));
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {companies.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

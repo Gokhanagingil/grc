@@ -15,6 +15,7 @@ import { GenericListPage, ColumnDefinition } from '../../components/common/Gener
 import { itsmApi } from '../../services/grcClient';
 import { ApiError } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useCompanyLookup } from '../../hooks/useCompanyLookup';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
@@ -41,6 +42,7 @@ interface ItsmIncident {
   riskReviewRequired: boolean;
   service?: { id: string; name: string };
   assignee?: { id: string; firstName: string; lastName: string };
+  customerCompany?: { id: string; name: string; type: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +96,8 @@ export const ItsmIncidentList: React.FC = () => {
   const search = searchParams.get('q') || '';
   const stateFilter = searchParams.get('state') || '';
   const priorityFilter = searchParams.get('priority') || '';
+  const companyFilter = searchParams.get('customerCompanyId') || '';
+  const { companies } = useCompanyLookup();
 
   const updateParams = useCallback((updates: Record<string, string>) => {
     setSearchParams((prev) => {
@@ -119,6 +123,7 @@ export const ItsmIncidentList: React.FC = () => {
         q: search || undefined,
         state: stateFilter || undefined,
         priority: priorityFilter || undefined,
+        customerCompanyId: companyFilter || undefined,
       });
       const data = response.data;
       if (data && typeof data === 'object') {
@@ -148,7 +153,7 @@ export const ItsmIncidentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, stateFilter, priorityFilter, showNotification]);
+  }, [page, pageSize, search, stateFilter, priorityFilter, companyFilter, showNotification]);
 
   useEffect(() => {
     fetchIncidents();
@@ -221,6 +226,15 @@ export const ItsmIncidentList: React.FC = () => {
       ),
     },
     {
+      key: 'customerCompany',
+      header: 'Company',
+      render: (row) => (
+        <Typography variant="body2" color="text.secondary">
+          {row.customerCompany?.name || '-'}
+        </Typography>
+      ),
+    },
+    {
       key: 'assignee',
       header: 'Assignee',
       render: (row) => (
@@ -265,6 +279,19 @@ export const ItsmIncidentList: React.FC = () => {
           <MenuItem value="">All Priorities</MenuItem>
           {PRIORITY_FILTER_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 160 }}>
+        <InputLabel>Company</InputLabel>
+        <Select
+          value={companyFilter}
+          label="Company"
+          onChange={(e) => updateParams({ customerCompanyId: e.target.value, page: '1' })}
+        >
+          <MenuItem value="">All Companies</MenuItem>
+          {companies.map((c) => (
+            <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
           ))}
         </Select>
       </FormControl>

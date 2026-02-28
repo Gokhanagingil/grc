@@ -20,6 +20,10 @@ export class ServiceFilterDto extends PaginationQueryDto {
   offeringId?: string;
 
   @IsOptional()
+  @IsUUID()
+  customerCompanyId?: string;
+
+  @IsOptional()
   @IsString()
   search?: string;
 

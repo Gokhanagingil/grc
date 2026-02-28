@@ -1893,6 +1893,7 @@ export interface CreateItsmServiceDto {
   ownerUserId?: string;
   serviceId?: string;
   offeringId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmServiceDto {
@@ -1903,6 +1904,7 @@ export interface UpdateItsmServiceDto {
   ownerUserId?: string;
   serviceId?: string;
   offeringId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface ItsmIncidentData {
@@ -1942,6 +1944,7 @@ export interface CreateItsmIncidentDto {
   offeringId?: string;
   assigneeId?: string;
   requesterId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmIncidentDto {
@@ -1956,6 +1959,7 @@ export interface UpdateItsmIncidentDto {
   serviceId?: string;
   offeringId?: string;
   assigneeId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface ItsmAffectedCiListParams {
@@ -2072,6 +2076,7 @@ export interface CreateItsmChangeDto {
   plannedEndAt?: string;
   serviceId?: string;
   offeringId?: string;
+  customerCompanyId?: string | null;
 }
 
 export interface UpdateItsmChangeDto {
@@ -2087,6 +2092,7 @@ export interface UpdateItsmChangeDto {
   plannedEndAt?: string;
   serviceId?: string;
   offeringId?: string;
+  customerCompanyId?: string | null;
 }
 
 // ========== Change Task Types ==========
@@ -2604,6 +2610,7 @@ export interface ItsmListParams {
   state?: string;
   priority?: string;
   type?: string;
+  customerCompanyId?: string | null;
 }
 
 // ITSM API object with all endpoints
@@ -2615,6 +2622,7 @@ export const itsmApi = {
       if (params?.page) searchParams.set('page', String(params.page));
       if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
       if (params?.q) searchParams.set('q', params.q);
+      if (params?.customerCompanyId) searchParams.set('customerCompanyId', params.customerCompanyId);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.ITSM.SERVICES.LIST}${queryString ? `?${queryString}` : ''}`);
     },
@@ -2633,6 +2641,7 @@ export const itsmApi = {
       if (params?.q) searchParams.set('q', params.q);
       if (params?.state) searchParams.set('state', params.state);
       if (params?.priority) searchParams.set('priority', params.priority);
+      if (params?.customerCompanyId) searchParams.set('customerCompanyId', params.customerCompanyId);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${queryString ? `?${queryString}` : ''}`);
     },
@@ -2676,6 +2685,7 @@ export const itsmApi = {
       if (params?.q) searchParams.set('q', params.q);
       if (params?.state) searchParams.set('state', params.state);
       if (params?.type) searchParams.set('type', params.type);
+      if (params?.customerCompanyId) searchParams.set('customerCompanyId', params.customerCompanyId);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.ITSM.CHANGES.LIST}${queryString ? `?${queryString}` : ''}`);
     },

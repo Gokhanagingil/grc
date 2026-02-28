@@ -81,6 +81,10 @@ export class CreateIncidentDto {
   @IsOptional()
   relatedPolicyId?: string;
 
+  @IsUUID('4', { message: 'Customer company ID must be a valid UUID' })
+  @IsOptional()
+  customerCompanyId?: string;
+
   @IsObject({ message: 'Metadata must be an object' })
   @IsOptional()
   metadata?: Record<string, unknown>;

@@ -4,6 +4,7 @@ import { Tenant } from '../../tenants/tenant.entity';
 import { User } from '../../users/user.entity';
 import { CmdbService } from '../cmdb/service/cmdb-service.entity';
 import { CmdbServiceOffering } from '../cmdb/service-offering/cmdb-service-offering.entity';
+import { CoreCompany } from '../../core-company/core-company.entity';
 
 export enum ServiceCriticality {
   CRITICAL = 'CRITICAL',
@@ -25,6 +26,7 @@ export enum ServiceStatus {
 @Index(['tenantId', 'createdAt'])
 @Index(['tenantId', 'serviceId'])
 @Index(['tenantId', 'offeringId'])
+@Index(['tenantId', 'customerCompanyId'])
 export class ItsmService extends BaseEntity {
   @ManyToOne(() => Tenant, { nullable: false })
   @JoinColumn({ name: 'tenant_id' })
@@ -73,6 +75,13 @@ export class ItsmService extends BaseEntity {
   })
   @JoinColumn({ name: 'offering_id' })
   offering: CmdbServiceOffering | null;
+
+  @Column({ name: 'customer_company_id', type: 'uuid', nullable: true })
+  customerCompanyId: string | null;
+
+  @ManyToOne(() => CoreCompany, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'customer_company_id' })
+  customerCompany: CoreCompany | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;

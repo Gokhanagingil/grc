@@ -142,6 +142,7 @@ describe('ChangeService', () => {
       expect(result).toEqual(mockChange);
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: mockChange.id, tenantId: mockTenantId, isDeleted: false },
+        relations: ['customerCompany'],
       });
     });
 
@@ -233,6 +234,7 @@ describe('ChangeService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(1),
         getMany: jest.fn().mockResolvedValue([mockChange]),
       };
@@ -263,6 +265,7 @@ describe('ChangeService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(0),
         getMany: jest.fn().mockResolvedValue([]),
       };
