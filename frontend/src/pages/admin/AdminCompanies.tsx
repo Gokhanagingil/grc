@@ -119,10 +119,10 @@ export const AdminCompanies: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(''); // live input state
+  const [committedSearch, setCommittedSearch] = useState(''); // only updated on Enter
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [searchTrigger, setSearchTrigger] = useState(0);
   const searchTriggeredRef = useRef(false);
 
   // Modal state
@@ -140,7 +140,7 @@ export const AdminCompanies: React.FC = () => {
       const params = new URLSearchParams();
       params.set('page', String(page + 1)); // API is 1-indexed
       params.set('pageSize', String(pageSize));
-      if (search) params.set('search', search);
+      if (committedSearch) params.set('search', committedSearch);
       if (filterType) params.set('type', filterType);
       if (filterStatus) params.set('status', filterStatus);
 
@@ -160,7 +160,7 @@ export const AdminCompanies: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, filterType, filterStatus]);
+  }, [page, pageSize, committedSearch, filterType, filterStatus]);
 
   const [initialized, setInitialized] = useState(false);
   useEffect(() => {
@@ -183,13 +183,13 @@ export const AdminCompanies: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, filterType, filterStatus]);
 
-  // Re-fetch when search is triggered (Enter key)
+  // Re-fetch when committed search changes
   useEffect(() => {
-    if (initialized && searchTrigger > 0) {
+    if (initialized) {
       fetchCompanies();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTrigger]);
+  }, [committedSearch]);
 
   // ── Search handler (debounced via Enter key) ──────────────────────────
 
@@ -197,7 +197,7 @@ export const AdminCompanies: React.FC = () => {
     if (e.key === 'Enter') {
       searchTriggeredRef.current = page !== 0; // guard page effect only if page actually changes
       setPage(0);
-      setSearchTrigger((prev) => prev + 1);
+      setCommittedSearch(search);
     }
   };
 
@@ -232,10 +232,19 @@ export const AdminCompanies: React.FC = () => {
         type: formData.type,
         status: formData.status,
       };
-      if (formData.code) payload.code = formData.code;
-      if (formData.domain) payload.domain = formData.domain;
-      if (formData.country) payload.country = formData.country;
-      if (formData.notes) payload.notes = formData.notes;
+      // For creates, only include optional fields if non-empty
+      // For edits, always include them so clearing a field sends null
+      if (editingCompany) {
+        payload.code = formData.code || null;
+        payload.domain = formData.domain || null;
+        payload.country = formData.country || null;
+        payload.notes = formData.notes || null;
+      } else {
+        if (formData.code) payload.code = formData.code;
+        if (formData.domain) payload.domain = formData.domain;
+        if (formData.country) payload.country = formData.country;
+        if (formData.notes) payload.notes = formData.notes;
+      }
 
       if (editingCompany) {
         await api.patch(`/grc/admin/companies/${editingCompany.id}`, payload);
