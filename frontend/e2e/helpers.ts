@@ -385,11 +385,12 @@ export async function setupMockApi(page: Page) {
       return;
     }
 
-    // Handle grc/companies/lookup - GET (tenant-scoped company dropdown for ITSM)
+    // Handle grc/companies/lookup - GET (tenant-scoped company dropdown for ITSM / SLA)
     if (url.includes('/grc/companies/lookup') && method === 'GET') {
       logMock(method, url, true);
       await route.fulfill(successResponse([
-        { id: 'mock-company-1', name: 'Mock Customer Co', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST' },
+        { id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', name: 'Mock Customer Co', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST' },
+        { id: 'b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e', name: 'Second Test Company', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST-2' },
       ]));
       return;
     }

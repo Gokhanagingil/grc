@@ -178,6 +178,19 @@ test.describe('ITSM Company Binding Smoke @mock @smoke', () => {
 
     const customerCompanyOption = page.getByRole('option', { name: 'Customer Company' });
     await expect(customerCompanyOption.first()).toBeVisible({ timeout: 5000 });
+    await customerCompanyOption.first().click();
+    await page.waitForTimeout(500);
+
+    // Value input should be company autocomplete (names), not plain UUID text input
+    const companyAutocomplete = page.getByTestId('sla-condition-company-autocomplete');
+    await expect(companyAutocomplete).toBeVisible({ timeout: 5000 });
+    const combobox = companyAutocomplete.locator('input[role="combobox"], [role="combobox"]').first();
+    await combobox.click();
+    await page.waitForTimeout(400);
+    const listbox = page.locator('[role="listbox"]');
+    await expect(listbox).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('option', { name: 'Mock Customer Co' }).first()).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('option', { name: 'Second Test Company' }).first()).toBeVisible({ timeout: 3000 });
   });
 
   test('should show Company filter on service list page', async ({ page }) => {
