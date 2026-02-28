@@ -140,3 +140,76 @@ export function useCompanyLookup(): UseCompanyLookupResult {
 export function invalidateCompanyCache(): void {
   companyCacheMap.clear();
 }
+
+export interface UseCompanyLookupSearchOptions {
+  type?: string;
+  limit?: number;
+  query?: string;
+}
+
+export interface UseCompanyLookupSearchResult {
+  companies: CompanyOption[];
+  loading: boolean;
+  error: string | null;
+}
+
+/**
+ * Lightweight hook for SLA Condition Builder and other UIs that need
+ * company lookup with optional search query and higher limit (e.g. 200).
+ * Tenant-scoped via api (x-tenant-id). Use for autocomplete/search.
+ */
+export function useCompanyLookupSearch(
+  options: UseCompanyLookupSearchOptions = {},
+): UseCompanyLookupSearchResult {
+  const { type = 'CUSTOMER', limit = 200, query = '' } = options;
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  const fetchSearch = useCallback(async () => {
+    const tenantId = currentTenantKey();
+    const cacheKey = `${tenantId}:${type}:${limit}:${(query || '').trim().toLowerCase()}`;
+    const cached = companyCacheMap.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      if (mountedRef.current) {
+        setCompanies(cached.data);
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (mountedRef.current) setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set('type', type);
+      params.set('limit', String(limit));
+      if (query && query.trim()) params.set('query', query.trim());
+
+      const res = await api.get(`/grc/companies/lookup?${params.toString()}`);
+      const items = parseLookupResponse(res.data);
+      companyCacheMap.set(cacheKey, { data: items, ts: Date.now() });
+      if (mountedRef.current) setCompanies(items);
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
+      const message =
+        axiosErr.response?.data?.error?.message ??
+        axiosErr.response?.data?.message ??
+        'Failed to load companies';
+      if (mountedRef.current) setError(message);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, [type, limit, query]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchSearch();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [fetchSearch]);
+
+  return { companies, loading, error };
+}
