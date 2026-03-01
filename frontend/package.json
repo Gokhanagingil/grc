@@ -68,6 +68,8 @@
     ]
   },
   "overrides": {
+    "nth-check": "2.1.1",
+    "rollup": "2.80.0",
     "react-scripts": {
       "terser-webpack-plugin": {
         "schema-utils": {
