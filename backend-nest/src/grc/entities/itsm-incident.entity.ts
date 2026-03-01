@@ -123,6 +123,9 @@ export class ItsmIncident extends BaseEntity {
   })
   riskReviewRequired: boolean;
 
+  @Column({ name: 'customer_company_id', type: 'uuid', nullable: true })
+  customerCompanyId: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 

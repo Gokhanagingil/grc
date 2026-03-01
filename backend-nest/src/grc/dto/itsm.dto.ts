@@ -328,6 +328,22 @@ export class ItsmIncidentFilterDto {
   @IsOptional()
   @IsString()
   filter?: string;
+
+  @IsOptional()
+  @IsUUID()
+  customerCompanyId?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsDateString()
+  createdAtAfter?: string;
+
+  @IsOptional()
+  @IsDateString()
+  createdAtBefore?: string;
 }
 
 // ============================================================================

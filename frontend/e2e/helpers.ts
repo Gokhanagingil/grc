@@ -390,8 +390,35 @@ export async function setupMockApi(page: Page) {
       logMock(method, url, true);
       await route.fulfill(successResponse([
         { id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', name: 'Mock Customer Co', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST' },
-        { id: 'b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e', name: 'Second Test Company', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST-2' },
+        { id: 'b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e', name: 'Niles Demo Customer', type: 'CUSTOMER', status: 'ACTIVE', code: 'NILES-DEMO' },
+        { id: 'c3d4e5f6-a7b8-6c7d-0e1f-2a3b4c5d6e7f', name: 'Second Test Company', type: 'CUSTOMER', status: 'ACTIVE', code: 'MOCK-CUST-2' },
       ]));
+      return;
+    }
+
+    // Handle grc/itsm/incidents - GET list (ITSM Incidents list; MOCK_UI for filter standardization e2e)
+    if (url.includes('/grc/itsm/incidents') && method === 'GET' && !url.match(/\/grc\/itsm\/incidents\/[^/]+$/)) {
+      logMock(method, url, true);
+      const mockIncidents = [
+        {
+          id: 'inc-mock-1',
+          number: 'INC001',
+          shortDescription: 'Mock incident for E2E',
+          state: 'open',
+          status: 'open',
+          priority: 'p2',
+          impact: 'medium',
+          urgency: 'medium',
+          category: 'hardware',
+          riskReviewRequired: false,
+          customerCompany: { id: 'b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e', name: 'Niles Demo Customer', type: 'CUSTOMER' },
+          assignee: null,
+          service: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      ];
+      await route.fulfill(successResponse({ items: mockIncidents, total: mockIncidents.length }));
       return;
     }
 
