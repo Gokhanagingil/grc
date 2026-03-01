@@ -40,7 +40,12 @@ test.describe('ITSM Incidents list advanced filter @mock-ui', () => {
 
     // Open Advanced Filter
     await page.getByTestId('filter-open').click();
-    await expect(page.getByTestId('filter-panel')).toBeVisible({ timeout: 5000 });
+    const builderRoot = page.getByTestId('filter-panel');
+    await expect(builderRoot).toBeVisible({ timeout: 5000 });
+
+    // Builder opens with empty group; add first rule row so field/operator/value exist
+    await page.getByTestId('filter-group-add-rule').click();
+    await expect(page.getByTestId('filter-rule-field').first()).toBeVisible({ timeout: 5000 });
 
     // Add condition: Priority is P2 (High)
     const fieldSelect = page.getByTestId('filter-rule-field').first();
@@ -64,8 +69,8 @@ test.describe('ITSM Incidents list advanced filter @mock-ui', () => {
     expect(url).not.toContain('%257B');
     expect(url).not.toContain('%257D');
 
-    // List request should have been sent with priority or filter param
-    await page.waitForTimeout(500);
+    // List request should have been sent with priority or filter param (wait for URL so refetch has run)
+    await expect(page).toHaveURL(/filter=/);
     const lastListReq = listRequests[listRequests.length - 1];
     expect(lastListReq).toBeDefined();
     expect(lastListReq!.url).toMatch(/priority=p2|filter=/);

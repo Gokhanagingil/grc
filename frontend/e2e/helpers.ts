@@ -418,7 +418,7 @@ export async function setupMockApi(page: Page) {
           updatedAt: '2024-01-01T00:00:00Z',
         },
       ];
-      await route.fulfill(successResponse({ data: mockIncidents, total: mockIncidents.length }));
+      await route.fulfill(successResponse({ items: mockIncidents, total: mockIncidents.length }));
       return;
     }
 
