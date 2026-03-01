@@ -142,6 +142,10 @@ export class ItsmIncidentService {
       page = 1,
       pageSize = 20,
       sort,
+      customerCompanyId,
+      category,
+      createdAtAfter,
+      createdAtBefore,
     } = filter;
 
     const queryBuilder = this.incidentRepository
@@ -185,6 +189,31 @@ export class ItsmIncidentService {
           riskReviewRequired,
         },
       );
+    }
+
+    if (customerCompanyId) {
+      queryBuilder.andWhere('incident.customerCompanyId = :customerCompanyId', {
+        customerCompanyId,
+      });
+    }
+
+    if (category) {
+      queryBuilder.andWhere(
+        'incident.category ILIKE :category',
+        { category: `%${category}%` },
+      );
+    }
+
+    if (createdAtAfter) {
+      queryBuilder.andWhere('incident.createdAt >= :createdAtAfter', {
+        createdAtAfter,
+      });
+    }
+
+    if (createdAtBefore) {
+      queryBuilder.andWhere('incident.createdAt <= :createdAtBefore', {
+        createdAtBefore,
+      });
     }
 
     const searchTerm = q || search;

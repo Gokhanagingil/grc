@@ -2611,6 +2611,12 @@ export interface ItsmListParams {
   priority?: string;
   type?: string;
   customerCompanyId?: string | null;
+  sort?: string;
+  assigneeId?: string;
+  serviceId?: string;
+  category?: string;
+  createdAtAfter?: string;
+  createdAtBefore?: string;
 }
 
 // ITSM API object with all endpoints
@@ -2642,6 +2648,12 @@ export const itsmApi = {
       if (params?.state) searchParams.set('state', params.state);
       if (params?.priority) searchParams.set('priority', params.priority);
       if (params?.customerCompanyId) searchParams.set('customerCompanyId', params.customerCompanyId);
+      if (params?.sort) searchParams.set('sort', params.sort);
+      if (params?.assigneeId) searchParams.set('assigneeId', params.assigneeId);
+      if (params?.serviceId) searchParams.set('serviceId', params.serviceId);
+      if (params?.category) searchParams.set('category', params.category);
+      if (params?.createdAtAfter) searchParams.set('createdAtAfter', params.createdAtAfter);
+      if (params?.createdAtBefore) searchParams.set('createdAtBefore', params.createdAtBefore);
       const queryString = searchParams.toString();
       return api.get(`${API_PATHS.ITSM.INCIDENTS.LIST}${queryString ? `?${queryString}` : ''}`);
     },
