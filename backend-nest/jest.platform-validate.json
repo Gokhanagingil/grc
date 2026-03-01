@@ -1,0 +1,9 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "src",
+  "testMatch": ["**/scripts/platform-validate.spec.ts"],
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "modulePaths": ["<rootDir>/../node_modules"],
+  "testEnvironment": "node",
+  "maxWorkers": 1
+}
