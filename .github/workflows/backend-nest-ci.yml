@@ -336,7 +336,13 @@ jobs:
           NODE_ENV: test
           JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
           JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-for-tests-only
-      
+
+      - name: Run platform-validate tests (in band to avoid worker exhaustion)
+        run: npm run test:platform-validate -- --passWithNoTests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v6
         if: always()

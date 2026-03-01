@@ -1,12 +1,13 @@
 import { ConfigService } from '@nestjs/config';
+import * as os from 'os';
+import * as path from 'path';
 import { LocalFsAdapter } from './local-fs.adapter';
 import * as fs from 'fs';
-import * as path from 'path';
 
 describe('LocalFsAdapter', () => {
   let adapter: LocalFsAdapter;
   let mockConfigService: jest.Mocked<ConfigService>;
-  const testDir = '/tmp/local-fs-adapter-test';
+  const testDir = path.join(os.tmpdir(), 'local-fs-adapter-test');
 
   beforeEach(() => {
     mockConfigService = {
@@ -76,16 +77,19 @@ describe('LocalFsAdapter', () => {
   });
 
   describe('EACCES fallback behavior', () => {
+    const isChmodSupported = process.platform !== 'win32';
+
     it('should fall back to /tmp/uploads when primary path is not writable', async () => {
-      // Create a read-only directory to simulate EACCES
+      if (!isChmodSupported) {
+        return;
+      }
+      // Create a read-only directory to simulate EACCES (chmod is POSIX-only)
       const readOnlyDir = path.join(testDir, 'readonly');
       fs.mkdirSync(readOnlyDir, { recursive: true });
 
-      // Create a subdirectory that we'll make read-only
       const targetDir = path.join(readOnlyDir, 'uploads');
       fs.mkdirSync(targetDir, { recursive: true });
 
-      // Make the parent directory read-only (this prevents creating files in targetDir)
       fs.chmodSync(readOnlyDir, 0o444);
 
       try {
@@ -94,14 +98,11 @@ describe('LocalFsAdapter', () => {
         );
         adapter = new LocalFsAdapter(mockConfigService);
 
-        // Wait for async initialization
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // The adapter should have fallen back to /tmp/uploads
         expect(adapter.isUsingFallback()).toBe(true);
         expect(adapter.getBasePath()).toBe(LocalFsAdapter.FALLBACK_PATH);
       } finally {
-        // Restore permissions for cleanup
         fs.chmodSync(readOnlyDir, 0o755);
       }
     });
@@ -121,7 +122,9 @@ describe('LocalFsAdapter', () => {
     });
 
     it('should report storage as available after successful fallback', async () => {
-      // Create a read-only directory to simulate EACCES
+      if (!isChmodSupported) {
+        return;
+      }
       const readOnlyDir = path.join(testDir, 'readonly2');
       fs.mkdirSync(readOnlyDir, { recursive: true });
       fs.chmodSync(readOnlyDir, 0o444);
@@ -132,13 +135,10 @@ describe('LocalFsAdapter', () => {
         );
         adapter = new LocalFsAdapter(mockConfigService);
 
-        // Wait for async initialization
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Storage should be available via fallback
         expect(adapter.isStorageAvailable()).toBe(true);
       } finally {
-        // Restore permissions for cleanup
         fs.chmodSync(readOnlyDir, 0o755);
       }
     });

@@ -388,7 +388,10 @@ async function main(): Promise<void> {
   process.exit(result.success ? 0 : 1);
 }
 
-main().catch((error) => {
-  console.error('Unexpected error:', error);
-  process.exit(1);
-});
+// Do not run main when module is imported by Jest (unit tests only need isDistRuntime/resolveScript)
+if (!process.env.JEST_WORKER_ID) {
+  main().catch((error) => {
+    console.error('Unexpected error:', error);
+    process.exit(1);
+  });
+}
