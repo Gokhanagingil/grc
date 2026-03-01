@@ -53,7 +53,9 @@ test.describe('ITSM Incidents list advanced filter @mock-ui', () => {
     await page.getByRole('option', { name: 'Priority' }).click();
     const operatorSelect = page.getByTestId('filter-rule-operator').first();
     await operatorSelect.click();
-    await page.getByRole('option', { name: 'is' }).click();
+    const operatorIs = page.locator('li[role="option"][data-value="is"]');
+    await expect(operatorIs).toBeVisible();
+    await operatorIs.click();
     const valueSelect = page.getByTestId('filter-rule-value').first();
     await valueSelect.click();
     await page.getByRole('option', { name: /P2 - High/i }).click();
