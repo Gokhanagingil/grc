@@ -33,7 +33,7 @@ export class TodoTask extends BaseEntity {
   @Column({ type: 'varchar', length: 20, default: 'medium' })
   priority: string; // low | medium | high | urgent
 
-  @Column({ name: 'due_date', type: 'date', nullable: true })
+  @Column({ name: 'due_date', type: 'timestamptz', nullable: true })
   dueDate: Date | null;
 
   @Column({ name: 'assignee_user_id', type: 'uuid', nullable: true })
@@ -45,7 +45,7 @@ export class TodoTask extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   tags: string[] | null;
 
-  @Column({ name: 'sort_order', type: 'float', default: 0 })
+  @Column({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number;
 
   @Column({ name: 'board_id', type: 'uuid', nullable: true })

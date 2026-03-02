@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenants/guards/tenant.guard';
@@ -41,6 +42,15 @@ import {
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class TodosController {
   constructor(private readonly todosService: TodosService) {}
+
+  /** Extract authenticated user id or throw. */
+  private getUserId(req: RequestWithUser): string {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('User identity not available');
+    }
+    return userId;
+  }
 
   /* ------------------------------------------------------------------ */
   /* Tasks                                                               */
@@ -96,7 +106,7 @@ export class TodosController {
     @Body() dto: CreateTodoTaskDto,
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.createTask(tenantId, userId, dto);
   }
 
@@ -116,7 +126,7 @@ export class TodosController {
     @Body() dto: UpdateTodoTaskDto,
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.updateTask(tenantId, userId, id, dto);
   }
 
@@ -148,7 +158,7 @@ export class TodosController {
     @Body() dto: CreateTodoBoardDto,
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.createBoard(tenantId, userId, dto);
   }
 
@@ -168,7 +178,7 @@ export class TodosController {
     @Body() dto: UpdateTodoBoardDto,
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.updateBoard(tenantId, userId, boardId, dto);
   }
 
@@ -188,7 +198,7 @@ export class TodosController {
     @Body() columns: BoardColumnDto[],
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.replaceColumns(tenantId, userId, boardId, columns);
   }
 
@@ -200,7 +210,7 @@ export class TodosController {
     @Body() dto: MoveTaskDto,
   ) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     return this.todosService.moveTask(tenantId, userId, boardId, taskId, dto);
   }
 
@@ -212,7 +222,7 @@ export class TodosController {
   @HttpCode(HttpStatus.OK)
   async seed(@Request() req: RequestWithUser) {
     const tenantId = req.tenantId!;
-    const userId = req.user?.sub || 'system';
+    const userId = this.getUserId(req);
     await this.todosService.seedDefaultBoard(tenantId, userId);
     return { message: 'Default board seeded' };
   }
