@@ -235,8 +235,8 @@ test.describe('Todo 1.6 Gap Fixes @mock', () => {
     const tagNameInput = page.locator('label:has-text("Tag name")');
     await expect(tagNameInput).toBeVisible({ timeout: 5000 });
 
-    // Verify Add button
-    const addButton = page.locator('button:has-text("Add")');
+    // Verify Add button inside the inline tag-creation form (exact match to avoid "Add Task" etc.)
+    const addButton = page.getByRole('button', { name: 'Add', exact: true });
     await expect(addButton).toBeVisible();
   });
 
