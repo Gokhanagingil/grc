@@ -295,7 +295,7 @@ export const TodoBoard: React.FC = () => {
       setBoard(boardDetail);
 
       // Fetch tasks for this board
-      const params: Record<string, string> = { boardId: firstBoard.id };
+      const params: Record<string, string> = { boardId: firstBoard.id, pageSize: '1000' };
       if (searchQuery) params.search = searchQuery;
       if (filterPriority !== 'all') params.priority = filterPriority;
       const tasksRes = await api.get('/todos', { params });
