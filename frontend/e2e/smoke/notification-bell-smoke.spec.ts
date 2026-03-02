@@ -82,9 +82,9 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
     return route.continue();
   });
 
-  // PUT mark read
+  // POST mark read
   page.route('**/grc/user-notifications/*/read', (route) => {
-    if (route.request().method() === 'PUT') {
+    if (route.request().method() === 'POST') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -94,9 +94,9 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
     return route.continue();
   });
 
-  // PUT mark all read
+  // POST mark all read
   page.route('**/grc/user-notifications/read-all', (route) => {
-    if (route.request().method() === 'PUT') {
+    if (route.request().method() === 'POST') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',

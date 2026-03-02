@@ -163,7 +163,7 @@ export const NotificationBell: React.FC = () => {
 
   const handleMarkRead = async (id: string) => {
     try {
-      await api.put(`/grc/user-notifications/${id}/read`);
+      await api.post(`/grc/user-notifications/${id}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
       );
@@ -175,7 +175,7 @@ export const NotificationBell: React.FC = () => {
 
   const handleMarkAllRead = async () => {
     try {
-      await api.put('/grc/user-notifications/read-all');
+      await api.post('/grc/user-notifications/read-all');
       const now = new Date().toISOString();
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || now })));
       setUnreadCount(0);
