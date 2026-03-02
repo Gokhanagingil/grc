@@ -109,8 +109,8 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
 
 test.describe('Notification Bell @mock', () => {
   test('bell icon shows unread badge count', async ({ page }) => {
-    await login(page);
     setupNotificationMocks(page);
+    await login(page);
 
     // Wait for notification bell to appear
     const bell = page.getByTestId('notification-bell');
@@ -123,8 +123,8 @@ test.describe('Notification Bell @mock', () => {
   });
 
   test('clicking bell opens notification drawer with items', async ({ page }) => {
-    await login(page);
     setupNotificationMocks(page);
+    await login(page);
 
     // Click the bell
     const bell = page.getByTestId('notification-bell');
@@ -138,8 +138,9 @@ test.describe('Notification Bell @mock', () => {
     await expect(page.getByText('Task Assigned')).toBeVisible();
     await expect(page.getByText('Task Due Soon')).toBeVisible();
 
-    // Should show source chip for TODO
-    await expect(page.getByText('To-Do')).toBeVisible();
+    // Should show source chip for TODO (scoped to drawer to avoid matching nav items)
+    const drawer = page.getByTestId('notification-drawer');
+    await expect(drawer.getByText('To-Do').first()).toBeVisible();
 
     // Should show WARNING severity chip
     await expect(page.getByText('WARNING')).toBeVisible();
@@ -149,8 +150,8 @@ test.describe('Notification Bell @mock', () => {
   });
 
   test('mark all read clears unread state', async ({ page }) => {
-    await login(page);
     setupNotificationMocks(page);
+    await login(page);
 
     // Open drawer
     const bell = page.getByTestId('notification-bell');
