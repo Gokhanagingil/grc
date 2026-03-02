@@ -280,8 +280,10 @@ export const TodoBoard: React.FC = () => {
       await api.post('/todos/seed').catch(() => { /* ignore if already seeded */ });
 
       // Determine which board to load
-      let targetBoardId = routeBoardId;
-      if (!targetBoardId) {
+      let resolvedBoardId: string;
+      if (routeBoardId) {
+        resolvedBoardId = routeBoardId;
+      } else {
         // No route param — fetch boards list and pick first one
         const boardsRes = await api.get('/todos/boards/list');
         const boardsData = boardsRes.data?.data || boardsRes.data;
@@ -291,16 +293,16 @@ export const TodoBoard: React.FC = () => {
           setLoading(false);
           return;
         }
-        targetBoardId = boards[0].id;
+        resolvedBoardId = boards[0].id;
       }
 
       // Fetch board detail with columns
-      const boardRes = await api.get(`/todos/boards/${targetBoardId}`);
+      const boardRes = await api.get(`/todos/boards/${resolvedBoardId}`);
       const boardDetail = boardRes.data?.data || boardRes.data;
       setBoard(boardDetail);
 
       // Fetch tasks for this board
-      const params: Record<string, string> = { boardId: targetBoardId, pageSize: '1000' };
+      const params: Record<string, string> = { boardId: resolvedBoardId, pageSize: '1000' };
       if (searchQuery) params.search = searchQuery;
       if (filterPriority !== 'all') params.priority = filterPriority;
       const tasksRes = await api.get('/todos', { params });
