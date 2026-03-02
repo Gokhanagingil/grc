@@ -222,7 +222,7 @@ export const GroupManagement: React.FC = () => {
     const timeout = setTimeout(async () => {
       setUsersLoading(true);
       try {
-        const res = await api.get('/grc/admin/users', { params: { q: userSearch, pageSize: 10 } });
+        const res = await api.get('/users', { params: { search: userSearch, limit: 10 } });
         const data = res.data?.data || res.data;
         const items = data.items || data.users || data || [];
         setUsers(Array.isArray(items) ? items : []);

@@ -249,8 +249,8 @@ export class NotificationTriggerService {
     const dedupKey = this.generateDedupKey(tenantId, userId, type, entityId, bucketHours);
     const existing = await this.userNotificationRepo
       .createQueryBuilder('n')
-      .where('n.tenant_id = :tenantId', { tenantId })
-      .andWhere('n.user_id = :userId', { userId })
+      .where('n.tenantId = :tenantId', { tenantId })
+      .andWhere('n.userId = :userId', { userId })
       .andWhere('n.type = :type', { type })
       .andWhere("n.metadata->>'dedupKey' = :dedupKey", { dedupKey })
       .getCount();
