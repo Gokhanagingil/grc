@@ -281,7 +281,6 @@ export const NotificationBell: React.FC = () => {
                     <ListItem disablePadding>
                       <ListItemButton
                         onClick={() => {
-                          if (!isRead(n)) handleMarkRead(n.id);
                           handleOpenRecord(n);
                         }}
                         sx={{

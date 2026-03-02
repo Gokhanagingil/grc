@@ -22,6 +22,7 @@ import { StructuredLoggerService } from '../../common/logger';
 export class DueDateScannerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger: StructuredLoggerService;
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
+  private timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
   /** Scan interval: 30 minutes */
   private static readonly SCAN_INTERVAL_MS = 30 * 60 * 1000;
@@ -51,7 +52,8 @@ export class DueDateScannerService implements OnModuleInit, OnModuleDestroy {
     });
 
     // Run initial scan after a short delay to let the app fully bootstrap
-    setTimeout(() => {
+    this.timeoutHandle = setTimeout(() => {
+      this.timeoutHandle = null;
       this.scan().catch((err) =>
         this.logger.error('Initial due-date scan failed', {
           error: err instanceof Error ? err.message : String(err),
@@ -69,11 +71,15 @@ export class DueDateScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+      this.timeoutHandle = null;
+    }
     if (this.intervalHandle) {
       clearInterval(this.intervalHandle);
       this.intervalHandle = null;
-      this.logger.log('Due-date scanner stopped');
     }
+    this.logger.log('Due-date scanner stopped');
   }
 
   /**
