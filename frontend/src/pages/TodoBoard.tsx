@@ -25,7 +25,7 @@ import {
   Schedule as ScheduleIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ListToolbar } from '../components/common/ListToolbar';
@@ -259,6 +259,7 @@ const KanbanColumn: React.FC<{
 
 export const TodoBoard: React.FC = () => {
   const navigate = useNavigate();
+  const { boardId: routeBoardId } = useParams<{ boardId?: string }>();
   const { user, loading: authLoading } = useAuth();
 
   const [board, setBoard] = useState<Board | null>(null);
@@ -278,24 +279,28 @@ export const TodoBoard: React.FC = () => {
       // Ensure seed data exists
       await api.post('/todos/seed').catch(() => { /* ignore if already seeded */ });
 
-      // Fetch boards list and pick first one
-      const boardsRes = await api.get('/todos/boards/list');
-      const boardsData = boardsRes.data?.data || boardsRes.data;
-      const boards = boardsData?.items || boardsData || [];
-      if (!Array.isArray(boards) || boards.length === 0) {
-        setError('No boards found. Please create a board first.');
-        setLoading(false);
-        return;
+      // Determine which board to load
+      let targetBoardId = routeBoardId;
+      if (!targetBoardId) {
+        // No route param — fetch boards list and pick first one
+        const boardsRes = await api.get('/todos/boards/list');
+        const boardsData = boardsRes.data?.data || boardsRes.data;
+        const boards = boardsData?.items || boardsData || [];
+        if (!Array.isArray(boards) || boards.length === 0) {
+          setError('No boards found. Please create a board first.');
+          setLoading(false);
+          return;
+        }
+        targetBoardId = boards[0].id;
       }
 
-      const firstBoard = boards[0];
       // Fetch board detail with columns
-      const boardRes = await api.get(`/todos/boards/${firstBoard.id}`);
+      const boardRes = await api.get(`/todos/boards/${targetBoardId}`);
       const boardDetail = boardRes.data?.data || boardRes.data;
       setBoard(boardDetail);
 
       // Fetch tasks for this board
-      const params: Record<string, string> = { boardId: firstBoard.id, pageSize: '1000' };
+      const params: Record<string, string> = { boardId: targetBoardId, pageSize: '1000' };
       if (searchQuery) params.search = searchQuery;
       if (filterPriority !== 'all') params.priority = filterPriority;
       const tasksRes = await api.get('/todos', { params });
@@ -313,7 +318,7 @@ export const TodoBoard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, searchQuery, filterPriority]);
+  }, [authLoading, user, searchQuery, filterPriority, routeBoardId]);
 
   useEffect(() => {
     if (!authLoading && user) {

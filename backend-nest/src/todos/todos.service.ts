@@ -116,8 +116,10 @@ export class TodosService {
     }
 
     // Compute sortOrder: max in the target column + 1
-    let sortOrder = dto.sortOrder ?? 0;
-    if (sortOrder === 0) {
+    let sortOrder: number;
+    if (dto.sortOrder != null) {
+      sortOrder = dto.sortOrder;
+    } else {
       const status = dto.status || 'todo';
       const boardId = dto.boardId || null;
       const maxResult = await this.taskRepo
