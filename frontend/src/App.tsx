@@ -14,6 +14,7 @@ import { RiskManagement } from './pages/RiskManagement';
 import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
 import { TodoList } from './pages/TodoList';
+import { TodoBoard } from './pages/TodoBoard';
 import { AdminPanel } from './pages/AdminPanel';
 import { AdminUsers, AdminRoles, AdminSettings, AdminTenants, AdminAuditLogs, AdminSystem, AdminFrameworks, AdminPlatformBuilder, AdminEventLog, AdminNotificationStudio, AdminApiCatalog, AdminPlatformHealth, AdminAiControlCenter, AdminToolGateway, AdminDocsCenter, AdminCompanies } from './pages/admin';
 import AdminDataModel from './pages/admin/AdminDataModel';
@@ -106,6 +107,16 @@ function App() {
                   <Route path="todos" element={
                     <ErrorBoundary>
                       <TodoList />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="todos/board" element={
+                    <ErrorBoundary>
+                      <TodoBoard />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="todos/boards/:boardId" element={
+                    <ErrorBoundary>
+                      <TodoBoard />
                     </ErrorBoundary>
                   } />
                                     <Route path="governance" element={<Governance />} />

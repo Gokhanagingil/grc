@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { TodosController } from './todos.controller';
+import { TodosService } from './todos.service';
 import { RequestWithUser } from '../common/types';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -8,6 +9,7 @@ import { TenantGuard } from '../tenants/guards/tenant.guard';
 
 describe('TodosController', () => {
   let controller: TodosController;
+  let service: Partial<Record<keyof TodosService, jest.Mock>>;
 
   const createMockRequest = (
     tenantId: string,
@@ -24,9 +26,53 @@ describe('TodosController', () => {
     }) as RequestWithUser;
 
   beforeEach(async () => {
+    service = {
+      listTasks: jest.fn().mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+      }),
+      getTask: jest.fn().mockResolvedValue({ id: 'task-1', title: 'Test' }),
+      createTask: jest
+        .fn()
+        .mockResolvedValue({ id: 'task-1', title: 'New Task' }),
+      updateTask: jest
+        .fn()
+        .mockResolvedValue({ id: 'task-1', title: 'Updated' }),
+      deleteTask: jest.fn().mockResolvedValue(undefined),
+      moveTask: jest
+        .fn()
+        .mockResolvedValue({ id: 'task-1', status: 'doing' }),
+      getTaskStats: jest.fn().mockResolvedValue({
+        total: 0,
+        todo: 0,
+        doing: 0,
+        done: 0,
+        overdue: 0,
+      }),
+      listBoards: jest.fn().mockResolvedValue([]),
+      getBoard: jest
+        .fn()
+        .mockResolvedValue({ id: 'board-1', name: 'Test Board' }),
+      createBoard: jest
+        .fn()
+        .mockResolvedValue({ id: 'board-1', name: 'New Board' }),
+      updateBoard: jest
+        .fn()
+        .mockResolvedValue({ id: 'board-1', name: 'Updated Board' }),
+      replaceColumns: jest.fn().mockResolvedValue([]),
+      getBoardColumns: jest.fn().mockResolvedValue([]),
+      seedDefaultBoard: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TodosController],
-      providers: [Reflector],
+      providers: [
+        Reflector,
+        { provide: TodosService, useValue: service },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -51,178 +97,252 @@ describe('TodosController', () => {
     });
   });
 
-  describe('Tenant Isolation', () => {
-    it('should isolate todos between tenants - tenant A cannot see tenant B todos', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
-
-      controller.create(reqA, { title: 'Tenant A Todo' });
-      controller.create(reqB, { title: 'Tenant B Todo' });
-
-      const listA = controller.list(reqA);
-      const listB = controller.list(reqB);
-
-      expect(listA.todos).toHaveLength(1);
-      expect(listA.todos[0].title).toBe('Tenant A Todo');
-      expect(listB.todos).toHaveLength(1);
-      expect(listB.todos[0].title).toBe('Tenant B Todo');
-    });
-
-    it('should not allow tenant A to access tenant B todo by ID', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
-
-      const todo = controller.create(reqA, { title: 'Tenant A Todo' });
-
-      expect(() => controller.findOne(reqB, String(todo.id))).toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should not allow tenant A to update tenant B todo', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
-
-      const todo = controller.create(reqA, { title: 'Tenant A Todo' });
-
-      expect(() =>
-        controller.update(reqB, String(todo.id), { title: 'Hacked!' }),
-      ).toThrow(BadRequestException);
-    });
-
-    it('should not allow tenant A to delete tenant B todo', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
-
-      const todo = controller.create(reqA, { title: 'Tenant A Todo' });
-
-      expect(() => controller.remove(reqB, String(todo.id))).toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should maintain separate ID sequences per tenant', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
-
-      const todoA1 = controller.create(reqA, { title: 'Tenant A Todo 1' });
-      const todoA2 = controller.create(reqA, { title: 'Tenant A Todo 2' });
-      const todoB1 = controller.create(reqB, { title: 'Tenant B Todo 1' });
-
-      expect(todoA1.id).toBe(1);
-      expect(todoA2.id).toBe(2);
-      expect(todoB1.id).toBe(1);
-    });
-  });
-
   describe('list', () => {
-    it('should return empty array for new tenant', () => {
-      const req = createMockRequest('test-tenant-id');
-      const result = controller.list(req);
-      expect(result).toEqual({ todos: [] });
+    it('should call todosService.listTasks with tenantId and filters', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.list(
+        req,
+        undefined,
+        'todo',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        '1',
+        '20',
+      );
+      expect(service.listTasks).toHaveBeenCalledWith('tenant-1', {
+        boardId: undefined,
+        status: 'todo',
+        assigneeUserId: undefined,
+        priority: undefined,
+        dueDateFrom: undefined,
+        dueDateTo: undefined,
+        search: undefined,
+        page: 1,
+        pageSize: 20,
+      });
+    });
+
+    it('should return list result from service', async () => {
+      const req = createMockRequest('tenant-1');
+      const mockResult = {
+        items: [{ id: '1', title: 'Task' }],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+      };
+      service.listTasks!.mockResolvedValue(mockResult);
+      const result = await controller.list(req);
+      expect(result).toEqual(mockResult);
     });
   });
 
   describe('create', () => {
-    it('should create a todo with required fields', () => {
-      const req = createMockRequest('test-tenant-id');
-      const createDto = { title: 'Test Todo' };
-
-      const result = controller.create(req, createDto);
-
-      expect(result.title).toBe('Test Todo');
-      expect(result.id).toBe(1);
-      expect(result.status).toBe('pending');
-      expect(result.priority).toBe('medium');
-    });
-
-    it('should throw BadRequestException when title is missing', () => {
-      const req = createMockRequest('test-tenant-id');
-      expect(() => controller.create(req, { title: '' })).toThrow(
-        BadRequestException,
+    it('should call todosService.createTask with tenantId, userId, and dto', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const dto = { title: 'New Task' };
+      await controller.create(req, dto as any);
+      expect(service.createTask).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-42',
+        dto,
       );
     });
   });
 
   describe('findOne', () => {
-    it('should return a todo by id', () => {
-      const req = createMockRequest('test-tenant-id');
-      controller.create(req, { title: 'Test Todo' });
-
-      const result = controller.findOne(req, '1');
-
-      expect(result.title).toBe('Test Todo');
-    });
-
-    it('should throw BadRequestException when todo not found', () => {
-      const req = createMockRequest('test-tenant-id');
-      expect(() => controller.findOne(req, '999')).toThrow(BadRequestException);
+    it('should call todosService.getTask with tenantId and id', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.findOne(req, 'task-uuid');
+      expect(service.getTask).toHaveBeenCalledWith('tenant-1', 'task-uuid');
     });
   });
 
   describe('update', () => {
-    it('should update a todo', () => {
-      const req = createMockRequest('test-tenant-id');
-      controller.create(req, { title: 'Original Title' });
-
-      const result = controller.update(req, '1', { title: 'Updated Title' });
-
-      expect(result.title).toBe('Updated Title');
+    it('should call todosService.updateTask', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const dto = { title: 'Updated' };
+      await controller.update(req, 'task-uuid', dto as any);
+      expect(service.updateTask).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-42',
+        'task-uuid',
+        dto,
+      );
     });
   });
 
   describe('remove', () => {
-    it('should remove a todo', () => {
-      const req = createMockRequest('test-tenant-id');
-      controller.create(req, { title: 'Test Todo' });
-
-      controller.remove(req, '1');
-
-      const list = controller.list(req);
-      expect(list.todos).toHaveLength(0);
+    it('should call todosService.deleteTask', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.remove(req, 'task-uuid');
+      expect(service.deleteTask).toHaveBeenCalledWith('tenant-1', 'task-uuid');
     });
   });
 
   describe('getStats', () => {
-    it('should return correct stats', () => {
-      const req = createMockRequest('test-tenant-id');
-      controller.create(req, { title: 'Todo 1', status: 'pending' });
-      controller.create(req, { title: 'Todo 2', status: 'completed' });
-      controller.create(req, { title: 'Todo 3', status: 'in_progress' });
-
-      const stats = controller.getStats(req);
-
-      expect(stats.total).toBe(3);
-      expect(stats.pending).toBe(1);
-      expect(stats.completed).toBe(1);
-      expect(stats.in_progress).toBe(1);
+    it('should call todosService.getTaskStats with tenantId', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.getStats(req);
+      expect(service.getTaskStats).toHaveBeenCalledWith(
+        'tenant-1',
+        undefined,
+      );
     });
 
-    it('should return stats only for the requesting tenant', () => {
-      const tenantA = 'tenant-a-uuid';
-      const tenantB = 'tenant-b-uuid';
-      const reqA = createMockRequest(tenantA);
-      const reqB = createMockRequest(tenantB);
+    it('should pass boardId filter', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.getStats(req, 'board-1');
+      expect(service.getTaskStats).toHaveBeenCalledWith(
+        'tenant-1',
+        'board-1',
+      );
+    });
+  });
 
-      controller.create(reqA, { title: 'Tenant A Todo 1' });
-      controller.create(reqA, { title: 'Tenant A Todo 2' });
-      controller.create(reqB, { title: 'Tenant B Todo 1' });
+  describe('listBoards', () => {
+    it('should return boards wrapped in items/total', async () => {
+      const req = createMockRequest('tenant-1');
+      service.listBoards!.mockResolvedValue([
+        { id: 'b1', name: 'Board 1' },
+      ]);
+      const result = await controller.listBoards(req);
+      expect(result).toEqual({
+        items: [{ id: 'b1', name: 'Board 1' }],
+        total: 1,
+      });
+    });
+  });
 
-      const statsA = controller.getStats(reqA);
-      const statsB = controller.getStats(reqB);
+  describe('createBoard', () => {
+    it('should call todosService.createBoard', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const dto = { name: 'New Board' };
+      await controller.createBoard(req, dto as any);
+      expect(service.createBoard).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-42',
+        dto,
+      );
+    });
+  });
 
-      expect(statsA.total).toBe(2);
-      expect(statsB.total).toBe(1);
+  describe('getBoard', () => {
+    it('should call todosService.getBoard', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.getBoard(req, 'board-uuid');
+      expect(service.getBoard).toHaveBeenCalledWith(
+        'tenant-1',
+        'board-uuid',
+      );
+    });
+  });
+
+  describe('moveTask', () => {
+    it('should call todosService.moveTask with all params', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const dto = { toColumnKey: 'doing', toIndex: 0 };
+      await controller.moveTask(req, 'board-uuid', 'task-uuid', dto);
+      expect(service.moveTask).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-42',
+        'board-uuid',
+        'task-uuid',
+        dto,
+      );
+    });
+  });
+
+  describe('seed', () => {
+    it('should call todosService.seedDefaultBoard and return message', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const result = await controller.seed(req);
+      expect(service.seedDefaultBoard).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-42',
+      );
+      expect(result).toEqual({ message: 'Default board seeded' });
+    });
+  });
+
+  describe('Security - parameter tampering', () => {
+    it('should reject array values for status query param', async () => {
+      const req = createMockRequest('tenant-1');
+      // Simulate Express parsing ?status=todo&status=done as ['todo','done']
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          ['todo', 'done'] as unknown as string,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for boardId query param', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          ['id1', 'id2'] as unknown as string,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for page query param', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          ['1', '2'] as unknown as string,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for boardId in getStats', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.getStats(
+          req,
+          ['id1', 'id2'] as unknown as string,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should include param name in error message', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          ['todo', 'done'] as unknown as string,
+        ),
+      ).rejects.toThrow(/status/);
     });
   });
 });

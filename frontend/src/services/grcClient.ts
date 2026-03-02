@@ -1058,6 +1058,25 @@ export const API_PATHS = {
       STATS: '/grc/copilot/indexing/stats',
     },
   },
+
+  // To-Do / Work Management endpoints
+  TODOS: {
+    LIST: '/todos',
+    CREATE: '/todos',
+    GET: (id: string) => `/todos/${id}`,
+    UPDATE: (id: string) => `/todos/${id}`,
+    DELETE: (id: string) => `/todos/${id}`,
+    STATS: '/todos/stats/summary',
+    BOARDS: {
+      LIST: '/todos/boards/list',
+      CREATE: '/todos/boards',
+      GET: (id: string) => `/todos/boards/${id}`,
+      UPDATE: (id: string) => `/todos/boards/${id}`,
+      COLUMNS: (id: string) => `/todos/boards/${id}/columns`,
+      MOVE_TASK: (boardId: string, taskId: string) => `/todos/boards/${boardId}/tasks/${taskId}/move`,
+    },
+    SEED: '/todos/seed',
+  },
 } as const;
 
 // ============================================================================

@@ -38,6 +38,16 @@ jest.mock('../../../contexts/NotificationContext', () => ({
   useNotification: () => ({ showNotification: jest.fn() }),
 }));
 
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'u1', tenantId: 'test-tenant', role: 'admin', username: 'admin', email: 'admin@test.local', firstName: 'Admin', lastName: 'User', department: 'IT' },
+    token: 'mock-token',
+    loading: false,
+    isAdmin: true,
+    isManager: true,
+  }),
+}));
+
 const mockCabList = jest.fn();
 const mockCabCreate = jest.fn();
 const mockCabDelete = jest.fn();
