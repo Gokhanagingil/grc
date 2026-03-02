@@ -46,7 +46,7 @@
       "^react-router$": "<rootDir>/node_modules/react-router/dist/development/index.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(react-router|react-router-dom)/).+\\.(js|jsx|mjs|cjs|ts|tsx)$"
+      "/node_modules/(?!(react-router|react-router-dom|axios)/).+\\.(js|jsx|mjs|cjs|ts|tsx)$"
     ]
   },
   "eslintConfig": {

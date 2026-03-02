@@ -80,7 +80,7 @@ jobs:
         run: npm ci
 
       - name: Install backend-nest dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
         working-directory: backend-nest
 
       - name: Build backend-nest
