@@ -70,6 +70,20 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 function setupNotificationMocks(page: import('@playwright/test').Page) {
+  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.readAt).length;
+
+  // GET unread-count (must register BEFORE the generic route — Playwright LIFO)
+  page.route('**/grc/user-notifications/unread-count*', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ unreadCount }),
+      });
+    }
+    return route.continue();
+  });
+
   // GET user-notifications
   page.route('**/grc/user-notifications*', (route) => {
     if (route.request().method() === 'GET') {
@@ -79,7 +93,7 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
         body: JSON.stringify({
           items: MOCK_NOTIFICATIONS,
           total: MOCK_NOTIFICATIONS.length,
-          unreadCount: MOCK_NOTIFICATIONS.filter((n) => !n.readAt).length,
+          unreadCount,
           page: 1,
           pageSize: 20,
         }),
@@ -167,8 +181,8 @@ test.describe('Notification Bell @mock', () => {
     await expect(bell).toBeVisible({ timeout: 10000 });
     await bell.click();
 
-    // Click "Mark all read"
-    const markAllBtn = page.getByRole('button', { name: 'Mark all read' });
+    // Click "Mark all as read" icon button
+    const markAllBtn = page.getByRole('button', { name: /mark all/i });
     await expect(markAllBtn).toBeVisible({ timeout: 5000 });
     await markAllBtn.click();
 

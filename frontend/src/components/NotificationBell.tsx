@@ -471,11 +471,11 @@ export const NotificationBell: React.FC = () => {
             </Box>
             <Box>
               {unreadCount > 0 && (
-                <Tooltip title="Mark all as read">
-                  <IconButton size="small" onClick={handleMarkAllRead} sx={{ mr: 0.5 }}>
-                    <MarkReadIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                  <Tooltip title="Mark all as read">
+                    <IconButton size="small" onClick={handleMarkAllRead} aria-label="Mark all read" sx={{ mr: 0.5 }}>
+                      <MarkReadIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
               )}
               <Tooltip title="Filters">
                 <IconButton
