@@ -269,14 +269,25 @@ export class NotificationTriggerService {
       return this.createNotification(payload);
     }
 
-    const isDup = await this.isDuplicate(
+    // Compute dedup key once to avoid bucket-boundary race between check and store
+    const dedupKey = this.generateDedupKey(
       payload.tenantId,
       payload.userId,
       payload.type,
       payload.entityId,
       bucketHours,
     );
-    if (isDup) {
+
+    // Check for existing notification with this dedup key
+    const existing = await this.userNotificationRepo
+      .createQueryBuilder('n')
+      .where('n.tenantId = :tenantId', { tenantId: payload.tenantId })
+      .andWhere('n.userId = :userId', { userId: payload.userId })
+      .andWhere('n.type = :type', { type: payload.type })
+      .andWhere("n.metadata->>'dedupKey' = :dedupKey", { dedupKey })
+      .getCount();
+
+    if (existing > 0) {
       this.logger.log('Notification deduped', {
         type: payload.type,
         entityId: payload.entityId,
@@ -285,13 +296,6 @@ export class NotificationTriggerService {
       return null;
     }
 
-    const dedupKey = this.generateDedupKey(
-      payload.tenantId,
-      payload.userId,
-      payload.type,
-      payload.entityId,
-      bucketHours,
-    );
     const enrichedPayload = {
       ...payload,
       metadata: { ...payload.metadata, dedupKey },
