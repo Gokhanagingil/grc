@@ -223,7 +223,7 @@ describe('NotificationTriggerService', () => {
           assigneeUserId: 'user-1',
         },
       ];
-      (repo.manager as { query: jest.Mock }).query.mockResolvedValue(mockTasks);
+      (repo.manager as unknown as { query: jest.Mock }).query.mockResolvedValue(mockTasks);
 
       const result = await service.findTasksDueSoon(
         '00000000-0000-0000-0000-000000000001',
@@ -231,7 +231,7 @@ describe('NotificationTriggerService', () => {
       );
 
       expect(result).toEqual(mockTasks);
-      expect((repo.manager as { query: jest.Mock }).query).toHaveBeenCalledWith(
+      expect((repo.manager as unknown as { query: jest.Mock }).query).toHaveBeenCalledWith(
         expect.stringContaining('todo_tasks'),
         expect.arrayContaining(['00000000-0000-0000-0000-000000000001']),
       );
