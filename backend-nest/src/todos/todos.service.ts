@@ -565,7 +565,7 @@ export class TodosService {
     await this.taskRepo
       .createQueryBuilder()
       .update(TodoTask)
-      .set({ boardId: undefined as unknown as string })
+      .set({ boardId: null as unknown as string })
       .where('board_id = :boardId AND tenant_id = :tenantId AND is_deleted = false', {
         boardId,
         tenantId,
