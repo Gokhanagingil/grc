@@ -13,7 +13,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { setupMockApi, login } from '../helpers';
+import { getE2eMode, setupMockApi, login } from '../helpers';
 
 /* ------------------------------------------------------------------ */
 /* Mock data                                                           */
@@ -155,7 +155,10 @@ async function setupTodoMocks(page: Page) {
 /* ------------------------------------------------------------------ */
 
 test.describe('Todo 1.6 Gap Fixes @mock', () => {
+  const isRealStack = getE2eMode() === 'REAL_STACK';
+
   test.beforeEach(async ({ page }) => {
+    test.skip(isRealStack, 'MOCK_UI only – skipping in REAL_STACK mode');
     await setupMockApi(page);
     await setupTodoMocks(page);
   });
