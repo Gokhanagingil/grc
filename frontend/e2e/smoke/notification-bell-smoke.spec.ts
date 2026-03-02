@@ -8,7 +8,7 @@ import { login } from '../helpers';
  * Uses MOCK_UI mode with intercepted API routes.
  *
  * IMPORTANT: Notification mocks must be registered AFTER login() because login()
- * calls setupMockApi() which registers a catch-all page.route('**/*') handler.
+ * calls setupMockApi() which registers a catch-all route handler.
  * Playwright routes are LIFO, so our specific handlers must come after the
  * catch-all to take priority. We then reload the page so the NotificationBell
  * component remounts and fetches with our mocked data.
