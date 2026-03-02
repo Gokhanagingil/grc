@@ -24,10 +24,10 @@ export class TodoBoardColumn extends BaseEntity {
   @JoinColumn({ name: 'board_id' })
   board: TodoBoard;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 100 })
   key: string; // e.g. "todo", "doing", "done"
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 255 })
   title: string;
 
   @Column({ name: 'order_index', type: 'int', default: 0 })

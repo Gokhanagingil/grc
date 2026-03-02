@@ -21,7 +21,7 @@ import { TodoBoard } from './todo-board.entity';
 @Index(['tenantId', 'priority'])
 @Index(['tenantId', 'boardId', 'status', 'sortOrder'])
 export class TodoTask extends BaseEntity {
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 500 })
   title: string;
 
   @Column({ type: 'text', nullable: true })
@@ -30,7 +30,7 @@ export class TodoTask extends BaseEntity {
   @Column({ type: 'varchar', length: 50, default: 'todo' })
   status: string; // maps to board column key
 
-  @Column({ type: 'varchar', length: 20, default: 'medium' })
+  @Column({ type: 'varchar', length: 50, default: 'medium' })
   priority: string; // low | medium | high | urgent
 
   @Column({ name: 'due_date', type: 'timestamptz', nullable: true })
@@ -55,7 +55,7 @@ export class TodoTask extends BaseEntity {
   @JoinColumn({ name: 'board_id' })
   board: TodoBoard | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   category: string | null;
 
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
