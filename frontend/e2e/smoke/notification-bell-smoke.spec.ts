@@ -1,11 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { login, setupMockApi } from '../helpers';
+import { login } from '../helpers';
 
 /**
  * Notification Bell Smoke Tests
  *
  * Verifies the Notification Center v0 bell icon, drawer, and notification display.
  * Uses MOCK_UI mode with intercepted API routes.
+ *
+ * IMPORTANT: Notification mocks must be registered AFTER login() because login()
+ * calls setupMockApi() which registers a catch-all page.route('**/*') handler.
+ * Playwright routes are LIFO, so our specific handlers must come after the
+ * catch-all to take priority. We then reload the page so the NotificationBell
+ * component remounts and fetches with our mocked data.
  *
  * @tag @mock
  */
@@ -109,22 +115,24 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
 
 test.describe('Notification Bell @mock', () => {
   test('bell icon shows unread badge count', async ({ page }) => {
-    setupNotificationMocks(page);
     await login(page);
+    setupNotificationMocks(page);
+    await page.reload();
 
     // Wait for notification bell to appear
     const bell = page.getByTestId('notification-bell');
     await expect(bell).toBeVisible({ timeout: 10000 });
 
     // Badge should show unread count (1 unread in mock data)
-    const badge = bell.locator('.MuiBadge-badge');
+    const badge = bell.locator('.MuiBadge-badge:not(.MuiBadge-invisible)');
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toHaveText('1');
   });
 
   test('clicking bell opens notification drawer with items', async ({ page }) => {
-    setupNotificationMocks(page);
     await login(page);
+    setupNotificationMocks(page);
+    await page.reload();
 
     // Click the bell
     const bell = page.getByTestId('notification-bell');
@@ -132,7 +140,7 @@ test.describe('Notification Bell @mock', () => {
     await bell.click();
 
     // Drawer should open with notifications header
-    await expect(page.getByText('Notifications')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible({ timeout: 5000 });
 
     // Should show notification items
     await expect(page.getByText('Task Assigned')).toBeVisible();
@@ -143,15 +151,16 @@ test.describe('Notification Bell @mock', () => {
     await expect(drawer.getByText('To-Do').first()).toBeVisible();
 
     // Should show WARNING severity chip
-    await expect(page.getByText('WARNING')).toBeVisible();
+    await expect(drawer.getByText('WARNING')).toBeVisible();
 
     // Should show action button
     await expect(page.getByRole('button', { name: 'Open Task' }).first()).toBeVisible();
   });
 
   test('mark all read clears unread state', async ({ page }) => {
-    setupNotificationMocks(page);
     await login(page);
+    setupNotificationMocks(page);
+    await page.reload();
 
     // Open drawer
     const bell = page.getByTestId('notification-bell');
