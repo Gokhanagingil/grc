@@ -62,9 +62,18 @@ describe('TodosController', () => {
       updateBoard: jest
         .fn()
         .mockResolvedValue({ id: 'board-1', name: 'Updated Board' }),
+      deleteBoard: jest.fn().mockResolvedValue(undefined),
       replaceColumns: jest.fn().mockResolvedValue([]),
       getBoardColumns: jest.fn().mockResolvedValue([]),
       seedDefaultBoard: jest.fn().mockResolvedValue(undefined),
+      listTags: jest.fn().mockResolvedValue([]),
+      createTag: jest
+        .fn()
+        .mockResolvedValue({ id: 'tag-1', name: 'Test Tag' }),
+      updateTag: jest
+        .fn()
+        .mockResolvedValue({ id: 'tag-1', name: 'Updated Tag' }),
+      deleteTag: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -109,6 +118,10 @@ describe('TodosController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         '1',
         '20',
       );
@@ -116,10 +129,14 @@ describe('TodosController', () => {
         boardId: undefined,
         status: 'todo',
         assigneeUserId: undefined,
+        ownerGroupId: undefined,
         priority: undefined,
+        category: undefined,
+        tagIds: undefined,
         dueDateFrom: undefined,
         dueDateTo: undefined,
         search: undefined,
+        sort: undefined,
         page: 1,
         pageSize: 20,
       });
@@ -277,13 +294,6 @@ describe('TodosController', () => {
           req,
           undefined,
           ['todo', 'done'] as unknown as string,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -294,14 +304,6 @@ describe('TodosController', () => {
         controller.list(
           req,
           ['id1', 'id2'] as unknown as string,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -318,8 +320,11 @@ describe('TodosController', () => {
           undefined,
           undefined,
           undefined,
-          ['1', '2'] as unknown as string,
           undefined,
+          undefined,
+          undefined,
+          undefined,
+          ['1', '2'] as unknown as string,
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -343,6 +348,36 @@ describe('TodosController', () => {
           ['todo', 'done'] as unknown as string,
         ),
       ).rejects.toThrow(/status/);
+    });
+  });
+
+  describe('tags', () => {
+    it('should list tags', async () => {
+      const req = createMockRequest('tenant-1');
+      const result = await controller.listTags(req);
+      expect(service.listTags).toHaveBeenCalledWith('tenant-1');
+      expect(result).toEqual({ items: [], total: 0 });
+    });
+
+    it('should create a tag', async () => {
+      const req = createMockRequest('tenant-1', 'user-42');
+      const dto = { name: 'Urgent' };
+      await controller.createTag(req, dto as any);
+      expect(service.createTag).toHaveBeenCalledWith('tenant-1', 'user-42', dto);
+    });
+
+    it('should delete a tag', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.deleteTag(req, 'tag-uuid');
+      expect(service.deleteTag).toHaveBeenCalledWith('tenant-1', 'tag-uuid');
+    });
+  });
+
+  describe('deleteBoard', () => {
+    it('should call todosService.deleteBoard', async () => {
+      const req = createMockRequest('tenant-1');
+      await controller.deleteBoard(req, 'board-uuid');
+      expect(service.deleteBoard).toHaveBeenCalledWith('tenant-1', 'board-uuid');
     });
   });
 });
