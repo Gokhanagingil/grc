@@ -376,7 +376,7 @@ test.describe('UI Health Crawl @mock @smoke @crawl', () => {
   test.skip(() => !isMockUi(), 'UI Health Crawl requires MOCK_UI mode');
 
   test('crawl all routes and generate health report', async ({ page }) => {
-    test.setTimeout(120_000); // 2 minutes for full crawl
+    test.setTimeout(300_000); // 5 minutes for full crawl (40+ routes)
 
     // Login first (this calls setupMockApi internally)
     await login(page);
