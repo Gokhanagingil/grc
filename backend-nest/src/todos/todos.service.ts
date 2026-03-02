@@ -12,9 +12,13 @@ import {
   CreateTodoTagDto,
   UpdateTodoTagDto,
 } from './dto';
+import { NotificationTriggerService } from '../notification-engine/services/notification-trigger.service';
+import { StructuredLoggerService } from '../common/logger';
 
 @Injectable()
 export class TodosService {
+  private readonly logger: StructuredLoggerService;
+
   constructor(
     @InjectRepository(TodoTask)
     private readonly taskRepo: Repository<TodoTask>,
@@ -26,7 +30,11 @@ export class TodosService {
     private readonly tagRepo: Repository<TodoTag>,
     @InjectRepository(TodoTaskTag)
     private readonly taskTagRepo: Repository<TodoTaskTag>,
-  ) {}
+    private readonly notificationTrigger: NotificationTriggerService,
+  ) {
+    this.logger = new StructuredLoggerService();
+    this.logger.setContext('TodosService');
+  }
 
   /* ------------------------------------------------------------------ */
   /* Tasks                                                               */
@@ -236,6 +244,23 @@ export class TodosService {
       await this.syncTaskTags(tenantId, saved.id, dto.tagIds);
     }
 
+    // Notify assignee (fire-and-forget)
+    if (saved.assigneeUserId && saved.assigneeUserId !== userId) {
+      this.notificationTrigger
+        .notifyTaskAssignment(
+          tenantId,
+          saved.assigneeUserId,
+          saved.id,
+          saved.title,
+        )
+        .catch((err) =>
+          this.logger.error('Failed to send assignment notification', {
+            taskId: saved.id,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+    }
+
     return saved;
   }
 
@@ -267,6 +292,8 @@ export class TodosService {
     if (dto.priority !== undefined) task.priority = dto.priority;
     if (dto.dueDate !== undefined)
       task.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    // Capture previous assignee before updating for notification comparison
+    const previousAssignee = task.assigneeUserId;
     if (dto.assigneeUserId !== undefined)
       task.assigneeUserId = dto.assigneeUserId || null;
     if (dto.ownerGroupId !== undefined)
@@ -285,6 +312,27 @@ export class TodosService {
     // Handle tagIds
     if (dto.tagIds !== undefined) {
       await this.syncTaskTags(tenantId, saved.id, dto.tagIds || []);
+    }
+
+    // Notify new assignee if changed (fire-and-forget)
+    if (
+      saved.assigneeUserId &&
+      saved.assigneeUserId !== previousAssignee &&
+      saved.assigneeUserId !== userId
+    ) {
+      this.notificationTrigger
+        .notifyTaskAssignment(
+          tenantId,
+          saved.assigneeUserId,
+          saved.id,
+          saved.title,
+        )
+        .catch((err) =>
+          this.logger.error('Failed to send assignment notification', {
+            taskId: saved.id,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
     }
 
     return this.getTask(tenantId, saved.id);

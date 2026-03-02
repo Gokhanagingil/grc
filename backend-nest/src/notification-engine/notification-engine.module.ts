@@ -6,6 +6,8 @@ import { SysNotificationDelivery } from './entities/sys-notification-delivery.en
 import { SysUserNotification } from './entities/sys-user-notification.entity';
 import { SysWebhookEndpoint } from './entities/sys-webhook-endpoint.entity';
 import { NotificationEngineService } from './services/notification-engine.service';
+import { NotificationTriggerService } from './services/notification-trigger.service';
+import { DueDateScannerService } from './services/due-date-scanner.service';
 import { SafeTemplateService } from './services/safe-template.service';
 import { ConditionEvaluatorService } from './services/condition-evaluator.service';
 import { NotificationRateLimiterService } from './services/rate-limiter.service';
@@ -41,6 +43,8 @@ import { GuardsModule } from '../common/guards';
   ],
   providers: [
     NotificationEngineService,
+    NotificationTriggerService,
+    DueDateScannerService,
     SafeTemplateService,
     ConditionEvaluatorService,
     NotificationRateLimiterService,
@@ -50,6 +54,7 @@ import { GuardsModule } from '../common/guards';
   ],
   exports: [
     NotificationEngineService,
+    NotificationTriggerService,
     SafeTemplateService,
     WebhookDeliveryService,
     SsrfGuardService,
