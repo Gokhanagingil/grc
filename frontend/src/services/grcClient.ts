@@ -1169,9 +1169,25 @@ export function withTenantId(tenantId: string, config?: AxiosRequestConfig): Axi
  */
 export function unwrapResponse<T>(response: { data: unknown }): T {
   const data = response.data;
+
+  // Triage hook: detect HTML fallback (SPA catch-all returned instead of JSON)
+  if (typeof data === 'string' && data.trimStart().startsWith('<!')) {
+    console.error('[GRC_TRIAGE] API returned HTML instead of JSON — likely SPA fallback or proxy misconfiguration', {
+      snippet: data.slice(0, 200),
+    });
+  }
+
   // Shape 1: NestJS envelope with success flag
   if (data && typeof data === 'object' && 'success' in data && (data as { success: boolean }).success === true && 'data' in data) {
     return (data as { data: T }).data;
+  }
+  // Triage hook: detect { success: false } error envelope that slipped through
+  if (data && typeof data === 'object' && 'success' in data && (data as { success: boolean }).success === false) {
+    const errPayload = data as { error?: { message?: string; code?: string } };
+    console.error('[GRC_TRIAGE] unwrapResponse received error envelope', {
+      code: errPayload.error?.code,
+      message: errPayload.error?.message,
+    });
   }
   // Shape 2: envelope without success flag — { data: T }
   // Detect by: has 'data' key, is not an array, and is not a domain entity (no 'id') or paginated list (no 'items')
