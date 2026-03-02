@@ -163,7 +163,13 @@ export class TodosService {
   ): Promise<TodoTask> {
     const task = await this.getTask(tenantId, taskId);
 
-    if (dto.title !== undefined) task.title = dto.title.trim();
+    if (dto.title !== undefined) {
+      const trimmed = dto.title.trim();
+      if (trimmed.length === 0) {
+        throw new BadRequestException('title cannot be empty');
+      }
+      task.title = trimmed;
+    }
     if (dto.description !== undefined) task.description = dto.description;
     if (dto.status !== undefined) {
       task.status = dto.status;
@@ -425,32 +431,42 @@ export class TodosService {
     });
     if (existing) return;
 
-    const board = await this.createBoard(tenantId, userId, {
-      name: 'Team Tasks',
-      description: 'Default team task board',
-      visibility: 'TEAM',
-      columns: [
-        { key: 'todo', title: 'To Do' },
-        { key: 'doing', title: 'Doing' },
-        { key: 'done', title: 'Done', isDoneColumn: true },
-      ],
-    });
-
-    // Create demo tasks
-    const demoTasks = [
-      { title: 'Review Q1 compliance report', priority: 'high', status: 'todo' },
-      { title: 'Update security training materials', priority: 'medium', status: 'todo' },
-      { title: 'Schedule department sync meeting', priority: 'low', status: 'doing' },
-      { title: 'Complete onboarding documentation', priority: 'medium', status: 'done' },
-    ];
-
-    for (const demo of demoTasks) {
-      await this.createTask(tenantId, userId, {
-        title: demo.title,
-        priority: demo.priority,
-        status: demo.status,
-        boardId: board.id,
+    try {
+      const board = await this.createBoard(tenantId, userId, {
+        name: 'Team Tasks',
+        description: 'Default team task board',
+        visibility: 'TEAM',
+        columns: [
+          { key: 'todo', title: 'To Do' },
+          { key: 'doing', title: 'Doing' },
+          { key: 'done', title: 'Done', isDoneColumn: true },
+        ],
       });
+
+      // Create demo tasks
+      const demoTasks = [
+        { title: 'Review Q1 compliance report', priority: 'high', status: 'todo' },
+        { title: 'Update security training materials', priority: 'medium', status: 'todo' },
+        { title: 'Schedule department sync meeting', priority: 'low', status: 'doing' },
+        { title: 'Complete onboarding documentation', priority: 'medium', status: 'done' },
+      ];
+
+      for (const demo of demoTasks) {
+        await this.createTask(tenantId, userId, {
+          title: demo.title,
+          priority: demo.priority,
+          status: demo.status,
+          boardId: board.id,
+        });
+      }
+    } catch (err: unknown) {
+      // Handle race condition: if another request already created the board
+      // (unique constraint violation or duplicate), silently ignore
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('duplicate') || message.includes('unique')) {
+        return;
+      }
+      throw err;
     }
   }
 }

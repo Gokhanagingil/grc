@@ -33,6 +33,12 @@ export class CreateTodoTables1743200000000 implements MigrationInterface {
         ON "todo_boards" ("tenant_id", "name")
     `);
 
+    // Partial unique index to prevent duplicate active boards per tenant+name
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_todo_boards_tenant_name_active"
+        ON "todo_boards" ("tenant_id", "name") WHERE "is_deleted" = false
+    `);
+
     // TodoBoardColumn table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "todo_board_columns" (
