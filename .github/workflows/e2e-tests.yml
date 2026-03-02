@@ -98,10 +98,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "PR gate: running @mock subset only"
-            npx playwright test --project=mock-ui --reporter=list
+            npx playwright test --project=mock-ui --grep-invert="@crawl" --reporter=list
           else
             echo "Push: running full mock-ui suite"
-            npx playwright test --project=mock-ui --reporter=list
+            npx playwright test --project=mock-ui --grep-invert="@crawl" --reporter=list
           fi
         env:
           E2E_MODE: MOCK_UI

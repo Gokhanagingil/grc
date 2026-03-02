@@ -170,7 +170,7 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
   const hasActiveFilters = filters.length > 0 || activeFilterCount > 0;
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mb: 2 }} data-testid="list-toolbar">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         {onSearchChange && (
           <TextField

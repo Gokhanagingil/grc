@@ -1,0 +1,158 @@
+# =============================================================================
+# GRC Platform - Rapid Usability & Regression Pack
+# =============================================================================
+# Runs the UI Health Crawl + Golden Smokes in MOCK_UI mode.
+# Produces human-readable report artifacts (JSON + Markdown + screenshots).
+# Target runtime: <10 minutes.
+# =============================================================================
+
+name: "Usability & Regression Pack"
+
+on:
+  push:
+    branches:
+      - main
+      - 'devin/**'
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/usability-regression-pack.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/usability-regression-pack.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  usability-regression:
+    name: "UI Health Crawl + Golden Smokes"
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          REACT_APP_E2E_API_MODE: nest
+
+      - name: Start static server
+        working-directory: ./frontend
+        run: |
+          npx serve -s build -l 3000 > /tmp/serve.log 2>&1 & echo $! > /tmp/serve.pid
+          echo "Static server started with PID: $(cat /tmp/serve.pid)"
+
+      - name: Wait for static server
+        run: |
+          echo "Waiting for static server..."
+          timeout=60
+          elapsed=0
+          while ! curl -fsS http://127.0.0.1:3000/ > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout waiting for server"
+              tail -n 50 /tmp/serve.log || true
+              exit 1
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Static server is ready!"
+
+      - name: "Run UI Health Crawl"
+        working-directory: ./frontend
+        run: |
+          npx playwright test \
+            --project=mock-ui \
+            --reporter=list \
+            e2e/smoke/ui-health-crawl.spec.ts || true
+        env:
+          E2E_MODE: "MOCK_UI"
+          E2E_MOCK_API: "1"
+          E2E_BASE_URL: "http://127.0.0.1:3000"
+          E2E_EMAIL: admin@grc-platform.local
+          E2E_PASSWORD: TestPassword123!
+
+      - name: "Run Golden Smokes"
+        working-directory: ./frontend
+        run: |
+          npx playwright test \
+            --project=mock-ui \
+            --reporter=list \
+            e2e/smoke/golden-smokes-itsm-cmdb.spec.ts
+        env:
+          E2E_MODE: "MOCK_UI"
+          E2E_MOCK_API: "1"
+          E2E_BASE_URL: "http://127.0.0.1:3000"
+          E2E_EMAIL: admin@grc-platform.local
+          E2E_PASSWORD: TestPassword123!
+
+      - name: Stop static server
+        if: always()
+        run: |
+          if [ -f /tmp/serve.pid ]; then
+            kill $(cat /tmp/serve.pid) 2>/dev/null || true
+            rm -f /tmp/serve.pid
+          fi
+
+      - name: "Display crawl report"
+        if: always()
+        working-directory: ./frontend
+        run: |
+          if [ -f test-results/ui-health-crawl/crawl-report.md ]; then
+            echo "=========================================="
+            echo "  UI Health Crawl Report"
+            echo "=========================================="
+            cat test-results/ui-health-crawl/crawl-report.md
+          else
+            echo "No crawl report found (crawl may have failed)"
+          fi
+
+      - name: Upload crawl report + screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-health-crawl-report
+          path: |
+            frontend/test-results/ui-health-crawl/
+          retention-days: 30
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report-usability
+          path: frontend/playwright-report/
+          retention-days: 14
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-artifacts-usability
+          path: frontend/test-results/
+          retention-days: 14
