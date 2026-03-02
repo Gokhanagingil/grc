@@ -365,13 +365,15 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
       await statusSelect.click();
       // Wait for dropdown to open
       const listbox = page.locator('[role="listbox"]');
+      let listboxVisible = false;
       try {
         await listbox.waitFor({ state: 'visible', timeout: 3000 });
+        listboxVisible = true;
       } catch {
-        selectWorked = false;
+        listboxVisible = false;
       }
 
-      if (selectWorked !== false) {
+      if (listboxVisible) {
         // Pick an option
         const option = listbox.locator('[role="option"]').first();
         await option.click();

@@ -462,10 +462,12 @@ test.describe('UI Health Crawl @mock @smoke @crawl', () => {
         hasFailedBanner = false;
       }
 
-      // Check for GRC_TRIAGE console errors
+      // Tag GRC_TRIAGE console errors for easy identification in report
       const triageErrors = consoleErrors.filter(e => e.includes('[GRC_TRIAGE]'));
       if (triageErrors.length > 0) {
-        consoleErrors.push(...triageErrors.map(e => `TRIAGE: ${e}`));
+        // Already in consoleErrors — just log for visibility
+        // eslint-disable-next-line no-console
+        console.warn(`[UI Health Crawl] ${triageErrors.length} GRC_TRIAGE error(s) on ${route.path}`);
       }
 
       // Take screenshot
