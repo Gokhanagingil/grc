@@ -373,6 +373,7 @@ test.describe('UI Health Crawl @mock @smoke @crawl', () => {
     logE2eConfig('UI Health Crawl');
   });
 
+  // eslint-disable-next-line jest/valid-title
   test.skip(() => !isMockUi(), 'UI Health Crawl requires MOCK_UI mode');
 
   test('crawl all routes and generate health report', async ({ page }) => {
@@ -441,15 +442,25 @@ test.describe('UI Health Crawl @mock @smoke @crawl', () => {
       // Check for filter toolbar on list pages
       let hasFilterToolbar: boolean | null = null;
       if (route.isList) {
-        hasFilterToolbar = await page.locator('[data-testid="list-toolbar"]').first()
-          .isVisible({ timeout: 3000 })
-          .catch(() => false);
+        try {
+          await page.locator('[data-testid="list-toolbar"]').first()
+            .waitFor({ state: 'visible', timeout: 3000 });
+          hasFilterToolbar = true;
+        } catch {
+          hasFilterToolbar = false;
+        }
       }
 
       // Check for "Failed to load/save" banners
-      const hasFailedBanner = await page.locator(
-        'text=/Failed to (load|save|fetch|create|update|delete)/i'
-      ).first().isVisible({ timeout: 1000 }).catch(() => false);
+      let hasFailedBanner = false;
+      try {
+        await page.locator(
+          'text=/Failed to (load|save|fetch|create|update|delete)/i'
+        ).first().waitFor({ state: 'visible', timeout: 1000 });
+        hasFailedBanner = true;
+      } catch {
+        hasFailedBanner = false;
+      }
 
       // Check for GRC_TRIAGE console errors
       const triageErrors = consoleErrors.filter(e => e.includes('[GRC_TRIAGE]'));

@@ -285,6 +285,7 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
     logE2eConfig('Golden Smokes: ITSM + CMDB');
   });
 
+  // eslint-disable-next-line jest/valid-title
   test.skip(() => !isMockUi(), 'Golden Smokes require MOCK_UI mode');
 
   test.beforeEach(async ({ page }) => {
@@ -305,58 +306,89 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
     // Verify the list toolbar is present
     const toolbar = page.locator('[data-testid="list-toolbar"]');
-    const hasToolbar = await toolbar.isVisible({ timeout: 10000 }).catch(() => false);
+    let hasToolbar = false;
+    let toolbarFound = false;
+    try {
+      await toolbar.waitFor({ state: 'visible', timeout: 10000 });
+      hasToolbar = true;
+    } catch {
+      hasToolbar = false;
+    }
 
     // If no data-testid toolbar, look for the search/filter area
     if (!hasToolbar) {
       // Look for search input or sort dropdown as proxy for toolbar
-      const searchInput = page.locator('input[placeholder*="Search"]').first();
-      const sortDropdown = page.locator('label:has-text("Sort")').first();
-      const hasSearch = await searchInput.isVisible({ timeout: 5000 }).catch(() => false);
-      const hasSort = await sortDropdown.isVisible({ timeout: 3000 }).catch(() => false);
+      let hasSearch = false;
+      let hasSort = false;
+      try {
+        await page.locator('input[placeholder*="Search"]').first()
+          .waitFor({ state: 'visible', timeout: 5000 });
+        hasSearch = true;
+      } catch { /* not found */ }
+      try {
+        await page.locator('label:has-text("Sort")').first()
+          .waitFor({ state: 'visible', timeout: 3000 });
+        hasSort = true;
+      } catch { /* not found */ }
 
-      // At least one toolbar element should exist
-      expect(hasSearch || hasSort).toBe(true);
+      // At least one toolbar element should exist — move assertion outside conditional
+      // to satisfy jest/no-conditional-expect
+      toolbarFound = hasSearch || hasSort;
     }
+    // eslint-disable-next-line jest/no-conditional-expect
+    expect(hasToolbar || toolbarFound).toBe(true);
   });
 
   test('ITSM Services status select applies value when changed', async ({ page }) => {
     await login(page);
     await page.goto('/itsm/services');
     await page.waitForLoadState('networkidle');
+    let selectWorked = false;
 
     // Look for a status select/dropdown on the page (could be in filter or table)
-    const statusSelect = page.locator('[data-testid="status-select"]')
-      .or(page.locator('[role="combobox"]').filter({ hasText: /status|Status/i }))
-      .first();
-
-    const hasStatusSelect = await statusSelect.isVisible({ timeout: 5000 }).catch(() => false);
+    // Avoid .or() with visibility checks per Playwright best practices
+    let statusSelect = page.locator('[data-testid="status-select"]').first();
+    let hasStatusSelect = false;
+    try {
+      await statusSelect.waitFor({ state: 'visible', timeout: 3000 });
+      hasStatusSelect = true;
+    } catch {
+      // Try combobox fallback
+      statusSelect = page.locator('[role="combobox"]').filter({ hasText: /status|Status/i }).first();
+      try {
+        await statusSelect.waitFor({ state: 'visible', timeout: 3000 });
+        hasStatusSelect = true;
+      } catch { /* not found */ }
+    }
 
     if (hasStatusSelect) {
       await statusSelect.click();
       // Wait for dropdown to open
       const listbox = page.locator('[role="listbox"]');
-      await expect(listbox).toBeVisible({ timeout: 3000 });
+      try {
+        await listbox.waitFor({ state: 'visible', timeout: 3000 });
+      } catch {
+        selectWorked = false;
+      }
 
-      // Pick an option
-      const option = listbox.locator('[role="option"]').first();
-      const optionText = await option.textContent();
-      await option.click();
+      if (selectWorked !== false) {
+        // Pick an option
+        const option = listbox.locator('[role="option"]').first();
+        await option.click();
 
-      // Verify the select now shows the chosen value
-      // (This validates MUI Select actually applies the selection)
-      if (optionText) {
+        // Verify page didn't crash after selection
         await page.waitForTimeout(500);
-        // The value should be reflected somewhere in the UI
         const bodyText = await page.locator('body').innerText();
-        // Note: we just verify no crash/error happened after selection
-        expect(bodyText.length).toBeGreaterThan(0);
+        selectWorked = bodyText.length > 0;
       }
     } else {
       // No status select found - this is a known issue, log it
       // eslint-disable-next-line no-console
       console.warn('[Golden Smoke] ITSM Services: no status select found on page');
+      selectWorked = true; // not a hard failure if select is absent
     }
+    // eslint-disable-next-line jest/no-conditional-expect
+    expect(selectWorked).toBe(true);
   });
 
   /* ---------------------------------------------------------------- */
@@ -376,15 +408,28 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
     expect(bodyText.length).toBeGreaterThan(0);
 
     // Should not have a "Failed to" error banner
-    const hasFailed = await page.locator('text=/Failed to/i').first()
-      .isVisible({ timeout: 2000 }).catch(() => false);
+    let hasFailed = false;
+    try {
+      await page.locator('text=/Failed to/i').first()
+        .waitFor({ state: 'visible', timeout: 2000 });
+      hasFailed = true;
+    } catch { /* good - no error banner */ }
+    // eslint-disable-next-line jest/no-conditional-expect
     expect(hasFailed).toBe(false);
 
-    // Look for a name input field
-    const nameInput = page.locator('input[name="name"]')
-      .or(page.locator('[data-testid="ci-name-input"]'))
-      .first();
-    const hasNameInput = await nameInput.isVisible({ timeout: 5000 }).catch(() => false);
+    // Look for a name input field (try data-testid first, then name attr)
+    let hasNameInput = false;
+    try {
+      await page.locator('[data-testid="ci-name-input"]').first()
+        .waitFor({ state: 'visible', timeout: 3000 });
+      hasNameInput = true;
+    } catch {
+      try {
+        await page.locator('input[name="name"]').first()
+          .waitFor({ state: 'visible', timeout: 3000 });
+        hasNameInput = true;
+      } catch { /* not found */ }
+    }
 
     // The form should have at least a name input
     if (!hasNameInput) {
@@ -433,8 +478,12 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
     expect(bodyText.length).toBeGreaterThan(0);
 
     // Should not show "Failed to load class list" error
-    const hasLoadError = await page.locator('text=/Failed to load class list/i').first()
-      .isVisible({ timeout: 2000 }).catch(() => false);
+    let hasLoadError = false;
+    try {
+      await page.locator('text=/Failed to load class list/i').first()
+        .waitFor({ state: 'visible', timeout: 2000 });
+      hasLoadError = true;
+    } catch { /* good - no error */ }
 
     if (hasLoadError) {
       // eslint-disable-next-line no-console
@@ -450,11 +499,19 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
     // Check for filter toolbar
     const toolbar = page.locator('[data-testid="list-toolbar"]');
-    const hasToolbar = await toolbar.isVisible({ timeout: 5000 }).catch(() => false);
+    let hasToolbar2 = false;
+    try {
+      await toolbar.waitFor({ state: 'visible', timeout: 5000 });
+      hasToolbar2 = true;
+    } catch { /* not found */ }
 
-    if (!hasToolbar) {
-      const searchInput = page.locator('input[placeholder*="Search"]').first();
-      const hasSearch = await searchInput.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!hasToolbar2) {
+      let hasSearch = false;
+      try {
+        await page.locator('input[placeholder*="Search"]').first()
+          .waitFor({ state: 'visible', timeout: 3000 });
+        hasSearch = true;
+      } catch { /* not found */ }
 
       if (!hasSearch) {
         // eslint-disable-next-line no-console
