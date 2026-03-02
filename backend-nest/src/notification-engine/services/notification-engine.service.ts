@@ -523,6 +523,10 @@ export class NotificationEngineService {
     userId: string,
     filters?: {
       unreadOnly?: boolean;
+      module?: string;
+      type?: string;
+      severity?: string;
+      tab?: string;
       page?: number;
       pageSize?: number;
     },
@@ -543,6 +547,30 @@ export class NotificationEngineService {
       qb.andWhere('n.readAt IS NULL');
     }
 
+    // Filter by source module
+    if (filters?.module) {
+      qb.andWhere('n.source = :source', { source: filters.module.toUpperCase() });
+    }
+
+    // Filter by notification type
+    if (filters?.type) {
+      qb.andWhere('n.type = :type', { type: filters.type.toUpperCase() });
+    }
+
+    // Filter by severity
+    if (filters?.severity) {
+      qb.andWhere('n.severity = :severity', { severity: filters.severity.toUpperCase() });
+    }
+
+    // Tab-based filters
+    if (filters?.tab === 'assignments') {
+      qb.andWhere('n.type IN (:...assignTypes)', {
+        assignTypes: ['ASSIGNMENT', 'MENTION'],
+      });
+    } else if (filters?.tab === 'due_soon') {
+      qb.andWhere('n.type = :dueDateType', { dueDateType: 'DUE_DATE' });
+    }
+
     const total = await qb.getCount();
 
     const unreadCount = await this.userNotificationRepository
@@ -558,6 +586,19 @@ export class NotificationEngineService {
 
     const items = await qb.getMany();
     return { items, total, unreadCount };
+  }
+
+  /**
+   * Find a single notification by ID for a user.
+   */
+  async findNotificationById(
+    tenantId: string,
+    userId: string,
+    notificationId: string,
+  ): Promise<SysUserNotification | null> {
+    return this.userNotificationRepository.findOne({
+      where: { id: notificationId, tenantId, userId },
+    });
   }
 
   async markNotificationRead(

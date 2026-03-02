@@ -13,6 +13,7 @@ import { Governance } from './pages/Governance';
 import { RiskManagement } from './pages/RiskManagement';
 import { Compliance } from './pages/Compliance';
 import { UserManagement } from './pages/UserManagement';
+import { GroupManagement } from './pages/GroupManagement';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TodoList } from './pages/TodoList';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -537,6 +538,11 @@ function App() {
                   <Route path="users" element={
                     <ProtectedRoute allowedRoles={['admin', 'manager']}>
                       <UserManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="groups" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <GroupManagement />
                     </ProtectedRoute>
                   } />
                   <Route path="admin-legacy" element={

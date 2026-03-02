@@ -1,4 +1,4 @@
-import { IsOptional, IsBoolean, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsBoolean, IsInt, Min, Max, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UserNotificationFilterDto {
@@ -6,6 +6,26 @@ export class UserNotificationFilterDto {
   @IsOptional()
   @Type(() => Boolean)
   unreadOnly?: boolean;
+
+  /** Filter by source module: TODO, GRC, ITSM, SYSTEM */
+  @IsString()
+  @IsOptional()
+  module?: string;
+
+  /** Filter by notification type: ASSIGNMENT, DUE_DATE, STATUS_CHANGE, etc. */
+  @IsString()
+  @IsOptional()
+  type?: string;
+
+  /** Filter by severity: INFO, WARNING, CRITICAL */
+  @IsString()
+  @IsOptional()
+  severity?: string;
+
+  /** Tab filter: 'all' | 'assignments' | 'due_soon' */
+  @IsString()
+  @IsOptional()
+  tab?: string;
 
   @IsInt()
   @Min(1)
@@ -19,4 +39,10 @@ export class UserNotificationFilterDto {
   @IsOptional()
   @Type(() => Number)
   pageSize?: number;
+}
+
+export class ExecuteActionDto {
+  /** Optional payload overrides (e.g., new due date) */
+  @IsOptional()
+  payload?: Record<string, unknown>;
 }
