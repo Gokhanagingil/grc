@@ -13,7 +13,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { getE2eMode, setupMockApi, login } from '../helpers';
+import { getE2eMode, login } from '../helpers';
 
 /* ------------------------------------------------------------------ */
 /* Mock data                                                           */
@@ -157,16 +157,16 @@ async function setupTodoMocks(page: Page) {
 test.describe('Todo 1.6 Gap Fixes @mock', () => {
   const isRealStack = getE2eMode() === 'REAL_STACK';
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async () => {
     test.skip(isRealStack, 'MOCK_UI only – skipping in REAL_STACK mode');
-    await setupMockApi(page);
-    await setupTodoMocks(page);
   });
 
   /* ---------- GAP 1: Board delete is discoverable ---------- */
 
   test('GAP-1: Board kebab menu shows Rename and Delete options', async ({ page }) => {
     await login(page);
+    // Register todo mocks AFTER login so they take priority over the catch-all
+    await setupTodoMocks(page);
     await page.goto('/todos');
 
     // Wait for workspace to load
@@ -207,6 +207,7 @@ test.describe('Todo 1.6 Gap Fixes @mock', () => {
 
   test('GAP-2: Tag creation and tag filter visible in toolbar', async ({ page }) => {
     await login(page);
+    await setupTodoMocks(page);
     await page.goto('/todos');
 
     // Wait for workspace to load
@@ -243,6 +244,7 @@ test.describe('Todo 1.6 Gap Fixes @mock', () => {
 
   test('GAP-3: Assignment fields and filters visible in drawer and toolbar', async ({ page }) => {
     await login(page);
+    await setupTodoMocks(page);
     await page.goto('/todos');
 
     // Wait for workspace to load
