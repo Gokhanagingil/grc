@@ -120,7 +120,7 @@ jobs:
           find test-results -type f 2>/dev/null || echo "(not found)"
           echo ""
           echo "=== playwright-report/ ==="
-          find playwright-report -type f 2>/dev/null | head -30 || echo "(not found)"
+          if [ -d playwright-report ]; then find playwright-report -type f 2>/dev/null | head -30; else echo "(not found)"; fi
           echo ""
           echo "=== crawl-report*.md ==="
           find . -name 'crawl-report*.md' 2>/dev/null || echo "(not found)"
