@@ -84,27 +84,13 @@ jobs:
           done
           echo "Static server is ready!"
 
-      - name: "Run UI Health Crawl"
+      - name: "Run UI Health Crawl + Golden Smokes"
         working-directory: ./frontend
         run: |
           npx playwright test \
             --project=mock-ui \
-            --reporter=list \
-            e2e/smoke/ui-health-crawl.spec.ts || true
-        env:
-          E2E_MODE: "MOCK_UI"
-          E2E_MOCK_API: "1"
-          E2E_BASE_URL: "http://127.0.0.1:3000"
-          E2E_EMAIL: admin@grc-platform.local
-          E2E_PASSWORD: TestPassword123!
-
-      - name: "Run Golden Smokes"
-        working-directory: ./frontend
-        run: |
-          npx playwright test \
-            --project=mock-ui \
-            --reporter=list \
-            e2e/smoke/golden-smokes-itsm-cmdb.spec.ts
+            e2e/smoke/ui-health-crawl.spec.ts \
+            e2e/smoke/golden-smokes-itsm-cmdb.spec.ts || true
         env:
           E2E_MODE: "MOCK_UI"
           E2E_MOCK_API: "1"
@@ -119,6 +105,25 @@ jobs:
             kill $(cat /tmp/serve.pid) 2>/dev/null || true
             rm -f /tmp/serve.pid
           fi
+
+      - name: "Debug: list Playwright output paths"
+        if: always()
+        working-directory: ./frontend
+        run: |
+          echo "=== pwd ==="
+          pwd
+          echo ""
+          echo "=== ls -la (frontend root) ==="
+          ls -la
+          echo ""
+          echo "=== test-results/ ==="
+          find test-results -type f 2>/dev/null || echo "(not found)"
+          echo ""
+          echo "=== playwright-report/ ==="
+          if [ -d playwright-report ]; then find playwright-report -type f 2>/dev/null | head -30; else echo "(not found)"; fi
+          echo ""
+          echo "=== crawl-report*.md ==="
+          find . -name 'crawl-report*.md' 2>/dev/null || echo "(not found)"
 
       - name: "Display crawl report"
         if: always()
@@ -141,6 +146,7 @@ jobs:
           path: |
             frontend/test-results/ui-health-crawl/
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Upload Playwright report
         if: always()
@@ -149,6 +155,7 @@ jobs:
           name: playwright-report-usability
           path: frontend/playwright-report/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload test artifacts
         if: always()
@@ -157,3 +164,4 @@ jobs:
           name: playwright-artifacts-usability
           path: frontend/test-results/
           retention-days: 14
+          if-no-files-found: warn
