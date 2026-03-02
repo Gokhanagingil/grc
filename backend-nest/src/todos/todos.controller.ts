@@ -49,37 +49,44 @@ export class TodosController {
   @Get()
   async list(
     @Request() req: RequestWithUser,
-    @Query('boardId') boardId?: string,
-    @Query('status') status?: string,
-    @Query('assigneeUserId') assigneeUserId?: string,
-    @Query('priority') priority?: string,
-    @Query('dueDateFrom') dueDateFrom?: string,
-    @Query('dueDateTo') dueDateTo?: string,
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
+    @Query('boardId') boardId?: string | string[],
+    @Query('status') status?: string | string[],
+    @Query('assigneeUserId') assigneeUserId?: string | string[],
+    @Query('priority') priority?: string | string[],
+    @Query('dueDateFrom') dueDateFrom?: string | string[],
+    @Query('dueDateTo') dueDateTo?: string | string[],
+    @Query('search') search?: string | string[],
+    @Query('page') page?: string | string[],
+    @Query('pageSize') pageSize?: string | string[],
   ) {
     const tenantId = req.tenantId!;
+    // Coerce query params to string to prevent type-confusion attacks
+    // (a param sent twice becomes an array)
+    const str = (v?: string | string[]): string | undefined =>
+      Array.isArray(v) ? v[0] : v;
+    const pageStr = str(page);
+    const pageSizeStr = str(pageSize);
     return this.todosService.listTasks(tenantId, {
-      boardId,
-      status,
-      assigneeUserId,
-      priority,
-      dueDateFrom,
-      dueDateTo,
-      search,
-      page: page ? parseInt(page, 10) : undefined,
-      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      boardId: str(boardId),
+      status: str(status),
+      assigneeUserId: str(assigneeUserId),
+      priority: str(priority),
+      dueDateFrom: str(dueDateFrom),
+      dueDateTo: str(dueDateTo),
+      search: str(search),
+      page: pageStr ? parseInt(pageStr, 10) : undefined,
+      pageSize: pageSizeStr ? parseInt(pageSizeStr, 10) : undefined,
     });
   }
 
   @Get('stats/summary')
   async getStats(
     @Request() req: RequestWithUser,
-    @Query('boardId') boardId?: string,
+    @Query('boardId') boardId?: string | string[],
   ) {
     const tenantId = req.tenantId!;
-    return this.todosService.getTaskStats(tenantId, boardId);
+    const id = Array.isArray(boardId) ? boardId[0] : boardId;
+    return this.todosService.getTaskStats(tenantId, id);
   }
 
   @Post()
