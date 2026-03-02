@@ -261,6 +261,26 @@ export class NotificationEngineService {
               ? `/${event.tableName}/${event.recordId}`
               : null,
           deliveryId,
+          // v0 fields — derive from event context
+          type: 'GENERAL',
+          severity: 'INFO',
+          source: (event.source || 'SYSTEM').toUpperCase(),
+          entityType: event.tableName || null,
+          entityId: event.recordId || null,
+          metadata: event.payloadJson || {},
+          actions:
+            event.tableName && event.recordId
+              ? [
+                  {
+                    label: 'Open Record',
+                    actionType: 'OPEN_RECORD',
+                    payload: {
+                      entityType: event.tableName,
+                      entityId: event.recordId,
+                    },
+                  },
+                ]
+              : [],
         }),
       );
     }
