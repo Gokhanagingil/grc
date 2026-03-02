@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -264,45 +264,24 @@ export const TodoBoard: React.FC = () => {
 
   const [board, setBoard] = useState<Board | null>(null);
   const [tasks, setTasks] = useState<TodoTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
-  // Seed and fetch default board
-  const fetchBoard = useCallback(async () => {
-    if (authLoading || !user) return;
-    setLoading(true);
+  // Track the resolved board ID so fetchTasks can use it without re-running initBoard
+  const resolvedBoardIdRef = useRef<string | null>(null);
+
+  // Fetch only tasks for the current board (used on filter/search changes)
+  const fetchTasks = useCallback(async (boardId?: string) => {
+    const targetBoardId = boardId || resolvedBoardIdRef.current;
+    if (!targetBoardId) return;
+    setTasksLoading(true);
     try {
-      // Ensure seed data exists
-      await api.post('/todos/seed').catch(() => { /* ignore if already seeded */ });
-
-      // Determine which board to load
-      let resolvedBoardId: string;
-      if (routeBoardId) {
-        resolvedBoardId = routeBoardId;
-      } else {
-        // No route param — fetch boards list and pick first one
-        const boardsRes = await api.get('/todos/boards/list');
-        const boardsData = boardsRes.data?.data || boardsRes.data;
-        const boards = boardsData?.items || boardsData || [];
-        if (!Array.isArray(boards) || boards.length === 0) {
-          setError('No boards found. Please create a board first.');
-          setLoading(false);
-          return;
-        }
-        resolvedBoardId = boards[0].id;
-      }
-
-      // Fetch board detail with columns
-      const boardRes = await api.get(`/todos/boards/${resolvedBoardId}`);
-      const boardDetail = boardRes.data?.data || boardRes.data;
-      setBoard(boardDetail);
-
-      // Fetch tasks for this board
-      const params: Record<string, string> = { boardId: resolvedBoardId, pageSize: '1000' };
+      const params: Record<string, string> = { boardId: targetBoardId, pageSize: '1000' };
       if (searchQuery) params.search = searchQuery;
       if (filterPriority !== 'all') params.priority = filterPriority;
       const tasksRes = await api.get('/todos', { params });
@@ -312,21 +291,72 @@ export const TodoBoard: React.FC = () => {
       setError(null);
     } catch (err: unknown) {
       const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Failed to load tasks');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [searchQuery, filterPriority]);
+
+  // Seed + resolve board + fetch columns (only on mount or board change)
+  const initBoard = useCallback(async () => {
+    if (authLoading || !user) return;
+    setInitialLoading(true);
+    try {
+      // Ensure seed data exists (only runs on board init, not filter changes)
+      await api.post('/todos/seed').catch(() => { /* ignore if already seeded */ });
+
+      // Determine which board to load
+      let boardId: string;
+      if (routeBoardId) {
+        boardId = routeBoardId;
+      } else {
+        const boardsRes = await api.get('/todos/boards/list');
+        const boardsData = boardsRes.data?.data || boardsRes.data;
+        const boards = boardsData?.items || boardsData || [];
+        if (!Array.isArray(boards) || boards.length === 0) {
+          setError('No boards found. Please create a board first.');
+          setInitialLoading(false);
+          return;
+        }
+        boardId = boards[0].id;
+      }
+
+      resolvedBoardIdRef.current = boardId;
+
+      // Fetch board detail with columns
+      const boardRes = await api.get(`/todos/boards/${boardId}`);
+      const boardDetail = boardRes.data?.data || boardRes.data;
+      setBoard(boardDetail);
+
+      // Also fetch tasks on initial load
+      await fetchTasks(boardId);
+      setError(null);
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
       if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
         setError('Authentication required.');
       } else {
         setError(axiosError.response?.data?.message || 'Failed to load board');
       }
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
-  }, [authLoading, user, searchQuery, filterPriority, routeBoardId]);
+  }, [authLoading, user, routeBoardId, fetchTasks]);
 
+  // Init board on mount or when board ID changes
   useEffect(() => {
     if (!authLoading && user) {
-      fetchBoard();
+      initBoard();
     }
-  }, [fetchBoard, authLoading, user]);
+  }, [initBoard, authLoading, user]);
+
+  // Re-fetch only tasks when search/filter changes (board already loaded)
+  useEffect(() => {
+    if (!authLoading && user && resolvedBoardIdRef.current && !initialLoading) {
+      fetchTasks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, filterPriority]);
 
   const getColumnTasks = (columnKey: string): TodoTask[] => {
     return tasks
@@ -359,7 +389,7 @@ export const TodoBoard: React.FC = () => {
       });
     } catch {
       // Revert on failure
-      fetchBoard();
+      fetchTasks();
       setSnackbar({ open: true, message: 'Failed to move task', severity: 'error' });
     }
   };
@@ -374,13 +404,15 @@ export const TodoBoard: React.FC = () => {
         priority: 'medium',
       });
       setSnackbar({ open: true, message: 'Task created', severity: 'success' });
-      fetchBoard();
+      fetchTasks();
     } catch {
       setSnackbar({ open: true, message: 'Failed to create task', severity: 'error' });
     }
   };
 
-  if (authLoading || loading) {
+  const loading = initialLoading || tasksLoading;
+
+  if (authLoading || initialLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -416,7 +448,7 @@ export const TodoBoard: React.FC = () => {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search tasks..."
-        onRefresh={fetchBoard}
+        onRefresh={fetchTasks}
         loading={loading}
         showSort={false}
         showPageSize={false}
