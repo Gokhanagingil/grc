@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { RequestWithUser } from '../common/types';
 import { NotificationEngineService } from './services/notification-engine.service';
+import { NotificationTriggerService } from './services/notification-trigger.service';
 import { UserNotificationFilterDto, ExecuteActionDto } from './dto/user-notification.dto';
 import { StructuredLoggerService } from '../common/logger';
 
@@ -32,7 +33,10 @@ const ALLOWED_ACTION_TYPES = new Set([
 export class UserNotificationController {
   private readonly logger: StructuredLoggerService;
 
-  constructor(private readonly engineService: NotificationEngineService) {
+  constructor(
+    private readonly engineService: NotificationEngineService,
+    private readonly triggerService: NotificationTriggerService,
+  ) {
     this.logger = new StructuredLoggerService();
     this.logger.setContext('UserNotificationController');
   }
@@ -77,13 +81,8 @@ export class UserNotificationController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     if (!userId) throw new BadRequestException('User ID required');
 
-    const result = await this.engineService.getUserNotifications(
-      tenantId,
-      userId,
-      { unreadOnly: true, page: 1, pageSize: 1 },
-    );
-
-    return { unreadCount: result.unreadCount };
+    const count = await this.triggerService.getUnreadCount(tenantId, userId);
+    return { unreadCount: count };
   }
 
   @Post(':id/read')

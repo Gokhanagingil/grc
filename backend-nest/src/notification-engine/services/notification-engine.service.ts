@@ -552,8 +552,8 @@ export class NotificationEngineService {
       qb.andWhere('n.source = :source', { source: filters.module.toUpperCase() });
     }
 
-    // Filter by notification type
-    if (filters?.type) {
+    // Filter by notification type (skip if tab filter will override)
+    if (filters?.type && !filters?.tab) {
       qb.andWhere('n.type = :type', { type: filters.type.toUpperCase() });
     }
 
