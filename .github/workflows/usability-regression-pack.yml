@@ -84,24 +84,12 @@ jobs:
           done
           echo "Static server is ready!"
 
-      - name: "Run UI Health Crawl"
+      - name: "Run UI Health Crawl + Golden Smokes"
         working-directory: ./frontend
         run: |
           npx playwright test \
             --project=mock-ui \
-            e2e/smoke/ui-health-crawl.spec.ts || true
-        env:
-          E2E_MODE: "MOCK_UI"
-          E2E_MOCK_API: "1"
-          E2E_BASE_URL: "http://127.0.0.1:3000"
-          E2E_EMAIL: admin@grc-platform.local
-          E2E_PASSWORD: TestPassword123!
-
-      - name: "Run Golden Smokes"
-        working-directory: ./frontend
-        run: |
-          npx playwright test \
-            --project=mock-ui \
+            e2e/smoke/ui-health-crawl.spec.ts \
             e2e/smoke/golden-smokes-itsm-cmdb.spec.ts || true
         env:
           E2E_MODE: "MOCK_UI"
