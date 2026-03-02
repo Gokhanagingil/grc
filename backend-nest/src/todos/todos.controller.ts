@@ -2,63 +2,35 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
   Param,
+  Query,
   Request,
   HttpCode,
   HttpStatus,
-  BadRequestException,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { RequestWithUser } from '../common/types';
-
-interface Todo {
-  id: number;
-  title: string;
-  description: string | null;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed';
-  category: string | null;
-  tags: string | null;
-  due_date: string | null;
-  completed_at: string | null;
-  owner_id: string;
-  assigned_to: string | null;
-  assigned_first_name: string | null;
-  assigned_last_name: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CreateTodoDto {
-  title: string;
-  description?: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  status?: 'pending' | 'in_progress' | 'completed';
-  category?: string;
-  due_date?: string;
-}
-
-interface UpdateTodoDto {
-  title?: string;
-  description?: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  status?: 'pending' | 'in_progress' | 'completed';
-  category?: string;
-  due_date?: string;
-  completed_at?: string | null;
-}
+import { TodosService } from './todos.service';
+import {
+  CreateTodoTaskDto,
+  UpdateTodoTaskDto,
+  CreateTodoBoardDto,
+  UpdateTodoBoardDto,
+  BoardColumnDto,
+  MoveTaskDto,
+} from './dto';
 
 /**
  * Todos Controller
  *
- * Provides a minimal in-memory todo list for demo purposes.
- * Data is stored per-tenant in memory and resets on server restart.
- * This is intentionally simple to avoid database migrations.
+ * Provides CRUD for To-Do tasks and Kanban boards.
+ * Data is persisted in PostgreSQL with full multi-tenant isolation.
  *
  * Security:
  * - All routes require JWT authentication (JwtAuthGuard)
@@ -68,128 +40,173 @@ interface UpdateTodoDto {
 @Controller('todos')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class TodosController {
-  private todosByTenant: Map<string, Todo[]> = new Map();
-  private nextIdByTenant: Map<string, number> = new Map();
+  constructor(private readonly todosService: TodosService) {}
 
-  private getTodos(tenantId: string): Todo[] {
-    if (!this.todosByTenant.has(tenantId)) {
-      this.todosByTenant.set(tenantId, []);
-    }
-    return this.todosByTenant.get(tenantId)!;
-  }
-
-  private getNextId(tenantId: string): number {
-    const currentId = this.nextIdByTenant.get(tenantId) || 1;
-    this.nextIdByTenant.set(tenantId, currentId + 1);
-    return currentId;
-  }
+  /* ------------------------------------------------------------------ */
+  /* Tasks                                                               */
+  /* ------------------------------------------------------------------ */
 
   @Get()
-  list(@Request() req: RequestWithUser) {
+  async list(
+    @Request() req: RequestWithUser,
+    @Query('boardId') boardId?: string,
+    @Query('status') status?: string,
+    @Query('assigneeUserId') assigneeUserId?: string,
+    @Query('priority') priority?: string,
+    @Query('dueDateFrom') dueDateFrom?: string,
+    @Query('dueDateTo') dueDateTo?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
     const tenantId = req.tenantId!;
-    const todos = this.getTodos(tenantId);
-    return { todos };
+    return this.todosService.listTasks(tenantId, {
+      boardId,
+      status,
+      assigneeUserId,
+      priority,
+      dueDateFrom,
+      dueDateTo,
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
   }
 
   @Get('stats/summary')
-  getStats(@Request() req: RequestWithUser) {
+  async getStats(
+    @Request() req: RequestWithUser,
+    @Query('boardId') boardId?: string,
+  ) {
     const tenantId = req.tenantId!;
-    const todos = this.getTodos(tenantId);
-    const now = new Date();
-    return {
-      total: todos.length,
-      completed: todos.filter((t) => t.status === 'completed').length,
-      pending: todos.filter((t) => t.status === 'pending').length,
-      in_progress: todos.filter((t) => t.status === 'in_progress').length,
-      overdue: todos.filter(
-        (t) =>
-          t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
-      ).length,
-    };
+    return this.todosService.getTaskStats(tenantId, boardId);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Request() req: RequestWithUser, @Body() createDto: CreateTodoDto) {
+  async create(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateTodoTaskDto,
+  ) {
     const tenantId = req.tenantId!;
-    if (!createDto.title) {
-      throw new BadRequestException('title is required');
-    }
-
-    const todos = this.getTodos(tenantId);
-    const now = new Date().toISOString();
-    const newTodo: Todo = {
-      id: this.getNextId(tenantId),
-      title: createDto.title,
-      description: createDto.description || null,
-      priority: createDto.priority || 'medium',
-      status: createDto.status || 'pending',
-      category: createDto.category || null,
-      tags: null,
-      due_date: createDto.due_date || null,
-      completed_at: null,
-      owner_id: tenantId,
-      assigned_to: null,
-      assigned_first_name: null,
-      assigned_last_name: null,
-      created_at: now,
-      updated_at: now,
-    };
-
-    todos.push(newTodo);
-    return newTodo;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.createTask(tenantId, userId, dto);
   }
 
   @Get(':id')
-  findOne(@Request() req: RequestWithUser, @Param('id') id: string) {
-    const tenantId = req.tenantId!;
-    const todos = this.getTodos(tenantId);
-    const todo = todos.find((t) => t.id === parseInt(id, 10));
-    if (!todo) {
-      throw new BadRequestException('Todo not found');
-    }
-    return todo;
-  }
-
-  @Put(':id')
-  update(
+  async findOne(
     @Request() req: RequestWithUser,
     @Param('id') id: string,
-    @Body() updateDto: UpdateTodoDto,
   ) {
     const tenantId = req.tenantId!;
-    const todos = this.getTodos(tenantId);
-    const todoIndex = todos.findIndex((t) => t.id === parseInt(id, 10));
-    if (todoIndex === -1) {
-      throw new BadRequestException('Todo not found');
-    }
+    return this.todosService.getTask(tenantId, id);
+  }
 
-    const todo = todos[todoIndex];
-    const updatedTodo: Todo = {
-      ...todo,
-      title: updateDto.title ?? todo.title,
-      description: updateDto.description ?? todo.description,
-      priority: updateDto.priority ?? todo.priority,
-      status: updateDto.status ?? todo.status,
-      category: updateDto.category ?? todo.category,
-      due_date: updateDto.due_date ?? todo.due_date,
-      completed_at: updateDto.completed_at ?? todo.completed_at,
-      updated_at: new Date().toISOString(),
-    };
-
-    todos[todoIndex] = updatedTodo;
-    return updatedTodo;
+  @Patch(':id')
+  async update(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTodoTaskDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.updateTask(tenantId, userId, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Request() req: RequestWithUser, @Param('id') id: string) {
+  async remove(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+  ) {
     const tenantId = req.tenantId!;
-    const todos = this.getTodos(tenantId);
-    const todoIndex = todos.findIndex((t) => t.id === parseInt(id, 10));
-    if (todoIndex === -1) {
-      throw new BadRequestException('Todo not found');
-    }
-    todos.splice(todoIndex, 1);
+    await this.todosService.deleteTask(tenantId, id);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Boards                                                              */
+  /* ------------------------------------------------------------------ */
+
+  @Get('boards/list')
+  async listBoards(@Request() req: RequestWithUser) {
+    const tenantId = req.tenantId!;
+    const boards = await this.todosService.listBoards(tenantId);
+    return { items: boards, total: boards.length };
+  }
+
+  @Post('boards')
+  @HttpCode(HttpStatus.CREATED)
+  async createBoard(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateTodoBoardDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.createBoard(tenantId, userId, dto);
+  }
+
+  @Get('boards/:boardId')
+  async getBoard(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+  ) {
+    const tenantId = req.tenantId!;
+    return this.todosService.getBoard(tenantId, boardId);
+  }
+
+  @Patch('boards/:boardId')
+  async updateBoard(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+    @Body() dto: UpdateTodoBoardDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.updateBoard(tenantId, userId, boardId, dto);
+  }
+
+  @Get('boards/:boardId/columns')
+  async getBoardColumns(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+  ) {
+    const tenantId = req.tenantId!;
+    return this.todosService.getBoardColumns(tenantId, boardId);
+  }
+
+  @Put('boards/:boardId/columns')
+  async replaceColumns(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+    @Body() columns: BoardColumnDto[],
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.replaceColumns(tenantId, userId, boardId, columns);
+  }
+
+  @Post('boards/:boardId/tasks/:taskId/move')
+  async moveTask(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+    @Param('taskId') taskId: string,
+    @Body() dto: MoveTaskDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    return this.todosService.moveTask(tenantId, userId, boardId, taskId, dto);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Seed (admin)                                                        */
+  /* ------------------------------------------------------------------ */
+
+  @Post('seed')
+  @HttpCode(HttpStatus.OK)
+  async seed(@Request() req: RequestWithUser) {
+    const tenantId = req.tenantId!;
+    const userId = req.user?.sub || 'system';
+    await this.todosService.seedDefaultBoard(tenantId, userId);
+    return { message: 'Default board seeded' };
   }
 }

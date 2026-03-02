@@ -20,6 +20,7 @@ import {
   Select,
   MenuItem,
   Alert,
+  Snackbar,
   CircularProgress,
   Tabs,
   Tab,
@@ -32,27 +33,26 @@ import {
   CheckCircle as CheckIcon,
   Schedule as ScheduleIcon,
   Flag as FlagIcon,
+  ViewKanban as BoardIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ListToolbar } from '../components/common/ListToolbar';
 
 interface Todo {
-  id: number;
+  id: string;
   title: string;
   description: string | null;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed';
+  priority: string;
+  status: string;
   category: string | null;
-  tags: string | null;
-  due_date: string | null;
-  completed_at: string | null;
-  owner_id: number;
-  assigned_to: number | null;
-  assigned_first_name: string | null;
-  assigned_last_name: string | null;
-  created_at: string;
-  updated_at: string;
+  tags: string[] | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  assigneeUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TodoStats {
@@ -66,10 +66,10 @@ interface TodoStats {
 interface TodoFormData {
   title: string;
   description: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed';
+  priority: string;
+  status: string;
   category: string;
-  due_date: string;
+  dueDate: string;
 }
 
 const priorityColors: Record<string, 'default' | 'info' | 'warning' | 'error'> = {
@@ -80,8 +80,11 @@ const priorityColors: Record<string, 'default' | 'info' | 'warning' | 'error'> =
 };
 
 const statusColors: Record<string, 'default' | 'primary' | 'success'> = {
+  todo: 'default',
   pending: 'default',
+  doing: 'primary',
   in_progress: 'primary',
+  done: 'success',
   completed: 'success',
 };
 
@@ -91,9 +94,9 @@ const initialFormData: TodoFormData = {
   title: '',
   description: '',
   priority: 'medium',
-  status: 'pending',
+  status: 'todo',
   category: '',
-  due_date: '',
+  dueDate: '',
 };
 
 export const TodoList: React.FC = () => {
@@ -103,70 +106,60 @@ export const TodoList: React.FC = () => {
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
   const [authError, setAuthError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [formData, setFormData] = useState<TodoFormData>(initialFormData);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [tabValue, setTabValue] = useState(0);
 
   const fetchTodos = useCallback(async () => {
-    // Don't fetch if auth is still loading or user is not authenticated
-    if (authLoading || !user) {
-      return;
-    }
+    if (authLoading || !user) return;
 
     try {
       setLoading(true);
       setAuthError(false);
-      const response = await api.get('/todos');
-      const todoList = response.data.todos || [];
-      // Sort by created_at desc (newest first) to ensure newly created todos appear at top
-      todoList.sort((a: Todo, b: Todo) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return dateB - dateA;
-      });
-      setTodos(todoList);
+      const params: Record<string, string> = {};
+      if (searchQuery) params.search = searchQuery;
+      if (filterStatus !== 'all') params.status = filterStatus;
+      if (filterPriority !== 'all') params.priority = filterPriority;
+      const response = await api.get('/todos', { params });
+      // Support both new LIST-CONTRACT shape and legacy shape
+      const data = response.data?.data || response.data;
+      const todoList = data?.items || data?.todos || [];
+      setTodos(Array.isArray(todoList) ? todoList : []);
       setError(null);
     } catch (err: unknown) {
       const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
-      // Handle 401/403 - authentication/authorization error
       if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
         setAuthError(true);
         setTodos([]);
         setError('Session expired or unauthorized. Please log in again.');
-      // Handle 404 gracefully - endpoint may not be implemented yet
       } else if (axiosError.response?.status === 404 || axiosError.response?.status === 502) {
         setTodos([]);
         setError(null);
-        console.warn('Todo API not available yet');
       } else {
         setError(axiosError.response?.data?.message || 'Failed to fetch todos');
       }
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, searchQuery, filterStatus, filterPriority]);
 
   const fetchStats = useCallback(async () => {
     try {
       const response = await api.get('/todos/stats/summary');
-      setStats(response.data);
-    } catch (err: unknown) {
-      // Silently handle 404 - endpoint may not be implemented yet
-      const axiosError = err as { response?: { status?: number } };
-      if (axiosError.response?.status !== 404 && axiosError.response?.status !== 502) {
-        console.error('Failed to fetch stats:', err);
-      }
-      // Set default stats when endpoint is not available
+      const data = response.data?.data || response.data;
+      setStats(data);
+    } catch {
       setStats({ total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0 });
     }
   }, []);
 
   useEffect(() => {
-    // Only fetch when auth is ready and user is authenticated
     if (!authLoading && user) {
       fetchTodos();
       fetchStats();
@@ -179,10 +172,10 @@ export const TodoList: React.FC = () => {
       setFormData({
         title: todo.title,
         description: todo.description || '',
-        priority: todo.priority,
-        status: todo.status,
+        priority: todo.priority || 'medium',
+        status: todo.status || 'todo',
         category: todo.category || '',
-        due_date: todo.due_date || '',
+        dueDate: todo.dueDate ? todo.dueDate.slice(0, 10) : '',
       });
     } else {
       setEditingTodo(null);
@@ -198,62 +191,75 @@ export const TodoList: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      setSnackbar({ open: true, message: 'Title is required', severity: 'error' });
+      return;
+    }
     try {
+      const payload: Record<string, unknown> = {
+        title: formData.title,
+        description: formData.description || undefined,
+        priority: formData.priority,
+        status: formData.status,
+        category: formData.category || undefined,
+        dueDate: formData.dueDate || undefined,
+      };
       if (editingTodo) {
-        await api.put(`/todos/${editingTodo.id}`, formData);
+        await api.patch(`/todos/${editingTodo.id}`, payload);
+        setSnackbar({ open: true, message: 'Task updated', severity: 'success' });
       } else {
-        await api.post('/todos', formData);
+        await api.post('/todos', payload);
+        setSnackbar({ open: true, message: 'Task created', severity: 'success' });
       }
       handleCloseDialog();
       fetchTodos();
       fetchStats();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save todo');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      const msg = axiosError.response?.data?.message || 'Failed to save task';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this todo?')) return;
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
       await api.delete(`/todos/${id}`);
+      setSnackbar({ open: true, message: 'Task deleted', severity: 'success' });
       fetchTodos();
       fetchStats();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete todo');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setSnackbar({ open: true, message: axiosError.response?.data?.message || 'Failed to delete task', severity: 'error' });
     }
   };
 
   const handleToggleComplete = async (todo: Todo) => {
     try {
-      const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
-      const completedAt = newStatus === 'completed' ? new Date().toISOString() : null;
-      await api.put(`/todos/${todo.id}`, { 
-        status: newStatus,
-        completed_at: completedAt 
-      });
+      const isDone = todo.status === 'done' || todo.status === 'completed';
+      const newStatus = isDone ? 'todo' : 'done';
+      await api.patch(`/todos/${todo.id}`, { status: newStatus });
       fetchTodos();
       fetchStats();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update todo');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setSnackbar({ open: true, message: axiosError.response?.data?.message || 'Failed to update task', severity: 'error' });
     }
   };
 
   const filteredTodos = todos.filter((todo) => {
-    if (filterStatus !== 'all' && todo.status !== filterStatus) return false;
-    if (filterPriority !== 'all' && todo.priority !== filterPriority) return false;
-    if (tabValue === 1 && todo.status === 'completed') return false;
-    if (tabValue === 2 && todo.status !== 'completed') return false;
+    if (tabValue === 1 && (todo.status === 'done' || todo.status === 'completed')) return false;
+    if (tabValue === 2 && todo.status !== 'done' && todo.status !== 'completed') return false;
     return true;
   });
 
   const isOverdue = (todo: Todo) => {
-    if (!todo.due_date || todo.status === 'completed') return false;
-    return new Date(todo.due_date) < new Date();
+    if (!todo.dueDate || todo.status === 'done' || todo.status === 'completed') return false;
+    return new Date(todo.dueDate) < new Date();
   };
 
-  const completionPercentage = stats ? Math.round((stats.completed / stats.total) * 100) || 0 : 0;
+  const completionPercentage = stats && stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
-  // Show loading while auth is initializing
   if (authLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -262,7 +268,6 @@ export const TodoList: React.FC = () => {
     );
   }
 
-  // Show auth error with login button
   if (authError) {
     return (
       <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="400px" gap={2}>
@@ -290,14 +295,23 @@ export const TodoList: React.FC = () => {
         <Typography variant="h4" component="h1">
           To-Do List
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Add Todo
-        </Button>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<BoardIcon />}
+            onClick={() => navigate('/todos/board')}
+          >
+            Board View
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Add Task
+          </Button>
+        </Box>
       </Box>
 
       {error && (
@@ -305,6 +319,47 @@ export const TodoList: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      <ListToolbar
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search tasks..."
+        onRefresh={() => { fetchTodos(); fetchStats(); }}
+        loading={loading}
+        showSort={false}
+        showPageSize={false}
+        actions={
+          <Box display="flex" gap={1}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filterStatus}
+                label="Status"
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="todo">To Do</MenuItem>
+                <MenuItem value="doing">Doing</MenuItem>
+                <MenuItem value="done">Done</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={filterPriority}
+                label="Priority"
+                onChange={(e) => setFilterPriority(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="low">Low</MenuItem>
+                <MenuItem value="medium">Medium</MenuItem>
+                <MenuItem value="high">High</MenuItem>
+                <MenuItem value="urgent">Urgent</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        }
+      />
 
       {stats && (
         <Paper sx={{ p: 2, mb: 3 }}>
@@ -341,43 +396,13 @@ export const TodoList: React.FC = () => {
         </Tabs>
       </Paper>
 
-      <Box display="flex" gap={2} mb={3}>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={filterStatus}
-            label="Status"
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="in_progress">In Progress</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Priority</InputLabel>
-          <Select
-            value={filterPriority}
-            label="Priority"
-            onChange={(e) => setFilterPriority(e.target.value)}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="low">Low</MenuItem>
-            <MenuItem value="medium">Medium</MenuItem>
-            <MenuItem value="high">High</MenuItem>
-            <MenuItem value="urgent">Urgent</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-
       <Grid container spacing={2}>
         {filteredTodos.map((todo) => (
           <Grid item xs={12} sm={6} md={4} key={todo.id}>
             <Card 
               sx={{ 
                 height: '100%',
-                opacity: todo.status === 'completed' ? 0.7 : 1,
+                opacity: (todo.status === 'done' || todo.status === 'completed') ? 0.7 : 1,
                 borderLeft: isOverdue(todo) ? '4px solid red' : 'none',
               }}
             >
@@ -387,7 +412,7 @@ export const TodoList: React.FC = () => {
                     variant="h6" 
                     component="h2"
                     sx={{ 
-                      textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
+                      textDecoration: (todo.status === 'done' || todo.status === 'completed') ? 'line-through' : 'none',
                       flex: 1,
                     }}
                   >
@@ -396,7 +421,7 @@ export const TodoList: React.FC = () => {
                   <IconButton 
                     size="small" 
                     onClick={() => handleToggleComplete(todo)}
-                    color={todo.status === 'completed' ? 'success' : 'default'}
+                    color={(todo.status === 'done' || todo.status === 'completed') ? 'success' : 'default'}
                   >
                     <CheckIcon />
                   </IconButton>
@@ -412,27 +437,27 @@ export const TodoList: React.FC = () => {
                   <Chip 
                     label={todo.priority} 
                     size="small" 
-                    color={priorityColors[todo.priority]}
+                    color={priorityColors[todo.priority] || 'default'}
                     icon={<FlagIcon />}
                   />
                   <Chip 
                     label={todo.status.replace('_', ' ')} 
                     size="small" 
-                    color={statusColors[todo.status]}
+                    color={statusColors[todo.status] || 'default'}
                   />
                   {todo.category && (
                     <Chip label={todo.category} size="small" variant="outlined" />
                   )}
                 </Box>
                 
-                {todo.due_date && (
+                {todo.dueDate && (
                   <Box display="flex" alignItems="center" gap={0.5}>
                     <ScheduleIcon fontSize="small" color={isOverdue(todo) ? 'error' : 'action'} />
                     <Typography 
                       variant="caption" 
                       color={isOverdue(todo) ? 'error' : 'text.secondary'}
                     >
-                      Due: {new Date(todo.due_date).toLocaleDateString()}
+                      Due: {new Date(todo.dueDate).toLocaleDateString()}
                     </Typography>
                   </Box>
                 )}
@@ -450,16 +475,16 @@ export const TodoList: React.FC = () => {
         ))}
       </Grid>
 
-      {filteredTodos.length === 0 && (
+      {filteredTodos.length === 0 && !loading && (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No todos found. {tabValue === 0 && 'Click "Add Todo" to create one.'}
+            No tasks found. {tabValue === 0 && 'Click "Add Task" to create one.'}
           </Typography>
         </Paper>
       )}
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingTodo ? 'Edit Todo' : 'Add New Todo'}</DialogTitle>
+        <DialogTitle>{editingTodo ? 'Edit Task' : 'Add New Task'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -468,6 +493,8 @@ export const TodoList: React.FC = () => {
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              error={!formData.title.trim() && formData.title.length > 0}
+              helperText={!formData.title.trim() && formData.title.length > 0 ? 'Title is required' : ''}
             />
             <TextField
               label="Description"
@@ -482,7 +509,7 @@ export const TodoList: React.FC = () => {
               <Select
                 value={formData.priority}
                 label="Priority"
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TodoFormData['priority'] })}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
               >
                 <MenuItem value="low">Low</MenuItem>
                 <MenuItem value="medium">Medium</MenuItem>
@@ -495,11 +522,11 @@ export const TodoList: React.FC = () => {
               <Select
                 value={formData.status}
                 label="Status"
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as TodoFormData['status'] })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="todo">To Do</MenuItem>
+                <MenuItem value="doing">Doing</MenuItem>
+                <MenuItem value="done">Done</MenuItem>
               </Select>
             </FormControl>
             <FormControl fullWidth>
@@ -522,18 +549,33 @@ export const TodoList: React.FC = () => {
               type="date"
               fullWidth
               InputLabelProps={{ shrink: true }}
-              value={formData.due_date}
-              onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+              value={formData.dueDate}
+              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={!formData.title}>
+          <Button onClick={handleSubmit} variant="contained" disabled={!formData.title.trim()}>
             {editingTodo ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          variant="filled"
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

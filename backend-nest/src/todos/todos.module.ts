@@ -1,19 +1,26 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { TodosController } from './todos.controller';
+import { TodosService } from './todos.service';
+import { TodoTask, TodoBoard, TodoBoardColumn } from './entities';
 import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Todos Module
  *
- * Provides a minimal in-memory todo list for demo purposes.
- * This module does not use database persistence to avoid migrations.
- * Data is stored in memory and resets on server restart.
+ * Provides CRUD for To-Do tasks and Kanban boards with PostgreSQL persistence.
+ * Replaces the previous in-memory implementation that lost data on restart.
  *
  * Imports TenantsModule to ensure TenantGuard dependencies are available
  * during app bootstrap (required for E2E tests).
  */
 @Module({
-  imports: [TenantsModule],
+  imports: [
+    TypeOrmModule.forFeature([TodoTask, TodoBoard, TodoBoardColumn]),
+    TenantsModule,
+  ],
   controllers: [TodosController],
+  providers: [TodosService],
+  exports: [TodosService],
 })
 export class TodosModule {}

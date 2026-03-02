@@ -5,7 +5,6 @@ import {
   Typography,
   Button,
   Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -14,7 +13,6 @@ import {
   TableRow,
   TablePagination,
   Chip,
-  TextField,
   MenuItem,
   Select,
   FormControl,
@@ -28,10 +26,10 @@ import {
   DialogContent,
   DialogActions,
   Stack,
+  TextField,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Refresh as RefreshIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -39,6 +37,7 @@ import {
 import { itsmApi, CabMeetingData, CreateCabMeetingDto, unwrapPaginatedResponse } from '../../services/grcClient';
 import { classifyApiError } from '../../utils/apiErrorClassifier';
 import { stripUndefined, CAB_MEETING_CREATE_FIELDS, stripForbiddenFields } from '../../utils/payloadNormalizer';
+import { ListToolbar } from '../../components/common/ListToolbar';
 
 const CAB_STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'> = {
   DRAFT: 'default',
@@ -140,44 +139,34 @@ export default function ItsmCabMeetingList() {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">CAB Meetings</Typography>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchMeetings}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            New Meeting
-          </Button>
-        </Stack>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+          New Meeting
+        </Button>
       </Box>
 
-      {/* Filters */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              size="small"
-              label="Search"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              sx={{ minWidth: 200 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-              >
-                {CAB_STATUSES.map((s) => (
-                  <MenuItem key={s} value={s}>{s || 'All'}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(0); }}
+        searchPlaceholder="Search CAB meetings..."
+        onRefresh={fetchMeetings}
+        loading={loading}
+        showSort={false}
+        showPageSize={false}
+        actions={
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+            >
+              {CAB_STATUSES.map((s) => (
+                <MenuItem key={s} value={s}>{s || 'All'}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
