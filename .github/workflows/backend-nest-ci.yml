@@ -245,7 +245,7 @@ jobs:
         run: npm run build
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: backend-nest/dist
@@ -344,7 +344,7 @@ jobs:
           JWT_SECRET: ci-test-jwt-secret-for-testing-purposes-only-32chars
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
