@@ -89,16 +89,16 @@ const ComplianceDashboard: React.FC = () => {
     );
   }
 
-  const statusData = data ? [
-    { name: 'Compliant', value: data.requirementStatus.compliant, color: STATUS_COLORS.compliant },
-    { name: 'Partially Compliant', value: data.requirementStatus.partiallyCompliant, color: STATUS_COLORS.partiallyCompliant },
-    { name: 'Non-Compliant', value: data.requirementStatus.nonCompliant, color: STATUS_COLORS.nonCompliant },
-    { name: 'Not Assessed', value: data.requirementStatus.notAssessed, color: STATUS_COLORS.notAssessed },
+  const statusData = data?.requirementStatus ? [
+    { name: 'Compliant', value: data.requirementStatus.compliant ?? 0, color: STATUS_COLORS.compliant },
+    { name: 'Partially Compliant', value: data.requirementStatus.partiallyCompliant ?? 0, color: STATUS_COLORS.partiallyCompliant },
+    { name: 'Non-Compliant', value: data.requirementStatus.nonCompliant ?? 0, color: STATUS_COLORS.nonCompliant },
+    { name: 'Not Assessed', value: data.requirementStatus.notAssessed ?? 0, color: STATUS_COLORS.notAssessed },
   ] : [];
 
   const totalRequirements = statusData.reduce((sum, item) => sum + item.value, 0);
 
-  const heatmapData = data?.clauseHeatmap.map(clause => ({
+  const heatmapData = (data?.clauseHeatmap ?? []).map(clause => ({
     rowLabel: `${clause.family} - ${clause.code}`,
     cells: [
       { label: 'Critical', value: clause.critical, color: clause.critical > 0 ? SEVERITY_COLORS.critical : undefined },
@@ -154,7 +154,7 @@ const ComplianceDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Compliant"
-            value={data?.requirementStatus.compliant || 0}
+            value={data?.requirementStatus?.compliant || 0}
             icon={<CompliantIcon />}
             color={STATUS_COLORS.compliant}
           />
@@ -162,7 +162,7 @@ const ComplianceDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Partially Compliant"
-            value={data?.requirementStatus.partiallyCompliant || 0}
+            value={data?.requirementStatus?.partiallyCompliant || 0}
             icon={<PartialIcon />}
             color={STATUS_COLORS.partiallyCompliant}
           />
@@ -170,7 +170,7 @@ const ComplianceDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Non-Compliant"
-            value={data?.requirementStatus.nonCompliant || 0}
+            value={data?.requirementStatus?.nonCompliant || 0}
             icon={<NonCompliantIcon />}
             color={STATUS_COLORS.nonCompliant}
           />
@@ -178,7 +178,7 @@ const ComplianceDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Not Assessed"
-            value={data?.requirementStatus.notAssessed || 0}
+            value={data?.requirementStatus?.notAssessed || 0}
             icon={<NotAssessedIcon />}
             color={STATUS_COLORS.notAssessed}
           />

@@ -5,7 +5,7 @@
   "description": "GRC Platform - Governance, Risk, and Compliance management system",
   "scripts": {
     "---BACKEND-NEST---": "echo 'NestJS Backend Commands'",
-    "nest:install": "cd backend-nest && npm install",
+    "nest:install": "cd backend-nest && npm ci --legacy-peer-deps",
     "nest:build": "cd backend-nest && npm run build",
     "nest:start": "cd backend-nest && npm run start",
     "nest:start:dev": "cd backend-nest && npm run start:dev",
@@ -16,13 +16,13 @@
     "nest:smoke:grc": "cd backend-nest && npm run smoke:grc",
     
     "---BACKEND-EXPRESS---": "echo 'Express Backend Commands'",
-    "backend:install": "cd backend && npm install",
+    "backend:install": "cd backend && npm ci",
     "backend:start": "cd backend && npm run start",
     "backend:dev": "cd backend && npm run dev",
     "backend:test": "cd backend && npm run test:ci",
     
     "---FRONTEND---": "echo 'Frontend Commands'",
-    "frontend:install": "cd frontend && npm install",
+    "frontend:install": "cd frontend && npm ci --legacy-peer-deps",
     "frontend:start": "cd frontend && npm start",
     "frontend:build": "cd frontend && npm run build",
     "frontend:lint": "cd frontend && npx eslint src/ --ext .ts,.tsx",

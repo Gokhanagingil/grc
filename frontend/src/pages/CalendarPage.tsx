@@ -106,7 +106,7 @@ export const CalendarPage: React.FC = () => {
         status: statusFilter || undefined,
       });
       
-      setEvents(response || []);
+      setEvents(Array.isArray(response) ? response : []);
     } catch (err) {
       console.error('Failed to fetch calendar events:', err);
       setError('Failed to load calendar events. Please try again.');

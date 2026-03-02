@@ -81,16 +81,16 @@ const AuditDashboard: React.FC = () => {
     );
   }
 
-  const pipelineData = data ? [
-    { name: 'Draft', value: data.auditPipeline.draft, color: '#90caf9' },
-    { name: 'Planned', value: data.auditPipeline.planned, color: '#64b5f6' },
-    { name: 'Fieldwork', value: data.auditPipeline.fieldwork, color: '#42a5f5' },
-    { name: 'Reporting', value: data.auditPipeline.reporting, color: '#2196f3' },
-    { name: 'Final', value: data.auditPipeline.final, color: '#1e88e5' },
-    { name: 'Closed', value: data.auditPipeline.closed, color: '#1565c0' },
+  const pipelineData = data?.auditPipeline ? [
+    { name: 'Draft', value: data.auditPipeline.draft ?? 0, color: '#90caf9' },
+    { name: 'Planned', value: data.auditPipeline.planned ?? 0, color: '#64b5f6' },
+    { name: 'Fieldwork', value: data.auditPipeline.fieldwork ?? 0, color: '#42a5f5' },
+    { name: 'Reporting', value: data.auditPipeline.reporting ?? 0, color: '#2196f3' },
+    { name: 'Final', value: data.auditPipeline.final ?? 0, color: '#1e88e5' },
+    { name: 'Closed', value: data.auditPipeline.closed ?? 0, color: '#1565c0' },
   ] : [];
 
-  const heatmapData = data?.findingsByDepartment.map(dept => ({
+  const heatmapData = (data?.findingsByDepartment ?? []).map(dept => ({
     rowLabel: dept.department,
     cells: [
       { label: 'Critical', value: dept.critical, color: dept.critical > 0 ? SEVERITY_COLORS.critical : undefined },
@@ -100,7 +100,7 @@ const AuditDashboard: React.FC = () => {
     ],
   })) || [];
 
-  const topRiskAreasData = data?.topRiskAreas.map(risk => ({
+  const topRiskAreasData = (data?.topRiskAreas ?? []).map(risk => ({
     label: risk.riskTitle,
     value: risk.relatedFindings,
     color: SEVERITY_COLORS[risk.maxSeverity as keyof typeof SEVERITY_COLORS] || '#1976d2',
@@ -150,7 +150,7 @@ const AuditDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Total CAPAs"
-            value={data?.capaPerformance.total || 0}
+            value={data?.capaPerformance?.total || 0}
             icon={<AuditIcon />}
             color="#1976d2"
           />
@@ -158,7 +158,7 @@ const AuditDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Open CAPAs"
-            value={data?.capaPerformance.open || 0}
+            value={data?.capaPerformance?.open || 0}
             icon={<ScheduleIcon />}
             color="#ff9800"
           />
@@ -166,7 +166,7 @@ const AuditDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Overdue CAPAs"
-            value={data?.capaPerformance.overdue || 0}
+            value={data?.capaPerformance?.overdue || 0}
             icon={<WarningIcon />}
             color="#f44336"
           />
@@ -174,8 +174,8 @@ const AuditDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Validated Rate"
-            value={`${((data?.capaPerformance.validatedRate || 0) * 100).toFixed(0)}%`}
-            subtitle={`Avg closure: ${data?.capaPerformance.avgClosureDays || 0} days`}
+            value={`${((data?.capaPerformance?.validatedRate || 0) * 100).toFixed(0)}%`}
+            subtitle={`Avg closure: ${data?.capaPerformance?.avgClosureDays || 0} days`}
             icon={<CheckIcon />}
             color="#4caf50"
           />

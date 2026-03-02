@@ -75,7 +75,8 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
     );
   }
 
-  const cells = type === 'inherent' ? data.inherent : data.residual;
+  const rawCells = type === 'inherent' ? data.inherent : data.residual;
+  const cells = Array.isArray(rawCells) ? rawCells : [];
   const cellMap = new Map<string, HeatmapCell>();
   cells.forEach((cell) => {
     cellMap.set(`${cell.likelihood}-${cell.impact}`, cell);
