@@ -219,6 +219,13 @@ export class TodosController {
     @Param('boardId') boardId: string,
     @Body() columns: BoardColumnDto[],
   ) {
+    // Guard against type confusion: @Body() can receive any JSON value.
+    // Reject non-array payloads to prevent type confusion (CodeQL cwe-843).
+    if (!Array.isArray(columns)) {
+      throw new BadRequestException(
+        'Request body must be a JSON array of column definitions',
+      );
+    }
     const tenantId = req.tenantId!;
     const userId = this.getUserId(req);
     return this.todosService.replaceColumns(tenantId, userId, boardId, columns);
