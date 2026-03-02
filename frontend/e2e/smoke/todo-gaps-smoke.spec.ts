@@ -19,8 +19,6 @@ import { setupMockApi, login } from '../helpers';
 /* Mock data                                                           */
 /* ------------------------------------------------------------------ */
 
-const TENANT = '00000000-0000-0000-0000-000000000001';
-
 const mockBoard = {
   id: 'board-1',
   name: 'Sprint Board',
@@ -212,10 +210,6 @@ test.describe('Todo 1.6 Gap Fixes @mock', () => {
     await page.waitForTimeout(2000);
 
     // Verify Tags filter exists in the toolbar (Autocomplete with label "Tags")
-    const tagsFilterInput = page.locator('input[placeholder*="Tags"]').or(
-      page.locator('label:has-text("Tags")').first()
-    );
-    // At minimum the label "Tags" should be present in the filter area
     await expect(page.locator('label').filter({ hasText: 'Tags' }).first()).toBeVisible({ timeout: 10000 });
 
     // Click on a task card to open the drawer
