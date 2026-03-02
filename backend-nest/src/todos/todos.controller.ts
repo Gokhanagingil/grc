@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UseGuards,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenants/guards/tenant.guard';
@@ -52,6 +53,20 @@ export class TodosController {
     return userId;
   }
 
+  /**
+   * Reject array values for scalar query parameters.
+   * Prevents type-confusion attacks where a param sent twice
+   * (e.g. ?status=todo&status=done) becomes an array.
+   */
+  private ensureScalar(value: unknown, name: string): string | undefined {
+    if (Array.isArray(value)) {
+      throw new BadRequestException(
+        `Query parameter '${name}' must be a single value, not an array`,
+      );
+    }
+    return typeof value === 'string' ? value : undefined;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Tasks                                                               */
   /* ------------------------------------------------------------------ */
@@ -59,44 +74,51 @@ export class TodosController {
   @Get()
   async list(
     @Request() req: RequestWithUser,
-    @Query('boardId') boardId?: string | string[],
-    @Query('status') status?: string | string[],
-    @Query('assigneeUserId') assigneeUserId?: string | string[],
-    @Query('priority') priority?: string | string[],
-    @Query('dueDateFrom') dueDateFrom?: string | string[],
-    @Query('dueDateTo') dueDateTo?: string | string[],
-    @Query('search') search?: string | string[],
-    @Query('page') page?: string | string[],
-    @Query('pageSize') pageSize?: string | string[],
+    @Query('boardId') boardId?: string,
+    @Query('status') status?: string,
+    @Query('assigneeUserId') assigneeUserId?: string,
+    @Query('priority') priority?: string,
+    @Query('dueDateFrom') dueDateFrom?: string,
+    @Query('dueDateTo') dueDateTo?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
   ) {
     const tenantId = req.tenantId!;
-    // Coerce query params to string to prevent type-confusion attacks
-    // (a param sent twice becomes an array)
-    const str = (v?: string | string[]): string | undefined =>
-      Array.isArray(v) ? v[0] : v;
-    const pageStr = str(page);
-    const pageSizeStr = str(pageSize);
+
+    // Validate all scalar query params – reject arrays to prevent
+    // type-confusion / parameter-tampering attacks (CodeQL cwe-843).
+    const safeBoardId = this.ensureScalar(boardId, 'boardId');
+    const safeStatus = this.ensureScalar(status, 'status');
+    const safeAssignee = this.ensureScalar(assigneeUserId, 'assigneeUserId');
+    const safePriority = this.ensureScalar(priority, 'priority');
+    const safeDueDateFrom = this.ensureScalar(dueDateFrom, 'dueDateFrom');
+    const safeDueDateTo = this.ensureScalar(dueDateTo, 'dueDateTo');
+    const safeSearch = this.ensureScalar(search, 'search');
+    const safePage = this.ensureScalar(page, 'page');
+    const safePageSize = this.ensureScalar(pageSize, 'pageSize');
+
     return this.todosService.listTasks(tenantId, {
-      boardId: str(boardId),
-      status: str(status),
-      assigneeUserId: str(assigneeUserId),
-      priority: str(priority),
-      dueDateFrom: str(dueDateFrom),
-      dueDateTo: str(dueDateTo),
-      search: str(search),
-      page: pageStr ? parseInt(pageStr, 10) : undefined,
-      pageSize: pageSizeStr ? parseInt(pageSizeStr, 10) : undefined,
+      boardId: safeBoardId,
+      status: safeStatus,
+      assigneeUserId: safeAssignee,
+      priority: safePriority,
+      dueDateFrom: safeDueDateFrom,
+      dueDateTo: safeDueDateTo,
+      search: safeSearch,
+      page: safePage ? parseInt(safePage, 10) : undefined,
+      pageSize: safePageSize ? parseInt(safePageSize, 10) : undefined,
     });
   }
 
   @Get('stats/summary')
   async getStats(
     @Request() req: RequestWithUser,
-    @Query('boardId') boardId?: string | string[],
+    @Query('boardId') boardId?: string,
   ) {
     const tenantId = req.tenantId!;
-    const id = Array.isArray(boardId) ? boardId[0] : boardId;
-    return this.todosService.getTaskStats(tenantId, id);
+    const safeBoardId = this.ensureScalar(boardId, 'boardId');
+    return this.todosService.getTaskStats(tenantId, safeBoardId);
   }
 
   @Post()

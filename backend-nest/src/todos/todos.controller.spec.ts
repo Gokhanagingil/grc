@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { TodosController } from './todos.controller';
 import { TodosService } from './todos.service';
 import { RequestWithUser } from '../common/types';
@@ -264,6 +265,84 @@ describe('TodosController', () => {
         'user-42',
       );
       expect(result).toEqual({ message: 'Default board seeded' });
+    });
+  });
+
+  describe('Security - parameter tampering', () => {
+    it('should reject array values for status query param', async () => {
+      const req = createMockRequest('tenant-1');
+      // Simulate Express parsing ?status=todo&status=done as ['todo','done']
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          ['todo', 'done'] as unknown as string,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for boardId query param', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          ['id1', 'id2'] as unknown as string,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for page query param', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          ['1', '2'] as unknown as string,
+          undefined,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject array values for boardId in getStats', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.getStats(
+          req,
+          ['id1', 'id2'] as unknown as string,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should include param name in error message', async () => {
+      const req = createMockRequest('tenant-1');
+      await expect(
+        controller.list(
+          req,
+          undefined,
+          ['todo', 'done'] as unknown as string,
+        ),
+      ).rejects.toThrow(/status/);
     });
   });
 });

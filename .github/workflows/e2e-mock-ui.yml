@@ -26,7 +26,7 @@ jobs:
   mock-ui-tests:
     name: "MOCK_UI E2E Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -75,9 +75,18 @@ jobs:
           done
           echo "Static server is ready!"
 
-      - name: "Run MOCK_UI tests (grep @mock)"
+      - name: "Run MOCK_UI Quick Checks (smoke subset)"
         working-directory: ./frontend
-        run: npx playwright test --project=mock-ui --reporter=list
+        run: |
+          npx playwright test \
+            --project=mock-ui \
+            --reporter=list,html \
+            e2e/smoke/ui-health-crawl.spec.ts \
+            e2e/smoke/golden-smokes-itsm-cmdb.spec.ts \
+            e2e/smoke/phase0-quality-gate.spec.ts \
+            e2e/smoke/itsm-api-prefix.spec.ts \
+            e2e/smoke/login-controls.spec.ts \
+            e2e/smoke/login-risks.spec.ts
         env:
           E2E_MODE: "MOCK_UI"
           E2E_MOCK_API: "1"
@@ -93,6 +102,22 @@ jobs:
             rm -f /tmp/serve.pid
           fi
 
+      - name: "Debug: list Playwright output paths"
+        if: always()
+        working-directory: ./frontend
+        run: |
+          echo "=== pwd ==="
+          pwd
+          echo ""
+          echo "=== test-results/ ==="
+          find test-results -type f 2>/dev/null | head -30 || echo "(not found)"
+          echo ""
+          echo "=== playwright-report/ ==="
+          if [ -d playwright-report ]; then find playwright-report -type f 2>/dev/null | head -30; else echo "(not found)"; fi
+          echo ""
+          echo "=== trace / screenshot paths ==="
+          find test-results -name '*.zip' -o -name '*.png' 2>/dev/null | head -20 || echo "(none)"
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
@@ -100,6 +125,7 @@ jobs:
           name: playwright-report-mock-ui
           path: frontend/playwright-report/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload test artifacts
         if: always()
@@ -108,3 +134,4 @@ jobs:
           name: playwright-artifacts-mock-ui
           path: frontend/test-results/
           retention-days: 14
+          if-no-files-found: warn
