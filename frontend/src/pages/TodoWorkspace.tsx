@@ -46,7 +46,9 @@ import {
   Close as CloseIcon,
   Save as SaveIcon,
   Label as TagIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
+import { Menu as MuiMenu, ListItemIcon, ListItemText } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -60,6 +62,14 @@ interface TodoTag {
   id: string;
   name: string;
   color: string | null;
+}
+
+interface SimpleUser {
+  id: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
 }
 
 interface TodoTask {
@@ -353,10 +363,32 @@ const TaskDetailDrawer: React.FC<{
   onDelete: (taskId: string) => Promise<void>;
   boards: Board[];
   allTags: TodoTag[];
-}> = ({ task, open, onClose, onSave, onDelete, boards, allTags }) => {
+  users: SimpleUser[];
+  departments: string[];
+  onTagCreated: (tag: TodoTag) => void;
+}> = ({ task, open, onClose, onSave, onDelete, boards, allTags, users, departments, onTagCreated }) => {
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<TodoTag[]>([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#1976d2');
+  const [showCreateTag, setShowCreateTag] = useState(false);
+  const [creatingTag, setCreatingTag] = useState(false);
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    setCreatingTag(true);
+    try {
+      const res = await api.post('/todos/tags', { name: newTagName.trim(), color: newTagColor });
+      const tag = res.data?.data || res.data;
+      onTagCreated(tag);
+      setSelectedTags((prev) => [...prev, tag]);
+      setNewTagName('');
+      setShowCreateTag(false);
+    } catch { /* ignore */ } finally {
+      setCreatingTag(false);
+    }
+  };
 
   useEffect(() => {
     if (task) {
@@ -477,6 +509,29 @@ const TaskDetailDrawer: React.FC<{
             onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
           />
 
+          {/* Assigned To */}
+          <Autocomplete
+            options={users}
+            value={users.find((u) => u.id === form.assigneeUserId) || null}
+            onChange={(_, newVal) => setForm({ ...form, assigneeUserId: newVal?.id || '' })}
+            getOptionLabel={(o) => o.displayName || `${o.firstName || ''} ${o.lastName || ''}`.trim() || o.email || o.id}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            renderInput={(params) => <TextField {...params} label="Assigned To" size="small" />}
+          />
+
+          {/* Assignment Group */}
+          <FormControl fullWidth size="small">
+            <InputLabel>Assignment Group</InputLabel>
+            <Select
+              value={form.ownerGroupId || ''}
+              label="Assignment Group"
+              onChange={(e) => setForm({ ...form, ownerGroupId: e.target.value })}
+            >
+              <MenuItem value="">None</MenuItem>
+              {departments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+            </Select>
+          </FormControl>
+
           {/* Tags */}
           <Autocomplete
             multiple
@@ -501,6 +556,33 @@ const TaskDetailDrawer: React.FC<{
               })
             }
           />
+          {/* Inline Create Tag */}
+          {showCreateTag ? (
+            <Box display="flex" gap={1} alignItems="center">
+              <TextField
+                size="small"
+                label="Tag name"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                size="small"
+                type="color"
+                value={newTagColor}
+                onChange={(e) => setNewTagColor(e.target.value)}
+                sx={{ width: 56 }}
+              />
+              <Button size="small" variant="contained" onClick={handleCreateTag} disabled={creatingTag || !newTagName.trim()}>
+                Add
+              </Button>
+              <Button size="small" onClick={() => setShowCreateTag(false)}>Cancel</Button>
+            </Box>
+          ) : (
+            <Button size="small" startIcon={<AddIcon />} onClick={() => setShowCreateTag(true)} sx={{ alignSelf: 'flex-start' }}>
+              Create Tag
+            </Button>
+          )}
 
           {/* Metadata */}
           <Divider sx={{ my: 1 }} />
@@ -740,6 +822,8 @@ export const TodoWorkspace: React.FC = () => {
   const [tasks, setTasks] = useState<TodoTask[]>([]);
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [allTags, setAllTags] = useState<TodoTag[]>([]);
+  const [users, setUsers] = useState<SimpleUser[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
 
   // Loading
   const [initialLoading, setInitialLoading] = useState(true);
@@ -750,6 +834,9 @@ export const TodoWorkspace: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
+  const [filterAssignee, setFilterAssignee] = useState('all');
+  const [filterGroup, setFilterGroup] = useState('all');
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -760,6 +847,12 @@ export const TodoWorkspace: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createBoardDialogOpen, setCreateBoardDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+
+  // Board settings menu
+  const [boardMenuAnchor, setBoardMenuAnchor] = useState<null | HTMLElement>(null);
+  const [deleteBoardDialogOpen, setDeleteBoardDialogOpen] = useState(false);
+  const [renameBoardDialogOpen, setRenameBoardDialogOpen] = useState(false);
+  const [renameBoardName, setRenameBoardName] = useState('');
 
   const resolvedBoardIdRef = useRef<string | null>(null);
 
@@ -795,6 +888,9 @@ export const TodoWorkspace: React.FC = () => {
       if (filterPriority !== 'all') params.priority = filterPriority;
       if (filterStatus !== 'all') params.status = filterStatus;
       if (filterCategory !== 'all') params.category = filterCategory;
+      if (filterAssignee !== 'all') params.assigneeUserId = filterAssignee;
+      if (filterGroup !== 'all') params.ownerGroupId = filterGroup;
+      if (filterTagIds.length > 0) params.tagIds = filterTagIds.join(',');
       const tasksRes = await api.get('/todos', { params });
       const tasksData = tasksRes.data?.data || tasksRes.data;
       const taskList = tasksData?.items || tasksData || [];
@@ -810,7 +906,7 @@ export const TodoWorkspace: React.FC = () => {
     } finally {
       setTasksLoading(false);
     }
-  }, [searchQuery, filterPriority, filterStatus, filterCategory]);
+  }, [searchQuery, filterPriority, filterStatus, filterCategory, filterAssignee, filterGroup, filterTagIds]);
 
   const initWorkspace = useCallback(async () => {
     if (authLoading || !user) return;
@@ -840,12 +936,23 @@ export const TodoWorkspace: React.FC = () => {
         setCurrentBoard(boardDetail);
       }
 
-      // Fetch tasks + tags + stats in parallel
-      await Promise.all([
+      // Fetch users and departments
+      const [, , , usersRes, deptsRes] = await Promise.all([
         fetchTasks(targetBoardId),
         fetchTags(),
         fetchStats(),
+        api.get('/users', { params: { pageSize: '500' } }).catch(() => ({ data: { items: [] } })),
+        api.get('/users/departments/list').catch(() => ({ data: [] })),
       ]);
+
+      // Parse users
+      const usersData = usersRes.data?.data || usersRes.data;
+      const userList = Array.isArray(usersData?.items) ? usersData.items : Array.isArray(usersData) ? usersData : [];
+      setUsers(userList);
+
+      // Parse departments
+      const deptsData = deptsRes.data?.data || deptsRes.data;
+      setDepartments(Array.isArray(deptsData) ? deptsData : []);
 
       setError(null);
     } catch (err: unknown) {
@@ -873,7 +980,7 @@ export const TodoWorkspace: React.FC = () => {
       fetchTasks();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, filterPriority, filterStatus, filterCategory]);
+  }, [searchQuery, filterPriority, filterStatus, filterCategory, filterAssignee, filterGroup, filterTagIds]);
 
   // ---- View toggle ----
 
@@ -904,6 +1011,45 @@ export const TodoWorkspace: React.FC = () => {
     setBoards((prev) => [board, ...prev]);
     handleBoardChange(board.id);
     setSnackbar({ open: true, message: `Board "${board.name}" created`, severity: 'success' });
+  };
+
+  const handleDeleteBoard = async () => {
+    if (!currentBoard) return;
+    try {
+      await api.delete(`/todos/boards/${currentBoard.id}`);
+      setBoards((prev) => prev.filter((b) => b.id !== currentBoard.id));
+      setDeleteBoardDialogOpen(false);
+      setSnackbar({ open: true, message: `Board "${currentBoard.name}" deleted`, severity: 'success' });
+      // Switch to another board or clear
+      const remaining = boards.filter((b) => b.id !== currentBoard.id);
+      if (remaining.length > 0) {
+        handleBoardChange(remaining[0].id);
+      } else {
+        setCurrentBoard(null);
+        resolvedBoardIdRef.current = null;
+        setTasks([]);
+      }
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to delete board', severity: 'error' });
+    }
+  };
+
+  const handleRenameBoard = async () => {
+    if (!currentBoard || !renameBoardName.trim()) return;
+    try {
+      const res = await api.patch(`/todos/boards/${currentBoard.id}`, { name: renameBoardName.trim() });
+      const updated = res.data?.data || res.data;
+      setCurrentBoard(updated);
+      setBoards((prev) => prev.map((b) => (b.id === currentBoard.id ? { ...b, name: renameBoardName.trim() } : b)));
+      setRenameBoardDialogOpen(false);
+      setSnackbar({ open: true, message: 'Board renamed', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to rename board', severity: 'error' });
+    }
+  };
+
+  const handleTagCreated = (tag: TodoTag) => {
+    setAllTags((prev) => [...prev, tag]);
   };
 
   // ---- Task CRUD ----
@@ -1059,6 +1205,32 @@ export const TodoWorkspace: React.FC = () => {
               </Select>
             </FormControl>
           )}
+          {/* Board Settings kebab menu */}
+          {currentBoard && (
+            <>
+              <IconButton
+                size="small"
+                onClick={(e) => setBoardMenuAnchor(e.currentTarget)}
+                aria-label="Board settings"
+              >
+                <MoreVertIcon />
+              </IconButton>
+              <MuiMenu
+                anchorEl={boardMenuAnchor}
+                open={Boolean(boardMenuAnchor)}
+                onClose={() => setBoardMenuAnchor(null)}
+              >
+                <MenuItem onClick={() => { setBoardMenuAnchor(null); setRenameBoardName(currentBoard.name); setRenameBoardDialogOpen(true); }}>
+                  <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Rename Board</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => { setBoardMenuAnchor(null); setDeleteBoardDialogOpen(true); }} sx={{ color: 'error.main' }}>
+                  <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                  <ListItemText>Delete Board</ListItemText>
+                </MenuItem>
+              </MuiMenu>
+            </>
+          )}
         </Box>
         <Box display="flex" gap={1} alignItems="center">
           <ToggleButtonGroup value={view} exclusive onChange={handleViewChange} size="small">
@@ -1119,6 +1291,38 @@ export const TodoWorkspace: React.FC = () => {
               <Select value={filterCategory} label="Category" onChange={(e) => setFilterCategory(e.target.value)}>
                 <MenuItem value="all">All</MenuItem>
                 {TODO_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </Select>
+            </FormControl>
+            {/* Tag filter */}
+            <Autocomplete
+              multiple
+              size="small"
+              options={allTags}
+              value={allTags.filter((t) => filterTagIds.includes(t.id))}
+              onChange={(_, newVal) => setFilterTagIds(newVal.map((t) => t.id))}
+              getOptionLabel={(o) => o.name}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              renderInput={(params) => <TextField {...params} label="Tags" size="small" />}
+              sx={{ minWidth: 150 }}
+            />
+            {/* Assignee filter */}
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel>Assigned To</InputLabel>
+              <Select value={filterAssignee} label="Assigned To" onChange={(e) => setFilterAssignee(e.target.value)}>
+                <MenuItem value="all">All</MenuItem>
+                {users.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.id}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {/* Assignment Group filter */}
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Group</InputLabel>
+              <Select value={filterGroup} label="Group" onChange={(e) => setFilterGroup(e.target.value)}>
+                <MenuItem value="all">All</MenuItem>
+                {departments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Box>
@@ -1310,6 +1514,9 @@ export const TodoWorkspace: React.FC = () => {
         onDelete={handleTaskDelete}
         boards={boards}
         allTags={allTags}
+        users={users}
+        departments={departments}
+        onTagCreated={handleTagCreated}
       />
 
       {/* Create Task Dialog */}
@@ -1328,6 +1535,41 @@ export const TodoWorkspace: React.FC = () => {
         onClose={() => setCreateBoardDialogOpen(false)}
         onCreated={handleBoardCreated}
       />
+
+      {/* Delete Board Confirmation Dialog */}
+      <Dialog open={deleteBoardDialogOpen} onClose={() => setDeleteBoardDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Board</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete &quot;{currentBoard?.name}&quot;?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Tasks in this board will not be deleted. They will become unassigned from any board and appear in &quot;All Tasks&quot;.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteBoardDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteBoard}>Delete Board</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rename Board Dialog */}
+      <Dialog open={renameBoardDialogOpen} onClose={() => setRenameBoardDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Rename Board</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Board Name"
+            value={renameBoardName}
+            onChange={(e) => setRenameBoardName(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenameBoardDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleRenameBoard} disabled={!renameBoardName.trim()}>Rename</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar
