@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsIn, IsDateString, IsUUID, IsArray, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsDateString, IsUUID, IsArray, IsNumber, ArrayNotEmpty } from 'class-validator';
 
 export class UpdateTodoTaskDto {
   @IsOptional()
@@ -48,4 +48,9 @@ export class UpdateTodoTaskDto {
   @IsOptional()
   @IsDateString()
   completedAt?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  tagIds?: string[];
 }

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TodoTask, TodoBoard, TodoBoardColumn } from './entities';
+import { Repository, In } from 'typeorm';
+import { TodoTask, TodoBoard, TodoBoardColumn, TodoTag, TodoTaskTag } from './entities';
 import {
   CreateTodoTaskDto,
   UpdateTodoTaskDto,
@@ -9,6 +9,8 @@ import {
   UpdateTodoBoardDto,
   BoardColumnDto,
   MoveTaskDto,
+  CreateTodoTagDto,
+  UpdateTodoTagDto,
 } from './dto';
 
 @Injectable()
@@ -20,6 +22,10 @@ export class TodosService {
     private readonly boardRepo: Repository<TodoBoard>,
     @InjectRepository(TodoBoardColumn)
     private readonly columnRepo: Repository<TodoBoardColumn>,
+    @InjectRepository(TodoTag)
+    private readonly tagRepo: Repository<TodoTag>,
+    @InjectRepository(TodoTaskTag)
+    private readonly taskTagRepo: Repository<TodoTaskTag>,
   ) {}
 
   /* ------------------------------------------------------------------ */
@@ -32,10 +38,14 @@ export class TodosService {
       boardId?: string;
       status?: string;
       assigneeUserId?: string;
+      ownerGroupId?: string;
       priority?: string;
+      category?: string;
+      tagIds?: string[];
       dueDateFrom?: string;
       dueDateTo?: string;
       search?: string;
+      sort?: string;
       page?: number;
       pageSize?: number;
     },
@@ -60,8 +70,16 @@ export class TodosService {
         assignee: filters.assigneeUserId,
       });
     }
+    if (filters.ownerGroupId) {
+      qb.andWhere('t.owner_group_id = :ownerGroup', {
+        ownerGroup: filters.ownerGroupId,
+      });
+    }
     if (filters.priority) {
       qb.andWhere('t.priority = :priority', { priority: filters.priority });
+    }
+    if (filters.category) {
+      qb.andWhere('t.category = :category', { category: filters.category });
     }
     if (filters.dueDateFrom) {
       qb.andWhere('t.due_date >= :dueDateFrom', {
@@ -78,14 +96,63 @@ export class TodosService {
         search: `%${filters.search}%`,
       });
     }
+    if (filters.tagIds && filters.tagIds.length > 0) {
+      qb.andWhere(
+        `t.id IN (SELECT tt.task_id FROM todo_task_tags tt WHERE tt.tag_id IN (:...tagIds) AND tt.tenant_id = :tenantId)`,
+        { tagIds: filters.tagIds, tenantId },
+      );
+    }
 
-    qb.orderBy('t.created_at', 'DESC');
+    // Sorting
+    const allowedSorts: Record<string, string> = {
+      createdAt: 't.created_at',
+      dueDate: 't.due_date',
+      priority: 't.priority',
+      title: 't.title',
+      updatedAt: 't.updated_at',
+      sortOrder: 't.sort_order',
+    };
+    if (filters.sort) {
+      const desc = filters.sort.startsWith('-');
+      const field = desc ? filters.sort.slice(1) : filters.sort;
+      const col = allowedSorts[field];
+      if (col) {
+        qb.orderBy(col, desc ? 'DESC' : 'ASC');
+      } else {
+        qb.orderBy('t.created_at', 'DESC');
+      }
+    } else {
+      qb.orderBy('t.created_at', 'DESC');
+    }
 
     const total = await qb.getCount();
     const items = await qb
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getMany();
+
+    // Attach tags for each task
+    if (items.length > 0) {
+      const taskIds = items.map((t) => t.id);
+      const taskTags = await this.taskTagRepo.find({
+        where: { taskId: In(taskIds), tenantId },
+        relations: ['tag'],
+      });
+
+      const tagsByTaskId = new Map<string, TodoTag[]>();
+      for (const tt of taskTags) {
+        if (tt.tag && !tt.tag.isDeleted) {
+          const arr = tagsByTaskId.get(tt.taskId) || [];
+          arr.push(tt.tag);
+          tagsByTaskId.set(tt.taskId, arr);
+        }
+      }
+
+      for (const item of items) {
+        (item as TodoTask & { taskTags: TodoTag[] }).taskTags =
+          tagsByTaskId.get(item.id) || [];
+      }
+    }
 
     return {
       items,
@@ -96,13 +163,23 @@ export class TodosService {
     };
   }
 
-  async getTask(tenantId: string, taskId: string): Promise<TodoTask> {
+  async getTask(tenantId: string, taskId: string): Promise<TodoTask & { taskTags?: TodoTag[] }> {
     const task = await this.taskRepo.findOne({
       where: { id: taskId, tenantId, isDeleted: false },
     });
     if (!task) {
       throw new NotFoundException('Task not found');
     }
+
+    // Attach tags
+    const taskTags = await this.taskTagRepo.find({
+      where: { taskId, tenantId },
+      relations: ['tag'],
+    });
+    (task as TodoTask & { taskTags: TodoTag[] }).taskTags = taskTags
+      .filter((tt) => tt.tag && !tt.tag.isDeleted)
+      .map((tt) => tt.tag);
+
     return task;
   }
 
@@ -152,7 +229,14 @@ export class TodosService {
       sortOrder,
     });
 
-    return this.taskRepo.save(task);
+    const saved = await this.taskRepo.save(task);
+
+    // Handle tagIds
+    if (dto.tagIds && dto.tagIds.length > 0) {
+      await this.syncTaskTags(tenantId, saved.id, dto.tagIds);
+    }
+
+    return saved;
   }
 
   async updateTask(
@@ -196,7 +280,14 @@ export class TodosService {
     }
 
     task.updatedBy = userId;
-    return this.taskRepo.save(task);
+    const saved = await this.taskRepo.save(task);
+
+    // Handle tagIds
+    if (dto.tagIds !== undefined) {
+      await this.syncTaskTags(tenantId, saved.id, dto.tagIds || []);
+    }
+
+    return this.getTask(tenantId, saved.id);
   }
 
   async deleteTask(tenantId: string, taskId: string): Promise<void> {
@@ -273,6 +364,97 @@ export class TodosService {
           t.status !== 'completed',
       ).length,
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Task-Tag sync helper                                                */
+  /* ------------------------------------------------------------------ */
+
+  private async syncTaskTags(
+    tenantId: string,
+    taskId: string,
+    tagIds: string[],
+  ): Promise<void> {
+    // Remove existing
+    await this.taskTagRepo
+      .createQueryBuilder()
+      .delete()
+      .where('task_id = :taskId AND tenant_id = :tenantId', {
+        taskId,
+        tenantId,
+      })
+      .execute();
+
+    // Add new
+    if (tagIds.length > 0) {
+      const entities = tagIds.map((tagId) =>
+        this.taskTagRepo.create({ tenantId, taskId, tagId }),
+      );
+      await this.taskTagRepo.save(entities);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tags                                                                */
+  /* ------------------------------------------------------------------ */
+
+  async listTags(tenantId: string): Promise<TodoTag[]> {
+    return this.tagRepo.find({
+      where: { tenantId, isDeleted: false },
+      order: { name: 'ASC' },
+    });
+  }
+
+  async createTag(
+    tenantId: string,
+    userId: string,
+    dto: CreateTodoTagDto,
+  ): Promise<TodoTag> {
+    if (!dto.name || dto.name.trim().length === 0) {
+      throw new BadRequestException('name is required');
+    }
+    const tag = this.tagRepo.create({
+      tenantId,
+      createdBy: userId,
+      name: dto.name.trim(),
+      color: dto.color || null,
+    });
+    return this.tagRepo.save(tag);
+  }
+
+  async updateTag(
+    tenantId: string,
+    userId: string,
+    tagId: string,
+    dto: UpdateTodoTagDto,
+  ): Promise<TodoTag> {
+    const tag = await this.tagRepo.findOne({
+      where: { id: tagId, tenantId, isDeleted: false },
+    });
+    if (!tag) {
+      throw new NotFoundException('Tag not found');
+    }
+    if (dto.name !== undefined) {
+      const trimmed = dto.name.trim();
+      if (trimmed.length === 0) {
+        throw new BadRequestException('name cannot be empty');
+      }
+      tag.name = trimmed;
+    }
+    if (dto.color !== undefined) tag.color = dto.color || null;
+    tag.updatedBy = userId;
+    return this.tagRepo.save(tag);
+  }
+
+  async deleteTag(tenantId: string, tagId: string): Promise<void> {
+    const tag = await this.tagRepo.findOne({
+      where: { id: tagId, tenantId, isDeleted: false },
+    });
+    if (!tag) {
+      throw new NotFoundException('Tag not found');
+    }
+    tag.isDeleted = true;
+    await this.tagRepo.save(tag);
   }
 
   /* ------------------------------------------------------------------ */
@@ -369,6 +551,29 @@ export class TodosService {
     if (dto.visibility !== undefined) board.visibility = dto.visibility;
     board.updatedBy = userId;
     return this.boardRepo.save(board);
+  }
+
+  async deleteBoard(tenantId: string, boardId: string): Promise<void> {
+    const board = await this.boardRepo.findOne({
+      where: { id: boardId, tenantId, isDeleted: false },
+    });
+    if (!board) {
+      throw new NotFoundException('Board not found');
+    }
+
+    // Move tasks to no-board (null boardId)
+    await this.taskRepo
+      .createQueryBuilder()
+      .update(TodoTask)
+      .set({ boardId: undefined as unknown as string })
+      .where('board_id = :boardId AND tenant_id = :tenantId AND is_deleted = false', {
+        boardId,
+        tenantId,
+      })
+      .execute();
+
+    board.isDeleted = true;
+    await this.boardRepo.save(board);
   }
 
   async replaceColumns(

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TodosController } from './todos.controller';
 import { TodosService } from './todos.service';
-import { TodoTask, TodoBoard, TodoBoardColumn } from './entities';
+import { TodoTask, TodoBoard, TodoBoardColumn, TodoTag, TodoTaskTag } from './entities';
 import { TenantsModule } from '../tenants/tenants.module';
 
 /**
@@ -16,7 +16,7 @@ import { TenantsModule } from '../tenants/tenants.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TodoTask, TodoBoard, TodoBoardColumn]),
+    TypeOrmModule.forFeature([TodoTask, TodoBoard, TodoBoardColumn, TodoTag, TodoTaskTag]),
     TenantsModule,
   ],
   controllers: [TodosController],

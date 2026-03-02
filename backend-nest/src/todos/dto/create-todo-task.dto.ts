@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsIn, IsDateString, IsUUID, IsArray, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsDateString, IsUUID, IsArray, IsNumber, ArrayNotEmpty } from 'class-validator';
 
 export class CreateTodoTaskDto {
   @IsString()
@@ -43,4 +43,9 @@ export class CreateTodoTaskDto {
   @IsOptional()
   @IsNumber()
   sortOrder?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  tagIds?: string[];
 }

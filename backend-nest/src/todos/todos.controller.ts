@@ -26,6 +26,8 @@ import {
   UpdateTodoBoardDto,
   BoardColumnDto,
   MoveTaskDto,
+  CreateTodoTagDto,
+  UpdateTodoTagDto,
 } from './dto';
 
 /**
@@ -77,10 +79,14 @@ export class TodosController {
     @Query('boardId') boardId?: string,
     @Query('status') status?: string,
     @Query('assigneeUserId') assigneeUserId?: string,
+    @Query('ownerGroupId') ownerGroupId?: string,
     @Query('priority') priority?: string,
+    @Query('category') category?: string,
+    @Query('tagIds') tagIds?: string | string[],
     @Query('dueDateFrom') dueDateFrom?: string,
     @Query('dueDateTo') dueDateTo?: string,
     @Query('search') search?: string,
+    @Query('sort') sort?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -91,21 +97,35 @@ export class TodosController {
     const safeBoardId = this.ensureScalar(boardId, 'boardId');
     const safeStatus = this.ensureScalar(status, 'status');
     const safeAssignee = this.ensureScalar(assigneeUserId, 'assigneeUserId');
+    const safeOwnerGroup = this.ensureScalar(ownerGroupId, 'ownerGroupId');
     const safePriority = this.ensureScalar(priority, 'priority');
+    const safeCategory = this.ensureScalar(category, 'category');
     const safeDueDateFrom = this.ensureScalar(dueDateFrom, 'dueDateFrom');
     const safeDueDateTo = this.ensureScalar(dueDateTo, 'dueDateTo');
     const safeSearch = this.ensureScalar(search, 'search');
+    const safeSort = this.ensureScalar(sort, 'sort');
     const safePage = this.ensureScalar(page, 'page');
     const safePageSize = this.ensureScalar(pageSize, 'pageSize');
+
+    // tagIds is intentionally allowed as array (multi-select filter)
+    const safeTagIds = tagIds
+      ? Array.isArray(tagIds)
+        ? tagIds
+        : tagIds.split(',')
+      : undefined;
 
     return this.todosService.listTasks(tenantId, {
       boardId: safeBoardId,
       status: safeStatus,
       assigneeUserId: safeAssignee,
+      ownerGroupId: safeOwnerGroup,
       priority: safePriority,
+      category: safeCategory,
+      tagIds: safeTagIds,
       dueDateFrom: safeDueDateFrom,
       dueDateTo: safeDueDateTo,
       search: safeSearch,
+      sort: safeSort,
       page: safePage ? parseInt(safePage, 10) : undefined,
       pageSize: safePageSize ? parseInt(safePageSize, 10) : undefined,
     });
@@ -193,6 +213,16 @@ export class TodosController {
     return this.todosService.getBoard(tenantId, boardId);
   }
 
+  @Delete('boards/:boardId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteBoard(
+    @Request() req: RequestWithUser,
+    @Param('boardId') boardId: string,
+  ) {
+    const tenantId = req.tenantId!;
+    await this.todosService.deleteBoard(tenantId, boardId);
+  }
+
   @Patch('boards/:boardId')
   async updateBoard(
     @Request() req: RequestWithUser,
@@ -241,6 +271,53 @@ export class TodosController {
     const tenantId = req.tenantId!;
     const userId = this.getUserId(req);
     return this.todosService.moveTask(tenantId, userId, boardId, taskId, dto);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Seed (admin)                                                        */
+  /* ------------------------------------------------------------------ */
+
+  /* ------------------------------------------------------------------ */
+  /* Tags                                                                */
+  /* ------------------------------------------------------------------ */
+
+  @Get('tags/list')
+  async listTags(@Request() req: RequestWithUser) {
+    const tenantId = req.tenantId!;
+    const tags = await this.todosService.listTags(tenantId);
+    return { items: tags, total: tags.length };
+  }
+
+  @Post('tags')
+  @HttpCode(HttpStatus.CREATED)
+  async createTag(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateTodoTagDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = this.getUserId(req);
+    return this.todosService.createTag(tenantId, userId, dto);
+  }
+
+  @Patch('tags/:tagId')
+  async updateTag(
+    @Request() req: RequestWithUser,
+    @Param('tagId') tagId: string,
+    @Body() dto: UpdateTodoTagDto,
+  ) {
+    const tenantId = req.tenantId!;
+    const userId = this.getUserId(req);
+    return this.todosService.updateTag(tenantId, userId, tagId, dto);
+  }
+
+  @Delete('tags/:tagId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteTag(
+    @Request() req: RequestWithUser,
+    @Param('tagId') tagId: string,
+  ) {
+    const tenantId = req.tenantId!;
+    await this.todosService.deleteTag(tenantId, tagId);
   }
 
   /* ------------------------------------------------------------------ */

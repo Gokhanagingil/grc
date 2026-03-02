@@ -344,10 +344,73 @@ async function mockCatchAllApis(page: Page) {
     await route.fulfill(listResponse());
   });
 
-  // Todos
+  // Todos — handle sub-routes before catch-all
+  await page.route('**/todos/tags/**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    if (route.request().method() === 'GET') {
+      await route.fulfill(successResponse({ items: [], total: 0 }));
+    } else {
+      await route.fulfill(successResponse({ id: 'mock-tag', name: 'Mock Tag' }));
+    }
+  });
+
+  await page.route('**/todos/boards/**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    const url = route.request().url();
+    if (url.includes('/move')) {
+      await route.fulfill(successResponse({ id: 'mock-task', status: 'doing' }));
+      return;
+    }
+    if (url.includes('/columns')) {
+      await route.fulfill(successResponse([]));
+      return;
+    }
+    // Board detail or boards list
+    if (url.match(/boards\/[0-9a-f-]+$/)) {
+      await route.fulfill(successResponse({
+        id: 'mock-board-id',
+        name: 'Default Board',
+        description: null,
+        columns: [
+          { id: 'col-1', key: 'todo', title: 'To Do', orderIndex: 0, wipLimit: null, isDoneColumn: false },
+          { id: 'col-2', key: 'doing', title: 'Doing', orderIndex: 1, wipLimit: null, isDoneColumn: false },
+          { id: 'col-3', key: 'done', title: 'Done', orderIndex: 2, wipLimit: null, isDoneColumn: true },
+        ],
+      }));
+      return;
+    }
+    await route.fulfill(successResponse({
+      items: [{
+        id: 'mock-board-id',
+        name: 'Default Board',
+        description: null,
+        columns: [
+          { id: 'col-1', key: 'todo', title: 'To Do', orderIndex: 0, wipLimit: null, isDoneColumn: false },
+          { id: 'col-2', key: 'doing', title: 'Doing', orderIndex: 1, wipLimit: null, isDoneColumn: false },
+          { id: 'col-3', key: 'done', title: 'Done', orderIndex: 2, wipLimit: null, isDoneColumn: true },
+        ],
+      }],
+      total: 1,
+    }));
+  });
+
+  await page.route('**/todos/stats/**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({ total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0 }));
+  });
+
+  await page.route('**/todos/seed**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({ message: 'Default board seeded' }));
+  });
+
   await page.route('**/todos**', async (route) => {
     if (!isApi(route)) { await route.continue(); return; }
-    await route.fulfill(listResponse());
+    if (route.request().method() === 'GET') {
+      await route.fulfill(listResponse());
+    } else {
+      await route.fulfill(successResponse({ id: 'mock-task', title: 'Mock Task' }));
+    }
   });
 }
 
