@@ -117,7 +117,7 @@ const GrcInsights: React.FC = () => {
                 </Typography>
               </Box>
               <Typography variant="h3" component="div">
-                {data?.summary.totalOpenIssues ?? 0}
+                {data?.summary?.totalOpenIssues ?? 0}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Across all severities
@@ -155,7 +155,7 @@ const GrcInsights: React.FC = () => {
                 </Typography>
               </Box>
               <Typography variant="h3" component="div">
-                {data?.summary.totalFailedTests ?? 0}
+                {data?.summary?.totalFailedTests ?? 0}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Failed test results
@@ -174,10 +174,10 @@ const GrcInsights: React.FC = () => {
                 </Typography>
               </Box>
               <Typography variant="h3" component="div">
-                {data?.evidenceStats.total ?? 0}
+                {data?.evidenceStats?.total ?? 0}
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                {data?.evidenceStats.linked ?? 0} linked, {data?.evidenceStats.unlinked ?? 0} unlinked
+                {data?.evidenceStats?.linked ?? 0} linked, {data?.evidenceStats?.unlinked ?? 0} unlinked
               </Typography>
             </CardContent>
           </Card>
@@ -217,7 +217,7 @@ const GrcInsights: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body1" fontWeight="medium">
-                            {data?.openIssuesBySeverity[severity] ?? 0}
+                            {data?.openIssuesBySeverity?.[severity] ?? 0}
                           </Typography>
                         </TableCell>
                       </TableRow>

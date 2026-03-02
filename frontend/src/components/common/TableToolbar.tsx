@@ -164,7 +164,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
   const hasColumnConfig = columns.length > 0 && onColumnToggle;
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mb: 2 }} data-testid="list-toolbar">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         {onSearchChange && (
           <TextField

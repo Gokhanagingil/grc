@@ -224,7 +224,38 @@ async function mockCatchAllApis(page: Page) {
     await route.fulfill(listResponse());
   });
 
-  // Dashboard endpoints
+  // Dashboard endpoints — return stable payloads so pages don't crash
+  await page.route('**/grc/dashboard/insights**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({
+      summary: { totalOpenIssues: 0, totalOpenRisks: 0, totalFailedTests: 0 },
+      evidenceStats: { total: 0, linked: 0, unlinked: 0 },
+      openIssuesBySeverity: {},
+    }));
+  });
+
+  await page.route('**/grc/dashboard/audit**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({
+      auditPipeline: { draft: 0, planned: 0, fieldwork: 0, reporting: 0, final: 0, closed: 0 },
+      findingsByDepartment: [],
+      topRiskAreas: [],
+      capaPerformance: { openCapas: 0, closedCapas: 0, overdueCapas: 0, averageResolutionTime: 0 },
+    }));
+  });
+
+  await page.route('**/grc/dashboard/compliance**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({
+      requirementStatus: { compliant: 0, partiallyCompliant: 0, nonCompliant: 0, notAssessed: 0 },
+      clauseHeatmap: [],
+      totalRequirements: 0,
+      totalControls: 0,
+      totalPolicies: 0,
+      totalStandards: 0,
+    }));
+  });
+
   await page.route('**/grc/dashboard/**', async (route) => {
     if (!isApi(route)) { await route.continue(); return; }
     await route.fulfill(successResponse({}));
@@ -248,7 +279,32 @@ async function mockCatchAllApis(page: Page) {
     await route.fulfill(listResponse());
   });
 
-  // Analytics/stats
+  // ITSM analytics — return stable payload with all expected fields
+  await page.route('**/itsm/analytics**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({
+      kpis: { openProblems: 0, closedProblems: 0, openIncidents: 0, closedIncidents: 0 },
+      closureEffectiveness: { problemClosureRate: 0, incidentClosureRate: 0 },
+      severityDistribution: [],
+      problemTrend: [],
+      stateDistribution: [],
+      priorityDistribution: [],
+      categoryDistribution: [],
+      aging: [],
+      trend: [],
+      byStatus: [],
+      bySeverity: [],
+      statusDistribution: [],
+      knowledgeCandidatesByStatus: [],
+      fixStatusDistribution: [],
+      problemClosureRateTrend: [],
+      openProblemsByPriority: [],
+      openActionsByPriority: [],
+      items: [],
+    }));
+  });
+
+  // Other analytics/stats
   await page.route('**/analytics**', async (route) => {
     if (!isApi(route)) { await route.continue(); return; }
     await route.fulfill(successResponse({}));
@@ -258,6 +314,22 @@ async function mockCatchAllApis(page: Page) {
   await page.route('**/grc/coverage**', async (route) => {
     if (!isApi(route)) { await route.continue(); return; }
     await route.fulfill(successResponse({ requirements: [], processes: [] }));
+  });
+
+  // Risk heatmap
+  await page.route('**/grc/risks/heatmap**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse({
+      inherent: [],
+      residual: [],
+      totalRisks: 0,
+    }));
+  });
+
+  // Calendar events
+  await page.route('**/grc/calendar/**', async (route) => {
+    if (!isApi(route)) { await route.continue(); return; }
+    await route.fulfill(successResponse([]));
   });
 
   // Metrics

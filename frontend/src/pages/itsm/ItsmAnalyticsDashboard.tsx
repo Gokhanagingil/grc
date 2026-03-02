@@ -418,6 +418,9 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
     { dataKey: 'resolved', name: 'Resolved', color: COLORS.info },
   ];
 
+  const kpis = data.kpis ?? {} as Record<string, number>;
+  const closure = data.closureEffectiveness ?? {} as Record<string, number>;
+
   const severityDonut = (data.severityDistribution || []).map(s => ({
     name: s.label,
     value: s.count,
@@ -431,8 +434,8 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Open Problems"
-            value={data.kpis.openProblems}
-            subtitle={`${data.kpis.totalProblems} total`}
+            value={kpis.openProblems ?? 0}
+            subtitle={`${kpis.totalProblems ?? 0} total`}
             icon={<ProblemIcon />}
             color={COLORS.warning}
           />
@@ -440,7 +443,7 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Major Incidents"
-            value={data.kpis.openMajorIncidents}
+            value={kpis.openMajorIncidents ?? 0}
             subtitle="Active"
             icon={<MajorIncidentIcon />}
             color={COLORS.error}
@@ -449,7 +452,7 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Overdue Actions"
-            value={data.kpis.actionOverdueCount}
+            value={kpis.actionOverdueCount ?? 0}
             subtitle="Past due date"
             icon={<PirIcon />}
             color={COLORS.deepOrange}
@@ -458,8 +461,8 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Published KEs"
-            value={data.kpis.knownErrorsPublished}
-            subtitle={`${data.kpis.knowledgeCandidatesGenerated} KC pending`}
+            value={kpis.knownErrorsPublished ?? 0}
+            subtitle={`${kpis.knowledgeCandidatesGenerated ?? 0} KC pending`}
             icon={<KnownErrorIcon />}
             color={COLORS.teal}
           />
@@ -471,37 +474,37 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Closure Rate"
-            value={`${data.closureEffectiveness.problemClosureRate}%`}
-            subtitle={data.closureEffectiveness.avgDaysToCloseProblem != null ? `Avg ${data.closureEffectiveness.avgDaysToCloseProblem}d to close` : 'No closures yet'}
+            value={`${closure.problemClosureRate ?? 0}%`}
+            subtitle={closure.avgDaysToCloseProblem != null ? `Avg ${closure.avgDaysToCloseProblem}d to close` : 'No closures yet'}
             icon={<ClosureIcon />}
-            color={data.closureEffectiveness.problemClosureRate >= 70 ? COLORS.success : data.closureEffectiveness.problemClosureRate >= 40 ? COLORS.warning : COLORS.error}
+            color={(closure.problemClosureRate ?? 0) >= 70 ? COLORS.success : (closure.problemClosureRate ?? 0) >= 40 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="PIR Completion"
-            value={`${data.kpis.pirCompletionPct}%`}
+            value={`${kpis.pirCompletionPct ?? 0}%`}
             subtitle="PIRs approved/closed"
             icon={<PirIcon />}
-            color={data.kpis.pirCompletionPct >= 80 ? COLORS.success : data.kpis.pirCompletionPct >= 50 ? COLORS.warning : COLORS.error}
+            color={(kpis.pirCompletionPct ?? 0) >= 80 ? COLORS.success : (kpis.pirCompletionPct ?? 0) >= 50 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Action Completion"
-            value={`${data.closureEffectiveness.actionClosureRate}%`}
-            subtitle={data.closureEffectiveness.avgDaysToCloseAction != null ? `Avg ${data.closureEffectiveness.avgDaysToCloseAction}d` : 'No completions'}
+            value={`${closure.actionClosureRate ?? 0}%`}
+            subtitle={closure.avgDaysToCloseAction != null ? `Avg ${closure.avgDaysToCloseAction}d` : 'No completions'}
             icon={<TrendIcon />}
-            color={data.closureEffectiveness.actionClosureRate >= 80 ? COLORS.success : data.closureEffectiveness.actionClosureRate >= 50 ? COLORS.warning : COLORS.error}
+            color={(closure.actionClosureRate ?? 0) >= 80 ? COLORS.success : (closure.actionClosureRate ?? 0) >= 50 ? COLORS.warning : COLORS.error}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Reopen Rate"
-            value={`${data.kpis.problemReopenRate}%`}
+            value={`${kpis.problemReopenRate ?? 0}%`}
             subtitle="Problems reopened"
             icon={<ProblemIcon />}
-            color={data.kpis.problemReopenRate <= 5 ? COLORS.success : data.kpis.problemReopenRate <= 15 ? COLORS.warning : COLORS.error}
+            color={(kpis.problemReopenRate ?? 0) <= 5 ? COLORS.success : (kpis.problemReopenRate ?? 0) <= 15 ? COLORS.warning : COLORS.error}
           />
         </Grid>
       </Grid>
@@ -510,8 +513,8 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <DashboardCard title="Problem Trend" subtitle="Monthly opened / closed / resolved">
-            {data.problemTrend.length > 0 ? (
-              <TrendChart data={data.problemTrend} xAxisKey="period" lines={trendLines} height={280} />
+            {(data.problemTrend || []).length > 0 ? (
+              <TrendChart data={data.problemTrend || []} xAxisKey="period" lines={trendLines} height={280} />
             ) : (
               <EmptyState message="No trend data yet" />
             )}
@@ -521,9 +524,9 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
           <DashboardCard title="Severity Distribution" subtitle="Problem severity breakdown">
             {severityDonut.length > 0 ? (
               <DonutChart
-                data={severityDonut}
-                height={280}
-                centerValue={data.kpis.totalProblems}
+                  data={severityDonut}
+                  height={280}
+                  centerValue={kpis.totalProblems ?? 0}
                 centerLabel="Total"
               />
             ) : (
@@ -543,25 +546,25 @@ const ExecutiveSummaryTab: React.FC<{ data: ExecutiveSummaryData | null }> = ({ 
 const ProblemTrendsTab: React.FC<{ data: ProblemTrendsData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No problem trends data available" />;
 
-  const stateDonut = data.stateDistribution.map(s => ({
+  const stateDonut = (data.stateDistribution || []).map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
   }));
 
-  const priorityPipeline = data.priorityDistribution.map(p => ({
+  const priorityPipeline = (data.priorityDistribution || []).map(p => ({
     name: p.label,
     value: p.count,
     color: PRIORITY_COLORS[p.label] || COLORS.info,
   }));
 
-  const categoryBars = data.categoryDistribution.map(c => ({
+  const categoryBars = (data.categoryDistribution || []).map(c => ({
     label: c.label || 'Uncategorized',
     value: c.count,
     color: COLORS.indigo,
   }));
 
-  const agingPipeline = data.aging.map(a => ({
+  const agingPipeline = (data.aging || []).map(a => ({
     name: a.bucket,
     value: a.count,
   }));
@@ -596,8 +599,8 @@ const ProblemTrendsTab: React.FC<{ data: ProblemTrendsData | null }> = ({ data }
         <Grid item xs={12} sm={4}>
           <MetricCard
             title="Total States"
-            value={data.stateDistribution.reduce((s, d) => s + d.count, 0)}
-            subtitle={`${data.stateDistribution.length} unique states`}
+            value={(data.stateDistribution || []).reduce((s, d) => s + d.count, 0)}
+            subtitle={`${(data.stateDistribution || []).length} unique states`}
             icon={<TrendIcon />}
             color={COLORS.primary}
           />
@@ -643,8 +646,8 @@ const ProblemTrendsTab: React.FC<{ data: ProblemTrendsData | null }> = ({ data }
         </Grid>
         <Grid item xs={12}>
           <DashboardCard title="Problem Trend" subtitle="Monthly opened / closed / resolved">
-            {data.trend.length > 0 ? (
-              <TrendChart data={data.trend} xAxisKey="period" lines={trendLines} height={300} />
+            {(data.trend || []).length > 0 ? (
+              <TrendChart data={data.trend || []} xAxisKey="period" lines={trendLines} height={300} />
             ) : (
               <EmptyState message="No trend data" />
             )}
@@ -662,13 +665,13 @@ const ProblemTrendsTab: React.FC<{ data: ProblemTrendsData | null }> = ({ data }
 const MajorIncidentTab: React.FC<{ data: MajorIncidentMetricsData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No major incident metrics available" />;
 
-  const statusDonut = data.byStatus.map(s => ({
+  const statusDonut = (data.byStatus || []).map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
   }));
 
-  const severityPipeline = data.bySeverity.map(s => ({
+  const severityPipeline = (data.bySeverity || []).map(s => ({
     name: s.label,
     value: s.count,
     color: s.label === 'SEV1' ? COLORS.error : s.label === 'SEV2' ? COLORS.warning : COLORS.info,
@@ -741,8 +744,8 @@ const MajorIncidentTab: React.FC<{ data: MajorIncidentMetricsData | null }> = ({
         </Grid>
         <Grid item xs={12}>
           <DashboardCard title="Major Incident Trend" subtitle="Monthly declared / resolved / closed">
-            {data.trend.length > 0 ? (
-              <TrendChart data={data.trend} xAxisKey="period" lines={trendLines} height={300} />
+            {(data.trend || []).length > 0 ? (
+              <TrendChart data={data.trend || []} xAxisKey="period" lines={trendLines} height={300} />
             ) : (
               <EmptyState message="No trend data" />
             )}
@@ -760,13 +763,13 @@ const MajorIncidentTab: React.FC<{ data: MajorIncidentMetricsData | null }> = ({
 const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No PIR effectiveness data available" />;
 
-  const statusDonut = data.statusDistribution.map(s => ({
+  const statusDonut = (data.statusDistribution || []).map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
   }));
 
-  const kcStatusDonut = data.knowledgeCandidatesByStatus.map(s => ({
+  const kcStatusDonut = (data.knowledgeCandidatesByStatus || []).map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
@@ -843,13 +846,13 @@ const PirEffectivenessTab: React.FC<{ data: PirEffectivenessData | null }> = ({ 
 const KnownErrorTab: React.FC<{ data: KnownErrorLifecycleData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No known error lifecycle data available" />;
 
-  const stateDonut = data.stateDistribution.map(s => ({
+  const stateDonut = (data.stateDistribution || []).map(s => ({
     name: s.label,
     value: s.count,
     color: STATE_COLORS[s.label] || COLORS.info,
   }));
 
-  const fixBars = data.fixStatusDistribution.map(f => ({
+  const fixBars = (data.fixStatusDistribution || []).map(f => ({
     label: f.label || 'Unknown',
     value: f.count,
     color: STATE_COLORS[f.label] || COLORS.info,
@@ -956,8 +959,8 @@ const ClosureTab: React.FC<{ data: ClosureEffectivenessData | null }> = ({ data 
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <DashboardCard title="Closure Trend" subtitle="Problem open/close trend over time">
-            {data.problemClosureRateTrend.length > 0 ? (
-              <TrendChart data={data.problemClosureRateTrend} xAxisKey="period" lines={trendLines} height={320} />
+            {(data.problemClosureRateTrend || []).length > 0 ? (
+              <TrendChart data={data.problemClosureRateTrend || []} xAxisKey="period" lines={trendLines} height={320} />
             ) : (
               <EmptyState message="No closure trend data" />
             )}
@@ -975,13 +978,13 @@ const ClosureTab: React.FC<{ data: ClosureEffectivenessData | null }> = ({ data 
 const BacklogTab: React.FC<{ data: BacklogSummaryData | null }> = ({ data }) => {
   if (!data) return <EmptyState message="No backlog data available" />;
 
-  const problemBars = data.openProblemsByPriority.map(p => ({
+  const problemBars = (data.openProblemsByPriority || []).map(p => ({
     label: p.label || 'Unset',
     value: p.count,
     color: PRIORITY_COLORS[p.label] || COLORS.info,
   }));
 
-  const actionBars = data.openActionsByPriority.map(a => ({
+  const actionBars = (data.openActionsByPriority || []).map(a => ({
     label: a.label || 'Unset',
     value: a.count,
     color: PRIORITY_COLORS[a.label] || COLORS.info,
@@ -1031,7 +1034,7 @@ const BacklogTab: React.FC<{ data: BacklogSummaryData | null }> = ({ data }) => 
       </Grid>
 
       {/* Backlog Items Table */}
-      {data.items.length > 0 && (
+      {(data.items || []).length > 0 && (
         <DashboardCard title="Top Backlog Items" subtitle="Sorted by priority and age" minHeight={200}>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
             <Table size="small" stickyHeader>
