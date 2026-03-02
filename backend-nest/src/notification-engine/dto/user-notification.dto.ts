@@ -1,4 +1,11 @@
-import { IsOptional, IsBoolean, IsInt, Min, Max, IsString } from 'class-validator';
+import {
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  Min,
+  Max,
+  IsString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UserNotificationFilterDto {
@@ -45,4 +52,22 @@ export class ExecuteActionDto {
   /** Optional payload overrides (e.g., new due date) */
   @IsOptional()
   payload?: Record<string, unknown>;
+}
+
+export class UpdateNotificationPreferenceDto {
+  @IsBoolean()
+  @IsOptional()
+  notifyOnAssignment?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  notifyOnDueDate?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  notifyOnGroupAssignment?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  notifyOnSystem?: boolean;
 }
