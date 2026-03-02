@@ -9,6 +9,7 @@
 name: "Usability & Regression Pack"
 
 on:
+workflow_dispatch:
   push:
     branches:
       - main
