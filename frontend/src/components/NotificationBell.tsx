@@ -189,16 +189,14 @@ export const NotificationBell: React.FC = () => {
     loadNotifications();
   };
 
-  /** Navigate to the related entity record. */
+  /** Navigate to the related entity record. Mark-as-read is handled by the caller. */
   const handleOpenRecord = (n: UserNotification) => {
     const route = resolveEntityRoute(n.entityType, n.entityId);
     if (route) {
       setOpen(false);
-      if (!n.readAt) handleMarkRead(n.id);
       navigate(route);
     } else if (n.link) {
       setOpen(false);
-      if (!n.readAt) handleMarkRead(n.id);
       navigate(n.link);
     }
   };
@@ -281,6 +279,7 @@ export const NotificationBell: React.FC = () => {
                     <ListItem disablePadding>
                       <ListItemButton
                         onClick={() => {
+                          if (!isRead(n)) handleMarkRead(n.id);
                           handleOpenRecord(n);
                         }}
                         sx={{
