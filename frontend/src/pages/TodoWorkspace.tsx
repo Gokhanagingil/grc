@@ -1017,18 +1017,19 @@ export const TodoWorkspace: React.FC = () => {
     if (!currentBoard) return;
     try {
       await api.delete(`/todos/boards/${currentBoard.id}`);
-      setBoards((prev) => prev.filter((b) => b.id !== currentBoard.id));
+      setBoards((prev) => {
+        const remaining = prev.filter((b) => b.id !== currentBoard!.id);
+        if (remaining.length > 0) {
+          handleBoardChange(remaining[0].id);
+        } else {
+          setCurrentBoard(null);
+          resolvedBoardIdRef.current = null;
+          setTasks([]);
+        }
+        return remaining;
+      });
       setDeleteBoardDialogOpen(false);
       setSnackbar({ open: true, message: `Board "${currentBoard.name}" deleted`, severity: 'success' });
-      // Switch to another board or clear
-      const remaining = boards.filter((b) => b.id !== currentBoard.id);
-      if (remaining.length > 0) {
-        handleBoardChange(remaining[0].id);
-      } else {
-        setCurrentBoard(null);
-        resolvedBoardIdRef.current = null;
-        setTasks([]);
-      }
     } catch {
       setSnackbar({ open: true, message: 'Failed to delete board', severity: 'error' });
     }
