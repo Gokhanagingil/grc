@@ -12,7 +12,6 @@
 import { test, expect, Page } from '@playwright/test';
 import {
   login,
-  setupMockApi,
   logE2eConfig,
   isMockUi,
 } from '../helpers';
@@ -288,12 +287,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
   // eslint-disable-next-line jest/valid-title
   test.skip(() => !isMockUi(), 'Golden Smokes require MOCK_UI mode');
 
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
-    await enableItsmModules(page);
-    await mockItsmEndpoints(page);
-    await mockCmdbEndpoints(page);
-  });
+  // NOTE: Do NOT call setupMockApi here — login() calls it internally.
+  // Specialized mocks must be registered AFTER login() in each test
+  // so they take priority over setupMockApi's catch-all handler.
 
   /* ---------------------------------------------------------------- */
   /* 1. ITSM Services: filter toolbar + status select                  */
@@ -301,6 +297,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('ITSM Services list has filter toolbar', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/itsm/services');
     await page.waitForLoadState('networkidle');
 
@@ -341,6 +340,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('ITSM Services status select applies value when changed', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/itsm/services');
     await page.waitForLoadState('networkidle');
     let selectWorked = false;
@@ -399,6 +401,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('CMDB CI create form loads without errors', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/cmdb/cis/new');
 
     // Wait for the form to load
@@ -446,6 +451,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('CI Classes page loads and shows class list or empty state', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/cmdb/classes');
 
     // Wait for content to load
@@ -470,6 +478,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('Class Hierarchy page loads and parent class list is available', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/cmdb/classes/tree');
 
     await page.waitForLoadState('networkidle');
@@ -496,6 +507,9 @@ test.describe('Golden Smokes: ITSM + CMDB @mock @smoke @golden', () => {
 
   test('CI Classes page shows filter toolbar or search', async ({ page }) => {
     await login(page);
+    await enableItsmModules(page);
+    await mockItsmEndpoints(page);
+    await mockCmdbEndpoints(page);
     await page.goto('/cmdb/classes');
     await page.waitForLoadState('networkidle');
 

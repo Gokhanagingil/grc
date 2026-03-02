@@ -17,7 +17,6 @@
 import { test, expect, Page } from '@playwright/test';
 import {
   login,
-  setupMockApi,
   logE2eConfig,
   isMockUi,
 } from '../helpers';
@@ -379,13 +378,13 @@ test.describe('UI Health Crawl @mock @smoke @crawl', () => {
   test('crawl all routes and generate health report', async ({ page }) => {
     test.setTimeout(120_000); // 2 minutes for full crawl
 
-    // Setup mocks
-    await setupMockApi(page);
+    // Login first (this calls setupMockApi internally)
+    await login(page);
+
+    // Register specialized mocks AFTER login so they take priority
+    // over setupMockApi's catch-all handler
     await enableAllModules(page);
     await mockCatchAllApis(page);
-
-    // Login
-    await login(page);
 
     // Prepare output dirs
     const reportDir = path.join(process.cwd(), 'test-results', 'ui-health-crawl');
