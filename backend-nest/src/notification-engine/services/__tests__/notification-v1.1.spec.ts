@@ -7,7 +7,10 @@ import {
 import { SysNotificationRule } from '../../entities/sys-notification-rule.entity';
 import { SysNotificationTemplate } from '../../entities/sys-notification-template.entity';
 import { SysNotificationDelivery } from '../../entities/sys-notification-delivery.entity';
-import { SysWebhookEndpoint } from '../../entities/sys-webhook-endpoint.entity';
+import { SafeTemplateService } from '../safe-template.service';
+import { ConditionEvaluatorService } from '../condition-evaluator.service';
+import { NotificationRateLimiterService } from '../rate-limiter.service';
+import { WebhookDeliveryService } from '../webhook-delivery.service';
 
 /**
  * Notification Center v1.1 unit tests
@@ -74,8 +77,21 @@ describe('NotificationEngineService v1.1', () => {
     }),
   };
 
-  const mockWebhookRepo = {
-    find: jest.fn().mockResolvedValue([]),
+  const mockSafeTemplateService = {
+    render: jest.fn().mockReturnValue('rendered'),
+  };
+
+  const mockConditionEvaluator = {
+    evaluate: jest.fn().mockReturnValue(true),
+  };
+
+  const mockRateLimiter = {
+    isAllowed: jest.fn().mockResolvedValue(true),
+    recordDelivery: jest.fn(),
+  };
+
+  const mockWebhookDelivery = {
+    deliver: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -89,7 +105,10 @@ describe('NotificationEngineService v1.1', () => {
         { provide: getRepositoryToken(SysNotificationRule), useValue: mockRuleRepo },
         { provide: getRepositoryToken(SysNotificationTemplate), useValue: mockTemplateRepo },
         { provide: getRepositoryToken(SysNotificationDelivery), useValue: mockDeliveryRepo },
-        { provide: getRepositoryToken(SysWebhookEndpoint), useValue: mockWebhookRepo },
+        { provide: SafeTemplateService, useValue: mockSafeTemplateService },
+        { provide: ConditionEvaluatorService, useValue: mockConditionEvaluator },
+        { provide: NotificationRateLimiterService, useValue: mockRateLimiter },
+        { provide: WebhookDeliveryService, useValue: mockWebhookDelivery },
       ],
     }).compile();
 
