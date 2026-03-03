@@ -289,8 +289,9 @@ export class UserNotificationController {
       throw new ForbiddenException(`Action type "${action.actionType}" is not allowed`);
     }
 
-    // 5. Merge payload from action definition + client-supplied overrides
-    const mergedPayload = { ...action.payload, ...(dto.payload || {}) };
+    // 5. Merge payload: server-defined entityId/entityType are authoritative (not client-overridable)
+    const { entityId: _eId, entityType: _eType, ...safeClientPayload } = (dto.payload || {}) as Record<string, unknown>;
+    const mergedPayload = { ...action.payload, ...safeClientPayload };
 
     // 6. Audit log entry (pre-execution)
     this.logger.log('Notification action execution started', {
