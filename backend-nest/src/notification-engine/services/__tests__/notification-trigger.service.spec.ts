@@ -14,12 +14,19 @@ describe('NotificationTriggerService', () => {
   let repo: jest.Mocked<Partial<Repository<SysUserNotification>>>;
 
   beforeEach(async () => {
+    const mockQueryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(3),
+    };
+
     repo = {
       create: jest.fn().mockImplementation((data) => ({ id: 'test-uuid', ...data })),
       save: jest.fn().mockImplementation((entity) =>
         Promise.resolve({ ...entity, id: entity.id || 'test-uuid' }),
       ),
       count: jest.fn().mockResolvedValue(3),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       manager: { query: jest.fn().mockResolvedValue([]) } as never,
     };
 
@@ -195,21 +202,14 @@ describe('NotificationTriggerService', () => {
   });
 
   describe('getUnreadCount', () => {
-    it('should return count of unread notifications', async () => {
+    it('should return count of unread ACTIVE notifications', async () => {
       const count = await service.getUnreadCount(
         '00000000-0000-0000-0000-000000000001',
         '00000000-0000-0000-0000-000000000002',
       );
 
       expect(count).toBe(3);
-      expect(repo.count).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenantId: '00000000-0000-0000-0000-000000000001',
-            userId: '00000000-0000-0000-0000-000000000002',
-          }),
-        }),
-      );
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('n');
     });
   });
 

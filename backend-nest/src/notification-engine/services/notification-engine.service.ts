@@ -534,6 +534,7 @@ export class NotificationEngineService {
     items: SysUserNotification[];
     total: number;
     unreadCount: number;
+    snoozedCount: number;
   }> {
     const page = filters?.page || 1;
     const pageSize = Math.min(filters?.pageSize || 20, 100);
@@ -542,6 +543,13 @@ export class NotificationEngineService {
       .createQueryBuilder('n')
       .where('n.tenantId = :tenantId', { tenantId })
       .andWhere('n.userId = :userId', { userId });
+
+    // Tab: snoozed shows only snoozed; otherwise show ACTIVE only
+    if (filters?.tab === 'snoozed') {
+      qb.andWhere('n.status = :snoozedStatus', { snoozedStatus: 'SNOOZED' });
+    } else {
+      qb.andWhere('n.status = :activeStatus', { activeStatus: 'ACTIVE' });
+    }
 
     if (filters?.unreadOnly) {
       qb.andWhere('n.readAt IS NULL');
@@ -562,7 +570,7 @@ export class NotificationEngineService {
       qb.andWhere('n.severity = :severity', { severity: filters.severity.toUpperCase() });
     }
 
-    // Tab-based filters
+    // Tab-based filters (non-snoozed tabs)
     if (filters?.tab === 'assignments') {
       qb.andWhere('n.type IN (:...assignTypes)', {
         assignTypes: ['ASSIGNMENT', 'MENTION'],
@@ -573,11 +581,21 @@ export class NotificationEngineService {
 
     const total = await qb.getCount();
 
+    // Unread count: only ACTIVE notifications
     const unreadCount = await this.userNotificationRepository
       .createQueryBuilder('n')
       .where('n.tenantId = :tenantId', { tenantId })
       .andWhere('n.userId = :userId', { userId })
       .andWhere('n.readAt IS NULL')
+      .andWhere('n.status = :activeStatus', { activeStatus: 'ACTIVE' })
+      .getCount();
+
+    // Snoozed count
+    const snoozedCount = await this.userNotificationRepository
+      .createQueryBuilder('n')
+      .where('n.tenantId = :tenantId', { tenantId })
+      .andWhere('n.userId = :userId', { userId })
+      .andWhere('n.status = :snoozedStatus', { snoozedStatus: 'SNOOZED' })
       .getCount();
 
     qb.orderBy('n.createdAt', 'DESC');
@@ -585,7 +603,7 @@ export class NotificationEngineService {
     qb.take(pageSize);
 
     const items = await qb.getMany();
-    return { items, total, unreadCount };
+    return { items, total, unreadCount, snoozedCount };
   }
 
   /**
@@ -606,10 +624,16 @@ export class NotificationEngineService {
     userId: string,
     notificationId: string,
   ): Promise<boolean> {
-    const result = await this.userNotificationRepository.update(
-      { id: notificationId, tenantId, userId },
-      { readAt: new Date() },
-    );
+    // Idempotent: only update if not already read
+    const result = await this.userNotificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({ readAt: new Date() })
+      .where('id = :id', { id: notificationId })
+      .andWhere('tenantId = :tenantId', { tenantId })
+      .andWhere('userId = :userId', { userId })
+      .andWhere('readAt IS NULL')
+      .execute();
     return (result.affected || 0) > 0;
   }
 
@@ -624,8 +648,146 @@ export class NotificationEngineService {
       .where('tenantId = :tenantId', { tenantId })
       .andWhere('userId = :userId', { userId })
       .andWhere('readAt IS NULL')
+      .andWhere('status = :activeStatus', { activeStatus: 'ACTIVE' })
       .execute();
     return result.affected || 0;
+  }
+
+  /* ---- v1.1: Snooze / Unsnooze ---- */
+
+  async snoozeNotification(
+    tenantId: string,
+    userId: string,
+    notificationId: string,
+    until: Date,
+  ): Promise<boolean> {
+    const result = await this.userNotificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        status: 'SNOOZED',
+        snoozeUntil: until,
+        readAt: new Date(), // snoozed = read for now
+      })
+      .where('id = :id', { id: notificationId })
+      .andWhere('tenantId = :tenantId', { tenantId })
+      .andWhere('userId = :userId', { userId })
+      .andWhere('status = :activeStatus', { activeStatus: 'ACTIVE' })
+      .execute();
+
+    if ((result.affected || 0) > 0) {
+      this.logger.log('Notification snoozed', {
+        notificationId,
+        userId,
+        tenantId,
+        snoozeUntil: until.toISOString(),
+      });
+    }
+    return (result.affected || 0) > 0;
+  }
+
+  async unsnoozeNotification(
+    tenantId: string,
+    userId: string,
+    notificationId: string,
+  ): Promise<boolean> {
+    const result = await this.userNotificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        status: 'ACTIVE',
+        snoozeUntil: null as unknown as Date,
+        readAt: null as unknown as Date,
+      })
+      .where('id = :id', { id: notificationId })
+      .andWhere('tenantId = :tenantId', { tenantId })
+      .andWhere('userId = :userId', { userId })
+      .andWhere('status = :snoozedStatus', { snoozedStatus: 'SNOOZED' })
+      .execute();
+
+    if ((result.affected || 0) > 0) {
+      this.logger.log('Notification unsnoozed', {
+        notificationId,
+        userId,
+        tenantId,
+      });
+    }
+    return (result.affected || 0) > 0;
+  }
+
+  /**
+   * Reactivate snoozed notifications whose snoozeUntil has passed.
+   * Called by the SnoozeReminderScannerService cron.
+   */
+  async reactivateSnoozedNotifications(): Promise<number> {
+    const now = new Date();
+    const result = await this.userNotificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        status: 'ACTIVE',
+        snoozeUntil: null as unknown as Date,
+        readAt: null as unknown as Date,
+      })
+      .where('status = :status', { status: 'SNOOZED' })
+      .andWhere('snooze_until IS NOT NULL')
+      .andWhere('snooze_until <= :now', { now })
+      .execute();
+    return result.affected || 0;
+  }
+
+  /**
+   * Activate pending personal reminders whose remindAt has passed.
+   * Called by the SnoozeReminderScannerService cron.
+   */
+  async activatePendingReminders(): Promise<number> {
+    const now = new Date();
+    const result = await this.userNotificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        status: 'ACTIVE',
+        readAt: null as unknown as Date,
+      })
+      .where('status = :status', { status: 'PENDING_REMINDER' })
+      .andWhere('remind_at IS NOT NULL')
+      .andWhere('remind_at <= :now', { now })
+      .execute();
+    return result.affected || 0;
+  }
+
+  /* ---- v1.1: Personal Reminders ---- */
+
+  async createPersonalReminder(
+    tenantId: string,
+    userId: string,
+    title: string,
+    note: string | undefined,
+    remindAt: Date,
+  ): Promise<SysUserNotification> {
+    const notification = this.userNotificationRepository.create({
+      tenantId,
+      userId,
+      title,
+      body: note || '',
+      type: 'PERSONAL_REMINDER',
+      severity: 'INFO',
+      source: 'SYSTEM',
+      status: remindAt > new Date() ? 'PENDING_REMINDER' : 'ACTIVE',
+      remindAt,
+      readAt: remindAt > new Date() ? new Date() : null, // pending reminders start as "read" until activated
+      metadata: { isPersonalReminder: true },
+      actions: [],
+    });
+
+    const saved = await this.userNotificationRepository.save(notification);
+    this.logger.log('Personal reminder created', {
+      notificationId: saved.id,
+      userId,
+      tenantId,
+      remindAt: remindAt.toISOString(),
+    });
+    return saved;
   }
 
   async retryDelivery(

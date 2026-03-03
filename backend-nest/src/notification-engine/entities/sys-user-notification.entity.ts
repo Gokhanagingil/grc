@@ -17,6 +17,7 @@ export enum NotificationType {
   STATUS_CHANGE = 'STATUS_CHANGE',
   MENTION = 'MENTION',
   SYSTEM = 'SYSTEM',
+  PERSONAL_REMINDER = 'PERSONAL_REMINDER',
 }
 
 /**
@@ -40,14 +41,33 @@ export enum NotificationSource {
 }
 
 /**
+ * Notification status for v1.1 snooze + reminder support.
+ */
+export enum NotificationStatus {
+  ACTIVE = 'ACTIVE',
+  SNOOZED = 'SNOOZED',
+  PENDING_REMINDER = 'PENDING_REMINDER',
+}
+
+/**
  * Schema for actionable notification buttons.
  * v0: only "OPEN_RECORD" is wired.
- * Future: TAKE_OWNERSHIP, CREATE_CHANGE, START_CAPA_STEP, etc.
+ * v1.1: OPEN_ENTITY, ASSIGN_TO_ME, SET_DUE_DATE added.
  */
 export interface NotificationAction {
   label: string;
   actionType: string;
   payload: Record<string, unknown>;
+}
+
+/**
+ * Entity snapshot embedded in notification metadata at creation time.
+ * Allows the UI to render a rich preview without cross-module live fetch.
+ */
+export interface EntitySnapshot {
+  primaryLabel: string;
+  secondaryLabel?: string;
+  keyFields: Array<{ label: string; value: string }>;
 }
 
 @Entity('sys_user_notifications')
@@ -105,6 +125,17 @@ export class SysUserNotification {
 
   @Column({ type: 'jsonb', nullable: true, default: '[]' })
   actions: NotificationAction[] | null;
+
+  /* ---- v1.1 additions ---- */
+
+  @Column({ type: 'varchar', length: 32, default: 'ACTIVE' })
+  status: string;
+
+  @Column({ type: 'timestamp', name: 'snooze_until', nullable: true })
+  snoozeUntil: Date | null;
+
+  @Column({ type: 'timestamp', name: 'remind_at', nullable: true })
+  remindAt: Date | null;
 
   /* ---- timestamps ---- */
 

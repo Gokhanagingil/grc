@@ -16,7 +16,12 @@ import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { RequestWithUser } from '../common/types';
 import { NotificationEngineService } from './services/notification-engine.service';
 import { NotificationTriggerService } from './services/notification-trigger.service';
-import { UserNotificationFilterDto, ExecuteActionDto } from './dto/user-notification.dto';
+import {
+  UserNotificationFilterDto,
+  ExecuteActionDto,
+  SnoozeNotificationDto,
+  CreatePersonalReminderDto,
+} from './dto/user-notification.dto';
 import { StructuredLoggerService } from '../common/logger';
 
 /** Server-side allowlist of safe action types */
@@ -69,6 +74,7 @@ export class UserNotificationController {
       items: result.items,
       total: result.total,
       unreadCount: result.unreadCount,
+      snoozedCount: result.snoozedCount,
       page: filter.page || 1,
       pageSize: filter.pageSize || 20,
     };
@@ -113,6 +119,96 @@ export class UserNotificationController {
       userId,
     );
     return { markedRead: count };
+  }
+
+  @Post(':id/snooze')
+  async snoozeNotification(
+    @NestRequest() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() dto: SnoozeNotificationDto,
+  ) {
+    const tenantId = req.tenantId;
+    const userId = req.user?.sub;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    if (!userId) throw new BadRequestException('User ID required');
+
+    const until = new Date(dto.until);
+    if (isNaN(until.getTime()) || until.getTime() <= Date.now()) {
+      throw new BadRequestException('Snooze time must be in the future');
+    }
+
+    this.logger.log('Notification snooze requested', {
+      notificationId: id,
+      userId,
+      tenantId,
+      snoozeUntil: dto.until,
+    });
+
+    const success = await this.engineService.snoozeNotification(
+      tenantId,
+      userId,
+      id,
+      until,
+    );
+    if (!success) throw new NotFoundException('Notification not found or already snoozed');
+    return { snoozed: true, snoozeUntil: dto.until };
+  }
+
+  @Post(':id/unsnooze')
+  async unsnoozeNotification(
+    @NestRequest() req: RequestWithUser,
+    @Param('id') id: string,
+  ) {
+    const tenantId = req.tenantId;
+    const userId = req.user?.sub;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    if (!userId) throw new BadRequestException('User ID required');
+
+    this.logger.log('Notification unsnooze requested', {
+      notificationId: id,
+      userId,
+      tenantId,
+    });
+
+    const success = await this.engineService.unsnoozeNotification(
+      tenantId,
+      userId,
+      id,
+    );
+    if (!success) throw new NotFoundException('Notification not found or not snoozed');
+    return { unsnoozed: true };
+  }
+
+  @Post('reminders')
+  async createPersonalReminder(
+    @NestRequest() req: RequestWithUser,
+    @Body() dto: CreatePersonalReminderDto,
+  ) {
+    const tenantId = req.tenantId;
+    const userId = req.user?.sub;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    if (!userId) throw new BadRequestException('User ID required');
+
+    const remindAt = new Date(dto.remindAt);
+    if (isNaN(remindAt.getTime())) {
+      throw new BadRequestException('Invalid remindAt date');
+    }
+
+    this.logger.log('Personal reminder creation requested', {
+      userId,
+      tenantId,
+      title: dto.title,
+      remindAt: dto.remindAt,
+    });
+
+    const notification = await this.engineService.createPersonalReminder(
+      tenantId,
+      userId,
+      dto.title,
+      dto.note,
+      remindAt,
+    );
+    return notification;
   }
 
   /**

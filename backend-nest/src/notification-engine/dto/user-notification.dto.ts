@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsString,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -52,6 +53,25 @@ export class ExecuteActionDto {
   /** Optional payload overrides (e.g., new due date) */
   @IsOptional()
   payload?: Record<string, unknown>;
+}
+
+export class SnoozeNotificationDto {
+  /** ISO date string for when to re-activate the notification */
+  @IsDateString()
+  until: string;
+}
+
+export class CreatePersonalReminderDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  @IsOptional()
+  note?: string;
+
+  /** ISO date string for when to show the reminder */
+  @IsDateString()
+  remindAt: string;
 }
 
 export class UpdateNotificationPreferenceDto {

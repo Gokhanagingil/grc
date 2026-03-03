@@ -9,6 +9,7 @@ import { SysWebhookEndpoint } from './entities/sys-webhook-endpoint.entity';
 import { NotificationEngineService } from './services/notification-engine.service';
 import { NotificationTriggerService } from './services/notification-trigger.service';
 import { DueDateScannerService } from './services/due-date-scanner.service';
+import { SnoozeReminderScannerService } from './services/snooze-reminder-scanner.service';
 import { NotificationPreferenceService } from './services/notification-preference.service';
 import { SafeTemplateService } from './services/safe-template.service';
 import { ConditionEvaluatorService } from './services/condition-evaluator.service';
@@ -50,6 +51,7 @@ import { GuardsModule } from '../common/guards';
     NotificationEngineService,
     NotificationTriggerService,
     DueDateScannerService,
+    SnoozeReminderScannerService,
     SafeTemplateService,
     ConditionEvaluatorService,
     NotificationRateLimiterService,
