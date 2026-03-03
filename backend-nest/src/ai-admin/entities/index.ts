@@ -5,3 +5,10 @@ export {
   AiActionType,
   AiAuditStatus,
 } from './ai-audit-event.entity';
+export {
+  AiSuggestionsPolicy,
+  AiSuggestionsProviderMode,
+  AI_SUGGESTIONS_ALLOWED_ACTION_TYPES,
+  AI_SUGGESTIONS_ALLOWED_INPUT_FIELDS,
+} from './ai-suggestions-policy.entity';
+export type { AiSuggestedActionType } from './ai-suggestions-policy.entity';

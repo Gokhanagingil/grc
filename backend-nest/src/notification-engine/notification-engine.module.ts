@@ -32,6 +32,7 @@ import { NotificationPreferenceController } from './notification-preference.cont
 import { WebhookEndpointController } from './webhook-endpoint.controller';
 import { EventBusModule } from '../event-bus/event-bus.module';
 import { GuardsModule } from '../common/guards';
+import { AiAdminModule } from '../ai-admin/ai-admin.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { GuardsModule } from '../common/guards';
     ]),
     EventBusModule,
     GuardsModule,
+    AiAdminModule,
   ],
   controllers: [
     NotificationRuleController,
