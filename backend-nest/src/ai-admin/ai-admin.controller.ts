@@ -20,11 +20,14 @@ import { Permissions } from '../auth/permissions/permissions.decorator';
 import { Permission } from '../auth/permissions/permission.enum';
 import { RequestWithUser } from '../common/types';
 import { AiAdminService } from './ai-admin.service';
+import { AiSuggestionsService } from './ai-suggestions.service';
 import {
   CreateProviderDto,
   UpdateProviderDto,
   UpsertPolicyDto,
   QueryAuditDto,
+  UpsertAiSuggestionsPolicyDto,
+  QueryAiActivityLogDto,
 } from './dto';
 
 /**
@@ -42,7 +45,10 @@ import {
 @Controller('grc/admin/ai')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class AiAdminController {
-  constructor(private readonly aiAdminService: AiAdminService) {}
+  constructor(
+    private readonly aiAdminService: AiAdminService,
+    private readonly aiSuggestionsService: AiSuggestionsService,
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════
   // Provider Config CRUD
@@ -237,5 +243,70 @@ export class AiAdminController {
       throw new BadRequestException('featureKey query parameter required');
     }
     return this.aiAdminService.resolveEffectiveConfig(tenantId, featureKey);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI Suggestions Governance (v0)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get AI Suggestions policy for the current tenant
+   */
+  @Get('suggestions/policy')
+  @Permissions(Permission.ADMIN_SETTINGS_READ)
+  async getSuggestionsPolicy(@NestRequest() req: RequestWithUser) {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID required');
+    }
+    const policy = await this.aiSuggestionsService.getPolicy(tenantId);
+    return policy ?? {
+      aiSuggestionsEnabled: false,
+      providerMode: 'STUB',
+      allowedActionTypes: ['OPEN_ENTITY', 'MARK_READ', 'ASSIGN_TO_ME', 'SET_DUE_DATE', 'CREATE_FOLLOWUP_TODO'],
+      allowedInputFields: ['notification.type', 'notification.severity', 'notification.dueAt', 'notification.entityType', 'snapshot.primaryLabel', 'snapshot.secondaryLabel', 'snapshot.keyFields'],
+      requiresConfirm: true,
+      rateLimitPerUserPerMinute: 3,
+      rateLimitPerTenantPerDay: 0,
+      cacheTtlSeconds: 600,
+    };
+  }
+
+  /**
+   * Upsert AI Suggestions policy for the current tenant
+   */
+  @Put('suggestions/policy')
+  @Permissions(Permission.ADMIN_SETTINGS_WRITE)
+  async upsertSuggestionsPolicy(
+    @Body() dto: UpsertAiSuggestionsPolicyDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID required');
+    }
+    return this.aiSuggestionsService.upsertPolicy(tenantId, dto);
+  }
+
+  /**
+   * Query AI Suggestions activity log (admin view)
+   */
+  @Get('suggestions/activity')
+  @Permissions(Permission.ADMIN_SETTINGS_READ)
+  async querySuggestionsActivity(
+    @Query() query: QueryAiActivityLogDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID required');
+    }
+    return this.aiSuggestionsService.queryActivityLog(tenantId, {
+      userId: query.userId,
+      status: query.status,
+      actionType: query.actionType,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 }

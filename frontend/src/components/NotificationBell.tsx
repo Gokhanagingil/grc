@@ -56,6 +56,9 @@ import {
   Add as AddIcon,
   LightbulbOutlined as SuggestIcon,
   AlarmOn as AlarmIcon,
+  SmartToy as AiAdvisorIcon,
+  Refresh as RefreshIcon,
+  AutoAwesome as SparkleIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 
@@ -99,6 +102,21 @@ interface UserNotification {
 }
 
 type TabValue = 'all' | 'assignments' | 'due_soon' | 'snoozed' | 'reminders';
+
+/** AI Advice response from backend. */
+interface AiAdviceSuggestion {
+  summary: string;
+  steps: string[];
+  whyThis: string;
+  actions: Array<{
+    actionType: string;
+    label: string;
+    payload: Record<string, unknown>;
+    requiresConfirm: boolean;
+  }>;
+  generatedAt: string;
+  disclaimer: string;
+}
 
 interface TimeBucket {
   label: string;
@@ -406,6 +424,12 @@ export const NotificationBell: React.FC = () => {
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // AI Suggestions state
+  const [aiAdvice, setAiAdvice] = useState<Record<string, AiAdviceSuggestion>>({});
+  const [aiAdviceLoading, setAiAdviceLoading] = useState<Record<string, boolean>>({});
+  const [aiAdviceError, setAiAdviceError] = useState<Record<string, string>>({});
+  const [aiAdviceExpanded, setAiAdviceExpanded] = useState<Record<string, boolean>>({});
+
   // Due date picker dialog (for SET_DUE_DATE action)
   const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
   const [dueDateValue, setDueDateValue] = useState('');
@@ -707,6 +731,45 @@ export const NotificationBell: React.FC = () => {
       handleSnooze(n.id, '1h');
       return;
     }
+    handleAction(n, syntheticAction, actionIndex);
+  };
+
+  /** Generate AI advice for a notification. */
+  const generateAiAdvice = async (notificationId: string, refresh = false) => {
+    try {
+      setAiAdviceLoading((prev) => ({ ...prev, [notificationId]: true }));
+      setAiAdviceError((prev) => ({ ...prev, [notificationId]: '' }));
+      const res = await api.post(`/grc/user-notifications/${notificationId}/ai-advice`, { refresh });
+      const data = res.data?.data || res.data;
+      if (data && data.summary) {
+        setAiAdvice((prev) => ({ ...prev, [notificationId]: data as AiAdviceSuggestion }));
+        setAiAdviceExpanded((prev) => ({ ...prev, [notificationId]: true }));
+      } else {
+        setAiAdviceError((prev) => ({ ...prev, [notificationId]: 'No advice available' }));
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      const msg = e.response?.status === 429
+        ? 'Rate limit reached. Please wait before trying again.'
+        : e.response?.data?.message || 'Failed to generate AI advice';
+      setAiAdviceError((prev) => ({ ...prev, [notificationId]: msg }));
+    } finally {
+      setAiAdviceLoading((prev) => ({ ...prev, [notificationId]: false }));
+    }
+  };
+
+  /** Handle clicking an AI-suggested action. */
+  const handleAiAction = (n: UserNotification, aiAction: AiAdviceSuggestion['actions'][0]) => {
+    const syntheticAction: NotificationAction = {
+      id: `ai_${aiAction.actionType}`,
+      label: aiAction.label,
+      actionType: aiAction.actionType,
+      payload: { ...aiAction.payload, entityType: n.entityType, entityId: n.entityId },
+      requiresConfirm: true, // Always require confirm for AI actions
+      dangerLevel: 'SAFE',
+    };
+    const matchIdx = (n.actions || []).findIndex((a) => a.actionType === aiAction.actionType);
+    const actionIndex = matchIdx >= 0 ? matchIdx : (n.actions || []).length;
     handleAction(n, syntheticAction, actionIndex);
   };
 
@@ -1255,6 +1318,148 @@ export const NotificationBell: React.FC = () => {
                                   </Box>
                                 );
                               })()}
+
+                              {/* ═══ AI Suggestions Accordion (v2.0 AI Advisor) ═══ */}
+                              <Box sx={{
+                                mb: 1,
+                                p: 1,
+                                bgcolor: 'background.paper',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: aiAdvice[n.id] ? 'secondary.200' : 'divider',
+                              }}>
+                                <Box
+                                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (aiAdvice[n.id]) {
+                                      setAiAdviceExpanded((prev) => ({ ...prev, [n.id]: !prev[n.id] }));
+                                    } else {
+                                      generateAiAdvice(n.id);
+                                    }
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <AiAdvisorIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
+                                    <Typography variant="caption" fontWeight={600} color="secondary.main">
+                                      AI Suggestions
+                                    </Typography>
+                                    {aiAdvice[n.id] && (
+                                      <Chip size="small" label="AI" color="secondary" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                                    )}
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    {aiAdviceLoading[n.id] && <CircularProgress size={14} />}
+                                    {!aiAdvice[n.id] && !aiAdviceLoading[n.id] && (
+                                      <Button
+                                        size="small"
+                                        variant="text"
+                                        startIcon={<SparkleIcon sx={{ fontSize: 14 }} />}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          generateAiAdvice(n.id);
+                                        }}
+                                        sx={{ textTransform: 'none', fontSize: '0.7rem', color: 'secondary.main' }}
+                                        data-testid="generate-ai-advice"
+                                      >
+                                        Generate
+                                      </Button>
+                                    )}
+                                    {aiAdvice[n.id] && (
+                                      <Tooltip title="Refresh advice">
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            generateAiAdvice(n.id, true);
+                                          }}
+                                          disabled={aiAdviceLoading[n.id]}
+                                        >
+                                          <RefreshIcon sx={{ fontSize: 14 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                    {aiAdvice[n.id] ? (
+                                      aiAdviceExpanded[n.id] ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />
+                                    ) : null}
+                                  </Box>
+                                </Box>
+
+                                {/* Error message */}
+                                {aiAdviceError[n.id] && (
+                                  <Alert severity="warning" sx={{ mt: 0.5, py: 0, fontSize: '0.72rem' }}>
+                                    {aiAdviceError[n.id]}
+                                  </Alert>
+                                )}
+
+                                {/* AI Advice Content */}
+                                <Collapse in={!!aiAdviceExpanded[n.id] && !!aiAdvice[n.id]}>
+                                  {aiAdvice[n.id] && (
+                                    <Box sx={{ mt: 1 }}>
+                                      {/* Summary */}
+                                      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500 }}>
+                                        {aiAdvice[n.id].summary}
+                                      </Typography>
+
+                                      {/* Steps */}
+                                      {(aiAdvice[n.id].steps || []).length > 0 && (
+                                        <Box sx={{ mb: 0.5, pl: 1 }}>
+                                          {aiAdvice[n.id].steps.map((step, idx) => (
+                                            <Typography key={idx} variant="caption" sx={{ display: 'block', mb: 0.25 }} color="text.secondary">
+                                              {idx + 1}. {step}
+                                            </Typography>
+                                          ))}
+                                        </Box>
+                                      )}
+
+                                      {/* Why this */}
+                                      {aiAdvice[n.id].whyThis && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontStyle: 'italic' }}>
+                                          Why: {aiAdvice[n.id].whyThis}
+                                        </Typography>
+                                      )}
+
+                                      {/* AI Suggested Actions */}
+                                      {(aiAdvice[n.id].actions || []).length > 0 && (
+                                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                          {aiAdvice[n.id].actions.map((aiAct, idx) => (
+                                            <Button
+                                              key={idx}
+                                              size="small"
+                                              variant="outlined"
+                                              color="secondary"
+                                              startIcon={getActionIcon(aiAct.actionType)}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAiAction(n, aiAct);
+                                              }}
+                                              sx={{
+                                                textTransform: 'none',
+                                                fontSize: '0.7rem',
+                                                borderColor: 'secondary.200',
+                                                '&:hover': { borderColor: 'secondary.main', bgcolor: 'secondary.50' },
+                                              }}
+                                              data-testid={`ai-action-${aiAct.actionType}`}
+                                            >
+                                              {aiAct.label}
+                                            </Button>
+                                          ))}
+                                        </Box>
+                                      )}
+
+                                      {/* Disclaimer + Generated at */}
+                                      <Box sx={{ mt: 0.75, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+                                          {aiAdvice[n.id].disclaimer || 'Review before applying'}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+                                          {aiAdvice[n.id].generatedAt && `Generated ${new Date(aiAdvice[n.id].generatedAt).toLocaleTimeString()}`}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  )}
+                                </Collapse>
+                              </Box>
 
                               {/* Action buttons */}
                               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

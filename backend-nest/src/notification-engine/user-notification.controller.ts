@@ -17,12 +17,14 @@ import { RequestWithUser } from '../common/types';
 import { NotificationEngineService } from './services/notification-engine.service';
 import { NotificationTriggerService } from './services/notification-trigger.service';
 import { NotificationActionService } from './services/notification-action.service';
+import { AiSuggestionsService } from '../ai-admin/ai-suggestions.service';
 import {
   UserNotificationFilterDto,
   ExecuteActionDto,
   SnoozeNotificationDto,
   CreatePersonalReminderDto,
 } from './dto/user-notification.dto';
+import { GenerateAiAdviceDto } from '../ai-admin/dto/ai-suggestions-policy.dto';
 import { StructuredLoggerService } from '../common/logger';
 
 /** Server-side allowlist of safe action types (v1.2) */
@@ -45,6 +47,7 @@ export class UserNotificationController {
     private readonly engineService: NotificationEngineService,
     private readonly triggerService: NotificationTriggerService,
     private readonly actionService: NotificationActionService,
+    private readonly aiSuggestionsService: AiSuggestionsService,
   ) {
     this.logger = new StructuredLoggerService();
     this.logger.setContext('UserNotificationController');
@@ -213,6 +216,49 @@ export class UserNotificationController {
       remindAt,
     );
     return notification;
+  }
+
+  /**
+   * Generate AI advice for a notification (v2 — AI Advisor).
+   * POST /grc/user-notifications/:id/ai-advice
+   *
+   * Checks: AI Suggestions enabled, permissions, rate limits.
+   * Builds minimal input, calls provider, validates, clamps, caches.
+   */
+  @Post(':id/ai-advice')
+  async generateAiAdvice(
+    @NestRequest() req: RequestWithUser,
+    @Param('id') notificationId: string,
+    @Body() dto: GenerateAiAdviceDto,
+  ) {
+    const tenantId = req.tenantId;
+    const userId = req.user?.sub;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    if (!userId) throw new BadRequestException('User ID required');
+
+    const advice = await this.aiSuggestionsService.generateAdvice(
+      tenantId,
+      userId,
+      notificationId,
+      dto.refresh ?? false,
+    );
+
+    // Map backend fields to frontend-expected format
+    return {
+      summary: advice.summary,
+      steps: advice.suggestedSteps || [],
+      whyThis: advice.whyThis,
+      actions: (advice.suggestedActions || []).map((a) => ({
+        actionType: a.actionType,
+        label: a.label,
+        payload: a.payload || {},
+        requiresConfirm: true, // Always require confirm in v0
+      })),
+      generatedAt: advice.generatedAt,
+      provider: advice.provider,
+      modelId: advice.modelId,
+      disclaimer: 'AI-generated suggestions. Review before applying.',
+    };
   }
 
   /**

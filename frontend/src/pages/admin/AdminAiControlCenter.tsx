@@ -46,6 +46,7 @@ import {
   Cloud as CloudIcon,
   Save as SaveIcon,
   VpnKey as KeyIcon,
+  SmartToy as AiIcon,
 } from '@mui/icons-material';
 import { AdminPageHeader } from '../../components/admin';
 import { api } from '../../services/api';
@@ -121,6 +122,63 @@ const FEATURE_KEYS = [
   { key: 'EVIDENCE_SUMMARY', label: 'Evidence Summary', available: false },
 ];
 
+// ── AI Suggestions Policy Types ───────────────────────────────────────
+
+interface AiSuggestionsPolicy {
+  id?: string;
+  tenantId?: string;
+  aiSuggestionsEnabled: boolean;
+  providerMode: string;
+  allowedActionTypes: string[];
+  allowedInputFields: string[];
+  requiresConfirm: boolean;
+  rateLimitPerUserPerMinute: number;
+  rateLimitPerTenantPerDay: number;
+  cacheTtlSeconds: number;
+}
+
+interface AiSuggestionsActivityEvent {
+  id: string;
+  tenantId: string;
+  userId: string | null;
+  featureKey: string;
+  providerType: string;
+  actionType: string;
+  status: string;
+  latencyMs: number | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+const DEFAULT_SUGGESTIONS_POLICY: AiSuggestionsPolicy = {
+  aiSuggestionsEnabled: false,
+  providerMode: 'STUB',
+  allowedActionTypes: ['OPEN_ENTITY', 'MARK_READ', 'ASSIGN_TO_ME', 'SET_DUE_DATE', 'CREATE_FOLLOWUP_TODO'],
+  allowedInputFields: ['notification.type', 'notification.severity', 'notification.dueAt', 'notification.entityType', 'snapshot.primaryLabel', 'snapshot.secondaryLabel', 'snapshot.keyFields'],
+  requiresConfirm: true,
+  rateLimitPerUserPerMinute: 3,
+  rateLimitPerTenantPerDay: 0,
+  cacheTtlSeconds: 600,
+};
+
+const ALL_ACTION_TYPES = [
+  { key: 'OPEN_ENTITY', label: 'Open Entity' },
+  { key: 'MARK_READ', label: 'Mark as Read' },
+  { key: 'ASSIGN_TO_ME', label: 'Assign to Me' },
+  { key: 'SET_DUE_DATE', label: 'Set Due Date' },
+  { key: 'CREATE_FOLLOWUP_TODO', label: 'Create Follow-up Todo' },
+];
+
+const ALL_INPUT_FIELDS = [
+  { key: 'notification.type', label: 'Type' },
+  { key: 'notification.severity', label: 'Severity' },
+  { key: 'notification.dueAt', label: 'Due Date' },
+  { key: 'notification.entityType', label: 'Entity Type' },
+  { key: 'snapshot.primaryLabel', label: 'Primary Label' },
+  { key: 'snapshot.secondaryLabel', label: 'Secondary Label' },
+  { key: 'snapshot.keyFields', label: 'Key Fields' },
+];
+
 const PROVIDER_TYPES = [
   { value: 'LOCAL', label: 'Local / Self-Hosted', recommended: true },
   { value: 'OPENAI', label: 'OpenAI', recommended: false },
@@ -162,6 +220,12 @@ export const AdminAiControlCenter: React.FC = () => {
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditPage, setAuditPage] = useState(0);
   const [auditPageSize, setAuditPageSize] = useState(10);
+
+  // AI Suggestions state
+  const [suggestionsPolicy, setSuggestionsPolicy] = useState<AiSuggestionsPolicy>(DEFAULT_SUGGESTIONS_POLICY);
+  const [suggestionsActivity, setSuggestionsActivity] = useState<AiSuggestionsActivityEvent[]>([]);
+  const [suggestionsActivityTotal, setSuggestionsActivityTotal] = useState(0);
+  const [suggestionsActivityPage, setSuggestionsActivityPage] = useState(0);
 
   // Provider modal state
   const [providerModalOpen, setProviderModalOpen] = useState(false);
@@ -218,17 +282,40 @@ export const AdminAiControlCenter: React.FC = () => {
     }
   }, [auditPage, auditPageSize]);
 
+  const fetchSuggestionsPolicy = useCallback(async () => {
+    try {
+      const res = await api.get('/grc/admin/ai/suggestions/policy');
+      const data = unwrapData<AiSuggestionsPolicy>(res.data);
+      setSuggestionsPolicy(data);
+    } catch (err) {
+      console.error('Failed to fetch AI suggestions policy:', err);
+    }
+  }, []);
+
+  const fetchSuggestionsActivity = useCallback(async () => {
+    try {
+      const res = await api.get('/grc/admin/ai/suggestions/activity', {
+        params: { page: suggestionsActivityPage + 1, pageSize: 50 },
+      });
+      const data = unwrapData<{ items: AiSuggestionsActivityEvent[]; total: number }>(res.data);
+      setSuggestionsActivity(data.items || []);
+      setSuggestionsActivityTotal(data.total || 0);
+    } catch (err) {
+      console.error('Failed to fetch AI suggestions activity:', err);
+    }
+  }, [suggestionsActivityPage]);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      await Promise.all([fetchProviders(), fetchPolicy(), fetchAudit()]);
+      await Promise.all([fetchProviders(), fetchPolicy(), fetchAudit(), fetchSuggestionsPolicy(), fetchSuggestionsActivity()]);
     } catch (err) {
       setError('Failed to load AI Control Center data');
     } finally {
       setLoading(false);
     }
-  }, [fetchProviders, fetchPolicy, fetchAudit]);
+  }, [fetchProviders, fetchPolicy, fetchAudit, fetchSuggestionsPolicy, fetchSuggestionsActivity]);
 
   // Initial load only (run once)
   const [initialized, setInitialized] = useState(false);
@@ -247,6 +334,48 @@ export const AdminAiControlCenter: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auditPage, auditPageSize]);
+
+  // Suggestions activity pagination
+  useEffect(() => {
+    if (initialized) {
+      fetchSuggestionsActivity();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionsActivityPage]);
+
+  // ── AI Suggestions Policy Save ──────────────────────────────────────
+
+  const handleSaveSuggestionsPolicy = async () => {
+    try {
+      setError(null);
+      await api.put('/grc/admin/ai/suggestions/policy', suggestionsPolicy);
+      setSuccessMsg('AI Suggestions policy saved successfully');
+      await fetchSuggestionsPolicy();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save suggestions policy';
+      setError(msg);
+    }
+  };
+
+  const toggleSuggestionsActionType = (actionType: string) => {
+    setSuggestionsPolicy((prev) => {
+      const current = prev.allowedActionTypes || [];
+      const next = current.includes(actionType)
+        ? current.filter((t) => t !== actionType)
+        : [...current, actionType];
+      return { ...prev, allowedActionTypes: next };
+    });
+  };
+
+  const toggleSuggestionsInputField = (field: string) => {
+    setSuggestionsPolicy((prev) => {
+      const current = prev.allowedInputFields || [];
+      const next = current.includes(field)
+        ? current.filter((f) => f !== field)
+        : [...current, field];
+      return { ...prev, allowedInputFields: next };
+    });
+  };
 
   // ── Provider CRUD ────────────────────────────────────────────────────
 
@@ -453,6 +582,7 @@ export const AdminAiControlCenter: React.FC = () => {
               <Tab label="Providers" data-testid="tab-providers" />
               <Tab label="Policies" data-testid="tab-policies" />
               <Tab label="Audit Log" data-testid="tab-audit" />
+              <Tab label="AI Suggestions" data-testid="tab-ai-suggestions" icon={<AiIcon />} iconPosition="start" />
             </Tabs>
           </Box>
 
@@ -860,6 +990,246 @@ export const AdminAiControlCenter: React.FC = () => {
                 />
               </TableContainer>
             )}
+          </TabPanel>
+
+          {/* ═══ AI Suggestions Tab ═══ */}
+          <TabPanel value={tabIndex} index={4}>
+            <Grid container spacing={3}>
+              {/* Kill Switch + Provider Mode */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      <AiIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                      AI Suggestions — Feature Flags
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={suggestionsPolicy.aiSuggestionsEnabled}
+                            onChange={(e) =>
+                              setSuggestionsPolicy({ ...suggestionsPolicy, aiSuggestionsEnabled: e.target.checked })
+                            }
+                          />
+                        }
+                        label="Enable AI Suggestions (Kill Switch)"
+                      />
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        When disabled, the &quot;Generate suggestions&quot; button will not appear in the notification drawer.
+                        Default: OFF.
+                      </Alert>
+                      <FormControl sx={{ maxWidth: 300 }}>
+                        <InputLabel>Provider Mode</InputLabel>
+                        <Select
+                          value={suggestionsPolicy.providerMode}
+                          onChange={(e) =>
+                            setSuggestionsPolicy({ ...suggestionsPolicy, providerMode: e.target.value })
+                          }
+                          label="Provider Mode"
+                        >
+                          <MenuItem value="STUB">Stub (Deterministic / CI)</MenuItem>
+                          <MenuItem value="REAL">Real Provider (requires env vars)</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Allowed Action Types Policy */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>P1: Allowed Action Types</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Action types AI is permitted to suggest. Server-enforced.
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {ALL_ACTION_TYPES.map((at) => (
+                        <FormControlLabel
+                          key={at.key}
+                          control={
+                            <Switch
+                              checked={(suggestionsPolicy.allowedActionTypes || []).includes(at.key)}
+                              onChange={() => toggleSuggestionsActionType(at.key)}
+                              size="small"
+                            />
+                          }
+                          label={at.label}
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Data Minimization Policy */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>P2: Data Minimization (Input Scope)</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Fields allowed to be sent to AI. No descriptions, attachments, or secrets.
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {ALL_INPUT_FIELDS.map((f) => (
+                        <FormControlLabel
+                          key={f.key}
+                          control={
+                            <Switch
+                              checked={(suggestionsPolicy.allowedInputFields || []).includes(f.key)}
+                              onChange={() => toggleSuggestionsInputField(f.key)}
+                              size="small"
+                            />
+                          }
+                          label={f.label}
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Human-in-the-loop Policy */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>P3: Human-in-the-Loop</Typography>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={suggestionsPolicy.requiresConfirm}
+                          disabled
+                        />
+                      }
+                      label="Require confirmation for all AI actions (v0: always ON)"
+                    />
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      In v0, all AI-suggested actions require human confirmation. This cannot be disabled.
+                    </Alert>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Rate Limits */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>Rate Limits &amp; Caching</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TextField
+                        label="Per-user per-minute limit"
+                        type="number"
+                        value={suggestionsPolicy.rateLimitPerUserPerMinute}
+                        onChange={(e) =>
+                          setSuggestionsPolicy({
+                            ...suggestionsPolicy,
+                            rateLimitPerUserPerMinute: parseInt(e.target.value, 10) || 3,
+                          })
+                        }
+                        inputProps={{ min: 1, max: 60 }}
+                        size="small"
+                      />
+                      <TextField
+                        label="Per-tenant per-day budget (0 = unlimited)"
+                        type="number"
+                        value={suggestionsPolicy.rateLimitPerTenantPerDay}
+                        onChange={(e) =>
+                          setSuggestionsPolicy({
+                            ...suggestionsPolicy,
+                            rateLimitPerTenantPerDay: parseInt(e.target.value, 10) || 0,
+                          })
+                        }
+                        inputProps={{ min: 0 }}
+                        size="small"
+                      />
+                      <TextField
+                        label="Cache TTL (seconds)"
+                        type="number"
+                        value={suggestionsPolicy.cacheTtlSeconds}
+                        onChange={(e) =>
+                          setSuggestionsPolicy({
+                            ...suggestionsPolicy,
+                            cacheTtlSeconds: parseInt(e.target.value, 10) || 600,
+                          })
+                        }
+                        inputProps={{ min: 60, max: 3600 }}
+                        size="small"
+                        helperText="Default: 600s (10 minutes)"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Save Button */}
+              <Grid item xs={12}>
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveSuggestionsPolicy}
+                  size="large"
+                >
+                  Save AI Suggestions Policy
+                </Button>
+              </Grid>
+
+              {/* Activity Log */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>AI Suggestions Activity Log</Typography>
+                    {suggestionsActivity.length === 0 ? (
+                      <Alert severity="info">
+                        No AI suggestions activity yet. Enable AI Suggestions and generate advice to see events.
+                      </Alert>
+                    ) : (
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Time</TableCell>
+                              <TableCell>User</TableCell>
+                              <TableCell>Action</TableCell>
+                              <TableCell>Provider</TableCell>
+                              <TableCell>Status</TableCell>
+                              <TableCell>Latency</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {suggestionsActivity.map((evt) => (
+                              <TableRow key={evt.id}>
+                                <TableCell>{new Date(evt.createdAt).toLocaleString()}</TableCell>
+                                <TableCell>{evt.userId || '-'}</TableCell>
+                                <TableCell><Chip label={evt.actionType} size="small" /></TableCell>
+                                <TableCell>{evt.providerType}</TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={evt.status}
+                                    size="small"
+                                    color={evt.status === 'SUCCESS' ? 'success' : evt.status === 'FAIL' ? 'error' : 'default'}
+                                  />
+                                </TableCell>
+                                <TableCell>{evt.latencyMs != null ? `${evt.latencyMs}ms` : '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <TablePagination
+                          component="div"
+                          count={suggestionsActivityTotal}
+                          page={suggestionsActivityPage}
+                          onPageChange={(_, p) => setSuggestionsActivityPage(p)}
+                          rowsPerPage={50}
+                          rowsPerPageOptions={[50]}
+                        />
+                      </TableContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
           </TabPanel>
         </>
       )}
