@@ -34,6 +34,7 @@ import { CmdbModule } from './itsm/cmdb/cmdb.module';
 import { CmdbImportModule } from './itsm/cmdb/import/cmdb-import.module';
 import { CmdbHealthModule } from './itsm/cmdb/health/cmdb-health.module';
 import { CoreCompanyModule } from './core-company/core-company.module';
+import { GroupsModule } from './groups/groups.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -208,6 +209,9 @@ import { StructuredLoggerService } from './common/logger';
 
     // Platform Health Dashboard (smoke test result persistence + admin UI)
     PlatformHealthModule,
+
+    // Groups Module (group management + membership)
+    GroupsModule,
 
     // Todos Module (in-memory demo implementation)
     TodosModule,
