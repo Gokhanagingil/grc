@@ -25,6 +25,29 @@ import { CreateGroupDto, UpdateGroupDto, AddMemberDto, QueryGroupsDto } from './
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
+  /**
+   * List groups (read-only, any authenticated user).
+   * Used by To-Do assignment group picker and other consumers.
+   */
+  @Get('directory')
+  async directory(
+    @NestRequest() req: RequestWithUser,
+    @Query() query: QueryGroupsDto,
+  ) {
+    const tenantId = req.tenantId;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    const { items, total } = await this.groupsService.findAll(tenantId, query);
+    const page = query.page || 1;
+    const pageSize = Math.min(query.pageSize || 20, 100);
+    return {
+      items: items.map((g) => ({ id: g.id, name: g.name, description: g.description, isActive: g.isActive })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
   @Get()
   @Permissions(Permission.ADMIN_USERS_READ)
   async findAll(
@@ -35,7 +58,7 @@ export class GroupsController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     const { items, total } = await this.groupsService.findAll(tenantId, query);
     const page = query.page || 1;
-    const pageSize = query.pageSize || 20;
+    const pageSize = Math.min(query.pageSize || 20, 100);
     return {
       items,
       total,
