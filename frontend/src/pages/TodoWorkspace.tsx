@@ -72,6 +72,13 @@ interface SimpleUser {
   email?: string;
 }
 
+interface SimpleGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 interface TodoTask {
   id: string;
   title: string;
@@ -364,9 +371,9 @@ const TaskDetailDrawer: React.FC<{
   boards: Board[];
   allTags: TodoTag[];
   users: SimpleUser[];
-  departments: string[];
+  groups: SimpleGroup[];
   onTagCreated: (tag: TodoTag) => void;
-}> = ({ task, open, onClose, onSave, onDelete, boards, allTags, users, departments, onTagCreated }) => {
+}> = ({ task, open, onClose, onSave, onDelete, boards, allTags, users, groups, onTagCreated }) => {
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<TodoTag[]>([]);
@@ -528,7 +535,15 @@ const TaskDetailDrawer: React.FC<{
               onChange={(e) => setForm({ ...form, ownerGroupId: e.target.value })}
             >
               <MenuItem value="">None</MenuItem>
-              {departments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              {groups.length > 0 ? (
+                groups.map((g) => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)
+              ) : (
+                <MenuItem disabled>
+                  <Typography variant="body2" color="text.secondary">
+                    No groups yet &mdash; <a href="/groups" style={{ color: 'inherit' }}>create one</a>
+                  </Typography>
+                </MenuItem>
+              )}
             </Select>
           </FormControl>
 
@@ -823,7 +838,7 @@ export const TodoWorkspace: React.FC = () => {
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [allTags, setAllTags] = useState<TodoTag[]>([]);
   const [users, setUsers] = useState<SimpleUser[]>([]);
-  const [departments, setDepartments] = useState<string[]>([]);
+  const [groups, setGroups] = useState<SimpleGroup[]>([]);
 
   // Loading
   const [initialLoading, setInitialLoading] = useState(true);
@@ -937,12 +952,12 @@ export const TodoWorkspace: React.FC = () => {
       }
 
       // Fetch users and departments
-      const [, , , usersRes, deptsRes] = await Promise.all([
+      const [, , , usersRes, groupsRes] = await Promise.all([
         fetchTasks(targetBoardId),
         fetchTags(),
         fetchStats(),
         api.get('/users', { params: { pageSize: '500' } }).catch(() => ({ data: { items: [] } })),
-        api.get('/users/departments/list').catch(() => ({ data: [] })),
+        api.get('/grc/groups/directory', { params: { pageSize: '200' } }).catch(() => ({ data: { items: [] } })),
       ]);
 
       // Parse users
@@ -950,9 +965,10 @@ export const TodoWorkspace: React.FC = () => {
       const userList = Array.isArray(usersData?.items) ? usersData.items : Array.isArray(usersData) ? usersData : [];
       setUsers(userList);
 
-      // Parse departments
-      const deptsData = deptsRes.data?.data || deptsRes.data;
-      setDepartments(Array.isArray(deptsData) ? deptsData : []);
+      // Parse groups
+      const groupsData = groupsRes.data?.data || groupsRes.data;
+      const groupList = Array.isArray(groupsData?.items) ? groupsData.items : Array.isArray(groupsData) ? groupsData : [];
+      setGroups(groupList);
 
       setError(null);
     } catch (err: unknown) {
@@ -1323,7 +1339,7 @@ export const TodoWorkspace: React.FC = () => {
               <InputLabel>Group</InputLabel>
               <Select value={filterGroup} label="Group" onChange={(e) => setFilterGroup(e.target.value)}>
                 <MenuItem value="all">All</MenuItem>
-                {departments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                {groups.map((g) => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}
               </Select>
             </FormControl>
           </Box>
@@ -1516,7 +1532,7 @@ export const TodoWorkspace: React.FC = () => {
         boards={boards}
         allTags={allTags}
         users={users}
-        departments={departments}
+        groups={groups}
         onTagCreated={handleTagCreated}
       />
 

@@ -59,10 +59,9 @@ interface GroupMember {
   createdAt: string;
   user?: {
     id: string;
-    username: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    firstName?: string;
+    lastName?: string;
   };
 }
 
@@ -419,10 +418,10 @@ export const GroupManagement: React.FC = () => {
                   <ListItemText
                     primary={
                       member.user
-                        ? `${member.user.first_name || ''} ${member.user.last_name || ''}`.trim() || member.user.username
+                        ? `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email
                         : member.userId
                     }
-                    secondary={member.user?.email || `User ID: ${member.userId}`}
+                    secondary={member.user ? `${member.user.email} (${member.userId.slice(0, 8)}…)` : `User ID: ${member.userId}`}
                   />
                   <ListItemSecondaryAction>
                     <Tooltip title="Remove member">

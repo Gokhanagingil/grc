@@ -4,9 +4,10 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { SysGroup } from './entities/group.entity';
 import { SysGroupMembership } from './entities/group-membership.entity';
+import { User } from '../users/user.entity';
 import { CreateGroupDto, UpdateGroupDto, QueryGroupsDto } from './dto';
 
 @Injectable()
@@ -16,6 +17,8 @@ export class GroupsService {
     private readonly groupRepo: Repository<SysGroup>,
     @InjectRepository(SysGroupMembership)
     private readonly membershipRepo: Repository<SysGroupMembership>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   /* ------------------------------------------------------------------ */
@@ -105,11 +108,31 @@ export class GroupsService {
   async getMembers(
     tenantId: string,
     groupId: string,
-  ): Promise<SysGroupMembership[]> {
+  ): Promise<Array<SysGroupMembership & { user?: { id: string; email: string; firstName?: string; lastName?: string } }>> {
     await this.findOne(tenantId, groupId); // ensure group exists
-    return this.membershipRepo.find({
+    const memberships = await this.membershipRepo.find({
       where: { tenantId, groupId },
       order: { createdAt: 'ASC' },
+    });
+
+    if (memberships.length === 0) return memberships;
+
+    // Hydrate with user details
+    const userIds = memberships.map((m) => m.userId);
+    const users = await this.userRepo.find({
+      where: { id: In(userIds) },
+      select: ['id', 'email', 'firstName', 'lastName'],
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return memberships.map((m) => {
+      const u = userMap.get(m.userId);
+      return {
+        ...m,
+        user: u
+          ? { id: u.id, email: u.email, firstName: u.firstName, lastName: u.lastName }
+          : undefined,
+      };
     });
   }
 
