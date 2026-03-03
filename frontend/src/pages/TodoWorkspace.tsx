@@ -1002,7 +1002,7 @@ export const TodoWorkspace: React.FC = () => {
   // Deep-link: open task drawer if ?taskId=xxx is present (v1.2 notification deep link)
   useEffect(() => {
     const deepLinkTaskId = searchParams.get('taskId');
-    if (deepLinkTaskId && tasks.length > 0 && !initialLoading) {
+    if (deepLinkTaskId && !initialLoading) {
       const task = tasks.find((t) => t.id === deepLinkTaskId);
       if (task) {
         setSelectedTask(task);

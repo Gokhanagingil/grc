@@ -165,8 +165,9 @@ export class NotificationActionService {
     notification: SysUserNotification,
     payload: Record<string, unknown>,
   ): Promise<ActionExecutionResult> {
-    const entityId = (payload.entityId as string) || notification.entityId;
-    const entityType = (payload.entityType as string) || notification.entityType;
+    // Server-authoritative: always use notification's entity references (defense-in-depth)
+    const entityId = notification.entityId;
+    const entityType = notification.entityType;
 
     if (entityType !== 'todo_task' || !entityId) {
       throw new BadRequestException('ASSIGN_TO_ME only supports todo_task entities');
@@ -244,8 +245,9 @@ export class NotificationActionService {
     notification: SysUserNotification,
     payload: Record<string, unknown>,
   ): Promise<ActionExecutionResult> {
-    const entityId = (payload.entityId as string) || notification.entityId;
-    const entityType = (payload.entityType as string) || notification.entityType;
+    // Server-authoritative: always use notification's entity references (defense-in-depth)
+    const entityId = notification.entityId;
+    const entityType = notification.entityType;
     const newDueDate = payload.dueDate as string;
 
     if (entityType !== 'todo_task' || !entityId) {
