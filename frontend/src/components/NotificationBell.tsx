@@ -774,7 +774,7 @@ export const NotificationBell: React.FC = () => {
                                 startIcon={<MarkReadIcon />}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleMarkRead(n.id);
+                                  if (!isRead(n)) handleMarkRead(n.id);
                                 }}
                                 sx={{ textTransform: 'none', fontSize: '0.75rem', ml: 'auto' }}
                               >
