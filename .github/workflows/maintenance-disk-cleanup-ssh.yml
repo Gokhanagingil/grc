@@ -1,0 +1,162 @@
+# =============================================================================
+# Maintenance - Disk Cleanup (Safe) [STAGING] - SSH Fallback
+# =============================================================================
+#
+# USE THIS if you do NOT have a self-hosted runner on the STAGING host.
+# Preferred option is maintenance-disk-cleanup.yml (self-hosted runner).
+#
+# MANUAL ONLY: workflow_dispatch. No schedule, no push triggers.
+# Connects to STAGING via SSH and runs the same safe cleanup.
+#
+# SAFETY (DO NOT VIOLATE):
+#   - NO docker system prune --volumes
+#   - NO docker volume prune
+#   - NO deletion under /var/lib/docker/volumes or Postgres data dirs
+#   DB safety is critical.
+#
+# SECRETS (either variant; see docs/runbooks/STAGING-DISK-CLEANUP.md):
+#   Host:  STAGING_SSH_HOST or STAGING_HOST
+#   User:  STAGING_SSH_USER or STAGING_USER
+#   Key:   STAGING_SSH_KEY_B64 (preferred) or STAGING_SSH_KEY
+#
+# GOVERNANCE: Uses environment "staging" for approval gate.
+# =============================================================================
+
+name: "Maintenance - Disk Cleanup (Safe) [STAGING] (SSH)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type I_UNDERSTAND_NO_VOLUMES to proceed"
+        required: true
+        type: string
+      aggressive:
+        description: "Run extra builder/image prune pass (still no volumes)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: maintenance-disk-cleanup-staging-ssh
+  cancel-in-progress: false
+
+jobs:
+  safe-cleanup-ssh:
+    name: Safe disk cleanup on STAGING via SSH
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - name: Confirm safety gate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "I_UNDERSTAND_NO_VOLUMES" ]; then
+            echo "::error::You must type exactly I_UNDERSTAND_NO_VOLUMES in the confirm input to run this workflow. No volumes will be touched."
+            exit 1
+          fi
+          echo "Safety gate passed."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve SSH secrets
+        id: resolve_secrets
+        env:
+          S_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          S_HOST: ${{ secrets.STAGING_HOST }}
+          S_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          S_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          # Support both naming variants: STAGING_SSH_* (Deploy to Staging) or STAGING_*
+          HOST="${S_SSH_HOST:-$S_HOST}"
+          USER="${S_SSH_USER:-$S_USER}"
+          if [ -z "$HOST" ]; then echo "::error::Set STAGING_SSH_HOST or STAGING_HOST"; exit 1; fi
+          if [ -z "$USER" ]; then echo "::error::Set STAGING_SSH_USER or STAGING_USER"; exit 1; fi
+          echo "host=$HOST" >> $GITHUB_OUTPUT
+          echo "user=$USER" >> $GITHUB_OUTPUT
+      - name: Validate SSH key secret
+        run: |
+          if [ -z "${{ secrets.STAGING_SSH_KEY_B64 }}" ] && [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            echo "::error::Set STAGING_SSH_KEY_B64 or STAGING_SSH_KEY"; exit 1
+          fi
+          echo "SSH key secret present."
+
+      - name: Setup SSH key
+        id: ssh
+        run: |
+          mkdir -p "$RUNNER_TEMP/.ssh"
+          chmod 700 "$RUNNER_TEMP/.ssh"
+          if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+            echo "${{ secrets.STAGING_SSH_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/.ssh/key"
+          else
+            echo "${{ secrets.STAGING_SSH_KEY }}" > "$RUNNER_TEMP/.ssh/key"
+          fi
+          chmod 600 "$RUNNER_TEMP/.ssh/key"
+          echo "key_path=$RUNNER_TEMP/.ssh/key" >> $GITHUB_OUTPUT
+
+      - name: Run safe disk cleanup on STAGING via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ steps.resolve_secrets.outputs.host }}
+          username: ${{ steps.resolve_secrets.outputs.user }}
+          key_path: ${{ steps.ssh.outputs.key_path }}
+          script: |
+            set -euo pipefail
+            echo "=== STAGING DISK CLEANUP (Safe) - Host: $(hostname) ==="
+            echo "WARNING: This runs on the STAGING host. Volumes are NOT touched."
+            if [ ! -d /opt/grc-platform ]; then
+              echo "Repo not at /opt/grc-platform; running inline cleanup..."
+              # Inline safe cleanup when repo not present (NO volumes). All sudo is non-interactive.
+              SUDO_OK=0
+              if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then SUDO_OK=1; fi
+              if [ "$SUDO_OK" -ne 1 ]; then
+                echo "WARNING: sudo not available or requires password; privileged steps will be skipped (no hang)."
+              fi
+              echo "========== BEFORE =========="
+              df -h
+              docker system df 2>/dev/null || true
+              if [ "$SUDO_OK" = "1" ]; then
+                sudo -n find /var/lib/docker/containers -name "*-json.log" -exec truncate -s 0 {} \; 2>/dev/null || true
+              else
+                echo "Container log truncate: Skipped (requires sudo)."
+              fi
+              docker container prune -f
+              docker network prune -f
+              docker builder prune -af || true
+              docker image prune -af || true
+              if [ "$SUDO_OK" = "1" ]; then
+                sudo -n rm -rf /tmp/* 2>/dev/null || true
+              else
+                echo "/tmp cleanup: Skipped (requires sudo)."
+              fi
+              if [ "$SUDO_OK" = "1" ]; then
+                sudo -n apt-get clean 2>/dev/null || true
+                sudo -n apt-get autoclean 2>/dev/null || true
+                sudo -n apt-get autoremove -y 2>/dev/null || true
+                sudo -n journalctl --vacuum-size=200M 2>/dev/null || true
+              else
+                echo "Apt/journald: Skipped (requires sudo)."
+              fi
+              if [ "${{ github.event.inputs.aggressive }}" = "true" ]; then
+                docker builder prune -af || true
+                docker image prune -af || true
+              fi
+              echo "========== AFTER =========="
+              df -h
+              docker system df 2>/dev/null || true
+            else
+              cd /opt/grc-platform
+              git fetch --all 2>/dev/null || true
+              git checkout main 2>/dev/null || true
+              git pull origin main 2>/dev/null || true
+              export AGGRESSIVE=${{ github.event.inputs.aggressive && '1' || '0' }}
+              chmod +x ops/cleanup/safe_cleanup.sh 2>/dev/null || true
+              bash ops/cleanup/safe_cleanup.sh
+              if [ "${{ github.event.inputs.aggressive }}" = "true" ]; then
+                docker builder prune -af || true
+                docker image prune -af || true
+                docker system df
+              fi
+            fi
+            echo "=== CLEANUP DONE (no volumes touched) ==="

@@ -1,0 +1,81 @@
+# =============================================================================
+# Maintenance - Disk Cleanup (Safe) [STAGING]
+# =============================================================================
+#
+# MANUAL ONLY: workflow_dispatch. No schedule, no push triggers.
+# Runs on a self-hosted runner on the STAGING machine.
+#
+# SAFETY (DO NOT VIOLATE):
+#   - NO docker system prune --volumes
+#   - NO docker volume prune
+#   - NO deletion under /var/lib/docker/volumes or Postgres data dirs
+#   DB safety is critical; this workflow only does safe cleanup.
+#
+# GOVERNANCE: Uses environment "staging" so the job is gated by GitHub
+# Environment protection (Required reviewers). Configure in:
+#   Repo Settings → Environments → staging → Required reviewers
+# =============================================================================
+
+name: "Maintenance - Disk Cleanup (Safe) [STAGING]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type I_UNDERSTAND_NO_VOLUMES to proceed"
+        required: true
+        type: string
+      aggressive:
+        description: "Run extra builder/image prune pass (still no volumes)"
+        required: false
+        default: false
+        type: boolean
+
+# No push/schedule - manual only
+concurrency:
+  group: maintenance-disk-cleanup-staging
+  cancel-in-progress: false
+
+jobs:
+  safe-cleanup:
+    name: Safe disk cleanup on STAGING
+    runs-on: [self-hosted, linux, x64, staging]
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - name: Confirm safety gate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "I_UNDERSTAND_NO_VOLUMES" ]; then
+            echo "::error::You must type exactly I_UNDERSTAND_NO_VOLUMES in the confirm input to run this workflow. No volumes will be touched."
+            exit 1
+          fi
+          echo "Safety gate passed."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show host and user
+        run: |
+          echo "Host: $(hostname)"
+          echo "User: $(whoami)"
+          echo "Working directory: $(pwd)"
+          echo "Aggressive mode: ${{ github.event.inputs.aggressive }}"
+
+      - name: Run safe disk cleanup script
+        env:
+          AGGRESSIVE: ${{ github.event.inputs.aggressive && '1' || '0' }}
+        run: |
+          # WARNING: This workflow must ONLY run on the STAGING host.
+          # The script does NOT touch Docker volumes - DB data is safe.
+          chmod +x ops/cleanup/safe_cleanup.sh
+          bash ops/cleanup/safe_cleanup.sh
+
+      - name: Optional aggressive pass (workflow step)
+        if: github.event.inputs.aggressive == 'true'
+        run: |
+          echo "Running optional aggressive builder + image prune (still NO volumes)..."
+          docker builder prune -af || true
+          docker image prune -af || true
+          echo "--- Final docker system df ---"
+          docker system df
