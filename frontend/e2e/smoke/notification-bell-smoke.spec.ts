@@ -148,10 +148,10 @@ test.describe('Notification Bell @mock', () => {
     setupNotificationMocks(page);
     await page.reload();
 
-    // Click the bell
+    // Click the bell (force: true because pulse animation makes it "not stable")
     const bell = page.getByTestId('notification-bell');
     await expect(bell).toBeVisible({ timeout: 10000 });
-    await bell.click();
+    await bell.click({ force: true });
 
     // Drawer should open with notifications header
     await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible({ timeout: 5000 });
@@ -167,8 +167,11 @@ test.describe('Notification Bell @mock', () => {
     // Should show WARNING severity chip
     await expect(drawer.getByText('WARNING')).toBeVisible();
 
-    // Should show action button
-    await expect(page.getByRole('button', { name: 'Open Task' }).first()).toBeVisible();
+    // Expand a notification to reveal the smart preview card with action buttons
+    await page.getByText('Task Assigned').click();
+
+    // Should show the generic "Open" action button inside the expanded card
+    await expect(drawer.getByRole('button', { name: 'Open' }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('mark all read clears unread state', async ({ page }) => {
@@ -176,10 +179,10 @@ test.describe('Notification Bell @mock', () => {
     setupNotificationMocks(page);
     await page.reload();
 
-    // Open drawer
+    // Open drawer (force: true because pulse animation makes it "not stable")
     const bell = page.getByTestId('notification-bell');
     await expect(bell).toBeVisible({ timeout: 10000 });
-    await bell.click();
+    await bell.click({ force: true });
 
     // Click "Mark all as read" icon button
     const markAllBtn = page.getByRole('button', { name: /mark all/i });
