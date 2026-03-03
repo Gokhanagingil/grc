@@ -462,9 +462,17 @@ export class AiSuggestionsService {
   private async getOrCreateDefaultPolicy(tenantId: string): Promise<AiSuggestionsPolicy> {
     let policy = await this.policyRepo.findOne({ where: { tenantId } });
     if (!policy) {
-      // Create default policy (AI Suggestions OFF by default)
-      policy = this.policyRepo.create({ tenantId });
-      policy = await this.policyRepo.save(policy);
+      try {
+        // Create default policy (AI Suggestions OFF by default)
+        policy = this.policyRepo.create({ tenantId });
+        policy = await this.policyRepo.save(policy);
+      } catch (error) {
+        // Handle unique constraint race: another request created the policy concurrently
+        policy = await this.policyRepo.findOne({ where: { tenantId } });
+        if (!policy) {
+          throw error; // Re-throw if it's a different error
+        }
+      }
     }
     return policy;
   }
