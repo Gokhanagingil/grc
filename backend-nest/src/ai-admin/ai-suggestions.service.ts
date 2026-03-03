@@ -343,7 +343,29 @@ export class AiSuggestionsService {
       throw new ForbiddenException('AI Suggestions are disabled for this tenant');
     }
 
-    // 2. Check rate limits
+    // 2. Get notification
+    const notification = await this.notificationRepo.findOne({
+      where: { id: notificationId, tenantId },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    // Ensure tenant isolation: notification must belong to requesting user
+    if (notification.userId !== userId) {
+      throw new ForbiddenException('Cannot access notifications of other users');
+    }
+
+    // 3. Check cache (before rate limits so cache hits don't consume slots)
+    if (!refresh) {
+      const cached = this.getCachedAdvice(notification, policy.cacheTtlSeconds);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    // 4. Check rate limits (only consumed when we actually need the AI provider)
     if (!this.checkUserRateLimit(userId, policy.rateLimitPerUserPerMinute)) {
       throw new HttpException(
         {
@@ -364,28 +386,6 @@ export class AiSuggestionsService {
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
-    }
-
-    // 3. Get notification
-    const notification = await this.notificationRepo.findOne({
-      where: { id: notificationId, tenantId },
-    });
-
-    if (!notification) {
-      throw new NotFoundException('Notification not found');
-    }
-
-    // Ensure tenant isolation: notification must belong to requesting user
-    if (notification.userId !== userId) {
-      throw new ForbiddenException('Cannot access notifications of other users');
-    }
-
-    // 4. Check cache
-    if (!refresh) {
-      const cached = this.getCachedAdvice(notification, policy.cacheTtlSeconds);
-      if (cached) {
-        return cached;
-      }
     }
 
     // 5. Build minimal input

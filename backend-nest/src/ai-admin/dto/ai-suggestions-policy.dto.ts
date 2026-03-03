@@ -4,6 +4,7 @@ import {
   IsString,
   IsNumber,
   IsArray,
+  IsIn,
   Min,
   Max,
 } from 'class-validator';
@@ -15,6 +16,7 @@ export class UpsertAiSuggestionsPolicyDto {
 
   @IsOptional()
   @IsString()
+  @IsIn(['STUB', 'REAL'])
   providerMode?: string;
 
   @IsOptional()
