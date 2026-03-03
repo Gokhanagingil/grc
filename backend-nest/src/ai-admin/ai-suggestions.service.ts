@@ -274,8 +274,8 @@ export class AiSuggestionsService {
     } as CachedAiAdvice;
 
     await this.notificationRepo.update(notificationId, {
-      metadata: metadata as Record<string, unknown>,
-    });
+      metadata: metadata,
+    } as any);
   }
 
   // ── Core AI Advice Generation ──────────────────────────────────────
@@ -452,10 +452,10 @@ export class AiSuggestionsService {
         status,
         latencyMs,
         requestHash: inputHash,
-        details: {
+        details: JSON.stringify({
           notificationId,
           suggestedActionTypes,
-        },
+        }),
       });
       await this.auditRepo.save(event);
     } catch (error) {

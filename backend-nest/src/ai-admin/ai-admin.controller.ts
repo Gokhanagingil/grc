@@ -285,7 +285,7 @@ export class AiAdminController {
     if (!tenantId) {
       throw new BadRequestException('Tenant ID required');
     }
-    return this.aiSuggestionsService.upsertPolicy(tenantId, dto);
+    return this.aiSuggestionsService.upsertPolicy(tenantId, dto as Partial<import('./entities/ai-suggestions-policy.entity').AiSuggestionsPolicy>);
   }
 
   /**
