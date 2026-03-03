@@ -332,7 +332,14 @@ export class NotificationActionService {
     }
 
     const title = (payload.title as string) || `${originalTitle} (follow-up)`;
-    const dueDate = payload.dueDate ? new Date(payload.dueDate as string) : null;
+    const rawDueDate = payload.dueDate as string | undefined;
+    let dueDate: Date | null = null;
+    if (rawDueDate) {
+      dueDate = new Date(rawDueDate);
+      if (isNaN(dueDate.getTime())) {
+        throw new BadRequestException('Invalid dueDate format');
+      }
+    }
 
     // Compute sortOrder
     const maxResult = await this.taskRepo
