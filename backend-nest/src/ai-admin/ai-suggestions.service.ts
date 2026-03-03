@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -82,7 +84,36 @@ export class AiSuggestionsService {
     let policy = await this.policyRepo.findOne({ where: { tenantId } });
 
     if (!policy) {
-      policy = this.policyRepo.create({ tenantId, ...data });
+      // Apply same validation as update path
+      const validated: Partial<AiSuggestionsPolicy> = { tenantId };
+      if (data.aiSuggestionsEnabled !== undefined) {
+        validated.aiSuggestionsEnabled = data.aiSuggestionsEnabled;
+      }
+      if (data.providerMode !== undefined) {
+        validated.providerMode = data.providerMode;
+      }
+      if (data.allowedActionTypes !== undefined) {
+        validated.allowedActionTypes = data.allowedActionTypes.filter((t) =>
+          (AI_SUGGESTIONS_ALLOWED_ACTION_TYPES as readonly string[]).includes(t),
+        );
+      }
+      if (data.allowedInputFields !== undefined) {
+        validated.allowedInputFields = data.allowedInputFields.filter((f) =>
+          (AI_SUGGESTIONS_ALLOWED_INPUT_FIELDS as readonly string[]).includes(f),
+        );
+      }
+      // v0: always true, ignore any attempt to set false
+      validated.requiresConfirm = true;
+      if (data.rateLimitPerUserPerMinute !== undefined) {
+        validated.rateLimitPerUserPerMinute = Math.max(1, Math.min(60, data.rateLimitPerUserPerMinute));
+      }
+      if (data.rateLimitPerTenantPerDay !== undefined) {
+        validated.rateLimitPerTenantPerDay = Math.max(0, data.rateLimitPerTenantPerDay);
+      }
+      if (data.cacheTtlSeconds !== undefined) {
+        validated.cacheTtlSeconds = Math.max(60, Math.min(3600, data.cacheTtlSeconds));
+      }
+      policy = this.policyRepo.create(validated);
     } else {
       // Update allowed fields
       if (data.aiSuggestionsEnabled !== undefined) {
@@ -314,19 +345,25 @@ export class AiSuggestionsService {
 
     // 2. Check rate limits
     if (!this.checkUserRateLimit(userId, policy.rateLimitPerUserPerMinute)) {
-      throw new BadRequestException({
-        statusCode: 429,
-        message: `Rate limit exceeded: max ${policy.rateLimitPerUserPerMinute} suggestions per minute`,
-        error: 'Too Many Requests',
-      });
+      throw new HttpException(
+        {
+          statusCode: 429,
+          message: `Rate limit exceeded: max ${policy.rateLimitPerUserPerMinute} suggestions per minute`,
+          error: 'Too Many Requests',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     if (!this.checkTenantRateLimit(tenantId, policy.rateLimitPerTenantPerDay)) {
-      throw new BadRequestException({
-        statusCode: 429,
-        message: 'Tenant daily suggestion budget exceeded',
-        error: 'Too Many Requests',
-      });
+      throw new HttpException(
+        {
+          statusCode: 429,
+          message: 'Tenant daily suggestion budget exceeded',
+          error: 'Too Many Requests',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     // 3. Get notification
