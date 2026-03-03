@@ -345,7 +345,7 @@ export const NotificationBell: React.FC = () => {
 
     // MARK_READ: simple, no confirmation
     if (action.actionType === 'MARK_READ') {
-      handleMarkRead(n.id);
+      if (!n.readAt) handleMarkRead(n.id);
       return;
     }
 

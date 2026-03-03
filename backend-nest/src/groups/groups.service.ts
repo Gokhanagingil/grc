@@ -83,7 +83,7 @@ export class GroupsService {
       if (existing) throw new ConflictException('Group name already exists');
       group.name = dto.name;
     }
-    if (dto.description !== undefined) group.description = dto.description;
+    if (dto.description !== undefined) group.description = dto.description || null;
     if (dto.isActive !== undefined) group.isActive = dto.isActive;
 
     return this.groupRepo.save(group);
