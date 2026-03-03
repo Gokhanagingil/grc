@@ -72,19 +72,7 @@ const MOCK_NOTIFICATIONS = [
 function setupNotificationMocks(page: import('@playwright/test').Page) {
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.readAt).length;
 
-  // GET unread-count (must register BEFORE the generic route — Playwright LIFO)
-  page.route('**/grc/user-notifications/unread-count*', (route) => {
-    if (route.request().method() === 'GET') {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ unreadCount }),
-      });
-    }
-    return route.continue();
-  });
-
-  // GET user-notifications
+  // GET user-notifications (generic — registered first)
   page.route('**/grc/user-notifications*', (route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({
@@ -97,6 +85,18 @@ function setupNotificationMocks(page: import('@playwright/test').Page) {
           page: 1,
           pageSize: 20,
         }),
+      });
+    }
+    return route.continue();
+  });
+
+  // GET unread-count (registered AFTER generic route — Playwright LIFO gives last-registered priority)
+  page.route('**/grc/user-notifications/unread-count*', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ unreadCount }),
       });
     }
     return route.continue();

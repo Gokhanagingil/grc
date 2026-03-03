@@ -80,15 +80,7 @@ test.describe('Notification Integration @mock @smoke', () => {
     test('Bell icon shows unread badge when notifications exist', async ({ page }) => {
       await login(page);
 
-      // Mock unread-count endpoint (registered first so LIFO gives it priority)
-      await page.route('**/grc/user-notifications/unread-count**', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ unreadCount: 3 }),
-        });
-      });
-
+      // Generic notifications list handler (registered first)
       await page.route('**/grc/user-notifications**', async (route) => {
         await route.fulfill({
           status: 200,
@@ -101,6 +93,15 @@ test.describe('Notification Integration @mock @smoke', () => {
             ],
             total: 3, unreadCount: 3, page: 1, pageSize: 20, totalPages: 1,
           }),
+        });
+      });
+
+      // Specific unread-count handler (registered AFTER generic — Playwright LIFO gives last-registered priority)
+      await page.route('**/grc/user-notifications/unread-count**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ unreadCount: 3 }),
         });
       });
 
