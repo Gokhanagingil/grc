@@ -748,10 +748,11 @@ export const NotificationBell: React.FC = () => {
         setAiAdviceError((prev) => ({ ...prev, [notificationId]: 'No advice available' }));
       }
     } catch (err: unknown) {
-      const e = err as { response?: { status?: number; data?: { message?: string } } };
-      const msg = e.response?.status === 429
+      const e = err as { code?: string; response?: { status?: number; data?: { message?: string } }; message?: string };
+      const isRateLimited = e.code === 'RATE_LIMITED' || e.response?.status === 429;
+      const msg = isRateLimited
         ? 'Rate limit reached. Please wait before trying again.'
-        : e.response?.data?.message || 'Failed to generate AI advice';
+        : e.message || e.response?.data?.message || 'Failed to generate AI advice';
       setAiAdviceError((prev) => ({ ...prev, [notificationId]: msg }));
     } finally {
       setAiAdviceLoading((prev) => ({ ...prev, [notificationId]: false }));
