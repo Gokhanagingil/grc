@@ -1,5 +1,5 @@
 /**
- * DEMO SEED PACK — Idempotent, tenant-safe demo data for STAGING/demo usage.
+ * DEMO SEED PACK - Idempotent, tenant-safe demo data for STAGING/demo usage.
  *
  * Creates meaningful, interconnected data for GRC + ITSM + BCM suitable for
  * UI demos, reporting, and end-to-end flows. Includes two full narrative
@@ -63,7 +63,14 @@ import {
 import { AuditStatus, AuditType, AuditRiskLevel } from '../grc/entities/grc-audit.entity';
 import { AuditRequirementStatus } from '../grc/entities/grc-audit-requirement.entity';
 import { CapaType, CapaStatus, CAPAPriority, CAPATaskStatus } from '../grc/enums';
-import { EvidenceStatus, IssueType, IssueStatus, IssueSeverity } from '../grc/enums';
+import {
+  EvidenceStatus,
+  EvidenceType,
+  EvidenceSourceType,
+  IssueType,
+  IssueStatus,
+  IssueSeverity,
+} from '../grc/enums';
 
 // ITSM
 import { ItsmChangeTemplate } from '../itsm/change/template/change-template.entity';
@@ -115,7 +122,7 @@ import {
 import { ChangeTaskType, ChangeTaskStatus } from '../itsm/change/task/change-task.entity';
 
 // ============================================================================
-// DEMO CONSTANTS — Deterministic for idempotency
+// DEMO CONSTANTS - Deterministic for idempotency
 // ============================================================================
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -130,7 +137,7 @@ const ASSIGNMENT_GROUPS = [
   'Network Services',
 ];
 
-/** Scenario 1 — Database connection pool exhaustion */
+/** Scenario 1 - Database connection pool exhaustion */
 const SC1 = {
   TPL_ID: 'd1000001-0001-4000-a000-000000000001',
   CHG_ID: 'd1000001-0001-4000-a000-000000000002',
@@ -146,7 +153,7 @@ const SC1 = {
   SVC_ID: 'd1000001-0001-4000-a000-00000000000c',
 };
 
-/** Scenario 2 — Emergency security patch during freeze */
+/** Scenario 2 - Emergency security patch during freeze */
 const SC2 = {
   CHG_ID: 'd2000002-0002-4000-a000-000000000001',
   INC_ID: 'd2000002-0002-4000-a000-000000000002',
@@ -188,7 +195,7 @@ async function ensureDemoTenantAndAdmin(ds: DataSource) {
   let admin = await userRepo.findOne({ where: { id: DEMO_ADMIN_ID } });
   if (!admin) {
     const passwordHash = await bcrypt.hash(
-      process.env.DEMO_ADMIN_PASSWORD || 'TestPassword123!',
+      process.env.DEMO_ADMIN_PASSWORD || 'DemoAdmin1!',
       10,
     );
     admin = userRepo.create({
@@ -232,7 +239,7 @@ async function ensureDemoCompany(ds: DataSource): Promise<string> {
 
 async function ensureDemoUsers(ds: DataSource): Promise<{ endUserIds: string[]; techIds: string[] }> {
   const userRepo = ds.getRepository(User);
-  const defaultHash = await bcrypt.hash('DemoPass123!', 10);
+  const defaultHash = await bcrypt.hash('DemoUser1!', 10);
   const endUserIds: string[] = [];
   const techIds: string[] = [];
 
@@ -277,7 +284,7 @@ async function ensureDemoUsers(ds: DataSource): Promise<{ endUserIds: string[]; 
 }
 
 // ============================================================================
-// SCENARIO 1 — Database connection pool exhaustion
+// SCENARIO 1 - Database connection pool exhaustion
 // ============================================================================
 
 async function seedScenario1(
@@ -417,7 +424,7 @@ async function seedScenario1(
       id: SC1.INC1_ID,
       number: 'DEMO-SC1-INC-001',
       short: 'Application timeouts and connection errors during peak',
-      desc: 'Users reported timeouts and "connection refused" errors between 14:00–15:30. Metrics showed pool saturation at 100%.',
+      desc: 'Users reported timeouts and "connection refused" errors between 14:00-15:30. Metrics showed pool saturation at 100%.',
       priority: IncidentPriority.P2,
       status: IncidentStatus.RESOLVED,
       resolvedAt: hoursAgo(36),
@@ -632,7 +639,7 @@ async function seedScenario1(
     ke = keRepo.create({
       id: SC1.KE_ID,
       tenantId: DEMO_TENANT_ID,
-      title: 'Database connection pool exhaustion during peak — workaround',
+      title: 'Database connection pool exhaustion during peak - workaround',
       symptoms: 'Application timeouts, 503, connection refused; pool saturation at 100%.',
       rootCause: 'DB connection pool size and timeout settings insufficient for peak load; no saturation alerting.',
       workaround:
@@ -777,7 +784,7 @@ async function seedScenario1(
 }
 
 // ============================================================================
-// SCENARIO 2 — Emergency security patch during freeze window
+// SCENARIO 2 - Emergency security patch during freeze window
 // ============================================================================
 
 async function seedScenario2(
@@ -866,7 +873,7 @@ async function seedScenario2(
   }
 
   // Control evidence gap: create draft evidence (not linked to control) so "Evidence expected / missing" can be shown for CTL-006
-  const name = 'DEMO-SC2 — Patch evidence (expected, not yet approved)';
+  const name = 'DEMO-SC2 - Patch evidence (expected, not yet approved)';
   let draftEvidence = await evidenceRepo.findOne({
     where: { tenantId: DEMO_TENANT_ID, name, isDeleted: false },
   });
@@ -875,8 +882,8 @@ async function seedScenario2(
       tenantId: DEMO_TENANT_ID,
       name,
       description: 'Evidence expected for CTL-006 after emergency patch. Upload and approve to clear alert.',
-      type: 'DOCUMENT' as never,
-      sourceType: 'MANUAL' as never,
+      type: EvidenceType.DOCUMENT,
+      sourceType: EvidenceSourceType.MANUAL,
       status: EvidenceStatus.DRAFT,
       location: '/evidence/demo-sc2-patch-evidence.pdf',
       collectedAt: daysAgo(60),
@@ -1016,15 +1023,15 @@ async function run() {
     }
     console.log(`   Controls: ${controls.length}, Requirements: ${requirements.length}`);
 
-    console.log('3. Scenario 1 — Database connection pool exhaustion...');
+    console.log('3. Scenario 1 - Database connection pool exhaustion...');
     await seedScenario1(ds, companyId, techIds, controls, stats);
 
-    console.log('4. Scenario 2 — Emergency security patch during freeze...');
+    console.log('4. Scenario 2 - Emergency security patch during freeze...');
     await seedScenario2(ds, companyId, techIds, controls, requirements, stats);
 
     // --- Validation output & scenario checklist ---
     console.log('\n========================================');
-    console.log('DEMO SEED PACK — VALIDATION OUTPUT');
+    console.log('DEMO SEED PACK - VALIDATION OUTPUT');
     console.log('========================================');
     console.log(`Tenant ID: ${DEMO_TENANT_ID}`);
     console.log(`Demo company code: ${DEMO_COMPANY_CODE}`);
@@ -1040,7 +1047,7 @@ async function run() {
     console.log('  Known Error:   title contains "pool exhaustion"  (id: ' + SC1.KE_ID + ')');
     console.log('  Risk:          code = DEMO-SC1-RISK-001   (id: ' + SC1.RISK_ID + ')');
     console.log('  Issue:         code = DEMO-SC1-ISS-001');
-    console.log('  CAPA:          id = ' + SC1.CAPA_ID + ' (tasks: Add pool saturation alert, Tune limits, Load test — one overdue)');
+    console.log('  CAPA:          id = ' + SC1.CAPA_ID + ' (tasks: Add pool saturation alert, Tune limits, Load test - one overdue)');
     console.log('  Service:       DEMO-Core-Platform-API  (id: ' + SC1.SVC_ID + ')');
     console.log('');
     console.log('SCENARIO 2: "Emergency security patch during freeze window"');
@@ -1048,7 +1055,7 @@ async function run() {
     console.log('  Incident:      number = DEMO-SC2-INC-001  (id: ' + SC2.INC_ID + ')');
     console.log('  Audit:         code = DEMO-SC2-AUD-001   (id: ' + SC2.AUDIT_ID + ')');
     console.log('  Risk:          code = DEMO-SC2-RISK-001  (id: ' + SC2.RISK_ID + ')');
-    console.log('  Control/evidence: CTL-006 (Vulnerability Management) — evidence expected, draft/expired to show alerts');
+    console.log('  Control/evidence: CTL-006 (Vulnerability Management) - evidence expected, draft/expired to show alerts');
     console.log('');
     console.log('========================================\n');
 

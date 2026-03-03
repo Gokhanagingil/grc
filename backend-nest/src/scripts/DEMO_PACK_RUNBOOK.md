@@ -1,4 +1,4 @@
-# Demo Seed Pack — Runbook
+# Demo Seed Pack - Runbook
 
 ## Overview
 
@@ -16,7 +16,7 @@ The Demo Seed Pack creates **idempotent**, **tenant-safe** demo data for STAGING
 | Major Incident | `DEMO-SC1-MI-001` | Timeline updates + comms draft |
 | Problem | `DEMO-SC1-PRB-001` | RCA, 5-whys, root cause category |
 | Known Error | (title: pool exhaustion workaround) | PUBLISHED, workaround |
-| Risk | `DEMO-SC1-RISK-001` | Service instability – capacity guardrails |
+| Risk | `DEMO-SC1-RISK-001` | Service instability - capacity guardrails |
 | Issue | `DEMO-SC1-ISS-001` | Missing pool saturation alert |
 | CAPA | (id in checklist) | 3 tasks; **one overdue** (Load test and update runbook) |
 | Service | `DEMO-Core-Platform-API` | CmdbService for incidents |
@@ -26,10 +26,10 @@ The Demo Seed Pack creates **idempotent**, **tenant-safe** demo data for STAGING
 | Record type | Identifier | Notes |
 |-------------|------------|--------|
 | Change | `DEMO-SC2-CHG-001` | Emergency, HIGH risk, during freeze |
-| Incident | `DEMO-SC2-INC-001` | Active exploitation attempt – motivated change |
+| Incident | `DEMO-SC2-INC-001` | Active exploitation attempt - motivated change |
 | Audit | `DEMO-SC2-AUD-001` | Scope touches CTL-006 / requirement |
 | Risk | `DEMO-SC2-RISK-001` | Unpatched critical vuln; follow-up review |
-| Evidence | Draft (not linked to control) | CTL-006 evidence expected – missing for alerts |
+| Evidence | Draft (not linked to control) | CTL-006 evidence expected - missing for alerts |
 
 ## Prerequisites
 
@@ -70,8 +70,8 @@ npm run seed:demo:pack
 - **Tenant**: 1 (reused or created)
 - **Company**: 1 (code `DEMO-CUST`)
 - **Users**: 40 (20 end users + 20 technicians)
-- **Scenario 1**: 1 template, 1 change, 3 incidents, 1 MI, MI updates + links, 1 problem, problem–incident links, problem–change link, 1 known error, 1 risk, risk–control link, 1 issue, 1 CAPA, 3 CAPA tasks, 1 service
-- **Scenario 2**: 1 emergency change, 1 incident, 1 draft evidence (evidence gap), 1 audit, 1 audit requirement, 1 risk, risk–control link
+- **Scenario 1**: 1 template, 1 change, 3 incidents, 1 MI, MI updates + links, 1 problem, problem-incident links, problem-change link, 1 known error, 1 risk, risk-control link, 1 issue, 1 CAPA, 3 CAPA tasks, 1 service
+- **Scenario 2**: 1 emergency change, 1 incident, 1 draft evidence (evidence gap), 1 audit, 1 audit requirement, 1 risk, risk-control link
 
 ## Idempotency
 
