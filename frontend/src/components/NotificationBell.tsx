@@ -465,11 +465,15 @@ export const NotificationBell: React.FC = () => {
       await api.post(`/grc/user-notifications/${notificationId}/snooze`, {
         until: until.toISOString(),
       });
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-      setUnreadCount((prev) => {
-        const wasUnread = notifications.find((n) => n.id === notificationId && !n.readAt);
-        return wasUnread ? Math.max(0, prev - 1) : prev;
+      let wasUnread = false;
+      setNotifications((prev) => {
+        const target = prev.find((n) => n.id === notificationId);
+        wasUnread = !!target && !target.readAt;
+        return prev.filter((n) => n.id !== notificationId);
       });
+      if (wasUnread) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
       setSnoozedCount((prev) => prev + 1);
     } catch {
       /* silent */

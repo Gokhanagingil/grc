@@ -98,12 +98,12 @@ export class UserNotificationController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     if (!userId) throw new BadRequestException('User ID required');
 
-    const success = await this.engineService.markNotificationRead(
+    await this.engineService.markNotificationRead(
       tenantId,
       userId,
       id,
     );
-    if (!success) throw new NotFoundException('Notification not found');
+    // Idempotent: always return success even if already read
     return { read: true };
   }
 

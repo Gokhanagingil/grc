@@ -765,6 +765,8 @@ export class NotificationEngineService {
     note: string | undefined,
     remindAt: Date,
   ): Promise<SysUserNotification> {
+    const now = new Date();
+    const isFuture = remindAt > now;
     const notification = this.userNotificationRepository.create({
       tenantId,
       userId,
@@ -773,9 +775,9 @@ export class NotificationEngineService {
       type: 'PERSONAL_REMINDER',
       severity: 'INFO',
       source: 'SYSTEM',
-      status: remindAt > new Date() ? 'PENDING_REMINDER' : 'ACTIVE',
+      status: isFuture ? 'PENDING_REMINDER' : 'ACTIVE',
       remindAt,
-      readAt: remindAt > new Date() ? new Date() : null, // pending reminders start as "read" until activated
+      readAt: isFuture ? now : null, // pending reminders start as "read" until activated
       metadata: { isPersonalReminder: true },
       actions: [],
     });
