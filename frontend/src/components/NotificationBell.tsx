@@ -625,7 +625,7 @@ export const NotificationBell: React.FC = () => {
     // For ASSIGN_TO_ME, SET_DUE_DATE, CREATE_FOLLOWUP_TODO: call server-side execute endpoint
     try {
       setActionLoading(true);
-      const mergedPayload = { ...action.payload, ...(extraPayload || {}), actionType: action.actionType };
+      const mergedPayload = { ...action.payload, ...(extraPayload || {}) };
       const res = await api.post(`/grc/user-notifications/${n.id}/actions/${actionIndex}/execute`, {
         payload: mergedPayload,
         actionType: action.actionType,
