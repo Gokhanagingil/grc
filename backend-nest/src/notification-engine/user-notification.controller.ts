@@ -285,9 +285,9 @@ export class UserNotificationController {
     let action = !isNaN(actionIndex) ? actions[actionIndex] : undefined;
 
     if (!action) {
-      // Fallback: use actionType from request body payload
-      const bodyActionType = (dto.payload as Record<string, unknown>)?.actionType as string | undefined
-        || (dto as Record<string, unknown>).actionType as string | undefined;
+      // Fallback: use actionType from request body (typed DTO field or payload)
+      const bodyActionType = dto.actionType
+        || (dto.payload as Record<string, unknown>)?.actionType as string | undefined;
       if (bodyActionType && ALLOWED_ACTION_TYPES.has(bodyActionType)) {
         action = {
           label: bodyActionType,

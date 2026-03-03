@@ -53,6 +53,11 @@ export class ExecuteActionDto {
   /** Optional payload overrides (e.g., new due date) */
   @IsOptional()
   payload?: Record<string, unknown>;
+
+  /** Fallback action type when action index is out-of-bounds (suggested-step actions) */
+  @IsString()
+  @IsOptional()
+  actionType?: string;
 }
 
 export class SnoozeNotificationDto {
