@@ -440,6 +440,14 @@ export class NotificationTriggerService {
               payload: { entityType: 'todo_task', entityId: taskId },
               dangerLevel: ActionDangerLevel.SAFE,
             },
+            {
+              id: 'create_followup',
+              label: 'Create Follow-up',
+              actionType: 'CREATE_FOLLOWUP_TODO',
+              requiresConfirm: true,
+              payload: { entityType: 'todo_task', entityId: taskId },
+              dangerLevel: ActionDangerLevel.SAFE,
+            },
           ],
         },
         6, // 6-hour dedup bucket
