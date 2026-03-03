@@ -38,7 +38,7 @@ export class GroupsController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     const { items, total } = await this.groupsService.findAll(tenantId, query);
     const page = query.page || 1;
-    const pageSize = query.pageSize || 20;
+    const pageSize = Math.min(query.pageSize || 20, 100);
     return {
       items: items.map((g) => ({ id: g.id, name: g.name, description: g.description, isActive: g.isActive })),
       total,
@@ -58,7 +58,7 @@ export class GroupsController {
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     const { items, total } = await this.groupsService.findAll(tenantId, query);
     const page = query.page || 1;
-    const pageSize = query.pageSize || 20;
+    const pageSize = Math.min(query.pageSize || 20, 100);
     return {
       items,
       total,
