@@ -361,7 +361,8 @@ export class AiSuggestionsService {
     if (!refresh) {
       const cached = this.getCachedAdvice(notification, policy.cacheTtlSeconds);
       if (cached) {
-        return cached;
+        // Re-clamp cached advice against current policy (admin may have changed allowlist)
+        return clampActionsToPolicy(cached, policy.allowedActionTypes);
       }
     }
 
