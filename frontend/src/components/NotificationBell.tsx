@@ -30,6 +30,10 @@ import {
   InputLabel,
   SelectChangeEvent,
   Fade,
+  Checkbox,
+  Menu,
+  TextField,
+  Skeleton,
 } from '@mui/material';
 import {
   Notifications as BellIcon,
@@ -47,6 +51,11 @@ import {
   PersonAdd as AssignToMeIcon,
   CalendarMonth as CalendarIcon,
   FilterList as FilterIcon,
+  Snooze as SnoozeIcon,
+  NotificationsActive as ReminderIcon,
+  Add as AddIcon,
+  LightbulbOutlined as SuggestIcon,
+  AlarmOn as AlarmIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 
@@ -61,6 +70,12 @@ interface NotificationAction {
   requiresConfirm?: boolean;
 }
 
+interface EntitySnapshot {
+  primaryLabel: string;
+  secondaryLabel?: string;
+  keyFields: Array<{ label: string; value: string }>;
+}
+
 interface UserNotification {
   id: string;
   title: string;
@@ -72,13 +87,21 @@ interface UserNotification {
   entityId: string | null;
   link: string | null;
   dueAt: string | null;
+  status: string;
+  snoozeUntil: string | null;
+  remindAt: string | null;
   actions: NotificationAction[];
   metadata: Record<string, unknown>;
   readAt: string | null;
   createdAt: string;
 }
 
-type TabValue = 'all' | 'assignments' | 'due_soon';
+type TabValue = 'all' | 'assignments' | 'due_soon' | 'snoozed';
+
+interface TimeBucket {
+  label: string;
+  items: UserNotification[];
+}
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */
@@ -101,6 +124,7 @@ const typeIcon: Record<string, React.ReactNode> = {
   ASSIGNMENT: <AssignIcon fontSize="small" />,
   DUE_DATE: <DueIcon fontSize="small" />,
   STATUS_CHANGE: <WarningIcon fontSize="small" />,
+  PERSONAL_REMINDER: <AlarmIcon fontSize="small" />,
 };
 
 const severityIcon: Record<string, React.ReactNode> = {
@@ -140,6 +164,17 @@ const reasonMap: Record<string, string> = {
   STATUS_CHANGE: 'Status changed / Major attention',
   MENTION: 'You were mentioned',
   SYSTEM: 'System notification',
+  PERSONAL_REMINDER: 'Personal reminder you created',
+  GENERAL: 'Policy rule / system trigger',
+};
+
+/** Suggested next steps by notification type (rules-based templates). */
+const suggestedActionsMap: Record<string, string> = {
+  ASSIGNMENT: 'Review due date, confirm priority, and add details if needed.',
+  DUE_DATE: 'Consider snoozing, updating the due date, or completing the task.',
+  STATUS_CHANGE: 'Review the status change and take any necessary follow-up action.',
+  MENTION: 'Check the context and respond or acknowledge as needed.',
+  PERSONAL_REMINDER: 'Complete the reminder action or snooze for later.',
 };
 
 function resolveEntityRoute(entityType: string | null, entityId: string | null): string | null {
@@ -176,6 +211,59 @@ function formatDueDate(dateStr: string | null): string | null {
   return `Due in ${diffDays}d`;
 }
 
+/** Group notifications into time buckets: Today, Yesterday, This Week, Older. */
+function groupByTimeBuckets(items: UserNotification[]): TimeBucket[] {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000);
+  const weekStart = new Date(todayStart.getTime() - 6 * 86400000);
+
+  const buckets: Record<string, UserNotification[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    Older: [],
+  };
+
+  for (const n of items) {
+    const created = new Date(n.createdAt);
+    if (created >= todayStart) {
+      buckets['Today'].push(n);
+    } else if (created >= yesterdayStart) {
+      buckets['Yesterday'].push(n);
+    } else if (created >= weekStart) {
+      buckets['This Week'].push(n);
+    } else {
+      buckets['Older'].push(n);
+    }
+  }
+
+  return Object.entries(buckets)
+    .filter(([, items]) => items.length > 0)
+    .map(([label, items]) => ({ label, items }));
+}
+
+/** Compute snooze target time. */
+function getSnoozeTime(option: string): Date {
+  const now = new Date();
+  switch (option) {
+    case '1h':
+      return new Date(now.getTime() + 60 * 60 * 1000);
+    case '4h':
+      return new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    case 'tomorrow': {
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0);
+      return tomorrow;
+    }
+    case 'next_week': {
+      const nextWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 9, 0, 0);
+      return nextWeek;
+    }
+    default:
+      return new Date(now.getTime() + 60 * 60 * 1000);
+  }
+}
+
 /** Normalise backend response into UserNotification[]. */
 function normaliseNotification(raw: Record<string, unknown>): UserNotification {
   return {
@@ -189,6 +277,9 @@ function normaliseNotification(raw: Record<string, unknown>): UserNotification {
     entityId: (raw.entityId as string) || (raw.entity_id as string) || null,
     link: (raw.link as string) || null,
     dueAt: (raw.dueAt as string) || (raw.due_at as string) || null,
+    status: (raw.status as string) || 'ACTIVE',
+    snoozeUntil: (raw.snoozeUntil as string) || (raw.snooze_until as string) || null,
+    remindAt: (raw.remindAt as string) || (raw.remind_at as string) || null,
     actions: Array.isArray(raw.actions) ? raw.actions as NotificationAction[] : [],
     metadata: (raw.metadata as Record<string, unknown>) || {},
     readAt: (raw.readAt as string) || (raw.read_at as string) || null,
@@ -209,6 +300,28 @@ const pulseAnimation = {
 };
 
 /* ------------------------------------------------------------------ */
+/* Loading Skeleton                                                     */
+/* ------------------------------------------------------------------ */
+
+const NotificationSkeleton: React.FC = () => (
+  <Box sx={{ px: 2, py: 1.5 }}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+        <Skeleton variant="circular" width={28} height={28} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width="70%" height={20} />
+          <Skeleton variant="text" width="90%" height={16} />
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+            <Skeleton variant="rounded" width={50} height={20} />
+            <Skeleton variant="rounded" width={60} height={20} />
+          </Box>
+        </Box>
+      </Box>
+    ))}
+  </Box>
+);
+
+/* ------------------------------------------------------------------ */
 /* Component                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -217,6 +330,7 @@ export const NotificationBell: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [snoozedCount, setSnoozedCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -228,6 +342,20 @@ export const NotificationBell: React.FC = () => {
 
   // Smart preview card
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Snooze menu
+  const [snoozeAnchorEl, setSnoozeAnchorEl] = useState<null | HTMLElement>(null);
+  const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
+
+  // Personal reminder dialog
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderNote, setReminderNote] = useState('');
+  const [reminderDate, setReminderDate] = useState('');
+  const [reminderLoading, setReminderLoading] = useState(false);
 
   // Action confirmation dialog
   const [confirmAction, setConfirmAction] = useState<{
@@ -255,6 +383,7 @@ export const NotificationBell: React.FC = () => {
       const items = rawItems.map(normaliseNotification);
       setNotifications(items);
       setUnreadCount(data.unreadCount ?? items.filter((n) => !n.readAt).length);
+      setSnoozedCount(data.snoozedCount ?? 0);
     } catch (err: unknown) {
       const e = err as { response?: { status?: number }; message?: string };
       if (e.response?.status !== 401 && e.response?.status !== 403) {
@@ -293,7 +422,7 @@ export const NotificationBell: React.FC = () => {
     try {
       await api.post(`/grc/user-notifications/${id}/read`);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
+        prev.map((n) => (n.id === id && !n.readAt ? { ...n, readAt: new Date().toISOString() } : n)),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
@@ -325,6 +454,90 @@ export const NotificationBell: React.FC = () => {
     } else if (n.link) {
       setOpen(false);
       navigate(n.link);
+    }
+  };
+
+  /* ---- Snooze handlers ---- */
+
+  const handleSnooze = async (notificationId: string, option: string) => {
+    try {
+      const until = getSnoozeTime(option);
+      await api.post(`/grc/user-notifications/${notificationId}/snooze`, {
+        until: until.toISOString(),
+      });
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      setUnreadCount((prev) => {
+        const wasUnread = notifications.find((n) => n.id === notificationId && !n.readAt);
+        return wasUnread ? Math.max(0, prev - 1) : prev;
+      });
+      setSnoozedCount((prev) => prev + 1);
+    } catch {
+      /* silent */
+    } finally {
+      setSnoozeAnchorEl(null);
+      setSnoozeTargetId(null);
+    }
+  };
+
+  const handleUnsnooze = async (notificationId: string) => {
+    try {
+      await api.post(`/grc/user-notifications/${notificationId}/unsnooze`);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      setSnoozedCount((prev) => Math.max(0, prev - 1));
+      setUnreadCount((prev) => prev + 1);
+    } catch {
+      /* silent */
+    }
+  };
+
+  /* ---- Bulk action handlers ---- */
+
+  const handleBulkMarkRead = async () => {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      await handleMarkRead(id);
+    }
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkSnooze = async (option: string) => {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      await handleSnooze(id, option);
+    }
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  /* ---- Personal Reminder handlers ---- */
+
+  const handleCreateReminder = async () => {
+    if (!reminderTitle.trim() || !reminderDate) return;
+    try {
+      setReminderLoading(true);
+      await api.post('/grc/user-notifications/reminders', {
+        title: reminderTitle.trim(),
+        note: reminderNote.trim() || undefined,
+        remindAt: new Date(reminderDate).toISOString(),
+      });
+      setReminderDialogOpen(false);
+      setReminderTitle('');
+      setReminderNote('');
+      setReminderDate('');
+      // Reload to show new reminder
+      loadNotifications();
+    } catch {
+      /* silent */
+    } finally {
+      setReminderLoading(false);
     }
   };
 
@@ -360,7 +573,7 @@ export const NotificationBell: React.FC = () => {
         handleMarkRead(n.id);
       }
     } catch {
-      /* silent — action may not be implemented yet */
+      /* silent -- action may not be implemented yet */
     } finally {
       setActionLoading(false);
       setConfirmAction(null);
@@ -385,6 +598,18 @@ export const NotificationBell: React.FC = () => {
     return reasonMap[n.type] || 'Notification';
   };
 
+  /** Get entity snapshot from metadata. */
+  const getSnapshot = (n: UserNotification): EntitySnapshot | null => {
+    const snap = n.metadata?.snapshot as EntitySnapshot | undefined;
+    if (snap && snap.primaryLabel) return snap;
+    return null;
+  };
+
+  /** Get suggested next steps for a notification. */
+  const getSuggestedActions = (n: UserNotification): string | null => {
+    return suggestedActionsMap[n.type] || null;
+  };
+
   /** Action icon helper. */
   const getActionIcon = (actionType: string) => {
     switch (actionType) {
@@ -400,8 +625,11 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  // Filtered notifications (client-side additional filter on unread if needed)
-  const filteredNotifications = useMemo(() => notifications, [notifications]);
+  // Group notifications into time buckets
+  const timeBuckets = useMemo(() => groupByTimeBuckets(notifications), [notifications]);
+
+  const isSnoozedTab = activeTab === 'snoozed';
+  const hasBulkSelection = selectedIds.size > 0;
 
   return (
     <>
@@ -439,7 +667,7 @@ export const NotificationBell: React.FC = () => {
         onClose={() => setOpen(false)}
         PaperProps={{
           sx: {
-            width: 440,
+            width: 460,
             maxWidth: '100vw',
           },
         }}
@@ -469,10 +697,15 @@ export const NotificationBell: React.FC = () => {
                 />
               )}
             </Box>
-            <Box>
+            <Box sx={{ display: 'flex', gap: 0.25 }}>
+              <Tooltip title="Add Reminder">
+                <IconButton size="small" onClick={() => setReminderDialogOpen(true)} aria-label="Add reminder" sx={{ mr: 0.25 }}>
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               {unreadCount > 0 && (
                   <Tooltip title="Mark all as read">
-                    <IconButton size="small" onClick={handleMarkAllRead} aria-label="Mark all read" sx={{ mr: 0.5 }}>
+                    <IconButton size="small" onClick={handleMarkAllRead} aria-label="Mark all read" sx={{ mr: 0.25 }}>
                       <MarkReadIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -482,7 +715,7 @@ export const NotificationBell: React.FC = () => {
                   size="small"
                   onClick={() => setShowFilters(!showFilters)}
                   color={showFilters ? 'primary' : 'default'}
-                  sx={{ mr: 0.5 }}
+                  sx={{ mr: 0.25 }}
                 >
                   <FilterIcon fontSize="small" />
                 </IconButton>
@@ -496,18 +729,31 @@ export const NotificationBell: React.FC = () => {
           {/* Tabs */}
           <Tabs
             value={activeTab}
-            onChange={(_e, v: TabValue) => setActiveTab(v)}
-            variant="fullWidth"
+            onChange={(_e, v: TabValue) => { setActiveTab(v); setSelectedIds(new Set()); }}
+            variant="scrollable"
+            scrollButtons="auto"
             sx={{
               minHeight: 40,
               borderBottom: 1,
               borderColor: 'divider',
-              '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontSize: '0.85rem' },
+              '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontSize: '0.82rem', minWidth: 'auto', px: 2 },
             }}
           >
             <Tab label="All" value="all" />
             <Tab label="Assignments" value="assignments" />
             <Tab label="Due Soon" value="due_soon" />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SnoozeIcon sx={{ fontSize: 16 }} />
+                  Snoozed
+                  {snoozedCount > 0 && (
+                    <Chip size="small" label={snoozedCount} sx={{ height: 18, fontSize: '0.7rem', ml: 0.5 }} />
+                  )}
+                </Box>
+              }
+              value="snoozed"
+            />
           </Tabs>
 
           {/* Filters (collapsible) */}
@@ -552,242 +798,398 @@ export const NotificationBell: React.FC = () => {
             </Box>
           </Collapse>
 
+          {/* Bulk Actions Bar */}
+          <Collapse in={hasBulkSelection}>
+            <Box sx={{
+              p: 1, display: 'flex', gap: 1, alignItems: 'center',
+              bgcolor: 'primary.50', borderBottom: 1, borderColor: 'divider',
+            }}>
+              <Typography variant="caption" fontWeight={600} sx={{ mr: 1 }}>
+                {selectedIds.size} selected
+              </Typography>
+              <Button size="small" variant="outlined" startIcon={<MarkReadIcon />}
+                onClick={handleBulkMarkRead} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                Mark Read
+              </Button>
+              <Button size="small" variant="outlined" startIcon={<SnoozeIcon />}
+                onClick={() => handleBulkSnooze('1h')} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                Snooze 1h
+              </Button>
+              <Button size="small" variant="text"
+                onClick={() => setSelectedIds(new Set())} sx={{ textTransform: 'none', fontSize: '0.75rem', ml: 'auto' }}>
+                Clear
+              </Button>
+            </Box>
+          </Collapse>
+
           {/* Body */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {error && <Alert severity="error" sx={{ m: 1 }}>{error}</Alert>}
 
             {loading && notifications.length === 0 ? (
-              <Box display="flex" justifyContent="center" py={4}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : filteredNotifications.length === 0 ? (
+              <NotificationSkeleton />
+            ) : notifications.length === 0 ? (
               <Fade in timeout={300}>
                 <Box py={6} textAlign="center">
-                  <BellIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                  <Typography color="text.secondary">No notifications</Typography>
-                  <Typography variant="caption" color="text.disabled">
-                    {activeTab !== 'all' ? 'Try switching to the "All" tab' : 'You\'re all caught up!'}
-                  </Typography>
+                  {isSnoozedTab ? (
+                    <>
+                      <SnoozeIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                      <Typography color="text.secondary">No snoozed notifications</Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        Snoozed items will appear here
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <BellIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                      <Typography color="text.secondary">No notifications</Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {activeTab !== 'all' ? 'Try switching to the "All" tab' : 'You\'re all caught up!'}
+                      </Typography>
+                    </>
+                  )}
                 </Box>
               </Fade>
             ) : (
               <List disablePadding>
-                {filteredNotifications.map((n) => (
-                  <Fade in timeout={200} key={n.id}>
-                    <Box>
-                      <ListItem disablePadding>
-                        <ListItemButton
-                          onClick={() => {
-                            if (!isRead(n)) handleMarkRead(n.id);
-                            // Toggle smart preview card
-                            setExpandedId(expandedId === n.id ? null : n.id);
-                          }}
-                          sx={{
-                            bgcolor: isRead(n) ? 'transparent' : 'action.hover',
-                            py: 1.5,
-                            px: 2,
-                            transition: 'background-color 0.2s ease',
-                            '&:hover': {
-                              bgcolor: isRead(n) ? 'action.hover' : 'action.selected',
-                            },
-                          }}
-                        >
-                          {/* Type icon + unread indicator */}
-                          <Box sx={{ mr: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 28 }}>
-                            {typeIcon[n.type] || severityIcon[n.severity] || <BellIcon fontSize="small" />}
-                            {!isRead(n) && (
-                              <DotIcon
-                                sx={{
-                                  fontSize: 8,
-                                  mt: 0.5,
-                                  color: severityColor[n.severity] === 'error'
-                                    ? 'error.main'
-                                    : severityColor[n.severity] === 'warning'
-                                      ? 'warning.main'
-                                      : 'primary.main',
-                                  animation: 'pulse 2s ease-in-out infinite',
-                                  ...pulseAnimation,
-                                }}
-                              />
-                            )}
-                          </Box>
-                          <ListItemText
-                            primary={
-                              <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{ fontWeight: isRead(n) ? 'normal' : 600, lineHeight: 1.3 }}
-                                  noWrap
-                                >
-                                  {n.title}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ ml: 1, whiteSpace: 'nowrap', flexShrink: 0 }}
-                                >
-                                  {formatTime(n.createdAt)}
-                                </Typography>
-                              </Box>
-                            }
-                            secondary={
-                              <Box component="span" sx={{ display: 'block' }}>
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }} noWrap>
-                                  {n.body}
-                                </Typography>
-                                {/* Tags */}
-                                <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                                  {n.source && n.source !== 'SYSTEM' && (
-                                    <Chip size="small" label={sourceLabel[n.source] || n.source} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
-                                  )}
-                                  {n.severity && n.severity !== 'INFO' && (
-                                    <Chip size="small" label={n.severity} color={severityColor[n.severity] || 'default'} sx={{ height: 20, fontSize: '0.7rem' }} />
-                                  )}
-                                  {n.dueAt && (
-                                    <Chip
-                                      size="small"
-                                      label={formatDueDate(n.dueAt)}
-                                      icon={<DueIcon style={{ fontSize: 14 }} />}
-                                      color={new Date(n.dueAt).getTime() < Date.now() ? 'error' : 'warning'}
-                                      variant="outlined"
-                                      sx={{ height: 20, fontSize: '0.7rem' }}
-                                    />
-                                  )}
-                                </Box>
-                              </Box>
-                            }
-                          />
-                          {/* Expand indicator */}
-                          <Box sx={{ ml: 0.5, flexShrink: 0 }}>
-                            {expandedId === n.id ? <CollapseIcon fontSize="small" color="action" /> : <ExpandIcon fontSize="small" color="action" />}
-                          </Box>
-                        </ListItemButton>
-                      </ListItem>
+                {timeBuckets.map((bucket) => (
+                  <Box key={bucket.label}>
+                    {/* Time bucket header */}
+                    <Box sx={{
+                      px: 2, py: 0.75, bgcolor: 'grey.50',
+                      borderBottom: 1, borderColor: 'divider',
+                      position: 'sticky', top: 0, zIndex: 1,
+                    }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        {bucket.label}
+                      </Typography>
+                    </Box>
 
-                      {/* Smart Preview Card (WOW) */}
-                      <Collapse in={expandedId === n.id} timeout={250}>
-                        <Box sx={{
-                          mx: 2,
-                          mb: 1,
-                          p: 1.5,
-                          bgcolor: 'grey.50',
-                          borderRadius: 1,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        }}>
-                          {/* Full message */}
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            {n.body}
-                          </Typography>
-
-                          {/* Entity info */}
-                          {n.entityType && (
-                            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                              <Chip
-                                size="small"
-                                label={entityLabel[n.entityType] || n.entityType}
-                                variant="outlined"
-                                color="primary"
-                                sx={{ height: 22 }}
+                    {bucket.items.map((n) => (
+                      <Fade in timeout={200} key={n.id}>
+                        <Box>
+                          <ListItem disablePadding>
+                            <ListItemButton
+                              onClick={() => {
+                                if (!isRead(n) && !isSnoozedTab) handleMarkRead(n.id);
+                                setExpandedId(expandedId === n.id ? null : n.id);
+                              }}
+                              sx={{
+                                bgcolor: isRead(n) ? 'transparent' : 'action.hover',
+                                py: 1.5,
+                                px: 2,
+                                transition: 'background-color 0.2s ease',
+                                '&:hover': {
+                                  bgcolor: isRead(n) ? 'action.hover' : 'action.selected',
+                                },
+                              }}
+                            >
+                              {/* Checkbox for bulk selection */}
+                              {!isSnoozedTab && (
+                                <Checkbox
+                                  size="small"
+                                  checked={selectedIds.has(n.id)}
+                                  onClick={(e) => { e.stopPropagation(); toggleSelected(n.id); }}
+                                  sx={{ p: 0.25, mr: 0.5 }}
+                                />
+                              )}
+                              {/* Type icon + unread indicator */}
+                              <Box sx={{ mr: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 28 }}>
+                                {typeIcon[n.type] || severityIcon[n.severity] || <BellIcon fontSize="small" />}
+                                {!isRead(n) && !isSnoozedTab && (
+                                  <DotIcon
+                                    sx={{
+                                      fontSize: 8,
+                                      mt: 0.5,
+                                      color: severityColor[n.severity] === 'error'
+                                        ? 'error.main'
+                                        : severityColor[n.severity] === 'warning'
+                                          ? 'warning.main'
+                                          : 'primary.main',
+                                      animation: 'pulse 2s ease-in-out infinite',
+                                      ...pulseAnimation,
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                              <ListItemText
+                                primary={
+                                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography
+                                      variant="subtitle2"
+                                      sx={{ fontWeight: isRead(n) ? 'normal' : 600, lineHeight: 1.3 }}
+                                      noWrap
+                                    >
+                                      {n.title}
+                                    </Typography>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{ ml: 1, whiteSpace: 'nowrap', flexShrink: 0 }}
+                                    >
+                                      {formatTime(n.createdAt)}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Box component="span" sx={{ display: 'block' }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }} noWrap>
+                                      {n.body}
+                                    </Typography>
+                                    {/* Tags */}
+                                    <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                                      {n.source && n.source !== 'SYSTEM' && (
+                                        <Chip size="small" label={sourceLabel[n.source] || n.source} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                      )}
+                                      {n.severity && n.severity !== 'INFO' && (
+                                        <Chip size="small" label={n.severity} color={severityColor[n.severity] || 'default'} sx={{ height: 20, fontSize: '0.7rem' }} />
+                                      )}
+                                      {n.dueAt && (
+                                        <Chip
+                                          size="small"
+                                          label={formatDueDate(n.dueAt)}
+                                          icon={<DueIcon style={{ fontSize: 14 }} />}
+                                          color={new Date(n.dueAt).getTime() < Date.now() ? 'error' : 'warning'}
+                                          variant="outlined"
+                                          sx={{ height: 20, fontSize: '0.7rem' }}
+                                        />
+                                      )}
+                                      {n.type === 'PERSONAL_REMINDER' && (
+                                        <Chip size="small" label="Reminder" icon={<ReminderIcon style={{ fontSize: 14 }} />} color="info" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                      )}
+                                      {isSnoozedTab && n.snoozeUntil && (
+                                        <Chip size="small" label={`Until ${new Date(n.snoozeUntil).toLocaleString()}`} icon={<SnoozeIcon style={{ fontSize: 14 }} />} color="default" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                      )}
+                                    </Box>
+                                  </Box>
+                                }
                               />
-                              {n.entityId && (
-                                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: '22px' }}>
-                                  ID: {n.entityId.slice(0, 8)}...
+                              {/* Expand indicator */}
+                              <Box sx={{ ml: 0.5, flexShrink: 0 }}>
+                                {expandedId === n.id ? <CollapseIcon fontSize="small" color="action" /> : <ExpandIcon fontSize="small" color="action" />}
+                              </Box>
+                            </ListItemButton>
+                          </ListItem>
+
+                          {/* Smart Preview Card (WOW v1.1) */}
+                          <Collapse in={expandedId === n.id} timeout={250}>
+                            <Box sx={{
+                              mx: 2,
+                              mb: 1,
+                              p: 1.5,
+                              bgcolor: 'grey.50',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                            }}>
+                              {/* Full message */}
+                              <Typography variant="body2" sx={{ mb: 1 }}>
+                                {n.body}
+                              </Typography>
+
+                              {/* Entity Snapshot (v1.1) */}
+                              {(() => {
+                                const snapshot = getSnapshot(n);
+                                if (snapshot) {
+                                  return (
+                                    <Box sx={{
+                                      mb: 1, p: 1, bgcolor: 'background.paper',
+                                      borderRadius: 0.5, border: '1px solid', borderColor: 'divider',
+                                    }}>
+                                      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25 }}>
+                                        {snapshot.primaryLabel}
+                                      </Typography>
+                                      {snapshot.secondaryLabel && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                          {snapshot.secondaryLabel}
+                                        </Typography>
+                                      )}
+                                      {snapshot.keyFields.length > 0 && (
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                          {snapshot.keyFields.map((field, i) => (
+                                            <Chip
+                                              key={i}
+                                              size="small"
+                                              label={`${field.label}: ${field.value}`}
+                                              variant="outlined"
+                                              sx={{ height: 22, fontSize: '0.7rem' }}
+                                            />
+                                          ))}
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  );
+                                }
+                                // Fallback: show entity info if no snapshot
+                                if (n.entityType) {
+                                  return (
+                                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                      <Chip
+                                        size="small"
+                                        label={entityLabel[n.entityType] || n.entityType}
+                                        variant="outlined"
+                                        color="primary"
+                                        sx={{ height: 22 }}
+                                      />
+                                      {n.entityId && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: '22px' }}>
+                                          ID: {n.entityId.slice(0, 8)}...
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              {/* Due date */}
+                              {n.dueAt && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                  Due: {new Date(n.dueAt).toLocaleString()} ({formatDueDate(n.dueAt)})
                                 </Typography>
                               )}
-                            </Box>
-                          )}
 
-                          {/* Due date */}
-                          {n.dueAt && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              Due: {new Date(n.dueAt).toLocaleString()} ({formatDueDate(n.dueAt)})
-                            </Typography>
-                          )}
+                              {/* Why you got this */}
+                              <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                mb: 1,
+                                px: 1,
+                                py: 0.5,
+                                bgcolor: 'primary.50',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'primary.100',
+                              }}>
+                                <InfoIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+                                <Typography variant="caption" color="primary.main" fontWeight={500}>
+                                  Why you got this: {getReasonText(n)}
+                                </Typography>
+                              </Box>
 
-                          {/* Why you got this */}
-                          <Box sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            mb: 1,
-                            px: 1,
-                            py: 0.5,
-                            bgcolor: 'primary.50',
-                            borderRadius: 0.5,
-                            border: '1px solid',
-                            borderColor: 'primary.100',
-                          }}>
-                            <InfoIcon sx={{ fontSize: 14, color: 'primary.main' }} />
-                            <Typography variant="caption" color="primary.main" fontWeight={500}>
-                              Why you got this: {getReasonText(n)}
-                            </Typography>
-                          </Box>
-
-                          {/* Action buttons (max 2 + "Open") */}
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {/* Always show Open button if entity exists */}
-                            {(n.entityType || n.link) && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<OpenIcon />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!n.readAt) handleMarkRead(n.id);
-                                  handleOpenRecord(n);
-                                }}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                              >
-                                Open
-                              </Button>
-                            )}
-                            {/* Render up to 2 non-OPEN actions */}
-                            {(n.actions || [])
-                              .filter((a) => a.actionType !== 'OPEN_RECORD' && a.actionType !== 'OPEN_ENTITY')
-                              .slice(0, 2)
-                              .map((action, idx) => {
-                                // Find original index in actions array
-                                const origIdx = (n.actions || []).indexOf(action);
+                              {/* Suggested Next Steps (v1.1 WOW) */}
+                              {(() => {
+                                const suggestion = getSuggestedActions(n);
+                                if (!suggestion) return null;
                                 return (
-                                  <Tooltip key={idx} title={action.label}>
-                                    <Button
-                                      size="small"
-                                      variant="text"
-                                      startIcon={getActionIcon(action.actionType)}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAction(n, action, origIdx);
-                                      }}
-                                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                                    >
-                                      {action.label}
-                                    </Button>
-                                  </Tooltip>
+                                  <Box sx={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 0.5,
+                                    mb: 1,
+                                    px: 1,
+                                    py: 0.5,
+                                    bgcolor: 'warning.50',
+                                    borderRadius: 0.5,
+                                    border: '1px solid',
+                                    borderColor: 'warning.100',
+                                  }}>
+                                    <SuggestIcon sx={{ fontSize: 14, color: 'warning.main', mt: 0.25 }} />
+                                    <Typography variant="caption" color="warning.main" fontWeight={500}>
+                                      Suggested: {suggestion}
+                                    </Typography>
+                                  </Box>
                                 );
-                              })}
-                            {/* Mark read button if unread */}
-                            {!isRead(n) && (
-                              <Button
-                                size="small"
-                                variant="text"
-                                startIcon={<MarkReadIcon />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isRead(n)) handleMarkRead(n.id);
-                                }}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', ml: 'auto' }}
-                              >
-                                Mark read
-                              </Button>
-                            )}
-                          </Box>
-                        </Box>
-                      </Collapse>
+                              })()}
 
-                      <Divider />
-                    </Box>
-                  </Fade>
+                              {/* Action buttons */}
+                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                {/* Open button */}
+                                {(n.entityType || n.link) && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<OpenIcon />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!n.readAt) handleMarkRead(n.id);
+                                      handleOpenRecord(n);
+                                    }}
+                                    sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                                  >
+                                    Open
+                                  </Button>
+                                )}
+                                {/* Snooze button (only for non-snoozed items) */}
+                                {!isSnoozedTab && (
+                                  <Button
+                                    size="small"
+                                    variant="text"
+                                    startIcon={<SnoozeIcon />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSnoozeTargetId(n.id);
+                                      setSnoozeAnchorEl(e.currentTarget);
+                                    }}
+                                    sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                                  >
+                                    Snooze
+                                  </Button>
+                                )}
+                                {/* Unsnooze button */}
+                                {isSnoozedTab && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<AlarmIcon />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUnsnooze(n.id);
+                                    }}
+                                    sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                                  >
+                                    Unsnooze
+                                  </Button>
+                                )}
+                                {/* Render up to 2 non-OPEN actions */}
+                                {(n.actions || [])
+                                  .filter((a) => a.actionType !== 'OPEN_RECORD' && a.actionType !== 'OPEN_ENTITY')
+                                  .slice(0, 2)
+                                  .map((action, idx) => {
+                                    const origIdx = (n.actions || []).indexOf(action);
+                                    return (
+                                      <Tooltip key={idx} title={action.label}>
+                                        <Button
+                                          size="small"
+                                          variant="text"
+                                          startIcon={getActionIcon(action.actionType)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAction(n, action, origIdx);
+                                          }}
+                                          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                                        >
+                                          {action.label}
+                                        </Button>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                {/* Mark read button if unread */}
+                                {!isRead(n) && !isSnoozedTab && (
+                                  <Button
+                                    size="small"
+                                    variant="text"
+                                    startIcon={<MarkReadIcon />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isRead(n)) handleMarkRead(n.id);
+                                    }}
+                                    sx={{ textTransform: 'none', fontSize: '0.75rem', ml: 'auto' }}
+                                  >
+                                    Mark read
+                                  </Button>
+                                )}
+                              </Box>
+                            </Box>
+                          </Collapse>
+
+                          <Divider />
+                        </Box>
+                      </Fade>
+                    ))}
+                  </Box>
                 ))}
               </List>
             )}
@@ -796,11 +1198,94 @@ export const NotificationBell: React.FC = () => {
           {/* Footer */}
           <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', textAlign: 'center', bgcolor: 'background.paper' }}>
             <Typography variant="caption" color="text.disabled">
-              Notification Center v1 — triggers + actions + smart preview
+              Notification Center v1.1 -- preview + snooze + reminders
             </Typography>
           </Box>
         </Box>
       </Drawer>
+
+      {/* Snooze Menu */}
+      <Menu
+        anchorEl={snoozeAnchorEl}
+        open={!!snoozeAnchorEl}
+        onClose={() => { setSnoozeAnchorEl(null); setSnoozeTargetId(null); }}
+      >
+        <MenuItem onClick={() => snoozeTargetId && handleSnooze(snoozeTargetId, '1h')}>
+          <SnoozeIcon fontSize="small" sx={{ mr: 1 }} /> 1 hour
+        </MenuItem>
+        <MenuItem onClick={() => snoozeTargetId && handleSnooze(snoozeTargetId, '4h')}>
+          <SnoozeIcon fontSize="small" sx={{ mr: 1 }} /> 4 hours
+        </MenuItem>
+        <MenuItem onClick={() => snoozeTargetId && handleSnooze(snoozeTargetId, 'tomorrow')}>
+          <CalendarIcon fontSize="small" sx={{ mr: 1 }} /> Tomorrow 9:00 AM
+        </MenuItem>
+        <MenuItem onClick={() => snoozeTargetId && handleSnooze(snoozeTargetId, 'next_week')}>
+          <CalendarIcon fontSize="small" sx={{ mr: 1 }} /> Next week
+        </MenuItem>
+      </Menu>
+
+      {/* Personal Reminder Dialog */}
+      <Dialog
+        open={reminderDialogOpen}
+        onClose={() => setReminderDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ReminderIcon color="primary" /> New Reminder
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Title"
+            fullWidth
+            variant="outlined"
+            value={reminderTitle}
+            onChange={(e) => setReminderTitle(e.target.value)}
+            placeholder="e.g., Follow up on audit finding"
+            size="small"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Note (optional)"
+            fullWidth
+            variant="outlined"
+            value={reminderNote}
+            onChange={(e) => setReminderNote(e.target.value)}
+            placeholder="Additional details..."
+            multiline
+            rows={2}
+            size="small"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Remind At"
+            type="datetime-local"
+            fullWidth
+            variant="outlined"
+            value={reminderDate}
+            onChange={(e) => setReminderDate(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReminderDialogOpen(false)} disabled={reminderLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateReminder}
+            disabled={reminderLoading || !reminderTitle.trim() || !reminderDate}
+            startIcon={reminderLoading ? <CircularProgress size={16} /> : <AddIcon />}
+          >
+            Create Reminder
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Action Confirmation Dialog */}
       <Dialog

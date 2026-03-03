@@ -8,6 +8,7 @@ import {
   NotificationSeverity,
   NotificationSource,
   NotificationAction,
+  EntitySnapshot,
 } from '../entities/sys-user-notification.entity';
 import { StructuredLoggerService } from '../../common/logger';
 
@@ -25,6 +26,7 @@ export interface CreateNotificationPayload {
   dueAt?: Date;
   metadata?: Record<string, unknown>;
   actions?: NotificationAction[];
+  snapshot?: EntitySnapshot;
 }
 
 /**
@@ -70,7 +72,10 @@ export class NotificationTriggerService {
           ? `/${payload.entityType}/${payload.entityId}`
           : null),
       dueAt: payload.dueAt || null,
-      metadata: payload.metadata || {},
+      metadata: {
+        ...payload.metadata,
+        ...(payload.snapshot ? { snapshot: payload.snapshot } : {}),
+      },
       actions: payload.actions || [],
     });
 
@@ -95,8 +100,23 @@ export class NotificationTriggerService {
     taskId: string,
     taskTitle: string,
     assignedByName?: string,
+    taskMeta?: { dueDate?: string; priority?: string; boardName?: string; tags?: string[] },
   ): Promise<SysUserNotification> {
     const byText = assignedByName ? ` by ${assignedByName}` : '';
+
+    // Build entity snapshot for rich preview
+    const keyFields: Array<{ label: string; value: string }> = [];
+    if (taskMeta?.dueDate) keyFields.push({ label: 'Due', value: taskMeta.dueDate });
+    if (taskMeta?.priority) keyFields.push({ label: 'Priority', value: taskMeta.priority });
+    if (taskMeta?.boardName) keyFields.push({ label: 'Board', value: taskMeta.boardName });
+    if (taskMeta?.tags?.length) keyFields.push({ label: 'Tags', value: taskMeta.tags.join(', ') });
+
+    const snapshot: EntitySnapshot = {
+      primaryLabel: taskTitle,
+      secondaryLabel: assignedByName ? `Assigned by ${assignedByName}` : undefined,
+      keyFields,
+    };
+
     return this.createNotification({
       tenantId,
       userId: assigneeUserId,
@@ -107,6 +127,8 @@ export class NotificationTriggerService {
       source: NotificationSource.TODO,
       entityType: 'todo_task',
       entityId: taskId,
+      metadata: { reason: 'Assigned to you' },
+      snapshot,
       actions: [
         {
           label: 'Open Task',
@@ -126,7 +148,20 @@ export class NotificationTriggerService {
     taskId: string,
     taskTitle: string,
     dueDate: Date,
+    taskMeta?: { priority?: string; boardName?: string },
   ): Promise<SysUserNotification> {
+    const keyFields: Array<{ label: string; value: string }> = [
+      { label: 'Due', value: dueDate.toISOString().split('T')[0] },
+    ];
+    if (taskMeta?.priority) keyFields.push({ label: 'Priority', value: taskMeta.priority });
+    if (taskMeta?.boardName) keyFields.push({ label: 'Board', value: taskMeta.boardName });
+
+    const snapshot: EntitySnapshot = {
+      primaryLabel: taskTitle,
+      secondaryLabel: `Due ${dueDate.toISOString().split('T')[0]}`,
+      keyFields,
+    };
+
     return this.createNotification({
       tenantId,
       userId: assigneeUserId,
@@ -138,6 +173,8 @@ export class NotificationTriggerService {
       entityType: 'todo_task',
       entityId: taskId,
       dueAt: dueDate,
+      metadata: { reason: 'Due date approaching' },
+      snapshot,
       actions: [
         {
           label: 'Open Task',
@@ -206,13 +243,14 @@ export class NotificationTriggerService {
    * Get count of unread notifications for a user.
    */
   async getUnreadCount(tenantId: string, userId: string): Promise<number> {
-    return this.userNotificationRepo.count({
-      where: {
-        tenantId,
-        userId,
-        readAt: IsNull(),
-      },
-    });
+    // Only count ACTIVE (not snoozed/pending) unread notifications
+    return this.userNotificationRepo
+      .createQueryBuilder('n')
+      .where('n.tenantId = :tenantId', { tenantId })
+      .andWhere('n.userId = :userId', { userId })
+      .andWhere('n.readAt IS NULL')
+      .andWhere('n.status = :status', { status: 'ACTIVE' })
+      .getCount();
   }
 
   /* ------------------------------------------------------------------ */
