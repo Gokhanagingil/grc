@@ -64,10 +64,12 @@ import { api } from '../services/api';
 /* ------------------------------------------------------------------ */
 
 interface NotificationAction {
+  id?: string;
   label: string;
   actionType: string;
   payload: Record<string, unknown>;
   requiresConfirm?: boolean;
+  dangerLevel?: 'SAFE' | 'GUARDED';
 }
 
 interface EntitySnapshot {
@@ -145,6 +147,21 @@ const entityRouteMap: Record<string, string> = {
   itsm_change: '/itsm/changes',
 };
 
+/**
+ * Build a deep-link route for an entity.
+ * For todo_task: appends ?taskId=<id> so the Task Drawer opens directly.
+ */
+function buildDeepLink(entityType: string | null, entityId: string | null): string | null {
+  if (!entityType) return null;
+  const base = entityRouteMap[entityType];
+  if (!base) return entityId ? `/${entityType}/${entityId}` : null;
+  // Deep link for To-Do tasks: open drawer via query param
+  if (entityType === 'todo_task' && entityId) {
+    return `${base}?taskId=${entityId}`;
+  }
+  return entityId ? `${base}/${entityId}` : base;
+}
+
 /** Map entity types to human-readable labels. */
 const entityLabel: Record<string, string> = {
   todo_task: 'To-Do Task',
@@ -168,7 +185,32 @@ const reasonMap: Record<string, string> = {
   GENERAL: 'Policy rule / system trigger',
 };
 
-/** Suggested next steps by notification type (rules-based templates). */
+/** Suggested next steps by notification type (rules-based, v1.2 action-mapped). */
+interface SuggestedStep {
+  label: string;
+  actionType: string;
+  requiresConfirm: boolean;
+}
+const suggestedStepsByType: Record<string, SuggestedStep[]> = {
+  ASSIGNMENT: [
+    { label: 'Assign to Me', actionType: 'ASSIGN_TO_ME', requiresConfirm: true },
+    { label: 'Set Due Date', actionType: 'SET_DUE_DATE', requiresConfirm: true },
+    { label: 'Create Follow-up', actionType: 'CREATE_FOLLOWUP_TODO', requiresConfirm: true },
+  ],
+  DUE_DATE: [
+    { label: 'Snooze', actionType: 'SNOOZE', requiresConfirm: false },
+    { label: 'Set Due Date', actionType: 'SET_DUE_DATE', requiresConfirm: true },
+    { label: 'Create Follow-up', actionType: 'CREATE_FOLLOWUP_TODO', requiresConfirm: true },
+  ],
+  STATUS_CHANGE: [
+    { label: 'Open Record', actionType: 'OPEN_RECORD', requiresConfirm: false },
+  ],
+  PERSONAL_REMINDER: [
+    { label: 'Snooze', actionType: 'SNOOZE', requiresConfirm: false },
+  ],
+};
+
+/** Legacy text suggestions for fallback display. */
 const suggestedActionsMap: Record<string, string> = {
   ASSIGNMENT: 'Review due date, confirm priority, and add details if needed.',
   DUE_DATE: 'Consider snoozing, updating the due date, or completing the task.',
@@ -177,12 +219,6 @@ const suggestedActionsMap: Record<string, string> = {
   PERSONAL_REMINDER: 'Complete the reminder action or snooze for later.',
 };
 
-function resolveEntityRoute(entityType: string | null, entityId: string | null): string | null {
-  if (!entityType) return null;
-  const base = entityRouteMap[entityType];
-  if (!base) return entityId ? `/${entityType}/${entityId}` : null;
-  return entityId ? `${base}/${entityId}` : base;
-}
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -365,6 +401,15 @@ export const NotificationBell: React.FC = () => {
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Due date picker dialog (for SET_DUE_DATE action)
+  const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
+  const [dueDateValue, setDueDateValue] = useState('');
+  const [dueDateTarget, setDueDateTarget] = useState<{
+    notification: UserNotification;
+    action: NotificationAction;
+    actionIndex: number;
+  } | null>(null);
+
   const loadNotifications = useCallback(async (tab?: TabValue, sev?: string, mod?: string) => {
     try {
       setLoading(true);
@@ -445,9 +490,9 @@ export const NotificationBell: React.FC = () => {
     setOpen(true);
   };
 
-  /** Navigate to the related entity record. */
+  /** Navigate to the related entity record with deep linking (v1.2). */
   const handleOpenRecord = (n: UserNotification) => {
-    const route = resolveEntityRoute(n.entityType, n.entityId);
+    const route = buildDeepLink(n.entityType, n.entityId);
     if (route) {
       setOpen(false);
       navigate(route);
@@ -541,13 +586,13 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  /** Execute action via backend endpoint with optional confirmation. */
-  const executeAction = async (n: UserNotification, action: NotificationAction, actionIndex: number) => {
-    // OPEN_RECORD / OPEN_ENTITY: just navigate, no server call needed
+  /** Execute action via backend endpoint with optional confirmation (v1.2). */
+  const executeAction = async (n: UserNotification, action: NotificationAction, actionIndex: number, extraPayload?: Record<string, unknown>) => {
+    // OPEN_RECORD / OPEN_ENTITY: deep-link navigate, no server call needed
     if (action.actionType === 'OPEN_RECORD' || action.actionType === 'OPEN_ENTITY') {
       const aEntityType = action.payload.entityType as string | undefined;
       const aEntityId = action.payload.entityId as string | undefined;
-      const route = resolveEntityRoute(aEntityType || n.entityType, aEntityId || n.entityId);
+      const route = buildDeepLink(aEntityType || n.entityType, aEntityId || n.entityId);
       if (route) {
         setOpen(false);
         if (!n.readAt) handleMarkRead(n.id);
@@ -562,12 +607,33 @@ export const NotificationBell: React.FC = () => {
       return;
     }
 
-    // For ASSIGN_TO_ME, SET_DUE_DATE: call server-side execute endpoint
+    // SET_DUE_DATE: if no dueDate in payload, open date picker dialog
+    if (action.actionType === 'SET_DUE_DATE' && !extraPayload?.dueDate) {
+      setDueDateTarget({ notification: n, action, actionIndex });
+      setDueDateValue('');
+      setDueDateDialogOpen(true);
+      setConfirmAction(null);
+      return;
+    }
+
+    // For ASSIGN_TO_ME, SET_DUE_DATE, CREATE_FOLLOWUP_TODO: call server-side execute endpoint
     try {
       setActionLoading(true);
-      await api.post(`/grc/user-notifications/${n.id}/actions/${actionIndex}/execute`, {
-        payload: action.payload,
+      const mergedPayload = { ...action.payload, ...(extraPayload || {}) };
+      const res = await api.post(`/grc/user-notifications/${n.id}/actions/${actionIndex}/execute`, {
+        payload: mergedPayload,
       });
+      // Update notification snapshot in local state if server returned one
+      const resData = res.data?.data || res.data;
+      if (resData?.updatedSnapshot) {
+        setNotifications((prev) => prev.map((notif) => {
+          if (notif.id !== n.id) return notif;
+          return {
+            ...notif,
+            metadata: { ...notif.metadata, snapshot: resData.updatedSnapshot },
+          };
+        }));
+      }
       // Auto mark-read after executing
       if (!n.readAt) {
         handleMarkRead(n.id);
@@ -580,13 +646,60 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  /** Handle action button clicks (with confirmation gate). */
+  /** Submit the due date from the date picker dialog. */
+  const handleDueDateSubmit = () => {
+    if (!dueDateTarget || !dueDateValue) return;
+    const isoDate = new Date(dueDateValue).toISOString();
+    executeAction(
+      dueDateTarget.notification,
+      dueDateTarget.action,
+      dueDateTarget.actionIndex,
+      { dueDate: isoDate },
+    );
+    setDueDateDialogOpen(false);
+    setDueDateTarget(null);
+    setDueDateValue('');
+  };
+
+  /** Handle action button clicks (with confirmation gate, v1.2). */
   const handleAction = (n: UserNotification, action: NotificationAction, actionIndex: number) => {
-    if (action.requiresConfirm || action.actionType === 'ASSIGN_TO_ME' || action.actionType === 'SET_DUE_DATE') {
+    // SET_DUE_DATE always opens date picker first
+    if (action.actionType === 'SET_DUE_DATE') {
+      setDueDateTarget({ notification: n, action, actionIndex });
+      setDueDateValue('');
+      setDueDateDialogOpen(true);
+      return;
+    }
+    // CREATE_FOLLOWUP_TODO and ASSIGN_TO_ME require confirmation
+    if (action.requiresConfirm || action.actionType === 'ASSIGN_TO_ME' || action.actionType === 'CREATE_FOLLOWUP_TODO') {
       setConfirmAction({ notification: n, action, actionIndex });
     } else {
       executeAction(n, action, actionIndex);
     }
+  };
+
+  /** Handle suggested step button clicks (synthetic actions). */
+  const handleSuggestedStep = (n: UserNotification, step: SuggestedStep) => {
+    // Build a synthetic action from the step
+    const syntheticAction: NotificationAction = {
+      id: `suggested_${step.actionType}`,
+      label: step.label,
+      actionType: step.actionType,
+      payload: { entityType: n.entityType, entityId: n.entityId },
+      requiresConfirm: step.requiresConfirm,
+      dangerLevel: 'SAFE',
+    };
+    // Find matching action index in notification's actions array (for server-side dispatch)
+    const matchIdx = (n.actions || []).findIndex((a) => a.actionType === step.actionType);
+    const actionIndex = matchIdx >= 0 ? matchIdx : 0;
+    // Snooze is handled client-side
+    if (step.actionType === 'SNOOZE') {
+      setSnoozeTargetId(n.id);
+      // We can't get anchorEl here easily, so just snooze for 1h directly
+      handleSnooze(n.id, '1h');
+      return;
+    }
+    handleAction(n, syntheticAction, actionIndex);
   };
 
   const isRead = (n: UserNotification) => !!n.readAt;
@@ -605,12 +718,17 @@ export const NotificationBell: React.FC = () => {
     return null;
   };
 
-  /** Get suggested next steps for a notification. */
+  /** Get suggested next steps for a notification (v1.2: action-mapped). */
+  const getSuggestedSteps = (n: UserNotification): SuggestedStep[] => {
+    return suggestedStepsByType[n.type] || [];
+  };
+
+  /** Get suggested text fallback for a notification. */
   const getSuggestedActions = (n: UserNotification): string | null => {
     return suggestedActionsMap[n.type] || null;
   };
 
-  /** Action icon helper. */
+  /** Action icon helper (v1.2: includes CREATE_FOLLOWUP_TODO). */
   const getActionIcon = (actionType: string) => {
     switch (actionType) {
       case 'OPEN_RECORD':
@@ -620,6 +738,10 @@ export const NotificationBell: React.FC = () => {
         return <AssignToMeIcon fontSize="small" />;
       case 'SET_DUE_DATE':
         return <CalendarIcon fontSize="small" />;
+      case 'CREATE_FOLLOWUP_TODO':
+        return <AddIcon fontSize="small" />;
+      case 'SNOOZE':
+        return <SnoozeIcon fontSize="small" />;
       default:
         return undefined;
     }
@@ -1068,27 +1190,56 @@ export const NotificationBell: React.FC = () => {
                                 </Typography>
                               </Box>
 
-                              {/* Suggested Next Steps (v1.1 WOW) */}
+                              {/* Suggested Next Steps (v1.2 — action-mapped buttons) */}
                               {(() => {
-                                const suggestion = getSuggestedActions(n);
-                                if (!suggestion) return null;
+                                const steps = getSuggestedSteps(n);
+                                const fallback = getSuggestedActions(n);
+                                if (steps.length === 0 && !fallback) return null;
                                 return (
                                   <Box sx={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 0.5,
                                     mb: 1,
                                     px: 1,
-                                    py: 0.5,
+                                    py: 0.75,
                                     bgcolor: 'warning.50',
                                     borderRadius: 0.5,
                                     border: '1px solid',
                                     borderColor: 'warning.100',
                                   }}>
-                                    <SuggestIcon sx={{ fontSize: 14, color: 'warning.main', mt: 0.25 }} />
-                                    <Typography variant="caption" color="warning.main" fontWeight={500}>
-                                      Suggested: {suggestion}
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: steps.length > 0 ? 0.75 : 0 }}>
+                                      <SuggestIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                                      <Typography variant="caption" color="warning.main" fontWeight={600}>
+                                        Suggested next steps
+                                      </Typography>
+                                    </Box>
+                                    {steps.length > 0 ? (
+                                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                        {steps.map((step, idx) => (
+                                          <Button
+                                            key={idx}
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={getActionIcon(step.actionType)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSuggestedStep(n, step);
+                                            }}
+                                            sx={{
+                                              textTransform: 'none',
+                                              fontSize: '0.72rem',
+                                              borderColor: 'warning.200',
+                                              color: 'warning.dark',
+                                              '&:hover': { borderColor: 'warning.main', bgcolor: 'warning.100' },
+                                            }}
+                                          >
+                                            {step.label}
+                                          </Button>
+                                        ))}
+                                      </Box>
+                                    ) : fallback ? (
+                                      <Typography variant="caption" color="warning.main">
+                                        {fallback}
+                                      </Typography>
+                                    ) : null}
                                   </Box>
                                 );
                               })()}
@@ -1143,10 +1294,10 @@ export const NotificationBell: React.FC = () => {
                                     Unsnooze
                                   </Button>
                                 )}
-                                {/* Render up to 2 non-OPEN actions */}
+                                {/* Render up to 3 non-OPEN actions (v1.2) */}
                                 {(n.actions || [])
                                   .filter((a) => a.actionType !== 'OPEN_RECORD' && a.actionType !== 'OPEN_ENTITY')
-                                  .slice(0, 2)
+                                  .slice(0, 3)
                                   .map((action, idx) => {
                                     const origIdx = (n.actions || []).indexOf(action);
                                     return (
@@ -1198,7 +1349,7 @@ export const NotificationBell: React.FC = () => {
           {/* Footer */}
           <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', textAlign: 'center', bgcolor: 'background.paper' }}>
             <Typography variant="caption" color="text.disabled">
-              Notification Center v1.1 -- preview + snooze + reminders
+              Notification Center v1.2 -- actions + suggestions + deep links
             </Typography>
           </Box>
         </Box>
@@ -1319,6 +1470,49 @@ export const NotificationBell: React.FC = () => {
             disabled={actionLoading}
           >
             {actionLoading ? <CircularProgress size={18} /> : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Due Date Picker Dialog (v1.2) */}
+      <Dialog
+        open={dueDateDialogOpen}
+        onClose={() => { setDueDateDialogOpen(false); setDueDateTarget(null); }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CalendarIcon color="primary" /> Set Due Date
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {dueDateTarget && (
+              <>Choose a new due date for <strong>{dueDateTarget.notification.title}</strong>.</>
+            )}
+          </DialogContentText>
+          <TextField
+            autoFocus
+            type="date"
+            fullWidth
+            variant="outlined"
+            value={dueDateValue}
+            onChange={(e) => setDueDateValue(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            label="Due Date"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setDueDateDialogOpen(false); setDueDateTarget(null); }} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDueDateSubmit}
+            disabled={actionLoading || !dueDateValue}
+            startIcon={actionLoading ? <CircularProgress size={16} /> : <CalendarIcon />}
+          >
+            Set Date
           </Button>
         </DialogActions>
       </Dialog>

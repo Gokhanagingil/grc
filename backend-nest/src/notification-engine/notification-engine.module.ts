@@ -6,8 +6,15 @@ import { SysNotificationDelivery } from './entities/sys-notification-delivery.en
 import { SysUserNotification } from './entities/sys-user-notification.entity';
 import { SysNotificationPreference } from './entities/sys-notification-preference.entity';
 import { SysWebhookEndpoint } from './entities/sys-webhook-endpoint.entity';
+import { TodoTask } from '../todos/entities/todo-task.entity';
+import { TodoBoard } from '../todos/entities/todo-board.entity';
+import { TodoTag } from '../todos/entities/todo-tag.entity';
+import { TodoTaskTag } from '../todos/entities/todo-task-tag.entity';
+import { SysGroup } from '../groups/entities/group.entity';
+import { SysGroupMembership } from '../groups/entities/group-membership.entity';
 import { NotificationEngineService } from './services/notification-engine.service';
 import { NotificationTriggerService } from './services/notification-trigger.service';
+import { NotificationActionService } from './services/notification-action.service';
 import { DueDateScannerService } from './services/due-date-scanner.service';
 import { SnoozeReminderScannerService } from './services/snooze-reminder-scanner.service';
 import { NotificationPreferenceService } from './services/notification-preference.service';
@@ -35,6 +42,13 @@ import { GuardsModule } from '../common/guards';
       SysUserNotification,
       SysNotificationPreference,
       SysWebhookEndpoint,
+      // v1.2: entities needed for action execution
+      TodoTask,
+      TodoBoard,
+      TodoTag,
+      TodoTaskTag,
+      SysGroup,
+      SysGroupMembership,
     ]),
     EventBusModule,
     GuardsModule,
@@ -50,6 +64,7 @@ import { GuardsModule } from '../common/guards';
   providers: [
     NotificationEngineService,
     NotificationTriggerService,
+    NotificationActionService,
     DueDateScannerService,
     SnoozeReminderScannerService,
     SafeTemplateService,
@@ -63,6 +78,7 @@ import { GuardsModule } from '../common/guards';
   exports: [
     NotificationEngineService,
     NotificationTriggerService,
+    NotificationActionService,
     SafeTemplateService,
     WebhookDeliveryService,
     SsrfGuardService,

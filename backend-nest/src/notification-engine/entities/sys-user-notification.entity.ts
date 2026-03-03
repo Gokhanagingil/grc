@@ -50,14 +50,28 @@ export enum NotificationStatus {
 }
 
 /**
+ * Danger level for notification actions.
+ * SAFE: can be executed without admin review (v1.2 allowlist)
+ * GUARDED: requires elevated permission or admin review (future)
+ */
+export enum ActionDangerLevel {
+  SAFE = 'SAFE',
+  GUARDED = 'GUARDED',
+}
+
+/**
  * Schema for actionable notification buttons.
  * v0: only "OPEN_RECORD" is wired.
  * v1.1: OPEN_ENTITY, ASSIGN_TO_ME, SET_DUE_DATE added.
+ * v1.2: Standardised with id, dangerLevel, requiresConfirm; added CREATE_FOLLOWUP_TODO.
  */
 export interface NotificationAction {
+  id?: string;
   label: string;
   actionType: string;
   payload: Record<string, unknown>;
+  requiresConfirm?: boolean;
+  dangerLevel?: ActionDangerLevel;
 }
 
 /**
