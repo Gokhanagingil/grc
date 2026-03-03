@@ -16,6 +16,7 @@ import { TenantGuard } from '../tenants/guards/tenant.guard';
 import { RequestWithUser } from '../common/types';
 import { NotificationEngineService } from './services/notification-engine.service';
 import { NotificationTriggerService } from './services/notification-trigger.service';
+import { NotificationActionService } from './services/notification-action.service';
 import {
   UserNotificationFilterDto,
   ExecuteActionDto,
@@ -24,13 +25,15 @@ import {
 } from './dto/user-notification.dto';
 import { StructuredLoggerService } from '../common/logger';
 
-/** Server-side allowlist of safe action types */
+/** Server-side allowlist of safe action types (v1.2) */
 const ALLOWED_ACTION_TYPES = new Set([
   'OPEN_ENTITY',
   'OPEN_RECORD',
   'MARK_READ',
+  'SNOOZE',
   'ASSIGN_TO_ME',
   'SET_DUE_DATE',
+  'CREATE_FOLLOWUP_TODO',
 ]);
 
 @Controller('grc/user-notifications')
@@ -41,6 +44,7 @@ export class UserNotificationController {
   constructor(
     private readonly engineService: NotificationEngineService,
     private readonly triggerService: NotificationTriggerService,
+    private readonly actionService: NotificationActionService,
   ) {
     this.logger = new StructuredLoggerService();
     this.logger.setContext('UserNotificationController');
@@ -212,7 +216,37 @@ export class UserNotificationController {
   }
 
   /**
-   * Execute a notification action (Phase 3).
+   * Get suggested next steps for a notification (v1.2).
+   */
+  @Get(':id/suggestions')
+  async getSuggestions(
+    @NestRequest() req: RequestWithUser,
+    @Param('id') notificationId: string,
+  ) {
+    const tenantId = req.tenantId;
+    const userId = req.user?.sub;
+    if (!tenantId) throw new BadRequestException('Tenant ID required');
+    if (!userId) throw new BadRequestException('User ID required');
+
+    const notification = await this.engineService.findNotificationById(
+      tenantId,
+      userId,
+      notificationId,
+    );
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    const suggestions = this.actionService.getSuggestedActions(
+      notification.type,
+      notification,
+    );
+
+    return { suggestions };
+  }
+
+  /**
+   * Execute a notification action (v1.2 — fully wired).
    * Server validates: tenantId, recipient match, RBAC, allowlist, audit log.
    */
   @Post(':id/actions/:actionId/execute')
@@ -224,6 +258,7 @@ export class UserNotificationController {
   ) {
     const tenantId = req.tenantId;
     const userId = req.user?.sub;
+    const userRole = req.user?.role || '';
     if (!tenantId) throw new BadRequestException('Tenant ID required');
     if (!userId) throw new BadRequestException('User ID required');
 
@@ -255,18 +290,22 @@ export class UserNotificationController {
       throw new ForbiddenException(`Action type "${action.actionType}" is not allowed`);
     }
 
-    // 5. Audit log entry
-    this.logger.log('Notification action executed', {
+    // 5. Merge payload: server-defined entityId/entityType are authoritative (not client-overridable)
+    const { entityId: _eId, entityType: _eType, ...safeClientPayload } = (dto.payload || {}) as Record<string, unknown>;
+    const mergedPayload = { ...action.payload, ...safeClientPayload };
+
+    // 6. Audit log entry (pre-execution)
+    this.logger.log('Notification action execution started', {
       notificationId,
       actionId,
       actionType: action.actionType,
       userId,
       tenantId,
-      payload: dto.payload || action.payload,
+      payload: mergedPayload,
       timestamp: new Date().toISOString(),
     });
 
-    // 6. Execute based on action type
+    // 7. Execute based on action type
     let result: Record<string, unknown> = { executed: true, actionType: action.actionType };
 
     switch (action.actionType) {
@@ -274,19 +313,47 @@ export class UserNotificationController {
         await this.engineService.markNotificationRead(tenantId, userId, notificationId);
         result = { ...result, read: true };
         break;
+
       case 'OPEN_ENTITY':
       case 'OPEN_RECORD':
-        // Client-side navigation - server just acknowledges
+        // Client-side navigation — server just acknowledges
         result = { ...result, navigate: true, payload: action.payload };
         break;
-      case 'ASSIGN_TO_ME':
-        // Future: wire to TodosService.updateTask to set assignee
-        result = { ...result, acknowledged: true, message: 'ASSIGN_TO_ME queued' };
+
+      case 'ASSIGN_TO_ME': {
+        const assignResult = await this.actionService.executeAssignToMe(
+          tenantId,
+          userId,
+          userRole,
+          notification,
+          mergedPayload,
+        );
+        result = { ...result, ...assignResult };
         break;
-      case 'SET_DUE_DATE':
-        // Future: wire to TodosService.updateTask to set due date
-        result = { ...result, acknowledged: true, message: 'SET_DUE_DATE queued' };
+      }
+
+      case 'SET_DUE_DATE': {
+        const dueDateResult = await this.actionService.executeSetDueDate(
+          tenantId,
+          userId,
+          notification,
+          mergedPayload,
+        );
+        result = { ...result, ...dueDateResult };
         break;
+      }
+
+      case 'CREATE_FOLLOWUP_TODO': {
+        const followupResult = await this.actionService.executeCreateFollowupTodo(
+          tenantId,
+          userId,
+          notification,
+          mergedPayload,
+        );
+        result = { ...result, ...followupResult };
+        break;
+      }
+
       default:
         result = { ...result, acknowledged: true };
         break;

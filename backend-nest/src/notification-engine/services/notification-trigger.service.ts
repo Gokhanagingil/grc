@@ -9,6 +9,7 @@ import {
   NotificationSource,
   NotificationAction,
   EntitySnapshot,
+  ActionDangerLevel,
 } from '../entities/sys-user-notification.entity';
 import { StructuredLoggerService } from '../../common/logger';
 
@@ -131,9 +132,35 @@ export class NotificationTriggerService {
       snapshot,
       actions: [
         {
+          id: 'open_task',
           label: 'Open Task',
           actionType: 'OPEN_RECORD',
           payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
+          id: 'assign_to_me',
+          label: 'Assign to Me',
+          actionType: 'ASSIGN_TO_ME',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
+          id: 'set_due_date',
+          label: 'Set Due Date',
+          actionType: 'SET_DUE_DATE',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
+          id: 'create_followup',
+          label: 'Create Follow-up',
+          actionType: 'CREATE_FOLLOWUP_TODO',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
         },
       ],
     });
@@ -177,9 +204,27 @@ export class NotificationTriggerService {
       snapshot,
       actions: [
         {
+          id: 'open_task',
           label: 'Open Task',
           actionType: 'OPEN_RECORD',
           payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
+          id: 'set_due_date',
+          label: 'Set Due Date',
+          actionType: 'SET_DUE_DATE',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
+          id: 'create_followup',
+          label: 'Create Follow-up',
+          actionType: 'CREATE_FOLLOWUP_TODO',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
         },
       ],
     });
@@ -373,14 +418,35 @@ export class NotificationTriggerService {
           entityId: taskId,
           actions: [
             {
+              id: 'open_task',
               label: 'Open Task',
               actionType: 'OPEN_RECORD',
               payload: { entityType: 'todo_task', entityId: taskId },
+              dangerLevel: ActionDangerLevel.SAFE,
             },
             {
+              id: 'assign_to_me',
               label: 'Assign to Me',
               actionType: 'ASSIGN_TO_ME',
+              requiresConfirm: true,
               payload: { entityType: 'todo_task', entityId: taskId },
+              dangerLevel: ActionDangerLevel.SAFE,
+            },
+            {
+              id: 'set_due_date',
+              label: 'Set Due Date',
+              actionType: 'SET_DUE_DATE',
+              requiresConfirm: true,
+              payload: { entityType: 'todo_task', entityId: taskId },
+              dangerLevel: ActionDangerLevel.SAFE,
+            },
+            {
+              id: 'create_followup',
+              label: 'Create Follow-up',
+              actionType: 'CREATE_FOLLOWUP_TODO',
+              requiresConfirm: true,
+              payload: { entityType: 'todo_task', entityId: taskId },
+              dangerLevel: ActionDangerLevel.SAFE,
             },
           ],
         },

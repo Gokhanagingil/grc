@@ -49,7 +49,7 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { Menu as MuiMenu, ListItemIcon, ListItemText } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ListToolbar } from '../components/common/ListToolbar';
@@ -823,6 +823,7 @@ export const TodoWorkspace: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _navigate = useNavigate();
   const { boardId: routeBoardId } = useParams<{ boardId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
   // View toggle (persisted in localStorage)
@@ -997,6 +998,38 @@ export const TodoWorkspace: React.FC = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, filterPriority, filterStatus, filterCategory, filterAssignee, filterGroup, filterTagIds]);
+
+  // Deep-link: open task drawer if ?taskId=xxx is present (v1.2 notification deep link)
+  useEffect(() => {
+    const deepLinkTaskId = searchParams.get('taskId');
+    if (deepLinkTaskId && !initialLoading) {
+      const task = tasks.find((t) => t.id === deepLinkTaskId);
+      if (task) {
+        setSelectedTask(task);
+        setDrawerOpen(true);
+        // If task belongs to a board, auto-select that board
+        if (task.boardId && task.boardId !== resolvedBoardIdRef.current) {
+          handleBoardChange(task.boardId);
+        }
+      } else {
+        // Task not in current list — fetch it directly and open
+        api.get(`/todos/${deepLinkTaskId}`).then((res) => {
+          const taskData = res.data?.data || res.data;
+          if (taskData) {
+            setSelectedTask(taskData);
+            setDrawerOpen(true);
+            if (taskData.boardId && taskData.boardId !== resolvedBoardIdRef.current) {
+              handleBoardChange(taskData.boardId);
+            }
+          }
+        }).catch(() => { /* silent */ });
+      }
+      // Clear the query param so it doesn't re-trigger
+      searchParams.delete('taskId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, initialLoading, searchParams]);
 
   // ---- View toggle ----
 
