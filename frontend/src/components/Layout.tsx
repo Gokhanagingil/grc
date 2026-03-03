@@ -33,6 +33,7 @@ import {
   Security as RiskIcon,
   Gavel as ComplianceIcon,
   People as UsersIcon,
+  Group as GroupsIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
   AdminPanelSettings as AdminIcon,
@@ -507,6 +508,7 @@ const sharedMenuGroups: NavMenuGroup[] = [
     roles: ['admin'],
     items: [
       { text: 'User Management', icon: <UsersIcon />, path: '/users', roles: ['admin', 'manager'] },
+      { text: 'Groups', icon: <GroupsIcon />, path: '/groups', roles: ['admin'] },
       { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin', roles: ['admin'], moduleKey: 'platform.admin' },
       { text: 'Platform Builder', icon: <SettingsIcon />, path: '/admin/platform-builder', roles: ['admin'] },
       { text: 'System', icon: <SystemIcon />, path: '/admin/system', roles: ['admin'] },

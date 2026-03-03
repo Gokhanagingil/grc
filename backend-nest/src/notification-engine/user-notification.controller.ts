@@ -277,12 +277,31 @@ export class UserNotificationController {
       throw new ForbiddenException('You can only execute actions on your own notifications');
     }
 
-    // 3. Find the action in the notification's actions array
+    // 3. Find the action in the notification's actions array.
+    //    Fallback: if index is out-of-bounds, accept actionType from request body
+    //    (frontend suggested-steps may send an index beyond the persisted array).
     const actions = notification.actions || [];
     const actionIndex = parseInt(actionId, 10);
-    const action = !isNaN(actionIndex) ? actions[actionIndex] : undefined;
+    let action = !isNaN(actionIndex) ? actions[actionIndex] : undefined;
+
     if (!action) {
-      throw new NotFoundException(`Action "${actionId}" not found on this notification`);
+      // Fallback: use actionType from request body payload
+      const bodyActionType = (dto.payload as Record<string, unknown>)?.actionType as string | undefined
+        || (dto as Record<string, unknown>).actionType as string | undefined;
+      if (bodyActionType && ALLOWED_ACTION_TYPES.has(bodyActionType)) {
+        action = {
+          label: bodyActionType,
+          actionType: bodyActionType,
+          payload: { entityType: notification.entityType, entityId: notification.entityId },
+        };
+        this.logger.log('Action resolved via body actionType fallback', {
+          notificationId,
+          actionId,
+          bodyActionType,
+        });
+      } else {
+        throw new NotFoundException(`Action "${actionId}" not found on this notification`);
+      }
     }
 
     // 4. Server-side allowlist check
