@@ -34,7 +34,8 @@ export class GroupsService {
       .where('g.tenant_id = :tenantId', { tenantId });
 
     if (query.search) {
-      qb.andWhere('g.name ILIKE :search', { search: `%${query.search}%` });
+      const escapedSearch = query.search.replace(/[%_\\]/g, '\\$&');
+      qb.andWhere('g.name ILIKE :search', { search: `%${escapedSearch}%` });
     }
 
     const total = await qb.getCount();
@@ -90,9 +91,11 @@ export class GroupsService {
 
   async remove(tenantId: string, groupId: string): Promise<boolean> {
     const group = await this.findOne(tenantId, groupId);
-    await this.membershipRepo.delete({ tenantId, groupId: group.id });
-    const result = await this.groupRepo.delete({ id: groupId, tenantId });
-    return (result.affected || 0) > 0;
+    return this.groupRepo.manager.transaction(async (manager) => {
+      await manager.delete(SysGroupMembership, { tenantId, groupId: group.id });
+      const result = await manager.delete(SysGroup, { id: groupId, tenantId });
+      return (result.affected || 0) > 0;
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -121,7 +124,11 @@ export class GroupsService {
     });
     if (existing) throw new ConflictException('User is already a member');
 
-    const membership = this.membershipRepo.create({ tenantId, groupId, userId });
+    const membership = this.membershipRepo.create({
+      tenantId,
+      groupId,
+      userId,
+    });
     return this.membershipRepo.save(membership);
   }
 
@@ -139,10 +146,7 @@ export class GroupsService {
   }
 
   /** Get all user IDs that belong to a group. */
-  async getGroupUserIds(
-    tenantId: string,
-    groupId: string,
-  ): Promise<string[]> {
+  async getGroupUserIds(tenantId: string, groupId: string): Promise<string[]> {
     const memberships = await this.membershipRepo.find({
       where: { tenantId, groupId },
     });
