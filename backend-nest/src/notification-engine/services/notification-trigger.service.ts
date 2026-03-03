@@ -139,6 +139,14 @@ export class NotificationTriggerService {
           dangerLevel: ActionDangerLevel.SAFE,
         },
         {
+          id: 'assign_to_me',
+          label: 'Assign to Me',
+          actionType: 'ASSIGN_TO_ME',
+          requiresConfirm: true,
+          payload: { entityType: 'todo_task', entityId: taskId },
+          dangerLevel: ActionDangerLevel.SAFE,
+        },
+        {
           id: 'set_due_date',
           label: 'Set Due Date',
           actionType: 'SET_DUE_DATE',

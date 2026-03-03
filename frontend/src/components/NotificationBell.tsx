@@ -690,8 +690,9 @@ export const NotificationBell: React.FC = () => {
       dangerLevel: 'SAFE',
     };
     // Find matching action index in notification's actions array (for server-side dispatch)
+    // Safety: if not found, use the synthetic action's own index (never fall back to 0 / OPEN_RECORD)
     const matchIdx = (n.actions || []).findIndex((a) => a.actionType === step.actionType);
-    const actionIndex = matchIdx >= 0 ? matchIdx : 0;
+    const actionIndex = matchIdx >= 0 ? matchIdx : (n.actions || []).length;
     // Snooze is handled client-side
     if (step.actionType === 'SNOOZE') {
       setSnoozeTargetId(n.id);
