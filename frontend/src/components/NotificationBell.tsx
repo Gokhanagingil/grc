@@ -98,7 +98,7 @@ interface UserNotification {
   createdAt: string;
 }
 
-type TabValue = 'all' | 'assignments' | 'due_soon' | 'snoozed';
+type TabValue = 'all' | 'assignments' | 'due_soon' | 'snoozed' | 'reminders';
 
 interface TimeBucket {
   label: string;
@@ -207,6 +207,11 @@ const suggestedStepsByType: Record<string, SuggestedStep[]> = {
   ],
   PERSONAL_REMINDER: [
     { label: 'Snooze', actionType: 'SNOOZE', requiresConfirm: false },
+  ],
+  GENERAL: [
+    { label: 'Open Record', actionType: 'OPEN_RECORD', requiresConfirm: false },
+    { label: 'Assign to Me', actionType: 'ASSIGN_TO_ME', requiresConfirm: true },
+    { label: 'Create Follow-up', actionType: 'CREATE_FOLLOWUP_TODO', requiresConfirm: true },
   ],
 };
 
@@ -577,8 +582,9 @@ export const NotificationBell: React.FC = () => {
       setReminderTitle('');
       setReminderNote('');
       setReminderDate('');
-      // Reload to show new reminder
-      loadNotifications();
+      // Switch to reminders tab so user sees the new reminder immediately
+      setActiveTab('reminders');
+      loadNotifications('reminders');
     } catch {
       /* silent */
     } finally {
@@ -622,6 +628,7 @@ export const NotificationBell: React.FC = () => {
       const mergedPayload = { ...action.payload, ...(extraPayload || {}) };
       const res = await api.post(`/grc/user-notifications/${n.id}/actions/${actionIndex}/execute`, {
         payload: mergedPayload,
+        actionType: action.actionType,
       });
       // Update notification snapshot in local state if server returned one
       const resData = res.data?.data || res.data;
@@ -865,6 +872,7 @@ export const NotificationBell: React.FC = () => {
             <Tab label="All" value="all" />
             <Tab label="Assignments" value="assignments" />
             <Tab label="Due Soon" value="due_soon" />
+            <Tab label="Reminders" value="reminders" />
             <Tab
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1079,6 +1087,9 @@ export const NotificationBell: React.FC = () => {
                                       )}
                                       {n.type === 'PERSONAL_REMINDER' && (
                                         <Chip size="small" label="Reminder" icon={<ReminderIcon style={{ fontSize: 14 }} />} color="info" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                      )}
+                                      {n.status === 'PENDING_REMINDER' && (
+                                        <Chip size="small" label={n.remindAt ? `Fires ${new Date(n.remindAt).toLocaleDateString()}` : 'Pending'} color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
                                       )}
                                       {isSnoozedTab && n.snoozeUntil && (
                                         <Chip size="small" label={`Until ${new Date(n.snoozeUntil).toLocaleString()}`} icon={<SnoozeIcon style={{ fontSize: 14 }} />} color="default" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />

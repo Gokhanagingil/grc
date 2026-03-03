@@ -279,6 +279,30 @@ export class NotificationEngineService {
                       entityId: event.recordId,
                     },
                   },
+                  {
+                    label: 'Assign to Me',
+                    actionType: 'ASSIGN_TO_ME',
+                    payload: {
+                      entityType: event.tableName,
+                      entityId: event.recordId,
+                    },
+                  },
+                  {
+                    label: 'Set Due Date',
+                    actionType: 'SET_DUE_DATE',
+                    payload: {
+                      entityType: event.tableName,
+                      entityId: event.recordId,
+                    },
+                  },
+                  {
+                    label: 'Create Follow-up',
+                    actionType: 'CREATE_FOLLOWUP_TODO',
+                    payload: {
+                      entityType: event.tableName,
+                      entityId: event.recordId,
+                    },
+                  },
                 ]
               : [],
         }),
@@ -544,9 +568,17 @@ export class NotificationEngineService {
       .where('n.tenantId = :tenantId', { tenantId })
       .andWhere('n.userId = :userId', { userId });
 
-    // Tab: snoozed shows only snoozed; otherwise show ACTIVE only
+    // Tab-based status filtering:
+    // - 'snoozed': show only SNOOZED
+    // - 'reminders': show ACTIVE and PENDING_REMINDER personal reminders
+    // - default (all/assignments/due_soon): show ACTIVE only
     if (filters?.tab === 'snoozed') {
       qb.andWhere('n.status = :snoozedStatus', { snoozedStatus: 'SNOOZED' });
+    } else if (filters?.tab === 'reminders') {
+      qb.andWhere('n.status IN (:...reminderStatuses)', {
+        reminderStatuses: ['ACTIVE', 'PENDING_REMINDER'],
+      });
+      qb.andWhere('n.type = :reminderType', { reminderType: 'PERSONAL_REMINDER' });
     } else {
       qb.andWhere('n.status = :activeStatus', { activeStatus: 'ACTIVE' });
     }
