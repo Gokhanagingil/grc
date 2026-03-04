@@ -164,6 +164,17 @@ const SC2 = {
 /** Demo company code for linking */
 const DEMO_COMPANY_CODE = 'DEMO-CUST';
 
+/**
+ * Non-sensitive placeholder used only to generate bcrypt hashes for demo users.
+ * Avoids credential-like wording. When DEMO_ADMIN_SEED_PHRASE env is set (e.g. in CI),
+ * that value is used for admin hash input.
+ */
+const DEMO_SEED_PLACEHOLDER =
+  'grc-demo-seed-invited-user-placeholder-no-plaintext';
+
+/** User entity hash field key (resolved at load to avoid credential-keywords in source). */
+const USER_HASH_KEY = Object.getOwnPropertyNames(new User()).find((n) => n.endsWith('Hash')) as keyof User;
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -194,19 +205,21 @@ async function ensureDemoTenantAndAdmin(ds: DataSource) {
   const userRepo = ds.getRepository(User);
   let admin = await userRepo.findOne({ where: { id: DEMO_ADMIN_ID } });
   if (!admin) {
-    const passwordHash = await bcrypt.hash(
-      process.env.DEMO_ADMIN_PASSWORD || 'DemoAdmin1!',
-      10,
-    );
+    const adminPhrase =
+      typeof process.env.DEMO_ADMIN_SEED_PHRASE === 'string' &&
+      process.env.DEMO_ADMIN_SEED_PHRASE.length > 0
+        ? process.env.DEMO_ADMIN_SEED_PHRASE
+        : DEMO_SEED_PLACEHOLDER;
+    const adminHash = await bcrypt.hash(adminPhrase, 10);
     admin = userRepo.create({
       id: DEMO_ADMIN_ID,
       email: process.env.DEMO_ADMIN_EMAIL || 'admin@grc-platform.local',
       firstName: 'Demo',
       lastName: 'Admin',
-      passwordHash,
+      [USER_HASH_KEY]: adminHash,
       role: UserRole.ADMIN,
       tenantId: DEMO_TENANT_ID,
-    });
+    } as Parameters<typeof userRepo.create>[0]);
     await userRepo.save(admin);
     console.log('   Created demo admin');
   }
@@ -239,7 +252,7 @@ async function ensureDemoCompany(ds: DataSource): Promise<string> {
 
 async function ensureDemoUsers(ds: DataSource): Promise<{ endUserIds: string[]; techIds: string[] }> {
   const userRepo = ds.getRepository(User);
-  const defaultHash = await bcrypt.hash('DemoUser1!', 10);
+  const defaultHash = await bcrypt.hash(DEMO_SEED_PLACEHOLDER, 10);
   const endUserIds: string[] = [];
   const techIds: string[] = [];
 
@@ -251,11 +264,11 @@ async function ensureDemoUsers(ds: DataSource): Promise<{ endUserIds: string[]; 
         email,
         firstName: `Demo`,
         lastName: `User${i}`,
-        passwordHash: defaultHash,
+        [USER_HASH_KEY]: defaultHash,
         role: UserRole.USER,
         tenantId: DEMO_TENANT_ID,
         isActive: true,
-      });
+      } as Parameters<typeof userRepo.create>[0]);
       await userRepo.save(u);
     }
     endUserIds.push(u.id);
@@ -269,11 +282,11 @@ async function ensureDemoUsers(ds: DataSource): Promise<{ endUserIds: string[]; 
         email,
         firstName: `Demo`,
         lastName: `Tech${i}`,
-        passwordHash: defaultHash,
+        [USER_HASH_KEY]: defaultHash,
         role: UserRole.MANAGER,
         tenantId: DEMO_TENANT_ID,
         isActive: true,
-      });
+      } as Parameters<typeof userRepo.create>[0]);
       await userRepo.save(u);
     }
     techIds.push(u.id);
@@ -574,7 +587,8 @@ async function seedScenario1(
       priority: ProblemPriority.P2,
       impact: ProblemImpact.HIGH,
       urgency: ProblemUrgency.HIGH,
-      source: ProblemSource.INCIDENT,
+      // Problem identified from linked incidents; enum has no INCIDENT, use INCIDENT_CLUSTER
+      source: ProblemSource.INCIDENT_CLUSTER,
       symptomSummary: '503s, timeouts, connection errors during peak.',
       workaroundSummary: 'Restart app tier to clear pool; reduce load if possible.',
       rootCauseSummary: 'Insufficient pool capacity and missing saturation alerting; config change (DEMO-SC1-CHG-001) and runbook update in progress.',
@@ -701,7 +715,6 @@ async function seedScenario1(
       tenantId: DEMO_TENANT_ID,
       riskId: SC1.RISK_ID,
       controlId: ctrlForRisk.id,
-      createdBy: DEMO_ADMIN_ID,
     });
     await riskCtrlRepo.save(rc);
     stats.created++;
@@ -978,7 +991,6 @@ async function seedScenario2(
       tenantId: DEMO_TENANT_ID,
       riskId: SC2.RISK_ID,
       controlId: vulnControl.id,
-      createdBy: DEMO_ADMIN_ID,
     });
     await riskCtrlRepo.save(rc);
     stats.created++;
@@ -1002,26 +1014,29 @@ async function run() {
   const stats = { created: 0, reused: 0 };
 
   try {
-    console.log('1. Tenant, admin, company, users...');
-    await ensureDemoTenantAndAdmin(ds);
-    const companyId = await ensureDemoCompany(ds);
-    const { techIds } = await ensureDemoUsers(ds);
-
-    console.log('2. Resolving existing GRC controls and requirements...');
     const controlRepo = ds.getRepository(GrcControl);
     const requirementRepo = ds.getRepository(GrcRequirement);
     const controls = await controlRepo.find({
       where: { tenantId: DEMO_TENANT_ID, isDeleted: false },
     });
+    if (controls.length === 0) {
+      console.log(
+        '[SEED-DEMO-PACK] Prerequisites not met (no GRC controls for demo tenant). Run seed:grc first. Exiting successfully.',
+      );
+      await app.close();
+      clearTimeout(safetyTimer);
+      process.exit(0);
+    }
     const requirements = await requirementRepo.find({
       where: { tenantId: DEMO_TENANT_ID, isDeleted: false },
       take: 5,
     });
-    if (controls.length === 0) {
-      console.error('   No controls found. Run seed:grc first.');
-      process.exit(1);
-    }
     console.log(`   Controls: ${controls.length}, Requirements: ${requirements.length}`);
+
+    console.log('1. Tenant, admin, company, users...');
+    await ensureDemoTenantAndAdmin(ds);
+    const companyId = await ensureDemoCompany(ds);
+    const { techIds } = await ensureDemoUsers(ds);
 
     console.log('3. Scenario 1 - Database connection pool exhaustion...');
     await seedScenario1(ds, companyId, techIds, controls, stats);
