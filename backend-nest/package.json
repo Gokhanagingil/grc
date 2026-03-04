@@ -51,6 +51,8 @@
     "seed:itsm-analytics-demo:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-itsm-analytics-demo.ts",
     "seed:scenario-pack": "node dist/scripts/seed-scenario-pack.js",
     "seed:scenario-pack:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-scenario-pack.ts",
+    "seed:demo:pack": "node dist/scripts/seed-demo-pack.js",
+    "seed:demo:pack:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-pack.ts",
     "seed:cmdb-mi-demo": "node dist/scripts/seed-cmdb-mi-demo.js",
     "seed:cmdb-mi-demo:dev": "ts-node -r tsconfig-paths/register src/scripts/seed-cmdb-mi-demo.ts",
     "seed:cmdb-content-pack-v1": "node dist/scripts/seed-cmdb-content-pack-v1.js",
