@@ -1,0 +1,244 @@
+# =============================================================================
+# Maintenance - Staging Demo Seed Verify/Run [STAGING]
+# =============================================================================
+#
+# MANUAL ONLY: workflow_dispatch. No schedule, no push triggers.
+# Verifies whether the demo seed pack ran on staging; optionally runs seeds.
+#
+# OPTION A (preferred): Self-hosted runner on staging
+#   - Set "Use SSH fallback?" to false. Job runs on runner with labels
+#     [self-hosted, linux, x64, staging].
+# OPTION B (fallback): GitHub-hosted runner + SSH into staging
+#   - Set "Use SSH fallback?" to true. Uses STAGING_SSH_* secrets.
+#
+# SAFETY (DO NOT VIOLATE):
+#   - NO DB reset, NO docker volume prune, NO destructive commands.
+#   - Seeds are idempotent; re-run is safe.
+#
+# GOVERNANCE: Uses environment "staging" so the job is gated by GitHub
+# Environment protection (Required reviewers). Configure in:
+#   Repo Settings → Environments → staging → Required reviewers
+# =============================================================================
+
+name: "Maintenance - Staging Demo Seed Verify/Run [STAGING]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type I_UNDERSTAND_NO_DESTRUCTIVE_ACTIONS to proceed"
+        required: true
+        type: string
+      mode:
+        description: "verify_only = check only, no seeds; verify_and_seed = run seeds if needed"
+        required: true
+        default: "verify_and_seed"
+        type: choice
+        options:
+          - verify_only
+          - verify_and_seed
+      backend_container:
+        description: "Backend container name"
+        required: false
+        default: "grc-staging-backend"
+        type: string
+      postgres_container:
+        description: "Postgres container name"
+        required: false
+        default: "grc-staging-db"
+        type: string
+      use_ssh_fallback:
+        description: "Use SSH fallback (GitHub-hosted runner + SSH)? false = use self-hosted runner on staging"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: maintenance-staging-demo-seed-verify
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Option A: Run on self-hosted runner (on staging host)
+  # ---------------------------------------------------------------------------
+  verify-on-staging-runner:
+    name: Verify/seed on STAGING (self-hosted)
+    runs-on: [self-hosted, linux, x64, staging]
+    if: github.event.inputs.use_ssh_fallback != 'true'
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - name: Confirm safety gate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "I_UNDERSTAND_NO_DESTRUCTIVE_ACTIONS" ]; then
+            echo "::error::You must type exactly I_UNDERSTAND_NO_DESTRUCTIVE_ACTIONS in the confirm input."
+            exit 1
+          fi
+          echo "Safety gate passed."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run verification script (self-hosted)
+        id: run_verify
+        env:
+          BACKEND_CONTAINER: ${{ github.event.inputs.backend_container }}
+          POSTGRES_CONTAINER: ${{ github.event.inputs.postgres_container }}
+          VERIFY_ONLY: ${{ github.event.inputs.mode == 'verify_only' && '1' || '0' }}
+        run: |
+          chmod +x scripts/staging-demo-seed-verify.sh
+          ./scripts/staging-demo-seed-verify.sh 2>&1 | tee verification-output.txt
+
+      - name: Upload verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-demo-seed-verification
+          path: verification-output.txt
+
+      - name: Summary (markers, counts, scenario checklist)
+        run: |
+          echo "=== SUMMARY ==="
+          echo ""
+          echo "--- Demo seed markers in backend logs (Phase 1) ---"
+          grep -i -E "seed:demo|demo pack|scenario checklist|DEMO-SC|SEED-DEMO-PACK" verification-output.txt 2>/dev/null || echo "(none found)"
+          echo ""
+          echo "--- DB counts by demo tenant (Phase 4) ---"
+          grep -A 15 "Counts by tenant" verification-output.txt 2>/dev/null || echo "(see artifact)"
+          echo ""
+          echo "--- Scenario checklist excerpt ---"
+          grep -A 25 "SCENARIO CHECKLIST" verification-output.txt 2>/dev/null || echo "N/A (verify_only or no seeds run)"
+          echo ""
+          if [ "${{ github.event.inputs.mode }}" = "verify_only" ]; then
+            echo ">> NO DATA SEEDED (mode: verify_only)"
+          elif grep -q "Prerequisites not met.*Exiting successfully" verification-output.txt 2>/dev/null; then
+            echo ">> NO DATA SEEDED (demo pack prerequisites missing; run seed:grc first, then re-run verify_and_seed)"
+          elif ! grep -q "SCENARIO CHECKLIST" verification-output.txt 2>/dev/null; then
+            echo ">> NO DATA SEEDED (scenario checklist not present in output)"
+          else
+            echo ">> Seeds run; scenario checklist present. Check artifact for full output."
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Option B: GitHub-hosted runner + SSH into staging
+  # ---------------------------------------------------------------------------
+  verify-via-ssh:
+    name: Verify/seed on STAGING (SSH)
+    runs-on: ubuntu-latest
+    if: github.event.inputs.use_ssh_fallback == 'true'
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - name: Confirm safety gate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "I_UNDERSTAND_NO_DESTRUCTIVE_ACTIONS" ]; then
+            echo "::error::You must type exactly I_UNDERSTAND_NO_DESTRUCTIVE_ACTIONS in the confirm input."
+            exit 1
+          fi
+          echo "Safety gate passed."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve SSH secrets
+        id: resolve_secrets
+        env:
+          S_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          S_HOST: ${{ secrets.STAGING_HOST }}
+          S_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          S_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          HOST="${S_SSH_HOST:-$S_HOST}"
+          USER="${S_SSH_USER:-$S_USER}"
+          if [ -z "$HOST" ]; then echo "::error::Set STAGING_SSH_HOST or STAGING_HOST"; exit 1; fi
+          if [ -z "$USER" ]; then echo "::error::Set STAGING_SSH_USER or STAGING_USER"; exit 1; fi
+          echo "host=$HOST" >> $GITHUB_OUTPUT
+          echo "user=$USER" >> $GITHUB_OUTPUT
+
+      - name: Validate SSH key secret
+        run: |
+          if [ -z "${{ secrets.STAGING_SSH_KEY_B64 }}" ] && [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            echo "::error::Set STAGING_SSH_KEY_B64 or STAGING_SSH_KEY"; exit 1
+          fi
+          echo "SSH key secret present."
+
+      - name: Setup SSH key
+        id: ssh
+        run: |
+          mkdir -p "$RUNNER_TEMP/.ssh"
+          chmod 700 "$RUNNER_TEMP/.ssh"
+          if [ -n "${{ secrets.STAGING_SSH_KEY_B64 }}" ]; then
+            echo "${{ secrets.STAGING_SSH_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/.ssh/key"
+          else
+            echo "${{ secrets.STAGING_SSH_KEY }}" > "$RUNNER_TEMP/.ssh/key"
+          fi
+          chmod 600 "$RUNNER_TEMP/.ssh/key"
+          echo "key_path=$RUNNER_TEMP/.ssh/key" >> $GITHUB_OUTPUT
+
+      - name: Run verification script on STAGING via SSH
+        id: run_ssh
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ steps.resolve_secrets.outputs.host }}
+          username: ${{ steps.resolve_secrets.outputs.user }}
+          key_path: ${{ steps.ssh.outputs.key_path }}
+          script_stop: true
+          script: |
+            set -e
+            REPO_DIR="/opt/grc-platform"
+            if [ ! -d "$REPO_DIR" ]; then
+              echo "::error::Repo not found at $REPO_DIR"
+              exit 1
+            fi
+            cd "$REPO_DIR"
+            git fetch --all 2>/dev/null || true
+            git checkout main 2>/dev/null || true
+            git pull origin main 2>/dev/null || true
+            export BACKEND_CONTAINER="${{ github.event.inputs.backend_container }}"
+            export POSTGRES_CONTAINER="${{ github.event.inputs.postgres_container }}"
+            export VERIFY_ONLY=${{ github.event.inputs.mode == 'verify_only' && '1' || '0' }}
+            chmod +x scripts/staging-demo-seed-verify.sh
+            ./scripts/staging-demo-seed-verify.sh 2>&1 | tee /tmp/verification-output.txt
+            echo ""
+            echo "=== EXCERPT (scenario checklist + DB counts) ==="
+            grep -A 25 "SCENARIO CHECKLIST" /tmp/verification-output.txt 2>/dev/null || echo "N/A"
+            echo ""
+            grep -A 15 "Counts by tenant" /tmp/verification-output.txt 2>/dev/null || true
+
+      - name: Download verification output from STAGING
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.resolve_secrets.outputs.host }}
+          username: ${{ steps.resolve_secrets.outputs.user }}
+          key_path: ${{ steps.ssh.outputs.key_path }}
+          source: "/tmp/verification-output.txt"
+          target: "${{ github.workspace }}"
+          rm: false
+
+      - name: Upload verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-demo-seed-verification
+          path: verification-output.txt
+
+      - name: Summary (markers, counts, scenario checklist)
+        if: success()
+        run: |
+          echo "=== SUMMARY ==="
+          echo ""
+          echo "--- Demo seed markers ---"
+          grep -i -E "seed:demo|demo pack|scenario checklist|DEMO-SC|SEED-DEMO-PACK" verification-output.txt 2>/dev/null || echo "(none found)"
+          echo ""
+          echo "--- DB counts by demo tenant ---"
+          grep -A 15 "Counts by tenant" verification-output.txt 2>/dev/null || echo "(see artifact)"
+          echo ""
+          if [ "${{ github.event.inputs.mode }}" = "verify_only" ]; then
+            echo ">> NO DATA SEEDED (mode: verify_only)"
+          elif grep -q "Prerequisites not met.*Exiting successfully" verification-output.txt 2>/dev/null; then
+            echo ">> NO DATA SEEDED (prerequisites missing; run seed:grc then re-run verify_and_seed)"
+          elif ! grep -q "SCENARIO CHECKLIST" verification-output.txt 2>/dev/null; then
+            echo ">> NO DATA SEEDED (scenario checklist not in output)"
+          else
+            echo ">> Seeds run; scenario checklist in artifact."
+          fi
