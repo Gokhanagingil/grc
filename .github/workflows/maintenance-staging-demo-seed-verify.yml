@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.use_ssh_fallback == 'true'
     environment: staging
-    timeout-minutes: 30
+    timeout-minutes: 65
 
     steps:
       - name: Confirm safety gate
@@ -183,7 +183,8 @@ jobs:
           host: ${{ steps.resolve_secrets.outputs.host }}
           username: ${{ steps.resolve_secrets.outputs.user }}
           key_path: ${{ steps.ssh.outputs.key_path }}
-          script_stop: true
+          timeout: 60m
+          command_timeout: 60m
           script: |
             set -e
             REPO_DIR="/opt/grc-platform"
