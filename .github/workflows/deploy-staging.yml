@@ -270,30 +270,32 @@ jobs:
               exit 1
             }
             
-            # Check git status
-            echo "=== Git Status ==="
-            git status
+            # --- Deterministic deploy: handle dirty working tree before fetch/reset ---
+            echo "=== Git Status (before) ==="
+            git status --short
+            echo "Current commit (before): $(git rev-parse HEAD 2>/dev/null || echo 'N/A')"
             
-            # Fetch latest changes
-            echo "=== Fetching latest changes ==="
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "Working tree is dirty. Stashing changes (--include-untracked) so deploy can proceed..."
+              STASH_MSG="staging-deploy-auto-stash-$(date -u +%Y%m%d-%H%M%S)"
+              git stash push --include-untracked -m "$STASH_MSG" || true
+              if git stash list -1 2>/dev/null | grep -q .; then
+                echo "Stash created: $(git stash list -1)"
+                echo "To inspect: ssh <user>@<server> 'cd $DEPLOY_PATH && git stash list'"
+                echo "To drop:     ssh <user>@<server> 'cd $DEPLOY_PATH && git stash drop'"
+              fi
+            fi
+            
+            echo "=== Fetch and reset to origin/main ==="
             git fetch --all
+            git checkout main
+            git reset --hard origin/main
+            # Remove untracked files/dirs but keep persistent .env files
+            git clean -fd -e '.env' -e '.env.*' -e '.env.local' 2>/dev/null || true
             
-            # Checkout main branch
-            echo "=== Checking out main branch ==="
-            git checkout main || {
-              echo "ERROR: Failed to checkout main branch"
-              exit 1
-            }
-            
-            # Pull latest changes
-            echo "=== Pulling latest changes ==="
-            git pull origin main || {
-              echo "ERROR: Failed to pull latest changes"
-              exit 1
-            }
-            
-            # Show current commit
-            echo "=== Current Commit ==="
+            echo "=== Git Status (after) ==="
+            git status --short
+            echo "Current commit (after): $(git rev-parse HEAD)"
             git log -1 --oneline
             
             # Export version info for docker-compose
@@ -703,6 +705,7 @@ jobs:
             fi
             
             echo "=== Deployment Complete ==="
+            echo "Server tree is at origin/main (stash was not re-applied; to inspect/drop: cd $DEPLOY_PATH && git stash list)"
             echo "Frontend: http://${STAGING_HOST}"
             echo "Backend API: http://${STAGING_HOST}:3002"
             echo "Backend Health: http://${STAGING_HOST}:3002/health/live"

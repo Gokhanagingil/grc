@@ -193,9 +193,22 @@ jobs:
               exit 1
             fi
             cd "$REPO_DIR"
-            git fetch --all 2>/dev/null || true
-            git checkout main 2>/dev/null || true
-            git pull origin main 2>/dev/null || true
+            echo "=== Git Status (before) ==="
+            git status --short
+            echo "Current commit (before): $(git rev-parse HEAD 2>/dev/null || echo 'N/A')"
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "Working tree dirty. Stashing (--include-untracked)..."
+              STASH_MSG="maintenance-verify-auto-stash-$(date -u +%Y%m%d-%H%M%S)"
+              git stash push --include-untracked -m "$STASH_MSG" || true
+              [ -n "$(git stash list -1 2>/dev/null)" ] && echo "Stash created: $(git stash list -1)"
+            fi
+            git fetch --all
+            git checkout main
+            git reset --hard origin/main
+            git clean -fd -e '.env' -e '.env.*' -e '.env.local' 2>/dev/null || true
+            echo "=== Git Status (after) ==="
+            git status --short
+            echo "Current commit (after): $(git rev-parse HEAD)"
             export BACKEND_CONTAINER="${{ github.event.inputs.backend_container }}"
             export POSTGRES_CONTAINER="${{ github.event.inputs.postgres_container }}"
             export VERIFY_ONLY=${{ github.event.inputs.mode == 'verify_only' && '1' || '0' }}
