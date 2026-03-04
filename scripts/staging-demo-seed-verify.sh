@@ -42,8 +42,10 @@ echo ""
 # PHASE 1 — Did the demo seed run? (evidence from logs)
 # -----------------------------------------------------------------------------
 echo "=== PHASE 1: Backend logs — demo seed markers ==="
-docker logs --tail 500 "$BACKEND_CONTAINER" 2>&1 | grep -i -E "seed:demo|demo pack|scenario checklist|DEMO-SC|DEMO-SC1|DEMO-SC2|SEED-DEMO-PACK" || true
-if [ "${PIPESTATUS[1]}" -ne 0 ]; then
+DEMO_MARKERS=$(docker logs --tail 500 "$BACKEND_CONTAINER" 2>&1 | grep -i -E "seed:demo|demo pack|scenario checklist|DEMO-SC|DEMO-SC1|DEMO-SC2|SEED-DEMO-PACK" || true)
+if [ -n "$DEMO_MARKERS" ]; then
+  echo "$DEMO_MARKERS"
+else
   echo "(No demo seed markers found in last 500 lines — assume demo pack did NOT run during deploy.)"
 fi
 echo ""
